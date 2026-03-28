@@ -1,6 +1,5 @@
 import 'dotenv/config';
 import express from 'express';
-import { createProxyMiddleware } from 'http-proxy-middleware';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -14,11 +13,23 @@ if (!OASA_API_URL) {
     process.exit(1);
 }
 
-app.use('/api', createProxyMiddleware({
-    target: OASA_API_URL,
-    changeOrigin: true,
-    pathRewrite: { '^/api': '' },
-}));
+// Forward /api/* requests to the OASA API
+app.use('/api', async (req, res) => {
+    const target = OASA_API_URL.replace(/\/$/, '') + req.url;
+    try {
+        const apiRes = await fetch(target, {
+            method: req.method,
+            headers: { 'Content-Type': 'application/json' },
+        });
+        const data = await apiRes.text();
+        res.status(apiRes.status)
+           .set('Content-Type', apiRes.headers.get('content-type') || 'application/json')
+           .send(data);
+    } catch (err) {
+        console.error('Proxy error:', err.message);
+        res.status(502).json({ error: 'Failed to reach API', details: err.message });
+    }
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -28,5 +39,5 @@ app.get('*splat', (_req, res) => {
 
 app.listen(PORT, () => {
     console.log(`Move app running at http://localhost:${PORT}`);
-    console.log(`Proxying API requests to ${OASA_API_URL}`);
+    console.log(`Proxying /api/* to ${OASA_API_URL}`);
 });
