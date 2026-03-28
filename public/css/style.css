@@ -1,0 +1,307 @@
+:root {
+    --bottom-nav-height: 64px;
+    --side-nav-width: 220px;
+    --accent: #3d8bff;
+    --focus-ring: 0 0 0 3px rgba(61, 139, 255, 0.6);
+}
+
+/* ── Skip link ── */
+
+.skip-link {
+    position: absolute;
+    top: -100%;
+    left: 8px;
+    z-index: 9999;
+    padding: 8px 16px;
+    background: #161b27;
+    color: var(--accent);
+    font-weight: 600;
+    border-radius: 0 0 8px 8px;
+    text-decoration: none;
+    transition: top 0.15s;
+}
+
+.skip-link:focus {
+    top: 0;
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* ── Screen-reader-only utility ── */
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ── Layout ── */
+
+body {
+    height: 100dvh;
+    overflow: hidden;
+    background-color: #0f1117;
+    color: #e8eaf0;
+}
+
+#layout {
+    display: flex;
+    height: 100dvh;
+}
+
+/* ── Side nav (desktop) ── */
+
+#side-nav {
+    width: var(--side-nav-width);
+    min-width: var(--side-nav-width);
+    height: 100dvh;
+    background-color: #161b27;
+    border-color: #1e2538 !important;
+}
+
+/* ── Main content ── */
+
+#app-content {
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: var(--bottom-nav-height);
+    /* Remove default outline — focus is only used programmatically */
+    outline: none;
+}
+
+@media (min-width: 768px) {
+    #app-content {
+        padding-bottom: 0;
+    }
+}
+
+/* ── Bottom nav (mobile) ── */
+
+#bottom-nav {
+    height: var(--bottom-nav-height);
+    background-color: #161b27;
+    border-color: #1e2538 !important;
+}
+
+/* ── Nav buttons (shared) ── */
+
+.nav-btn {
+    flex: 1;
+    /* #9aa3b2 meets WCAG AA against #161b27 */
+    color: #9aa3b2;
+    text-decoration: none;
+    border-radius: 8px;
+    transition: color 0.15s, background-color 0.15s;
+}
+
+.nav-btn:hover {
+    color: #e8eaf0;
+    background-color: #1e2538;
+}
+
+.nav-btn.active {
+    color: var(--accent);
+    background-color: rgba(61, 139, 255, 0.1);
+}
+
+.nav-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+#side-nav .nav-btn {
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.nav-label {
+    font-size: 0.75rem;
+    margin-top: 2px;
+}
+
+/* ── Utility ── */
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { display: inline-block; animation: spin 1s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+    .spin { animation: none; }
+}
+
+/* ── Nearby Buses tool ── */
+
+.nearby-buses-view {
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.stop-item {
+    background-color: transparent;
+    border-bottom: 1px solid #1e2538 !important;
+}
+
+.stop-header {
+    min-height: 64px;
+}
+
+/* Override Bootstrap accordion button defaults */
+.stop-toggle {
+    background-color: transparent !important;
+    box-shadow: none !important;
+    border: none;
+    color: #e8eaf0 !important;
+    padding: 0;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.stop-toggle::after {
+    display: none;
+}
+
+.stop-toggle:focus-visible {
+    box-shadow: var(--focus-ring) !important;
+    outline: none;
+    border-radius: 4px;
+}
+
+/* Left block: stop name + distance */
+.stop-label {
+    width: 80px;
+    min-width: 80px;
+    height: 100%;
+    min-height: 64px;
+    background-color: #1e2538;
+    padding: 6px 4px;
+    border-right: 1px solid #2a3350;
+    flex-shrink: 0;
+}
+
+.stop-name {
+    /* 0.75rem (~12px) — minimum readable size */
+    font-size: 0.75rem;
+    font-weight: 600;
+    /* #d0d8e8 meets WCAG AA against #1e2538 */
+    color: #d0d8e8;
+    line-height: 1.2;
+    word-break: break-word;
+}
+
+.stop-distance {
+    font-size: 0.7rem;
+    color: #7eb8ff;
+    margin-top: 3px;
+}
+
+/* Middle: next bus — shrinks and truncates */
+.stop-next-bus {
+    padding: 0 12px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.next-bus-line {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #e8eaf0;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.next-bus-dest {
+    font-size: 1rem;
+    color: #b0bac9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+/* Fixed right section: badge + directions */
+.stop-header-fixed {
+    flex-shrink: 0;
+    gap: 0;
+}
+
+/* Right: directions button */
+.directions-btn {
+    width: 52px;
+    min-width: 52px;
+    color: #9aa3b2;
+    font-size: 1.2rem;
+    text-decoration: none;
+    transition: color 0.15s, background-color 0.15s;
+    flex-shrink: 0;
+}
+
+.directions-btn:hover {
+    color: var(--accent);
+    background-color: rgba(61, 139, 255, 0.08);
+}
+
+.directions-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: 4px;
+}
+
+/* Expanded accordion body */
+.stop-body {
+    background-color: #0f1117;
+    padding: 8px 16px 12px 16px;
+}
+
+.arrival-row:last-child {
+    border-bottom: none !important;
+}
+
+.line-pill {
+    display: inline-block;
+    min-width: 38px;
+    padding: 2px 6px;
+    background-color: #1e2538;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #e8eaf0;
+    text-align: center;
+}
+
+.arrival-dest {
+    font-size: 0.9rem;
+    color: #b0bac9;
+}
+
+/* Arrival time badges */
+.arrival-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 6px;
+    padding: 3px 8px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* Colours verified WCAG AA against their respective backgrounds */
+.arrival-soon {
+    background-color: rgba(255, 186, 0, 0.15);
+    color: #ffc107;
+}
+
+.arrival-close {
+    background-color: rgba(255, 186, 0, 0.15);
+    color: #ffc107;
+    background-color: rgba(40, 199, 111, 0.15);
+    color: #34d67a;
+}
+
+.arrival-later {
+    background-color: rgba(61, 139, 255, 0.12);
+    color: #7eb8ff;
+}
