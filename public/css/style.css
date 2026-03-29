@@ -393,12 +393,20 @@ body {
     color: #8892a4;
     letter-spacing: 0.05em;
     white-space: nowrap;
+    /* Align with the cars row, not the labels below */
+    margin-bottom: 20px;
+}
+
+.train-cars-wrap {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 4px;
 }
 
 .train-cars {
     display: flex;
     gap: 4px;
-    flex: 1;
 }
 
 .train-car {
@@ -424,7 +432,6 @@ body {
 /* Position labels below the diagram */
 .position-labels {
     display: flex;
-    margin-top: 4px;
 }
 
 .position-label {

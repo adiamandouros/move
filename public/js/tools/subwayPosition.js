@@ -3,11 +3,11 @@ import { lines, stopIndex, allStopNames } from '../data/subway.js';
 // ── Position config ─────────────────────────────────────────────────────────
 
 const POSITIONS = [
-    { id: 'front',        label: 'Front',       labelGr: 'Μπροστά' },
-    { id: 'center-front', label: 'Near Front',  labelGr: 'Κέντρο-Μπροστά' },
+    { id: 'back',        label: 'Back',       labelGr: 'Πίσω' },
+    { id: 'center-back', label: 'Near Back',  labelGr: 'Κέντρο-Πίσω' },
     { id: 'center',       label: 'Center',      labelGr: 'Κέντρο' },
-    { id: 'center-back',  label: 'Near Back',   labelGr: 'Κέντρο-Πίσω' },
-    { id: 'back',         label: 'Back',        labelGr: 'Πίσω' },
+    { id: 'center-front',  label: 'Near Front',   labelGr: 'Κέντρο-Μπροστά' },
+    { id: 'front',         label: 'Front',        labelGr: 'Μπροστά' },
 ];
 
 // ── Rendering ───────────────────────────────────────────────────────────────
@@ -15,20 +15,22 @@ const POSITIONS = [
 function renderTrainDiagram(positions) {
     return `
         <div class="train-diagram" role="img" aria-label="Train diagram showing where to stand: ${positions.map(p => POSITIONS.find(x => x.id === p)?.label).join(' and ')}">
-            <div class="train-label train-label-front" aria-hidden="true">FRONT</div>
-            <div class="train-cars" aria-hidden="true">
-                ${POSITIONS.map(p => `
-                    <div class="train-car ${positions.includes(p.id) ? 'highlighted' : ''}">
-                        ${positions.includes(p.id) ? '<i class="bi bi-person-standing"></i>' : ''}
-                    </div>`).join('')}
+            <div class="train-label" aria-hidden="true">BACK</div>
+            <div class="train-cars-wrap" aria-hidden="true">
+                <div class="train-cars">
+                    ${POSITIONS.map(p => `
+                        <div class="train-car ${positions.includes(p.id) ? 'highlighted' : ''}">
+                            ${positions.includes(p.id) ? '<i class="bi bi-person-standing"></i>' : ''}
+                        </div>`).join('')}
+                </div>
+                <div class="position-labels">
+                    ${POSITIONS.map(p => `
+                        <div class="position-label ${positions.includes(p.id) ? 'highlighted' : ''}">
+                            ${p.labelGr}
+                        </div>`).join('')}
+                </div>
             </div>
-            <div class="train-label train-label-back" aria-hidden="true">BACK</div>
-        </div>
-        <div class="position-labels" aria-hidden="true">
-            ${POSITIONS.map(p => `
-                <div class="position-label ${positions.includes(p.id) ? 'highlighted' : ''}">
-                    ${p.labelGr}
-                </div>`).join('')}
+            <div class="train-label" aria-hidden="true">FRONT</div>
         </div>`;
 }
 
@@ -49,9 +51,6 @@ function renderResult(entries) {
             ${noData
                 ? `<p class="text-muted fst-italic small">No data for this direction yet.</p>`
                 : `${renderTrainDiagram(stop.positions)}
-                   <p class="position-summary mt-3" aria-live="polite">
-                       Stand at the <strong>${positionText}</strong> of the train.
-                   </p>
                    ${stop.note ? `<div class="stop-note mt-2"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${stop.note}</div>` : ''}`
             }
         </div>`;
