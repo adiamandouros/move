@@ -194,7 +194,7 @@ function renderResult(routes) {
 // Pre-built map: stop name (Greek) → unique Line objects for that station
 const stopLineMap = new Map(
     allStops.map(s => {
-        const entries = stopIndex.get(normalise(s.name)) ?? [];
+        const entries = stopIndex.get(s.name.toLowerCase()) ?? [];
         const unique = [...new Map(entries.map(e => [e.line.id, e.line])).values()];
         return [s.name, unique];
     })
