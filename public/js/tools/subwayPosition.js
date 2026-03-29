@@ -1,20 +1,50 @@
-import { lines, stopIndex, allStops } from '../data/subway.js';
+import { lines, allStops } from '../data/subway.js';
 
 // ── Position config ─────────────────────────────────────────────────────────
 
 const POSITIONS = [
-    { id: 'back',        label: 'Back',       labelGr: 'Πίσω' },
-    { id: 'center-back', label: 'Near Back',  labelGr: 'Κέντρο-Πίσω' },
-    { id: 'center',       label: 'Center',      labelGr: 'Κέντρο' },
-    { id: 'center-front',  label: 'Near Front',   labelGr: 'Κέντρο-Μπροστά' },
-    { id: 'front',         label: 'Front',        labelGr: 'Μπροστά' },
+    { id: 'back',        label: 'Back',      labelGr: 'Πίσω' },
+    { id: 'center-back', label: 'Near Back', labelGr: 'Κέντρο-Πίσω' },
+    { id: 'center',      label: 'Center',    labelGr: 'Κέντρο' },
+    { id: 'center-front',label: 'Near Front',labelGr: 'Κέντρο-Μπροστά' },
+    { id: 'front',       label: 'Front',     labelGr: 'Μπροστά' },
 ];
+
+// ── Direction logic ─────────────────────────────────────────────────────────
+
+function normalise(name) {
+    return name.toLowerCase().trim();
+}
+
+function matchesStop(stop, query) {
+    const q = normalise(query);
+    return normalise(stop.name) === q || (stop.engName && normalise(stop.engName) === q);
+}
+
+// Returns array of { line, direction, stop } where:
+//   - both origin and destination are in the direction's stop list
+//   - origin comes before destination (determines travel direction)
+function findDirectionedResult(originName, destName) {
+    const results = [];
+    for (const line of lines) {
+        for (const direction of line.directions) {
+            const stops = direction.stops;
+            const originIdx = stops.findIndex(s => matchesStop(s, originName));
+            const destIdx   = stops.findIndex(s => matchesStop(s, destName));
+            if (originIdx !== -1 && destIdx !== -1 && originIdx < destIdx) {
+                results.push({ line, direction, stop: stops[destIdx] });
+            }
+        }
+    }
+    return results;
+}
 
 // ── Rendering ───────────────────────────────────────────────────────────────
 
 function renderTrainDiagram(positions) {
+    const ariaLabel = positions.map(p => POSITIONS.find(x => x.id === p)?.label).join(' and ');
     return `
-        <div class="train-diagram" role="img" aria-label="Train diagram showing where to stand: ${positions.map(p => POSITIONS.find(x => x.id === p)?.label).join(' and ')}">
+        <div class="train-diagram" role="img" aria-label="Train diagram showing where to stand: ${ariaLabel}">
             <div class="train-label" aria-hidden="true">BACK</div>
             <div class="train-cars-wrap" aria-hidden="true">
                 <div class="train-cars">
@@ -35,11 +65,14 @@ function renderTrainDiagram(positions) {
 }
 
 function renderResult(entries) {
+    if (!entries.length) {
+        return `<p class="text-muted small mt-3">These two stops don't share a direct line, or the order seems reversed. Try swapping origin and destination.</p>`;
+    }
+
     return entries.map(({ line, direction, stop }) => {
         const noData = stop.positions.length === 0;
-        const positionText = noData
-            ? 'No data available'
-            : stop.positions.map(p => POSITIONS.find(x => x.id === p)?.labelGr).join(' / ');
+        // note can be a string or an array
+        const noteText = Array.isArray(stop.note) ? stop.note.join(' ') : stop.note;
 
         return `
         <div class="result-card">
@@ -47,61 +80,52 @@ function renderResult(entries) {
                 <span class="line-badge" style="background-color: ${line.color}">${line.name}</span>
                 <span class="direction-text">→ ${direction.toward}</span>
             </div>
-
             ${noData
-                ? `<p class="text-muted fst-italic small">No data for this direction yet.</p>`
+                ? `<p class="text-muted fst-italic small">No position data for this stop yet.</p>`
                 : `${renderTrainDiagram(stop.positions)}
-                   ${stop.note ? `<div class="stop-note mt-2"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${stop.note}</div>` : ''}`
+                   ${noteText ? `<div class="stop-note mt-3"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${noteText}</div>` : ''}`
             }
         </div>`;
     }).join('');
 }
 
-// ── Search ──────────────────────────────────────────────────────────────────
+// ── Search input factory ────────────────────────────────────────────────────
 
 function filterStops(query) {
     if (!query || query.length < 1) return [];
-    const q = query.toLowerCase().trim();
+    const q = normalise(query);
     return allStops
-        .filter(s => s.name.toLowerCase().includes(q) || s.engName?.toLowerCase().includes(q))
+        .filter(s => normalise(s.name).includes(q) || (s.engName && normalise(s.engName).includes(q)))
         .slice(0, 8);
 }
 
-function lookupStop(name) {
-    return stopIndex.get(name.toLowerCase()) || [];
-}
-
-// ── Main view ───────────────────────────────────────────────────────────────
-
-export function loadSubwayPosition(container) {
-    container.innerHTML = `
-        <div class="subway-view">
-            <div class="subway-search-wrap">
-                <label for="stop-search" class="form-label fw-semibold">Where are you going?</label>
-                <div class="position-relative">
-                    <input id="stop-search"
-                           type="search"
-                           class="form-control subway-search-input"
-                           placeholder="Type a station name…"
-                           autocomplete="off"
-                           aria-label="Destination station"
-                           aria-autocomplete="list"
-                           aria-controls="stop-suggestions"
-                           aria-expanded="false">
-                    <ul id="stop-suggestions"
-                        class="stop-suggestions list-unstyled mb-0"
-                        role="listbox"
-                        aria-label="Station suggestions"
-                        hidden></ul>
-                </div>
-            </div>
-
-            <div id="subway-result" aria-live="polite" aria-atomic="true"></div>
+// Creates a self-contained search input with autocomplete.
+// onSelect(stopName) is called when the user picks a suggestion.
+function createSearchInput({ inputId, suggestionsId, label, placeholder, onSelect }) {
+    const wrap = document.createElement('div');
+    wrap.className = 'subway-search-wrap';
+    wrap.innerHTML = `
+        <label for="${inputId}" class="form-label fw-semibold">${label}</label>
+        <div class="position-relative">
+            <input id="${inputId}"
+                   type="search"
+                   class="form-control subway-search-input"
+                   placeholder="${placeholder}"
+                   autocomplete="off"
+                   aria-label="${label}"
+                   aria-autocomplete="list"
+                   aria-controls="${suggestionsId}"
+                   aria-expanded="false">
+            <ul id="${suggestionsId}"
+                class="stop-suggestions list-unstyled mb-0"
+                role="listbox"
+                aria-label="Station suggestions"
+                hidden></ul>
         </div>`;
 
-    const input = container.querySelector('#stop-search');
-    const suggestions = container.querySelector('#stop-suggestions');
-    const result = container.querySelector('#subway-result');
+    const input       = wrap.querySelector('input');
+    const suggestions = wrap.querySelector('ul');
+    let selectedName  = null;
 
     function showSuggestions(matches) {
         if (!matches.length) {
@@ -123,19 +147,19 @@ export function loadSubwayPosition(container) {
         input.setAttribute('aria-expanded', 'false');
     }
 
-    function selectStop(name) {
-        input.value = name;
+    function select(name) {
+        selectedName = name;
+        input.value  = name;
         hideSuggestions();
-
-        const entries = lookupStop(name);
-        if (!entries.length) {
-            result.innerHTML = `<p class="text-muted small mt-3">No data found for "${name}".</p>`;
-            return;
-        }
-        result.innerHTML = renderResult(entries);
+        onSelect(name);
     }
 
-    // Keyboard: arrow keys to navigate suggestions, Enter to select
+    input.addEventListener('input', () => {
+        selectedName = null;
+        showSuggestions(filterStops(input.value));
+        onSelect(null);
+    });
+
     input.addEventListener('keydown', e => {
         if (e.key === 'ArrowDown') {
             e.preventDefault();
@@ -150,11 +174,10 @@ export function loadSubwayPosition(container) {
             focused.nextElementSibling?.focus();
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
-            const prev = focused.previousElementSibling;
-            prev ? prev.focus() : input.focus();
+            (focused.previousElementSibling ?? input).focus();
         } else if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            selectStop(focused.dataset.name);
+            select(focused.dataset.name);
             input.focus();
         } else if (e.key === 'Escape') {
             hideSuggestions();
@@ -162,18 +185,57 @@ export function loadSubwayPosition(container) {
         }
     });
 
-    input.addEventListener('input', () => {
-        showSuggestions(filterStops(input.value));
-        result.innerHTML = '';
-    });
-
     suggestions.addEventListener('mousedown', e => {
         const item = e.target.closest('[role="option"]');
-        if (item) selectStop(item.dataset.name);
+        if (item) select(item.dataset.name);
     });
 
-    // Hide suggestions when focus leaves both input and list
-    container.addEventListener('focusout', e => {
-        if (!container.contains(e.relatedTarget)) hideSuggestions();
+    wrap.addEventListener('focusout', e => {
+        if (!wrap.contains(e.relatedTarget)) hideSuggestions();
     });
+
+    return { element: wrap, getSelected: () => selectedName };
+}
+
+// ── Main view ───────────────────────────────────────────────────────────────
+
+export function loadSubwayPosition(container) {
+    container.innerHTML = `
+        <div class="subway-view">
+            <div id="subway-inputs"></div>
+            <div id="subway-result" aria-live="polite" aria-atomic="true"></div>
+        </div>`;
+
+    const inputsWrap = container.querySelector('#subway-inputs');
+    const result     = container.querySelector('#subway-result');
+
+    let originName = null;
+    let destName   = null;
+
+    function tryRender() {
+        if (originName && destName) {
+            result.innerHTML = renderResult(findDirectionedResult(originName, destName));
+        } else {
+            result.innerHTML = '';
+        }
+    }
+
+    const from = createSearchInput({
+        inputId:       'stop-search-from',
+        suggestionsId: 'stop-suggestions-from',
+        label:         'Boarding at',
+        placeholder:   'Type your boarding station…',
+        onSelect: name => { originName = name; tryRender(); },
+    });
+
+    const to = createSearchInput({
+        inputId:       'stop-search-to',
+        suggestionsId: 'stop-suggestions-to',
+        label:         'Getting off at',
+        placeholder:   'Type your destination…',
+        onSelect: name => { destName = name; tryRender(); },
+    });
+
+    inputsWrap.appendChild(from.element);
+    inputsWrap.appendChild(to.element);
 }
