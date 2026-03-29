@@ -328,6 +328,10 @@ body {
     box-shadow: var(--focus-ring);
 }
 
+#stop-search-to{
+    margin-bottom: 1rem;
+}
+
 /* Suggestions dropdown */
 .stop-suggestions {
     position: absolute;
@@ -348,13 +352,22 @@ body {
     color: #e8eaf0;
     transition: background-color 0.1s;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
 }
 
 .suggestion-item:hover,
 .suggestion-item:focus {
     background-color: #1e2538;
     outline: none;
+}
+
+.suggestion-names {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
 }
 
 .suggestion-name-gr {
@@ -366,9 +379,23 @@ body {
     color: #8892a4;
 }
 
+.suggestion-lines {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.suggestion-line-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #fff;
+}
+
 /* Result card */
 .result-card {
-    margin-top: 24px;
     background-color: #161b27;
     border: 1px solid #2a3350;
     border-radius: 12px;

@@ -1,4 +1,5 @@
-import { lines, allStops } from '../data/subway.js';
+import { lines, allStops, stopCoordinates, stopIndex } from '../data/subway.js';
+import { getCoords } from '../location.js';
 
 // ── Position config ─────────────────────────────────────────────────────────
 
@@ -11,9 +12,30 @@ const POSITIONS = [
 ];
 
 // Interchange station names (Greek) — the only transfer points in Athens metro
-const INTERCHANGES = ['Μοναστηράκι', 'Ομόνοια', 'Αττική', 'Σύνταγμα'];
+const INTERCHANGES = ['Μοναστηράκι', 'Ομόνοια', 'Αττική', 'Σύνταγμα', 'Πειραιάς'];
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
+
+function haversineMeters(lat1, lng1, lat2, lng2) {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2
+            + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
+            * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function findClosestStop(lat, lng) {
+    let best = null, bestDist = Infinity;
+    for (const stop of allStops) {
+        const coords = stopCoordinates[stop.name];
+        if (!coords) continue;
+        const d = haversineMeters(lat, lng, coords.lat, coords.lng);
+        if (d < bestDist) { bestDist = d; best = stop; }
+    }
+    return best;
+}
 
 function normalise(name) {
     return name.toLowerCase().trim();
@@ -168,12 +190,22 @@ function renderResult(routes) {
 
 // ── Search input factory ────────────────────────────────────────────────────
 
+// Pre-built map: stop name (Greek) → unique Line objects for that station
+const stopLineMap = new Map(
+    allStops.map(s => {
+        const entries = stopIndex.get(normalise(s.name)) ?? [];
+        const unique = [...new Map(entries.map(e => [e.line.id, e.line])).values()];
+        return [s.name, unique];
+    })
+);
+
 function filterStops(query) {
     if (!query || query.length < 1) return [];
     const q = normalise(query);
     return allStops
         .filter(s => normalise(s.name).includes(q) || (s.engName && normalise(s.engName).includes(q)))
-        .slice(0, 8);
+        .slice(0, 8)
+        .map(s => ({ ...s, lines: stopLineMap.get(s.name) ?? [] }));
 }
 
 function createSearchInput({ inputId, suggestionsId, label, placeholder, onSelect }) {
@@ -209,8 +241,13 @@ function createSearchInput({ inputId, suggestionsId, label, placeholder, onSelec
         }
         suggestions.innerHTML = matches.map(s => `
             <li role="option" class="suggestion-item" tabindex="0" data-name="${s.name}">
-                <span class="suggestion-name-gr">${s.name}</span>
-                ${s.engName ? `<span class="suggestion-name-en">${s.engName}</span>` : ''}
+                <span class="suggestion-names">
+                    <span class="suggestion-name-gr">${s.name}</span>
+                    ${s.engName ? `<span class="suggestion-name-en">${s.engName}</span>` : ''}
+                </span>
+                <span class="suggestion-lines" aria-hidden="true">
+                    ${s.lines.map(l => `<span class="suggestion-line-badge" style="background-color:${l.color}">${l.name}</span>`).join('')}
+                </span>
             </li>`).join('');
         suggestions.hidden = false;
         input.setAttribute('aria-expanded', 'true');
@@ -266,7 +303,13 @@ function createSearchInput({ inputId, suggestionsId, label, placeholder, onSelec
         if (!wrap.contains(e.relatedTarget)) hideSuggestions();
     });
 
-    return { element: wrap, getSelected: () => input.value || null };
+    function setValue(name) {
+        input.value = name;
+        hideSuggestions();
+        onSelect(name);
+    }
+
+    return { element: wrap, getSelected: () => input.value || null, setValue };
 }
 
 // ── Main view ───────────────────────────────────────────────────────────────
@@ -310,4 +353,14 @@ export function loadSubwayPosition(container) {
 
     inputsWrap.appendChild(from.element);
     inputsWrap.appendChild(to.element);
+
+    getCoords()
+        .then(({ lat, lng }) => {
+            // Only pre-fill if the user hasn't already typed something
+            if (!from.getSelected()) {
+                const closest = findClosestStop(lat, lng);
+                if (closest) from.setValue(closest.name);
+            }
+        })
+        .catch(() => {}); // silently skip if location is unavailable or denied
 }
