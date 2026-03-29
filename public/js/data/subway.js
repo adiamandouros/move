@@ -117,7 +117,7 @@ export const lines = [
                     { name: 'Περιστέρι',        engName: 'Peristeri',       positions: ['center-back'] },
                     { name: 'Άγιος Αντώνιος',   engName: 'Agios Antonios',  positions: ['center-back'] },
                     { name: 'Σεπόλια',          engName: 'Sepolia',         positions: ['center-front'] },
-                    { name: 'Αττική',           engName: 'Attiki',          positions: ['center-back'], note:['Αλλαγές σε Μ1 → μπροστά'] },
+                    { name: 'Αττική',           engName: 'Attiki',          positions: ['center-front'], note:['Αλλαγές σε Μ1 → μπροστά'] },
                     { name: 'Σταθμός Λαρίσσης', engName: 'Larissa Station', positions: ['back'] },
                     { name: 'Μεταξουργείο',     engName: 'Metaxourghio',    positions: ['center-front'] },
                     { name: 'Ομόνοια',          engName: 'Omonia',          positions: [] },
