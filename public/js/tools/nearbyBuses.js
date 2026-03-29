@@ -1,9 +1,10 @@
+import { getCoords, subscribeToLocation } from '../location.js';
+
 // ── Screen reader announcer ─────────────────────────────────────────────────
 
 function announce(message) {
     const el = document.getElementById('sr-announcer');
     if (!el) return;
-    // Clear first so repeated identical messages still fire
     el.textContent = '';
     requestAnimationFrame(() => { el.textContent = message; });
 }
@@ -106,7 +107,7 @@ function renderStop(stop, index) {
 function renderMessage(icon, title, subtitle = '') {
     return `
         <div class="d-flex flex-column align-items-center justify-content-center text-muted" style="height: 60dvh;">
-            <i class="bi bi-${icon} fs-1 mb-3"></i>
+            <i class="bi bi-${icon} fs-1 mb-3" aria-hidden="true"></i>
             <p class="fs-5 mb-1">${title}</p>
             ${subtitle ? `<p class="small text-secondary text-center px-4">${subtitle}</p>` : ''}
         </div>`;
@@ -121,20 +122,16 @@ function patchArrivals(stops) {
 
         const first = stop.arrivals[0];
 
-        // Update the accessible label on the toggle button
         item.querySelector('.stop-toggle').setAttribute('aria-label', stopButtonLabel(stop));
 
-        // Update next bus line + destination in the header
         item.querySelector('.stop-next-bus').innerHTML = first
             ? `<span class="next-bus-line" aria-hidden="true">${first.LineID}</span>
                <span class="next-bus-dest" aria-hidden="true">${first.RouteDescrEng}</span>`
             : `<span class="next-bus-dest text-muted fst-italic" aria-hidden="true">No arrivals</span>`;
 
-        // Update header badge
         item.querySelector('.header-badge-wrap').innerHTML =
             first ? renderArrivalBadge(first.btime2) : '';
 
-        // Update expanded body rows
         item.querySelector('.stop-body').innerHTML =
             renderArrivalRows(stop.arrivals);
     });
@@ -143,19 +140,6 @@ function patchArrivals(stops) {
 }
 
 // ── Data fetching ───────────────────────────────────────────────────────────
-
-function getUserLocation() {
-    return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-            reject(new Error('Geolocation is not supported by your browser.'));
-            return;
-        }
-        navigator.geolocation.getCurrentPosition(
-            pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-            err => reject(err)
-        );
-    });
-}
 
 async function fetchNearbyStops(lat, lng) {
     const res = await fetch(`/api/localInfo?x=${lat}&y=${lng}`);
@@ -166,11 +150,10 @@ async function fetchNearbyStops(lat, lng) {
 // ── Arrivals polling ─────────────────────────────────────────────────────────
 
 const POLL_INTERVAL_MS = 20_000;
-// Minimum movement (metres) before re-fetching the stop list
 const LOCATION_THRESHOLD_M = 40;
 
 let pollTimer = null;
-let locationWatchId = null;
+let unsubscribeLocation = null;
 
 function stopPolling() {
     if (pollTimer !== null) {
@@ -179,15 +162,7 @@ function stopPolling() {
     }
 }
 
-function stopLocationWatch() {
-    if (locationWatchId !== null) {
-        navigator.geolocation.clearWatch(locationWatchId);
-        locationWatchId = null;
-    }
-}
-
 function startPolling(coordsRef) {
-    // coordsRef is an object so the location watch can update it in place
     stopPolling();
     pollTimer = setInterval(async () => {
         try {
@@ -234,13 +209,16 @@ async function renderStopList(container, coords) {
 
 export async function loadNearbyBuses(container) {
     stopPolling();
-    stopLocationWatch();
+    if (unsubscribeLocation) {
+        unsubscribeLocation();
+        unsubscribeLocation = null;
+    }
 
     container.innerHTML = renderMessage('arrow-repeat spin', 'Getting your location…');
 
     let coords;
     try {
-        coords = await getUserLocation();
+        coords = await getCoords();
     } catch (err) {
         const denied = err.code === 1;
         container.innerHTML = renderMessage(
@@ -255,11 +233,7 @@ export async function loadNearbyBuses(container) {
 
     container.innerHTML = renderMessage('arrow-repeat spin', 'Finding nearby stops…');
 
-    // coordsRef is mutated in place by the location watch so polling always
-    // uses the latest position without needing to restart the interval
     const coordsRef = { lat: coords.lat, lng: coords.lng };
-    // fetchCoords tracks where the stop list was last fetched from,
-    // so we can compare against the movement threshold
     let fetchCoords = { lat: coords.lat, lng: coords.lng };
 
     const ok = await renderStopList(container, coordsRef);
@@ -267,24 +241,25 @@ export async function loadNearbyBuses(container) {
 
     startPolling(coordsRef);
 
-    // Watch for location changes and re-fetch stop list if moved far enough
-    locationWatchId = navigator.geolocation.watchPosition(async pos => {
-        const newLat = pos.coords.latitude;
-        const newLng = pos.coords.longitude;
-        coordsRef.lat = newLat;
-        coordsRef.lng = newLng;
+    // Subscribe to shared location updates from location.js
+    unsubscribeLocation = subscribeToLocation(async ({ lat, lng }) => {
+        coordsRef.lat = lat;
+        coordsRef.lng = lng;
 
-        const moved = haversineMeters(fetchCoords.lat, fetchCoords.lng, newLat, newLng);
+        const moved = haversineMeters(fetchCoords.lat, fetchCoords.lng, lat, lng);
         if (moved >= LOCATION_THRESHOLD_M) {
-            fetchCoords = { lat: newLat, lng: newLng };
+            fetchCoords = { lat, lng };
             stopPolling();
             await renderStopList(container, coordsRef);
             startPolling(coordsRef);
         }
-    }, null, { enableHighAccuracy: true });
+    });
 }
 
 export function unloadNearbyBuses() {
     stopPolling();
-    stopLocationWatch();
+    if (unsubscribeLocation) {
+        unsubscribeLocation();
+        unsubscribeLocation = null;
+    }
 }

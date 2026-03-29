@@ -1,5 +1,9 @@
+import { initLocation } from './location.js';
 import { loadNearbyBuses, unloadNearbyBuses } from './tools/nearbyBuses.js';
 import { loadSubwayPosition } from './tools/subwayPosition.js';
+
+// Request location permission once at startup so it's ready when tools need it
+initLocation();
 
 const content = document.getElementById('app-content');
 const navButtons = document.querySelectorAll('.nav-btn');
