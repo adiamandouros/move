@@ -61,14 +61,13 @@ function findRoutes(originName, destName) {
 
         for (const leg1 of firstLegs) {
             for (const leg2 of secondLegs) {
-                // Must change lines at the interchange
                 if (leg1.line.id === leg2.line.id) continue;
                 transfer.push({
                     type: 'transfer',
                     interchange,
                     legs: [
-                        { ...leg1, isTransfer: true },
-                        { ...leg2, isTransfer: false },
+                        { ...leg1, isTransfer: true,  transferTo: leg2 },
+                        { ...leg2, isTransfer: false, transferTo: null },
                     ],
                 });
             }
@@ -103,13 +102,27 @@ function renderTrainDiagram(positions) {
 }
 
 function renderLeg(leg) {
-    const { line, direction, stop, isTransfer } = leg;
-    const noData   = stop.positions.length === 0;
-    const noteText = Array.isArray(stop.note) ? stop.note.join(' ') : stop.note;
-    const icon     = isTransfer ? 'arrow-left-right' : 'door-open';
-    const action   = isTransfer
+    const { line, direction, stop, isTransfer, transferTo } = leg;
+    const icon   = isTransfer ? 'arrow-left-right' : 'door-open';
+    const action = isTransfer
         ? `Transfer at <strong>${stop.name}</strong>`
         : `Exit at <strong>${stop.name}</strong>`;
+
+    // For transfer legs: use specific transfer positions if available,
+    // otherwise fall back to the stop's exit positions
+    let positions, noData, noteText;
+    if (isTransfer && stop.transfers?.length) {
+        const match = stop.transfers.find(
+            t => t.lineId === transferTo.line.id && t.toward === transferTo.direction.toward
+        );
+        positions = match ? match.positions : stop.positions;
+        noData    = positions.length === 0;
+        noteText  = null; // transfer-specific note could be added to the data later
+    } else {
+        positions = stop.positions;
+        noData    = positions.length === 0;
+        noteText  = Array.isArray(stop.note) ? stop.note.join(' ') : stop.note;
+    }
 
     return `
         <div class="result-card">
@@ -122,7 +135,7 @@ function renderLeg(leg) {
             </div>
             ${noData
                 ? `<p class="text-muted fst-italic small">No position data for this stop yet.</p>`
-                : `${renderTrainDiagram(stop.positions)}
+                : `${renderTrainDiagram(positions)}
                    ${noteText ? `<div class="stop-note mt-3"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${noteText}</div>` : ''}`
             }
         </div>`;
