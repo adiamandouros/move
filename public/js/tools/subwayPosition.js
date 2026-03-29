@@ -3,14 +3,17 @@ import { lines, allStops } from '../data/subway.js';
 // ── Position config ─────────────────────────────────────────────────────────
 
 const POSITIONS = [
-    { id: 'back',        label: 'Back',      labelGr: 'Πίσω' },
-    { id: 'center-back', label: 'Near Back', labelGr: 'Κέντρο-Πίσω' },
-    { id: 'center',      label: 'Center',    labelGr: 'Κέντρο' },
-    { id: 'center-front',label: 'Near Front',labelGr: 'Κέντρο-Μπροστά' },
-    { id: 'front',       label: 'Front',     labelGr: 'Μπροστά' },
+    { id: 'back',         label: 'Back',       labelGr: 'Πίσω' },
+    { id: 'center-back',  label: 'Near Back',  labelGr: 'Κέντρο-Πίσω' },
+    { id: 'center',       label: 'Center',     labelGr: 'Κέντρο' },
+    { id: 'center-front', label: 'Near Front', labelGr: 'Κέντρο-Μπροστά' },
+    { id: 'front',        label: 'Front',      labelGr: 'Μπροστά' },
 ];
 
-// ── Direction logic ─────────────────────────────────────────────────────────
+// Interchange station names (Greek) — the only transfer points in Athens metro
+const INTERCHANGES = ['Μοναστηράκι', 'Ομόνοια', 'Αττική', 'Σύνταγμα'];
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
 
 function normalise(name) {
     return name.toLowerCase().trim();
@@ -21,22 +24,57 @@ function matchesStop(stop, query) {
     return normalise(stop.name) === q || (stop.engName && normalise(stop.engName) === q);
 }
 
-// Returns array of { line, direction, stop } where:
-//   - both origin and destination are in the direction's stop list
-//   - origin comes before destination (determines travel direction)
-function findDirectionedResult(originName, destName) {
-    const results = [];
+// ── Routing ─────────────────────────────────────────────────────────────────
+//
+// A route is an array of legs: [{ line, direction, stop, isTransfer }]
+// stop = the stop where you get off that leg (transfer or final destination)
+
+function findLegs(fromName, toName) {
+    // Returns all { line, direction, fromStop, toStop } where fromName comes
+    // before toName in direction.stops
+    const legs = [];
     for (const line of lines) {
         for (const direction of line.directions) {
-            const stops = direction.stops;
-            const originIdx = stops.findIndex(s => matchesStop(s, originName));
-            const destIdx   = stops.findIndex(s => matchesStop(s, destName));
-            if (originIdx !== -1 && destIdx !== -1 && originIdx < destIdx) {
-                results.push({ line, direction, stop: stops[destIdx] });
+            const fromIdx = direction.stops.findIndex(s => matchesStop(s, fromName));
+            const toIdx   = direction.stops.findIndex(s => matchesStop(s, toName));
+            if (fromIdx !== -1 && toIdx !== -1 && fromIdx < toIdx) {
+                legs.push({ line, direction, stop: direction.stops[toIdx] });
             }
         }
     }
-    return results;
+    return legs;
+}
+
+function findRoutes(originName, destName) {
+    // 1. Direct
+    const direct = findLegs(originName, destName).map(leg => ({
+        type: 'direct',
+        legs: [{ ...leg, isTransfer: false }],
+    }));
+    if (direct.length) return direct;
+
+    // 2. One transfer via each interchange
+    const transfer = [];
+    for (const interchange of INTERCHANGES) {
+        const firstLegs  = findLegs(originName, interchange);
+        const secondLegs = findLegs(interchange, destName);
+
+        for (const leg1 of firstLegs) {
+            for (const leg2 of secondLegs) {
+                // Must change lines at the interchange
+                if (leg1.line.id === leg2.line.id) continue;
+                transfer.push({
+                    type: 'transfer',
+                    interchange,
+                    legs: [
+                        { ...leg1, isTransfer: true },
+                        { ...leg2, isTransfer: false },
+                    ],
+                });
+            }
+        }
+    }
+    return transfer;
 }
 
 // ── Rendering ───────────────────────────────────────────────────────────────
@@ -64,21 +102,23 @@ function renderTrainDiagram(positions) {
         </div>`;
 }
 
-function renderResult(entries) {
-    if (!entries.length) {
-        return `<p class="text-muted small mt-3">These two stops don't share a direct line, or the order seems reversed. Try swapping origin and destination.</p>`;
-    }
+function renderLeg(leg) {
+    const { line, direction, stop, isTransfer } = leg;
+    const noData   = stop.positions.length === 0;
+    const noteText = Array.isArray(stop.note) ? stop.note.join(' ') : stop.note;
+    const icon     = isTransfer ? 'arrow-left-right' : 'door-open';
+    const action   = isTransfer
+        ? `Transfer at <strong>${stop.name}</strong>`
+        : `Exit at <strong>${stop.name}</strong>`;
 
-    return entries.map(({ line, direction, stop }) => {
-        const noData = stop.positions.length === 0;
-        // note can be a string or an array
-        const noteText = Array.isArray(stop.note) ? stop.note.join(' ') : stop.note;
-
-        return `
+    return `
         <div class="result-card">
-            <div class="result-header d-flex align-items-center gap-2 mb-3">
+            <div class="result-header d-flex align-items-center gap-2 mb-2">
                 <span class="line-badge" style="background-color: ${line.color}">${line.name}</span>
                 <span class="direction-text">→ ${direction.toward}</span>
+            </div>
+            <div class="leg-action mb-3">
+                <i class="bi bi-${icon} me-2" aria-hidden="true"></i>${action}
             </div>
             ${noData
                 ? `<p class="text-muted fst-italic small">No position data for this stop yet.</p>`
@@ -86,7 +126,31 @@ function renderResult(entries) {
                    ${noteText ? `<div class="stop-note mt-3"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${noteText}</div>` : ''}`
             }
         </div>`;
-    }).join('');
+}
+
+function renderRoute(route, index, total) {
+    const header = total > 1
+        ? `<p class="route-option-label">Option ${index + 1}${route.type === 'transfer' ? ` · Transfer at ${route.interchange}` : ''}</p>`
+        : '';
+
+    if (route.type === 'direct') {
+        return header + renderLeg(route.legs[0]);
+    }
+
+    return header + `
+        ${renderLeg(route.legs[0])}
+        <div class="transfer-connector" aria-hidden="true">
+            <i class="bi bi-arrow-down-circle-fill"></i>
+            <span>Change to ${route.legs[1].line.name}</span>
+        </div>
+        ${renderLeg(route.legs[1])}`;
+}
+
+function renderResult(routes) {
+    if (!routes.length) {
+        return `<p class="text-muted small mt-3">No route found. Check that both stops are on the Athens metro, or try swapping origin and destination.</p>`;
+    }
+    return `<div class="routes-wrap">${routes.map((r, i) => renderRoute(r, i, routes.length)).join('<hr class="route-divider">')}</div>`;
 }
 
 // ── Search input factory ────────────────────────────────────────────────────
@@ -99,8 +163,6 @@ function filterStops(query) {
         .slice(0, 8);
 }
 
-// Creates a self-contained search input with autocomplete.
-// onSelect(stopName) is called when the user picks a suggestion.
 function createSearchInput({ inputId, suggestionsId, label, placeholder, onSelect }) {
     const wrap = document.createElement('div');
     wrap.className = 'subway-search-wrap';
@@ -125,7 +187,6 @@ function createSearchInput({ inputId, suggestionsId, label, placeholder, onSelec
 
     const input       = wrap.querySelector('input');
     const suggestions = wrap.querySelector('ul');
-    let selectedName  = null;
 
     function showSuggestions(matches) {
         if (!matches.length) {
@@ -148,14 +209,12 @@ function createSearchInput({ inputId, suggestionsId, label, placeholder, onSelec
     }
 
     function select(name) {
-        selectedName = name;
-        input.value  = name;
+        input.value = name;
         hideSuggestions();
         onSelect(name);
     }
 
     input.addEventListener('input', () => {
-        selectedName = null;
         showSuggestions(filterStops(input.value));
         onSelect(null);
     });
@@ -194,7 +253,7 @@ function createSearchInput({ inputId, suggestionsId, label, placeholder, onSelec
         if (!wrap.contains(e.relatedTarget)) hideSuggestions();
     });
 
-    return { element: wrap, getSelected: () => selectedName };
+    return { element: wrap, getSelected: () => input.value || null };
 }
 
 // ── Main view ───────────────────────────────────────────────────────────────
@@ -214,7 +273,7 @@ export function loadSubwayPosition(container) {
 
     function tryRender() {
         if (originName && destName) {
-            result.innerHTML = renderResult(findDirectionedResult(originName, destName));
+            result.innerHTML = renderResult(findRoutes(originName, destName));
         } else {
             result.innerHTML = '';
         }
