@@ -38,7 +38,7 @@ function findClosestStop(lat, lng) {
 }
 
 function normalise(name) {
-    return name.toLowerCase().trim();
+    return name.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
 function matchesStop(stop, query) {
@@ -150,10 +150,11 @@ function renderLeg(leg) {
         <div class="result-card">
             <div class="result-header d-flex align-items-center gap-2 mb-2">
                 <span class="line-badge" style="background-color: ${line.color}">${line.name}</span>
-                <span class="direction-text">→ ${direction.toward}</span>
+                <span class="direction-text" aria-label="toward ${direction.toward}"><span aria-hidden="true">→ </span>${direction.toward}</span>
             </div>
             <div class="leg-action mb-3">
                 <i class="bi bi-${icon} me-2" aria-hidden="true"></i>${action}
+                ${stop.central ? `<span class="central-platform-badge ms-2"><i class="bi bi-symmetry-horizontal me-1" aria-hidden="true"></i>Exit left</span>` : ''}
             </div>
             ${noData
                 ? `<p class="text-muted fst-italic small">No position data for this stop yet.</p>`
@@ -215,6 +216,7 @@ function createSearchInput({ inputId, suggestionsId, label, placeholder, onSelec
         <label for="${inputId}" class="form-label fw-semibold">${label}</label>
         <div class="position-relative">
             <input id="${inputId}"
+                   role="combobox"
                    type="search"
                    class="form-control subway-search-input"
                    placeholder="${placeholder}"
@@ -222,7 +224,8 @@ function createSearchInput({ inputId, suggestionsId, label, placeholder, onSelec
                    aria-label="${label}"
                    aria-autocomplete="list"
                    aria-controls="${suggestionsId}"
-                   aria-expanded="false">
+                   aria-expanded="false"
+                   aria-haspopup="listbox">
             <ul id="${suggestionsId}"
                 class="stop-suggestions list-unstyled mb-0"
                 role="listbox"
@@ -240,7 +243,7 @@ function createSearchInput({ inputId, suggestionsId, label, placeholder, onSelec
             return;
         }
         suggestions.innerHTML = matches.map(s => `
-            <li role="option" class="suggestion-item" tabindex="0" data-name="${s.name}">
+            <li role="option" aria-selected="false" class="suggestion-item" tabindex="0" data-name="${s.name}">
                 <span class="suggestion-names">
                     <span class="suggestion-name-gr">${s.name}</span>
                     ${s.engName ? `<span class="suggestion-name-en">${s.engName}</span>` : ''}
@@ -292,6 +295,14 @@ function createSearchInput({ inputId, suggestionsId, label, placeholder, onSelec
             hideSuggestions();
             input.focus();
         }
+    });
+
+    suggestions.addEventListener('focusin', e => {
+        const focused = e.target.closest('[role="option"]');
+        if (!focused) return;
+        suggestions.querySelectorAll('[role="option"]').forEach(el => {
+            el.setAttribute('aria-selected', el === focused ? 'true' : 'false');
+        });
     });
 
     suggestions.addEventListener('mousedown', e => {
@@ -359,7 +370,16 @@ export function loadSubwayPosition(container) {
             // Only pre-fill if the user hasn't already typed something
             if (!from.getSelected()) {
                 const closest = findClosestStop(lat, lng);
-                if (closest) from.setValue(closest.name);
+                if (closest) {
+                    from.setValue(closest.name);
+                    const announcer = document.getElementById('sr-announcer');
+                    if (announcer) {
+                        announcer.textContent = '';
+                        requestAnimationFrame(() => {
+                            announcer.textContent = `Boarding station set to ${closest.engName ?? closest.name} based on your location.`;
+                        });
+                    }
+                }
             }
         })
         .catch(() => {}); // silently skip if location is unavailable or denied

@@ -497,6 +497,18 @@ body {
     padding: 8px 10px;
 }
 
+.central-platform-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.75rem;
+    color: #9aa3b2;
+    background-color: #1e2538;
+    border: 1px solid #2a3350;
+    border-radius: 20px;
+    padding: 1px 8px;
+    vertical-align: middle;
+}
+
 .leg-action {
     font-size: 0.9rem;
     color: #b0bac9;
