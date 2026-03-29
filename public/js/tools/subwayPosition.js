@@ -1,9 +1,177 @@
+import { lines, stopIndex, allStopNames } from '../data/subway.js';
+
+// ── Position config ─────────────────────────────────────────────────────────
+
+const POSITIONS = [
+    { id: 'front',        label: 'Front',       labelGr: 'Μπροστά' },
+    { id: 'center-front', label: 'Near Front',  labelGr: 'Κέντρο-Μπροστά' },
+    { id: 'center',       label: 'Center',      labelGr: 'Κέντρο' },
+    { id: 'center-back',  label: 'Near Back',   labelGr: 'Κέντρο-Πίσω' },
+    { id: 'back',         label: 'Back',        labelGr: 'Πίσω' },
+];
+
+// ── Rendering ───────────────────────────────────────────────────────────────
+
+function renderTrainDiagram(positions) {
+    return `
+        <div class="train-diagram" role="img" aria-label="Train diagram showing where to stand: ${positions.map(p => POSITIONS.find(x => x.id === p)?.label).join(' and ')}">
+            <div class="train-label train-label-front" aria-hidden="true">FRONT</div>
+            <div class="train-cars" aria-hidden="true">
+                ${POSITIONS.map(p => `
+                    <div class="train-car ${positions.includes(p.id) ? 'highlighted' : ''}">
+                        ${positions.includes(p.id) ? '<i class="bi bi-person-standing"></i>' : ''}
+                    </div>`).join('')}
+            </div>
+            <div class="train-label train-label-back" aria-hidden="true">BACK</div>
+        </div>
+        <div class="position-labels" aria-hidden="true">
+            ${POSITIONS.map(p => `
+                <div class="position-label ${positions.includes(p.id) ? 'highlighted' : ''}">
+                    ${p.labelGr}
+                </div>`).join('')}
+        </div>`;
+}
+
+function renderResult(entries) {
+    return entries.map(({ line, direction, stop }) => {
+        const noData = stop.positions.length === 0;
+        const positionText = noData
+            ? 'No data available'
+            : stop.positions.map(p => POSITIONS.find(x => x.id === p)?.labelGr).join(' / ');
+
+        return `
+        <div class="result-card">
+            <div class="result-header d-flex align-items-center gap-2 mb-3">
+                <span class="line-badge" style="background-color: ${line.color}">${line.name}</span>
+                <span class="direction-text">→ ${direction.toward}</span>
+            </div>
+
+            ${noData
+                ? `<p class="text-muted fst-italic small">No data for this direction yet.</p>`
+                : `${renderTrainDiagram(stop.positions)}
+                   <p class="position-summary mt-3" aria-live="polite">
+                       Stand at the <strong>${positionText}</strong> of the train.
+                   </p>
+                   ${stop.note ? `<div class="stop-note mt-2"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${stop.note}</div>` : ''}`
+            }
+        </div>`;
+    }).join('');
+}
+
+// ── Search ──────────────────────────────────────────────────────────────────
+
+function filterStops(query) {
+    if (!query || query.length < 1) return [];
+    const q = query.toLowerCase().trim();
+    return allStopNames.filter(name => name.toLowerCase().includes(q)).slice(0, 8);
+}
+
+function lookupStop(name) {
+    return stopIndex.get(name.toLowerCase()) || [];
+}
+
+// ── Main view ───────────────────────────────────────────────────────────────
+
 export function loadSubwayPosition(container) {
     container.innerHTML = `
-        <div class="p-3 text-center text-muted mt-5">
-            <i class="bi bi-train-front fs-1 mb-3 d-block"></i>
-            <p class="fs-5">Subway Position</p>
-            <p class="text-secondary small">Coming soon</p>
-        </div>
-    `;
+        <div class="subway-view">
+            <div class="subway-search-wrap">
+                <label for="stop-search" class="form-label fw-semibold">Where are you going?</label>
+                <div class="position-relative">
+                    <input id="stop-search"
+                           type="search"
+                           class="form-control subway-search-input"
+                           placeholder="Type a station name…"
+                           autocomplete="off"
+                           aria-label="Destination station"
+                           aria-autocomplete="list"
+                           aria-controls="stop-suggestions"
+                           aria-expanded="false">
+                    <ul id="stop-suggestions"
+                        class="stop-suggestions list-unstyled mb-0"
+                        role="listbox"
+                        aria-label="Station suggestions"
+                        hidden></ul>
+                </div>
+            </div>
+
+            <div id="subway-result" aria-live="polite" aria-atomic="true"></div>
+        </div>`;
+
+    const input = container.querySelector('#stop-search');
+    const suggestions = container.querySelector('#stop-suggestions');
+    const result = container.querySelector('#subway-result');
+
+    function showSuggestions(matches) {
+        if (!matches.length) {
+            suggestions.hidden = true;
+            input.setAttribute('aria-expanded', 'false');
+            return;
+        }
+        suggestions.innerHTML = matches.map(name => `
+            <li role="option" class="suggestion-item" tabindex="0" data-name="${name}">
+                ${name}
+            </li>`).join('');
+        suggestions.hidden = false;
+        input.setAttribute('aria-expanded', 'true');
+    }
+
+    function hideSuggestions() {
+        suggestions.hidden = true;
+        input.setAttribute('aria-expanded', 'false');
+    }
+
+    function selectStop(name) {
+        input.value = name;
+        hideSuggestions();
+
+        const entries = lookupStop(name);
+        if (!entries.length) {
+            result.innerHTML = `<p class="text-muted small mt-3">No data found for "${name}".</p>`;
+            return;
+        }
+        result.innerHTML = renderResult(entries);
+    }
+
+    // Keyboard: arrow keys to navigate suggestions, Enter to select
+    input.addEventListener('keydown', e => {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            suggestions.querySelector('[role="option"]')?.focus();
+        }
+    });
+
+    suggestions.addEventListener('keydown', e => {
+        const focused = document.activeElement;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            focused.nextElementSibling?.focus();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            const prev = focused.previousElementSibling;
+            prev ? prev.focus() : input.focus();
+        } else if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            selectStop(focused.dataset.name);
+            input.focus();
+        } else if (e.key === 'Escape') {
+            hideSuggestions();
+            input.focus();
+        }
+    });
+
+    input.addEventListener('input', () => {
+        showSuggestions(filterStops(input.value));
+        result.innerHTML = '';
+    });
+
+    suggestions.addEventListener('mousedown', e => {
+        const item = e.target.closest('[role="option"]');
+        if (item) selectStop(item.dataset.name);
+    });
+
+    // Hide suggestions when focus leaves both input and list
+    container.addEventListener('focusout', e => {
+        if (!container.contains(e.relatedTarget)) hideSuggestions();
+    });
 }
