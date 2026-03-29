@@ -1,4 +1,4 @@
-import { lines, stopIndex, allStopNames } from '../data/subway.js';
+import { lines, stopIndex, allStops } from '../data/subway.js';
 
 // ── Position config ─────────────────────────────────────────────────────────
 
@@ -62,7 +62,9 @@ function renderResult(entries) {
 function filterStops(query) {
     if (!query || query.length < 1) return [];
     const q = query.toLowerCase().trim();
-    return allStopNames.filter(name => name.toLowerCase().includes(q)).slice(0, 8);
+    return allStops
+        .filter(s => s.name.toLowerCase().includes(q) || s.engName?.toLowerCase().includes(q))
+        .slice(0, 8);
 }
 
 function lookupStop(name) {
@@ -107,9 +109,10 @@ export function loadSubwayPosition(container) {
             input.setAttribute('aria-expanded', 'false');
             return;
         }
-        suggestions.innerHTML = matches.map(name => `
-            <li role="option" class="suggestion-item" tabindex="0" data-name="${name}">
-                ${name}
+        suggestions.innerHTML = matches.map(s => `
+            <li role="option" class="suggestion-item" tabindex="0" data-name="${s.name}">
+                <span class="suggestion-name-gr">${s.name}</span>
+                ${s.engName ? `<span class="suggestion-name-en">${s.engName}</span>` : ''}
             </li>`).join('');
         suggestions.hidden = false;
         input.setAttribute('aria-expanded', 'true');

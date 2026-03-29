@@ -38,29 +38,29 @@ export const lines = [
                 id: 'M3_dimotiko',
                 toward: 'Δημοτικό Θέατρο',
                 stops: [
-                    { name: 'Δουκίσσης Πλακεντίας', positions: ['back'] },
-                    { name: 'Χαλάνδρι',              positions: ['back'] },
-                    { name: 'Αγία Παρασκευή',         positions: ['back'] },
-                    { name: 'Νομισματοκοπείο',        positions: ['center-back'] },
-                    { name: 'Χολαργός',               positions: ['back'] },
-                    { name: 'Εθνική Άμυνα',           positions: ['center'] },
-                    { name: 'Κατεχάκη',               positions: ['center'] },
-                    { name: 'Πανόρμου',               positions: ['front'] },
-                    { name: 'Αμπελόκηποι',            positions: ['front'] },
-                    { name: 'Μέγαρο Μουσικής',        positions: ['front'] },
-                    { name: 'Ευαγγελισμός',           positions: ['back'] },
-                    { name: 'Σύνταγμα',               positions: ['back', 'front'], note: 'Αλλαγή M2 → Ανθούπολη: κέντρο | Αλλαγή M2 → Ελληνικό: μπροστά' },
-                    { name: 'Μοναστηράκι',            positions: ['center-back'],   note: 'Κόμβος αλλαγών M1/M2/M3' },
-                    { name: 'Κεραμεικός',             positions: ['back', 'front'] },
-                    { name: 'Ελαιώνας',               positions: ['back', 'front'] },
-                    { name: 'Αιγάλεω',                positions: ['back', 'front'] },
-                    { name: 'Αγία Μαρίνα',            positions: ['center'] },
-                    { name: 'Αγία Βαρβάρα',           positions: ['back', 'center'] },
-                    { name: 'Κορυδαλλός',             positions: ['front'] },
-                    { name: 'Νίκαια',                 positions: ['back', 'center'] },
-                    { name: 'Μανιάτικα',              positions: ['back'] },
-                    { name: 'Πειραιάς',               positions: ['front', 'back'] },
-                    { name: 'Δημοτικό Θέατρο',        positions: ['back', 'front'] },
+                    { name: 'Δουκίσσης Πλακεντίας', engName: 'Doukissis Plakentias',    positions: ['center-back'] },
+                    { name: 'Χαλάνδρι',             engName: 'Chalandri',               positions: ['center-back'] },
+                    { name: 'Αγία Παρασκευή',       engName: 'Agia Paraskevi',          positions: ['center-back'] },
+                    { name: 'Νομισματοκοπείο',      engName: 'Nomismatokopio',          positions: ['center-back'] },
+                    { name: 'Χολαργός',             engName: 'Cholargos',               positions: ['center-back'] },
+                    { name: 'Εθνική Άμυνα',         engName: 'Ethniki Amyna',           positions: ['center'] },
+                    { name: 'Κατεχάκη',             engName: 'Katechaki',               positions: ['center'] },
+                    { name: 'Πανόρμου',             engName: 'Panormou',                positions: ['center-front'] },
+                    { name: 'Αμπελόκηποι',          engName: 'Ampelokipoi',             positions: ['center-front'] },
+                    { name: 'Μέγαρο Μουσικής',      engName: 'Megaro Mousikis',         positions: ['center-front'] },
+                    { name: 'Ευαγγελισμός',         engName: 'Evangelismos',            positions: ['center-back'] },
+                    { name: 'Σύνταγμα',             engName: 'Syntagma',                positions: ['back', 'front'], note: 'Αλλαγή M2 → Ανθούπολη: κέντρο | Αλλαγή M2 → Ελληνικό: μπροστά' },
+                    { name: 'Μοναστηράκι',          engName: 'Monastiraki',             positions: ['center-back'],   note: 'Κόμβος αλλαγών M1/M2/M3' },
+                    { name: 'Κεραμεικός',           engName: 'Kerameikos',              positions: ['center-back', 'front'] },
+                    { name: 'Ελαιώνας',             engName: 'Elaionas',                positions: ['center-back', 'front'] },
+                    { name: 'Αιγάλεω',              engName: 'Aigaleo',                 positions: ['center-back', 'front'] },
+                    { name: 'Αγία Μαρίνα',          engName: 'Agia Marina',             positions: ['center'] },
+                    { name: 'Αγία Βαρβάρα',         engName: 'Agia Varvara',            positions: ['center-back', 'center'] },
+                    { name: 'Κορυδαλλός',           engName: 'Korydallos',              positions: ['center-front'] },
+                    { name: 'Νίκαια',               engName: 'Nikaia',                  positions: ['center-back', 'center'] },
+                    { name: 'Μανιάτικα',            engName: 'Maniatika',               positions: ['center-back'] },
+                    { name: 'Πειραιάς',             engName: 'Piraeus',                 positions: ['front', 'back'] },
+                    { name: 'Δημοτικό Θέατρο',      engName: 'Dimotiko Theatro',        positions: ['back', 'front'] },
                 ],
             },
             {
@@ -72,23 +72,25 @@ export const lines = [
     },
 ];
 
-// Flat lookup: stopName (lowercase) → array of { line, direction, stop }
-// Used for search across all lines/directions
+// Flat lookup: Greek or English stop name (lowercase) → array of { line, direction, stop }
 export const stopIndex = (() => {
     const index = new Map();
     for (const line of lines) {
         for (const direction of line.directions) {
             for (const stop of direction.stops) {
-                const key = stop.name.toLowerCase();
-                if (!index.has(key)) index.set(key, []);
-                index.get(key).push({ line, direction, stop });
+                for (const key of [stop.name, stop.engName].filter(Boolean).map(n => n.toLowerCase())) {
+                    if (!index.has(key)) index.set(key, []);
+                    index.get(key).push({ line, direction, stop });
+                }
             }
         }
     }
     return index;
 })();
 
-// All unique stop names (for search autocomplete)
-export const allStopNames = [...new Set(
-    lines.flatMap(l => l.directions.flatMap(d => d.stops.map(s => s.name)))
-)].sort((a, b) => a.localeCompare(b, 'el'));
+// All unique stops as { name, engName } objects (for autocomplete)
+export const allStops = [...new Map(
+    lines.flatMap(l => l.directions.flatMap(d =>
+        d.stops.map(s => [s.name, { name: s.name, engName: s.engName }])
+    ))
+).values()].sort((a, b) => a.name.localeCompare(b.name, 'el'));
