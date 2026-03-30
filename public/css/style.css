@@ -305,6 +305,20 @@ body {
     color: #7eb8ff;
 }
 
+/* Filter bar (sticky above bottom nav) */
+.filter-bar {
+    position: sticky;
+    bottom: 0;
+    padding: 12px 0 16px;
+    text-align: center;
+    background: linear-gradient(transparent, #0f1117 60%);
+    pointer-events: none;
+}
+
+.filter-bar button {
+    pointer-events: auto;
+}
+
 /* ── Subway Position tool ── */
 
 .subway-view {

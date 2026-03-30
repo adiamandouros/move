@@ -36,14 +36,14 @@ export const lines = [
                     { name: 'Ταύρος',           engName: 'Tavros',              positions: ['center'], central: true },
                     { name: 'Πετράλωνα',        engName: 'Petralona',           positions: ['back'] },
                     { name: 'Θησείο',           engName: 'Thiseio',             positions: ['center'] },
-                    { name: 'Μοναστηράκι',      engName: 'Monastiraki',         positions: ['back', 'center'], transfers: [
-                        {lineId: 'M3', toward: 'Δημοτικό Θέατρο',       positions: ['center']},
-                        {lineId: 'M3', toward: 'Δουκίσσης / Αεροδρόμιο', positions: ['center']}
-                    ], note: 'Αλλαγές M3 → Δημοτικό θέατρο: κέντρο | Αλλαγή M3 → Αεροδρόμιο: κέντρο' },
-                    { name: 'Ομόνοια',          engName: 'Omonia',              positions: ['center-back', 'center-front'], transfers: [
-                        {lineId: 'M2', toward: 'Ανθούπολη', positions: ['center-back', 'center-front']},
-                        {lineId: 'M2', toward: 'Ελληνικό', positions: ['center-front', 'center-front']}
-                    ], note: 'Αλλαγές M2 → Ανθούπολη: πίσω/μπροστά | Αλλαγή M2 → Ελληνικό: πίσω/μπροστά' },
+                    { name: 'Μοναστηράκι',      engName: 'Monastiraki',         positions: ['center-back', 'center-front'], transfers: [
+                        {lineId: 'M3', toward: 'Δημοτικό Θέατρο',       positions: ['center-back']},
+                        {lineId: 'M3', toward: 'Δουκίσσης / Αεροδρόμιο', positions: ['center-back']}
+                    ], note: 'Regular steps - no escalators' },
+                    { name: 'Ομόνοια',          engName: 'Omonia',              positions: ['back', 'front'], transfers: [
+                        {lineId: 'M2', toward: 'Ανθούπολη', positions: ['center-front']},
+                        {lineId: 'M2', toward: 'Ελληνικό', positions: ['center-front']}
+                    ], note: 'Regular steps - no escalators' },
                     { name: 'Βικτώρια',         engName: 'Victoria',            positions: ['center'] },
                     { name: 'Αττική',           engName: 'Attiki',              positions: ['back', 'center', 'front'], transfers: [] },
                     { name: 'Άγιος Νικόλαος',   engName: 'Agios Nikolaos',      positions: ['back'] },
@@ -80,14 +80,14 @@ export const lines = [
                     { name: 'Άγιος Νικόλαος',   engName: 'Agios Nikolaos',      positions: ['center-back', 'center-front'] },
                     { name: 'Αττική',           engName: 'Attiki',              positions: ['center-back', 'center-front'], transfers: [] },
                     { name: 'Βικτώρια',         engName: 'Victoria',            positions: ['center'] },
-                    { name: 'Ομόνοια',          engName: 'Omonia',              positions: ['center-back', 'center-front'], transfers: [
-                        {lineId: 'M2', toward: 'Ανθούπολη', positions: ['center']},
-                        {lineId: 'M2', toward: 'Ελληνικό', positions: ['center']}
-                    ]},
-                    { name: 'Μοναστηράκι',      engName: 'Monastiraki',         positions: ['center'], transfers: [
+                    { name: 'Ομόνοια',          engName: 'Omonia',              positions: ['back', 'front'], transfers: [
+                        {lineId: 'M2', toward: 'Ανθούπολη', positions: ['center-back']},
+                        {lineId: 'M2', toward: 'Ελληνικό', positions: ['center-back']}
+                    ], note: 'Regular steps - no escalators'},
+                    { name: 'Μοναστηράκι',      engName: 'Monastiraki',         positions: ['center-front'], transfers: [
                         {lineId: 'M3', toward: 'Δημοτικό Θέατρο',       positions: ['center-back']},
                         {lineId: 'M3', toward: 'Δουκίσσης / Αεροδρόμιο', positions: ['center-back']}
-                    ], note: 'Αλλαγές M3 → Δημοτικό θέατρο: πίσω | Αλλαγή M3 → Αεροδρόμιο: πίσω' },
+                    ], note: 'Regular steps - no escalators' },
                     { name: 'Θησείο',           engName: 'Thiseio',             positions: [] , note: 'No data yet!'},
                     { name: 'Πετράλωνα',        engName: 'Petralona',           positions: ['front'] },
                     { name: 'Ταύρος',           engName: 'Tavros',              positions: ['center'], central: true },
@@ -125,8 +125,8 @@ export const lines = [
                         {lineId: 'M3', toward: 'Δημοτικό Θέατρο',       positions: ['center-front']},
                         {lineId: 'M3', toward: 'Δουκίσσης / Αεροδρόμιο', positions: ['center-back']}
                     ], note: 'Usually really crowded' },
-                    { name: 'Πανεπιστήμιο',     engName: 'Panepistimio',    positions: ['center'] },
-                    { name: 'Ομόνοια',          engName: 'Omonia',          positions: [], transfers: [], central: true },
+                    { name: 'Πανεπιστήμιο',     engName: 'Panepistimio',    positions: ['center-back'] },
+                    { name: 'Ομόνοια',          engName: 'Omonia',          positions: ['back', 'center-front'], transfers: [], central: true },
                     { name: 'Μεταξουργείο',     engName: 'Metaxourghio',    positions: [] },
                     { name: 'Σταθμός Λαρίσσης', engName: 'Larissa Station', positions: ['center-front'] },
                     { name: 'Αττική',           engName: 'Attiki',          positions: ['center-back'], transfers: [
@@ -150,10 +150,7 @@ export const lines = [
                     { name: 'Αττική',           engName: 'Attiki',          positions: ['center-front'], transfers: []},
                     { name: 'Σταθμός Λαρίσσης', engName: 'Larissa Station', positions: ['back'] },
                     { name: 'Μεταξουργείο',     engName: 'Metaxourghio',    positions: ['center-front'] },
-                    { name: 'Ομόνοια',          engName: 'Omonia',          positions: ['center-back', 'front'], transfers: [
-                        {lineId: 'M1', toward: 'Κηφισιά', positions: ['center-back', 'front']},
-                        {lineId: 'M1', toward: 'Πειραιάς', positions: ['center-back', 'front']}
-                    ], central: true },
+                    { name: 'Ομόνοια',          engName: 'Omonia',          positions: ['center-back', 'front'], transfers: [], central: true },
                     { name: 'Πανεπιστήμιο',     engName: 'Panepistimio',    positions: ['center-back', 'center-front'] },
                     { name: 'Σύνταγμα',         engName: 'Syntagma',        positions: ['center', 'center-front'], transfers: [
                         {lineId: 'M3', toward: 'Δημοτικό Θέατρο', positions: ['center-back']},
@@ -201,13 +198,13 @@ export const lines = [
                         {lineId: 'M2', toward: 'Ανθούπολη', positions: ['center'] },
                         {lineId: 'M2', toward: 'Ελληνικό', positions: ['center-front'] }
                     ], note: 'Usually crowded' },
-                    { name: 'Μοναστηράκι',          engName: 'Monastiraki',             positions: ['center-back'],   transfers: [
-                        {lineId: 'M1', toward: 'Πειραιάς', positions: ['center-back'] },
-                        {lineId: 'M1', toward: 'Κηφισιά', positions: [] }
+                    { name: 'Μοναστηράκι',          engName: 'Monastiraki',             positions: ['back', 'center-front'],   transfers: [
+                        {lineId: 'M1', toward: 'Πειραιάς', positions: ['back', 'center-front'] },
+                        {lineId: 'M1', toward: 'Κηφισιά', positions: ['back', 'center-front'] }
                     ], central: true },
-                    { name: 'Κεραμεικός',           engName: 'Kerameikos',              positions: ['center-back', 'front'] },
-                    { name: 'Ελαιώνας',             engName: 'Elaionas',                positions: ['center-back', 'front'] },
-                    { name: 'Αιγάλεω',              engName: 'Aigaleo',                 positions: ['center-back', 'front'], central: true },
+                    { name: 'Κεραμεικός',           engName: 'Kerameikos',              positions: ['back', 'center-front'] },
+                    { name: 'Ελαιώνας',             engName: 'Elaionas',                positions: ['back', 'center-front'] },
+                    { name: 'Αιγάλεω',              engName: 'Aigaleo',                 positions: ['center-back', 'center-front'], central: true },
                     { name: 'Αγία Μαρίνα',          engName: 'Agia Marina',             positions: ['center'] },
                     { name: 'Αγία Βαρβάρα',         engName: 'Agia Varvara',            positions: ['center-back', 'center'] },
                     { name: 'Κορυδαλλός',           engName: 'Korydallos',              positions: ['center-front'] },
@@ -232,15 +229,15 @@ export const lines = [
                     { name: 'Μανιάτικα',            engName: 'Maniatika',               positions: ['center-back'] },
                     { name: 'Νίκαια',               engName: 'Nikaia',                  positions: ['center-back', 'center'] },
                     { name: 'Κορυδαλλός',           engName: 'Korydallos',              positions: ['center-front'] },
-                    { name: 'Αγία Βαρβάρα',         engName: 'Agia Varvara',            positions: ['center-back', 'center'] },
-                    { name: 'Αγία Μαρίνα',          engName: 'Agia Marina',             positions: ['center'] },
-                    { name: 'Αιγάλεω',              engName: 'Aigaleo',                 positions: ['center-back', 'front'], central: true },
-                    { name: 'Ελαιώνας',             engName: 'Elaionas',                positions: ['center-back', 'front'] },
+                    { name: 'Αγία Βαρβάρα',         engName: 'Agia Varvara',            positions: ['center-front', 'center'] },
+                    { name: 'Αγία Μαρίνα',          engName: 'Agia Marina',             positions: ['center-front'] },
+                    { name: 'Αιγάλεω',              engName: 'Aigaleo',                 positions: ['center-back', 'center-front'], central: true },
+                    { name: 'Ελαιώνας',             engName: 'Elaionas',                positions: ['back', 'center-front'] },
                     { name: 'Κεραμεικός',           engName: 'Kerameikos',              positions: ['center-back', 'front'] },
-                    { name: 'Μοναστηράκι',          engName: 'Monastiraki',             positions: ['center-back'],   transfers: [
-                        {lineId: 'M1', toward: 'Πειραιάς', positions: ['back'] },
-                        {lineId: 'M1', toward: 'Κηφισιά', positions: ['back'] }
-                    ], note: 'Κόμβος αλλαγών M1/M2/M3', central: true },
+                    { name: 'Μοναστηράκι',          engName: 'Monastiraki',             positions: ['back', 'center'],   transfers: [
+                        {lineId: 'M1', toward: 'Πειραιάς', positions: ['back', 'center'] },
+                        {lineId: 'M1', toward: 'Κηφισιά', positions: ['back', 'center'] }
+                    ], central: true },
                     { name: 'Σύνταγμα',             engName: 'Syntagma',                positions: ['back', 'front'], transfers: [
                         {lineId: 'M2', toward: 'Ανθούπολη', positions: ['center'] },
                         {lineId: 'M2', toward: 'Ελληνικό', positions: ['center-back'] }

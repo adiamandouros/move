@@ -66,7 +66,7 @@ function renderStop(stop, index) {
     const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${stop.StopLat},${stop.StopLng}&travelmode=walking`;
 
     return `
-    <div class="accordion-item stop-item" data-stopcode="${stop.StopCode}">
+    <div class="accordion-item stop-item" data-stopcode="${stop.StopCode}" data-has-arrivals="${stop.arrivals.length > 0}">
         <div class="stop-header d-flex align-items-stretch">
             <button class="accordion-button stop-toggle collapsed d-flex align-items-center gap-3 flex-grow-1 p-0"
                     type="button"
@@ -113,6 +113,27 @@ function renderMessage(icon, title, subtitle = '') {
         </div>`;
 }
 
+// ── Empty-stop filter ────────────────────────────────────────────────────────
+
+let hideEmpty = false;
+
+function applyFilter() {
+    document.querySelectorAll('.stop-item').forEach(item => {
+        const hasArrivals = item.dataset.hasArrivals === 'true';
+        item.classList.toggle('d-none', hideEmpty && !hasArrivals);
+    });
+
+    const btn = document.getElementById('toggle-empty-btn');
+    if (!btn) return;
+    if (hideEmpty) {
+        btn.innerHTML = `<i class="bi bi-eye me-2" aria-hidden="true"></i>Show all stops`;
+        btn.classList.replace('btn-outline-secondary', 'btn-outline-primary');
+    } else {
+        btn.innerHTML = `<i class="bi bi-eye-slash me-2" aria-hidden="true"></i>Hide empty stops`;
+        btn.classList.replace('btn-outline-primary', 'btn-outline-secondary');
+    }
+}
+
 // ── DOM patching (no full re-render) ────────────────────────────────────────
 
 function patchArrivals(stops) {
@@ -121,6 +142,8 @@ function patchArrivals(stops) {
         if (!item) return;
 
         const first = stop.arrivals[0];
+
+        item.dataset.hasArrivals = String(stop.arrivals.length > 0);
 
         item.querySelector('.stop-toggle').setAttribute('aria-label', stopButtonLabel(stop));
 
@@ -136,6 +159,7 @@ function patchArrivals(stops) {
             renderArrivalRows(stop.arrivals);
     });
 
+    applyFilter();
     announce('Arrival times updated');
 }
 
@@ -200,14 +224,26 @@ async function renderStopList(container, coords) {
             <div class="accordion accordion-flush" id="stops-accordion">
                 ${stops.map((s, i) => renderStop(s, i)).join('')}
             </div>
+            <div class="filter-bar">
+                <button id="toggle-empty-btn" class="btn btn-sm btn-outline-secondary rounded-pill px-4">
+                    <i class="bi bi-eye-slash me-2" aria-hidden="true"></i>Hide empty stops
+                </button>
+            </div>
         </div>`;
 
+    container.querySelector('#toggle-empty-btn').addEventListener('click', () => {
+        hideEmpty = !hideEmpty;
+        applyFilter();
+    });
+
+    applyFilter();
     return true;
 }
 
 // ── Entry point ─────────────────────────────────────────────────────────────
 
 export async function loadNearbyBuses(container) {
+    hideEmpty = false;
     stopPolling();
     if (unsubscribeLocation) {
         unsubscribeLocation();
