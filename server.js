@@ -32,6 +32,11 @@ app.use('/api', async (req, res) => {
     }
 });
 
+app.get('/sw.js', (_req, res) => {
+    res.set('Cache-Control', 'no-cache');
+    res.sendFile(path.join(__dirname, 'public', 'sw.js'));
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('*splat', (_req, res) => {
