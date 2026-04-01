@@ -1,4 +1,4 @@
-const CACHE = 'move-v1';
+const CACHE = 'move-v4';
 
 const STATIC_ASSETS = [
     '/',
@@ -38,6 +38,22 @@ self.addEventListener('fetch', e => {
     // Never cache API calls — always go to network
     if (url.pathname.startsWith('/api/')) {
         e.respondWith(fetch(e.request));
+        return;
+    }
+
+    // Network-first for the schedule file so server-side rebuilds reach clients
+    if (url.pathname === '/data/metro-schedule.json') {
+        e.respondWith(
+            fetch(e.request)
+                .then(response => {
+                    if (response.ok) {
+                        const clone = response.clone();
+                        caches.open(CACHE).then(cache => cache.put(e.request, clone));
+                    }
+                    return response;
+                })
+                .catch(() => caches.match(e.request))
+        );
         return;
     }
 

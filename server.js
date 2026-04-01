@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { startScheduler } from './server/scheduler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -40,4 +41,5 @@ app.get('*splat', (_req, res) => {
 app.listen(PORT, () => {
     console.log(`Move app running at http://localhost:${PORT}`);
     console.log(`Proxying /api/* to ${OASA_API_URL}`);
+    startScheduler();
 });

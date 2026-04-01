@@ -71,7 +71,7 @@ function findRoutes(originName, destName) {
     // 1. Direct
     const direct = findLegs(originName, destName).map(leg => ({
         type: 'direct',
-        legs: [{ ...leg, isTransfer: false }],
+        legs: [{ ...leg, boardingName: originName, isTransfer: false }],
     }));
     if (direct.length) return direct;
 
@@ -88,8 +88,8 @@ function findRoutes(originName, destName) {
                     type: 'transfer',
                     interchange,
                     legs: [
-                        { ...leg1, isTransfer: true,  transferTo: leg2 },
-                        { ...leg2, isTransfer: false, transferTo: null },
+                        { ...leg1, boardingName: originName,  isTransfer: true,  transferTo: leg2 },
+                        { ...leg2, boardingName: interchange, isTransfer: false, transferTo: null },
                     ],
                 });
             }
@@ -124,7 +124,7 @@ function renderTrainDiagram(positions) {
 }
 
 function renderLeg(leg) {
-    const { line, direction, stop, isTransfer, transferTo } = leg;
+    const { line, direction, stop, isTransfer, transferTo, boardingName } = leg;
     const icon   = isTransfer ? 'arrow-left-right' : 'door-open';
     const action = isTransfer
         ? `Transfer at <strong>${stop.name}</strong>`
@@ -147,10 +147,16 @@ function renderLeg(leg) {
     }
 
     return `
-        <div class="result-card">
+        <div class="result-card"
+             data-schedule-route="${line.id}"
+             data-schedule-boarding="${boardingName}"
+             data-schedule-toward="${direction.toward}"
+             data-schedule-origin="${direction.stops[0]?.name ?? ''}"
+             data-schedule-destination="${stop.name}">
             <div class="result-header d-flex align-items-center gap-2 mb-2">
                 <span class="line-badge" style="background-color: ${line.color}">${line.name}</span>
                 <span class="direction-text" aria-label="toward ${direction.toward}"><span aria-hidden="true">→ </span>${direction.toward}</span>
+                <div class="schedule-section ms-auto" aria-live="polite"></div>
             </div>
             <div class="leg-action mb-3">
                 <i class="bi bi-${icon} me-2" aria-hidden="true"></i>${action}
@@ -186,7 +192,8 @@ function renderResult(routes) {
     if (!routes.length) {
         return `<p class="text-muted small mt-3">No route found. Check that both stops are on the Athens metro, or try swapping origin and destination.</p>`;
     }
-    return `<div class="routes-wrap">${routes.map((r, i) => renderRoute(r, i, routes.length)).join('<hr class="route-divider">')}</div>`;
+    return `<div class="routes-wrap">${routes.map((r, i) => renderRoute(r, i, routes.length)).join('<hr class="route-divider">')}</div>
+        <p class="schedule-disclaimer"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>Departure times are approximate and may not reflect real-time conditions.</p>`;
 }
 
 // ── Search input factory ────────────────────────────────────────────────────
@@ -323,6 +330,184 @@ function createSearchInput({ inputId, suggestionsId, label, placeholder, onSelec
     return { element: wrap, getSelected: () => input.value || null, setValue };
 }
 
+// ── Schedule lookup ──────────────────────────────────────────────────────────
+
+let scheduleCache = null;
+
+async function loadSchedule() {
+    if (scheduleCache) return scheduleCache;
+    try {
+        const res = await fetch('/data/metro-schedule.json');
+        if (!res.ok) return null;
+        scheduleCache = await res.json();
+        return scheduleCache;
+    } catch {
+        return null;
+    }
+}
+
+function currentDayType() {
+    const dow = new Date().getDay();
+    if (dow === 0) return 'sunday';
+    if (dow === 6) return 'saturday';
+    if (dow === 5) return 'friday';
+    return 'weekday';
+}
+
+function timeToMins(hhmm) {
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + m;
+}
+
+function nowMins() {
+    const d = new Date();
+    return d.getHours() * 60 + d.getMinutes();
+}
+
+function getNextDepartures(schedule, routeId, boardingName, toward, originName, destinationName, count = 2) {
+    const routeData = schedule?.routes?.[routeId];
+    if (!routeData) return [];
+
+    const normToward   = normalise(toward);
+    const normBoarding = normalise(boardingName);
+    const normOrigin   = normalise(originName ?? '');
+    const termini      = routeData._termini ?? {};
+
+    // Pass 1: match by terminus name (works for M1, M2, and M3 toward Δημοτικό Θέατρο).
+    let dirId = Object.entries(termini).find(([, t]) =>
+        t && (normToward.includes(t) || t.includes(normToward))
+    )?.[0];
+
+    // Pass 2 (only if pass 1 found nothing): some termini use a different colloquial name
+    // in subway.js vs the official GTFS stop name (e.g. "Αεροδρόμιο" vs "ελ. βενιζελος").
+    // In that case pick the GTFS direction whose terminus is NOT the origin end of the line —
+    // i.e. the direction that travels *away* from where the passenger boards.
+    if (!dirId && normOrigin) {
+        dirId = Object.entries(termini).find(([, t]) =>
+            t && !normOrigin.includes(t) && !t.includes(normOrigin)
+        )?.[0];
+    }
+
+    if (!dirId) return [];
+
+    const dirData = routeData[dirId];
+
+    // Resolve the boarding stop key — handles names that differ between subway.js and GTFS
+    // (e.g. "αεροδρομιο" vs GTFS key "ελ. βενιζελος").
+    let boardingKey = normBoarding;
+    if (!dirData?.[boardingKey]) {
+        // Substring match
+        boardingKey = Object.keys(dirData).find(k =>
+            k.length > 3 && (normBoarding.includes(k) || k.includes(normBoarding))
+        ) ?? boardingKey;
+    }
+    if (!dirData?.[boardingKey]) {
+        // The boarding stop is the far terminus of the opposite direction
+        // (Airport in dir1: termini["0"] = "ελ. βενιζελος" exists in dir1 data)
+        const altTerminus = Object.values(termini).find(t => t !== termini[dirId] && dirData[t]);
+        if (altTerminus) boardingKey = altTerminus;
+    }
+
+    const stopData = dirData?.[boardingKey];
+    if (!stopData) return [];
+
+    const boardingTimes = stopData[currentDayType()] ?? stopData.friday ?? stopData.weekday ?? [];
+
+    // If the destination is on a branch with fewer trains (e.g. the M3 airport branch beyond
+    // Doukissis), look up the destination stop's schedule — which only contains the trains
+    // that actually reach it — instead of the boarding stop's schedule (which contains all trains).
+    let times = boardingTimes;
+    if (destinationName) {
+        const normDest = normalise(destinationName);
+        let destData = dirData[normDest] ?? null;
+
+        // Substring match handles "παιανια-καντζα" → GTFS key "καντζα"
+        if (!destData) {
+            for (const [key, val] of Object.entries(dirData)) {
+                if (key.length > 3 && (normDest.includes(key) || key.includes(normDest))) {
+                    destData = val;
+                    break;
+                }
+            }
+        }
+
+        // Terminus fallback handles names that differ entirely from GTFS
+        // (e.g. "αεροδρομιο" → GTFS terminus "ελ. βενιζελος")
+        if (!destData && termini[dirId]) {
+            destData = dirData[termini[dirId]] ?? null;
+        }
+
+        if (destData) {
+            const destTimes = destData[currentDayType()] ?? destData.friday ?? destData.weekday ?? [];
+            // Only switch when the branch is significantly thinner (e.g. M3 airport branch).
+            if (destTimes.length < boardingTimes.length * 0.5) {
+                // Prefer the airport_branch lookup: it stores exact departure times
+                // at each boarding stop for airport-bound trains, so the "In X'" shown
+                // to the user reflects when the train actually leaves their platform.
+                const branchTimes = routeData.airport_branch?.[boardingKey];
+                times = branchTimes ?? destTimes;
+            }
+        }
+    }
+
+    // Find the last and second-to-last trains of the day (surviving the 2-min dedup filter).
+    let lastTrainTime = null, secondLastTrainTime = null;
+    {
+        let prevMins = -Infinity;
+        for (const t of times) {
+            const m = timeToMins(t);
+            if (m - prevMins >= 2) { secondLastTrainTime = lastTrainTime; lastTrainTime = t; prevMins = m; }
+        }
+    }
+
+    const now = nowMins();
+
+    // Strip departures closer than 2 minutes to the previous one — OASA's GTFS sometimes
+    // contains two near-identical trip variants that create artificial 1-minute clusters.
+    // The real Athens metro minimum headway is ~3 minutes, so this is always an artifact.
+    const result = [];
+    let lastMins = -Infinity;
+    for (const t of times) {
+        const m = timeToMins(t);
+        if (m <= now) continue;
+        if (m - lastMins >= 2) {
+            result.push({ time: t, isLast: t === lastTrainTime, isSecondLast: t === secondLastTrainTime });
+            lastMins = m;
+        }
+        if (result.length === count) break;
+    }
+    return result;
+}
+
+async function fillSchedules(container) {
+    const schedule = await loadSchedule();
+    if (!schedule) return;
+
+    const now = nowMins();
+
+    container.querySelectorAll('[data-schedule-route]').forEach(card => {
+        const departures = getNextDepartures(
+            schedule,
+            card.dataset.scheduleRoute,
+            card.dataset.scheduleBoarding,
+            card.dataset.scheduleToward,
+            card.dataset.scheduleOrigin,
+            card.dataset.scheduleDestination,
+        );
+
+        const section = card.querySelector('.schedule-section');
+        if (!section || !departures.length) return;
+
+        const chips = departures.map(({ time, isLast, isSecondLast }) => {
+            const mins = timeToMins(time) - now;
+            const cls = isLast ? ' schedule-chip--last' : isSecondLast ? ' schedule-chip--second-last' : '';
+            return `<span class="schedule-chip${cls}">${mins}'</span>`;
+        }).join('');
+
+        section.innerHTML = `<span class="schedule-label">In</span><span class="schedule-chips">${chips}</span>`;
+    });
+}
+
 // ── Main view ───────────────────────────────────────────────────────────────
 
 export function loadSubwayPosition(container) {
@@ -341,6 +526,7 @@ export function loadSubwayPosition(container) {
     function tryRender() {
         if (originName && destName) {
             result.innerHTML = renderResult(findRoutes(originName, destName));
+            fillSchedules(result).catch(() => {});
         } else {
             result.innerHTML = '';
         }

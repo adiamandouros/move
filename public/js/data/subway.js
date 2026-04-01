@@ -255,7 +255,7 @@ export const lines = [
                     { name: 'Δουκίσσης Πλακεντίας', engName: 'Doukissis Plakentias',    positions: ['center-back'] },
                     { name: 'Παλλήνη',              engName: 'Pallini',                 positions: [] , note: 'No data yet!', central: true },
                     { name: 'Παιανία-Κάντζα',       engName: 'Paiania-Kantza',          positions: [] },
-                    { name: 'Κορωπί',               engName: 'Κορωπί',                  positions: [] },
+                    { name: 'Κορωπί',               engName: 'Koropi',                  positions: [] },
                     { name: 'Αεροδρόμιο',           engName: 'Airport',                 positions: [] },
                 ],
             },
