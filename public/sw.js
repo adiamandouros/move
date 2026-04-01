@@ -1,4 +1,4 @@
-const CACHE = 'move-v5';
+const CACHE = 'move-v6';
 
 const STATIC_ASSETS = [
     '/',
