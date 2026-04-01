@@ -112,7 +112,7 @@ function positionLabel(p) {
     return getLanguage() === 'el' ? p.labelGr : p.label;
 }
 
-function renderTrainDiagram(positions) {
+function renderTrainDiagram(positions, elevators = []) {
     const ariaLabel = positions.map(p => POSITIONS.find(x => x.id === p)?.label).join(' and ');
     return `
         <div class="train-diagram" role="img" aria-label="${t('subway.diagram-label')} ${ariaLabel}">
@@ -120,13 +120,14 @@ function renderTrainDiagram(positions) {
             <div class="train-cars-wrap" aria-hidden="true">
                 <div class="train-cars">
                     ${POSITIONS.map(p => `
-                        <div class="train-car ${positions.includes(p.id) ? 'highlighted' : ''}">
-                            ${positions.includes(p.id) ? '<i class="bi bi-person-standing"></i>' : ''}
+                        <div class="train-car ${positions.includes(p.id) ? 'highlighted' : ''} ${elevators.includes(p.id) ? 'has-elevator' : ''}">
+                            ${positions.includes(p.id) ? '<i class="bi bi-person-walking"></i>' : ''}
+                            ${elevators.includes(p.id) ? '<i class="bi bi-arrow-up-square"></i>' : ''}
                         </div>`).join('')}
                 </div>
                 <div class="position-labels">
                     ${POSITIONS.map(p => `
-                        <div class="position-label ${positions.includes(p.id) ? 'highlighted' : ''}">
+                        <div class="position-label ${positions.includes(p.id) ? 'highlighted' : ''} ${elevators.includes(p.id) ? 'has-elevator' : ''}">
                             ${positionLabel(p)}
                         </div>`).join('')}
                 </div>
@@ -144,16 +145,17 @@ function renderLeg(leg) {
 
     // For transfer legs: use specific transfer positions if available,
     // otherwise fall back to the stop's exit positions
-    let positions, noData, noteText;
+    let positions, elevators, noData, noteText;
     if (isTransfer && stop.transfers?.length) {
         const match = stop.transfers.find(
             t => t.lineId === transferTo.line.id && t.toward === transferTo.direction.toward
         );
-        positions = match ? match.positions : stop.positions;
+        positions = match ? match.exits : stop.exits;
+        elevators = match ? match.elevators : stop.elevators;
         noData    = positions.length === 0;
         noteText  = null; // transfer-specific note could be added to the data later
     } else {
-        positions = stop.positions;
+        positions = stop.exits;
         noData    = positions.length === 0;
         noteText  = Array.isArray(stop.note) ? stop.note.join(' ') : stop.note;
     }
@@ -176,7 +178,7 @@ function renderLeg(leg) {
             </div>
             ${noData
                 ? `<p class="text-muted fst-italic small">${t('subway.no-position-data')}</p>`
-                : `${renderTrainDiagram(positions)}
+                : `${renderTrainDiagram(positions, stop.elevators ?? [])}
                    ${noteText ? `<div class="stop-note mt-3"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${noteText}</div>` : ''}`
             }
         </div>`;
