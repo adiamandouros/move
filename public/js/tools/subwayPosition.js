@@ -1,5 +1,7 @@
 import { lines, allStops, stopCoordinates, stopIndex } from '../data/subway.js';
 import { getCoords } from '../location.js';
+import { t } from '../i18n.js';
+import { getLanguage, onLanguageChange } from '../settings.js';
 
 // ── Position config ─────────────────────────────────────────────────────────
 
@@ -13,6 +15,12 @@ const POSITIONS = [
 
 // Interchange station names (Greek) — the only transfer points in Athens metro
 const INTERCHANGES = ['Μοναστηράκι', 'Ομόνοια', 'Αττική', 'Σύνταγμα', 'Πειραιάς'];
+
+// ── Module-level state ───────────────────────────────────────────────────────
+
+let currentOrigin = null;
+let currentDest   = null;
+let unsubscribeSubwayLang = null;
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -100,11 +108,15 @@ function findRoutes(originName, destName) {
 
 // ── Rendering ───────────────────────────────────────────────────────────────
 
+function positionLabel(p) {
+    return getLanguage() === 'el' ? p.labelGr : p.label;
+}
+
 function renderTrainDiagram(positions) {
     const ariaLabel = positions.map(p => POSITIONS.find(x => x.id === p)?.label).join(' and ');
     return `
-        <div class="train-diagram" role="img" aria-label="Train diagram showing where to stand: ${ariaLabel}">
-            <div class="train-label" aria-hidden="true">BACK</div>
+        <div class="train-diagram" role="img" aria-label="${t('subway.diagram-label')} ${ariaLabel}">
+            <div class="train-label" aria-hidden="true">${t('subway.train-back')}</div>
             <div class="train-cars-wrap" aria-hidden="true">
                 <div class="train-cars">
                     ${POSITIONS.map(p => `
@@ -115,11 +127,11 @@ function renderTrainDiagram(positions) {
                 <div class="position-labels">
                     ${POSITIONS.map(p => `
                         <div class="position-label ${positions.includes(p.id) ? 'highlighted' : ''}">
-                            ${p.labelGr}
+                            ${positionLabel(p)}
                         </div>`).join('')}
                 </div>
             </div>
-            <div class="train-label" aria-hidden="true">FRONT</div>
+            <div class="train-label" aria-hidden="true">${t('subway.train-front')}</div>
         </div>`;
 }
 
@@ -127,8 +139,8 @@ function renderLeg(leg) {
     const { line, direction, stop, isTransfer, transferTo, boardingName } = leg;
     const icon   = isTransfer ? 'arrow-left-right' : 'door-open';
     const action = isTransfer
-        ? `Transfer at <strong>${stop.name}</strong>`
-        : `Exit at <strong>${stop.name}</strong>`;
+        ? `${t('subway.transfer-at')} <strong>${stop.name}</strong>`
+        : `${t('subway.exit-at')} <strong>${stop.name}</strong>`;
 
     // For transfer legs: use specific transfer positions if available,
     // otherwise fall back to the stop's exit positions
@@ -155,15 +167,15 @@ function renderLeg(leg) {
              data-schedule-destination="${stop.name}">
             <div class="result-header d-flex align-items-center gap-2 mb-2">
                 <span class="line-badge" style="background-color: ${line.color}">${line.name}</span>
-                <span class="direction-text" aria-label="toward ${direction.toward}"><span aria-hidden="true">→ </span>${direction.toward}</span>
+                <span class="direction-text" aria-label="${t('subway.toward')} ${direction.toward}"><span aria-hidden="true">→ </span>${direction.toward}</span>
                 <div class="schedule-section ms-auto" aria-live="polite"></div>
             </div>
             <div class="leg-action mb-3">
                 <i class="bi bi-${icon} me-2" aria-hidden="true"></i>${action}
-                ${stop.central ? `<span class="central-platform-badge ms-2"><i class="bi bi-symmetry-horizontal me-1" aria-hidden="true"></i>Exit left</span>` : ''}
+                ${stop.central ? `<span class="central-platform-badge ms-2"><i class="bi bi-symmetry-horizontal me-1" aria-hidden="true"></i>${t('subway.exit-left')}</span>` : ''}
             </div>
             ${noData
-                ? `<p class="text-muted fst-italic small">No position data for this stop yet.</p>`
+                ? `<p class="text-muted fst-italic small">${t('subway.no-position-data')}</p>`
                 : `${renderTrainDiagram(positions)}
                    ${noteText ? `<div class="stop-note mt-3"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${noteText}</div>` : ''}`
             }
@@ -172,7 +184,7 @@ function renderLeg(leg) {
 
 function renderRoute(route, index, total) {
     const header = total > 1
-        ? `<p class="route-option-label">Option ${index + 1}${route.type === 'transfer' ? ` · Transfer at ${route.interchange}` : ''}</p>`
+        ? `<p class="route-option-label">${t('subway.option')} ${index + 1}${route.type === 'transfer' ? ` · ${t('subway.transfer-at')} ${route.interchange}` : ''}</p>`
         : '';
 
     if (route.type === 'direct') {
@@ -183,17 +195,17 @@ function renderRoute(route, index, total) {
         ${renderLeg(route.legs[0])}
         <div class="transfer-connector" aria-hidden="true">
             <i class="bi bi-arrow-down-circle-fill"></i>
-            <span>Change to ${route.legs[1].line.name}</span>
+            <span>${t('subway.change-to')} ${route.legs[1].line.name}</span>
         </div>
         ${renderLeg(route.legs[1])}`;
 }
 
 function renderResult(routes) {
     if (!routes.length) {
-        return `<p class="text-muted small mt-3">No route found. Check that both stops are on the Athens metro, or try swapping origin and destination.</p>`;
+        return `<p class="text-muted small mt-3">${t('subway.no-route')}</p>`;
     }
     return `<div class="routes-wrap">${routes.map((r, i) => renderRoute(r, i, routes.length)).join('<hr class="route-divider">')}</div>
-        <p class="schedule-disclaimer"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>Departure times are approximate and may not reflect real-time conditions.</p>`;
+        <p class="schedule-disclaimer"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${t('subway.schedule-disclaimer')}</p>`;
 }
 
 // ── Search input factory ────────────────────────────────────────────────────
@@ -218,9 +230,9 @@ function filterStops(query) {
 
 function createSearchInput({ inputId, suggestionsId, label, placeholder, onSelect }) {
     const wrap = document.createElement('div');
-    wrap.className = 'subway-search-wrap';
+    wrap.className = 'subway-search-wrap mb-1';
     wrap.innerHTML = `
-        <label for="${inputId}" class="form-label fw-semibold">${label}</label>
+        <label for="${inputId}" class="form-label fw-semibold m-0">${label}</label>
         <div class="position-relative">
             <input id="${inputId}"
                    role="combobox"
@@ -236,7 +248,7 @@ function createSearchInput({ inputId, suggestionsId, label, placeholder, onSelec
             <ul id="${suggestionsId}"
                 class="stop-suggestions list-unstyled mb-0"
                 role="listbox"
-                aria-label="Station suggestions"
+                aria-label="${t('subway.station-suggestions')}"
                 hidden></ul>
         </div>`;
 
@@ -454,9 +466,9 @@ function getNextDepartures(schedule, routeId, boardingName, toward, originName, 
     let lastTrainTime = null, secondLastTrainTime = null;
     {
         let prevMins = -Infinity;
-        for (const t of times) {
-            const m = timeToMins(t);
-            if (m - prevMins >= 2) { secondLastTrainTime = lastTrainTime; lastTrainTime = t; prevMins = m; }
+        for (const time of times) {
+            const m = timeToMins(time);
+            if (m - prevMins >= 2) { secondLastTrainTime = lastTrainTime; lastTrainTime = time; prevMins = m; }
         }
     }
 
@@ -467,11 +479,11 @@ function getNextDepartures(schedule, routeId, boardingName, toward, originName, 
     // The real Athens metro minimum headway is ~3 minutes, so this is always an artifact.
     const result = [];
     let lastMins = -Infinity;
-    for (const t of times) {
-        const m = timeToMins(t);
+    for (const time of times) {
+        const m = timeToMins(time);
         if (m <= now) continue;
         if (m - lastMins >= 2) {
-            result.push({ time: t, isLast: t === lastTrainTime, isSecondLast: t === secondLastTrainTime });
+            result.push({ time, isLast: time === lastTrainTime, isSecondLast: time === secondLastTrainTime });
             lastMins = m;
         }
         if (result.length === count) break;
@@ -504,13 +516,21 @@ async function fillSchedules(container) {
             return `<span class="schedule-chip${cls}">${mins}'</span>`;
         }).join('');
 
-        section.innerHTML = `<span class="schedule-label">In</span><span class="schedule-chips">${chips}</span>`;
+        section.innerHTML = `<span class="schedule-label">${t('subway.schedule-in')}</span><span class="schedule-chips">${chips}</span>`;
     });
 }
 
 // ── Main view ───────────────────────────────────────────────────────────────
 
 export function loadSubwayPosition(container) {
+    // Save selections so they survive a language-change re-render
+    const savedOrigin = currentOrigin;
+    const savedDest   = currentDest;
+
+    // Subscribe to language changes — re-render the whole view
+    if (unsubscribeSubwayLang) unsubscribeSubwayLang();
+    unsubscribeSubwayLang = onLanguageChange(() => loadSubwayPosition(container));
+
     container.innerHTML = `
         <div class="subway-view">
             <div id="subway-inputs"></div>
@@ -535,38 +555,53 @@ export function loadSubwayPosition(container) {
     const from = createSearchInput({
         inputId:       'stop-search-from',
         suggestionsId: 'stop-suggestions-from',
-        label:         'Boarding at',
-        placeholder:   'Type your boarding station…',
-        onSelect: name => { originName = name; tryRender(); },
+        label:         t('subway.boarding-label'),
+        placeholder:   t('subway.boarding-placeholder'),
+        onSelect: name => { originName = name; currentOrigin = name; tryRender(); },
     });
 
     const to = createSearchInput({
         inputId:       'stop-search-to',
         suggestionsId: 'stop-suggestions-to',
-        label:         'Getting off at',
-        placeholder:   'Type your destination…',
-        onSelect: name => { destName = name; tryRender(); },
+        label:         t('subway.destination-label'),
+        placeholder:   t('subway.destination-placeholder'),
+        onSelect: name => { destName = name; currentDest = name; tryRender(); },
     });
 
     inputsWrap.appendChild(from.element);
     inputsWrap.appendChild(to.element);
 
-    getCoords()
-        .then(({ lat, lng }) => {
-            // Only pre-fill if the user hasn't already typed something
-            if (!from.getSelected()) {
-                const closest = findClosestStop(lat, lng);
-                if (closest) {
-                    from.setValue(closest.name);
-                    const announcer = document.getElementById('sr-announcer');
-                    if (announcer) {
-                        announcer.textContent = '';
-                        requestAnimationFrame(() => {
-                            announcer.textContent = `Boarding station set to ${closest.engName ?? closest.name} based on your location.`;
-                        });
+    // Restore previous selections after a language-change re-render
+    if (savedOrigin) from.setValue(savedOrigin);
+    if (savedDest)   to.setValue(savedDest);
+
+    // Pre-fill origin from geolocation (only if no saved selection)
+    if (!savedOrigin) {
+        getCoords()
+            .then(({ lat, lng }) => {
+                if (!from.getSelected()) {
+                    const closest = findClosestStop(lat, lng);
+                    if (closest) {
+                        from.setValue(closest.name);
+                        const announcer = document.getElementById('sr-announcer');
+                        if (announcer) {
+                            announcer.textContent = '';
+                            requestAnimationFrame(() => {
+                                announcer.textContent = `${t('subway.location-prefix')} ${closest.engName ?? closest.name} ${t('subway.location-suffix')}`;
+                            });
+                        }
                     }
                 }
-            }
-        })
-        .catch(() => {}); // silently skip if location is unavailable or denied
+            })
+            .catch(() => {}); // silently skip if location is unavailable or denied
+    }
+}
+
+export function unloadSubwayPosition() {
+    if (unsubscribeSubwayLang) {
+        unsubscribeSubwayLang();
+        unsubscribeSubwayLang = null;
+    }
+    // currentOrigin / currentDest are intentionally preserved so selections
+    // are restored when the user navigates back to this tool
 }

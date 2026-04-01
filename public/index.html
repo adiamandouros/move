@@ -12,7 +12,7 @@
     <link rel="shortcut icon" href="/public/icon/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/public/icon/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-title" content="Move" />
-    <link rel="manifest" href="/public/icon/site.webmanifest" />
+    <link rel="manifest" href="/icon/site.webmanifest" />
 </head>
 <body>
 
@@ -27,17 +27,27 @@
                 <span class="fw-bold fs-4 text-primary" role="heading" aria-level="1">Move</span>
             </div>
             <div class="d-flex flex-column flex-grow-1 px-2">
+                <div class="mt-auto pb-3">
+                    <button id="lang-toggle-side" class="lang-toggle-btn btn d-flex align-items-center gap-3 px-3 py-2 w-100" aria-label="Switch language">
+                        <i class="bi bi-globe fs-5" aria-hidden="true"></i>
+                        <div class="lang-options" aria-hidden="true">
+                            <span class="lang-opt" data-lang="en">EN</span>
+                            <span class="lang-sep">/</span>
+                            <span class="lang-opt" data-lang="el">ΕΛ</span>
+                        </div>
+                    </button>
+                </div>
                 <button class="nav-btn btn d-flex align-items-center gap-3 px-3 py-3 mb-1"
                         data-tool="nearby-buses"
                         aria-current="false">
                     <i class="bi bi-bus-front fs-5" aria-hidden="true"></i>
-                    <span>Nearby Buses</span>
+                    <span data-i18n="nav.nearby-buses">Nearby Buses</span>
                 </button>
                 <button class="nav-btn btn d-flex align-items-center gap-3 px-3 py-3 mb-1"
                         data-tool="subway-position"
                         aria-current="false">
                     <i class="bi bi-train-front fs-5" aria-hidden="true"></i>
-                    <span>Subway</span>
+                    <span data-i18n="nav.subway">Subway</span>
                 </button>
             </div>
         </nav>
@@ -46,7 +56,7 @@
         <main id="app-content" tabindex="-1" aria-label="Tool content">
             <div id="view-placeholder" class="d-flex flex-column align-items-center justify-content-center text-muted h-100">
                 <i class="bi bi-bus-front fs-1 mb-3" aria-hidden="true"></i>
-                <p class="fs-5">Select a tool</p>
+                <p class="fs-5" data-i18n="nav.select-tool">Select a tool</p>
             </div>
         </main>
 
@@ -54,17 +64,25 @@
 
     <!-- Bottom nav (mobile) -->
     <nav id="bottom-nav" class="d-flex d-md-none fixed-bottom border-top" aria-label="Main navigation">
+        <button id="lang-toggle-bottom" class="nav-btn btn d-flex flex-column align-items-center py-2" aria-label="Switch language">
+            <i class="bi bi-globe fs-4" aria-hidden="true"></i>
+            <div class="lang-options" aria-hidden="true">
+                <span class="lang-opt" data-lang="en">EN</span>
+                <span class="lang-sep">/</span>
+                <span class="lang-opt" data-lang="el">ΕΛ</span>
+            </div>
+        </button>
         <button class="nav-btn btn d-flex flex-column align-items-center py-2"
                 data-tool="nearby-buses"
                 aria-current="false">
             <i class="bi bi-bus-front fs-4" aria-hidden="true"></i>
-            <span class="nav-label">Nearby</span>
+            <span class="nav-label" data-i18n="nav.nearby-buses.short">Nearby</span>
         </button>
         <button class="nav-btn btn d-flex flex-column align-items-center py-2"
                 data-tool="subway-position"
                 aria-current="false">
             <i class="bi bi-train-front fs-4" aria-hidden="true"></i>
-            <span class="nav-label">Subway</span>
+            <span class="nav-label" data-i18n="nav.subway">Subway</span>
         </button>
     </nav>
 

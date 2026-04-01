@@ -1,4 +1,6 @@
 import { getCoords, subscribeToLocation } from '../location.js';
+import { t } from '../i18n.js';
+import { onLanguageChange } from '../settings.js';
 
 // ── Screen reader announcer ─────────────────────────────────────────────────
 
@@ -27,15 +29,15 @@ function formatDistance(meters) {
 
 function renderArrivalBadge(minutes) {
     const m = Number(minutes);
-    if (m <= 3) return `<span class="badge arrival-badge arrival-soon" aria-label="${m} minutes, arriving soon">${m} min</span>`;
-    if (m <= 8) return `<span class="badge arrival-badge arrival-close" aria-label="${m} minutes">${m} min</span>`;
-    return `<span class="badge arrival-badge arrival-later" aria-label="${m} minutes">${m} min</span>`;
+    if (m <= 3) return `<span class="badge arrival-badge arrival-soon" aria-label="${m} ${t('buses.arriving-soon')}">${m} min</span>`;
+    if (m <= 8) return `<span class="badge arrival-badge arrival-close" aria-label="${m} ${t('buses.minutes')}">${m} min</span>`;
+    return `<span class="badge arrival-badge arrival-later" aria-label="${m} ${t('buses.minutes')}">${m} min</span>`;
 }
 
 // ── Rendering ───────────────────────────────────────────────────────────────
 
 function renderArrivalRows(arrivals) {
-    if (!arrivals.length) return `<p class="text-muted small mb-0">No upcoming arrivals.</p>`;
+    if (!arrivals.length) return `<p class="text-muted small mb-0">${t('buses.no-arrivals')}</p>`;
     return arrivals.map(a => `
         <div class="arrival-row d-flex align-items-center justify-content-between py-2 border-bottom border-secondary-subtle"
              role="row">
@@ -50,9 +52,9 @@ function renderArrivalRows(arrivals) {
 function stopButtonLabel(stop) {
     const first = stop.arrivals[0];
     const busInfo = first
-        ? `Next bus: line ${first.LineID} to ${first.RouteDescrEng}, ${first.btime2} minutes`
-        : 'No upcoming arrivals';
-    return `${stop.StopDescrEng}, ${stop.distance} away. ${busInfo}. Tap to expand.`;
+        ? `${t('buses.next-bus-line')} ${first.LineID} to ${first.RouteDescrEng}, ${first.btime2} ${t('buses.minutes')}`
+        : t('buses.no-upcoming');
+    return `${stop.StopDescrEng}, ${stop.distance} away. ${busInfo}. ${t('buses.tap-expand')}`;
 }
 
 function renderStop(stop, index) {
@@ -61,7 +63,7 @@ function renderStop(stop, index) {
     const mainContent = first
         ? `<span class="next-bus-line" aria-hidden="true">${first.LineID}</span>
            <span class="next-bus-dest" aria-hidden="true">${first.RouteDescrEng}</span>`
-        : `<span class="next-bus-dest text-muted fst-italic" aria-hidden="true">No arrivals</span>`;
+        : `<span class="next-bus-dest text-muted fst-italic" aria-hidden="true">${t('buses.no-arrivals-short')}</span>`;
 
     const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${stop.StopLat},${stop.StopLng}&travelmode=walking`;
 
@@ -90,14 +92,14 @@ function renderStop(stop, index) {
                 <span class="header-badge-wrap" aria-hidden="true">${first ? renderArrivalBadge(first.btime2) : ''}</span>
                 <a class="directions-btn d-flex align-items-center justify-content-center"
                    href="${mapsUrl}" target="_blank" rel="noopener"
-                   aria-label="Walking directions to ${stop.StopDescrEng}">
+                   aria-label="${t('buses.walking-directions-to')} ${stop.StopDescrEng}">
                     <i class="bi bi-signpost-2-fill" aria-hidden="true"></i>
                 </a>
             </div>
         </div>
 
         <div id="stop-${index}" class="accordion-collapse collapse">
-            <div class="accordion-body stop-body" role="table" aria-label="All arrivals for ${stop.StopDescrEng}">
+            <div class="accordion-body stop-body" role="table" aria-label="${t('buses.all-arrivals-for')} ${stop.StopDescrEng}">
                 ${renderArrivalRows(stop.arrivals)}
             </div>
         </div>
@@ -126,10 +128,10 @@ function applyFilter() {
     const btn = document.getElementById('toggle-empty-btn');
     if (!btn) return;
     if (hideEmpty) {
-        btn.innerHTML = `<i class="bi bi-eye me-2" aria-hidden="true"></i>Show all stops`;
+        btn.innerHTML = `<i class="bi bi-eye me-2" aria-hidden="true"></i>${t('buses.show-all')}`;
         btn.classList.replace('btn-outline-secondary', 'btn-outline-primary');
     } else {
-        btn.innerHTML = `<i class="bi bi-eye-slash me-2" aria-hidden="true"></i>Hide empty stops`;
+        btn.innerHTML = `<i class="bi bi-eye-slash me-2" aria-hidden="true"></i>${t('buses.hide-empty')}`;
         btn.classList.replace('btn-outline-primary', 'btn-outline-secondary');
     }
 }
@@ -150,7 +152,7 @@ function patchArrivals(stops) {
         item.querySelector('.stop-next-bus').innerHTML = first
             ? `<span class="next-bus-line" aria-hidden="true">${first.LineID}</span>
                <span class="next-bus-dest" aria-hidden="true">${first.RouteDescrEng}</span>`
-            : `<span class="next-bus-dest text-muted fst-italic" aria-hidden="true">No arrivals</span>`;
+            : `<span class="next-bus-dest text-muted fst-italic" aria-hidden="true">${t('buses.no-arrivals-short')}</span>`;
 
         item.querySelector('.header-badge-wrap').innerHTML =
             first ? renderArrivalBadge(first.btime2) : '';
@@ -160,7 +162,7 @@ function patchArrivals(stops) {
     });
 
     applyFilter();
-    announce('Arrival times updated');
+    announce(t('buses.updated'));
 }
 
 // ── Data fetching ───────────────────────────────────────────────────────────
@@ -178,6 +180,7 @@ const LOCATION_THRESHOLD_M = 40;
 
 let pollTimer = null;
 let unsubscribeLocation = null;
+let unsubscribeLanguage = null;
 
 function stopPolling() {
     if (pollTimer !== null) {
@@ -203,12 +206,12 @@ async function renderStopList(container, coords) {
     try {
         stops = await fetchNearbyStops(coords.lat, coords.lng);
     } catch (err) {
-        container.innerHTML = renderMessage('wifi-off', 'Could not reach the server', err.message);
+        container.innerHTML = renderMessage('wifi-off', t('buses.server-error'), err.message);
         return false;
     }
 
     if (!stops || stops.length === 0) {
-        container.innerHTML = renderMessage('bus-front', 'No stops found nearby');
+        container.innerHTML = renderMessage('bus-front', t('buses.no-stops'));
         return false;
     }
 
@@ -226,7 +229,7 @@ async function renderStopList(container, coords) {
             </div>
             <div class="filter-bar">
                 <button id="toggle-empty-btn" class="btn btn-sm btn-outline-secondary rounded-pill px-4">
-                    <i class="bi bi-eye-slash me-2" aria-hidden="true"></i>Hide empty stops
+                    <i class="bi bi-eye-slash me-2" aria-hidden="true"></i>${t('buses.hide-empty')}
                 </button>
             </div>
         </div>`;
@@ -245,12 +248,12 @@ async function renderStopList(container, coords) {
 export async function loadNearbyBuses(container) {
     hideEmpty = false;
     stopPolling();
-    if (unsubscribeLocation) {
-        unsubscribeLocation();
-        unsubscribeLocation = null;
-    }
+    if (unsubscribeLocation) { unsubscribeLocation(); unsubscribeLocation = null; }
+    if (unsubscribeLanguage) { unsubscribeLanguage(); unsubscribeLanguage = null; }
 
-    container.innerHTML = renderMessage('arrow-repeat spin', 'Getting your location…');
+    unsubscribeLanguage = onLanguageChange(() => loadNearbyBuses(container));
+
+    container.innerHTML = renderMessage('arrow-repeat spin', t('buses.getting-location'));
 
     let coords;
     try {
@@ -259,15 +262,13 @@ export async function loadNearbyBuses(container) {
         const denied = err.code === 1;
         container.innerHTML = renderMessage(
             'geo-alt',
-            denied ? 'Location access denied' : 'Could not get location',
-            denied
-                ? 'Please allow location access in your browser settings and try again.'
-                : err.message
+            denied ? t('buses.location-denied') : t('buses.location-error'),
+            denied ? t('buses.location-denied-hint') : err.message
         );
         return;
     }
 
-    container.innerHTML = renderMessage('arrow-repeat spin', 'Finding nearby stops…');
+    container.innerHTML = renderMessage('arrow-repeat spin', t('buses.finding-stops'));
 
     const coordsRef = { lat: coords.lat, lng: coords.lng };
     let fetchCoords = { lat: coords.lat, lng: coords.lng };
@@ -294,8 +295,6 @@ export async function loadNearbyBuses(container) {
 
 export function unloadNearbyBuses() {
     stopPolling();
-    if (unsubscribeLocation) {
-        unsubscribeLocation();
-        unsubscribeLocation = null;
-    }
+    if (unsubscribeLocation) { unsubscribeLocation(); unsubscribeLocation = null; }
+    if (unsubscribeLanguage) { unsubscribeLanguage(); unsubscribeLanguage = null; }
 }

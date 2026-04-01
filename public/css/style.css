@@ -603,3 +603,51 @@ body {
 .schedule-section{
     white-space: nowrap;
 }
+
+/* ── Language toggle ── */
+
+.lang-toggle-btn {
+    color: #9aa3b2;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    transition: color 0.15s, background-color 0.15s;
+    text-align: left;
+}
+
+.lang-toggle-btn:hover {
+    color: #e8eaf0;
+    background-color: #1e2538;
+}
+
+.lang-toggle-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+.lang-options {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.85rem;
+}
+
+.lang-opt {
+    color: #4a5568;
+    transition: color 0.15s;
+}
+
+.lang-opt.active {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.lang-sep {
+    color: #2a3350;
+    font-size: 0.75rem;
+}
+
+#bottom-nav .lang-options {
+    font-size: 0.7rem;
+    margin-top: 2px;
+}
