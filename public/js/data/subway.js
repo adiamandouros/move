@@ -120,7 +120,7 @@ export const lines = [
                     { name: 'Δάφνη',            engName: 'Dafni',           exits: ['center'] },
                     { name: 'Άγιος Ιωάννης',    engName: 'Agios Ioannis',   exits: ['center-front'] },
                     { name: 'Νέος Κόσμος',      engName: 'Neos Kosmos',     exits: ['center-front'] },
-                    { name: 'Συγγρού Φιξ',      engName: 'Syggrou Fix',     exits: ['center-front'] },
+                    { name: 'Συγγρού Φιξ',      engName: 'Syggrou Fix',     exits: ['center-front'], elevators: ['center'] },
                     { name: 'Ακρόπολη',         engName: 'Acropolis',       exits: ['center-back'], elevators: ['center'] },
                     { name: 'Σύνταγμα',         engName: 'Syntagma',        exits: ['center'], transfers: [
                         {lineId: 'M3', toward: 'Δημοτικό Θέατρο',       exits: ['center-front']},
@@ -158,7 +158,7 @@ export const lines = [
                         {lineId: 'M3', toward: 'Δουκίσσης / Αεροδρόμιο', exits: ['front']}
                     ], note: 'Usually really crowded' },
                     { name: 'Ακρόπολη',         engName: 'Acropolis',       exits: ['center-back'] },
-                    { name: 'Συγγρού Φιξ',      engName: 'Syggrou Fix',     exits: ['center-front'] },
+                    { name: 'Συγγρού Φιξ',      engName: 'Syggrou Fix',     exits: ['center-front'], elevators: ['center'] },
                     { name: 'Νέος Κόσμος',      engName: 'Neos Kosmos',     exits: ['center'] },
                     { name: 'Άγιος Ιωάννης',    engName: 'Agios Ioannis',   exits: ['center-back', 'center'] },
                     { name: 'Δάφνη',            engName: 'Dafni',           exits: ['center-back'] },

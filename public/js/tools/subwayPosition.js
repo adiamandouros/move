@@ -112,6 +112,21 @@ function positionLabel(p) {
     return getLanguage() === 'el' ? p.labelGr : p.label;
 }
 
+function directionLabel(direction) {
+    if (getLanguage() === 'el') return direction.toward;
+    const terminus = direction.stops.find(s => s.name === direction.toward);
+    return terminus?.engName ?? direction.toward;
+}
+
+function stopLabel(stop) {
+    return getLanguage() === 'el' ? stop.name : (stop.engName ?? stop.name);
+}
+
+function nameLabel(greekName) {
+    if (getLanguage() === 'el') return greekName;
+    return allStops.find(s => s.name === greekName)?.engName ?? greekName;
+}
+
 function renderTrainDiagram(positions, elevators = []) {
     const ariaLabel = positions.map(p => POSITIONS.find(x => x.id === p)?.label).join(' and ');
     return `
@@ -140,8 +155,8 @@ function renderLeg(leg) {
     const { line, direction, stop, isTransfer, transferTo, boardingName } = leg;
     const icon   = isTransfer ? 'arrow-left-right' : 'door-open';
     const action = isTransfer
-        ? `${t('subway.transfer-at')} <strong>${stop.name}</strong>`
-        : `${t('subway.exit-at')} <strong>${stop.name}</strong>`;
+        ? `${t('subway.transfer-at')} <strong>${stopLabel(stop)}</strong>`
+        : `${t('subway.exit-at')} <strong>${stopLabel(stop)}</strong>`;
 
     // For transfer legs: use specific transfer positions if available,
     // otherwise fall back to the stop's exit positions
@@ -151,11 +166,12 @@ function renderLeg(leg) {
             t => t.lineId === transferTo.line.id && t.toward === transferTo.direction.toward
         );
         positions = match ? match.exits : stop.exits;
-        elevators = match ? match.elevators : stop.elevators;
+        elevators = stop.elevators ?? [];
         noData    = positions.length === 0;
         noteText  = null; // transfer-specific note could be added to the data later
     } else {
         positions = stop.exits;
+        elevators = stop.elevators ?? [];
         noData    = positions.length === 0;
         noteText  = Array.isArray(stop.note) ? stop.note.join(' ') : stop.note;
     }
@@ -169,7 +185,7 @@ function renderLeg(leg) {
              data-schedule-destination="${stop.name}">
             <div class="result-header d-flex align-items-center gap-2 mb-2">
                 <span class="line-badge" style="background-color: ${line.color}">${line.name}</span>
-                <span class="direction-text" aria-label="${t('subway.toward')} ${direction.toward}"><span aria-hidden="true">→ </span>${direction.toward}</span>
+                <span class="direction-text" aria-label="${t('subway.toward')} ${directionLabel(direction)}"><span aria-hidden="true">→ </span>${directionLabel(direction)}</span>
                 <div class="schedule-section ms-auto" aria-live="polite"></div>
             </div>
             <div class="leg-action mb-3">
@@ -178,7 +194,7 @@ function renderLeg(leg) {
             </div>
             ${noData
                 ? `<p class="text-muted fst-italic small">${t('subway.no-position-data')}</p>`
-                : `${renderTrainDiagram(positions, stop.elevators ?? [])}
+                : `${renderTrainDiagram(positions, elevators)}
                    ${noteText ? `<div class="stop-note mt-3"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${noteText}</div>` : ''}`
             }
         </div>`;
@@ -186,7 +202,7 @@ function renderLeg(leg) {
 
 function renderRoute(route, index, total) {
     const header = total > 1
-        ? `<p class="route-option-label">${t('subway.option')} ${index + 1}${route.type === 'transfer' ? ` · ${t('subway.transfer-at')} ${route.interchange}` : ''}</p>`
+        ? `<p class="route-option-label">${t('subway.option')} ${index + 1}${route.type === 'transfer' ? ` · ${t('subway.transfer-at')} ${nameLabel(route.interchange)}` : ''}</p>`
         : '';
 
     if (route.type === 'direct') {

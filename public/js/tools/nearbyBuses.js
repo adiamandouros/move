@@ -1,6 +1,6 @@
 import { getCoords, subscribeToLocation } from '../location.js';
 import { t } from '../i18n.js';
-import { onLanguageChange } from '../settings.js';
+import { getLanguage, onLanguageChange } from '../settings.js';
 
 // ── Screen reader announcer ─────────────────────────────────────────────────
 
@@ -10,6 +10,11 @@ function announce(message) {
     el.textContent = '';
     requestAnimationFrame(() => { el.textContent = message; });
 }
+
+// ── Language-aware field accessors ──────────────────────────────────────────
+
+const routeDescr = a => getLanguage() === 'el' ? a.RouteDescr  : a.RouteDescrEng;
+const stopDescr  = s => getLanguage() === 'el' ? s.StopDescr   : s.StopDescrEng;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -43,7 +48,7 @@ function renderArrivalRows(arrivals) {
              role="row">
             <div class="d-flex align-items-center gap-2">
                 <span class="line-pill" aria-hidden="true">${a.LineID}</span>
-                <span class="arrival-dest">${a.RouteDescrEng}</span>
+                <span class="arrival-dest">${routeDescr(a)}</span>
             </div>
             ${renderArrivalBadge(a.btime2)}
         </div>`).join('');
@@ -52,9 +57,9 @@ function renderArrivalRows(arrivals) {
 function stopButtonLabel(stop) {
     const first = stop.arrivals[0];
     const busInfo = first
-        ? `${t('buses.next-bus-line')} ${first.LineID} to ${first.RouteDescrEng}, ${first.btime2} ${t('buses.minutes')}`
+        ? `${t('buses.next-bus-line')} ${first.LineID} to ${routeDescr(first)}, ${first.btime2} ${t('buses.minutes')}`
         : t('buses.no-upcoming');
-    return `${stop.StopDescrEng}, ${stop.distance} away. ${busInfo}. ${t('buses.tap-expand')}`;
+    return `${stopDescr(stop)}, ${stop.distance} away. ${busInfo}. ${t('buses.tap-expand')}`;
 }
 
 function renderStop(stop, index) {
@@ -62,7 +67,7 @@ function renderStop(stop, index) {
 
     const mainContent = first
         ? `<span class="next-bus-line" aria-hidden="true">${first.LineID}</span>
-           <span class="next-bus-dest" aria-hidden="true">${first.RouteDescrEng}</span>`
+           <span class="next-bus-dest" aria-hidden="true">${routeDescr(first)}</span>`
         : `<span class="next-bus-dest text-muted fst-italic" aria-hidden="true">${t('buses.no-arrivals-short')}</span>`;
 
     const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${stop.StopLat},${stop.StopLng}&travelmode=walking`;
@@ -79,7 +84,7 @@ function renderStop(stop, index) {
                     aria-label="${stopButtonLabel(stop)}">
 
                 <div class="stop-label d-flex flex-column align-items-center justify-content-center text-center" aria-hidden="true">
-                    <span class="stop-name">${stop.StopDescrEng}</span>
+                    <span class="stop-name">${stopDescr(stop)}</span>
                     <span class="stop-distance">${stop.distance}</span>
                 </div>
 
@@ -92,14 +97,14 @@ function renderStop(stop, index) {
                 <span class="header-badge-wrap" aria-hidden="true">${first ? renderArrivalBadge(first.btime2) : ''}</span>
                 <a class="directions-btn d-flex align-items-center justify-content-center"
                    href="${mapsUrl}" target="_blank" rel="noopener"
-                   aria-label="${t('buses.walking-directions-to')} ${stop.StopDescrEng}">
+                   aria-label="${t('buses.walking-directions-to')} ${stopDescr(stop)}">
                     <i class="bi bi-signpost-2-fill" aria-hidden="true"></i>
                 </a>
             </div>
         </div>
 
         <div id="stop-${index}" class="accordion-collapse collapse">
-            <div class="accordion-body stop-body" role="table" aria-label="${t('buses.all-arrivals-for')} ${stop.StopDescrEng}">
+            <div class="accordion-body stop-body" role="table" aria-label="${t('buses.all-arrivals-for')} ${stopDescr(stop)}">
                 ${renderArrivalRows(stop.arrivals)}
             </div>
         </div>
@@ -151,7 +156,7 @@ function patchArrivals(stops) {
 
         item.querySelector('.stop-next-bus').innerHTML = first
             ? `<span class="next-bus-line" aria-hidden="true">${first.LineID}</span>
-               <span class="next-bus-dest" aria-hidden="true">${first.RouteDescrEng}</span>`
+               <span class="next-bus-dest" aria-hidden="true">${routeDescr(first)}</span>`
             : `<span class="next-bus-dest text-muted fst-italic" aria-hidden="true">${t('buses.no-arrivals-short')}</span>`;
 
         item.querySelector('.header-badge-wrap').innerHTML =
