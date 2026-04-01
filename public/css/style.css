@@ -632,11 +632,13 @@ body {
     border-radius: 8px;
     transition: color 0.15s, background-color 0.15s;
     text-align: left;
+    flex: 0 0 auto !important;
+    background-color: #1e2538;
 }
 
 .lang-toggle-btn:hover {
     color: #e8eaf0;
-    background-color: #1e2538;
+    background-color: #313c5b;
 }
 
 .lang-toggle-btn:focus-visible {

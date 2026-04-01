@@ -4,7 +4,7 @@ const strings = {
     en: {
         // Nav
         'nav.nearby-buses':       'Nearby Buses',
-        'nav.nearby-buses.short': 'Nearby',
+        'nav.nearby-buses.short': 'Buses',
         'nav.subway':             'Subway',
         'nav.select-tool':        'Select a tool',
 
