@@ -172,7 +172,7 @@ function patchArrivals(stops) {
 
 // ── Data fetching ───────────────────────────────────────────────────────────
 
-const FETCH_TIMEOUT_MS = 10_000;
+const FETCH_TIMEOUT_MS = 17_000;
 
 async function fetchNearbyStops(lat, lng) {
     const res = await fetch(`/api/localInfo?x=${lat}&y=${lng}`, {

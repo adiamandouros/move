@@ -15,7 +15,7 @@ if (!OASA_API_URL) {
 }
 
 // Forward /api/* requests to the OASA API
-const UPSTREAM_TIMEOUT_MS = 8000;
+const UPSTREAM_TIMEOUT_MS = 15000;
 app.use('/api', async (req, res) => {
     const target = OASA_API_URL.replace(/\/$/, '') + req.url;
     try {
