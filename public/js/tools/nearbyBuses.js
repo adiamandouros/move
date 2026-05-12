@@ -172,8 +172,12 @@ function patchArrivals(stops) {
 
 // ── Data fetching ───────────────────────────────────────────────────────────
 
+const FETCH_TIMEOUT_MS = 10_000;
+
 async function fetchNearbyStops(lat, lng) {
-    const res = await fetch(`/api/localInfo?x=${lat}&y=${lng}`);
+    const res = await fetch(`/api/localInfo?x=${lat}&y=${lng}`, {
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     return res.json();
 }
@@ -196,12 +200,17 @@ function stopPolling() {
 
 function startPolling(coordsRef) {
     stopPolling();
+    let inFlight = false;
     pollTimer = setInterval(async () => {
+        if (inFlight) return;
+        inFlight = true;
         try {
             const stops = await fetchNearbyStops(coordsRef.lat, coordsRef.lng);
             if (stops?.length) patchArrivals(stops);
         } catch {
             // Silent fail — stale data is better than an error flash
+        } finally {
+            inFlight = false;
         }
     }, POLL_INTERVAL_MS);
 }

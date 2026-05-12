@@ -15,20 +15,27 @@ if (!OASA_API_URL) {
 }
 
 // Forward /api/* requests to the OASA API
+const UPSTREAM_TIMEOUT_MS = 8000;
 app.use('/api', async (req, res) => {
     const target = OASA_API_URL.replace(/\/$/, '') + req.url;
     try {
         const apiRes = await fetch(target, {
             method: req.method,
             headers: { 'Content-Type': 'application/json' },
+            signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
         });
         const data = await apiRes.text();
         res.status(apiRes.status)
            .set('Content-Type', apiRes.headers.get('content-type') || 'application/json')
            .send(data);
     } catch (err) {
+        const timedOut = err.name === 'TimeoutError' || err.name === 'AbortError';
+        const status = timedOut ? 504 : 502;
         console.error('Proxy error:', err.message);
-        res.status(502).json({ error: 'Failed to reach API', details: err.message });
+        res.status(status).json({
+            error: timedOut ? 'Upstream timeout' : 'Failed to reach API',
+            details: err.message,
+        });
     }
 });
 
