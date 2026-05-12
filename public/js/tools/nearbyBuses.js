@@ -182,6 +182,38 @@ async function fetchNearbyStops(lat, lng) {
     return res.json();
 }
 
+// ── Local cache for instant first paint ─────────────────────────────────────
+
+const STOPS_CACHE_TTL_MS = 5 * 60 * 1000;
+const STOPS_CACHE_PREFIX = 'move:stops:';
+
+function cacheKey(lat, lng) {
+    return `${STOPS_CACHE_PREFIX}${lat.toFixed(3)},${lng.toFixed(3)}`;
+}
+
+function loadStopsCache(coords) {
+    try {
+        const raw = localStorage.getItem(cacheKey(coords.lat, coords.lng));
+        if (!raw) return null;
+        const { stops, timestamp } = JSON.parse(raw);
+        if (Date.now() - timestamp > STOPS_CACHE_TTL_MS) return null;
+        return stops;
+    } catch {
+        return null;
+    }
+}
+
+function saveStopsCache(coords, stops) {
+    try {
+        localStorage.setItem(cacheKey(coords.lat, coords.lng), JSON.stringify({
+            stops,
+            timestamp: Date.now(),
+        }));
+    } catch {
+        // localStorage full or unavailable — silent skip
+    }
+}
+
 // ── Arrivals polling ─────────────────────────────────────────────────────────
 
 const POLL_INTERVAL_MS = 20_000;
@@ -198,37 +230,29 @@ function stopPolling() {
     }
 }
 
-function startPolling(coordsRef) {
+function startPolling(coordsRef, { immediate = false } = {}) {
     stopPolling();
     let inFlight = false;
-    pollTimer = setInterval(async () => {
+    const tick = async () => {
         if (inFlight) return;
         inFlight = true;
         try {
             const stops = await fetchNearbyStops(coordsRef.lat, coordsRef.lng);
-            if (stops?.length) patchArrivals(stops);
+            if (stops?.length) {
+                saveStopsCache(coordsRef, stops);
+                patchArrivals(stops);
+            }
         } catch {
             // Silent fail — stale data is better than an error flash
         } finally {
             inFlight = false;
         }
-    }, POLL_INTERVAL_MS);
+    };
+    if (immediate) tick();
+    pollTimer = setInterval(tick, POLL_INTERVAL_MS);
 }
 
-async function renderStopList(container, coords) {
-    let stops;
-    try {
-        stops = await fetchNearbyStops(coords.lat, coords.lng);
-    } catch (err) {
-        container.innerHTML = renderMessage('wifi-off', t('buses.server-error'), err.message);
-        return false;
-    }
-
-    if (!stops || stops.length === 0) {
-        container.innerHTML = renderMessage('bus-front', t('buses.no-stops'));
-        return false;
-    }
-
+function renderStops(container, coords, stops) {
     stops.forEach(stop => {
         stop._meters = haversineMeters(coords.lat, coords.lng, Number(stop.StopLat), Number(stop.StopLng));
         stop.distance = formatDistance(stop._meters);
@@ -254,6 +278,24 @@ async function renderStopList(container, coords) {
     });
 
     applyFilter();
+}
+
+async function renderStopList(container, coords) {
+    let stops;
+    try {
+        stops = await fetchNearbyStops(coords.lat, coords.lng);
+    } catch (err) {
+        container.innerHTML = renderMessage('wifi-off', t('buses.server-error'), err.message);
+        return false;
+    }
+
+    if (!stops || stops.length === 0) {
+        container.innerHTML = renderMessage('bus-front', t('buses.no-stops'));
+        return false;
+    }
+
+    saveStopsCache(coords, stops);
+    renderStops(container, coords, stops);
     return true;
 }
 
@@ -282,15 +324,21 @@ export async function loadNearbyBuses(container) {
         return;
     }
 
-    container.innerHTML = renderMessage('arrow-repeat spin', t('buses.finding-stops'));
-
     const coordsRef = { lat: coords.lat, lng: coords.lng };
     let fetchCoords = { lat: coords.lat, lng: coords.lng };
 
-    const ok = await renderStopList(container, coordsRef);
-    if (!ok) return;
-
-    startPolling(coordsRef);
+    // Show cached data immediately if available; the poll's immediate tick
+    // refreshes in the background and patches in fresh arrivals.
+    const cached = loadStopsCache(coordsRef);
+    if (cached?.length) {
+        renderStops(container, coordsRef, cached);
+        startPolling(coordsRef, { immediate: true });
+    } else {
+        container.innerHTML = renderMessage('arrow-repeat spin', t('buses.finding-stops'));
+        const ok = await renderStopList(container, coordsRef);
+        if (!ok) return;
+        startPolling(coordsRef);
+    }
 
     // Subscribe to shared location updates from location.js
     unsubscribeLocation = subscribeToLocation(async ({ lat, lng }) => {
