@@ -174,12 +174,28 @@ function patchArrivals(stops) {
 
 const FETCH_TIMEOUT_MS = 17_000;
 
-async function fetchNearbyStops(lat, lng) {
-    const res = await fetch(`/api/localInfo?x=${lat}&y=${lng}`, {
+async function fetchStops(lat, lng) {
+    const res = await fetch(`/api/localStops?x=${lat}&y=${lng}`, {
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     return res.json();
+}
+
+async function fetchArrivals(stopCodes) {
+    const codes = stopCodes.join(',');
+    const res = await fetch(`/api/arrivalsForStops?codes=${codes}`, {
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return res.json();
+}
+
+function mergeArrivals(stops, arrivalsResp) {
+    const byCode = new Map(arrivalsResp.map(item => [item.StopCode, item.arrivals]));
+    stops.forEach(stop => {
+        stop.arrivals = byCode.get(stop.StopCode) || [];
+    });
 }
 
 // ── Local cache for instant first paint ─────────────────────────────────────
@@ -230,18 +246,17 @@ function stopPolling() {
     }
 }
 
-function startPolling(coordsRef, { immediate = false } = {}) {
+function startPolling(coordsRef, stops, { immediate = false } = {}) {
     stopPolling();
     let inFlight = false;
     const tick = async () => {
         if (inFlight) return;
         inFlight = true;
         try {
-            const stops = await fetchNearbyStops(coordsRef.lat, coordsRef.lng);
-            if (stops?.length) {
-                saveStopsCache(coordsRef, stops);
-                patchArrivals(stops);
-            }
+            const arrivalsResp = await fetchArrivals(stops.map(s => s.StopCode));
+            mergeArrivals(stops, arrivalsResp);
+            saveStopsCache(coordsRef, stops);
+            patchArrivals(stops);
         } catch {
             // Silent fail — stale data is better than an error flash
         } finally {
@@ -283,20 +298,21 @@ function renderStops(container, coords, stops) {
 async function renderStopList(container, coords) {
     let stops;
     try {
-        stops = await fetchNearbyStops(coords.lat, coords.lng);
+        stops = await fetchStops(coords.lat, coords.lng);
     } catch (err) {
         container.innerHTML = renderMessage('wifi-off', t('buses.server-error'), err.message);
-        return false;
+        return null;
     }
 
     if (!stops || stops.length === 0) {
         container.innerHTML = renderMessage('bus-front', t('buses.no-stops'));
-        return false;
+        return null;
     }
 
+    stops.forEach(stop => { stop.arrivals = []; });
     saveStopsCache(coords, stops);
     renderStops(container, coords, stops);
-    return true;
+    return stops;
 }
 
 // ── Entry point ─────────────────────────────────────────────────────────────
@@ -327,18 +343,21 @@ export async function loadNearbyBuses(container) {
     const coordsRef = { lat: coords.lat, lng: coords.lng };
     let fetchCoords = { lat: coords.lat, lng: coords.lng };
 
-    // Show cached data immediately if available; the poll's immediate tick
-    // refreshes in the background and patches in fresh arrivals.
+    // Cache hit → render stale data immediately, then refresh arrivals.
+    // Cache miss → fetch stops, render with empty arrivals, then fetch arrivals.
+    // Either way, startPolling({immediate}) does the arrivals fetch.
     const cached = loadStopsCache(coordsRef);
+    let activeStops;
     if (cached?.length) {
         renderStops(container, coordsRef, cached);
-        startPolling(coordsRef, { immediate: true });
+        activeStops = cached;
     } else {
         container.innerHTML = renderMessage('arrow-repeat spin', t('buses.finding-stops'));
-        const ok = await renderStopList(container, coordsRef);
-        if (!ok) return;
-        startPolling(coordsRef);
+        activeStops = await renderStopList(container, coordsRef);
+        if (!activeStops) return;
     }
+
+    startPolling(coordsRef, activeStops, { immediate: true });
 
     // Subscribe to shared location updates from location.js
     unsubscribeLocation = subscribeToLocation(async ({ lat, lng }) => {
@@ -349,8 +368,8 @@ export async function loadNearbyBuses(container) {
         if (moved >= LOCATION_THRESHOLD_M) {
             fetchCoords = { lat, lng };
             stopPolling();
-            await renderStopList(container, coordsRef);
-            startPolling(coordsRef);
+            const newStops = await renderStopList(container, coordsRef);
+            if (newStops) startPolling(coordsRef, newStops, { immediate: true });
         }
     });
 }
