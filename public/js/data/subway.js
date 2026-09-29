@@ -36,7 +36,7 @@ export const lines = [
                     { name: 'Καλλιθέα',         engName: 'Kallithea',           exits: [] },
                     { name: 'Ταύρος',           engName: 'Tavros',              exits: ['center'], central: true },
                     { name: 'Πετράλωνα',        engName: 'Petralona',           exits: ['back'] },
-                    { name: 'Θησείο',           engName: 'Thiseio',             exits: ['center'] },
+                    { name: 'Θησείο',           engName: 'Thiseio',             exits: ['center-front'], elevators: ['front'] },
                     { name: 'Μοναστηράκι',      engName: 'Monastiraki',         exits: ['center-back', 'center-front'], elevators: ['center-front'], transfers: [
                         {lineId: 'M3', toward: 'Δημοτικό Θέατρο',       exits: ['center-back']},
                         {lineId: 'M3', toward: 'Δουκίσσης / Αεροδρόμιο', exits: ['center-back']}
@@ -54,7 +54,7 @@ export const lines = [
                     { name: 'Περισσός',         engName: 'Perissos',            exits: ['center'] },
                     { name: 'Πευκάκια',         engName: 'Pefkakia',            exits: ['center'] },
                     { name: 'Νέα Ιωνία',        engName: 'Nea Ionia',           exits: ['front'] },
-                    { name: 'Ηράκλειο',         engName: 'Irakleio',            exits: ['center'] },
+                    { name: 'Ηράκλειο',         engName: 'Irakleio',            exits: ['center-front'] },
                     { name: 'Ειρήνη',           engName: 'Eirini',              exits: ['center-back', 'center-front'] },
                     { name: 'Νεραντζιώτισσα',   engName: 'Nerantziotissa',      exits: ['center-back', 'center'] },
                     { name: 'Μαρούσι',          engName: 'Marousi',             exits: ['center-front', 'center-back'] },
@@ -71,7 +71,7 @@ export const lines = [
                     { name: 'Μαρούσι',          engName: 'Marousi',             exits: ['center-back'] },
                     { name: 'Νεραντζιώτισσα',   engName: 'Nerantziotissa',      exits: ['center-back', 'center'] },
                     { name: 'Ειρήνη',           engName: 'Eirini',              exits: ['center-back', 'center-front'] },
-                    { name: 'Ηράκλειο',         engName: 'Irakleio',            exits: ['center'] },
+                    { name: 'Ηράκλειο',         engName: 'Irakleio',            exits: ['center-back'] },
                     { name: 'Νέα Ιωνία',        engName: 'Nea Ionia',           exits: ['back'] },
                     { name: 'Πευκάκια',         engName: 'Pefkakia',            exits: ['center'] },
                     { name: 'Περισσός',         engName: 'Perissos',            exits: ['center'] },
@@ -89,12 +89,12 @@ export const lines = [
                         {lineId: 'M3', toward: 'Δημοτικό Θέατρο',       exits: ['center-back']},
                         {lineId: 'M3', toward: 'Δουκίσσης / Αεροδρόμιο', exits: ['center-back']}
                     ], note: 'Regular steps - no escalators' },
-                    { name: 'Θησείο',           engName: 'Thiseio',             exits: [] , note: 'No data yet!'},
+                    { name: 'Θησείο',           engName: 'Thiseio',             exits: ['back', 'front'] , note: 'For wheelchair ramp sit in the front of the train'},
                     { name: 'Πετράλωνα',        engName: 'Petralona',           exits: ['front'] },
                     { name: 'Ταύρος',           engName: 'Tavros',              exits: ['center'], central: true },
                     { name: 'Καλλιθέα',         engName: 'Kallithea',           exits: [] , note: 'No data yet!'},
-                    { name: 'Μοσχάτο',          engName: 'Moschato',            exits: [] , note: 'No data yet!'},
-                    { name: 'Φάληρο',           engName: 'Faliro',              exits: [] , note: 'No data yet!'},
+                    { name: 'Μοσχάτο',          engName: 'Moschato',            exits: ['front'] },
+                    { name: 'Φάληρο',           engName: 'Faliro',              exits: ['back', 'front'] , elevators:['center-back'], note: 'Regular steps - no escalators'},
                     { name: 'Πειραιάς',         engName: 'Piraeus',             exits: ['front'], transfers: [
                         {lineId: 'M3', toward: 'Δημοτικό Θέατρο',       exits: ['front']},
                         {lineId: 'M3', toward: 'Δουκίσσης / Αεροδρόμιο', exits: ['front']}
@@ -123,11 +123,14 @@ export const lines = [
                     { name: 'Συγγρού Φιξ',      engName: 'Syggrou Fix',     exits: ['center-front'], elevators: ['center'] },
                     { name: 'Ακρόπολη',         engName: 'Acropolis',       exits: ['center-back'], elevators: ['center'] },
                     { name: 'Σύνταγμα',         engName: 'Syntagma',        exits: ['center'], transfers: [
-                        {lineId: 'M3', toward: 'Δημοτικό Θέατρο',       exits: ['center-front']},
-                        {lineId: 'M3', toward: 'Δουκίσσης / Αεροδρόμιο', exits: ['center-back']}
+                        {lineId: 'M3', toward: 'Δημοτικό Θέατρο',       exits: ['center-back']},
+                        {lineId: 'M3', toward: 'Δουκίσσης / Αεροδρόμιο', exits: ['front']}
                     ], note: 'Usually really crowded' },
-                    { name: 'Πανεπιστήμιο',     engName: 'Panepistimio',    exits: ['center-back'], elevators:['center'] },
-                    { name: 'Ομόνοια',          engName: 'Omonia',          exits: ['back', 'center-front'], elevators:['center-back'], transfers: [], central: true },
+                    { name: 'Πανεπιστήμιο',     engName: 'Panepistimio',    exits: ['center-front'], elevators:['center'] },
+                    { name: 'Ομόνοια',          engName: 'Omonia',          exits: ['back', 'center-front'], elevators:['center-back'], transfers: [
+                        {lineId: 'M1', toward: 'Πειραιάς', exits: ['back', 'center-front']},
+                        {lineId: 'M1', toward: 'Κηφισιά', exits: ['back', 'center-front']}
+                    ], central: true },
                     { name: 'Μεταξουργείο',     engName: 'Metaxourghio',    exits: [] },
                     { name: 'Σταθμός Λαρίσσης', engName: 'Larissa Station', exits: ['center-front'] },
                     { name: 'Αττική',           engName: 'Attiki',          exits: ['center-back'], transfers: [
@@ -151,7 +154,10 @@ export const lines = [
                     { name: 'Αττική',           engName: 'Attiki',          exits: ['center-front'], transfers: []},
                     { name: 'Σταθμός Λαρίσσης', engName: 'Larissa Station', exits: ['back'] },
                     { name: 'Μεταξουργείο',     engName: 'Metaxourghio',    exits: ['center-front'] },
-                    { name: 'Ομόνοια',          engName: 'Omonia',          exits: ['center-back', 'front'], transfers: [], central: true },
+                    { name: 'Ομόνοια',          engName: 'Omonia',          exits: ['center-back', 'front'], transfers: [
+                        {lineId: 'M1', toward: 'Πειραιάς', exits: ['back', 'center-front']},
+                        {lineId: 'M1', toward: 'Κηφισιά', exits: ['back', 'center-front']}
+                    ], central: true },
                     { name: 'Πανεπιστήμιο',     engName: 'Panepistimio',    exits: ['center-back', 'center-front'] },
                     { name: 'Σύνταγμα',         engName: 'Syntagma',        exits: ['center', 'center-front'], transfers: [
                         {lineId: 'M3', toward: 'Δημοτικό Θέατρο', exits: ['center-back']},
@@ -180,20 +186,20 @@ export const lines = [
                 id: 'M3_dimotiko',
                 toward: 'Δημοτικό Θέατρο',
                 stops: [
-                    { name: 'Αεροδρόμιο',           engName: 'Airport',                 exits: [] , note: 'No data yet!'},
-                    { name: 'Κορωπί',               engName: 'Koropi',                  exits: [] , note: 'No data yet!'},
-                    { name: 'Παιανία-Κάντζα',       engName: 'Paiania-Kantza',          exits: [] , note: 'No data yet!'},
-                    { name: 'Παλλήνη',              engName: 'Pallini',                 exits: [] , note: 'No data yet!', central: true },
-                    { name: 'Δουκίσσης Πλακεντίας', engName: 'Doukissis Plakentias',    exits: ['center-back'] },
-                    { name: 'Χαλάνδρι',             engName: 'Chalandri',               exits: ['center-back'] },
+                    { name: 'Αεροδρόμιο',           engName: 'Airport',                 exits: ['center-front'], elevators: ['center-back'] , note: 'No data yet!'},
+                    { name: 'Κορωπί',               engName: 'Koropi',                  exits: ['center-front'], elevators: ['center'] , central:true, note: 'Unreliable data'},
+                    { name: 'Παιανία-Κάντζα',       engName: 'Paiania-Kantza',          exits: ['center-back'], elevators: ['center'], central:true, note: 'Unreliable data'},
+                    { name: 'Παλλήνη',              engName: 'Pallini',                 exits: ['center-front'], elevators: ['front'], central:true, note: 'Unreliable data', central: true },
+                    { name: 'Δουκίσσης Πλακεντίας', engName: 'Doukissis Plakentias',    exits: ['center-back'], elevators: ['center'] },
+                    { name: 'Χαλάνδρι',             engName: 'Chalandri',               exits: ['center-back'], elevators: ['center-front'] },
                     { name: 'Αγία Παρασκευή',       engName: 'Agia Paraskevi',          exits: ['center-back'] },
                     { name: 'Νομισματοκοπείο',      engName: 'Nomismatokopio',          exits: ['center-back'] },
-                    { name: 'Χολαργός',             engName: 'Cholargos',               exits: ['center-back'] },
+                    { name: 'Χολαργός',             engName: 'Cholargos',               exits: ['center-back'], elevators: ['center'] },
                     { name: 'Εθνική Άμυνα',         engName: 'Ethniki Amyna',           exits: ['center'], central: true },
                     { name: 'Κατεχάκη',             engName: 'Katechaki',               exits: ['center'] },
                     { name: 'Πανόρμου',             engName: 'Panormou',                exits: ['center-front'] },
                     { name: 'Αμπελόκηποι',          engName: 'Ampelokipoi',             exits: ['center-front'] },
-                    { name: 'Μέγαρο Μουσικής',      engName: 'Megaro Mousikis',         exits: ['center-front'] },
+                    { name: 'Μέγαρο Μουσικής',      engName: 'Megaro Mousikis',         exits: ['center-front'], elevators: ['center'] },
                     { name: 'Ευαγγελισμός',         engName: 'Evangelismos',            exits: ['center-back'] },
                     { name: 'Σύνταγμα',             engName: 'Syntagma',                exits: ['back', 'front'], transfers: [
                         {lineId: 'M2', toward: 'Ανθούπολη', exits: ['center'] },
