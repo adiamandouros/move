@@ -78,6 +78,12 @@
                 var text = get(el.getAttribute('data-i18n'));
                 if (text) el.textContent = text;
             });
+            ['placeholder', 'aria-label', 'title'].forEach(function (attr) {
+                document.querySelectorAll('[data-i18n-' + attr + ']').forEach(function (el) {
+                    var text = get(el.getAttribute('data-i18n-' + attr));
+                    if (text) el.setAttribute(attr, text);
+                });
+            });
             var titleKey = document.documentElement.getAttribute('data-title-key');
             if (titleKey && get(titleKey)) document.title = get(titleKey) + ' — Move';
             document.querySelectorAll('.lang-opt').forEach(function (el) {

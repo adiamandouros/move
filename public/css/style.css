@@ -397,7 +397,8 @@ body {
 
 .schedule-disclaimer {
     font-size: 0.72rem;
-    color: #555e72;
+    /* Bootstrap's warning yellow; about 11:1 contrast against the page background */
+    color: var(--bs-warning, #ffc107);
     text-align: center;
     margin-top: 16px;
     margin-bottom: 0;
@@ -449,6 +450,38 @@ body {
 
 #stop-search-to{
     margin-bottom: 1rem;
+}
+
+.swap-row {
+    display: flex;
+    justify-content: flex-end;
+    margin: -4px 0 -12px;
+}
+
+.swap-btn {
+    color: #9aa3b2;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+}
+
+.swap-btn:hover {
+    color: #e8eaf0;
+    background-color: #1e2538;
+}
+
+.swap-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+.timetable-notice {
+    font-size: 0.8rem;
+    color: var(--bs-warning, #ffc107);
+    border: 1px solid rgba(255, 193, 7, 0.35);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
 }
 
 /* Suggestions dropdown */

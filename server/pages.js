@@ -150,9 +150,9 @@ function renderServiceWorker(tools, pages) {
         ...offlineTools.flatMap(t => [
             t.path,
             ...listFiles(t.clientDir).map(f => urlPath(`/tools/${t.id}`, t.clientDir, f)),
-            ...t.precache,
         ]),
     ];
+    const precacheData = offlineTools.flatMap(t => t.precache);
 
     // The version changes whenever any page or cached file changes
     const hash = createHash('sha256');
@@ -167,6 +167,7 @@ function renderServiceWorker(tools, pages) {
     return fill(readFileSync(join(VIEWS_DIR, 'sw.js'), 'utf8'), {
         version: hash.digest('hex').slice(0, 12),
         precache: JSON.stringify(precache, null, 4),
+        precacheData: JSON.stringify(precacheData, null, 4),
         offlinePages: JSON.stringify(offlineTools.map(t => t.path)),
     });
 }

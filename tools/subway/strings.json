@@ -19,7 +19,21 @@
     "subway.station-suggestions": "Station suggestions",
     "subway.schedule-in": "In",
     "subway.location-prefix": "Boarding station set to",
-    "subway.location-suffix": "based on your location."
+    "subway.location-suffix": "based on your location.",
+    "subway.swap": "Swap stations",
+    "subway.data-error": "Couldn't load the subway data. Open this page once while connected so it can be saved for offline use.",
+    "subway.same-station": "Pick two different stations.",
+    "subway.timetable-old": "Departure times come from the OASA timetable that ended on {date}. They may have changed since.",
+    "subway.ride": "{min} min",
+    "subway.no-trains": "No more trains today",
+    "subway.last-train": "Last train",
+    "subway.second-last-train": "Second to last train",
+    "subway.elevator": "elevator",
+    "subway.pos.back": "Back",
+    "subway.pos.center-back": "Near Back",
+    "subway.pos.center": "Center",
+    "subway.pos.center-front": "Near Front",
+    "subway.pos.front": "Front"
   },
   "el": {
     "subway.boarding-label": "Επιβίβαση στη στάση",
@@ -41,6 +55,20 @@
     "subway.station-suggestions": "Προτάσεις σταθμών",
     "subway.schedule-in": "Σε",
     "subway.location-prefix": "Η στάση επιβίβασης ορίστηκε σε",
-    "subway.location-suffix": "βάσει τοποθεσίας."
+    "subway.location-suffix": "βάσει τοποθεσίας.",
+    "subway.swap": "Αντιστροφή σταθμών",
+    "subway.data-error": "Δεν ήταν δυνατή η φόρτωση των δεδομένων του μετρό. Ανοίξτε αυτή τη σελίδα μία φορά με σύνδεση ώστε να αποθηκευτούν για χρήση χωρίς σύνδεση.",
+    "subway.same-station": "Επιλέξτε δύο διαφορετικούς σταθμούς.",
+    "subway.timetable-old": "Οι ώρες αναχώρησης προέρχονται από το δρομολόγιο του ΟΑΣΑ που έληξε στις {date}. Μπορεί να έχουν αλλάξει από τότε.",
+    "subway.ride": "{min} λεπτά",
+    "subway.no-trains": "Δεν υπάρχουν άλλα δρομολόγια σήμερα",
+    "subway.last-train": "Τελευταίο δρομολόγιο",
+    "subway.second-last-train": "Προτελευταίο δρομολόγιο",
+    "subway.elevator": "ανελκυστήρας",
+    "subway.pos.back": "Πίσω",
+    "subway.pos.center-back": "Κέντρο-Πίσω",
+    "subway.pos.center": "Κέντρο",
+    "subway.pos.center-front": "Κέντρο-Μπροστά",
+    "subway.pos.front": "Μπροστά"
   }
 }

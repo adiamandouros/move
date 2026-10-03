@@ -3,11 +3,17 @@
 const VERSION = '{{version}}';
 const CACHE = `move-${VERSION}`;
 const PRECACHE = {{precache}};
+// Data files may not exist yet (e.g. first build still running), so they are
+// cached best-effort instead of failing the whole install
+const PRECACHE_DATA = {{precacheData}};
 // Pages that must open instantly even with a bad connection (e.g. underground)
 const OFFLINE_PAGES = {{offlinePages}};
 
 self.addEventListener('install', e => {
-    e.waitUntil(caches.open(CACHE).then(cache => cache.addAll(PRECACHE)));
+    e.waitUntil(caches.open(CACHE).then(cache => Promise.all([
+        cache.addAll(PRECACHE),
+        ...PRECACHE_DATA.map(url => cache.add(url).catch(() => {})),
+    ])));
     self.skipWaiting();
 });
 

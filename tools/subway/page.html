@@ -1,1 +1,34 @@
-<div id="tool-root"></div>
+<div class="subway-view">
+    <form id="subway-form" class="subway-form" role="search" autocomplete="off">
+        <div class="subway-search-wrap mb-1">
+            <label for="stop-search-from" class="form-label fw-semibold m-0" data-i18n="subway.boarding-label">Boarding at</label>
+            <div class="position-relative">
+                <input id="stop-search-from" class="form-control subway-search-input" type="search"
+                       role="combobox" aria-autocomplete="list" aria-controls="stop-suggestions-from" aria-expanded="false"
+                       placeholder="Type your boarding station…" data-i18n-placeholder="subway.boarding-placeholder">
+                <ul id="stop-suggestions-from" class="stop-suggestions list-unstyled mb-0" role="listbox"
+                    aria-label="Station suggestions" data-i18n-aria-label="subway.station-suggestions" hidden></ul>
+            </div>
+        </div>
+
+        <div class="swap-row">
+            <button id="swap-stations" type="button" class="btn btn-sm swap-btn"
+                    title="Swap stations" data-i18n-title="subway.swap" aria-label="Swap stations" data-i18n-aria-label="subway.swap">
+                <i class="bi bi-arrow-down-up" aria-hidden="true"></i>
+            </button>
+        </div>
+
+        <div class="subway-search-wrap mb-1">
+            <label for="stop-search-to" class="form-label fw-semibold m-0" data-i18n="subway.destination-label">Getting off at</label>
+            <div class="position-relative">
+                <input id="stop-search-to" class="form-control subway-search-input" type="search"
+                       role="combobox" aria-autocomplete="list" aria-controls="stop-suggestions-to" aria-expanded="false"
+                       placeholder="Type your destination…" data-i18n-placeholder="subway.destination-placeholder">
+                <ul id="stop-suggestions-to" class="stop-suggestions list-unstyled mb-0" role="listbox"
+                    aria-label="Station suggestions" data-i18n-aria-label="subway.station-suggestions" hidden></ul>
+            </div>
+        </div>
+    </form>
+
+    <div id="subway-result" aria-live="polite"></div>
+</div>
