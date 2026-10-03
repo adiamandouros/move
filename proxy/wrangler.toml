@@ -2,3 +2,11 @@
 name = "move-oasa-relay"
 main = "worker.js"
 compatibility_date = "2026-09-01"
+
+# OASA's live API only accepts connections from Greek IP addresses, but a
+# Worker normally runs in the data centre nearest its caller (Frankfurt, for a
+# server in Germany). This asks Cloudflare to run it near OASA instead.
+# Experimental: the diagnostics page shows where the Worker's requests come
+# from (it should say GR).
+[placement]
+host = "telematics.oasa.gr:443"

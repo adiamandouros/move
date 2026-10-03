@@ -17,7 +17,9 @@ function world(overrides = {}) {
     const services = {
         internet: () => new Response('ip=203.0.113.7\nloc=GR\n'),
         oasa: () => json([{ route_code: '1', veh_code: '2', btime2: '3' }]),
-        relay: headers => (headers['X-Relay-Key'] === 'k' ? json([]) : new Response('Unauthorized', { status: 401 })),
+        relay: (headers, url) => headers['X-Relay-Key'] !== 'k' ? new Response('Unauthorized', { status: 401 })
+            : url.includes('act=whereami') ? json({ colo: 'ATH', loc: 'GR' })
+                : json([]),
         portal: () => json({ success: true }),
         ...overrides,
     };
@@ -26,7 +28,7 @@ function world(overrides = {}) {
         const pick = url.startsWith('https://www.cloudflare.com') ? 'internet'
             : url.startsWith('https://telematics.oasa.gr') ? 'oasa'
                 : url.startsWith(RELAY) ? 'relay' : 'portal';
-        const answer = await services[pick](headers);
+        const answer = await services[pick](headers, url);
         if (answer instanceof Error) throw answer;
         return answer;
     };
@@ -120,4 +122,38 @@ test('formatReport lists the summary, every check and its hint', async () => {
     const text = formatReport(await run(world(), { env: {} }));
     assert.match(text, /^Move diagnostics, 2026-10-03T12:00:00\.000Z\n\n\[ OK \]/);
     assert.match(text, /\[WARN\] Contact email: CONTACT_EMAIL is not set\n {9}→ Set it in \.env/);
+});
+
+// What actually happened on the German server in October 2026
+test('server abroad and relay running abroad: the geo-block is named', async () => {
+    const r = await run(world({
+        internet: () => new Response('ip=157.90.210.32\nloc=DE\n'),
+        oasa: () => Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' }),
+        relay: (h, url) => h['X-Relay-Key'] !== 'k' ? new Response('Unauthorized', { status: 401 })
+            : url.includes('act=whereami') ? json({ colo: 'FRA', loc: 'DE' })
+                : new Response('Upstream error: The operation was aborted due to timeout', { status: 502 }),
+    }));
+    assert.equal(r.summary.status, 'fail');
+    assert.match(r.summary.text, /only accepts connections from Greece\. This server is in DE and the relay runs in FRA \(DE\)/);
+    assert.match(r.checks.find(c => c.title.startsWith('OASA live API')).detail, /only accepts connections from Greece, and this server is in DE/);
+    assert.equal(r.checks.find(c => c.title === 'Relay location').status, 'warn');
+});
+
+test('server abroad but relay in Greece: working as intended', async () => {
+    const r = await run(world({
+        internet: () => new Response('ip=157.90.210.32\nloc=DE\n'),
+        oasa: () => Object.assign(new Error('timeout'), { name: 'TimeoutError' }),
+    }));
+    assert.equal(r.summary.status, 'ok');
+    assert.match(r.summary.text, /through the relay \(ATH, GR\)\. Working as intended/);
+    assert.equal(r.checks.find(c => c.title === 'Relay location').detail, 'Its requests leave Cloudflare from ATH (GR)');
+});
+
+test('an older Worker without whereami is reported, not treated as a failure', async () => {
+    const r = await run(world({
+        relay: (h, url) => h['X-Relay-Key'] !== 'k' ? new Response('Unauthorized', { status: 401 })
+            : url.includes('act=whereami') ? new Response('Bad request', { status: 400 }) : json([]),
+    }));
+    assert.equal(r.summary.status, 'ok');
+    assert.equal(r.checks.find(c => c.title === 'Relay location').status, 'info');
 });

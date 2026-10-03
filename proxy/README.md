@@ -57,6 +57,28 @@ day, far more than the relay will normally see.
 
    On startup the log shows `[oasa] Relay fallback: move-oasa-relay…`.
 
+## If OASA blocks the relay too
+
+OASA's live API only accepts connections from Greek IP addresses (in October
+2026 it timed out from Germany, the Netherlands, France, Italy, Cyprus,
+Bulgaria and the US, while OASA's website answered everywhere). A Worker
+normally runs in the Cloudflare data centre closest to whoever calls it, so
+for a server in Germany it runs in Frankfurt and is blocked as well.
+
+`/admin/diagnostics` shows this under **Relay location**: it should say `GR`
+(Cloudflare's Athens `ATH` or Thessaloniki `SKG` data centres).
+
+1. **Deploy with the command line** (`npx wrangler deploy` in `proxy/`).
+   `wrangler.toml` asks Cloudflare to run the Worker near OASA (a
+   "placement hint"); edits made in the dashboard don't apply it. The key
+   secret stays as it is. Give Cloudflare a few minutes to measure, then run
+   the diagnostics again. The feature is experimental, so it may not work.
+2. **If the relay still isn't in Greece**, it has to run on a machine with a
+   Greek IP address instead, for example a small VPS hosted in Greece, or an
+   always-on computer at home made reachable with Cloudflare Tunnel.
+3. Either way, you can also ask OASA to allow your server's IP address (the
+   diagnostics show it under **Internet access**).
+
 ## Changing the key
 
 Run `npx wrangler secret put RELAY_KEY` again (or edit the secret in the
