@@ -168,9 +168,22 @@ function acquireLock() {
         return true;
     } catch (err) {
         if (err.code !== 'EEXIST') throw err;
-        if (Date.now() - statSync(LOCK_FILE).mtimeMs < LOCK_STALE_MS) return false;
+        // A lock left behind by a crashed or killed process doesn't count
+        const holder = Number(readFileSync(LOCK_FILE, 'utf8'));
+        const fresh = Date.now() - statSync(LOCK_FILE).mtimeMs < LOCK_STALE_MS;
+        if (fresh && isRunning(holder)) return false;
         rmSync(LOCK_FILE, { force: true });
         return acquireLock();
+    }
+}
+
+function isRunning(pid) {
+    if (!Number.isInteger(pid) || pid <= 0) return false;
+    try {
+        process.kill(pid, 0); // signal 0 only checks that the process exists
+        return true;
+    } catch (err) {
+        return err.code === 'EPERM'; // exists, but belongs to another user
     }
 }
 
