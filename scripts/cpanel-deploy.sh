@@ -17,8 +17,11 @@ echo "[deploy] App folder: $APP_DIR"
 # 1. CloudLinux's own tool — the same thing the "Run NPM Install" and "Restart" buttons do
 if command -v cloudlinux-selector >/dev/null; then
     echo "[deploy] Using cloudlinux-selector"
-    if cloudlinux-selector install-modules --json --interpreter nodejs --app-root "$APP_ROOT" \
-        && cloudlinux-selector restart --json --interpreter nodejs --app-root "$APP_ROOT"; then
+    # --skip-web-check: the tool otherwise compares the app's response before and
+    # after, and reports an error whenever it changes — e.g. when a broken app
+    # starts working again
+    if cloudlinux-selector install-modules --json --interpreter nodejs --app-root "$APP_ROOT" --skip-web-check \
+        && cloudlinux-selector restart --json --interpreter nodejs --app-root "$APP_ROOT" --skip-web-check; then
         echo "[deploy] Done."
         exit 0
     fi
