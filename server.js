@@ -17,8 +17,13 @@ app.set('trust proxy', 'loopback');
 app.use(compression());
 const PORT = process.env.PORT || 3000;
 
-// Live bus arrivals from OASA, cached and rate-limited (see server/oasa/)
-app.use('/api', createBusApi({ routesFile: path.join(__dirname, 'data', 'cache', 'oasa-routes.json') }));
+// Live bus arrivals from OASA, cached and rate-limited (see server/oasa/).
+// The relay is a fallback for when OASA can't be reached directly (proxy/README.md).
+const relay = process.env.OASA_RELAY_URL && process.env.OASA_RELAY_KEY
+    ? { url: process.env.OASA_RELAY_URL, key: process.env.OASA_RELAY_KEY }
+    : null;
+if (process.env.OASA_RELAY_URL && !relay) console.warn('[oasa] OASA_RELAY_URL is set without OASA_RELAY_KEY — relay disabled');
+app.use('/api', createBusApi({ routesFile: path.join(__dirname, 'data', 'cache', 'oasa-routes.json'), relay }));
 
 const pages = createPages();
 app.use(pages.router);
@@ -45,5 +50,6 @@ app.use(pages.notFound);
 
 app.listen(PORT, () => {
     console.log(`Move app running at http://localhost:${PORT}`);
+    if (relay) console.log(`[oasa] Relay fallback: ${new URL(relay.url).host}`);
     startScheduler();
 });

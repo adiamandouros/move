@@ -9,7 +9,9 @@ const STOP_CODE = /^\d{1,8}$/;
 // /api routes for the bus page.
 //   GET /api/arrivals?stops=10361,10341
 //   → { stops: { "10361": { arrivals: [{ line, to: { el, en }, minutes, route, vehicle }], updated, stale, unavailable? } } }
-export function createBusApi({ routesFile, client = createOasaClient(), now } = {}) {
+//
+// `relay` ({ url, key }) is the optional fallback route described in client.js.
+export function createBusApi({ routesFile, relay = null, client = createOasaClient({ relay }), now } = {}) {
     const arrivals = createArrivals({ client, routesFile, now });
     const router = express.Router();
 

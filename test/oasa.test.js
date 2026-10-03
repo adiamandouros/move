@@ -147,3 +147,74 @@ test('route names are saved to disk and survive a restart', async () => {
     assert.equal((await restarted.stopArrivals('1')).arrivals[0].line, 'Χ95');
     assert.deepEqual(oasa.calls, ['getStopArrivals:1']);
 });
+
+// ── Relay fallback ──────────────────────────────────────────────────────────
+
+const RELAY = { url: 'https://relay.example/', key: 'k' };
+
+// Direct calls go to telematics.oasa.gr, relay calls to relay.example
+function routedFetch({ directUp }) {
+    const calls = [];
+    const fetch = async (url, { headers }) => {
+        const relayed = url.startsWith(RELAY.url);
+        calls.push(relayed ? `relay(${headers['X-Relay-Key']})` : 'direct');
+        if (!relayed && !directUp()) throw new Error('blocked');
+        return { ok: true, text: async () => '[]' };
+    };
+    return { fetch, calls };
+}
+
+test('a failed direct request is retried once through the relay', async () => {
+    const c = clock();
+    const { fetch, calls } = routedFetch({ directUp: () => false });
+    const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: quiet, relay: RELAY });
+    assert.deepEqual(await client.request('getStopArrivals', '1'), []);
+    assert.deepEqual(calls, ['direct', 'relay(k)']);
+});
+
+test('the relay is not used while direct access works', async () => {
+    const c = clock();
+    const { fetch, calls } = routedFetch({ directUp: () => true });
+    const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: quiet, relay: RELAY });
+    for (let i = 0; i < 3; i++) await client.request('getStopArrivals', '1');
+    assert.deepEqual(calls, ['direct', 'direct', 'direct']);
+});
+
+test('after 5 direct failures only the relay is used for 10 minutes, then direct is tried again', async () => {
+    const c = clock();
+    let up = false;
+    const logs = [];
+    const { fetch, calls } = routedFetch({ directUp: () => up });
+    const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: m => logs.push(m), relay: RELAY });
+
+    for (let i = 0; i < 5; i++) await client.request('getStopArrivals', '1');
+    assert.match(logs.join(), /5 direct failures in a row.*using the relay meanwhile/);
+    calls.length = 0;
+
+    c.advance(9 * 60_000);
+    await client.request('getStopArrivals', '1');
+    assert.deepEqual(calls, ['relay(k)']);
+
+    up = true;
+    c.advance(60_001);
+    calls.length = 0;
+    await client.request('getStopArrivals', '1');
+    assert.deepEqual(calls, ['direct']);
+    assert.match(logs.at(-1), /direct access is working again/);
+});
+
+test('when both routes fail the request is unavailable, and each fallback still counts against the rate limit', async () => {
+    const c = clock();
+    const sendAt = [];
+    const client = createOasaClient({
+        fetch: async () => { throw new Error('down'); },
+        now: c.now,
+        sleep: async ms => { sendAt.push(ms); },
+        log: quiet,
+        relay: RELAY,
+    });
+    await assert.rejects(client.request('getStopArrivals', '1'), OasaUnavailable);
+    await assert.rejects(client.request('getStopArrivals', '1'), OasaUnavailable);
+    // One slot per logical request: the second waits 500 ms, not 1000
+    assert.deepEqual(sendAt, [500]);
+});
