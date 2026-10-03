@@ -89,6 +89,24 @@ test('arrivals are cached for 30 s, shared by simultaneous requests and named', 
     assert.deepEqual(oasa.calls.slice(2), ['getStopArrivals:10361']);
 });
 
+test('answers age from when OASA was asked, so a slow reply is not reused past 30 s', async () => {
+    const c = clock();
+    const oasa = fakeOasa({
+        ...routesAt,
+        // The reply takes 3 s to arrive
+        getStopArrivals: async () => { c.advance(3_000); return [{ route_code: '2052', veh_code: '1', btime2: '4' }]; },
+    });
+    const client = createOasaClient({ fetch: oasa.fetch, now: c.now, sleep: c.sleep, log: quiet });
+    const arrivals = createArrivals({ client, now: c.now, log: quiet });
+
+    const asked = c.now();
+    await arrivals.stopArrivals('1');
+    // The page's next poll, 32 s after it first asked
+    c.advance(asked + 32_000 - c.now());
+    await arrivals.stopArrivals('1');
+    assert.equal(oasa.calls.filter(x => x.startsWith('getStopArrivals')).length, 2);
+});
+
 test('"no buses" answers are cached too', async () => {
     const { c, oasa, arrivals } = setup({ ...routesAt, getStopArrivals: () => null });
     assert.deepEqual((await arrivals.stopArrivals('1')).arrivals, []);

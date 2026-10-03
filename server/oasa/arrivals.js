@@ -79,8 +79,8 @@ export function createArrivals({ client, routesFile, now = Date.now, log = conso
 
     // ── Arrivals ────────────────────────────────────────────────────────────
 
-    function remember(stop, arrivals) {
-        cache.set(stop, { at: now(), arrivals });
+    function remember(stop, arrivals, at) {
+        cache.set(stop, { at, arrivals });
         if (cache.size > MAX_CACHED_STOPS) {
             for (const [key, entry] of cache) if (now() - entry.at > STALE_MAX_MS) cache.delete(key);
         }
@@ -93,11 +93,14 @@ export function createArrivals({ client, routesFile, now = Date.now, log = conso
         if (inflight.has(stop)) return inflight.get(stop);
 
         const pending = (async () => {
+            // Age answers from when we asked, so a slow reply (e.g. queued behind
+            // the rate limit) doesn't stay "fresh" longer than ARRIVALS_TTL_MS
+            const asked = now();
             try {
                 const raw = await client.request('getStopArrivals', stop);
                 const arrivals = await describe(stop, Array.isArray(raw) ? raw : []);
-                remember(stop, arrivals);
-                return { arrivals, updated: now(), stale: false };
+                remember(stop, arrivals, asked);
+                return { arrivals, updated: asked, stale: false };
             } catch {
                 if (hit && now() - hit.at < STALE_MAX_MS) return { arrivals: hit.arrivals, updated: hit.at, stale: true };
                 return { arrivals: [], updated: null, stale: false, unavailable: true };

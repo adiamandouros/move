@@ -4,8 +4,10 @@ import { t } from '/js/core/i18n.js';
 import { decodeStops, distanceMeters, nearestStops } from './stops.js';
 import { message, patchStop, stopItem } from './render.js';
 
-// Matches the server's arrivals cache, so polling faster would gain nothing
-const POLL_MS = 30_000;
+// The server keeps each stop's arrivals for 30 s, so polling faster gains
+// nothing. The extra 2 s make sure the previous answer has expired by the
+// next poll; at exactly 30 s the poll could land just before and get the same data.
+const POLL_MS = 32_000;
 // Stop polling when nobody has touched the page for this long
 const IDLE_MS = 10 * 60_000;
 // Re-pick the nearby stops after walking this far
