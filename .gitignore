@@ -1,3 +1,8 @@
 node_modules/
 .env
 .claude/settings.local.json
+data/raw/
+data/build/
+data/build.next/
+data/build.prev/
+data/.build.lock

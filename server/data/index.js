@@ -1,0 +1,154 @@
+import 'dotenv/config';
+import { createHash } from 'crypto';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'fs';
+import { dirname, join, resolve } from 'path';
+import { fileURLToPath } from 'url';
+import { athensToday } from './calendar.js';
+import { buildBus } from './build-bus.js';
+import { buildRail } from './build-rail.js';
+import { fetchSources } from './sources.js';
+import { validateCurated } from './validate.js';
+
+const DATA_DIR    = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'data');
+const CURATED_DIR = join(DATA_DIR, 'curated');
+const RAW_DIR     = join(DATA_DIR, 'raw');
+export const BUILD_DIR = join(DATA_DIR, 'build');
+const NEXT_DIR    = join(DATA_DIR, 'build.next');
+const PREV_DIR    = join(DATA_DIR, 'build.prev');
+const LOCK_FILE   = join(DATA_DIR, '.build.lock');
+
+// Bump when the output format or build logic changes, to force a rebuild.
+const BUILDER_VERSION = 1;
+const LOCK_STALE_MS = 30 * 60_000;
+
+const OUTPUTS = {
+    'rail.json': {
+        sources: ['rail'],
+        build: (src, curated, today) => buildRail({ dir: src.rail.dir, curated, today }),
+    },
+    'bus-stops.json': {
+        sources: ['bus'],
+        build: (src, curated, today) => buildBus({ dir: src.bus.dir, stopTablePath: src.stopTable.files?.['stops_all.csv'], today }),
+    },
+};
+
+const log = msg => console.log(msg);
+
+// Fetch any changed feeds and rebuild data/build. Outputs are rebuilt when a
+// feed or a curated file changed, the builder changed, or the day changed
+// (the weekly timetable is chosen relative to today). An output that fails to
+// build keeps its previous version; the failure is recorded in meta.json.
+export async function runBuild({ force = false, offline = false } = {}) {
+    if (!acquireLock()) {
+        log('[data] Another build is running — skipping');
+        return null;
+    }
+    try {
+        const curated = loadCurated();
+        const check = validateCurated(curated.data);
+        for (const w of check.warnings) log(`[data] warning: ${w}`);
+        if (check.errors.length) throw new Error(`Curated data has errors:\n  ${check.errors.join('\n  ')}`);
+
+        const sources = await fetchSources({ rawDir: RAW_DIR, offline, log });
+        const today = athensToday();
+        const fingerprint = {
+            builder: BUILDER_VERSION,
+            curated: curated.hash,
+            today,
+            sources: Object.fromEntries(Object.entries(sources).map(([k, s]) => [k, s.modified ?? null])),
+        };
+
+        const previous = readJson(join(BUILD_DIR, 'meta.json'));
+        const allOk = previous && Object.keys(OUTPUTS).every(name => previous.outputs?.[name]?.ok);
+        if (!force && allOk && JSON.stringify(previous.fingerprint) === JSON.stringify(fingerprint)) {
+            log('[data] Build is up to date');
+            return previous;
+        }
+
+        rmSync(NEXT_DIR, { recursive: true, force: true });
+        mkdirSync(NEXT_DIR, { recursive: true });
+        const meta = { generated: new Date().toISOString(), fingerprint, warnings: check.warnings, outputs: {} };
+
+        for (const [name, output] of Object.entries(OUTPUTS)) {
+            const started = Date.now();
+            try {
+                const missing = output.sources.filter(s => sources[s].error);
+                if (missing.length) throw new Error(`source unavailable: ${missing.map(s => `${s} (${sources[s].error})`).join(', ')}`);
+                const { data, warnings } = await output.build(sources, curated.data, today);
+                writeFileSync(join(NEXT_DIR, name), JSON.stringify(data));
+                meta.outputs[name] = { ok: true, warnings };
+                log(`[data] Built ${name} in ${Date.now() - started} ms${warnings.length ? ` with ${warnings.length} warning(s)` : ''}`);
+                for (const w of warnings) log(`[data]   ${w}`);
+            } catch (err) {
+                const kept = existsSync(join(BUILD_DIR, name));
+                if (kept) copyFileSync(join(BUILD_DIR, name), join(NEXT_DIR, name));
+                meta.outputs[name] = { ok: false, error: err.message, keptPrevious: kept };
+                log(`[data] FAILED ${name}: ${err.message}${kept ? ' — keeping the previous version' : ''}`);
+            }
+        }
+
+        writeFileSync(join(NEXT_DIR, 'meta.json'), JSON.stringify(meta, null, 2));
+        publish();
+        return meta;
+    } finally {
+        rmSync(LOCK_FILE, { force: true });
+    }
+}
+
+// Move each file from build.next into build with an atomic rename, so the
+// server never serves a half-written file. The replaced files go to build.prev.
+function publish() {
+    mkdirSync(BUILD_DIR, { recursive: true });
+    rmSync(PREV_DIR, { recursive: true, force: true });
+    mkdirSync(PREV_DIR);
+    for (const name of [...Object.keys(OUTPUTS), 'meta.json']) {
+        const next = join(NEXT_DIR, name);
+        if (!existsSync(next)) continue;
+        if (existsSync(join(BUILD_DIR, name))) copyFileSync(join(BUILD_DIR, name), join(PREV_DIR, name));
+        renameSync(next, join(BUILD_DIR, name));
+    }
+    rmSync(NEXT_DIR, { recursive: true, force: true });
+}
+
+function loadCurated() {
+    const hash = createHash('sha256');
+    const data = {};
+    for (const name of ['stations', 'lines', 'positions', 'overrides']) {
+        const raw = readFileSync(join(CURATED_DIR, `${name}.json`), 'utf8');
+        hash.update(raw);
+        try { data[name] = JSON.parse(raw); }
+        catch (err) { throw new Error(`data/curated/${name}.json is not valid JSON: ${err.message}`); }
+    }
+    return { data, hash: hash.digest('hex') };
+}
+
+function acquireLock() {
+    mkdirSync(DATA_DIR, { recursive: true });
+    try {
+        writeFileSync(LOCK_FILE, String(process.pid), { flag: 'wx' });
+        return true;
+    } catch (err) {
+        if (err.code !== 'EEXIST') throw err;
+        if (Date.now() - statSync(LOCK_FILE).mtimeMs < LOCK_STALE_MS) return false;
+        rmSync(LOCK_FILE, { force: true });
+        return acquireLock();
+    }
+}
+
+function readJson(path) {
+    try { return JSON.parse(readFileSync(path, 'utf8')); } catch { return null; }
+}
+
+// CLI: npm run build:data [-- --force] [-- --offline]
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+    const args = new Set(process.argv.slice(2));
+    runBuild({ force: args.has('--force'), offline: args.has('--offline') })
+        .then(meta => {
+            const failed = meta && Object.values(meta.outputs).some(o => !o.ok);
+            process.exitCode = failed ? 1 : 0;
+        })
+        .catch(err => {
+            console.error(`[data] Build failed: ${err.message}`);
+            process.exitCode = 1;
+        });
+}

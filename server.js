@@ -3,6 +3,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { startScheduler } from './server/scheduler.js';
+import { BUILD_DIR } from './server/data/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -43,6 +44,9 @@ app.get('/sw.js', (_req, res) => {
     res.set('Cache-Control', 'no-cache');
     res.sendFile(path.join(__dirname, 'public', 'sw.js'));
 });
+
+// Generated data (rail.json, bus-stops.json, meta.json); revalidated on every request via ETag
+app.use('/data', express.static(BUILD_DIR, { maxAge: 0 }));
 
 app.use(express.static(path.join(__dirname, 'public')));
 

@@ -1,28 +1,20 @@
 import cron from 'node-cron';
-import { buildSchedule, isScheduleStale } from './schedule-builder.js';
+import { runBuild } from './data/index.js';
 
-async function checkAndBuild() {
+async function build() {
     try {
-        if (await isScheduleStale()) {
-            console.log('[scheduler] Schedule is stale or missing — rebuilding…');
-            await buildSchedule();
-        } else {
-            console.log('[scheduler] Schedule is current, no rebuild needed.');
-        }
+        await runBuild();
     } catch (err) {
-        console.error('[scheduler] Build failed:', err.message);
+        console.error('[data] Build failed:', err.message);
     }
 }
 
 export function startScheduler() {
-    // Run immediately on startup (non-blocking)
-    checkAndBuild();
+    // Run immediately on startup (non-blocking), so a restart catches up on anything missed
+    build();
 
-    // Re-check every Monday at 03:00 AM
-    cron.schedule('0 3 * * 1', () => {
-        console.log('[scheduler] Weekly GTFS check triggered.');
-        checkAndBuild();
-    });
+    // Daily check: one portal request per dataset; files are only downloaded when they changed
+    cron.schedule('30 4 * * *', build, { timezone: 'Europe/Athens' });
 
-    console.log('[scheduler] Started (weekly check Mon 03:00).');
+    console.log('[scheduler] Started (daily data check 04:30 Athens time).');
 }
