@@ -9,6 +9,7 @@ let upstream;
 beforeEach(() => {
     upstream = [];
     globalThis.fetch = async (url, init) => {
+        if (url === 'https://www.cloudflare.com/cdn-cgi/trace') return new Response('fl=1\nip=198.51.100.4\ncolo=ATH\nloc=GR\n');
         upstream.push({ url, ua: init.headers['User-Agent'] });
         return new Response('[{"route_code":"1"}]', { status: 200, headers: { 'Content-Type': 'text/html' } });
     };
@@ -37,5 +38,12 @@ test('refuses anything but the app\'s own API calls', async () => {
         assert.equal((await call(query)).status, 400, query);
     }
     assert.equal((await call('?act=getStopArrivals&p1=1', { 'X-Relay-Key': 'secret' }, 'POST')).status, 405);
+    assert.equal(upstream.length, 0);
+});
+
+test('whereami reports where the Worker\'s requests leave Cloudflare, and needs the key', async () => {
+    const res = await call('?act=whereami');
+    assert.deepEqual(await res.json(), { receivedAt: null, colo: 'ATH', loc: 'GR', ip: '198.51.100.4' });
+    assert.equal((await call('?act=whereami', {})).status, 401);
     assert.equal(upstream.length, 0);
 });

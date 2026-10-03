@@ -7,10 +7,16 @@
 // Request:  GET https://<worker>/?act=getStopArrivals&p1=10361
 //           X-Relay-Key: <RELAY_KEY>
 // Response: OASA's response body and status, unchanged.
+//
+// GET /?act=whereami (with the key) reports where the Worker's own outgoing
+// requests come from. OASA's live API only accepts connections from Greece,
+// so this should say loc=GR; the diagnostics page shows it.
 
 const OASA_API = 'https://telematics.oasa.gr/api/';
 const ALLOWED_ACTIONS = new Set(['getStopArrivals', 'webRoutesForStop']);
-const TIMEOUT_MS = 8000;
+// Shorter than the server's 8 s timeout, so a failure to reach OASA is
+// reported back as a 502 before the server gives up on the relay
+const TIMEOUT_MS = 6000;
 
 export default {
     async fetch(request, env) {
@@ -22,6 +28,7 @@ export default {
         const params = new URL(request.url).searchParams;
         const act = params.get('act') ?? '';
         const p1 = params.get('p1') ?? '';
+        if (act === 'whereami') return whereAmI(request);
         if (!ALLOWED_ACTIONS.has(act) || !/^\d{1,8}$/.test(p1)) return text(400, 'Bad request');
 
         try {
@@ -44,6 +51,20 @@ export default {
 
 function text(status, body) {
     return new Response(body, { status, headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' } });
+}
+
+// Where requests leave Cloudflare from when this Worker fetches something:
+// Cloudflare's trace endpoint reports the data centre (colo) and country (loc)
+async function whereAmI(request) {
+    const out = { receivedAt: request.cf?.colo ?? null };
+    try {
+        const trace = await (await fetch('https://www.cloudflare.com/cdn-cgi/trace', { signal: AbortSignal.timeout(TIMEOUT_MS) })).text();
+        const fields = Object.fromEntries(trace.trim().split('\n').map(l => l.split('=')));
+        Object.assign(out, { colo: fields.colo ?? null, loc: fields.loc ?? null, ip: fields.ip ?? null });
+    } catch (err) {
+        out.error = err.message;
+    }
+    return new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 }
 
 // Compare secrets without leaking their length or contents through timing
