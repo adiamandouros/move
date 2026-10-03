@@ -8,3 +8,4 @@ data/build.prev/
 data/.build.lock
 data/local/
 data/cache/
+tmp/
