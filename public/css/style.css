@@ -124,6 +124,73 @@ body {
     margin-top: 2px;
 }
 
+/* ── Home, offline and not-found pages ── */
+
+.home-view,
+.message-view {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem;
+}
+
+.message-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding-top: 15dvh;
+    color: #9aa3b2;
+}
+
+.message-view h1 {
+    color: #e8eaf0;
+}
+
+.tool-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    width: 100%;
+    text-align: left;
+}
+
+.tool-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 16px;
+    border-radius: 12px;
+    background-color: #161b27;
+    border: 1px solid #1e2538;
+    color: #e8eaf0;
+    text-decoration: none;
+    transition: border-color 0.15s, background-color 0.15s;
+}
+
+.tool-tile:hover {
+    border-color: var(--accent);
+    background-color: #1a2133;
+}
+
+.tool-tile:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+.tool-tile .bi {
+    font-size: 1.75rem;
+    color: var(--accent);
+}
+
+.tool-tile-title {
+    font-weight: 600;
+}
+
+.tool-tile-desc {
+    font-size: 0.875rem;
+    color: #9aa3b2;
+}
+
 /* ── Utility ── */
 
 @keyframes spin { to { transform: rotate(360deg); } }

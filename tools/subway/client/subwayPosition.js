@@ -1,7 +1,7 @@
-import { lines, allStops, stopCoordinates, stopIndex } from '../data/subway.js';
-import { getCoords } from '../location.js';
-import { t } from '../i18n.js';
-import { getLanguage, onLanguageChange } from '../settings.js';
+import { lines, allStops, stopCoordinates, stopIndex } from './subway-data.js';
+import { getCoords } from '/js/core/location.js';
+import { t } from '/js/core/i18n.js';
+import { getLanguage, onLanguageChange } from '/js/core/settings.js';
 
 // ── Position config ─────────────────────────────────────────────────────────
 

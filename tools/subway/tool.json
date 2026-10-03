@@ -1,0 +1,10 @@
+{
+  "path": "/subway",
+  "order": 1,
+  "icon": "train-front",
+  "title": { "en": "Subway", "el": "Μετρό" },
+  "description": { "en": "Plan a metro trip and see where to board for the exit", "el": "Σχεδιάστε μια διαδρομή με το μετρό και δείτε πού να επιβιβαστείτε για την έξοδο" },
+  "offline": true,
+  "scripts": ["main.js"],
+  "precache": []
+}

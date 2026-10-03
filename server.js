@@ -1,12 +1,15 @@
 import 'dotenv/config';
+import compression from 'compression';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { startScheduler } from './server/scheduler.js';
 import { BUILD_DIR } from './server/data/index.js';
+import { createPages, VENDOR } from './server/pages.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+app.use(compression());
 const PORT = process.env.PORT || 3000;
 
 const OASA_API_URL = process.env.OASA_API_URL;
@@ -40,19 +43,17 @@ app.use('/api', async (req, res) => {
     }
 });
 
-app.get('/sw.js', (_req, res) => {
-    res.set('Cache-Control', 'no-cache');
-    res.sendFile(path.join(__dirname, 'public', 'sw.js'));
-});
+const pages = createPages();
+app.use(pages.router);
 
 // Generated data (rail.json, bus-stops.json, meta.json); revalidated on every request via ETag
 app.use('/data', express.static(BUILD_DIR, { maxAge: 0 }));
 
-app.use(express.static(path.join(__dirname, 'public')));
+for (const [url, dir] of Object.entries(VENDOR)) app.use(url, express.static(dir));
 
-app.get('*splat', (_req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
+
+app.use(pages.notFound);
 
 app.listen(PORT, () => {
     console.log(`Move app running at http://localhost:${PORT}`);

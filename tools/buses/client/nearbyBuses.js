@@ -1,6 +1,6 @@
-import { getCoords, subscribeToLocation } from '../location.js';
-import { t } from '../i18n.js';
-import { getLanguage, onLanguageChange } from '../settings.js';
+import { getCoords, subscribeToLocation } from '/js/core/location.js';
+import { t } from '/js/core/i18n.js';
+import { getLanguage, onLanguageChange } from '/js/core/settings.js';
 
 // ── Screen reader announcer ─────────────────────────────────────────────────
 
