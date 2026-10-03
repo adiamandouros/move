@@ -102,7 +102,7 @@ export function createArrivals({ client, routesFile, now = Date.now, log = conso
                 remember(stop, arrivals, asked);
                 return { arrivals, updated: asked, stale: false };
             } catch {
-                if (hit && now() - hit.at < STALE_MAX_MS) return { arrivals: hit.arrivals, updated: hit.at, stale: true };
+                if (hit && now() - hit.at < STALE_MAX_MS) return { arrivals: countDown(hit.arrivals, now() - hit.at), updated: hit.at, stale: true };
                 return { arrivals: [], updated: null, stale: false, unavailable: true };
             } finally {
                 inflight.delete(stop);
@@ -113,6 +113,15 @@ export function createArrivals({ client, routesFile, now = Date.now, log = conso
     }
 
     return { stopArrivals };
+}
+
+// Bring an old answer up to date: subtract the minutes that have passed since
+// it was fetched, and drop buses that should already have arrived
+export function countDown(arrivals, elapsedMs) {
+    const elapsed = Math.floor(elapsedMs / 60_000);
+    return arrivals
+        .map(a => ({ ...a, minutes: a.minutes - elapsed }))
+        .filter(a => a.minutes >= 0);
 }
 
 function loadRoutes(path, log) {

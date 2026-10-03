@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { createArrivals } from '../server/oasa/arrivals.js';
+import { countDown, createArrivals } from '../server/oasa/arrivals.js';
 import { createOasaClient, OasaUnavailable } from '../server/oasa/client.js';
 
 // A fake clock where sleeping just moves time forward
@@ -127,10 +127,18 @@ test('when OASA fails, the last answer is served as stale for up to 5 minutes', 
     c.advance(60_000);
     const stale = await arrivals.stopArrivals('1');
     assert.equal(stale.stale, true);
-    assert.equal(stale.arrivals[0].minutes, 4);
+    // One minute later, the bus that was 4 minutes away is 3 minutes away
+    assert.equal(stale.arrivals[0].minutes, 3);
 
     c.advance(5 * 60_000);
     assert.deepEqual(await arrivals.stopArrivals('1'), { arrivals: [], updated: null, stale: false, unavailable: true });
+});
+
+test('countDown subtracts elapsed whole minutes and drops buses that have arrived', () => {
+    const list = [{ minutes: 1 }, { minutes: 4 }, { minutes: 12 }];
+    assert.deepEqual(countDown(list, 59_000).map(a => a.minutes), [1, 4, 12]);
+    assert.deepEqual(countDown(list, 3 * 60_000 + 5_000).map(a => a.minutes), [1, 9]);
+    assert.deepEqual(countDown(list, 20 * 60_000), []);
 });
 
 test('route names are saved to disk and survive a restart', async () => {
