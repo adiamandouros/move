@@ -1,0 +1,14 @@
+{
+  "headways": [
+    {
+      "line": "M1",
+      "days": ["sat", "sun"],
+      "reason": "The STASY feed copies the M1 weekday timetable onto weekends. Replaced with the official M1 weekend frequencies (10'30\" is written as 10.5). Times past midnight use 24:00+.",
+      "periods": [
+        ["05:00", "05:30", 15],
+        ["05:30", "23:30", 10.5],
+        ["23:30", "25:00", 15]
+      ]
+    }
+  ]
+}

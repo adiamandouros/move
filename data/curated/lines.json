@@ -1,0 +1,26 @@
+{
+  "M1": {
+    "name": "M1",
+    "color": "#4caf50",
+    "directions": {
+      "kifisia": { "gtfsDirection": "0", "toward": { "el": "Κηφισιά", "en": "Kifisia" } },
+      "piraeus": { "gtfsDirection": "1", "toward": { "el": "Πειραιάς", "en": "Piraeus" } }
+    }
+  },
+  "M2": {
+    "name": "M2",
+    "color": "#cc0000",
+    "directions": {
+      "anthoupoli": { "gtfsDirection": "1", "toward": { "el": "Ανθούπολη", "en": "Anthoupoli" } },
+      "elliniko": { "gtfsDirection": "0", "toward": { "el": "Ελληνικό", "en": "Elliniko" } }
+    }
+  },
+  "M3": {
+    "name": "M3",
+    "color": "#0057b8",
+    "directions": {
+      "dimotiko": { "gtfsDirection": "1", "toward": { "el": "Δημοτικό Θέατρο", "en": "Dimotiko Theatro" } },
+      "doukissis": { "gtfsDirection": "0", "toward": { "el": "Δουκίσσης / Αεροδρόμιο", "en": "Doukissis / Airport" } }
+    }
+  }
+}

@@ -5,16 +5,24 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "node --watch-path=server --watch-path=tools --watch-path=public/js --watch-path=public/css server.js",
+    "build:data": "node server/data/index.js",
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "bootstrap": "^5.3.8",
+    "bootstrap-icons": "^1.13.1",
+    "compression": "^1.8.2",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
-    "node-cron": "^4.2.1"
+    "node-cron": "^4.2.1",
+    "node-unrar-js": "^2.0.2"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

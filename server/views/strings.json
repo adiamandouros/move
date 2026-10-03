@@ -1,0 +1,22 @@
+{
+  "en": {
+    "shell.skip": "Skip to content",
+    "shell.switch-language": "Switch language",
+    "home.title": "Getting around Athens",
+    "offline.title": "You're offline",
+    "offline.text": "This page needs a connection. These work offline:",
+    "notfound.title": "Page not found",
+    "notfound.text": "There's nothing at this address.",
+    "notfound.home": "Go to the home page"
+  },
+  "el": {
+    "shell.skip": "Μετάβαση στο περιεχόμενο",
+    "shell.switch-language": "Αλλαγή γλώσσας",
+    "home.title": "Μετακινήσεις στην Αθήνα",
+    "offline.title": "Είστε εκτός σύνδεσης",
+    "offline.text": "Αυτή η σελίδα χρειάζεται σύνδεση. Αυτά λειτουργούν χωρίς σύνδεση:",
+    "notfound.title": "Η σελίδα δεν βρέθηκε",
+    "notfound.text": "Δεν υπάρχει τίποτα σε αυτή τη διεύθυνση.",
+    "notfound.home": "Μετάβαση στην αρχική σελίδα"
+  }
+}

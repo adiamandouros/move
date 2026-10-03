@@ -1,0 +1,98 @@
+/* Station editor (/admin) — builds on public/css/style.css */
+
+.admin-view {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 24px 16px;
+}
+
+.admin-login {
+    max-width: 360px;
+    padding-top: 15dvh;
+}
+
+.admin-pickers {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.picker-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.picker-btn {
+    --line-color: var(--accent);
+    flex: 1;
+    color: #9aa3b2;
+    border: 1px solid #2a3350;
+    background-color: #161b27;
+}
+
+.picker-btn[aria-pressed="true"] {
+    color: #fff;
+    border-color: var(--line-color);
+    background-color: color-mix(in srgb, var(--line-color) 35%, #161b27);
+}
+
+.sync-status {
+    font-size: 0.85rem;
+    color: var(--bs-warning, #ffc107);
+    border: 1px solid rgba(255, 193, 7, 0.35);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+}
+
+.entry-form fieldset {
+    margin-bottom: 16px;
+}
+
+.entry-form legend {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.entry-state {
+    font-size: 0.85rem;
+    color: #9aa3b2;
+}
+
+.entry-state[data-state="edited"],
+.entry-state[data-state^="pending"] {
+    color: var(--bs-warning, #ffc107);
+}
+
+.car-toggles {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+}
+
+.car-toggle {
+    min-height: 48px;
+    padding: 4px;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    color: #9aa3b2;
+    background-color: #161b27;
+    border: 1px solid #2a3350;
+    border-radius: 6px;
+}
+
+.car-toggle[aria-pressed="true"] {
+    color: #0f1117;
+    font-weight: 600;
+    background-color: var(--bs-warning, #ffc107);
+    border-color: var(--bs-warning, #ffc107);
+}
+
+.car-toggle:focus-visible,
+.picker-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}

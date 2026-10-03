@@ -1,57 +1,55 @@
 import 'dotenv/config';
+import compression from 'compression';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { startScheduler } from './server/scheduler.js';
+import { readFileSync } from 'fs';
+import { createAdmin } from './server/admin/index.js';
+import { BUILD_DIR, OVERLAY_FILE, loadCurated, rebuildSoon } from './server/data/index.js';
+import { createBusApi } from './server/oasa/index.js';
+import { createPages, VENDOR } from './server/pages.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+// Behind cPanel's Apache proxy: trust its X-Forwarded-* headers for req.ip and req.secure
+app.set('trust proxy', 'loopback');
+app.use(compression());
 const PORT = process.env.PORT || 3000;
 
-const OASA_API_URL = process.env.OASA_API_URL;
-if (!OASA_API_URL) {
-    console.error('ERROR: OASA_API_URL is not set. Create a .env file with OASA_API_URL=https://your-api-url');
-    process.exit(1);
-}
+// Live bus arrivals from OASA, cached and rate-limited (see server/oasa/).
+// The relay is a fallback for when OASA can't be reached directly (proxy/README.md).
+const relay = process.env.OASA_RELAY_URL && process.env.OASA_RELAY_KEY
+    ? { url: process.env.OASA_RELAY_URL, key: process.env.OASA_RELAY_KEY }
+    : null;
+if (process.env.OASA_RELAY_URL && !relay) console.warn('[oasa] OASA_RELAY_URL is set without OASA_RELAY_KEY — relay disabled');
+app.use('/api', createBusApi({ routesFile: path.join(__dirname, 'data', 'cache', 'oasa-routes.json'), relay }));
 
-// Forward /api/* requests to the OASA API
-const UPSTREAM_TIMEOUT_MS = 15000;
-app.use('/api', async (req, res) => {
-    const target = OASA_API_URL.replace(/\/$/, '') + req.url;
-    try {
-        const apiRes = await fetch(target, {
-            method: req.method,
-            headers: { 'Content-Type': 'application/json' },
-            signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-        });
-        const data = await apiRes.text();
-        res.status(apiRes.status)
-           .set('Content-Type', apiRes.headers.get('content-type') || 'application/json')
-           .send(data);
-    } catch (err) {
-        const timedOut = err.name === 'TimeoutError' || err.name === 'AbortError';
-        const status = timedOut ? 504 : 502;
-        console.error('Proxy error:', err.message);
-        res.status(status).json({
-            error: timedOut ? 'Upstream timeout' : 'Failed to reach API',
-            details: err.message,
-        });
-    }
+const pages = createPages();
+app.use(pages.router);
+
+// Private station editor — only exists when ADMIN_PASSWORD is set
+const admin = createAdmin({
+    password: process.env.ADMIN_PASSWORD,
+    overlayFile: OVERLAY_FILE,
+    loadCurated,
+    loadRail: () => { try { return JSON.parse(readFileSync(path.join(BUILD_DIR, 'rail.json'), 'utf8')); } catch { return null; } },
+    rebuild: rebuildSoon,
+    render: pages.render,
 });
+if (admin) app.use('/admin', admin);
 
-app.get('/sw.js', (_req, res) => {
-    res.set('Cache-Control', 'no-cache');
-    res.sendFile(path.join(__dirname, 'public', 'sw.js'));
-});
+// Generated data (rail.json, bus-stops.json, meta.json); revalidated on every request via ETag
+app.use('/data', express.static(BUILD_DIR, { maxAge: 0 }));
 
-app.use(express.static(path.join(__dirname, 'public')));
+for (const [url, dir] of Object.entries(VENDOR)) app.use(url, express.static(dir));
 
-app.get('*splat', (_req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
+
+app.use(pages.notFound);
 
 app.listen(PORT, () => {
     console.log(`Move app running at http://localhost:${PORT}`);
-    console.log(`Proxying /api/* to ${OASA_API_URL}`);
+    if (relay) console.log(`[oasa] Relay fallback: ${new URL(relay.url).host}`);
     startScheduler();
 });
