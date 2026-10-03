@@ -218,3 +218,51 @@ test('when both routes fail the request is unavailable, and each fallback still 
     // One slot per logical request: the second waits 500 ms, not 1000
     assert.deepEqual(sendAt, [500]);
 });
+
+// What the bus page does: several stops requested at the same moment
+test('simultaneous failures put a route to rest once, with one log line', async () => {
+    const c = clock();
+    const logs = [];
+    const { fetch, calls } = routedFetch({ directUp: () => false });
+    const client = createOasaClient({ fetch, now: c.now, sleep: async () => {}, log: m => logs.push(m), relay: RELAY });
+
+    const results = await Promise.all(Array.from({ length: 12 }, () => client.request('getStopArrivals', '1')));
+    assert.equal(results.length, 12); // all answered through the relay
+    assert.equal(logs.filter(m => m.includes('direct failures')).length, 1);
+    // Requests that were already in flight don't restart the rest: the next one goes straight to the relay
+    calls.length = 0;
+    await client.request('getStopArrivals', '1');
+    assert.deepEqual(calls, ['relay(k)']);
+});
+
+test('after a rest, simultaneous requests send a single probe', async () => {
+    const c = clock();
+    let relayUp = false;
+    const logs = [];
+    const relayCalls = [];
+    const fetch = async url => {
+        await Promise.resolve();
+        if (!url.startsWith(RELAY.url)) throw new Error('blocked');
+        relayCalls.push(c.now());
+        if (!relayUp) throw new Error('relay down');
+        return { ok: true, text: async () => '[]' };
+    };
+    const client = createOasaClient({ fetch, now: c.now, sleep: async () => {}, log: m => logs.push(m), relay: RELAY });
+
+    // Both routes fail until both are resting
+    await Promise.allSettled(Array.from({ length: 12 }, () => client.request('getStopArrivals', '1')));
+    assert.equal(logs.filter(m => m.includes('relay failures')).length, 1);
+
+    // The relay's 60 s rest is over and it has recovered; 6 stops are asked for at once
+    relayUp = true;
+    c.advance(60_001);
+    relayCalls.length = 0;
+    const results = await Promise.allSettled(Array.from({ length: 6 }, () => client.request('getStopArrivals', '1')));
+    assert.equal(relayCalls.length, 1, 'one probe, not a burst');
+    assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);
+    assert.match(logs.at(-1), /relay access is working again/);
+
+    // With the probe successful, the relay is back in normal use
+    const after = await Promise.allSettled(Array.from({ length: 6 }, () => client.request('getStopArrivals', '1')));
+    assert.ok(after.every(r => r.status === 'fulfilled'));
+});

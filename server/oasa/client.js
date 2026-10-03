@@ -28,10 +28,14 @@ const realSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sleep = realSleep, log = console.warn, relay = null } = {}) {
     let nextSlot = 0;
 
-    // Consecutive-failure tracking per route; a route is skipped until `restUntil`
-    const route = (name, restMs, url, headers = {}) => ({ name, restMs, url, headers, failures: 0, restUntil: 0 });
+    // Per route: consecutive failures, and while resting, the time it may be
+    // tried again. After a rest, a single request probes it (`probing`) while
+    // the others keep skipping it, so a recovering service gets one try, not a burst.
+    const route = (name, restMs, url, headers = {}) => ({ name, restMs, url, headers, failures: 0, restUntil: 0, probing: false });
     const direct = route('direct', relay ? DIRECT_REST_MS : RELAY_REST_MS, API);
     const viaRelay = relay ? route('relay', RELAY_REST_MS, relay.url, { 'X-Relay-Key': relay.key }) : null;
+    const routes = [direct, viaRelay].filter(Boolean);
+    const usable = r => !r.probing && now() >= r.restUntil;
 
     // Reserve the next free slot; resolves when it's our turn, or false if the queue is too long
     async function waitForSlot() {
@@ -43,7 +47,19 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
         return true;
     }
 
+    function rest(r, reason) {
+        r.failures = 0;
+        r.restUntil = now() + r.restMs;
+        if (reason) {
+            const fallback = r === direct && viaRelay ? ' — using the relay meanwhile' : '';
+            log(`[oasa] ${FAILURES_TO_OPEN} ${r.name} failures in a row (last: ${reason}); resting it for ${r.restMs / 1000} s${fallback}`);
+        }
+    }
+
     async function attempt(r, act, p1) {
+        // A route whose rest is over gets exactly one probe
+        const probe = r.restUntil > 0;
+        if (probe) r.probing = true;
         try {
             const url = `${r.url}?act=${encodeURIComponent(act)}&p1=${encodeURIComponent(p1)}`;
             const res = await fetch(url, {
@@ -52,33 +68,31 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const body = JSON.parse(await res.text());
-            if (r.failures >= FAILURES_TO_OPEN || r.restUntil) log(`[oasa] ${r.name} access is working again`);
+            if (r.restUntil) log(`[oasa] ${r.name} access is working again`);
             r.failures = 0;
             r.restUntil = 0;
             return body;
         } catch (err) {
-            if (++r.failures === FAILURES_TO_OPEN) {
-                r.restUntil = now() + r.restMs;
-                const fallback = r === direct && viaRelay ? ' — using the relay meanwhile' : '';
-                log(`[oasa] ${FAILURES_TO_OPEN} ${r.name} failures in a row (last: ${err.message}); resting it for ${r.restMs / 1000} s${fallback}`);
-            }
+            if (probe) rest(r);  // still failing: rest again, quietly
+            // Failures of requests that were already in flight when the route
+            // was put to rest don't count (and don't restart the rest)
+            else if (now() >= r.restUntil && ++r.failures >= FAILURES_TO_OPEN) rest(r, err.message);
             throw err;
+        } finally {
+            if (probe) r.probing = false;
         }
     }
-
-    // A rested route becomes available again once its time is up
-    const available = r => r && now() >= r.restUntil;
 
     // Call one API action, e.g. request('getStopArrivals', '10361'). Returns
     // the parsed JSON (OASA answers `null` for "nothing"), or throws OasaUnavailable.
     async function request(act, p1) {
-        const routes = [direct, viaRelay].filter(available);
-        if (!routes.length) throw new OasaUnavailable('OASA is failing — paused');
+        if (!routes.some(usable)) throw new OasaUnavailable('OASA is failing — paused');
         if (!await waitForSlot()) throw new OasaUnavailable('Request budget exhausted');
 
-        let lastError;
+        let lastError = new Error('OASA is failing — paused');
+        // Decided only now, after waiting: a route may have been rested meanwhile
         for (const r of routes) {
-            if (r.failures >= FAILURES_TO_OPEN) r.failures = FAILURES_TO_OPEN - 1; // one probe after resting
+            if (!usable(r)) continue;
             try {
                 return await attempt(r, act, p1);
             } catch (err) {
