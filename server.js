@@ -7,6 +7,7 @@ import { startScheduler } from './server/scheduler.js';
 import { readFileSync } from 'fs';
 import { createAdmin } from './server/admin/index.js';
 import { BUILD_DIR, OVERLAY_FILE, loadCurated, rebuildSoon } from './server/data/index.js';
+import { createBusApi } from './server/oasa/index.js';
 import { createPages, VENDOR } from './server/pages.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -16,35 +17,8 @@ app.set('trust proxy', 'loopback');
 app.use(compression());
 const PORT = process.env.PORT || 3000;
 
-// Only the current bus page uses this; everything else works without it
-const OASA_API_URL = process.env.OASA_API_URL;
-if (!OASA_API_URL) console.warn('[api] OASA_API_URL is not set — the bus page will show a server error');
-
-// Forward /api/* requests to the OASA API
-const UPSTREAM_TIMEOUT_MS = 15000;
-app.use('/api', async (req, res) => {
-    if (!OASA_API_URL) return res.status(503).json({ error: 'OASA_API_URL is not configured' });
-    const target = OASA_API_URL.replace(/\/$/, '') + req.url;
-    try {
-        const apiRes = await fetch(target, {
-            method: req.method,
-            headers: { 'Content-Type': 'application/json' },
-            signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-        });
-        const data = await apiRes.text();
-        res.status(apiRes.status)
-           .set('Content-Type', apiRes.headers.get('content-type') || 'application/json')
-           .send(data);
-    } catch (err) {
-        const timedOut = err.name === 'TimeoutError' || err.name === 'AbortError';
-        const status = timedOut ? 504 : 502;
-        console.error('Proxy error:', err.message);
-        res.status(status).json({
-            error: timedOut ? 'Upstream timeout' : 'Failed to reach API',
-            details: err.message,
-        });
-    }
-});
+// Live bus arrivals from OASA, cached and rate-limited (see server/oasa/)
+app.use('/api', createBusApi({ routesFile: path.join(__dirname, 'data', 'cache', 'oasa-routes.json') }));
 
 const pages = createPages();
 app.use(pages.router);
@@ -71,6 +45,5 @@ app.use(pages.notFound);
 
 app.listen(PORT, () => {
     console.log(`Move app running at http://localhost:${PORT}`);
-    if (OASA_API_URL) console.log(`Proxying /api/* to ${OASA_API_URL}`);
     startScheduler();
 });

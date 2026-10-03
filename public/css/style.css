@@ -772,3 +772,30 @@ body {
     font-size: 0.7rem;
     margin-top: 2px;
 }
+
+/* ── Nearby Buses: status banner and served lines ── */
+
+.bus-status {
+    margin: 12px 16px 0;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    color: var(--bs-warning, #ffc107);
+    border: 1px solid rgba(255, 193, 7, 0.35);
+    border-radius: 8px;
+}
+
+.bus-status button {
+    color: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.stop-lines {
+    font-size: 0.8rem;
+    color: #9aa3b2;
+    margin-top: 8px;
+}
+
+#bus-actions .btn + .btn {
+    margin-left: 8px;
+}

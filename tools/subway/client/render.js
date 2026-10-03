@@ -1,12 +1,9 @@
 import { getLanguage } from '/js/core/settings.js';
 import { format, t } from '/js/core/i18n.js';
+import { escapeHtml } from '/js/core/html.js';
 import { legPositions } from './network.js';
 
 const lang = () => getLanguage();
-
-export function escapeHtml(text) {
-    return String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
-}
 
 const stationName = (rail, id) => escapeHtml(rail.stations[id].name[lang()] ?? rail.stations[id].name.en);
 
