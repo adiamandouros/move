@@ -96,3 +96,47 @@
     outline: none;
     box-shadow: var(--focus-ring);
 }
+
+/* Diagnostics */
+
+.diag-summary {
+    display: flex;
+    gap: 10px;
+    padding: 12px;
+    margin-bottom: 16px;
+    border-radius: 8px;
+    border: 1px solid #2a3350;
+    background-color: #161b27;
+}
+
+.diag-summary[data-status="ok"] { border-color: rgba(25, 135, 84, 0.6); }
+.diag-summary[data-status="warn"] { border-color: rgba(255, 193, 7, 0.6); }
+.diag-summary[data-status="fail"] { border-color: rgba(220, 53, 69, 0.7); }
+
+.diag-group { margin-bottom: 16px; }
+
+.diag-group-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #9aa3b2;
+    margin-bottom: 6px;
+}
+
+.diag-row {
+    display: flex;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid #1e2538;
+}
+
+.diag-title { font-weight: 600; font-size: 0.9rem; }
+.diag-detail { font-size: 0.85rem; color: #c3c9d4; overflow-wrap: anywhere; }
+.diag-hint { font-size: 0.85rem; color: var(--bs-warning, #ffc107); margin-top: 2px; }
+
+.diag-icon { flex-shrink: 0; margin-top: 2px; }
+.diag-ok { color: #3fb950; }
+.diag-warn { color: var(--bs-warning, #ffc107); }
+.diag-fail { color: #f85149; }
+.diag-info { color: #9aa3b2; }

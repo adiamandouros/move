@@ -23,8 +23,9 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
     const url = new URL(e.request.url);
     if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;
-    // Login, logout and the export download always need the server
-    if (url.pathname === '/admin/login' || url.pathname === '/admin/api/export') return;
+    // Login, the export download and diagnostics always need the server (an old
+    // diagnostics result shown from the cache would be misleading)
+    if (['/admin/login', '/admin/api/export', '/admin/api/diagnostics'].includes(url.pathname)) return;
 
     e.respondWith(networkFirst(e.request, url));
 });

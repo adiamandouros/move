@@ -62,3 +62,14 @@ day, far more than the relay will normally see.
 Run `npx wrangler secret put RELAY_KEY` again (or edit the secret in the
 dashboard), update `OASA_RELAY_KEY` in the server's `.env`, and restart the
 app.
+
+## When something goes wrong
+
+Run the diagnostics. They check, from the server itself, whether it can reach
+the internet, OASA, the relay and the open-data portal, explain each failure
+(e.g. "HTTP 403, typical when an IP address is blocked" or "the Worker rejects
+the key") and end with what to do:
+
+- in the browser at `/admin/diagnostics` (needs `ADMIN_PASSWORD`), or
+- if the site is down: cPanel → **Setup Node.js App** → your app →
+  **Run JS script** → `diagnose` (or `npm run diagnose` in a terminal).

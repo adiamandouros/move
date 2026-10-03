@@ -9,3 +9,5 @@ data/.build.lock
 data/local/
 data/cache/
 tmp/
+proxy/.dev.vars
+proxy/.wrangler/
