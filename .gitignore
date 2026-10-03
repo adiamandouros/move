@@ -6,3 +6,4 @@ data/build/
 data/build.next/
 data/build.prev/
 data/.build.lock
+data/local/

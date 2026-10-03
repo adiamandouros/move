@@ -6,11 +6,14 @@ import { fileURLToPath } from 'url';
 import { athensToday } from './calendar.js';
 import { buildBus } from './build-bus.js';
 import { buildRail } from './build-rail.js';
+import { applyOverlay, pruneOverlay, readOverlay, writeOverlay } from './overlay.js';
 import { fetchSources } from './sources.js';
 import { validateCurated } from './validate.js';
 
 const DATA_DIR    = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'data');
-const CURATED_DIR = join(DATA_DIR, 'curated');
+export const CURATED_DIR = join(DATA_DIR, 'curated');
+// Uncommitted station edits from the admin editor (gitignored)
+export const OVERLAY_FILE = join(DATA_DIR, 'local', 'positions.json');
 const RAW_DIR     = join(DATA_DIR, 'raw');
 export const BUILD_DIR = join(DATA_DIR, 'build');
 const NEXT_DIR    = join(DATA_DIR, 'build.next');
@@ -95,6 +98,31 @@ export async function runBuild({ force = false, offline = false } = {}) {
     }
 }
 
+// Rebuild shortly after the curated data changes (e.g. an editor save),
+// without re-downloading feeds. Saves in quick succession share one build, and
+// a save during a running build triggers another one afterwards.
+const REBUILD_DELAY_MS = 2000;
+let rebuildTimer = null;
+let rebuildRunning = false;
+let rebuildAgain = false;
+
+export function rebuildSoon() {
+    clearTimeout(rebuildTimer);
+    rebuildTimer = setTimeout(async () => {
+        if (rebuildRunning) { rebuildAgain = true; return; }
+        rebuildRunning = true;
+        try {
+            // null means another build holds the lock; try again once it's done
+            if (await runBuild({ offline: true }) === null) rebuildAgain = true;
+        } catch (err) {
+            log(`[data] Rebuild failed: ${err.message}`);
+        } finally {
+            rebuildRunning = false;
+            if (rebuildAgain) { rebuildAgain = false; rebuildSoon(); }
+        }
+    }, REBUILD_DELAY_MS);
+}
+
 // Move each file from build.next into build with an atomic rename, so the
 // server never serves a half-written file. The replaced files go to build.prev.
 function publish() {
@@ -110,16 +138,27 @@ function publish() {
     rmSync(NEXT_DIR, { recursive: true, force: true });
 }
 
-function loadCurated() {
+// Read the curated files and apply the editor's overlay on top of positions.
+// Overlay entries that the committed positions.json now matches are pruned.
+export function loadCurated({ curatedDir = CURATED_DIR, overlayFile = OVERLAY_FILE } = {}) {
     const hash = createHash('sha256');
     const data = {};
     for (const name of ['stations', 'lines', 'positions', 'overrides']) {
-        const raw = readFileSync(join(CURATED_DIR, `${name}.json`), 'utf8');
+        const raw = readFileSync(join(curatedDir, `${name}.json`), 'utf8');
         hash.update(raw);
         try { data[name] = JSON.parse(raw); }
         catch (err) { throw new Error(`data/curated/${name}.json is not valid JSON: ${err.message}`); }
     }
-    return { data, hash: hash.digest('hex') };
+
+    const { overlay, pruned } = pruneOverlay(data.positions, readOverlay(overlayFile));
+    if (pruned.length) {
+        writeOverlay(overlayFile, overlay);
+        log(`[data] Committed data now includes editor changes for ${pruned.join(', ')} — removed from the overlay`);
+    }
+    hash.update(JSON.stringify(overlay));
+    const committed = data.positions;
+    data.positions = applyOverlay(committed, overlay);
+    return { data, committed, overlay, hash: hash.digest('hex') };
 }
 
 function acquireLock() {

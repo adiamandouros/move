@@ -9,6 +9,19 @@ After editing, run `npm test` (checks these files for mistakes) and
 downloaded). A file with errors fails the build, and the site keeps serving the
 previous build.
 
+## Editing on the go: /admin/stations
+
+Set `ADMIN_PASSWORD` in `.env` to enable a private, phone-friendly editor for
+positions.json at `/admin/stations` (it's a 404 without the password). Edits
+are stored on the server in `data/local/positions.json` (not in git) and go
+live within seconds. They work offline too: saves are queued on the phone and
+sent when the connection returns.
+
+To make edits permanent, use **Export** in the editor, replace
+`data/curated/positions.json` with the downloaded file, commit and deploy.
+The next build notices the committed file now contains those edits and drops
+them from `data/local/`.
+
 ## positions.json — where to stand
 
 Ordered by line → direction → station in travel order, one station per line:

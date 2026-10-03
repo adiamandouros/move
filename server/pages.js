@@ -101,9 +101,10 @@ function renderPages(tools) {
     const view = name => readFileSync(join(VIEWS_DIR, `${name}.html`), 'utf8');
     const shellStrings = JSON.parse(readFileSync(join(VIEWS_DIR, 'strings.json'), 'utf8'));
 
-    const render = ({ active = null, title, titleKey, content, own, scripts = [] }) => fill(layout, {
+    const render = ({ active = null, title, titleKey = '', content, own, scripts = [], head = '' }) => fill(layout, {
         title: `${title} — Move`,
         titleKey,
+        head,
         sideNav: navLinks(tools, active, 'side'),
         bottomNav: navLinks(tools, active, 'bottom'),
         content,
@@ -126,12 +127,12 @@ function renderPages(tools) {
         });
     }
     const notFound = render({ title: 'Page not found', titleKey: 'notfound.title', content: view('notfound') });
-    return { pages, notFound };
+    return { pages, notFound, render };
 }
 
 // ── Service worker ──────────────────────────────────────────────────────────
 
-function listFiles(dir) {
+export function listFiles(dir) {
     if (!existsSync(dir)) return [];
     return readdirSync(dir).flatMap(name => {
         const path = join(dir, name);
@@ -139,14 +140,26 @@ function listFiles(dir) {
     });
 }
 
-const urlPath = (base, dir, file) => `${base}/${relative(dir, file).split(sep).join('/')}`;
+export const urlPath = (base, dir, file) => `${base}/${relative(dir, file).split(sep).join('/')}`;
+
+// URLs of the files every page needs (stylesheets, core scripts, icons)
+export function shellUrls() {
+    return [
+        ...SHELL_FILES,
+        ...SHELL_DIRS.flatMap(d => listFiles(join(PUBLIC_DIR, d)).map(f => urlPath('', PUBLIC_DIR, f))),
+    ];
+}
+
+// Contents of those files, for computing cache versions
+export function shellFiles() {
+    return SHELL_DIRS.flatMap(d => listFiles(join(PUBLIC_DIR, d)));
+}
 
 function renderServiceWorker(tools, pages) {
     const offlineTools = tools.filter(t => t.offline);
     const precache = [
         '/', '/offline',
-        ...SHELL_FILES,
-        ...SHELL_DIRS.flatMap(d => listFiles(join(PUBLIC_DIR, d)).map(f => urlPath('', PUBLIC_DIR, f))),
+        ...shellUrls(),
         ...offlineTools.flatMap(t => [
             t.path,
             ...listFiles(t.clientDir).map(f => urlPath(`/tools/${t.id}`, t.clientDir, f)),
@@ -158,7 +171,7 @@ function renderServiceWorker(tools, pages) {
     const hash = createHash('sha256');
     for (const html of Object.values(pages)) hash.update(html);
     for (const file of [
-        ...SHELL_DIRS.flatMap(d => listFiles(join(PUBLIC_DIR, d))),
+        ...shellFiles(),
         ...tools.flatMap(t => listFiles(t.clientDir)),
         join(VIEWS_DIR, 'sw.js'),
     ]) hash.update(readFileSync(file));
@@ -177,7 +190,7 @@ function renderServiceWorker(tools, pages) {
 // Pages, tool client files and the service worker. Everything is rendered once
 // at startup; `node --watch` restarts the server when these files change.
 export function createPages(tools = loadTools()) {
-    const { pages, notFound } = renderPages(tools);
+    const { pages, notFound, render } = renderPages(tools);
     const serviceWorker = renderServiceWorker(tools, pages);
     const router = express.Router();
 
@@ -193,6 +206,8 @@ export function createPages(tools = loadTools()) {
 
     return {
         router,
+        // Render any other page (e.g. the admin pages) with the shared layout
+        render,
         notFound: (_req, res) => res.status(404).type('html').send(notFound),
     };
 }

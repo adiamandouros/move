@@ -4,11 +4,15 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { startScheduler } from './server/scheduler.js';
-import { BUILD_DIR } from './server/data/index.js';
+import { readFileSync } from 'fs';
+import { createAdmin } from './server/admin/index.js';
+import { BUILD_DIR, OVERLAY_FILE, loadCurated, rebuildSoon } from './server/data/index.js';
 import { createPages, VENDOR } from './server/pages.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+// Behind cPanel's Apache proxy: trust its X-Forwarded-* headers for req.ip and req.secure
+app.set('trust proxy', 'loopback');
 app.use(compression());
 const PORT = process.env.PORT || 3000;
 
@@ -45,6 +49,17 @@ app.use('/api', async (req, res) => {
 
 const pages = createPages();
 app.use(pages.router);
+
+// Private station editor — only exists when ADMIN_PASSWORD is set
+const admin = createAdmin({
+    password: process.env.ADMIN_PASSWORD,
+    overlayFile: OVERLAY_FILE,
+    loadCurated,
+    loadRail: () => { try { return JSON.parse(readFileSync(path.join(BUILD_DIR, 'rail.json'), 'utf8')); } catch { return null; } },
+    rebuild: rebuildSoon,
+    render: pages.render,
+});
+if (admin) app.use('/admin', admin);
 
 // Generated data (rail.json, bus-stops.json, meta.json); revalidated on every request via ETag
 app.use('/data', express.static(BUILD_DIR, { maxAge: 0 }));
