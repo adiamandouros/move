@@ -1,3 +1,5 @@
+import { mkdirSync, renameSync, writeFileSync } from 'fs';
+import { dirname } from 'path';
 import express from 'express';
 import { createArrivals } from './arrivals.js';
 import { createOasaClient } from './client.js';
@@ -11,9 +13,26 @@ const STOP_CODE = /^\d{1,8}$/;
 //   → { stops: { "10361": { arrivals: [{ line, to: { el, en }, minutes, route, vehicle }], updated, stale, unavailable? } } }
 //
 // `relay` ({ url, key }) is the optional fallback route described in client.js.
-export function createBusApi({ routesFile, relay = null, client = createOasaClient({ relay }), now } = {}) {
+//
+// `statusFile`: where the live route status is written about once a minute,
+// so `npm run diagnose` (a separate process) can show what the app sees.
+export function createBusApi({ routesFile, statusFile, relay = null, client = createOasaClient({ relay }), now } = {}) {
     const arrivals = createArrivals({ client, routesFile, now });
     const router = express.Router();
+
+    if (statusFile) {
+        // Written every minute even when nothing changed, so its timestamp also
+        // shows whether the app is running
+        const write = () => {
+            try {
+                mkdirSync(dirname(statusFile), { recursive: true });
+                writeFileSync(`${statusFile}.tmp`, JSON.stringify(client.status()));
+                renameSync(`${statusFile}.tmp`, statusFile);
+            } catch { /* diagnostics only */ }
+        };
+        write();
+        setInterval(write, 60_000).unref();
+    }
 
     router.get('/arrivals', async (req, res) => {
         const stops = [...new Set(String(req.query.stops ?? '').split(',').filter(Boolean))];
@@ -26,5 +45,5 @@ export function createBusApi({ routesFile, relay = null, client = createOasaClie
 
     router.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 
-    return router;
+    return Object.assign(router, { status: () => client.status() });
 }

@@ -7,6 +7,7 @@ import { startScheduler } from './server/scheduler.js';
 import { readFileSync } from 'fs';
 import { createAdmin } from './server/admin/index.js';
 import { BUILD_DIR, OVERLAY_FILE, loadCurated, rebuildSoon } from './server/data/index.js';
+import { runDiagnostics } from './server/diagnostics.js';
 import { createBusApi } from './server/oasa/index.js';
 import { createPages, VENDOR } from './server/pages.js';
 
@@ -23,7 +24,12 @@ const relay = process.env.OASA_RELAY_URL && process.env.OASA_RELAY_KEY
     ? { url: process.env.OASA_RELAY_URL, key: process.env.OASA_RELAY_KEY }
     : null;
 if (process.env.OASA_RELAY_URL && !relay) console.warn('[oasa] OASA_RELAY_URL is set without OASA_RELAY_KEY — relay disabled');
-app.use('/api', createBusApi({ routesFile: path.join(__dirname, 'data', 'cache', 'oasa-routes.json'), relay }));
+const busApi = createBusApi({
+    routesFile: path.join(__dirname, 'data', 'cache', 'oasa-routes.json'),
+    statusFile: path.join(__dirname, 'data', 'cache', 'oasa-status.json'),
+    relay,
+});
+app.use('/api', busApi);
 
 const pages = createPages();
 app.use(pages.router);
@@ -36,6 +42,7 @@ const admin = createAdmin({
     loadRail: () => { try { return JSON.parse(readFileSync(path.join(BUILD_DIR, 'rail.json'), 'utf8')); } catch { return null; } },
     rebuild: rebuildSoon,
     render: pages.render,
+    diagnose: () => runDiagnostics({ dataDir: path.join(__dirname, 'data'), appStatus: busApi.status() }),
 });
 if (admin) app.use('/admin', admin);
 

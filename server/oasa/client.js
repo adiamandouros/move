@@ -31,7 +31,10 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
     // Per route: consecutive failures, and while resting, the time it may be
     // tried again. After a rest, a single request probes it (`probing`) while
     // the others keep skipping it, so a recovering service gets one try, not a burst.
-    const route = (name, restMs, url, headers = {}) => ({ name, restMs, url, headers, failures: 0, restUntil: 0, probing: false });
+    const route = (name, restMs, url, headers = {}) => ({
+        name, restMs, url, headers, failures: 0, restUntil: 0, probing: false,
+        lastOk: null, lastError: null, // for diagnostics
+    });
     const direct = route('direct', relay ? DIRECT_REST_MS : RELAY_REST_MS, API);
     const viaRelay = relay ? route('relay', RELAY_REST_MS, relay.url, { 'X-Relay-Key': relay.key }) : null;
     const routes = [direct, viaRelay].filter(Boolean);
@@ -69,10 +72,12 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const body = JSON.parse(await res.text());
             if (r.restUntil) log(`[oasa] ${r.name} access is working again`);
+            r.lastOk = now();
             r.failures = 0;
             r.restUntil = 0;
             return body;
         } catch (err) {
+            r.lastError = { at: now(), message: err.message };
             if (probe) rest(r);  // still failing: rest again, quietly
             // Failures of requests that were already in flight when the route
             // was put to rest don't count (and don't restart the rest)
@@ -102,5 +107,20 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
         throw new OasaUnavailable(lastError.message);
     }
 
-    return { request };
+    // What each route is doing right now, for the diagnostics page and `npm run diagnose`
+    function status() {
+        return {
+            at: now(),
+            routes: routes.map(r => ({
+                name: r.name,
+                resting: now() < r.restUntil,
+                restUntil: r.restUntil || null,
+                failuresInARow: r.failures,
+                lastOk: r.lastOk,
+                lastError: r.lastError,
+            })),
+        };
+    }
+
+    return { request, status };
 }

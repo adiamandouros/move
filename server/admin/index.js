@@ -6,6 +6,7 @@ import express from 'express';
 import { formatJson } from '../data/format.js';
 import { applyOverlay, removeEntry, sameEntry, setEntry, tidyEntry, writeOverlay } from '../data/overlay.js';
 import { POSITIONS, validateCurated } from '../data/validate.js';
+import { formatReport } from '../diagnostics.js';
 import { listFiles, shellFiles, shellUrls, urlPath } from '../pages.js';
 import { createAuth, createLimiter, readCookie } from './auth.js';
 
@@ -19,7 +20,8 @@ const COOKIE = 'move_admin';
 //   loadCurated()  → { data, committed, overlay }   (see server/data/index.js)
 //   loadRail()     → the current rail.json, for station order and names
 //   rebuild()      → called after every change
-export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebuild, render }) {
+//   diagnose()     → runs the server health checks (server/diagnostics.js)
+export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebuild, render, diagnose }) {
     if (!password) return null;
 
     const auth = createAuth(password);
@@ -89,6 +91,21 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
             content: page('stations'),
             scripts: ['/admin/assets/editor.js'],
         }));
+    });
+
+    router.get('/diagnostics', (_req, res) => {
+        res.set('Cache-Control', 'no-store').type('html').send(render({
+            title: 'Diagnostics',
+            head,
+            content: page('diagnostics'),
+            scripts: ['/admin/assets/diagnostics.js'],
+        }));
+    });
+
+    router.get('/api/diagnostics', async (_req, res) => {
+        if (!diagnose) return res.status(501).json({ error: 'Diagnostics are not available' });
+        const result = await diagnose();
+        res.set('Cache-Control', 'no-store').json({ ...result, report: formatReport(result) });
     });
 
     // Scoped to /admin/, separate from the public service worker, so the

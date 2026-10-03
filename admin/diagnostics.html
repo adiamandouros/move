@@ -1,0 +1,13 @@
+<div class="admin-view">
+    <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+        <h1 class="fs-5 m-0">Diagnostics</h1>
+        <a class="btn btn-sm btn-outline-secondary" href="/admin/stations">Station editor</a>
+    </div>
+    <p class="small text-secondary">Checks whether this server can reach the internet, OASA, the relay and the open-data portal, and what the running app sees. The same checks run with <code>npm run diagnose</code> (cPanel → Setup Node.js App → Run JS script) when the site itself is down.</p>
+    <div class="d-flex gap-2 mb-3">
+        <button id="run-btn" type="button" class="btn btn-primary flex-grow-1">Run checks</button>
+        <button id="copy-btn" type="button" class="btn btn-outline-secondary" hidden>Copy report</button>
+    </div>
+    <div id="diag-summary" class="diag-summary" role="status" hidden></div>
+    <div id="diag-checks"></div>
+</div>
