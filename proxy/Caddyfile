@@ -5,8 +5,9 @@
 # Router port forwarding this expects (many ISP routers keep 443, and the Pi's
 # own port 80 is often taken, e.g. by Pi-hole's admin page):
 #   external TCP 80   → this machine's 8081  Let's Encrypt checks the name here
-#   external TCP 8443 → this machine's 443   the relay itself (HTTPS)
-# The server then uses OASA_HOME_RELAY_URL=https://YOUR-NAME.ddns.net:8443/
+#   external TCP 2087 → this machine's 443   the relay itself (HTTPS)
+#     (2087: one of the few outgoing ports the shared hosting server may use)
+# The server then uses OASA_HOME_RELAY_URL=https://YOUR-NAME.ddns.net:2087/
 {
 	# Caddy's plain-HTTP port, which answers Let's Encrypt's checks
 	http_port 8081
