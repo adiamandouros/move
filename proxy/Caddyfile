@@ -1,8 +1,21 @@
 # Caddy config for the home relay — see README.md, "Home relay".
-# Caddy gets and renews the HTTPS certificate on its own; it needs ports 80
-# and 443 forwarded to this machine. Install: sudo cp proxy/Caddyfile /etc/caddy/Caddyfile
+# Caddy gets and renews the HTTPS certificate on its own over port 443, so only
+# 443 needs forwarding to this machine. Install: sudo cp proxy/Caddyfile /etc/caddy/Caddyfile
 # and replace YOUR-NAME.ddns.net with the home's DDNS name.
+{
+	# Port 80 is often taken on a home server (e.g. by Pi-hole's admin page)
+	# and isn't forwarded, so Caddy's plain-HTTP port moves out of the way
+	http_port 8081
+}
+
 YOUR-NAME.ddns.net {
+	# Prove the name over 443 (TLS-ALPN challenge), not over port 80
+	tls {
+		issuer acme {
+			disable_http_challenge
+		}
+	}
+
 	# Optional: only the Move server may connect (its IP is shown on
 	# /admin/diagnostics under "Internet access"). Update it if the host moves.
 	# @others not remote_ip 157.90.210.32

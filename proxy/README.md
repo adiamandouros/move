@@ -69,9 +69,12 @@ names must be confirmed every 30 days by email, or they stop working.
 
 ### 2. Forward ports on the router
 
-1. Give the Pi a fixed LAN address (router → *DHCP reservation*).
-2. Forward **TCP 80 and 443** to the Pi. Caddy needs port 80 too, to get and
-   renew the certificate.
+1. Give the Pi a fixed LAN address: a *DHCP reservation* in the router, or
+   if the router doesn't allow that, a manual address on the Pi itself
+   (`sudo nmtui` → *Edit a connection*).
+2. Forward **TCP 443** to the Pi. Only 443: Caddy gets and renews its
+   certificate over 443, and port 80 on the Pi (e.g. Pi-hole's admin page)
+   stays private.
 
 ### 3. Install Node.js and the code
 
@@ -111,16 +114,22 @@ You should get a JSON list of arrivals (or `null` if no bus is due).
 
 ### 5. Put Caddy in front of it
 
+Do this once the DDNS name points to the home (step 1) and 443 is forwarded
+(step 2). Otherwise Caddy's certificate requests fail, and repeated failures
+get it rate-limited by Let's Encrypt for a while.
+
 ```bash
-sudo apt install caddy
+sudo apt install caddy           # it may fail to start: port 80 is taken; fine
 sudo cp /opt/move/proxy/Caddyfile /etc/caddy/Caddyfile
 sudo nano /etc/caddy/Caddyfile   # replace YOUR-NAME.ddns.net with your DDNS name
-sudo systemctl reload caddy
-journalctl -u caddy -n 30      # look for "certificate obtained successfully"
+sudo systemctl enable caddy
+sudo systemctl restart caddy
+journalctl -u caddy -n 30        # look for "certificate obtained successfully"
 ```
 
-If something else on the Pi already uses ports 80 or 443, add the
-`YOUR-NAME.ddns.net { … }` block to that setup instead.
+Caddy's own plain-HTTP port is moved to 8081 in the Caddyfile, so it doesn't
+clash with whatever already uses port 80. If something else already uses
+port 443, add the `YOUR-NAME.ddns.net { … }` block to that setup instead.
 
 Optionally, uncomment the two lines in the Caddyfile that let only the Move
 server connect (its IP is on `/admin/diagnostics` under **Internet access**)
@@ -146,7 +155,7 @@ show as *INFO* ("expected… the home relay carries the traffic").
 ### Updating
 
 ```bash
-cd /opt/move && sudo git pull && sudo systemctl restart move-relay
+sudo git -C /opt/move pull && sudo systemctl restart move-relay
 ```
 
 ### If the home connection goes down
