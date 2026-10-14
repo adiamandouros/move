@@ -242,7 +242,7 @@ function appChecks(appStatus, now) {
         const parts = [`last success ${ago(r.lastOk)}`];
         if (r.lastError) parts.push(`last error ${ago(r.lastError.at)}: ${r.lastError.message}`);
         out.push(r.resting
-            ? check('Running app', `Route: ${r.name}`, 'warn', `Resting until ${new Date(r.restUntil).toISOString().slice(11, 16)} UTC after repeated failures; ${parts.join('; ')}`)
+            ? check('Running app', `Route: ${r.name}`, 'warn', `Resting until ${new Date(r.restUntil).toISOString().slice(0, 16).replace('T', ' ')} UTC after repeated failures; ${parts.join('; ')}`)
             : check('Running app', `Route: ${r.name}`, r.lastError && (!r.lastOk || r.lastError.at > r.lastOk) ? 'warn' : 'ok', parts.join('; ')));
     }
     return out;
@@ -262,7 +262,7 @@ function verdict({ internet, ip, loc, dns, oasa, relays, appStatus }) {
         return { status: 'fail', text: 'DNS isn\'t working on the server: it can\'t look up any address. Contact Mediahost support.' };
     }
     if (oasa.result.status === 'ok') {
-        if (directResting) return { status: 'warn', text: 'OASA is reachable again. The app is still resting direct access after earlier failures and will try it again on its own within 10 minutes (or restart the app to try now).' };
+        if (directResting) return { status: 'warn', text: 'OASA is reachable again. The app is still resting direct access after earlier failures and will try it again on its own within a day (or restart the app to try now).' };
         return { status: 'ok', text: 'Everything needed for live bus times is working.' };
     }
     if (!relays.length) {

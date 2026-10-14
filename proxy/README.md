@@ -19,11 +19,11 @@ There are two relays, and the server tries the routes in this order:
    Raspberry Pi. Its requests come from a Greek connection, so it works.
 
 A failed request moves on to the next route. After 5 failures in a row a
-route rests for 10 minutes while the routes after it carry the traffic, then
-one request tries it again. So today requests go straight to the home relay,
-and once every 10 minutes one request first retries direct and the Worker
-(it takes up to 14 s). Right after the app starts, the first few requests are
-slow until the blocked routes are put to rest. The last route only rests for
+route rests for a day while the routes after it carry the traffic, then one
+request tries it again. So today requests go straight to the home relay, and
+once a day one request first retries direct and the Worker (it takes up to
+14 s). Right after the app starts, the first few requests are slow until the
+blocked routes are put to rest. To retry them sooner, restart the app. The last route only rests for
 a minute, as nothing comes after it. Switches are logged as `[oasa] …` lines.
 The 2-requests-per-second limit covers all routes together, so the relays
 never add load on OASA.

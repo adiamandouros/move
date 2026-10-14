@@ -11,16 +11,17 @@ import { USER_AGENT } from '../data/sources.js';
 // its live API only accepts Greek IPs and the server is in Germany. Routes are
 // tried in order (direct, then each relay in RELAYS), and a failed request
 // moves on to the next one. A route that keeps failing rests for
-// FALLBACK_REST_MS while the routes after it carry the traffic, so in the
-// steady state requests go straight to the first working route; the last
-// route only rests for LAST_REST_MS, as nothing comes after it.
+// FALLBACK_REST_MS (a day: the geo-block isn't expected to change quickly)
+// while the routes after it carry the traffic, so in the steady state requests
+// go straight to the first working route; the last route only rests for
+// LAST_REST_MS, as nothing comes after it.
 
 const API = 'https://telematics.oasa.gr/api/';
 export const REQUESTS_PER_SECOND = 2;
 const MAX_WAIT_MS = 8_000;
 const TIMEOUT_MS = 8_000;
 const FAILURES_TO_OPEN = 5;
-const FALLBACK_REST_MS = 10 * 60_000;
+const FALLBACK_REST_MS = 24 * 3_600_000;
 const LAST_REST_MS = 60_000;
 
 // The relays, in the order they're tried after direct access, and the .env
@@ -36,6 +37,8 @@ export const relaysFromEnv = env => RELAYS
     .map(r => ({ ...r, url: env[`${r.env}_URL`], key: env[`${r.env}_KEY`] }));
 
 export class OasaUnavailable extends Error {}
+
+const duration = ms => ms >= 3_600_000 ? `${ms / 3_600_000} h` : `${ms / 1000} s`;
 
 const realSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -71,7 +74,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
         r.restUntil = now() + r.restMs;
         if (reason) {
             const fallback = r.next ? ` — using the ${r.next.name} meanwhile` : '';
-            log(`[oasa] ${FAILURES_TO_OPEN} ${r.name} failures in a row (last: ${reason}); resting it for ${r.restMs / 1000} s${fallback}`);
+            log(`[oasa] ${FAILURES_TO_OPEN} ${r.name} failures in a row (last: ${reason}); resting it for ${duration(r.restMs)}${fallback}`);
         }
     }
 

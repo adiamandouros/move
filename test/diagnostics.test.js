@@ -113,9 +113,9 @@ test('data and running-app problems are reported', async () => {
     const find = t => r.checks.find(c => c.title.startsWith(t));
     assert.equal(find('Last data build').status, 'warn');
     assert.match(find('rail.json').detail, /feed changed.*previous version is still served/);
-    assert.match(find('Route: direct').detail, /Resting until 12:05 UTC.*HTTP 403/);
+    assert.match(find('Route: direct').detail, /Resting until 2026-10-03 12:05 UTC.*HTTP 403/);
     // OASA answers now, but the app hasn't noticed yet
-    assert.match(r.summary.text, /reachable again.*within 10 minutes/);
+    assert.match(r.summary.text, /reachable again.*within a day/);
 });
 
 test('formatReport lists the summary, every check and its hint', async () => {

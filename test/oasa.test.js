@@ -188,7 +188,7 @@ test('the relay is not used while direct access works', async () => {
     assert.deepEqual(calls, ['direct', 'direct', 'direct']);
 });
 
-test('after 5 direct failures only the relay is used for 10 minutes, then direct is tried again', async () => {
+test('after 5 direct failures only the relay is used for a day, then direct is tried again', async () => {
     const c = clock();
     let up = false;
     const logs = [];
@@ -196,10 +196,10 @@ test('after 5 direct failures only the relay is used for 10 minutes, then direct
     const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: m => logs.push(m), relays: [RELAY] });
 
     for (let i = 0; i < 5; i++) await client.request('getStopArrivals', '1');
-    assert.match(logs.join(), /5 direct failures in a row.*using the relay meanwhile/);
+    assert.match(logs.join(), /5 direct failures in a row.*resting it for 24 h — using the relay meanwhile/);
     calls.length = 0;
 
-    c.advance(9 * 60_000);
+    c.advance(23 * 3_600_000 + 59 * 60_000);
     await client.request('getStopArrivals', '1');
     assert.deepEqual(calls, ['relay(k)']);
 
@@ -306,7 +306,7 @@ test('routes are tried in order: direct, the relay, then the home relay', async 
 });
 
 // Today's production: OASA blocks both the server and the Worker
-test('with direct and the relay blocked, both rest 10 minutes and the home relay carries the traffic', async () => {
+test('with direct and the relay blocked, both rest a day and the home relay carries the traffic', async () => {
     const c = clock();
     const logs = [];
     const { fetch, calls } = chainFetch({ direct: false, relay: false, home: true });
@@ -314,11 +314,11 @@ test('with direct and the relay blocked, both rest 10 minutes and the home relay
 
     for (let i = 0; i < 5; i++) await client.request('getStopArrivals', '1');
     assert.match(logs.join('\n'), /5 direct failures.*using the relay meanwhile/);
-    assert.match(logs.join('\n'), /5 relay failures.*resting it for 600 s — using the home relay meanwhile/);
+    assert.match(logs.join('\n'), /5 relay failures.*resting it for 24 h — using the home relay meanwhile/);
 
     // Steady state: straight to the home relay, no time lost on blocked routes
     calls.length = 0;
-    c.advance(9 * 60_000);
+    c.advance(23 * 3_600_000 + 59 * 60_000);
     await client.request('getStopArrivals', '1');
     assert.deepEqual(calls, ['home']);
 
