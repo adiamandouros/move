@@ -147,7 +147,7 @@ const describeArrivals = json => Array.isArray(json) ? `${json.length} arrivals 
 
 // What to check when a relay can't be reached at all
 const UNREACHABLE_HINT = {
-    'home relay': 'Is the machine at home on, and its internet up? Check that the DDNS name points to the home\'s current IP and that the router still forwards the relay\'s ports (proxy/README.md, "Home relay").',
+    'home relay': 'Is the machine at home on, and its internet up? Check that the DDNS name points to the home\'s current IP and that the router still forwards the relay\'s ports. If check-host.net reaches it but this server can\'t, the hosting blocks that outgoing port: use one it allows (proxy/README.md, "Home relay", step 2).',
 };
 
 // One relay ({ name, env, url, key }): its guard, its answer with the key, and where it runs

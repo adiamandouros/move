@@ -44,7 +44,7 @@ it, gets a free HTTPS certificate for the home's DDNS name and is the only
 part reachable from the internet.
 
 ```
-Move server (DE) ──HTTPS──▶ router :8443 ──▶ Caddy :443 ──▶ node.js :8787 ──▶ OASA
+Move server (DE) ──HTTPS──▶ router :2087 ──▶ Caddy :443 ──▶ node.js :8787 ──▶ OASA
                             YOUR-NAME.ddns.net              (localhost only)
 ```
 
@@ -77,14 +77,24 @@ names must be confirmed every 30 days by email, or they stop working.
    | External (TCP) | Pi port | What for |
    |---|---|---|
    | 80 | 8081 | Let's Encrypt checks the name here, to issue and renew Caddy's certificate |
-   | 8443 | 443 | The relay itself, over HTTPS |
+   | 2087 | 443 | The relay itself, over HTTPS |
 
    Not external 443: ISP routers often keep it for their own admin page and
-   silently ignore forwarding rules for it. Port 80 on the Pi itself (e.g.
-   Pi-hole's admin page) stays private, as nothing is forwarded to it.
+   silently ignore forwarding rules for it. And not just any free port: shared
+   hosting usually blocks outgoing connections to unusual ports (Mediahost
+   refuses 8443, for example), and 2087 gets through because it's cPanel's own
+   port. To see which ports the server can reach, run this in the cPanel
+   Terminal (portquiz.net answers on every port; `200` means allowed):
+
+   ```bash
+   for p in 2087 8443 2083 2096; do printf "$p: "; curl -s -m 5 -o /dev/null -w "%{http_code}\n" http://portquiz.net:$p/ || echo blocked; done
+   ```
+
+   Port 80 on the Pi itself (e.g. Pi-hole's admin page) stays private, as
+   nothing is forwarded to it.
 
    Check from outside with check-host.net (*TCP port* check on
-   `YOUR-NAME.ddns.net:80` and `:8443`): before Caddy runs, "Connection
+   `YOUR-NAME.ddns.net:80` and `:2087`): before Caddy runs, "Connection
    refused" means the port reaches the Pi; "timed out" means the router
    doesn't forward it.
 
@@ -145,7 +155,7 @@ port 443 on the Pi, add the `YOUR-NAME.ddns.net { … }` block to that setup
 instead.
 
 Check it from outside: a check-host.net *HTTP* check of
-`https://YOUR-NAME.ddns.net:8443/?act=getStopArrivals&p1=10361` should
+`https://YOUR-NAME.ddns.net:2087/?act=getStopArrivals&p1=10361` should
 answer `401 Unauthorized` (no key, so refused, as it should be).
 
 Optionally, uncomment the two lines in the Caddyfile that let only the Move
@@ -160,11 +170,11 @@ times stop until you update the Caddyfile.
 In the server's `.env`, then restart the app:
 
 ```
-OASA_HOME_RELAY_URL=https://YOUR-NAME.ddns.net:8443/
+OASA_HOME_RELAY_URL=https://YOUR-NAME.ddns.net:2087/
 OASA_HOME_RELAY_KEY=THE_SAME_KEY
 ```
 
-On startup the log shows `[oasa] Fallback home relay: YOUR-NAME.ddns.net:8443`.
+On startup the log shows `[oasa] Fallback home relay: YOUR-NAME.ddns.net:2087`.
 `/admin/diagnostics` should then show **Home relay with your key** working
 and **Home relay location** in `GR`. While OASA blocks the Worker, its rows
 show as *INFO* ("expected… the home relay carries the traffic").
