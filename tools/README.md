@@ -23,5 +23,9 @@ tools/<id>/
 | `scripts` | Files in `client/` to load as modules, e.g. `["main.js"]` |
 | `precache` | Data URLs to cache for offline use, e.g. `["/data/rail.json"]` (best-effort: a missing file doesn't break the cache) |
 
+Longer text that doesn't suit single `data-i18n` keys (paragraphs with links,
+lists) can be written twice in `page.html`, as `lang="en"` and `lang="el"`
+elements; only the current language's are shown (see `style.css`).
+
 Shared browser modules live in `public/js/core/` and are imported by absolute
 path, e.g. `import { t } from '/js/core/i18n.js'`.

@@ -11,6 +11,7 @@ import { runDiagnostics } from './server/diagnostics.js';
 import { createBusApi } from './server/oasa/index.js';
 import { RELAYS, relaysFromEnv } from './server/oasa/client.js';
 import { createPages, VENDOR } from './server/pages.js';
+import { createAnnouncements } from './server/info/announcements.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -32,6 +33,8 @@ const busApi = createBusApi({
     statusFile: path.join(__dirname, 'data', 'cache', 'oasa-status.json'),
     relays,
 });
+// Service announcements for the info page, from the OASA and STASY websites
+app.use('/api/announcements', createAnnouncements({ cacheFile: path.join(__dirname, 'data', 'cache', 'announcements.json') }));
 app.use('/api', busApi);
 
 const pages = createPages();
