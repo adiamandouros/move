@@ -88,7 +88,7 @@ test('OASA is down for everyone', async () => {
 
 test('wrong relay key', async () => {
     const r = await run(world({ oasa: () => netError('ECONNRESET') }), { env: { ...ENV, OASA_RELAY_KEY: 'wrong' } });
-    assert.match(r.summary.text, /relay is misconfigured: The Worker rejects the key/);
+    assert.match(r.summary.text, /relay is misconfigured: The relay rejects the key/);
 });
 
 test('no relay configured and OASA unreachable', async () => {
@@ -146,10 +146,10 @@ test('server abroad but relay in Greece: working as intended', async () => {
     }));
     assert.equal(r.summary.status, 'ok');
     assert.match(r.summary.text, /through the relay \(ATH, GR\)\. Working as intended/);
-    assert.equal(r.checks.find(c => c.title === 'Relay location').detail, 'Its requests leave Cloudflare from ATH (GR)');
+    assert.equal(r.checks.find(c => c.title === 'Relay location').detail, 'Its requests come from GR (nearest Cloudflare data centre: ATH)');
 });
 
-test('an older Worker without whereami is reported, not treated as a failure', async () => {
+test('an older relay without whereami is reported, not treated as a failure', async () => {
     const r = await run(world({
         relay: (h, url) => h['X-Relay-Key'] !== 'k' ? new Response('Unauthorized', { status: 401 })
             : url.includes('act=whereami') ? new Response('Bad request', { status: 400 }) : json([]),

@@ -7,7 +7,7 @@ import { USER_AGENT } from '../data/sources.js';
 //   - after FAILURES_TO_OPEN failures in a row, a route is rested for a while
 // Callers fall back to cached data when a request is refused or fails.
 //
-// Optionally, a relay (proxy/worker.js on Cloudflare) is used when OASA can't
+// Optionally, a relay (proxy/: a Cloudflare Worker or a home machine) is used when OASA can't
 // be reached directly, e.g. if the shared hosting IP gets blocked. It is a
 // fallback only: a failed direct request is retried once through the relay,
 // and after repeated direct failures the relay is used alone for

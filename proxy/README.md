@@ -1,19 +1,149 @@
-# OASA relay (Cloudflare Worker)
+# OASA relay
 
 A fallback route to OASA's live-arrivals API for when the server can't reach
-it directly. Shared hosting IPs are sometimes blocked because of another site
-on the same server; the relay keeps the bus page working if that happens.
+it directly.
 
-The server only uses it when a direct request fails. If direct requests keep
-failing, it uses the relay alone for 10 minutes, then tries direct again.
-Switches are logged as `[oasa] …` lines. The 2-requests-per-second limit
-covers both routes together, so the relay never adds load on OASA.
+OASA's live API only accepts connections from Greek IP addresses (in October
+2026 it timed out from Germany, the Netherlands, France, Italy, Cyprus,
+Bulgaria and the US, while OASA's website answered everywhere). The Move
+server is in Germany, so live bus times only work through a relay whose
+requests come from Greece.
 
-The Worker relays only the two API calls the app uses, with numeric stop
-codes, and only for requests carrying the shared key. It can't be used as an
-open proxy.
+The server only uses the relay when a direct request fails. If direct
+requests keep failing, it uses the relay alone for 10 minutes, then tries
+direct again. Switches are logged as `[oasa] …` lines. The 2-requests-per-second
+limit covers both routes together, so the relay never adds load on OASA.
 
-## Set up
+The relay (`worker.js`) passes on only the two API calls the app uses, with
+numeric stop codes, and only for requests carrying the shared key. It can't be
+used as an open proxy. It runs in one of two places:
+
+- **[Home relay](#home-relay)**: an always-on machine at home, e.g. a
+  Raspberry Pi. This is the one in use, because its requests come from a
+  Greek connection.
+- **[Cloudflare Worker](#cloudflare-worker)**: free and needs no hardware,
+  but Cloudflare runs it outside Greece for a server in Germany, so OASA
+  blocks it too.
+
+Both speak the same protocol, so the server needs only `OASA_RELAY_URL` and
+`OASA_RELAY_KEY` in its `.env` either way.
+
+## Home relay
+
+`node.js` runs `worker.js` as a plain Node.js server. Caddy sits in front of
+it, gets a free HTTPS certificate for the home's DDNS name and is the only
+part reachable from the internet.
+
+```
+Move server (DE) ──HTTPS──▶ router :443 ──▶ Caddy ──▶ node.js :8787 ──▶ OASA
+                            YOUR-NAME.ddns.net        (localhost only)
+```
+
+You need a Raspberry Pi 3 or newer with a 64-bit OS (or any always-on Linux
+machine), and a home connection with a public IP address (not behind
+carrier-grade NAT). The traffic is tiny: a few KB per request.
+
+### 1. Keep the DDNS name up to date
+
+`YOUR-NAME.ddns.net` must always point to the home's current IP. Check it on
+the Pi:
+
+```bash
+dig +short YOUR-NAME.ddns.net                                     # what the name says
+curl -s https://www.cloudflare.com/cdn-cgi/trace | grep '^ip='     # the actual IP
+```
+
+If they differ, the DDNS updater isn't running. Either turn on DDNS in the
+router (most routers support No-IP under *DDNS* or *Dynamic DNS*), or install
+No-IP's updater on the Pi (noip.com → *Dynamic Update Client*). Free No-IP
+names must be confirmed every 30 days by email, or they stop working.
+
+### 2. Forward ports on the router
+
+1. Give the Pi a fixed LAN address (router → *DHCP reservation*).
+2. Forward **TCP 80 and 443** to the Pi. Caddy needs port 80 too, to get and
+   renew the certificate.
+
+### 3. Install Node.js and the code
+
+```bash
+node -v    # must be v20 or newer
+```
+
+Raspberry Pi OS based on Debian 13 (Trixie) ships Node.js 20 with
+`sudo apt install nodejs`. On Debian 12 (Bookworm) that version is too old:
+install Node.js 22 from NodeSource (nodesource.com → *Distributions*)
+instead.
+
+```bash
+sudo git clone https://github.com/adiamandouros/move.git /opt/move
+```
+
+There's no `npm install`: the relay uses only what's built into Node.js.
+
+### 4. Run the relay as a service
+
+```bash
+openssl rand -hex 32                              # the key; copy it
+echo 'RELAY_KEY=PASTE_THE_KEY' | sudo tee /etc/move-relay.env
+sudo chmod 600 /etc/move-relay.env
+sudo cp /opt/move/proxy/move-relay.service /etc/systemd/system/
+sudo systemctl enable --now move-relay
+systemctl status move-relay                       # "OASA relay listening on http://127.0.0.1:8787"
+```
+
+Check it reaches OASA (use your key):
+
+```bash
+curl -H "X-Relay-Key: YOUR_KEY" "http://127.0.0.1:8787/?act=getStopArrivals&p1=10361"
+```
+
+You should get a JSON list of arrivals (or `null` if no bus is due).
+
+### 5. Put Caddy in front of it
+
+```bash
+sudo apt install caddy
+sudo cp /opt/move/proxy/Caddyfile /etc/caddy/Caddyfile
+sudo nano /etc/caddy/Caddyfile   # replace YOUR-NAME.ddns.net with your DDNS name
+sudo systemctl reload caddy
+journalctl -u caddy -n 30      # look for "certificate obtained successfully"
+```
+
+If something else on the Pi already uses ports 80 or 443, add the
+`YOUR-NAME.ddns.net { … }` block to that setup instead.
+
+Optionally, uncomment the two lines in the Caddyfile that let only the Move
+server connect (its IP is on `/admin/diagnostics` under **Internet access**)
+and reload Caddy. Everyone else is then cut off before reaching the relay.
+The key already keeps strangers out, so this only adds a second layer. It
+also means that if the hosting company moves the server to a new IP, live
+times stop until you update the Caddyfile.
+
+### 6. Point the server at it
+
+In the server's `.env`, then restart the app:
+
+```
+OASA_RELAY_URL=https://YOUR-NAME.ddns.net/
+OASA_RELAY_KEY=THE_SAME_KEY
+```
+
+`/admin/diagnostics` should then show **Relay with your key** working and
+**Relay location** in `GR`.
+
+### Updating
+
+```bash
+cd /opt/move && sudo git pull && sudo systemctl restart move-relay
+```
+
+### If the home connection goes down
+
+Live bus times stop until it's back. The rest of the site isn't affected. The
+bus page shows its last cached times as usual.
+
+## Cloudflare Worker
 
 You need a free Cloudflare account. The free plan allows 100,000 requests a
 day, far more than the relay will normally see.
@@ -57,41 +187,34 @@ day, far more than the relay will normally see.
 
    On startup the log shows `[oasa] Relay fallback: move-oasa-relay…`.
 
-## If OASA blocks the relay too
-
-OASA's live API only accepts connections from Greek IP addresses (in October
-2026 it timed out from Germany, the Netherlands, France, Italy, Cyprus,
-Bulgaria and the US, while OASA's website answered everywhere). A Worker
-normally runs in the Cloudflare data centre closest to whoever calls it, so
-for a server in Germany it runs in Frankfurt and is blocked as well.
-
-`/admin/diagnostics` shows this under **Relay location**: it should say `GR`
-(Cloudflare's Athens `ATH` or Thessaloniki `SKG` data centres).
-
-1. **Deploy with the command line** (`npx wrangler deploy` in `proxy/`).
-   `wrangler.toml` asks Cloudflare to run the Worker near OASA (a
-   "placement hint"); edits made in the dashboard don't apply it. The key
-   secret stays as it is. Give Cloudflare a few minutes to measure, then run
-   the diagnostics again. The feature is experimental, so it may not work.
-2. **If the relay still isn't in Greece**, it has to run on a machine with a
-   Greek IP address instead, for example a small VPS hosted in Greece, or an
-   always-on computer at home made reachable with Cloudflare Tunnel.
-3. Either way, you can also ask OASA to allow your server's IP address (the
-   diagnostics show it under **Internet access**).
+A Worker normally runs in the Cloudflare data centre closest to whoever calls
+it, so for a server in Germany it runs in Frankfurt and OASA blocks it.
+`wrangler.toml` asks Cloudflare to run it near OASA instead (a "placement
+hint", only applied by `npx wrangler deploy`, not by dashboard edits). The
+feature is experimental and didn't place it in Greece in October 2026.
+`/admin/diagnostics` shows where it runs under **Relay location**.
 
 ## Changing the key
 
-Run `npx wrangler secret put RELAY_KEY` again (or edit the secret in the
-dashboard), update `OASA_RELAY_KEY` in the server's `.env`, and restart the
-app.
+Generate a new one with `openssl rand -hex 32` and set it on the relay:
+
+- Home relay: edit `/etc/move-relay.env`, then `sudo systemctl restart move-relay`.
+- Worker: `npx wrangler secret put RELAY_KEY` (or edit the secret in the dashboard).
+
+Then update `OASA_RELAY_KEY` in the server's `.env` and restart the app.
 
 ## When something goes wrong
 
 Run the diagnostics. They check, from the server itself, whether it can reach
 the internet, OASA, the relay and the open-data portal, explain each failure
-(e.g. "HTTP 403, typical when an IP address is blocked" or "the Worker rejects
+(e.g. "HTTP 403, typical when an IP address is blocked" or "the relay rejects
 the key") and end with what to do:
 
 - in the browser at `/admin/diagnostics` (needs `ADMIN_PASSWORD`), or
 - if the site is down: cPanel → **Setup Node.js App** → your app →
   **Run JS script** → `diagnose` (or `npm run diagnose` in a terminal).
+
+For the home relay, also check on the Pi: `systemctl status move-relay caddy`
+and `journalctl -u move-relay -u caddy -n 50`. A timeout from the server
+usually means the DDNS name points to an old IP (step 1) or the router's port
+forwarding was lost (step 2).

@@ -15,7 +15,7 @@ const INTERNET = 'https://www.cloudflare.com/cdn-cgi/trace';
 // Syntagma: a busy stop, so a working API answers with real data
 const TEST_STOP = '10361';
 const TIMEOUT_MS = 8_000;
-// Longer than the Worker's own 6 s limit on OASA, so its "can't reach OASA" answer arrives
+// Longer than the relay's own 6 s limit on OASA, so its "can't reach OASA" answer arrives
 const RELAY_TIMEOUT_MS = 12_000;
 const MIN_NODE = 20;
 
@@ -90,7 +90,7 @@ function configChecks(env, nodeVersion) {
             ? check('Configuration', 'Relay fallback', 'ok', `Configured: ${safeHost(relayUrl)}`)
             : relayUrl || relayKey
                 ? check('Configuration', 'Relay fallback', 'fail', `Only ${relayUrl ? 'OASA_RELAY_URL' : 'OASA_RELAY_KEY'} is set, so the relay is disabled`, 'Set both OASA_RELAY_URL and OASA_RELAY_KEY in .env, then restart the app.')
-                : check('Configuration', 'Relay fallback', 'warn', 'Not configured: if OASA blocks this server, live times stop', 'See proxy/README.md to set up the Cloudflare Worker.'),
+                : check('Configuration', 'Relay fallback', 'warn', 'Not configured: if OASA blocks this server, live times stop', 'See proxy/README.md to set up the relay.'),
     ];
 }
 
@@ -150,38 +150,38 @@ async function relayChecks(fetch, env) {
         result = check('Services', 'Relay with your key', 'ok', `${describeArrivals(keyed.json)}, ${keyed.ms} ms`);
     } else if (keyed.status === 401) {
         info = 'key';
-        result = check('Services', 'Relay with your key', 'fail', 'The Worker rejects the key',
-            'OASA_RELAY_KEY in .env must equal the Worker\'s RELAY_KEY secret. Set them to the same value (proxy/README.md, "Changing the key") and restart the app.');
+        result = check('Services', 'Relay with your key', 'fail', 'The relay rejects the key',
+            'OASA_RELAY_KEY in .env must equal the relay\'s RELAY_KEY. Set them to the same value (proxy/README.md, "Changing the key") and restart the app.');
     } else if (keyed.status === 400) {
         info = 'old-worker';
-        result = check('Services', 'Relay with your key', 'fail', 'The Worker refused the request as invalid', 'The deployed Worker may be outdated. Redeploy proxy/worker.js.');
+        result = check('Services', 'Relay with your key', 'fail', 'The relay refused the request as invalid', 'The relay may be outdated. Update it to the latest proxy/worker.js.');
     } else if (keyed.status === 404 || anon.status === 404) {
         info = 'url';
-        result = check('Services', 'Relay with your key', 'fail', describeHttp(404), 'Check OASA_RELAY_URL in .env against the Worker\'s address in the Cloudflare dashboard.');
+        result = check('Services', 'Relay with your key', 'fail', describeHttp(404), 'Check OASA_RELAY_URL in .env against the relay\'s address.');
     } else if (keyed.status === 502 || (keyed.status >= 400 && /Upstream error/.test(keyed.text ?? ''))) {
-        info = 'oasa-from-cloudflare';
-        result = check('Services', 'Relay with your key', 'fail', `The Worker is fine but can't reach OASA either: ${keyed.text?.slice(0, 120)}`);
+        info = 'oasa-from-relay';
+        result = check('Services', 'Relay with your key', 'fail', `The relay is fine but can't reach OASA either: ${keyed.text?.slice(0, 120)}`);
     } else if (keyed.ok) {
         result = check('Services', 'Relay with your key', 'fail', `Relayed, but OASA's answer isn't API data: ${failureText(keyed)}`);
-        info = 'oasa-from-cloudflare';
+        info = 'oasa-from-relay';
     } else {
         result = check('Services', 'Relay with your key', 'fail', failureText(keyed));
     }
 
     const place = location
         ? (location.loc === 'GR'
-            ? check('Services', 'Relay location', 'ok', `Its requests leave Cloudflare from ${location.colo} (GR)`)
-            : check('Services', 'Relay location', 'warn', `Its requests leave Cloudflare from ${location.colo} (${location.loc}), outside Greece, where OASA's live API blocks connections`,
-                'The Worker needs to run in Greece (Cloudflare\'s ATH or SKG). See proxy/README.md, "If OASA blocks the relay too".'))
+            ? check('Services', 'Relay location', 'ok', `Its requests come from GR (nearest Cloudflare data centre: ${location.colo})`)
+            : check('Services', 'Relay location', 'warn', `Its requests come from ${location.loc} (nearest Cloudflare data centre: ${location.colo}), outside Greece, where OASA's live API blocks connections`,
+                'The relay needs to run in Greece. See proxy/README.md, "Home relay".'))
         : where.status === 400
-            ? check('Services', 'Relay location', 'info', 'Unknown: the deployed Worker is older than this check', 'Redeploy proxy/worker.js to see where it runs.')
+            ? check('Services', 'Relay location', 'info', 'Unknown: the relay is older than this check', 'Update it to the latest proxy/worker.js to see where it runs.')
             : null;
 
     const guard = anon.status === 401
         ? check('Services', 'Relay without a key', 'ok', 'Refused (401), so strangers can\'t use it')
         : anon.status === null
             ? check('Services', 'Relay without a key', 'fail', failureText(anon))
-            : check('Services', 'Relay without a key', 'warn', `Expected 401, got ${describeHttp(anon.status)}`, 'If this isn\'t your Worker, check OASA_RELAY_URL.');
+            : check('Services', 'Relay without a key', 'warn', `Expected 401, got ${describeHttp(anon.status)}`, 'If this isn\'t your relay, check OASA_RELAY_URL.');
     return { results: [guard, result, ...(place ? [place] : [])], keyed, anon, info, location };
 }
 
@@ -256,11 +256,11 @@ function verdict({ internet, ip, loc, dns, oasa, relay, relayConfigured, appStat
     if (relay.result?.status === 'ok') {
         return { status: 'warn', text: `OASA can't be reached directly from this server (${oasa.result.detail}), but the relay works, so the site keeps working. If this lasts, OASA has probably blocked the server${ipText}: contact OASA, or Mediahost if they block outgoing traffic.` };
     }
-    if (relay.info === 'oasa-from-cloudflare' && abroad) {
-        return { status: 'fail', text: `${GEO_BLOCK}. This server is in ${loc ?? 'another country'} and the relay runs in ${relay.location.colo} (${relay.location.loc}), so OASA blocks both and live times are down. The relay has to reach OASA from Greece: see proxy/README.md, "If OASA blocks the relay too".` };
+    if (relay.info === 'oasa-from-relay' && abroad) {
+        return { status: 'fail', text: `${GEO_BLOCK}. This server is in ${loc ?? 'another country'} and the relay runs in ${relay.location.colo} (${relay.location.loc}), so OASA blocks both and live times are down. The relay has to reach OASA from Greece: see proxy/README.md, "Home relay".` };
     }
-    if (relay.info === 'oasa-from-cloudflare') {
-        return { status: 'fail', text: 'OASA is unreachable both from this server and from Cloudflare, so OASA itself is most likely down. Nothing to fix on our side; live times return when it does.' };
+    if (relay.info === 'oasa-from-relay') {
+        return { status: 'fail', text: 'OASA is unreachable both from this server and through the relay, so OASA itself is most likely down. Nothing to fix on our side; live times return when it does.' };
     }
     if (relay.info === 'key' || relay.info === 'url' || relay.info === 'old-worker') {
         return { status: 'fail', text: `OASA can't be reached directly (${oasa.result.detail}), and the relay is misconfigured: ${relay.result.detail}. ${relay.result.hint}` };
