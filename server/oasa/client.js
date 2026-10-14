@@ -7,37 +7,53 @@ import { USER_AGENT } from '../data/sources.js';
 //   - after FAILURES_TO_OPEN failures in a row, a route is rested for a while
 // Callers fall back to cached data when a request is refused or fails.
 //
-// Optionally, a relay (proxy/: a Cloudflare Worker or a home machine) is used when OASA can't
-// be reached directly, e.g. if the shared hosting IP gets blocked. It is a
-// fallback only: a failed direct request is retried once through the relay,
-// and after repeated direct failures the relay is used alone for
-// DIRECT_REST_MS before trying direct again.
+// Optionally, relays (proxy/) are used when OASA can't be reached directly:
+// its live API only accepts Greek IPs and the server is in Germany. Routes are
+// tried in order (direct, then each relay in RELAYS), and a failed request
+// moves on to the next one. A route that keeps failing rests for
+// FALLBACK_REST_MS while the routes after it carry the traffic, so in the
+// steady state requests go straight to the first working route; the last
+// route only rests for LAST_REST_MS, as nothing comes after it.
 
 const API = 'https://telematics.oasa.gr/api/';
 export const REQUESTS_PER_SECOND = 2;
 const MAX_WAIT_MS = 8_000;
 const TIMEOUT_MS = 8_000;
 const FAILURES_TO_OPEN = 5;
-const DIRECT_REST_MS = 10 * 60_000;
-const RELAY_REST_MS = 60_000;
+const FALLBACK_REST_MS = 10 * 60_000;
+const LAST_REST_MS = 60_000;
+
+// The relays, in the order they're tried after direct access, and the .env
+// settings (<env>_URL and <env>_KEY) that turn each one on. See proxy/README.md.
+export const RELAYS = [
+    { name: 'relay', env: 'OASA_RELAY' },           // Cloudflare Worker
+    { name: 'home relay', env: 'OASA_HOME_RELAY' }, // e.g. a Raspberry Pi at home
+];
+
+// → [{ name, env, url, key }] for each relay whose URL and key are both set
+export const relaysFromEnv = env => RELAYS
+    .filter(r => env[`${r.env}_URL`] && env[`${r.env}_KEY`])
+    .map(r => ({ ...r, url: env[`${r.env}_URL`], key: env[`${r.env}_KEY`] }));
 
 export class OasaUnavailable extends Error {}
 
 const realSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sleep = realSleep, log = console.warn, relay = null } = {}) {
+export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sleep = realSleep, log = console.warn, relays = [] } = {}) {
     let nextSlot = 0;
 
     // Per route: consecutive failures, and while resting, the time it may be
     // tried again. After a rest, a single request probes it (`probing`) while
     // the others keep skipping it, so a recovering service gets one try, not a burst.
-    const route = (name, restMs, url, headers = {}) => ({
-        name, restMs, url, headers, failures: 0, restUntil: 0, probing: false,
+    const route = (name, url, headers = {}) => ({
+        name, url, headers, failures: 0, restUntil: 0, probing: false,
         lastOk: null, lastError: null, // for diagnostics
     });
-    const direct = route('direct', relay ? DIRECT_REST_MS : RELAY_REST_MS, API);
-    const viaRelay = relay ? route('relay', RELAY_REST_MS, relay.url, { 'X-Relay-Key': relay.key }) : null;
-    const routes = [direct, viaRelay].filter(Boolean);
+    const routes = [route('direct', API), ...relays.map(r => route(r.name, r.url, { 'X-Relay-Key': r.key }))];
+    routes.forEach((r, i) => {
+        r.next = routes[i + 1] ?? null;
+        r.restMs = r.next ? FALLBACK_REST_MS : LAST_REST_MS;
+    });
     const usable = r => !r.probing && now() >= r.restUntil;
 
     // Reserve the next free slot; resolves when it's our turn, or false if the queue is too long
@@ -54,7 +70,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
         r.failures = 0;
         r.restUntil = now() + r.restMs;
         if (reason) {
-            const fallback = r === direct && viaRelay ? ' — using the relay meanwhile' : '';
+            const fallback = r.next ? ` — using the ${r.next.name} meanwhile` : '';
             log(`[oasa] ${FAILURES_TO_OPEN} ${r.name} failures in a row (last: ${reason}); resting it for ${r.restMs / 1000} s${fallback}`);
         }
     }

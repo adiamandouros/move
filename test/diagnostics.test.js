@@ -157,3 +157,71 @@ test('an older relay without whereami is reported, not treated as a failure', as
     assert.equal(r.summary.status, 'ok');
     assert.equal(r.checks.find(c => c.title === 'Relay location').status, 'info');
 });
+
+// ── Two relays: the Cloudflare Worker, then the home relay ──────────────────
+
+const HOME = 'https://home.example/';
+const BOTH = { ...ENV, OASA_HOME_RELAY_URL: HOME, OASA_HOME_RELAY_KEY: 'h' };
+
+// The world above, plus a home relay; requests to it are answered by `home`
+function withHome(home, overrides = {}) {
+    const base = world(overrides);
+    return async (url, init = {}) => {
+        if (!url.startsWith(HOME)) return base(url, init);
+        const answer = await home(init.headers ?? {}, url);
+        if (answer instanceof Error) throw answer;
+        return answer;
+    };
+}
+const homeUp = (h, url) => h['X-Relay-Key'] !== 'h' ? new Response('Unauthorized', { status: 401 })
+    : url.includes('act=whereami') ? json({ colo: 'ATH', loc: 'GR' }) : json([]);
+// Production today: the server and the Worker are outside Greece
+const abroad = {
+    internet: () => new Response('ip=157.90.210.32\nloc=DE\n'),
+    oasa: () => Object.assign(new Error('timeout'), { name: 'TimeoutError' }),
+    relay: (h, url) => h['X-Relay-Key'] !== 'k' ? new Response('Unauthorized', { status: 401 })
+        : url.includes('act=whereami') ? json({ colo: 'FRA', loc: 'DE' })
+            : new Response('Upstream error: The operation was aborted due to timeout', { status: 502 }),
+};
+
+test('both relays are configured and checked, each under its own name', async () => {
+    const r = await run(withHome(homeUp), { env: BOTH });
+    for (const title of ['Relay fallback', 'Home relay fallback', 'Relay with your key', 'Home relay with your key', 'Home relay location']) {
+        assert.equal(r.checks.find(c => c.title === title)?.status, 'ok', title);
+    }
+});
+
+test('server and Worker blocked, home relay working: as intended, and the Worker is only information', async () => {
+    const r = await run(withHome(homeUp, abroad), { env: BOTH });
+    assert.equal(r.summary.status, 'ok');
+    assert.match(r.summary.text, /go through the home relay \(ATH, GR\)\. Working as intended/);
+    const worker = r.checks.find(c => c.title === 'Relay with your key');
+    assert.equal(worker.status, 'info');
+    assert.match(worker.hint, /the home relay carries the traffic/);
+    assert.equal(r.checks.find(c => c.title === 'Relay location').status, 'info');
+});
+
+test('server and Worker blocked, home relay down: live times are down and the hint points at home', async () => {
+    const r = await run(withHome(() => netError('UND_ERR_CONNECT_TIMEOUT'), abroad), { env: BOTH });
+    assert.equal(r.summary.status, 'fail');
+    assert.match(r.summary.text, /nor the home relay \(no answer.*\) can be reached.*DDNS name/);
+    assert.equal(r.checks.find(c => c.title === 'Relay with your key').status, 'fail');
+});
+
+test('home relay in Greece can\'t reach OASA either: OASA is down', async () => {
+    const r = await run(withHome((h, url) => url.includes('act=whereami') ? json({ colo: 'ATH', loc: 'GR' })
+        : new Response('Upstream error: timeout', { status: 502 }), abroad), { env: BOTH });
+    assert.match(r.summary.text, /through the home relay, so OASA itself is most likely down/);
+});
+
+test('a wrong home relay key is named', async () => {
+    const r = await run(withHome(homeUp, abroad), { env: { ...BOTH, OASA_HOME_RELAY_KEY: 'wrong' } });
+    assert.match(r.summary.text, /home relay is misconfigured: The home relay rejects the key\. OASA_HOME_RELAY_KEY in \.env/);
+});
+
+test('a home relay without its key is reported, and the Worker still works', async () => {
+    const r = await run(world(), { env: { ...ENV, OASA_HOME_RELAY_URL: HOME } });
+    assert.equal(r.checks.find(c => c.title === 'Home relay fallback').status, 'fail');
+    assert.match(r.checks.find(c => c.title === 'Home relay fallback').detail, /Only OASA_HOME_RELAY_URL is set/);
+    assert.equal(r.checks.find(c => c.title === 'Relay fallback').status, 'ok');
+});

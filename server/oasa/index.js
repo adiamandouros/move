@@ -12,11 +12,11 @@ const STOP_CODE = /^\d{1,8}$/;
 //   GET /api/arrivals?stops=10361,10341
 //   → { stops: { "10361": { arrivals: [{ line, to: { el, en }, minutes, route, vehicle }], updated, stale, unavailable? } } }
 //
-// `relay` ({ url, key }) is the optional fallback route described in client.js.
+// `relays` ([{ name, url, key }]) are the optional fallback routes described in client.js.
 //
 // `statusFile`: where the live route status is written about once a minute,
 // so `npm run diagnose` (a separate process) can show what the app sees.
-export function createBusApi({ routesFile, statusFile, relay = null, client = createOasaClient({ relay }), now } = {}) {
+export function createBusApi({ routesFile, statusFile, relays = [], client = createOasaClient({ relays }), now } = {}) {
     const arrivals = createArrivals({ client, routesFile, now });
     const router = express.Router();
 

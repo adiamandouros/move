@@ -9,6 +9,7 @@ import { createAdmin } from './server/admin/index.js';
 import { BUILD_DIR, OVERLAY_FILE, loadCurated, rebuildSoon } from './server/data/index.js';
 import { runDiagnostics } from './server/diagnostics.js';
 import { createBusApi } from './server/oasa/index.js';
+import { RELAYS, relaysFromEnv } from './server/oasa/client.js';
 import { createPages, VENDOR } from './server/pages.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -19,15 +20,17 @@ app.use(compression());
 const PORT = process.env.PORT || 3000;
 
 // Live bus arrivals from OASA, cached and rate-limited (see server/oasa/).
-// The relay is a fallback for when OASA can't be reached directly (proxy/README.md).
-const relay = process.env.OASA_RELAY_URL && process.env.OASA_RELAY_KEY
-    ? { url: process.env.OASA_RELAY_URL, key: process.env.OASA_RELAY_KEY }
-    : null;
-if (process.env.OASA_RELAY_URL && !relay) console.warn('[oasa] OASA_RELAY_URL is set without OASA_RELAY_KEY — relay disabled');
+// The relays are fallbacks for when OASA can't be reached directly (proxy/README.md).
+const relays = relaysFromEnv(process.env);
+for (const { name, env } of RELAYS) {
+    if (Boolean(process.env[`${env}_URL`]) !== Boolean(process.env[`${env}_KEY`])) {
+        console.warn(`[oasa] Only one of ${env}_URL and ${env}_KEY is set — ${name} disabled`);
+    }
+}
 const busApi = createBusApi({
     routesFile: path.join(__dirname, 'data', 'cache', 'oasa-routes.json'),
     statusFile: path.join(__dirname, 'data', 'cache', 'oasa-status.json'),
-    relay,
+    relays,
 });
 app.use('/api', busApi);
 
@@ -57,6 +60,6 @@ app.use(pages.notFound);
 
 app.listen(PORT, () => {
     console.log(`Move app running at http://localhost:${PORT}`);
-    if (relay) console.log(`[oasa] Relay fallback: ${new URL(relay.url).host}`);
+    for (const r of relays) console.log(`[oasa] Fallback ${r.name}: ${new URL(r.url).host}`);
     startScheduler();
 });

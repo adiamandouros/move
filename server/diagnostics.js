@@ -2,6 +2,7 @@ import { lookup } from 'dns/promises';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { USER_AGENT } from './data/sources.js';
+import { RELAYS, relaysFromEnv } from './oasa/client.js';
 
 // Health checks for when something goes wrong on the server: can it reach the
 // internet, OASA, the relay and the open-data portal, is the timetable data
@@ -77,8 +78,6 @@ const check = (group, title, status, detail, hint) => ({ group, title, status, d
 
 function configChecks(env, nodeVersion) {
     const major = Number(nodeVersion.replace(/^v/, '').split('.')[0]);
-    const relayUrl = env.OASA_RELAY_URL;
-    const relayKey = env.OASA_RELAY_KEY;
     return [
         major >= MIN_NODE
             ? check('Configuration', 'Node.js version', 'ok', nodeVersion)
@@ -86,12 +85,25 @@ function configChecks(env, nodeVersion) {
         env.CONTACT_EMAIL
             ? check('Configuration', 'Contact email', 'ok', `Sent to OASA as ${env.CONTACT_EMAIL}`)
             : check('Configuration', 'Contact email', 'warn', 'CONTACT_EMAIL is not set', 'Set it in .env so OASA can contact you instead of blocking the server.'),
-        relayUrl && relayKey
-            ? check('Configuration', 'Relay fallback', 'ok', `Configured: ${safeHost(relayUrl)}`)
-            : relayUrl || relayKey
-                ? check('Configuration', 'Relay fallback', 'fail', `Only ${relayUrl ? 'OASA_RELAY_URL' : 'OASA_RELAY_KEY'} is set, so the relay is disabled`, 'Set both OASA_RELAY_URL and OASA_RELAY_KEY in .env, then restart the app.')
-                : check('Configuration', 'Relay fallback', 'warn', 'Not configured: if OASA blocks this server, live times stop', 'See proxy/README.md to set up the relay.'),
+        ...relayConfigChecks(env),
     ];
+}
+
+const capital = text => text[0].toUpperCase() + text.slice(1);
+
+function relayConfigChecks(env) {
+    const rows = RELAYS.map(({ name, env: prefix }) => {
+        const url = env[`${prefix}_URL`];
+        const key = env[`${prefix}_KEY`];
+        const title = `${capital(name)} fallback`;
+        if (url && key) return check('Configuration', title, 'ok', `Configured: ${safeHost(url)}`);
+        if (url || key) {
+            return check('Configuration', title, 'fail', `Only ${prefix}_${url ? 'URL' : 'KEY'} is set, so the ${name} is disabled`, `Set both ${prefix}_URL and ${prefix}_KEY in .env, then restart the app.`);
+        }
+        return null;
+    }).filter(Boolean);
+    return rows.length ? rows
+        : [check('Configuration', 'Relay fallback', 'warn', 'Not configured: if OASA blocks this server, live times stop', 'See proxy/README.md to set up a relay.')];
 }
 
 function safeHost(url) {
@@ -133,56 +145,63 @@ function oasaCheck(p, serverCountry) {
 
 const describeArrivals = json => Array.isArray(json) ? `${json.length} arrivals at the test stop` : 'answered (no buses due at the test stop)';
 
-async function relayChecks(fetch, env) {
-    if (!env.OASA_RELAY_URL || !env.OASA_RELAY_KEY) return { results: [], keyed: null, info: null };
-    const url = `${env.OASA_RELAY_URL}?act=getStopArrivals&p1=${TEST_STOP}`;
-    const key = { 'X-Relay-Key': env.OASA_RELAY_KEY };
+// What to check when a relay can't be reached at all
+const UNREACHABLE_HINT = {
+    'home relay': 'Is the machine at home on, and its internet up? Check that the DDNS name points to the home\'s current IP and that the router still forwards ports 80 and 443 (proxy/README.md, "Home relay").',
+};
+
+// One relay ({ name, env, url, key }): its guard, its answer with the key, and where it runs
+async function relayChecks(fetch, relay) {
+    const { name, env: prefix } = relay;
+    const Name = capital(name);
+    const url = `${relay.url}?act=getStopArrivals&p1=${TEST_STOP}`;
+    const key = { 'X-Relay-Key': relay.key };
     const [anon, keyed, where] = await Promise.all([
         probe(fetch, url),
         probe(fetch, url, key, RELAY_TIMEOUT_MS),
-        probe(fetch, `${env.OASA_RELAY_URL}?act=whereami`, key),
+        probe(fetch, `${relay.url}?act=whereami`, key),
     ]);
     const location = where.ok && where.json?.loc ? where.json : null;
 
     let info = null;
     let result;
     if (isApiAnswer(keyed)) {
-        result = check('Services', 'Relay with your key', 'ok', `${describeArrivals(keyed.json)}, ${keyed.ms} ms`);
+        result = check('Services', `${Name} with your key`, 'ok', `${describeArrivals(keyed.json)}, ${keyed.ms} ms`);
     } else if (keyed.status === 401) {
         info = 'key';
-        result = check('Services', 'Relay with your key', 'fail', 'The relay rejects the key',
-            'OASA_RELAY_KEY in .env must equal the relay\'s RELAY_KEY. Set them to the same value (proxy/README.md, "Changing the key") and restart the app.');
+        result = check('Services', `${Name} with your key`, 'fail', `The ${name} rejects the key`,
+            `${prefix}_KEY in .env must equal the ${name}'s RELAY_KEY. Set them to the same value (proxy/README.md, "Changing the key") and restart the app.`);
     } else if (keyed.status === 400) {
         info = 'old-worker';
-        result = check('Services', 'Relay with your key', 'fail', 'The relay refused the request as invalid', 'The relay may be outdated. Update it to the latest proxy/worker.js.');
+        result = check('Services', `${Name} with your key`, 'fail', `The ${name} refused the request as invalid`, `The ${name} may be outdated. Update it to the latest proxy/worker.js.`);
     } else if (keyed.status === 404 || anon.status === 404) {
         info = 'url';
-        result = check('Services', 'Relay with your key', 'fail', describeHttp(404), 'Check OASA_RELAY_URL in .env against the relay\'s address.');
+        result = check('Services', `${Name} with your key`, 'fail', describeHttp(404), `Check ${prefix}_URL in .env against the ${name}'s address.`);
     } else if (keyed.status === 502 || (keyed.status >= 400 && /Upstream error/.test(keyed.text ?? ''))) {
         info = 'oasa-from-relay';
-        result = check('Services', 'Relay with your key', 'fail', `The relay is fine but can't reach OASA either: ${keyed.text?.slice(0, 120)}`);
+        result = check('Services', `${Name} with your key`, 'fail', `The ${name} is fine but can't reach OASA either: ${keyed.text?.slice(0, 120)}`);
     } else if (keyed.ok) {
-        result = check('Services', 'Relay with your key', 'fail', `Relayed, but OASA's answer isn't API data: ${failureText(keyed)}`);
+        result = check('Services', `${Name} with your key`, 'fail', `Relayed, but OASA's answer isn't API data: ${failureText(keyed)}`);
         info = 'oasa-from-relay';
     } else {
-        result = check('Services', 'Relay with your key', 'fail', failureText(keyed));
+        result = check('Services', `${Name} with your key`, 'fail', failureText(keyed), keyed.status === null ? UNREACHABLE_HINT[name] : undefined);
     }
 
     const place = location
         ? (location.loc === 'GR'
-            ? check('Services', 'Relay location', 'ok', `Its requests come from GR (nearest Cloudflare data centre: ${location.colo})`)
-            : check('Services', 'Relay location', 'warn', `Its requests come from ${location.loc} (nearest Cloudflare data centre: ${location.colo}), outside Greece, where OASA's live API blocks connections`,
+            ? check('Services', `${Name} location`, 'ok', `Its requests come from GR (nearest Cloudflare data centre: ${location.colo})`)
+            : check('Services', `${Name} location`, 'warn', `Its requests come from ${location.loc} (nearest Cloudflare data centre: ${location.colo}), outside Greece, where OASA's live API blocks connections`,
                 'The relay needs to run in Greece. See proxy/README.md, "Home relay".'))
         : where.status === 400
-            ? check('Services', 'Relay location', 'info', 'Unknown: the relay is older than this check', 'Update it to the latest proxy/worker.js to see where it runs.')
+            ? check('Services', `${Name} location`, 'info', `Unknown: the ${name} is older than this check`, 'Update it to the latest proxy/worker.js to see where it runs.')
             : null;
 
     const guard = anon.status === 401
-        ? check('Services', 'Relay without a key', 'ok', 'Refused (401), so strangers can\'t use it')
+        ? check('Services', `${Name} without a key`, 'ok', 'Refused (401), so strangers can\'t use it')
         : anon.status === null
-            ? check('Services', 'Relay without a key', 'fail', failureText(anon))
-            : check('Services', 'Relay without a key', 'warn', `Expected 401, got ${describeHttp(anon.status)}`, 'If this isn\'t your relay, check OASA_RELAY_URL.');
-    return { results: [guard, result, ...(place ? [place] : [])], keyed, anon, info, location };
+            ? check('Services', `${Name} without a key`, 'fail', failureText(anon))
+            : check('Services', `${Name} without a key`, 'warn', `Expected 401, got ${describeHttp(anon.status)}`, `If this isn't your ${name}, check ${prefix}_URL.`);
+    return { name, results: [guard, result, ...(place ? [place] : [])], result, keyed, anon, info, location };
 }
 
 async function portalCheck(fetch) {
@@ -231,12 +250,12 @@ function appChecks(appStatus, now) {
 
 // ── Verdict ─────────────────────────────────────────────────────────────────
 
-function verdict({ internet, ip, loc, dns, oasa, relay, relayConfigured, appStatus }) {
+function verdict({ internet, ip, loc, dns, oasa, relays, appStatus }) {
     const ipText = ip ? ` (this server's public IP is ${ip})` : '';
-    const abroad = relay.location && relay.location.loc !== 'GR';
+    const abroad = r => Boolean(r.location) && r.location.loc !== 'GR';
     const directResting = appStatus?.routes.find(r => r.name === 'direct')?.resting;
 
-    if (internet.status === 'fail' && oasa.probe.status === null && (!relayConfigured || relay.keyed?.status === null)) {
+    if (internet.status === 'fail' && oasa.probe.status === null && relays.every(r => r.keyed.status === null)) {
         return { status: 'fail', text: 'The server can\'t reach the internet at all. Nothing in the app can fix this: contact Mediahost support and send them this report.' };
     }
     if (dns.every(d => d.status === 'fail')) {
@@ -246,26 +265,49 @@ function verdict({ internet, ip, loc, dns, oasa, relay, relayConfigured, appStat
         if (directResting) return { status: 'warn', text: 'OASA is reachable again. The app is still resting direct access after earlier failures and will try it again on its own within 10 minutes (or restart the app to try now).' };
         return { status: 'ok', text: 'Everything needed for live bus times is working.' };
     }
-    if (!relayConfigured) {
+    if (!relays.length) {
         if (oasa.geo) return { status: 'fail', text: `${GEO_BLOCK}, and this server is in ${loc}, so live times are down. Set up the relay (proxy/README.md) so requests reach OASA from Greece.` };
         return { status: 'fail', text: `OASA can't be reached from this server and there is no relay, so live times are down. Reason: ${oasa.result.detail}. If OASA blocked the server${ipText}, set up the relay (proxy/README.md) and contact OASA.` };
     }
-    if (relay.result?.status === 'ok' && oasa.geo) {
-        return { status: 'ok', text: `${GEO_BLOCK} and this server is in ${loc}, so live times go through the relay${relay.location ? ` (${relay.location.colo}, GR)` : ''}. Working as intended.` };
+    const working = relays.find(r => r.result.status === 'ok');
+    if (working && oasa.geo) {
+        return { status: 'ok', text: `${GEO_BLOCK} and this server is in ${loc}, so live times go through the ${working.name}${working.location ? ` (${working.location.colo}, GR)` : ''}. Working as intended.` };
     }
-    if (relay.result?.status === 'ok') {
-        return { status: 'warn', text: `OASA can't be reached directly from this server (${oasa.result.detail}), but the relay works, so the site keeps working. If this lasts, OASA has probably blocked the server${ipText}: contact OASA, or Mediahost if they block outgoing traffic.` };
+    if (working) {
+        return { status: 'warn', text: `OASA can't be reached directly from this server (${oasa.result.detail}), but the ${working.name} works, so the site keeps working. If this lasts, OASA has probably blocked the server${ipText}: contact OASA, or Mediahost if they block outgoing traffic.` };
     }
-    if (relay.info === 'oasa-from-relay' && abroad) {
-        return { status: 'fail', text: `${GEO_BLOCK}. This server is in ${loc ?? 'another country'} and the relay runs in ${relay.location.colo} (${relay.location.loc}), so OASA blocks both and live times are down. The relay has to reach OASA from Greece: see proxy/README.md, "Home relay".` };
+    // Relays that work but can't reach OASA themselves
+    const blocked = relays.filter(r => r.info === 'oasa-from-relay');
+    if (blocked.some(r => !abroad(r))) {
+        return { status: 'fail', text: `OASA is unreachable both from this server and through the ${blocked.find(r => !abroad(r)).name}, so OASA itself is most likely down. Nothing to fix on our side; live times return when it does.` };
     }
-    if (relay.info === 'oasa-from-relay') {
-        return { status: 'fail', text: 'OASA is unreachable both from this server and through the relay, so OASA itself is most likely down. Nothing to fix on our side; live times return when it does.' };
+    const broken = relays.find(r => r.info === 'key' || r.info === 'url' || r.info === 'old-worker');
+    if (broken) {
+        return { status: 'fail', text: `OASA can't be reached directly (${oasa.result.detail}), and the ${broken.name} is misconfigured: ${broken.result.detail}. ${broken.result.hint}` };
     }
-    if (relay.info === 'key' || relay.info === 'url' || relay.info === 'old-worker') {
-        return { status: 'fail', text: `OASA can't be reached directly (${oasa.result.detail}), and the relay is misconfigured: ${relay.result.detail}. ${relay.result.hint}` };
+    if (blocked.length === relays.length) {
+        const where = blocked.map(r => `the ${r.name} runs in ${r.location.colo} (${r.location.loc})`).join(' and ');
+        return { status: 'fail', text: `${GEO_BLOCK}. This server is in ${loc ?? 'another country'} and ${where}, so OASA blocks ${relays.length > 1 ? 'all of them' : 'both'} and live times are down. A relay has to reach OASA from Greece: see proxy/README.md, "Home relay".` };
     }
-    return { status: 'fail', text: `Neither OASA (${oasa.result.detail}) nor the relay (${relay.result?.detail}) can be reached from this server. If the internet check passed, outgoing traffic to them may be blocked: contact Mediahost with this report.` };
+    const down = relays.filter(r => !blocked.includes(r));
+    const hint = down.map(r => r.result.hint).find(Boolean)
+        ?? 'If the internet check passed, outgoing traffic to them may be blocked: contact Mediahost with this report.';
+    return { status: 'fail', text: `Neither OASA (${oasa.result.detail}) nor ${down.map(r => `the ${r.name} (${r.result.detail})`).join(' nor ')} can be reached from this server, so live times are down. ${hint}` };
+}
+
+// A relay that OASA blocks from abroad is expected while another relay
+// carries the traffic (today: the Cloudflare Worker, with the home relay
+// behind it), so it is reported as information rather than a failure
+function expectBlockedRelays(relays) {
+    const working = relays.find(r => r.result.status === 'ok');
+    if (!working) return;
+    for (const r of relays) {
+        if (r.info !== 'oasa-from-relay' || !r.location || r.location.loc === 'GR') continue;
+        for (const c of r.results.slice(1)) {
+            c.status = 'info';
+            c.hint = `Expected while OASA's live API only accepts Greek IPs: the ${working.name} carries the traffic.`;
+        }
+    }
 }
 
 // ── Entry point ─────────────────────────────────────────────────────────────
@@ -280,23 +322,25 @@ export async function runDiagnostics({
     nodeVersion = process.version,
 } = {}) {
     const hosts = ['telematics.oasa.gr', 'catalog.growthfund.gr'];
-    if (env.OASA_RELAY_URL) { try { hosts.push(new URL(env.OASA_RELAY_URL).hostname); } catch { /* reported by the config check */ } }
+    const relaySettings = relaysFromEnv(env);
+    for (const r of relaySettings) { try { hosts.push(new URL(r.url).hostname); } catch { /* reported by the relay checks */ } }
 
-    const [internet, dns, oasaProbe, relay, portal] = await Promise.all([
+    const [internet, dns, oasaProbe, relays, portal] = await Promise.all([
         internetCheck(fetch),
         Promise.all(hosts.map(h => dnsCheck(dnsLookup, h))),
         probeOasa(fetch),
-        relayChecks(fetch, env),
+        Promise.all(relaySettings.map(r => relayChecks(fetch, r))),
         portalCheck(fetch),
     ]);
     const oasa = oasaCheck(oasaProbe, internet.loc);
+    expectBlockedRelays(relays);
 
     const checks = [
         ...configChecks(env, nodeVersion),
         internet.result,
         ...dns,
         oasa.result,
-        ...relay.results,
+        ...relays.flatMap(r => r.results),
         portal,
         ...dataChecks(dataDir, now),
         ...appChecks(appStatus, now),
@@ -307,8 +351,7 @@ export async function runDiagnostics({
         loc: internet.loc,
         dns,
         oasa,
-        relay: { ...relay, result: relay.results[1] },
-        relayConfigured: Boolean(env.OASA_RELAY_URL && env.OASA_RELAY_KEY),
+        relays,
         appStatus,
     });
     return { ranAt: new Date(now()).toISOString(), summary, checks };

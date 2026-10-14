@@ -9,24 +9,33 @@ Bulgaria and the US, while OASA's website answered everywhere). The Move
 server is in Germany, so live bus times only work through a relay whose
 requests come from Greece.
 
-The server only uses the relay when a direct request fails. If direct
-requests keep failing, it uses the relay alone for 10 minutes, then tries
-direct again. Switches are logged as `[oasa] …` lines. The 2-requests-per-second
-limit covers both routes together, so the relay never adds load on OASA.
+There are two relays, and the server tries the routes in this order:
 
-The relay (`worker.js`) passes on only the two API calls the app uses, with
-numeric stop codes, and only for requests carrying the shared key. It can't be
-used as an open proxy. It runs in one of two places:
+1. **Direct** to OASA, in case the geo-block is lifted one day.
+2. **[Cloudflare Worker](#cloudflare-worker)**: free, no hardware. Today
+   Cloudflare runs it in Frankfurt for a server in Germany, so OASA blocks it
+   too. It stays in place in case Cloudflare starts running it in Greece.
+3. **[Home relay](#home-relay)**: an always-on machine at home, e.g. a
+   Raspberry Pi. Its requests come from a Greek connection, so it works.
 
-- **[Home relay](#home-relay)**: an always-on machine at home, e.g. a
-  Raspberry Pi. This is the one in use, because its requests come from a
-  Greek connection.
-- **[Cloudflare Worker](#cloudflare-worker)**: free and needs no hardware,
-  but Cloudflare runs it outside Greece for a server in Germany, so OASA
-  blocks it too.
+A failed request moves on to the next route. After 5 failures in a row a
+route rests for 10 minutes while the routes after it carry the traffic, then
+one request tries it again. So today requests go straight to the home relay,
+and once every 10 minutes one request first retries direct and the Worker
+(it takes up to 14 s). Right after the app starts, the first few requests are
+slow until the blocked routes are put to rest. The last route only rests for
+a minute, as nothing comes after it. Switches are logged as `[oasa] …` lines.
+The 2-requests-per-second limit covers all routes together, so the relays
+never add load on OASA.
 
-Both speak the same protocol, so the server needs only `OASA_RELAY_URL` and
-`OASA_RELAY_KEY` in its `.env` either way.
+Each relay is optional and turned on by its two settings in the server's
+`.env`: `OASA_RELAY_URL`/`OASA_RELAY_KEY` for the Worker and
+`OASA_HOME_RELAY_URL`/`OASA_HOME_RELAY_KEY` for the home relay. Use a
+different key for each.
+
+Both relays run the same code (`worker.js`). It passes on only the two API
+calls the app uses, with numeric stop codes, and only for requests carrying
+the relay's key. It can't be used as an open proxy.
 
 ## Home relay
 
@@ -125,12 +134,14 @@ times stop until you update the Caddyfile.
 In the server's `.env`, then restart the app:
 
 ```
-OASA_RELAY_URL=https://YOUR-NAME.ddns.net/
-OASA_RELAY_KEY=THE_SAME_KEY
+OASA_HOME_RELAY_URL=https://YOUR-NAME.ddns.net/
+OASA_HOME_RELAY_KEY=THE_SAME_KEY
 ```
 
-`/admin/diagnostics` should then show **Relay with your key** working and
-**Relay location** in `GR`.
+On startup the log shows `[oasa] Fallback home relay: YOUR-NAME.ddns.net`.
+`/admin/diagnostics` should then show **Home relay with your key** working
+and **Home relay location** in `GR`. While OASA blocks the Worker, its rows
+show as *INFO* ("expected… the home relay carries the traffic").
 
 ### Updating
 
@@ -185,7 +196,7 @@ day, far more than the relay will normally see.
    OASA_RELAY_KEY=YOUR_KEY
    ```
 
-   On startup the log shows `[oasa] Relay fallback: move-oasa-relay…`.
+   On startup the log shows `[oasa] Fallback relay: move-oasa-relay…`.
 
 A Worker normally runs in the Cloudflare data centre closest to whoever calls
 it, so for a server in Germany it runs in Frankfurt and OASA blocks it.
@@ -199,9 +210,11 @@ feature is experimental and didn't place it in Greece in October 2026.
 Generate a new one with `openssl rand -hex 32` and set it on the relay:
 
 - Home relay: edit `/etc/move-relay.env`, then `sudo systemctl restart move-relay`.
+  Then update `OASA_HOME_RELAY_KEY` in the server's `.env`.
 - Worker: `npx wrangler secret put RELAY_KEY` (or edit the secret in the dashboard).
+  Then update `OASA_RELAY_KEY` in the server's `.env`.
 
-Then update `OASA_RELAY_KEY` in the server's `.env` and restart the app.
+Restart the app afterwards.
 
 ## When something goes wrong
 
