@@ -1,18 +1,22 @@
 # Caddy config for the home relay — see README.md, "Home relay".
-# Caddy gets and renews the HTTPS certificate on its own over port 443, so only
-# 443 needs forwarding to this machine. Install: sudo cp proxy/Caddyfile /etc/caddy/Caddyfile
+# Install: sudo cp proxy/Caddyfile /etc/caddy/Caddyfile
 # and replace YOUR-NAME.ddns.net with the home's DDNS name.
+#
+# Router port forwarding this expects (many ISP routers keep 443, and the Pi's
+# own port 80 is often taken, e.g. by Pi-hole's admin page):
+#   external TCP 80   → this machine's 8081  Let's Encrypt checks the name here
+#   external TCP 8443 → this machine's 443   the relay itself (HTTPS)
+# The server then uses OASA_HOME_RELAY_URL=https://YOUR-NAME.ddns.net:8443/
 {
-	# Port 80 is often taken on a home server (e.g. by Pi-hole's admin page)
-	# and isn't forwarded, so Caddy's plain-HTTP port moves out of the way
+	# Caddy's plain-HTTP port, which answers Let's Encrypt's checks
 	http_port 8081
 }
 
 YOUR-NAME.ddns.net {
-	# Prove the name over 443 (TLS-ALPN challenge), not over port 80
+	# External 443 doesn't reach this machine, so only the port-80 check works
 	tls {
 		issuer acme {
-			disable_http_challenge
+			disable_tlsalpn_challenge
 		}
 	}
 

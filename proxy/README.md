@@ -44,8 +44,8 @@ it, gets a free HTTPS certificate for the home's DDNS name and is the only
 part reachable from the internet.
 
 ```
-Move server (DE) ──HTTPS──▶ router :443 ──▶ Caddy ──▶ node.js :8787 ──▶ OASA
-                            YOUR-NAME.ddns.net        (localhost only)
+Move server (DE) ──HTTPS──▶ router :8443 ──▶ Caddy :443 ──▶ node.js :8787 ──▶ OASA
+                            YOUR-NAME.ddns.net              (localhost only)
 ```
 
 You need a Raspberry Pi 3 or newer with a 64-bit OS (or any always-on Linux
@@ -72,9 +72,21 @@ names must be confirmed every 30 days by email, or they stop working.
 1. Give the Pi a fixed LAN address: a *DHCP reservation* in the router, or
    if the router doesn't allow that, a manual address on the Pi itself
    (`sudo nmtui` → *Edit a connection*).
-2. Forward **TCP 443** to the Pi. Only 443: Caddy gets and renews its
-   certificate over 443, and port 80 on the Pi (e.g. Pi-hole's admin page)
-   stays private.
+2. Forward two ports to the Pi:
+
+   | External (TCP) | Pi port | What for |
+   |---|---|---|
+   | 80 | 8081 | Let's Encrypt checks the name here, to issue and renew Caddy's certificate |
+   | 8443 | 443 | The relay itself, over HTTPS |
+
+   Not external 443: ISP routers often keep it for their own admin page and
+   silently ignore forwarding rules for it. Port 80 on the Pi itself (e.g.
+   Pi-hole's admin page) stays private, as nothing is forwarded to it.
+
+   Check from outside with check-host.net (*TCP port* check on
+   `YOUR-NAME.ddns.net:80` and `:8443`): before Caddy runs, "Connection
+   refused" means the port reaches the Pi; "timed out" means the router
+   doesn't forward it.
 
 ### 3. Install Node.js and the code
 
@@ -114,8 +126,8 @@ You should get a JSON list of arrivals (or `null` if no bus is due).
 
 ### 5. Put Caddy in front of it
 
-Do this once the DDNS name points to the home (step 1) and 443 is forwarded
-(step 2). Otherwise Caddy's certificate requests fail, and repeated failures
+Do this once the DDNS name points to the home (step 1) and the ports are
+forwarded (step 2). Otherwise Caddy's certificate requests fail, and repeated failures
 get it rate-limited by Let's Encrypt for a while.
 
 ```bash
@@ -129,7 +141,12 @@ journalctl -u caddy -n 30        # look for "certificate obtained successfully"
 
 Caddy's own plain-HTTP port is moved to 8081 in the Caddyfile, so it doesn't
 clash with whatever already uses port 80. If something else already uses
-port 443, add the `YOUR-NAME.ddns.net { … }` block to that setup instead.
+port 443 on the Pi, add the `YOUR-NAME.ddns.net { … }` block to that setup
+instead.
+
+Check it from outside: a check-host.net *HTTP* check of
+`https://YOUR-NAME.ddns.net:8443/?act=getStopArrivals&p1=10361` should
+answer `401 Unauthorized` (no key, so refused, as it should be).
 
 Optionally, uncomment the two lines in the Caddyfile that let only the Move
 server connect (its IP is on `/admin/diagnostics` under **Internet access**)
@@ -143,11 +160,11 @@ times stop until you update the Caddyfile.
 In the server's `.env`, then restart the app:
 
 ```
-OASA_HOME_RELAY_URL=https://YOUR-NAME.ddns.net/
+OASA_HOME_RELAY_URL=https://YOUR-NAME.ddns.net:8443/
 OASA_HOME_RELAY_KEY=THE_SAME_KEY
 ```
 
-On startup the log shows `[oasa] Fallback home relay: YOUR-NAME.ddns.net`.
+On startup the log shows `[oasa] Fallback home relay: YOUR-NAME.ddns.net:8443`.
 `/admin/diagnostics` should then show **Home relay with your key** working
 and **Home relay location** in `GR`. While OASA blocks the Worker, its rows
 show as *INFO* ("expected… the home relay carries the traffic").
@@ -239,4 +256,5 @@ the key") and end with what to do:
 For the home relay, also check on the Pi: `systemctl status move-relay caddy`
 and `journalctl -u move-relay -u caddy -n 50`. A timeout from the server
 usually means the DDNS name points to an old IP (step 1) or the router's port
-forwarding was lost (step 2).
+forwarding was lost (step 2). If the certificate stops renewing, check the
+port-80 rule.
