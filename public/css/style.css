@@ -1111,3 +1111,20 @@ html:not([lang="el"]) main [lang="el"]:not(.any-lang) {
 @media (prefers-reduced-motion: reduce) {
     .toast-message { transition: none; }
 }
+
+/* ── Home ── */
+
+.home-section-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    padding: 14px 16px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.home-section-title .bi {
+    color: var(--accent);
+    font-size: 1.2rem;
+}

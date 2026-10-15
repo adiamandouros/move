@@ -2,7 +2,7 @@
 
 Each folder here is one page of the app, at the URL given in its `tool.json`.
 The server reads these folders at startup to build the routes, the navigation,
-the home page tiles and the offline cache list. To add a tool, copy an existing
+the offline page's tiles and the offline cache list. To add a tool, copy an existing
 folder and edit it; no other file needs to change.
 
 ```

@@ -8,7 +8,16 @@
     "notfound.title": "Page not found",
     "notfound.text": "There's nothing at this address.",
     "notfound.home": "Go to the home page",
-    "shell.offline-ready": "Ready to use offline"
+    "shell.offline-ready": "Ready to use offline",
+    "announcements.title": "Announcements",
+    "announcements.rail": "Metro and tram",
+    "announcements.buses": "Buses and trolleys",
+    "announcements.loading": "Loading announcements…",
+    "announcements.none": "No current announcements.",
+    "announcements.error": "Couldn't load the announcements. Check your connection and try again later.",
+    "announcements.in-greek": "In Greek",
+    "announcements.disruption": "Service disruption",
+    "announcements.more": "All announcements"
   },
   "el": {
     "shell.skip": "Μετάβαση στο περιεχόμενο",
@@ -19,6 +28,15 @@
     "notfound.title": "Η σελίδα δεν βρέθηκε",
     "notfound.text": "Δεν υπάρχει τίποτα σε αυτή τη διεύθυνση.",
     "notfound.home": "Μετάβαση στην αρχική σελίδα",
-    "shell.offline-ready": "Έτοιμο για χρήση χωρίς σύνδεση"
+    "shell.offline-ready": "Έτοιμο για χρήση χωρίς σύνδεση",
+    "announcements.title": "Ανακοινώσεις",
+    "announcements.rail": "Μετρό και τραμ",
+    "announcements.buses": "Λεωφορεία και τρόλεϊ",
+    "announcements.loading": "Φόρτωση ανακοινώσεων…",
+    "announcements.none": "Δεν υπάρχουν τρέχουσες ανακοινώσεις.",
+    "announcements.error": "Δεν ήταν δυνατή η φόρτωση των ανακοινώσεων. Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά αργότερα.",
+    "announcements.in-greek": "Στα ελληνικά",
+    "announcements.disruption": "Διακοπή λειτουργίας",
+    "announcements.more": "Όλες οι ανακοινώσεις"
   }
 }
