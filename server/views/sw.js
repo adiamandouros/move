@@ -76,11 +76,14 @@ async function networkFirst(request) {
     }
 }
 
-// Static files. Their URLs don't change between versions, but the whole cache
-// is replaced when the version changes, so nothing stale survives a deploy.
+// Static files. Stylesheets and scripts get a new ?v= with every deploy, and
+// the whole cache is replaced when the version changes.
 async function cacheFirst(request) {
     const cache = await caches.open(CACHE);
-    const cached = await cache.match(request, { ignoreSearch: true });
+    // Stylesheets and scripts carry ?v=<version> and must match exactly; other
+    // files (like the icon font, linked with its own ?hash) match by path
+    const versioned = new URL(request.url).searchParams.has('v');
+    const cached = await cache.match(request, { ignoreSearch: !versioned });
     if (cached) return cached;
     const res = await fetch(request);
     if (res.ok) cache.put(request, res.clone());

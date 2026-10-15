@@ -28,6 +28,38 @@ const SHELL_FILES = [
 ];
 const SHELL_DIRS = ['css', 'icon', join('js', 'core')];
 
+// ── Asset versions ──────────────────────────────────────────────────────────
+
+// Stylesheets and scripts are linked as <url>?v=<hash of every asset file>, so
+// each deploy gives them new URLs. The live server's LiteSpeed serves public/
+// with a 7-day cache, so without this browsers kept old stylesheets and
+// scripts after a deploy (and so did the service worker, which fills its cache
+// through the browser's), mixing them with new pages.
+let version = null;
+export function assetVersion() {
+    if (version) return version;
+    const hash = createHash('sha256');
+    const toolFiles = listFiles(TOOLS_DIR).filter(f => f.includes(`${sep}client${sep}`));
+    for (const file of [...shellFiles(), ...toolFiles]) hash.update(readFileSync(file));
+    for (const dir of Object.values(VENDOR)) hash.update(readFileSync(join(dir, '..', 'package.json')));
+    version = hash.digest('hex').slice(0, 10);
+    return version;
+}
+
+const VERSIONED = /^\/(css|js|tools|vendor)\/.+\.(css|js)$/;
+export const versioned = url => VERSIONED.test(url) ? `${url}?v=${assetVersion()}` : url;
+
+// Every page script, mapped to its versioned URL, so that their imports
+// (import … from '/js/core/i18n.js', './map.js') load the same version
+function importMap(tools) {
+    const modules = [
+        ...listFiles(join(PUBLIC_DIR, 'js', 'core')).map(f => urlPath('', PUBLIC_DIR, f)),
+        ...tools.flatMap(t => listFiles(t.clientDir).map(f => urlPath(`/tools/${t.id}`, t.clientDir, f))),
+    ].filter(url => url.endsWith('.js'));
+    const map = { imports: Object.fromEntries(modules.map(url => [url, versioned(url)])) };
+    return `    <script type="importmap">${JSON.stringify(map)}</script>`;
+}
+
 // ── Tools ───────────────────────────────────────────────────────────────────
 
 // Read every tools/<id>/ folder. See tools/README.md for the format.
@@ -98,7 +130,9 @@ function pageStrings(shellStrings, tools, own = {}) {
 
 // Every page as HTML, by path (exported for test/accessibility.test.js)
 export function renderPages(tools = loadTools()) {
-    const layout = readFileSync(join(VIEWS_DIR, 'layout.html'), 'utf8');
+    const layout = readFileSync(join(VIEWS_DIR, 'layout.html'), 'utf8')
+        .replace(/(href|src)="(\/[^"]+)"/g, (_, name, url) => `${name}="${versioned(url)}"`);
+    const imports = importMap(tools);
     const view = name => readFileSync(join(VIEWS_DIR, `${name}.html`), 'utf8');
     const shellStrings = JSON.parse(readFileSync(join(VIEWS_DIR, 'strings.json'), 'utf8'));
 
@@ -106,11 +140,12 @@ export function renderPages(tools = loadTools()) {
         title: `${title} — Move`,
         titleKey,
         head,
+        importMap: imports,
         sideNav: navLinks(tools, active, 'side'),
         bottomNav: navLinks(tools, active, 'bottom'),
         content,
         strings: pageStrings(shellStrings, tools, own),
-        scripts: scripts.map(src => `    <script type="module" src="${src}"></script>`).join('\n'),
+        scripts: scripts.map(src => `    <script type="module" src="${versioned(src)}"></script>`).join('\n'),
     });
 
     const pages = {
@@ -148,7 +183,7 @@ export function shellUrls() {
     return [
         ...SHELL_FILES,
         ...SHELL_DIRS.flatMap(d => listFiles(join(PUBLIC_DIR, d)).map(f => urlPath('', PUBLIC_DIR, f))),
-    ];
+    ].map(versioned);
 }
 
 // Contents of those files, for computing cache versions
@@ -163,7 +198,7 @@ function renderServiceWorker(tools, pages) {
         ...shellUrls(),
         ...offlineTools.flatMap(t => [
             t.path,
-            ...listFiles(t.clientDir).map(f => urlPath(`/tools/${t.id}`, t.clientDir, f)),
+            ...listFiles(t.clientDir).map(f => versioned(urlPath(`/tools/${t.id}`, t.clientDir, f))),
         ]),
     ];
     const precacheData = offlineTools.flatMap(t => t.precache);
