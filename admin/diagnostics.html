@@ -10,4 +10,12 @@
     </div>
     <div id="diag-summary" class="diag-summary" role="status" hidden></div>
     <div id="diag-checks"></div>
+
+    <section class="diag-group mt-4" aria-labelledby="a11y-title">
+        <h2 id="a11y-title" class="diag-group-title">Accessibility</h2>
+        <p class="small text-secondary">Opens every public page in both languages at phone width, in this browser, waits for its live content (announcements, a route, bus arrivals) and checks it with axe-core against WCAG 2.2 AA. The Buses page uses this device's location if you allow it. <code>npm test</code> checks the pages as the server sends them.</p>
+        <button id="a11y-btn" type="button" class="btn btn-outline-primary w-100 mb-3">Check accessibility</button>
+        <div id="a11y-summary" class="diag-summary" role="status" hidden></div>
+        <div id="a11y-results"></div>
+    </section>
 </div>

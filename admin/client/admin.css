@@ -140,3 +140,21 @@
 .diag-warn { color: var(--bs-warning, #ffc107); }
 .diag-fail { color: #f85149; }
 .diag-info { color: #9aa3b2; }
+
+/* Accessibility check (accessibility.js): the page being checked, off screen
+   but laid out at phone width so axe-core can measure it */
+.a11y-frame {
+    position: fixed;
+    top: 0;
+    left: -10000px;
+    width: 390px;
+    height: 900px;
+    border: 0;
+}
+
+.a11y-violations {
+    margin: 4px 0 0;
+    padding-left: 1.1rem;
+}
+
+.a11y-violations li + li { margin-top: 4px; }
