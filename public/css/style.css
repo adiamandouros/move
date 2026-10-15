@@ -1066,3 +1066,48 @@ html:not([lang="el"]) main [lang="el"]:not(.any-lang) {
 .map-station {
     text-decoration: none;
 }
+
+/* ── Toast (core/shell.js) ── */
+
+.toast-message {
+    position: fixed;
+    left: 50%;
+    bottom: calc(var(--bottom-nav-height) + 16px);
+    z-index: 1050;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: calc(100% - 32px);
+    padding: 10px 16px;
+    font-size: 0.9rem;
+    color: #e8eaf0;
+    background-color: #1e2538;
+    border: 1px solid #2a3350;
+    border-radius: 24px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    transform: translate(-50%, 8px);
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+}
+
+.toast-message.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+.toast-message .bi {
+    color: var(--bs-success, #198754);
+    font-size: 1.1rem;
+}
+
+@media (min-width: 768px) {
+    .toast-message {
+        left: calc(50% + var(--side-nav-width) / 2);
+        bottom: 24px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .toast-message { transition: none; }
+}
