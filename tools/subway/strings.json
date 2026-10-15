@@ -33,7 +33,9 @@
     "subway.pos.center-back": "Near Back",
     "subway.pos.center": "Center",
     "subway.pos.center-front": "Near Front",
-    "subway.pos.front": "Front"
+    "subway.pos.front": "Front",
+    "subway.minutes": "minutes",
+    "subway.options": "options"
   },
   "el": {
     "subway.boarding-label": "Επιβίβαση στη στάση",
@@ -69,6 +71,8 @@
     "subway.pos.center-back": "Κέντρο-Πίσω",
     "subway.pos.center": "Κέντρο",
     "subway.pos.center-front": "Κέντρο-Μπροστά",
-    "subway.pos.front": "Μπροστά"
+    "subway.pos.front": "Μπροστά",
+    "subway.minutes": "λεπτά",
+    "subway.options": "επιλογές"
   }
 }

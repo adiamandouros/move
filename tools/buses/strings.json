@@ -12,7 +12,6 @@
     "buses.show-all": "Show all stops",
     "buses.walking-directions-to": "Walking directions to",
     "buses.all-arrivals-for": "All arrivals for",
-    "buses.tap-expand": "Tap to expand.",
     "buses.next-bus-line": "Next bus: line",
     "buses.arriving-soon": "minutes, arriving soon",
     "buses.minutes": "minutes",
@@ -24,7 +23,8 @@
     "buses.unavailable": "Live times are unavailable right now.",
     "buses.lines": "Lines",
     "buses.data-error": "Couldn't load the bus stop list. Check your connection and try again.",
-    "buses.unknown-line": "Unknown line"
+    "buses.unknown-line": "Unknown line",
+    "buses.line": "Line"
   },
   "el": {
     "buses.getting-location": "Λήψη τοποθεσίας…",
@@ -39,7 +39,6 @@
     "buses.show-all": "Εμφάνιση όλων των στάσεων",
     "buses.walking-directions-to": "Οδηγίες πεζή για",
     "buses.all-arrivals-for": "Όλες οι αφίξεις για",
-    "buses.tap-expand": "Πατήστε για ανάπτυξη.",
     "buses.next-bus-line": "Επόμενο λεωφορείο: γραμμή",
     "buses.arriving-soon": "λεπτά, φτάνει σύντομα",
     "buses.minutes": "λεπτά",
@@ -51,6 +50,7 @@
     "buses.unavailable": "Οι ώρες σε πραγματικό χρόνο δεν είναι διαθέσιμες αυτή τη στιγμή.",
     "buses.lines": "Γραμμές",
     "buses.data-error": "Δεν ήταν δυνατή η φόρτωση των στάσεων. Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά.",
-    "buses.unknown-line": "Άγνωστη γραμμή"
+    "buses.unknown-line": "Άγνωστη γραμμή",
+    "buses.line": "Γραμμή"
   }
 }

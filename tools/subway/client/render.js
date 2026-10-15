@@ -1,6 +1,6 @@
 import { getLanguage } from '/js/core/settings.js';
 import { format, t } from '/js/core/i18n.js';
-import { escapeHtml } from '/js/core/html.js';
+import { escapeHtml, textOn } from '/js/core/html.js';
 import { legPositions } from './network.js';
 
 const lang = () => getLanguage();
@@ -39,12 +39,13 @@ function departureChips(departures, now) {
         const minutes = Math.max(0, Math.floor((d.departs - now.seconds) / 60));
         const note = d.isLast ? t('subway.last-train') : d.isSecondLast ? t('subway.second-last-train') : '';
         const cls = d.isLast ? ' schedule-chip--last' : d.isSecondLast ? ' schedule-chip--second-last' : '';
-        return `<span class="schedule-chip${cls}"${note ? ` title="${note}"` : ''}>${minutes}'${note ? `<span class="sr-only"> (${note})</span>` : ''}</span>`;
+        // "12'" on screen, "12 minutes" for screen readers
+        return `<span class="schedule-chip${cls}"${note ? ` title="${note}"` : ''}><span aria-hidden="true">${minutes}'</span><span class="sr-only">${minutes} ${t('subway.minutes')}${note ? ` (${note})` : ''},</span></span>`;
     }).join('');
     return `<span class="schedule-label">${t('subway.schedule-in')}</span><span class="schedule-chips">${chips}</span>`;
 }
 
-function legCard(rail, leg, next, now) {
+function legCard(rail, leg, next, now, level) {
     const line = rail.lines[leg.line];
     const direction = line.directions[leg.dir];
     const toward = escapeHtml(direction.toward[lang()] ?? direction.toward.en);
@@ -58,8 +59,10 @@ function legCard(rail, leg, next, now) {
     return `
         <div class="result-card">
             <div class="result-header d-flex align-items-center gap-2 mb-2">
-                <span class="line-badge" style="background-color: ${line.color}">${line.name}</span>
-                <span class="direction-text"><span aria-hidden="true">→ </span><span class="sr-only">${t('subway.toward')} </span>${toward}</span>
+                <h${level} class="leg-title">
+                    <span class="line-badge" style="background-color: ${line.color}; color: ${textOn(line.color)}">${line.name}</span>
+                    <span class="direction-text"><span aria-hidden="true">→ </span><span class="sr-only">${t('subway.toward')} </span>${toward}</span>
+                </h${level}>
                 <div class="schedule-section ms-auto">${departureChips(leg.departures, now)}</div>
             </div>
             <div class="leg-action mb-3">
@@ -74,9 +77,11 @@ function legCard(rail, leg, next, now) {
 }
 
 function routeBlock(rail, route, index, total, now) {
+    // Headings: one per option when there are several, then one per leg
     const header = total > 1
-        ? `<p class="route-option-label">${t('subway.option')} ${index + 1}${route.via ? ` · ${t('subway.transfer-at')} ${stationName(rail, route.via)}` : ''}</p>`
+        ? `<h2 class="route-option-label">${t('subway.option')} ${index + 1}${route.via ? ` · ${t('subway.transfer-at')} ${stationName(rail, route.via)}` : ''}</h2>`
         : '';
+    const level = total > 1 ? 3 : 2;
     return header + route.legs.map((leg, i) => {
         const next = route.legs[i + 1] ?? null;
         const connector = next ? `
@@ -84,7 +89,7 @@ function routeBlock(rail, route, index, total, now) {
                 <i class="bi bi-arrow-down-circle-fill"></i>
                 <span>${t('subway.change-to')} ${rail.lines[next.line].name}</span>
             </div>` : '';
-        return legCard(rail, leg, next, now) + connector;
+        return legCard(rail, leg, next, now, level) + connector;
     }).join('');
 }
 
@@ -101,4 +106,17 @@ export function renderResult(rail, plans, now, { expired }) {
 
 export function renderMessage(key) {
     return `<p class="text-muted small mt-3">${t(key)}</p>`;
+}
+
+// A one-sentence version of the result for screen readers, announced when the
+// stations change (the result itself isn't a live region: it refreshes every 30 s)
+export function routeSummary(rail, plans, now) {
+    if (!plans.length) return t('subway.no-route');
+    const leg = plans[0].legs[0];
+    const line = rail.lines[leg.line];
+    const toward = line.directions[leg.dir].toward[lang()] ?? line.directions[leg.dir].toward.en;
+    const first = leg.departures[0];
+    const when = first ? `, ${t('subway.schedule-in').toLowerCase()} ${Math.max(0, Math.floor((first.departs - now.seconds) / 60))} ${t('subway.minutes')}` : '';
+    const options = plans.length > 1 ? `${plans.length} ${t('subway.options')}. ${t('subway.option')} 1: ` : '';
+    return `${options}${line.name} ${t('subway.toward')} ${toward}${when}.`;
 }

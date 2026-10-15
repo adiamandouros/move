@@ -1,3 +1,4 @@
+import { textOn } from '/js/core/html.js';
 import { getLanguage } from '/js/core/settings.js';
 
 const MAX_SUGGESTIONS = 8;
@@ -35,14 +36,15 @@ export function stationSearch({ input, list, rail, onChange }) {
         list.innerHTML = ids.map(id => {
             const s = rail.stations[id];
             const badges = s.lines.map(line =>
-                `<span class="suggestion-line-badge" style="background-color:${rail.lines[line].color}">${rail.lines[line].name}</span>`).join('');
+                `<span class="suggestion-line-badge" style="background-color:${rail.lines[line].color}; color:${textOn(rail.lines[line].color)}">${rail.lines[line].name}</span>`).join('');
             return `
             <li role="option" aria-selected="false" class="suggestion-item" tabindex="-1" data-id="${id}">
                 <span class="suggestion-names">
-                    <span class="suggestion-name-gr">${s.name.el}</span>
-                    <span class="suggestion-name-en">${s.name.en}</span>
+                    <span class="suggestion-name-gr" lang="el">${s.name.el}</span>
+                    <span class="suggestion-name-en" lang="en">${s.name.en}</span>
                 </span>
                 <span class="suggestion-lines" aria-hidden="true">${badges}</span>
+                <span class="sr-only">, ${s.lines.join(', ')}</span>
             </li>`;
         }).join('');
         list.hidden = false;
