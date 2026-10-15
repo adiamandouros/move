@@ -113,7 +113,7 @@ function renderPages(tools) {
     });
 
     const pages = {
-        '/': render({ title: 'Athens transit', titleKey: 'home.title', content: fill(view('home'), { tiles: tiles(tools) }) }),
+        '/': render({ title: 'Athens transit', titleKey: 'home.title', content: view('home'), scripts: ['/js/core/announcements.js'] }),
         '/offline': render({ title: "You're offline", titleKey: 'offline.title', content: fill(view('offline'), { tiles: tiles(tools.filter(t => t.offline)) }) }),
     };
     for (const tool of tools) {
