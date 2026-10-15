@@ -7,7 +7,8 @@
     "offline.text": "This page needs a connection. These work offline:",
     "notfound.title": "Page not found",
     "notfound.text": "There's nothing at this address.",
-    "notfound.home": "Go to the home page"
+    "notfound.home": "Go to the home page",
+    "shell.offline-ready": "Ready to use offline"
   },
   "el": {
     "shell.skip": "Μετάβαση στο περιεχόμενο",
@@ -17,6 +18,7 @@
     "offline.text": "Αυτή η σελίδα χρειάζεται σύνδεση. Αυτά λειτουργούν χωρίς σύνδεση:",
     "notfound.title": "Η σελίδα δεν βρέθηκε",
     "notfound.text": "Δεν υπάρχει τίποτα σε αυτή τη διεύθυνση.",
-    "notfound.home": "Μετάβαση στην αρχική σελίδα"
+    "notfound.home": "Μετάβαση στην αρχική σελίδα",
+    "shell.offline-ready": "Έτοιμο για χρήση χωρίς σύνδεση"
   }
 }
