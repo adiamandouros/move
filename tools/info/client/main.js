@@ -1,9 +1,11 @@
 import { escapeHtml } from '/js/core/html.js';
 import { t } from '/js/core/i18n.js';
 import { getLanguage, onLanguageChange } from '/js/core/settings.js';
+import { createMetroMap } from './map.js';
 
 // The info page is static apart from the announcements, which come from the
-// server (/api/announcements) and are drawn again when the language changes.
+// server (/api/announcements), and the metro map, drawn from rail.json the
+// first time its section is opened. Both are redrawn when the language changes.
 
 const SOURCE_PAGES = {
     rail: 'https://www.stasy.gr/%ce%bd%ce%ad%ce%b1-%ce%b1%ce%bd%ce%b1%ce%ba%ce%bf%ce%b9%ce%bd%cf%8e%cf%83%ce%b5%ce%b9%cf%82/',
@@ -69,3 +71,26 @@ async function load() {
 
 onLanguageChange(render);
 load();
+
+// ── Metro map ────────────────────────────────────────────────────────────────
+
+const mapSection = document.getElementById('map-section');
+const mapContainer = document.getElementById('metro-map');
+let metroMap = null;
+
+async function openMap() {
+    if (!mapSection.open || mapContainer.dataset.loaded) return;
+    mapContainer.dataset.loaded = 'true';
+    try {
+        const res = await fetch('/data/rail.json');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        metroMap = createMetroMap(mapContainer, await res.json());
+    } catch {
+        mapContainer.innerHTML = `<p class="text-secondary">${t('info.map-error')}</p>`;
+        delete mapContainer.dataset.loaded;
+    }
+}
+
+mapSection.addEventListener('toggle', openMap);
+openMap();
+onLanguageChange(() => metroMap?.redraw());
