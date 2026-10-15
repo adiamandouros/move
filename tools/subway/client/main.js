@@ -3,7 +3,7 @@ import { onLanguageChange, getLanguage } from '/js/core/settings.js';
 import { t } from '/js/core/i18n.js';
 import { athensNow, closestStation, isTimetableExpired, planJourney } from './network.js';
 import { stationSearch } from './search.js';
-import { renderMessage, renderResult } from './render.js';
+import { renderMessage, renderResult, routeSummary } from './render.js';
 
 // Keeps the "in N minutes" chips current while the page is open
 const REFRESH_MS = 30_000;
@@ -32,13 +32,21 @@ function announce(message) {
 function start(rail) {
     const params = new URLSearchParams(location.search);
 
-    const render = () => {
+    // `speak`: also tell screen readers, when the user changed the stations
+    // (not on the 30-second refresh)
+    const render = ({ speak = false } = {}) => {
         const origin = from.get();
         const destination = to.get();
         if (!origin || !destination) { result.innerHTML = ''; return; }
-        if (origin === destination) { result.innerHTML = renderMessage('subway.same-station'); return; }
+        if (origin === destination) {
+            result.innerHTML = renderMessage('subway.same-station');
+            if (speak) announce(t('subway.same-station'));
+            return;
+        }
         const now = athensNow();
-        result.innerHTML = renderResult(rail, planJourney(rail, origin, destination, now), now, { expired: isTimetableExpired(rail, now) });
+        const plans = planJourney(rail, origin, destination, now);
+        result.innerHTML = renderResult(rail, plans, now, { expired: isTimetableExpired(rail, now) });
+        if (speak) announce(routeSummary(rail, plans, now));
     };
 
     // The selection lives in the URL (?from=syntagma&to=airport) so routes can be bookmarked and shared
@@ -50,7 +58,7 @@ function start(rail) {
         history.replaceState(null, '', search ? `${location.pathname}?${search}` : location.pathname);
     };
 
-    const changed = () => { syncUrl(); render(); };
+    const changed = () => { syncUrl(); render({ speak: true }); };
 
     const from = stationSearch({
         input: document.getElementById('stop-search-from'),
