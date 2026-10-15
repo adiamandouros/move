@@ -754,7 +754,8 @@ body {
 }
 
 .lang-opt {
-    color: #4a5568;
+    /* #8b95a7 meets WCAG AA (5:1) on the nav backgrounds */
+    color: #8b95a7;
     transition: color 0.15s;
 }
 
@@ -825,40 +826,60 @@ html:not([lang="el"]) main [lang="el"]:not(.any-lang) {
     margin-bottom: 12px;
 }
 
-.info-section > summary {
+.info-heading {
+    margin: 0;
+    font-size: 1rem;
+}
+
+/* The button that opens and closes a section (see tools/info/client/main.js) */
+.info-toggle {
     display: flex;
     align-items: center;
     gap: 12px;
+    width: 100%;
     padding: 14px 16px;
+    font: inherit;
     font-weight: 600;
-    cursor: pointer;
-    list-style: none;
+    color: inherit;
+    text-align: left;
+    background: none;
+    border: 0;
+    border-radius: 12px;
 }
 
-.info-section > summary::-webkit-details-marker {
-    display: none;
-}
-
-.info-section > summary::after {
+.info-toggle::after {
     content: "\F282"; /* bi-chevron-down */
     font-family: "bootstrap-icons";
     margin-left: auto;
     transition: transform 0.15s;
 }
 
-.info-section[open] > summary::after {
+.info-toggle[aria-expanded="true"]::after {
     transform: rotate(180deg);
 }
 
-.info-section > summary:focus-visible {
+.info-toggle:focus-visible {
     box-shadow: var(--focus-ring);
     outline: none;
-    border-radius: 12px;
 }
 
-.info-section > summary .bi {
+.info-toggle .bi {
     color: var(--accent);
     font-size: 1.2rem;
+}
+
+/* A smaller toggle inside a section, styled like its sub-headings */
+.info-toggle-small {
+    padding: 8px 0;
+    font-size: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    color: inherit;
+    border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .info-toggle::after { transition: none; }
 }
 
 .info-body {
@@ -913,6 +934,11 @@ html:not([lang="el"]) main [lang="el"]:not(.any-lang) {
 .line-m3 { background-color: #0057b8; }
 .line-t6,
 .line-t7 { background-color: #e07b00; }
+
+/* White text is too faint on the lighter line colours; dark text meets WCAG AA */
+.line-badge.line-m1,
+.line-badge.line-t6,
+.line-badge.line-t7 { color: #0f131c; }
 
 .info-body ul.announcements,
 .disruption-banner ul {
@@ -1049,22 +1075,12 @@ html:not([lang="el"]) main [lang="el"]:not(.any-lang) {
     font-size: 15px;
 }
 
-.map-station:hover text,
-.map-station:focus-visible text {
-    fill: var(--accent);
-}
-
-.map-station:focus-visible {
-    outline: none;
-}
-
-.map-station:focus-visible circle {
-    stroke: var(--accent);
-    stroke-width: 5;
-}
-
 .map-station {
-    text-decoration: none;
+    cursor: pointer;
+}
+
+.map-station:hover text {
+    fill: var(--accent);
 }
 
 /* ── Toast (core/shell.js) ── */
@@ -1127,4 +1143,37 @@ html:not([lang="el"]) main [lang="el"]:not(.any-lang) {
 .home-section-title .bi {
     color: var(--accent);
     font-size: 1.2rem;
+}
+
+/* Stations by line, under the metro map */
+
+.station-index {
+    margin-top: 12px;
+}
+
+.station-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0 6px;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.info-body ol.station-stops {
+    columns: 2 12rem;
+    column-gap: 24px;
+    padding-left: 1.6rem;
+    margin-bottom: 8px;
+}
+
+.info-body ol.station-stops li {
+    margin-top: 0;
+    padding: 3px 0;
+    break-inside: avoid;
+}
+
+.station-change {
+    font-size: 0.8rem;
+    color: #9aa3b2;
 }

@@ -18,7 +18,8 @@
     "announcements.in-greek": "In Greek",
     "announcements.disruption": "Service disruption",
     "announcements.more": "All announcements",
-    "announcements.none-other": "No other announcements."
+    "announcements.none-other": "No other announcements.",
+    "shell.new-tab": "(opens in a new tab)"
   },
   "el": {
     "shell.skip": "Μετάβαση στο περιεχόμενο",
@@ -39,6 +40,7 @@
     "announcements.in-greek": "Στα ελληνικά",
     "announcements.disruption": "Διακοπή λειτουργίας",
     "announcements.more": "Όλες οι ανακοινώσεις",
-    "announcements.none-other": "Δεν υπάρχουν άλλες ανακοινώσεις."
+    "announcements.none-other": "Δεν υπάρχουν άλλες ανακοινώσεις.",
+    "shell.new-tab": "(ανοίγει σε νέα καρτέλα)"
   }
 }

@@ -21,7 +21,15 @@
     "info.zoom-in": "Zoom in",
     "info.zoom-out": "Zoom out",
     "info.zoom-reset": "Show the whole map",
-    "info.map-error": "Couldn't load the map. Open this page once while connected so it can be saved for offline use."
+    "info.map-error": "Couldn't load the map. Open this page once while connected so it can be saved for offline use.",
+    "info.hours-caption": "Last train from each end of the line",
+    "info.tickets-caption": "Ticket prices",
+    "info.sun-thu-full": "Sunday to Thursday",
+    "info.fri-full": "Friday",
+    "info.sat-full": "Saturday",
+    "info.stations-by-line": "Stations by line",
+    "info.change-to": "change to",
+    "info.map-label": "Metro map"
   },
   "el": {
     "info.title": "Πληροφορίες",
@@ -45,6 +53,14 @@
     "info.zoom-in": "Μεγέθυνση",
     "info.zoom-out": "Σμίκρυνση",
     "info.zoom-reset": "Εμφάνιση όλου του χάρτη",
-    "info.map-error": "Δεν ήταν δυνατή η φόρτωση του χάρτη. Ανοίξτε αυτή τη σελίδα μία φορά με σύνδεση ώστε να αποθηκευτεί για χρήση χωρίς σύνδεση."
+    "info.map-error": "Δεν ήταν δυνατή η φόρτωση του χάρτη. Ανοίξτε αυτή τη σελίδα μία φορά με σύνδεση ώστε να αποθηκευτεί για χρήση χωρίς σύνδεση.",
+    "info.hours-caption": "Τελευταίος συρμός από κάθε άκρο της γραμμής",
+    "info.tickets-caption": "Τιμές εισιτηρίων",
+    "info.sun-thu-full": "Κυριακή έως Πέμπτη",
+    "info.fri-full": "Παρασκευή",
+    "info.sat-full": "Σάββατο",
+    "info.stations-by-line": "Σταθμοί ανά γραμμή",
+    "info.change-to": "αλλαγή για",
+    "info.map-label": "Χάρτης μετρό"
   }
 }
