@@ -34,7 +34,8 @@ const busApi = createBusApi({
     relays,
 });
 // Service announcements for the info page, from the OASA and STASY websites
-app.use('/api/announcements', createAnnouncements({ cacheFile: path.join(__dirname, 'data', 'cache', 'announcements.json') }));
+const announcements = createAnnouncements({ cacheFile: path.join(__dirname, 'data', 'cache', 'announcements.json'), relays });
+app.use('/api/announcements', announcements);
 app.use('/api', busApi);
 
 const pages = createPages();
@@ -48,7 +49,11 @@ const admin = createAdmin({
     loadRail: () => { try { return JSON.parse(readFileSync(path.join(BUILD_DIR, 'rail.json'), 'utf8')); } catch { return null; } },
     rebuild: rebuildSoon,
     render: pages.render,
-    diagnose: () => runDiagnostics({ dataDir: path.join(__dirname, 'data'), appStatus: busApi.status() }),
+    // Fetches the announcements first, so their checks show the current state
+    diagnose: async () => {
+        await announcements.refreshNow();
+        return runDiagnostics({ dataDir: path.join(__dirname, 'data'), appStatus: busApi.status(), announcements: announcements.status() });
+    },
 });
 if (admin) app.use('/admin', admin);
 

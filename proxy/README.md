@@ -18,6 +18,14 @@ There are two relays, and the server tries the routes in this order:
 3. **[Home relay](#home-relay)**: an always-on machine at home, e.g. a
    Raspberry Pi. Its requests come from a Greek connection, so it works.
 
+The relays also carry **STASY's pages** (its news page and posts, for the
+metro and tram announcements on the home and info pages): STASY answers the
+server with 403, as it refuses data-centre addresses. Only single-segment
+paths on www.stasy.gr are relayed (`?act=stasyPage&path=…`). The app tries
+STASY directly first; after a refusal it uses the relays for a day. The
+home relay gzips large answers (STASY's news page: 1.1 MB → about 110 KB).
+**STASY** on `/admin/diagnostics` shows the route it came through.
+
 A failed request moves on to the next route. After 5 failures in a row a
 route rests for a day while the routes after it carry the traffic, then one
 request tries it again. So today requests go straight to the home relay, and
@@ -184,6 +192,10 @@ show as *INFO* ("expected… the home relay carries the traffic").
 ```bash
 sudo git -C /opt/move pull && sudo systemctl restart move-relay
 ```
+
+Do this after any change to `proxy/` (e.g. October 2026: STASY pages). If
+`/admin/diagnostics` says "The relay doesn't know STASY pages yet", the relay
+hasn't been updated.
 
 ### If the home connection goes down
 

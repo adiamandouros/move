@@ -10,12 +10,19 @@ import { USER_AGENT } from '../data/sources.js';
 // Fetched only when someone asks and the copy is older than REFRESH_MS, so an
 // idle app sends nothing; a failing source keeps serving its last good copy.
 // The copy is kept in `cacheFile`, so a restart doesn't start from nothing.
+//
+// STASY refuses the live server's data-centre address (403), so its pages can
+// also come through the relays (proxy/worker.js, act=stasyPage), like OASA's
+// live API. After a refusal, direct access rests for a day.
 
 const REFRESH_MS = 15 * 60_000;
 const TIMEOUT_MS = 15_000;
 const MAX_AGE_MS = 30 * 86_400_000;   // older announcements are dropped
 const MAX_ITEMS = 8;                  // per source and language
 const DISRUPTION_AGE_MS = 7 * 86_400_000;
+const DIRECT_REST_MS = 24 * 3_600_000;
+// Longer than the relay's own 20 s limit for STASY, so it reports a failure first
+const RELAY_TIMEOUT_MS = 25_000;
 
 const SOURCES = {
     oasaEl: 'https://www.oasa.gr/feed/',
@@ -77,7 +84,8 @@ export function parseStasyDate(html) {
 
 // ── Fetching ────────────────────────────────────────────────────────────────
 
-export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, log = console.warn, cacheFile } = {}) {
+// `relays`: [{ name, url, key }], as for the OASA client (relaysFromEnv)
+export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, log = console.warn, cacheFile, relays = [] } = {}) {
     // Last good result per source, and STASY post dates by link (posts don't move)
     let state = { oasaEl: null, oasaEn: null, stasy: null, dates: {} };
     if (cacheFile) {
@@ -85,6 +93,10 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
     }
     let checkedAt = 0;
     let refreshing = null;
+    // Per source, for the diagnostics: { ok, at, error, route }
+    const health = {};
+    let stasyDirectRestUntil = 0;
+    let stasyRoute = null;
 
     async function get(url) {
         const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(TIMEOUT_MS) });
@@ -92,12 +104,42 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
         return res.text();
     }
 
+    // A STASY page: directly, or through the relays (which take one path segment)
+    async function getStasy(url) {
+        const errors = [];
+        if (now() >= stasyDirectRestUntil) {
+            try {
+                const body = await get(url);
+                stasyRoute = 'direct';
+                return body;
+            } catch (err) {
+                errors.push(`direct: ${err.message}`);
+                if (relays.length) stasyDirectRestUntil = now() + DIRECT_REST_MS;
+            }
+        }
+        const path = new URL(url).pathname.replace(/^\/|\/$/g, '');
+        for (const relay of path && !path.includes('/') ? relays : []) {
+            try {
+                const res = await fetch(`${relay.url}?act=stasyPage&path=${encodeURIComponent(path)}`, {
+                    headers: { 'X-Relay-Key': relay.key, 'User-Agent': USER_AGENT },
+                    signal: AbortSignal.timeout(RELAY_TIMEOUT_MS),
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                stasyRoute = relay.name;
+                return await res.text();
+            } catch (err) {
+                errors.push(`${relay.name}: ${err.message}`);
+            }
+        }
+        throw new Error(errors.join('; ') || 'direct access is resting and there are no relays');
+    }
+
     async function loadStasy() {
-        const posts = parseStasyList(await get(SOURCES.stasy));
+        const posts = parseStasyList(await getStasy(SOURCES.stasy));
         // Only the newest few are shown, so only they need a date
         const recent = posts.slice(0, MAX_ITEMS);
         for (const post of recent) {
-            if (!(post.link in state.dates)) state.dates[post.link] = parseStasyDate(await get(post.link));
+            if (!(post.link in state.dates)) state.dates[post.link] = parseStasyDate(await getStasy(post.link));
         }
         // Forget dates of posts that have left the list
         state.dates = Object.fromEntries(recent.map(p => [p.link, state.dates[p.link]]));
@@ -114,7 +156,9 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
         await Promise.all(Object.entries(loaders).map(async ([name, load]) => {
             try {
                 state[name] = { items: await load(), updated: new Date(now()).toISOString() };
+                health[name] = { ok: true, at: now(), route: name === 'stasy' ? stasyRoute : 'direct' };
             } catch (err) {
+                health[name] = { ok: false, at: now(), error: err.message };
                 log(`[announcements] ${name}: ${err.message}`);
             }
         }));
@@ -132,10 +176,10 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
     // STASY only writes its announcements in Greek, so `rail` has one list.
     async function current() {
         if (now() - checkedAt > REFRESH_MS) {
-            refreshing ??= refresh().finally(() => { refreshing = null; });
+            refreshNow();
             // STASY is slow, so answer from the last copy and refresh behind it;
             // only wait when there's nothing to show yet
-            if (!Object.keys(loaders).some(name => state[name])) await refreshing;
+            if (!Object.keys(loaders).some(name => state[name])) await refreshNow();
         }
         const items = source => (state[source]?.items ?? [])
             .filter(item => now() - Date.parse(item.date) < MAX_AGE_MS)
@@ -149,6 +193,16 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
         };
     }
 
+    // Fetch now (sharing a refresh already under way), for the diagnostics
+    const refreshNow = () => (refreshing ??= refresh().finally(() => { refreshing = null; }));
+
+    // → { <source>: { ok, at, error?, route?, items, updated } }, for the diagnostics
+    const status = () => Object.fromEntries(Object.keys(loaders).map(name => [name, {
+        ...health[name],
+        items: state[name]?.items.length ?? 0,
+        updated: state[name]?.updated ?? null,
+    }]));
+
     const router = express.Router();
     router.get('/', async (_req, res) => {
         const body = await current();
@@ -156,5 +210,5 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
         res.set('Cache-Control', 'no-store').json(body);
     });
 
-    return Object.assign(router, { current, refresh });
+    return Object.assign(router, { current, refresh, refreshNow, status });
 }

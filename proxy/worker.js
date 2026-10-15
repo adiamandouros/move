@@ -11,9 +11,19 @@
 // GET /?act=whereami (with the key) reports where the Worker's own outgoing
 // requests come from. OASA's live API only accepts connections from Greece,
 // so this should say loc=GR; the diagnostics page shows it.
+//
+// GET /?act=stasyPage&path=<one path segment> relays a page of www.stasy.gr
+// (its news page and its posts, for the announcements): STASY refuses the
+// server's data-centre address too. Only single-segment paths on that one
+// site are allowed.
 
 const OASA_API = 'https://telematics.oasa.gr/api/';
 const ALLOWED_ACTIONS = new Set(['getStopArrivals', 'webRoutesForStop']);
+const STASY = 'https://www.stasy.gr/';
+// One path segment, as STASY's links have it (percent-encoded Greek allowed)
+const STASY_PATH = /^[A-Za-z0-9%_-][A-Za-z0-9%_.-]{0,299}$/;
+// STASY's news page is large and slow; the server waits longer for it (25 s)
+const STASY_TIMEOUT_MS = 20_000;
 // Shorter than the server's 8 s timeout, so a failure to reach OASA is
 // reported back as a 502 before the server gives up on the relay
 const TIMEOUT_MS = 6000;
@@ -29,6 +39,7 @@ export default {
         const act = params.get('act') ?? '';
         const p1 = params.get('p1') ?? '';
         if (act === 'whereami') return whereAmI(request);
+        if (act === 'stasyPage') return stasyPage(request, params.get('path') ?? '');
         if (!ALLOWED_ACTIONS.has(act) || !/^\d{1,8}$/.test(p1)) return text(400, 'Bad request');
 
         try {
@@ -48,6 +59,22 @@ export default {
         }
     },
 };
+
+async function stasyPage(request, path) {
+    if (!STASY_PATH.test(path) || path.includes('..')) return text(400, 'Bad request');
+    try {
+        const upstream = await fetch(`${STASY}${path}/`, {
+            headers: { 'User-Agent': request.headers.get('User-Agent') ?? 'Move relay', Accept: 'text/html' },
+            signal: AbortSignal.timeout(STASY_TIMEOUT_MS),
+        });
+        return new Response(upstream.body, {
+            status: upstream.status,
+            headers: { 'Content-Type': upstream.headers.get('Content-Type') ?? 'text/html', 'Cache-Control': 'no-store' },
+        });
+    } catch (err) {
+        return text(502, `Upstream error: ${err.message}`);
+    }
+}
 
 function text(status, body) {
     return new Response(body, { status, headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' } });

@@ -250,6 +250,33 @@ function appChecks(appStatus, now) {
 
 // ── Verdict ─────────────────────────────────────────────────────────────────
 
+// The announcement sources, as the running app last fetched them
+// (server/info/announcements.js status())
+const ANNOUNCEMENT_SOURCES = {
+    oasaEl: 'OASA (Greek)',
+    oasaEn: 'OASA (English)',
+    stasy: 'STASY (metro and tram)',
+};
+const UPDATE_RELAY = 'Update the home relay on the Pi: sudo git -C /opt/move pull && sudo systemctl restart move-relay';
+
+export function announcementChecks(sources, now = Date.now) {
+    if (!sources) return [];
+    const ago = t => `${Math.max(0, Math.round((now() - Date.parse(t)) / 60_000))} min ago`;
+    return Object.entries(sources).map(([name, s]) => {
+        const title = ANNOUNCEMENT_SOURCES[name] ?? name;
+        if (s.ok) {
+            const via = s.route && s.route !== 'direct' ? `, through the ${s.route}` : '';
+            return check('Announcements', title, 'ok', `${s.items} current${via}`);
+        }
+        if (s.ok === undefined) return check('Announcements', title, 'info', 'Not fetched since the app started');
+        let hint;
+        if (name === 'stasy' && /relay: HTTP 400/.test(s.error)) hint = `The relay doesn't know STASY pages yet. ${UPDATE_RELAY}`;
+        else if (name === 'stasy' && /direct: HTTP 403/.test(s.error) && !/relay/.test(s.error)) hint = 'STASY refuses this server\'s address. Its pages can come through the home relay: see proxy/README.md.';
+        const shown = s.updated ? `Showing the copy from ${ago(s.updated)}.` : 'Nothing to show.';
+        return check('Announcements', title, s.updated ? 'warn' : 'fail', `${s.error}. ${shown}`, hint);
+    });
+}
+
 function verdict({ internet, ip, loc, dns, oasa, relays, appStatus }) {
     const ipText = ip ? ` (this server's public IP is ${ip})` : '';
     const abroad = r => Boolean(r.location) && r.location.loc !== 'GR';
@@ -316,6 +343,7 @@ export async function runDiagnostics({
     env = process.env,
     dataDir,
     appStatus = null,
+    announcements = null,
     fetch = globalThis.fetch,
     dnsLookup = lookup,
     now = Date.now,
@@ -344,6 +372,7 @@ export async function runDiagnostics({
         portal,
         ...dataChecks(dataDir, now),
         ...appChecks(appStatus, now),
+        ...announcementChecks(announcements, now),
     ];
     const summary = verdict({
         internet: internet.result,

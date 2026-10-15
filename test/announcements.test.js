@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { createAnnouncements, decode, isDisruption, parseOasaFeed, parseStasyDate, parseStasyList } from '../server/info/announcements.js';
+import { announcementChecks } from '../server/diagnostics.js';
 
 // Trimmed copies of the real OASA feed and STASY pages
 const rssItem = (title, date, categories) => `<item>
@@ -165,4 +166,94 @@ test('a failing source keeps its last good copy, and the copy survives a restart
     assert.equal(restored.rail.length, 2);
     assert.equal(restored.bus.el.length, 1);
     assert.ok(JSON.parse(readFileSync(cacheFile, 'utf8')).dates['https://www.stasy.gr/l3/']);
+});
+
+// ── STASY through the relays ────────────────────────────────────────────────
+
+const RELAY = { name: 'home relay', url: 'https://relay.example:2087/', key: 'k' };
+const relayUrl = path => `${RELAY.url}?act=stasyPage&path=${encodeURIComponent(path)}`;
+const STASY_PATH = STASY.replace('https://www.stasy.gr/', '').replace(/\/$/, '');
+
+// Like the live server: STASY refuses it directly (403), the relay gets through
+function blockedWeb({ relayKnowsStasy = true } = {}) {
+    const pages = sources();
+    for (const url of [STASY, 'https://www.stasy.gr/l3/', 'https://www.stasy.gr/train/']) {
+        const path = url.replace('https://www.stasy.gr/', '').replace(/\/$/, '');
+        pages[relayUrl(path)] = relayKnowsStasy ? pages[url] : undefined;
+        pages[url] = undefined;
+    }
+    const calls = [];
+    const fetch = async (url, init) => {
+        calls.push(url);
+        if (url.startsWith('https://www.stasy.gr/')) return { ok: false, status: 403, text: async () => 'Forbidden' };
+        if (url.startsWith(RELAY.url)) {
+            assert.equal(init.headers['X-Relay-Key'], 'k');
+            if (!pages[url]) return { ok: false, status: 400, text: async () => 'Bad request' };
+        }
+        if (pages[url] === undefined) throw new Error('not found');
+        return { ok: true, text: async () => pages[url] };
+    };
+    return { fetch, calls };
+}
+
+test('when STASY refuses the server, its pages come through the relay, and direct access rests for a day', async () => {
+    let t = NOW;
+    const web = blockedWeb();
+    const ann = createAnnouncements({ fetch: web.fetch, now: () => t, log: () => {}, relays: [RELAY] });
+    const first = await ann.current();
+    assert.equal(first.rail.length, 2);
+    assert.ok(web.calls.includes(relayUrl(STASY_PATH)));
+    assert.ok(web.calls.includes(relayUrl('l3')));
+    assert.deepEqual(ann.status().stasy, { ok: true, at: t, route: 'home relay', items: 2, updated: new Date(t).toISOString() });
+
+    // The next refresh goes straight to the relay
+    web.calls.length = 0;
+    t += 20 * 60_000;
+    await ann.refreshNow();
+    assert.ok(!web.calls.some(url => url.startsWith('https://www.stasy.gr/')), 'direct access is resting');
+    assert.ok(web.calls.includes(relayUrl(STASY_PATH)));
+
+    // A day later, direct access is tried again
+    web.calls.length = 0;
+    t += 25 * 3_600_000;
+    await ann.refreshNow();
+    assert.ok(web.calls.includes(STASY));
+});
+
+test('a relay that predates STASY support is reported, and diagnostics say how to update it', async () => {
+    const web = blockedWeb({ relayKnowsStasy: false });
+    const ann = createAnnouncements({ fetch: web.fetch, now: () => NOW, log: () => {}, relays: [RELAY] });
+    await ann.refreshNow();
+    const stasy = ann.status().stasy;
+    assert.equal(stasy.ok, false);
+    assert.match(stasy.error, /direct: HTTP 403; home relay: HTTP 400/);
+    const [check] = announcementChecks({ stasy }, () => NOW);
+    assert.equal(check.status, 'fail');
+    assert.match(check.hint, /sudo git -C \/opt\/move pull && sudo systemctl restart move-relay/);
+});
+
+test('without relays, a refusal is reported and direct access is retried next time', async () => {
+    let t = NOW;
+    const web = blockedWeb();
+    const ann = createAnnouncements({ fetch: web.fetch, now: () => t, log: () => {} });
+    await ann.refreshNow();
+    const [check] = announcementChecks({ stasy: ann.status().stasy }, () => t);
+    assert.match(check.hint, /home relay/);
+    web.calls.length = 0;
+    t += 20 * 60_000;
+    await ann.refreshNow();
+    assert.ok(web.calls.includes(STASY));
+});
+
+test('diagnostics show each source, and which route STASY came through', () => {
+    const checks = announcementChecks({
+        oasaEl: { ok: true, at: NOW, route: 'direct', items: 8, updated: new Date(NOW).toISOString() },
+        stasy: { ok: true, at: NOW, route: 'home relay', items: 5, updated: new Date(NOW).toISOString() },
+        oasaEn: { ok: false, at: NOW, error: 'HTTP 500', items: 3, updated: new Date(NOW - 3_600_000).toISOString() },
+    }, () => NOW);
+    assert.deepEqual(checks.map(c => [c.title, c.status, c.detail]), [
+        ['OASA (Greek)', 'ok', '8 current'],
+        ['STASY (metro and tram)', 'ok', '5 current, through the home relay'],
+        ['OASA (English)', 'warn', 'HTTP 500. Showing the copy from 60 min ago.'],
+    ]);
 });

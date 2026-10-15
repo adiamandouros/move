@@ -47,3 +47,21 @@ test('whereami reports where the Worker\'s requests leave Cloudflare, and needs 
     assert.equal((await call('?act=whereami', {})).status, 401);
     assert.equal(upstream.length, 0);
 });
+
+test('relays STASY pages: one path segment on www.stasy.gr, with the key', async () => {
+    const res = await call(`?act=stasyPage&path=${encodeURIComponent('%ce%bd%ce%ad%ce%b1-%ce%b1%ce%bd%ce%b1%ce%ba%ce%bf%ce%b9%ce%bd%cf%8e%cf%83%ce%b5%ce%b9%cf%82')}`);
+    assert.equal(res.status, 200);
+    await call('?act=stasyPage&path=anak_pragm_sinentefksewn_gia_prok_5_2026');
+    assert.deepEqual(upstream.map(u => u.url), [
+        'https://www.stasy.gr/%ce%bd%ce%ad%ce%b1-%ce%b1%ce%bd%ce%b1%ce%ba%ce%bf%ce%b9%ce%bd%cf%8e%cf%83%ce%b5%ce%b9%cf%82/',
+        'https://www.stasy.gr/anak_pragm_sinentefksewn_gia_prok_5_2026/',
+    ]);
+    assert.equal((await call('?act=stasyPage&path=news', {})).status, 401);
+});
+
+test('refuses STASY paths that could reach anything else', async () => {
+    for (const path of ['', '..', 'a/b', '../etc', 'wp-admin/x', '.hidden', 'a?b=1', 'a#b', '//evil.example', 'a b', 'https:']) {
+        assert.equal((await call(`?act=stasyPage&path=${encodeURIComponent(path)}`)).status, 400, JSON.stringify(path));
+    }
+    assert.equal(upstream.length, 0);
+});
