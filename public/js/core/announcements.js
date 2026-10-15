@@ -22,9 +22,11 @@ let failed = false;
 
 const formatDate = iso => new Date(iso).toLocaleDateString(getLanguage() === 'el' ? 'el-GR' : 'en-GB', { day: 'numeric', month: 'short' });
 
+const newTab = () => `<span class="sr-only"> ${t('shell.new-tab')}</span>`;
+
 function item({ title, link, date }, greek) {
     return `<li class="announcement">
-        <a href="${escapeHtml(link)}" target="_blank" rel="noopener"${greek ? ' lang="el" class="any-lang"' : ''}>${escapeHtml(title)}</a>
+        <a href="${escapeHtml(link)}" target="_blank" rel="noopener"><span${greek ? ' lang="el" class="any-lang"' : ''}>${escapeHtml(title)}</span>${newTab()}</a>
         <span class="announcement-meta">${formatDate(date)}${greek ? ` · ${t('announcements.in-greek')}` : ''}</span>
     </li>`;
 }
@@ -32,11 +34,11 @@ function item({ title, link, date }, greek) {
 // Items already in the disruption banner aren't repeated in the list
 function group(titleKey, items, more, greek) {
     const rest = items.filter(i => !i.disruption);
-    return `<h2 class="info-subhead">${t(titleKey)}</h2>
+    return `<h3 class="info-subhead">${t(titleKey)}</h3>
         ${rest.length
             ? `<ul class="announcements">${rest.slice(0, SHOWN).map(i => item(i, greek)).join('')}</ul>`
             : `<p class="text-secondary">${t(items.length ? 'announcements.none-other' : 'announcements.none')}</p>`}
-        <p class="info-source"><a href="${more}" target="_blank" rel="noopener">${t('announcements.more')}</a></p>`;
+        <p class="info-source"><a href="${more}" target="_blank" rel="noopener">${t('announcements.more')}${newTab()}</a></p>`;
 }
 
 function render() {
@@ -53,7 +55,7 @@ function render() {
 
     const disruptions = [...data.rail.map(i => ({ ...i, greek: lang !== 'el' })), ...bus].filter(i => i.disruption);
     banner.innerHTML = disruptions.length
-        ? `<div class="disruption-banner" role="status">
+        ? `<div class="disruption-banner">
             <div class="fw-semibold"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> ${t('announcements.disruption')}</div>
             <ul>${disruptions.map(i => item(i, i.greek)).join('')}</ul>
         </div>`

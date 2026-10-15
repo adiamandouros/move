@@ -4,9 +4,13 @@ import { getLanguage } from '/js/core/settings.js';
 import { BENDS, DASHED, STATIONS } from './map-layout.js';
 
 // The schematic metro map: drawn as SVG from map-layout.js (positions) and
-// rail.json (names, colours and station order). Each station links to the
+// rail.json (names, colours and station order). Each station opens the
 // subway page with it as the destination. Pinch, drag, double-click,
 // Ctrl+wheel (trackpad pinch), the +/− buttons and the keyboard all zoom.
+//
+// For screen readers and keyboards the map is one labelled image (focusable,
+// for zooming). Its stations open on a tap or click; the same destinations
+// are offered as real links in the list of stations by line (stationList).
 
 const UNIT = 44;          // px per grid unit
 const MAX_ZOOM = 6;
@@ -63,24 +67,27 @@ function drawMap(rail) {
         const interchange = station.lines.length > 1;
         const name = station.name[lang] ?? station.name.en;
         const color = rail.lines[station.lines[0]].color;
-        return `<a href="/subway?to=${encodeURIComponent(id)}" class="map-station${interchange ? ' map-interchange' : ''}">
+        return `<g class="map-station${interchange ? ' map-interchange' : ''}" data-station="${escapeHtml(id)}">
             <title>${escapeHtml(name)}</title>
             <circle cx="${x}" cy="${y}" r="${interchange ? 9 : 6}"${interchange ? '' : ` stroke="${color}"`}/>
             <text x="${x + dx * LABEL_GAP}" y="${y + dy * LABEL_GAP}" text-anchor="${anchor}" dominant-baseline="${baseline}">${escapeHtml(name)}</text>
-        </a>`;
+        </g>`;
     }).join('');
 
     return `<g class="map-content">${tracks}${stations}</g>`;
 }
 
 export function createMetroMap(container, rail) {
+    // Labels use data-i18n attributes, so translatePage keeps them in the current language
+    const button = (zoom, key, icon) => `<button type="button" class="btn map-btn" data-zoom="${zoom}"
+        aria-label="${t(key)}" data-i18n-aria-label="${key}" title="${t(key)}" data-i18n-title="${key}"><i class="bi bi-${icon}" aria-hidden="true"></i></button>`;
     container.innerHTML = `
         <div class="map-controls">
-            <button type="button" class="btn map-btn" data-zoom="in" aria-label="${t('info.zoom-in')}" title="${t('info.zoom-in')}"><i class="bi bi-plus-lg" aria-hidden="true"></i></button>
-            <button type="button" class="btn map-btn" data-zoom="out" aria-label="${t('info.zoom-out')}" title="${t('info.zoom-out')}"><i class="bi bi-dash-lg" aria-hidden="true"></i></button>
-            <button type="button" class="btn map-btn" data-zoom="reset" aria-label="${t('info.zoom-reset')}" title="${t('info.zoom-reset')}"><i class="bi bi-arrows-angle-contract" aria-hidden="true"></i></button>
+            ${button('in', 'info.zoom-in', 'plus-lg')}
+            ${button('out', 'info.zoom-out', 'dash-lg')}
+            ${button('reset', 'info.zoom-reset', 'arrows-angle-contract')}
         </div>
-        <svg xmlns="${NS}" role="group" aria-label="${t('info.map')}" tabindex="0"></svg>`;
+        <svg xmlns="${NS}" role="img" aria-label="${t('info.map-label')}" data-i18n-aria-label="info.map-label" aria-describedby="map-help" tabindex="0"></svg>`;
     const svg = container.querySelector('svg');
 
     let base;   // the whole map, as a viewBox
@@ -202,11 +209,30 @@ export function createMetroMap(container, rail) {
     window.addEventListener('pointerup', release);
     window.addEventListener('pointercancel', release);
 
+    // A tap on a station opens the directions to it, unless it ended a drag
     svg.addEventListener('click', e => {
-        if (moved > 6) e.preventDefault();
+        const station = e.target.closest('.map-station');
+        if (station && moved <= 6) location.href = `/subway?to=${encodeURIComponent(station.dataset.station)}`;
     });
 
     draw();
     // Redraw in the new language, keeping the current view
     return { redraw: draw };
+}
+
+// The stations of each line in order, as lists of links, with the changes
+// to other lines. The accessible counterpart of the map.
+export function stationList(rail) {
+    const lang = getLanguage() === 'el' ? 'el' : 'en';
+    const name = id => rail.stations[id].name[lang] ?? rail.stations[id].name.en;
+    return Object.entries(rail.lines).map(([lineId, line]) => {
+        const ids = lineStations(line);
+        const items = ids.map(id => {
+            const others = rail.stations[id].lines.filter(l => l !== lineId);
+            const change = others.length ? ` <span class="station-change">· ${t('info.change-to')} ${others.join(', ')}</span>` : '';
+            return `<li><a href="/subway?to=${encodeURIComponent(id)}">${escapeHtml(name(id))}</a>${change}</li>`;
+        }).join('');
+        return `<h4 class="station-line"><span class="line-badge line-${lineId.toLowerCase()}">${lineId}</span> ${escapeHtml(name(ids[0]))} – ${escapeHtml(name(ids.at(-1)))}</h4>
+            <ol class="station-stops">${items}</ol>`;
+    }).join('');
 }
