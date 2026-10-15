@@ -14,7 +14,7 @@ import { createAuth, createLimiter, readCookie } from './auth.js';
 const ADMIN_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'admin');
 const CLIENT_DIR = join(ADMIN_DIR, 'client');
 const COOKIE = 'move_admin';
-const AXE = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
+const require = createRequire(import.meta.url);
 
 // The private station editor, mounted at /admin. Returns null when no
 // password is configured, so every /admin URL is a plain 404.
@@ -111,7 +111,16 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
     });
 
     // axe-core, for the accessibility check on the diagnostics page
-    router.get('/vendor/axe.min.js', (_req, res) => res.set('Cache-Control', 'no-cache').sendFile(AXE));
+    // Looked up per request, so a missing package only breaks this check, not the app
+    router.get('/vendor/axe.min.js', (_req, res) => {
+        let file;
+        try {
+            file = require.resolve('axe-core/axe.min.js');
+        } catch {
+            return res.status(503).type('text').send('axe-core is not installed. Run "Run NPM Install" in cPanel → Setup Node.js App, then restart.');
+        }
+        res.set('Cache-Control', 'no-cache').sendFile(file);
+    });
 
     // Scoped to /admin/, separate from the public service worker, so the
     // editor opens offline on this device without ever entering the public cache

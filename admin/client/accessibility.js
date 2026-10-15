@@ -119,7 +119,7 @@ async function run() {
     try {
         const res = await fetch('/admin/vendor/axe.min.js');
         if (res.status === 401) { location.href = '/admin/login'; return; }
-        if (!res.ok) throw new Error(`axe-core: HTTP ${res.status}`);
+        if (!res.ok) throw new Error((await res.text()) || `axe-core: HTTP ${res.status}`);
         const axeSource = await res.text();
 
         const total = PAGES.length * Object.keys(LANGUAGES).length;
