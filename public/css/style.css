@@ -952,6 +952,121 @@ html:not([lang="el"]) main [lang="el"]:not(.any-lang) {
     margin-top: 6px;
 }
 
+/* Metro map (tools/info/client/map.js) */
+
+.metro-map {
+    position: relative;
+    border-radius: 8px;
+    background-color: #0f131c;
+    overflow: hidden;
+}
+
+.metro-map svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.metro-map.zoomed svg {
+    touch-action: none;
+    cursor: grab;
+}
+
+.metro-map svg:focus-visible {
+    outline: none;
+    box-shadow: inset var(--focus-ring);
+}
+
+.map-controls {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 1;
+}
+
+.map-btn {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    font-size: 1.2rem;
+    color: #e8eaf0;
+    background-color: rgba(22, 27, 39, 0.9);
+    border: 1px solid #2a3350;
+    border-radius: 8px;
+}
+
+.map-btn:hover {
+    color: #fff;
+    background-color: #1e2538;
+}
+
+.map-btn:focus-visible {
+    box-shadow: var(--focus-ring);
+}
+
+.map-line {
+    fill: none;
+    stroke-width: 9;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.map-line-dash {
+    fill: none;
+    stroke: #0f131c;
+    stroke-width: 3;
+    stroke-dasharray: 8 8;
+}
+
+.map-station circle {
+    fill: #0f131c;
+    stroke-width: 4;
+}
+
+.map-interchange circle {
+    fill: #fff;
+    stroke: #0f131c;
+    stroke-width: 3;
+}
+
+.map-station text {
+    fill: #e8eaf0;
+    font-size: 14px;
+    paint-order: stroke;
+    stroke: #0f131c;
+    stroke-width: 4px;
+    stroke-linejoin: round;
+}
+
+.map-interchange text {
+    font-weight: 700;
+    font-size: 15px;
+}
+
+.map-station:hover text,
+.map-station:focus-visible text {
+    fill: var(--accent);
+}
+
+.map-station:focus-visible {
+    outline: none;
+}
+
+.map-station:focus-visible circle {
+    stroke: var(--accent);
+    stroke-width: 5;
+}
+
+.map-station {
+    text-decoration: none;
+}
+
 /* ── Toast (core/shell.js) ── */
 
 .toast-message {

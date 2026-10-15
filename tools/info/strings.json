@@ -2,7 +2,7 @@
   "en": {
     "info.title": "Info",
     "info.announcements": "Announcements",
-    "info.map": "Metro and tram map",
+    "info.map": "Metro map",
     "info.hours": "Closing times",
     "info.tickets": "Tickets",
     "info.airport": "Getting to the airport",
@@ -26,12 +26,16 @@
     "info.error": "Couldn't load the announcements. Check your connection and try again later.",
     "info.in-greek": "In Greek",
     "info.disruption": "Service disruption",
-    "info.more": "All announcements"
+    "info.more": "All announcements",
+    "info.zoom-in": "Zoom in",
+    "info.zoom-out": "Zoom out",
+    "info.zoom-reset": "Show the whole map",
+    "info.map-error": "Couldn't load the map. Open this page once while connected so it can be saved for offline use."
   },
   "el": {
     "info.title": "Πληροφορίες",
     "info.announcements": "Ανακοινώσεις",
-    "info.map": "Χάρτης μετρό και τραμ",
+    "info.map": "Χάρτης μετρό",
     "info.hours": "Ώρες λειτουργίας",
     "info.tickets": "Εισιτήρια",
     "info.airport": "Μετάβαση στο αεροδρόμιο",
@@ -55,6 +59,10 @@
     "info.error": "Δεν ήταν δυνατή η φόρτωση των ανακοινώσεων. Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά αργότερα.",
     "info.in-greek": "Στα ελληνικά",
     "info.disruption": "Διακοπή λειτουργίας",
-    "info.more": "Όλες οι ανακοινώσεις"
+    "info.more": "Όλες οι ανακοινώσεις",
+    "info.zoom-in": "Μεγέθυνση",
+    "info.zoom-out": "Σμίκρυνση",
+    "info.zoom-reset": "Εμφάνιση όλου του χάρτη",
+    "info.map-error": "Δεν ήταν δυνατή η φόρτωση του χάρτη. Ανοίξτε αυτή τη σελίδα μία φορά με σύνδεση ώστε να αποθηκευτεί για χρήση χωρίς σύνδεση."
   }
 }
