@@ -11,6 +11,7 @@
 
 import { createServer } from 'node:http';
 import { pathToFileURL } from 'node:url';
+import { gzipSync } from 'node:zlib';
 import worker from './worker.js';
 
 export function createRelayServer(env) {
@@ -28,8 +29,16 @@ export function createRelayServer(env) {
             // e.g. a method the Request constructor rejects, like CONNECT
             response = new Response('Bad request', { status: 400, headers: { 'Content-Type': 'text/plain' } });
         }
-        const body = Buffer.from(await response.arrayBuffer());
-        res.writeHead(response.status, { ...Object.fromEntries(response.headers), 'Content-Length': body.length });
+        let body = Buffer.from(await response.arrayBuffer());
+        const headers = Object.fromEntries(response.headers);
+        // Compressed when the server accepts it: STASY's news page is over 1 MB
+        // of HTML, and this runs on a home connection
+        if (body.length > 1024 && /\bgzip\b/.test(req.headers['accept-encoding'] ?? '')) {
+            body = gzipSync(body);
+            headers['content-encoding'] = 'gzip';
+            headers.vary = 'Accept-Encoding';
+        }
+        res.writeHead(response.status, { ...headers, 'Content-Length': body.length });
         res.end(body);
     });
 }

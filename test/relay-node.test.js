@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createRelayServer } from '../proxy/node.js';
 
 const realFetch = globalThis.fetch;
+const BIG_PAGE = `<html>${'<article>Ανακοίνωση</article>'.repeat(5000)}</html>`;
 let server;
 let base;
 let upstream;
@@ -16,6 +17,7 @@ before(async () => {
         if (String(url).startsWith(base)) return realFetch(url, init);
         if (url === 'https://www.cloudflare.com/cdn-cgi/trace') return new Response('ip=198.51.100.4\ncolo=ATH\nloc=GR\n');
         upstream.push({ url, ua: init.headers['User-Agent'] });
+        if (String(url).startsWith('https://www.stasy.gr/')) return new Response(BIG_PAGE, { status: 200, headers: { 'Content-Type': 'text/html' } });
         return new Response('[{"route_code":"1"}]', { status: 200, headers: { 'Content-Type': 'application/json' } });
     };
 });
@@ -48,4 +50,13 @@ test('keeps the Worker\'s guards: key, allowed calls and method', async () => {
 test('whereami reports where the machine\'s requests come from', async () => {
     const res = await call('?act=whereami');
     assert.deepEqual(await res.json(), { receivedAt: null, colo: 'ATH', loc: 'GR', ip: '198.51.100.4' });
+});
+
+test('compresses large answers for clients that accept gzip', async () => {
+    const res = await call('?act=stasyPage&path=news', { 'X-Relay-Key': 'secret', 'Accept-Encoding': 'gzip' });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('content-encoding'), 'gzip');
+    // fetch unpacks it, as it does on the server
+    assert.equal(await res.text(), BIG_PAGE);
+    assert.ok(Number(res.headers.get('content-length')) < Buffer.byteLength(BIG_PAGE) / 10);
 });
