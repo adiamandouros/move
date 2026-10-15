@@ -29,11 +29,13 @@ function item({ title, link, date }, greek) {
     </li>`;
 }
 
+// Items already in the disruption banner aren't repeated in the list
 function group(titleKey, items, more, greek) {
+    const rest = items.filter(i => !i.disruption);
     return `<h2 class="info-subhead">${t(titleKey)}</h2>
-        ${items.length
-            ? `<ul class="announcements">${items.slice(0, SHOWN).map(i => item(i, greek)).join('')}</ul>`
-            : `<p class="text-secondary">${t('announcements.none')}</p>`}
+        ${rest.length
+            ? `<ul class="announcements">${rest.slice(0, SHOWN).map(i => item(i, greek)).join('')}</ul>`
+            : `<p class="text-secondary">${t(items.length ? 'announcements.none-other' : 'announcements.none')}</p>`}
         <p class="info-source"><a href="${more}" target="_blank" rel="noopener">${t('announcements.more')}</a></p>`;
 }
 
