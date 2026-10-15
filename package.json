@@ -15,6 +15,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "axe-core": "^4.14.0",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
     "compression": "^1.8.2",

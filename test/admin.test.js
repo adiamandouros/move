@@ -97,6 +97,16 @@ test('pages and API need a session; wrong passwords are rejected', async () => {
     assert.equal(wrong.cookie, undefined);
 });
 
+test('axe-core, for the accessibility check, is only served with a session', async () => {
+    const anonymous = await fetch(`${base}/vendor/axe.min.js`, { redirect: 'manual' });
+    assert.notEqual(anonymous.status, 200);
+    const { cookie } = await login();
+    const res = await fetch(`${base}/vendor/axe.min.js`, { headers: { Cookie: cookie } });
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type'), /javascript/);
+    assert.match(await res.text(), /axe/);
+});
+
 test('saving, reverting and exporting an entry', async () => {
     const { res, cookie } = await login();
     assert.equal(res.status, 303);

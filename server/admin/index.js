@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { createRequire } from 'module';
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -13,6 +14,7 @@ import { createAuth, createLimiter, readCookie } from './auth.js';
 const ADMIN_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'admin');
 const CLIENT_DIR = join(ADMIN_DIR, 'client');
 const COOKIE = 'move_admin';
+const AXE = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
 
 // The private station editor, mounted at /admin. Returns null when no
 // password is configured, so every /admin URL is a plain 404.
@@ -98,7 +100,7 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
             title: 'Diagnostics',
             head,
             content: page('diagnostics'),
-            scripts: ['/admin/assets/diagnostics.js'],
+            scripts: ['/admin/assets/diagnostics.js', '/admin/assets/accessibility.js'],
         }));
     });
 
@@ -107,6 +109,9 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
         const result = await diagnose();
         res.set('Cache-Control', 'no-store').json({ ...result, report: formatReport(result) });
     });
+
+    // axe-core, for the accessibility check on the diagnostics page
+    router.get('/vendor/axe.min.js', (_req, res) => res.set('Cache-Control', 'no-cache').sendFile(AXE));
 
     // Scoped to /admin/, separate from the public service worker, so the
     // editor opens offline on this device without ever entering the public cache

@@ -96,7 +96,8 @@ function pageStrings(shellStrings, tools, own = {}) {
     return JSON.stringify(out).replace(/</g, '\\u003c');
 }
 
-function renderPages(tools) {
+// Every page as HTML, by path (exported for test/accessibility.test.js)
+export function renderPages(tools = loadTools()) {
     const layout = readFileSync(join(VIEWS_DIR, 'layout.html'), 'utf8');
     const view = name => readFileSync(join(VIEWS_DIR, `${name}.html`), 'utf8');
     const shellStrings = JSON.parse(readFileSync(join(VIEWS_DIR, 'strings.json'), 'utf8'));

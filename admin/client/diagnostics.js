@@ -68,7 +68,8 @@ async function run() {
 $('run-btn').addEventListener('click', run);
 $('copy-btn').addEventListener('click', async () => {
     try {
-        await navigator.clipboard.writeText(report);
+        // The accessibility check (accessibility.js) adds its results, once it has run
+        await navigator.clipboard.writeText([report, window.accessibilityReport].filter(Boolean).join('\n\n'));
         $('copy-btn').textContent = 'Copied';
     } catch {
         $('copy-btn').textContent = 'Copy failed';
