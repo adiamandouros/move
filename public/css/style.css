@@ -114,7 +114,10 @@ body {
     box-shadow: var(--focus-ring);
 }
 
+/* In the sidebar's column the links keep their own height (flex: 1 above is
+   for the bottom bar, where they share the width) */
 #side-nav .nav-btn {
+    flex: none;
     justify-content: flex-start;
     text-align: left;
 }
