@@ -1,0 +1,109 @@
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import express from 'express';
+import { adsenseProblems } from '../server/ads.js';
+import { createPages, loadTools, renderPages } from '../server/pages.js';
+import { renderStationPage } from '../server/stations.js';
+import { rail } from './fixtures/rail.js';
+
+// AdSense is off until ADSENSE_CLIENT is set; each ADSENSE_SLOT_* adds one ad unit
+
+const CLIENT = 'ca-pub-1234567890123456';
+const tools = loadTools();
+const KEYS = ['ADSENSE_CLIENT', 'ADSENSE_SLOT_HOME', 'ADSENSE_SLOT_INFO', 'ADSENSE_SLOT_STATION'];
+const saved = Object.fromEntries(KEYS.map(k => [k, process.env[k]]));
+after(() => { for (const k of KEYS) saved[k] === undefined ? delete process.env[k] : process.env[k] = saved[k]; });
+
+function withEnv(env) {
+    for (const k of KEYS) delete process.env[k];
+    Object.assign(process.env, env);
+    const rendered = renderPages(tools);
+    const station = renderStationPage(rail, 'x', 'en', { render: rendered.render, tools });
+    return { ...rendered, station };
+}
+
+async function adsTxt(env) {
+    for (const k of KEYS) delete process.env[k];
+    Object.assign(process.env, env);
+    const app = express();
+    app.use(createPages(tools).router);
+    const server = await new Promise(resolve => { const s = app.listen(0, () => resolve(s)); });
+    try {
+        const res = await fetch(`http://localhost:${server.address().port}/ads.txt`);
+        return { status: res.status, text: await res.text() };
+    } finally {
+        server.close();
+    }
+}
+
+const slots = html => (html.match(/<ins class="adsbygoogle/g) ?? []).length;
+
+test('without ADSENSE_CLIENT there is no trace of ads', async () => {
+    const { pages, notFound, station } = withEnv({ ADSENSE_SLOT_HOME: '1234567890' });
+    for (const html of [...Object.values(pages), notFound.en, station]) {
+        // (the import map lists every core module, ads.js too, but nothing loads it)
+        assert.doesNotMatch(html, /adsbygoogle|google-adsense-account|src="\/js\/core\/ads\.js|ad-slot/);
+        assert.doesNotMatch(html, /<!-- \/?(with|without) ads -->/);
+    }
+    assert.match(pages['/privacy'], /uses no cookies or analytics/);
+    assert.doesNotMatch(pages['/privacy'], /id="advertising"/);
+    assert.equal((await adsTxt({})).status, 404);
+});
+
+test('ADSENSE_CLIENT alone: the verification tag and ads.txt for the review, the ads privacy page, no ads', async () => {
+    const { pages, notFound, station } = withEnv({ ADSENSE_CLIENT: CLIENT });
+    for (const html of [...Object.values(pages), notFound.el, station]) {
+        assert.match(html, /<meta name="google-adsense-account" content="ca-pub-1234567890123456">/);
+        assert.equal(slots(html), 0);
+    }
+    assert.deepEqual(await adsTxt({ ADSENSE_CLIENT: CLIENT }), { status: 200, text: 'google.com, pub-1234567890123456, DIRECT, f08c47fec0942fa0\n' });
+
+    const privacy = pages['/privacy'];
+    // Neither the page nor its description (the embedded string table holds every string, unused ones too)
+    assert.doesNotMatch(privacy.replace(/<script type="application\/json" id="strings">.*?<\/script>/s, ''), /uses no cookies/);
+    assert.match(privacy, /<meta name="description" content="Wayhop has no accounts or analytics and doesn&#39;t track you itself|<meta name="description" content="Wayhop has no accounts or analytics and doesn't track you itself/);
+    assert.match(privacy, /<h2 id="advertising">Advertising<\/h2>/);
+    assert.match(privacy, /<button type="button" id="ad-choices"[^>]*data-ad-client="ca-pub-1234567890123456" hidden>Change your ad choices<\/button>/);
+    assert.match(privacy, /src="\/js\/core\/ads\.js\?v=/);
+    assert.match(pages['/el/privacy'], /<h2 id="advertising">Διαφημίσεις<\/h2>/);
+    assert.doesNotMatch(privacy + pages['/el/privacy'], /<!-- \/?(with|without) ads -->/);
+});
+
+test('each slot setting adds one labelled ad unit after the content, and only there', () => {
+    const { pages, station } = withEnv({ ADSENSE_CLIENT: CLIENT, ADSENSE_SLOT_HOME: '1111111111', ADSENSE_SLOT_INFO: '2222222222', ADSENSE_SLOT_STATION: '3333333333' });
+    for (const [html, slot] of [[pages['/'], '1111111111'], [pages['/el/info'], '2222222222'], [station, '3333333333']]) {
+        assert.equal(slots(html), 1);
+        assert.match(html, new RegExp(`<ins class="adsbygoogle ad-unit" data-ad-client="${CLIENT}" data-ad-slot="${slot}"></ins>`));
+        assert.match(html, /<aside class="ad-slot" aria-labelledby="ad-label">\s*<p class="ad-label" id="ad-label" data-i18n="ads\.label">/);
+        // After the page's own content, before the footer
+        assert.match(html, /<\/div>\s*<aside class="ad-slot"[\s\S]*<\/aside>\s*<footer class="site-footer"/);
+        assert.match(html, /src="\/js\/core\/ads\.js\?v=/);
+    }
+    assert.match(pages['/el/info'], /data-i18n="ads\.label">Διαφήμιση</);
+    // Never on the live tools, the offline page, or the text pages
+    for (const path of ['/subway', '/buses', '/offline', '/about', '/contact', '/el/subway']) {
+        assert.equal(slots(pages[path]), 0, path);
+        assert.doesNotMatch(pages[path], /src="\/js\/core\/ads\.js/, path);
+    }
+});
+
+test('a slot without its own setting stays off', () => {
+    const { pages, station } = withEnv({ ADSENSE_CLIENT: CLIENT, ADSENSE_SLOT_HOME: '1111111111' });
+    assert.equal(slots(pages['/']), 1);
+    assert.equal(slots(pages['/info']), 0);
+    assert.equal(slots(station), 0);
+});
+
+test('settings that look wrong are reported and leave ads off', () => {
+    assert.deepEqual(adsenseProblems({ ADSENSE_CLIENT: 'pub-123', ADSENSE_SLOT_HOME: 'abc', ADSENSE_SLOT_INFO: '1234567' }), [
+        'ADSENSE_CLIENT should look like ca-pub-1234567890123456',
+        "ADSENSE_SLOT_HOME should be the ad unit's number (data-ad-slot)",
+        'ADSENSE_SLOT_INFO needs ADSENSE_CLIENT too',
+    ]);
+    assert.deepEqual(adsenseProblems({ ADSENSE_CLIENT: CLIENT, ADSENSE_SLOT_HOME: '1234567890' }), []);
+    const { pages } = withEnv({ ADSENSE_CLIENT: 'pub-123', ADSENSE_SLOT_HOME: '1111111111' });
+    assert.doesNotMatch(pages['/'], /adsbygoogle|google-adsense-account/);
+});

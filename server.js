@@ -12,6 +12,7 @@ import { createBusApi } from './server/oasa/index.js';
 import { RELAYS, relaysFromEnv } from './server/oasa/client.js';
 import { createPages, VENDOR } from './server/pages.js';
 import { canonicalHost } from './server/canonical-host.js';
+import { adsenseProblems } from './server/ads.js';
 import { createAnnouncements } from './server/info/announcements.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -22,6 +23,7 @@ app.set('trust proxy', 'loopback');
 app.use(canonicalHost());
 app.use(compression());
 const PORT = process.env.PORT || 3000;
+for (const problem of adsenseProblems()) console.warn(`[ads] ${problem} — ads are off until it's fixed`);
 
 // Live bus arrivals from OASA, cached and rate-limited (see server/oasa/).
 // The relays are fallbacks for when OASA can't be reached directly (proxy/README.md).

@@ -16,7 +16,23 @@ const tools = loadTools();
 // The station pages, from a small network (the real rail.json isn't in the repository)
 const stationPages = Object.fromEntries(['en', 'el'].flatMap(lang => [null, 'x', 'a', 'b', 'c'].map(id =>
     [`(station ${id ?? 'index'}, ${lang})`, renderStationPage(rail, id, lang, { render, tools })])));
-const all = { ...pages, '(404)': notFound.en, '(404, Greek)': notFound.el, ...stationPages };
+// And the pages that have ads, with every ad setting on
+const adPages = (() => {
+    const keys = ['ADSENSE_CLIENT', 'ADSENSE_SLOT_HOME', 'ADSENSE_SLOT_INFO', 'ADSENSE_SLOT_STATION'];
+    const saved = Object.fromEntries(keys.map(k => [k, process.env[k]]));
+    Object.assign(process.env, { ADSENSE_CLIENT: 'ca-pub-1234567890123456', ADSENSE_SLOT_HOME: '1111111111', ADSENSE_SLOT_INFO: '2222222222', ADSENSE_SLOT_STATION: '3333333333' });
+    try {
+        const withAds = renderPages();
+        return {
+            '/ (with ads)': withAds.pages['/'], '/el/info (with ads)': withAds.pages['/el/info'],
+            '/privacy (with ads)': withAds.pages['/privacy'], '/el/privacy (with ads)': withAds.pages['/el/privacy'],
+            '(station x, with ads)': renderStationPage(rail, 'x', 'el', { render: withAds.render, tools }),
+        };
+    } finally {
+        for (const k of keys) saved[k] === undefined ? delete process.env[k] : process.env[k] = saved[k];
+    }
+})();
+const all = { ...pages, '(404)': notFound.en, '(404, Greek)': notFound.el, ...stationPages, ...adPages };
 
 const main = html => html.match(/<main[^>]*>([\s\S]*)<\/main>/)[1];
 const attr = (tag, name) => tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1];

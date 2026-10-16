@@ -31,7 +31,9 @@
     "privacy.description": "Wayhop has no accounts, uses no cookies or analytics and doesn't track you. What stays on your device and what reaches the server.",
     "contact.title": "Contact",
     "contact.description": "Report wrong information or a problem with Wayhop, the Athens public transport app.",
-    "contact.email": "Email:"
+    "contact.email": "Email:",
+    "ads.label": "Advertisement",
+    "privacy.description-ads": "Wayhop has no accounts or analytics and doesn't track you itself; its ads come from Google. What stays on your device, what reaches the server, and your ad choices."
   },
   "el": {
     "shell.skip": "Μετάβαση στο περιεχόμενο",
@@ -65,6 +67,8 @@
     "privacy.description": "Το Wayhop δεν έχει λογαριασμούς, δεν χρησιμοποιεί cookies ή εργαλεία στατιστικών και δεν σας παρακολουθεί. Τι μένει στη συσκευή σας και τι φτάνει στον διακομιστή.",
     "contact.title": "Επικοινωνία",
     "contact.description": "Αναφέρετε λανθασμένες πληροφορίες ή ένα πρόβλημα στο Wayhop, την εφαρμογή για τα μέσα μαζικής μεταφοράς της Αθήνας.",
-    "contact.email": "Email:"
+    "contact.email": "Email:",
+    "ads.label": "Διαφήμιση",
+    "privacy.description-ads": "Το Wayhop δεν έχει λογαριασμούς ή εργαλεία στατιστικών και δεν σας παρακολουθεί το ίδιο· οι διαφημίσεις του προέρχονται από την Google. Τι μένει στη συσκευή σας, τι φτάνει στον διακομιστή και οι επιλογές σας για τις διαφημίσεις."
   }
 }

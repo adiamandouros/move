@@ -5,6 +5,7 @@
   "title": { "en": "Info", "el": "Πληροφορίες" },
   "description": { "en": "Announcements, closing times, tickets and night buses", "el": "Ανακοινώσεις, ώρες λειτουργίας, εισιτήρια και νυχτερινά λεωφορεία" },
   "offline": true,
+  "ad": "info",
   "scripts": ["main.js"],
   "precache": ["/data/rail.json"]
 }

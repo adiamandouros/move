@@ -4,6 +4,7 @@ import { createRequire } from 'module';
 import { dirname, join, relative, sep } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
+import { adSlot, adsenseClient, adsenseMeta, adsTxt } from './ads.js';
 import { createStationPages, STATIONS_PATH } from './stations.js';
 
 const ROOT       = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -15,6 +16,10 @@ const PUBLIC_DIR = join(ROOT, 'public');
 const TEXT_PAGES = ['about', 'privacy', 'contact'];
 // When privacy.<lang>.html last changed in substance (shown on the page)
 const PRIVACY_UPDATED = { en: '16 October 2026', el: '16 Οκτωβρίου 2026' };
+
+// Keep the page's <!-- with ads --> or <!-- without ads --> parts (privacy.<lang>.html)
+const adsVariant = (html, ads) => html.replace(/<!-- (with|without) ads -->\n([\s\S]*?)<!-- \/\1 ads -->\n/g,
+    (_, which, part) => (which === 'with') === ads ? part : '');
 
 const require = createRequire(import.meta.url);
 const packageDir = name => dirname(require.resolve(`${name}/package.json`));
@@ -238,8 +243,12 @@ export function renderPages(tools = loadTools()) {
     // path and description are for public pages that belong in search results.
     // staticLanguage: the page is written in one language (the station pages),
     // so switching language loads the other one instead of translating in place.
-    const render = ({ lang = 'en', active = null, title, titleKey = '', path = null, description = '', content, own, scripts = [], head = '', staticLanguage = false }) => {
+    const render = ({ lang = 'en', active = null, title, titleKey = '', path = null, description = '', content, own, scripts = [], head = '', staticLanguage = false, ad = null }) => {
         const strings = pageStrings(shellStrings, tools, own);
+        // ad: where this page has an ad slot (server/ads.js); /js/core/ads.js
+        // loads AdSense for it, and for the privacy page's ad choices button
+        const slot = adSlot(ad);
+        if (slot || content.includes('id="ad-choices"')) scripts = [...scripts, '/js/core/ads.js'];
         const get = key => strings[lang][key] ?? strings.en[key];
         const fullTitle = `${(lang !== 'en' && get(titleKey)) || title} — Wayhop`;
         return translate(fill(layout, {
@@ -247,13 +256,14 @@ export function renderPages(tools = loadTools()) {
             staticLanguage: staticLanguage ? ' data-static-language' : '',
             title: fullTitle,
             titleKey,
-            meta: metaTags({ path, lang, title: fullTitle, description }),
+            meta: [metaTags({ path, lang, title: fullTitle, description }), adsenseMeta()].filter(Boolean).join('\n'),
             head,
             importMap: imports,
             pages: pageList,
             sideNav: navLinks(tools, active, 'side'),
             bottomNav: navLinks(tools, active, 'bottom'),
             content,
+            ad: slot,
             // Escape "<" so the JSON can't close the surrounding <script> element
             strings: JSON.stringify(strings).replace(/</g, '\\u003c'),
             scripts: scripts.map(src => `    <script type="module" src="${versioned(src)}"></script>`).join('\n'),
@@ -272,6 +282,7 @@ export function renderPages(tools = loadTools()) {
             head: appData(description, lang),
             content: view('home'),
             scripts: ['/js/core/announcements.js'],
+            ad: 'home',
         });
         pages[localPath('/offline', lang)] = render({ lang, title: "You're offline", titleKey: 'offline.title', content: fill(view('offline'), { tiles: tiles(tools.filter(t => t.offline)) }) });
         for (const tool of tools) {
@@ -284,6 +295,7 @@ export function renderPages(tools = loadTools()) {
                 description: tool.description?.[lang] ?? '',
                 content: tool.page,
                 own: tool.strings,
+                ad: tool.ad,
                 scripts: tool.scripts.map(s => `/tools/${tool.id}/${s}`),
             });
         }
@@ -294,8 +306,9 @@ export function renderPages(tools = loadTools()) {
                 lang,
                 title: shellStrings[lang][`${name}.title`],
                 path: `/${name}`,
-                description: shellStrings[lang][`${name}.description`],
-                content: fill(view(`pages/${name}.${lang}`), { updated: PRIVACY_UPDATED[lang], email: contactEmail(shellStrings[lang]) }),
+                // The privacy page has its own description once it describes ads
+                description: shellStrings[lang][`${name}.description${name === 'privacy' && adsenseClient() ? '-ads' : ''}`],
+                content: fill(adsVariant(view(`pages/${name}.${lang}`), Boolean(adsenseClient())), { updated: PRIVACY_UPDATED[lang], email: contactEmail(shellStrings[lang]), adClient: adsenseClient() ?? '' }),
                 staticLanguage: true,
             });
         }
@@ -406,6 +419,9 @@ export function createPages(tools = loadTools(), { railFile } = {}) {
     router.get('/robots.txt', (req, res) => {
         res.set('Cache-Control', 'no-cache').type('text').send(robotsTxt(origin(req)));
     });
+
+    // Which ad networks may sell this site's ad space (only once AdSense is set up)
+    router.get('/ads.txt', (_req, res, next) => adsTxt() ? res.set('Cache-Control', 'no-cache').type('text').send(adsTxt()) : next());
 
     router.get('/sitemap.xml', (req, res) => {
         res.set('Cache-Control', 'no-cache').type('xml').send(sitemapXml(origin(req), [...indexed, ...(stations?.paths() ?? [])]));
