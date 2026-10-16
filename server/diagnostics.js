@@ -2,7 +2,8 @@ import { lookup } from 'dns/promises';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { USER_AGENT } from './data/sources.js';
-import { RELAYS, relaysFromEnv } from './oasa/client.js';
+import { RELAYS, REQUESTS_PER_SECOND, relaysFromEnv } from './oasa/client.js';
+import { NEW_STOPS_PER_MINUTE } from './oasa/limits.js';
 
 // Health checks for when something goes wrong on the server: can it reach the
 // internet, OASA, the relay and the open-data portal, is the timetable data
@@ -244,6 +245,18 @@ function appChecks(appStatus, now) {
         out.push(r.resting
             ? check('Running app', `Route: ${r.name}`, 'warn', `Resting until ${new Date(r.restUntil).toISOString().slice(0, 16).replace('T', ' ')} UTC after repeated failures; ${parts.join('; ')}`)
             : check('Running app', `Route: ${r.name}`, r.lastError && (!r.lastOk || r.lastError.at > r.lastOk) ? 'warn' : 'ok', parts.join('; ')));
+    }
+    // Load: requests that didn't fit the budget to OASA, and visitors over their share of it
+    if (appStatus.droppedLastHour !== undefined) {
+        const dropped = appStatus.droppedLastHour;
+        out.push(dropped
+            ? check('Running app', 'Request budget', 'warn', `${dropped} requests to OASA in the past hour didn't fit the ${REQUESTS_PER_SECOND}/s budget, so people saw older arrivals`,
+                'If this keeps happening, raise REQUESTS_PER_SECOND (server/oasa/client.js) or ARRIVALS_TTL_MS (server/oasa/arrivals.js). OASA states no limit, so go up gradually.')
+            : check('Running app', 'Request budget', 'ok', `Every request in the past hour fit the ${REQUESTS_PER_SECOND}/s budget`));
+    }
+    if (appStatus.limitedLastHour) {
+        out.push(check('Running app', 'Visitor limit', 'warn', `${appStatus.limitedLastHour} requests in the past hour were refused for asking for more than ${NEW_STOPS_PER_MINUTE} new stops a minute`,
+            'A few now and then is a script or a very busy shared address. Many, from normal use, means NEW_STOPS_PER_MINUTE (server/oasa/limits.js) is too low.'));
     }
     return out;
 }

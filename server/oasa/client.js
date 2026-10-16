@@ -1,4 +1,5 @@
 import { USER_AGENT } from '../data/sources.js';
+import { hourCounter } from './limits.js';
 
 // The one place that talks to OASA's telematics API. Everything here exists
 // to keep our load on it small and predictable:
@@ -44,6 +45,8 @@ const realSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sleep = realSleep, log = console.warn, relays = [] } = {}) {
     let nextSlot = 0;
+    // Requests dropped because the queue was too long: people saw older arrivals
+    const dropped = hourCounter(now);
 
     // Per route: consecutive failures, and while resting, the time it may be
     // tried again. After a rest, a single request probes it (`probing`) while
@@ -111,7 +114,10 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
     // the parsed JSON (OASA answers `null` for "nothing"), or throws OasaUnavailable.
     async function request(act, p1) {
         if (!routes.some(usable)) throw new OasaUnavailable('OASA is failing — paused');
-        if (!await waitForSlot()) throw new OasaUnavailable('Request budget exhausted');
+        if (!await waitForSlot()) {
+            dropped.add();
+            throw new OasaUnavailable('Request budget exhausted');
+        }
 
         let lastError = new Error('OASA is failing — paused');
         // Decided only now, after waiting: a route may have been rested meanwhile
@@ -130,6 +136,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
     function status() {
         return {
             at: now(),
+            droppedLastHour: dropped.count(),
             routes: routes.map(r => ({
                 name: r.name,
                 resting: now() < r.restUntil,

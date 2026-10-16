@@ -112,7 +112,10 @@ export function createArrivals({ client, routesFile, now = Date.now, log = conso
         return pending;
     }
 
-    return { stopArrivals };
+    // Whether asking for this stop now costs no new request to OASA
+    const isCached = stop => inflight.has(stop) || now() - (cache.get(stop)?.at ?? -Infinity) < ARRIVALS_TTL_MS;
+
+    return { stopArrivals, isCached };
 }
 
 // Bring an old answer up to date: subtract the minutes that have passed since
