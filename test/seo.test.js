@@ -27,8 +27,38 @@ before(async () => {
 });
 after(() => server.close());
 
-test('the home page and every tool are indexed', () => {
-    assert.deepEqual(indexed, ['/', ...tools.map(t => t.path)]);
+test('the home page, every tool and the about, privacy and contact pages are indexed', () => {
+    assert.deepEqual(indexed, ['/', ...tools.map(t => t.path), '/about', '/privacy', '/contact']);
+});
+
+test('the about, privacy and contact pages are written in each language and linked from every page', async () => {
+    for (const name of ['about', 'privacy', 'contact']) {
+        assert.match(pages[`/${name}`], /<html lang="en" data-page-lang="en" data-static-language/);
+        assert.match(pages[`/el/${name}`], /<html lang="el" data-page-lang="el" data-static-language/);
+    }
+    assert.match(pages['/privacy'], /<h1>Privacy<\/h1>[\s\S]*Last updated: 16 October 2026/);
+    assert.match(pages['/el/privacy'], /<h1>Απόρρητο<\/h1>[\s\S]*Τελευταία ενημέρωση: 16 Οκτωβρίου 2026/);
+    for (const path of ['/', '/subway', '/el/info']) {
+        const footer = pages[path].match(/<footer class="site-footer"[\s\S]*?<\/footer>/)[0];
+        const prefix = path.startsWith('/el') ? '/el' : '';
+        for (const name of ['about', 'privacy', 'contact']) assert.ok(footer.includes(`href="${prefix}/${name}"`), `${path} links to ${name}`);
+    }
+    assert.match(pages['/el/subway'], /href="\/el\/privacy" data-i18n="footer\.privacy">Απόρρητο</);
+});
+
+test('the contact page shows CONTACT_EMAIL, and leaves it out when unset', () => {
+    const saved = process.env.CONTACT_EMAIL;
+    try {
+        process.env.CONTACT_EMAIL = 'hello@wayhop.example';
+        assert.match(renderPages(tools).pages['/contact'], /Email: <a href="mailto:hello@wayhop\.example">hello@wayhop\.example<\/a>/);
+        delete process.env.CONTACT_EMAIL;
+        const html = renderPages(tools).pages['/el/contact'];
+        assert.doesNotMatch(html, /mailto:/);
+        assert.match(html, /github\.com\/adiamandouros\/move\/issues/);
+    } finally {
+        if (saved === undefined) delete process.env.CONTACT_EMAIL;
+        else process.env.CONTACT_EMAIL = saved;
+    }
 });
 
 const alternates = html => Object.fromEntries([...head(html).matchAll(/<link rel="alternate" hreflang="([^"]+)" href="([^"]+)">/g)].map(m => m.slice(1)));

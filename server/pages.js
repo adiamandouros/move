@@ -11,6 +11,11 @@ const VIEWS_DIR  = join(ROOT, 'server', 'views');
 const TOOLS_DIR  = join(ROOT, 'tools');
 const PUBLIC_DIR = join(ROOT, 'public');
 
+// Pages of text (server/views/pages/<name>.<lang>.html), one file per language
+const TEXT_PAGES = ['about', 'privacy', 'contact'];
+// When privacy.<lang>.html last changed in substance (shown on the page)
+const PRIVACY_UPDATED = { en: '16 October 2026', el: '16 Οκτωβρίου 2026' };
+
 const require = createRequire(import.meta.url);
 const packageDir = name => dirname(require.resolve(`${name}/package.json`));
 
@@ -227,7 +232,7 @@ export function renderPages(tools = loadTools()) {
     const view = name => readFileSync(join(VIEWS_DIR, `${name}.html`), 'utf8');
     const shellStrings = JSON.parse(readFileSync(join(VIEWS_DIR, 'strings.json'), 'utf8'));
     // Paths of the pages that exist in both languages (English ones)
-    const pagePaths = ['/', '/offline', ...tools.map(t => t.path), STATIONS_PATH, `${STATIONS_PATH}/*`];
+    const pagePaths = ['/', '/offline', ...tools.map(t => t.path), ...TEXT_PAGES.map(name => `/${name}`), STATIONS_PATH, `${STATIONS_PATH}/*`];
     const pageList = `    <script type="application/json" id="pages">${JSON.stringify(pagePaths)}</script>`;
 
     // path and description are for public pages that belong in search results.
@@ -283,10 +288,30 @@ export function renderPages(tools = loadTools()) {
             });
         }
     }
+    for (const lang of LANGS) {
+        for (const name of TEXT_PAGES) {
+            pages[localPath(`/${name}`, lang)] = render({
+                lang,
+                title: shellStrings[lang][`${name}.title`],
+                path: `/${name}`,
+                description: shellStrings[lang][`${name}.description`],
+                content: fill(view(`pages/${name}.${lang}`), { updated: PRIVACY_UPDATED[lang], email: contactEmail(shellStrings[lang]) }),
+                staticLanguage: true,
+            });
+        }
+    }
     const notFound = Object.fromEntries(LANGS.map(lang => [lang, render({ lang, title: 'Page not found', titleKey: 'notfound.title', content: view('notfound') })]));
     // The pages search engines should find (English paths), for the sitemap
-    const indexed = ['/', ...tools.map(t => t.path)];
+    const indexed = ['/', ...tools.map(t => t.path), ...TEXT_PAGES.map(name => `/${name}`)];
     return { pages, indexed, notFound, render };
+}
+
+// The contact page's email line: CONTACT_EMAIL (the address OASA also sees),
+// or nothing when it isn't set
+function contactEmail(strings) {
+    const email = process.env.CONTACT_EMAIL;
+    if (!email) return '';
+    return `    <p class="contact-email"><i class="bi bi-envelope me-2" aria-hidden="true"></i>${strings['contact.email']} <a href="mailto:${escapeAttr(email)}">${escapeText(email)}</a></p>`;
 }
 
 // ── robots.txt and sitemap ──────────────────────────────────────────────────
