@@ -1,7 +1,8 @@
 const listeners = new Set();
 
+// The saved choice, or else the page's own language (Greek under /el)
 export function getLanguage() {
-    return localStorage.getItem('language') ?? 'en';
+    return localStorage.getItem('language') ?? document.documentElement.dataset.pageLang ?? 'en';
 }
 
 export function setLanguage(lang) {

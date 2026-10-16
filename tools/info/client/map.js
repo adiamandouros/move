@@ -1,5 +1,5 @@
 import { escapeHtml } from '/js/core/html.js';
-import { t } from '/js/core/i18n.js';
+import { localHref, t } from '/js/core/i18n.js';
 import { getLanguage } from '/js/core/settings.js';
 import { BENDS, DASHED, STATIONS } from './map-layout.js';
 
@@ -212,7 +212,7 @@ export function createMetroMap(container, rail) {
     // A tap on a station opens the directions to it, unless it ended a drag
     svg.addEventListener('click', e => {
         const station = e.target.closest('.map-station');
-        if (station && moved <= 6) location.href = `/subway?to=${encodeURIComponent(station.dataset.station)}`;
+        if (station && moved <= 6) location.href = localHref(`/subway?to=${encodeURIComponent(station.dataset.station)}`);
     });
 
     draw();
@@ -230,7 +230,7 @@ export function stationList(rail) {
         const items = ids.map(id => {
             const others = rail.stations[id].lines.filter(l => l !== lineId);
             const change = others.length ? ` <span class="station-change">· ${t('info.change-to')} ${others.join(', ')}</span>` : '';
-            return `<li><a href="/subway?to=${encodeURIComponent(id)}">${escapeHtml(name(id))}</a>${change}</li>`;
+            return `<li><a href="${localHref(`/subway?to=${encodeURIComponent(id)}`)}">${escapeHtml(name(id))}</a>${change}</li>`;
         }).join('');
         return `<h4 class="station-line"><span class="line-badge line-${lineId.toLowerCase()}">${lineId}</span> ${escapeHtml(name(ids[0]))} – ${escapeHtml(name(ids.at(-1)))}</h4>
             <ol class="station-stops">${items}</ol>`;

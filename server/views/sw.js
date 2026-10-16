@@ -62,7 +62,7 @@ async function staleWhileRevalidate(e, request, isPage = false) {
         e.waitUntil(network.catch(() => {}));
         return cached;
     }
-    return network.catch(() => isPage ? offlinePage() : Response.error());
+    return network.catch(() => isPage ? offlinePage(request) : Response.error());
 }
 
 async function networkFirst(request) {
@@ -72,7 +72,7 @@ async function networkFirst(request) {
         if (res.ok) cache.put(request, res.clone());
         return res;
     } catch {
-        return (await cache.match(request)) ?? offlinePage();
+        return (await cache.match(request)) ?? offlinePage(request);
     }
 }
 
@@ -90,6 +90,8 @@ async function cacheFirst(request) {
     return res;
 }
 
-async function offlinePage() {
-    return (await caches.match('/offline')) ?? Response.error();
+// In the page's language: /el/… pages get /el/offline
+async function offlinePage(request) {
+    const greek = /^\/el(\/|$)/.test(new URL(request.url).pathname);
+    return (await caches.match(greek ? '/el/offline' : '/offline')) ?? Response.error();
 }
