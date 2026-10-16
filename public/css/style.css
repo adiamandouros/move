@@ -1318,6 +1318,39 @@ html:not([lang="el"]) main [lang="el"]:not(.any-lang) {
     color: #9aa3b2;
 }
 
+/* ── Ads (server/ads.js) ── */
+
+/* A fixed size, so nothing moves when the ad arrives */
+.ad-slot {
+    max-width: 728px;
+    margin: 24px auto 0;
+    padding: 0 16px;
+}
+
+.ad-label {
+    font-size: 0.75rem;
+    color: #9aa3b2;
+    margin-bottom: 4px;
+    text-align: center;
+}
+
+.ad-unit {
+    display: block;
+    width: 100%;
+    height: 100px;
+}
+
+@media (min-width: 768px) {
+    .ad-unit {
+        height: 90px;
+    }
+}
+
+/* No ad to show: no empty box */
+.ad-slot:has(ins[data-ad-status="unfilled"]) {
+    display: none;
+}
+
 /* ── Accessibility helpers ── */
 
 /* Bootstrap's .text-secondary is a fixed grey (#6c757d) that fails contrast
