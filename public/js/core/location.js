@@ -24,9 +24,15 @@ function onError(err) {
     console.warn('Location watch error:', err.message);
 }
 
+// A precise GPS fix can take 5–15 s indoors, so ask for a quick one too: a
+// recent or approximate position the phone already has. It's only used if it
+// comes first; the watch then refines it (and tools re-pick when you've moved).
+const QUICK_FIX = { enableHighAccuracy: false, maximumAge: 5 * 60_000, timeout: 10_000 };
+
 function startWatch() {
     if (watchId !== null) return;
     if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(pos => { if (!currentCoords) onPosition(pos); }, () => {}, QUICK_FIX);
     watchId = navigator.geolocation.watchPosition(onPosition, onError, {
         enableHighAccuracy: true,
     });
