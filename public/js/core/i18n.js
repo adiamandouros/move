@@ -34,7 +34,7 @@ export function translatePage() {
         });
     }
     const titleKey = document.documentElement.dataset.titleKey;
-    if (titleKey) document.title = `${t(titleKey)} — Move`;
+    if (titleKey) document.title = `${t(titleKey)} — Wayhop`;
     document.querySelectorAll('.lang-opt').forEach(opt => {
         opt.classList.toggle('active', opt.dataset.lang === getLanguage());
     });

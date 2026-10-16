@@ -1,5 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
 import express from 'express';
 import { createPages, loadTools, localPath, renderPages } from '../server/pages.js';
 
@@ -39,7 +40,8 @@ for (const path of indexed.flatMap(p => [p, localPath(p, 'el')])) {
         assert.equal(canonical(html), `https://move.example${path}`);
         assert.equal(meta(html, 'property', 'og:url'), `https://move.example${path}`);
         assert.equal(meta(html, 'property', 'og:title'), html.match(/<title>(.*?)<\/title>/)[1]);
-        assert.match(meta(html, 'property', 'og:image'), /^https:\/\/move\.example\/icon\/.+\.png$/);
+        assert.equal(meta(html, 'property', 'og:image'), 'https://move.example/icon/og-image.png');
+        assert.equal(meta(html, 'name', 'twitter:card'), 'summary_large_image');
         assert.equal(meta(html, 'name', 'robots'), undefined);
     });
 }
@@ -63,12 +65,12 @@ for (const path of indexed) {
 test('Greek pages are in Greek before any script runs', () => {
     const html = pages['/el/subway'];
     assert.match(html, /<html lang="el" data-page-lang="el"/);
-    assert.equal(html.match(/<title>(.*?)<\/title>/)[1], 'Μετρό — Move');
+    assert.equal(html.match(/<title>(.*?)<\/title>/)[1], 'Μετρό — Wayhop');
     assert.equal(meta(html, 'name', 'description'), tools.find(t => t.id === 'subway').description.el);
     assert.equal(meta(html, 'property', 'og:locale'), 'el_GR');
     assert.match(html, /data-i18n="shell\.skip">Μετάβαση στο περιεχόμενο</);
     // Links to pages stay in Greek; other links don't change
-    assert.match(html, /href="\/el"[^>]*>Move</);
+    assert.match(html, /href="\/el"[^>]*>.*?wayhop</);
     assert.match(html, /href="\/el\/buses"/);
     assert.doesNotMatch(html, /<a [^>]*href="\/(subway|buses|info)"/);
     assert.match(html, /href="\/icon\/site\.webmanifest"/);
@@ -96,7 +98,7 @@ test('the Greek pages are served and work offline', async () => {
     assert.match(sw, /'\/el\/offline'/);
 });
 
-test('the home page describes Move as a web app', () => {
+test('the home page describes Wayhop as a web app', () => {
     const data = JSON.parse(pages['/'].match(/<script type="application\/ld\+json">(.*?)<\/script>/)[1]);
     assert.equal(data['@type'], 'WebApplication');
     assert.equal(data.url, 'https://move.example/');
@@ -114,6 +116,14 @@ test('without SITE_URL the pages leave out absolute URLs', () => {
     } finally {
         process.env.SITE_URL = saved;
     }
+});
+
+test('the share image and every manifest icon exist', () => {
+    assert.ok(existsSync('public/icon/og-image.png'));
+    const manifest = JSON.parse(readFileSync('public/icon/site.webmanifest', 'utf8'));
+    assert.equal(manifest.name, 'Wayhop');
+    for (const icon of manifest.icons) assert.ok(existsSync('public' + icon.src), icon.src);
+    assert.deepEqual(new Set(manifest.icons.map(i => i.purpose)), new Set(['any', 'maskable']));
 });
 
 test('robots.txt keeps crawlers off the API and points at the sitemap', async () => {

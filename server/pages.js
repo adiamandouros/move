@@ -150,23 +150,26 @@ function metaTags({ path, lang, title, description }) {
         url && `<link rel="canonical" href="${url}">`,
         ...alternates,
         '<meta property="og:type" content="website">',
-        '<meta property="og:site_name" content="Move">',
+        '<meta property="og:site_name" content="Wayhop">',
         `<meta property="og:locale" content="${LOCALES[lang]}">`,
         ...LANGS.filter(l => l !== lang).map(l => `<meta property="og:locale:alternate" content="${LOCALES[l]}">`),
         `<meta property="og:title" content="${escapeAttr(title)}">`,
         `<meta property="og:description" content="${escapeAttr(description)}">`,
         url && `<meta property="og:url" content="${url}">`,
-        origin && `<meta property="og:image" content="${origin}/icon/web-app-manifest-512x512.png">`,
-        '<meta name="twitter:card" content="summary">',
+        origin && `<meta property="og:image" content="${origin}/icon/og-image.png">`,
+        origin && '<meta property="og:image:width" content="1200">',
+        origin && '<meta property="og:image:height" content="630">',
+        origin && '<meta property="og:image:alt" content="Wayhop: live buses and metro in Athens">',
+        '<meta name="twitter:card" content="summary_large_image">',
     ].filter(Boolean).map(tag => `    ${tag}`).join('\n');
 }
 
-// Structured data for the home page, so search results can show Move as a free web app
+// Structured data for the home page, so search results can show Wayhop as a free web app
 function appData(description, lang) {
     const data = {
         '@context': 'https://schema.org',
         '@type': 'WebApplication',
-        name: 'Move',
+        name: 'Wayhop',
         description,
         ...(siteUrl() && { url: siteUrl() + localPath('/', lang) }),
         applicationCategory: 'TravelApplication',
@@ -226,7 +229,7 @@ export function renderPages(tools = loadTools()) {
     const render = ({ lang = 'en', active = null, title, titleKey = '', path = null, description = '', content, own, scripts = [], head = '' }) => {
         const strings = pageStrings(shellStrings, tools, own);
         const get = key => strings[lang][key] ?? strings.en[key];
-        const fullTitle = `${(lang !== 'en' && get(titleKey)) || title} — Move`;
+        const fullTitle = `${(lang !== 'en' && get(titleKey)) || title} — Wayhop`;
         return translate(fill(layout, {
             lang,
             title: fullTitle,

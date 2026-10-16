@@ -14,7 +14,7 @@
     <link rel="icon" type="image/svg+xml" href="/icon/favicon.svg">
     <link rel="shortcut icon" href="/icon/favicon.ico">
     <link rel="apple-touch-icon" sizes="180x180" href="/icon/apple-touch-icon.png">
-    <meta name="apple-mobile-web-app-title" content="Move">
+    <meta name="apple-mobile-web-app-title" content="Wayhop">
     <link rel="manifest" href="/icon/site.webmanifest">
 {{head}}
 </head>
@@ -27,7 +27,7 @@
         <!-- Sidebar (desktop) -->
         <nav id="side-nav" class="d-none d-md-flex flex-column border-end" aria-label="Main navigation">
             <div class="side-nav-brand px-3 py-4">
-                <a href="/" class="fw-bold fs-4 text-primary text-decoration-none">Move</a>
+                <a href="/" class="brand-link text-decoration-none"><img src="/icon/logo.svg" alt="" width="38" height="28"><span>wayhop<span class="brand-dot" aria-hidden="true">.</span></span></a>
             </div>
             <div class="d-flex flex-column flex-grow-1 px-2">
 {{sideNav}}
@@ -93,7 +93,7 @@
                 });
             });
             var titleKey = document.documentElement.getAttribute('data-title-key');
-            if (titleKey && get(titleKey)) document.title = get(titleKey) + ' — Move';
+            if (titleKey && get(titleKey)) document.title = get(titleKey) + ' — Wayhop';
             document.querySelectorAll('.lang-opt').forEach(function (el) {
                 el.classList.toggle('active', el.getAttribute('data-lang') === lang);
             });

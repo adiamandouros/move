@@ -5,7 +5,7 @@ it directly.
 
 OASA's live API only accepts connections from Greek IP addresses (in October
 2026 it timed out from Germany, the Netherlands, France, Italy, Cyprus,
-Bulgaria and the US, while OASA's website answered everywhere). The Move
+Bulgaria and the US, while OASA's website answered everywhere). The Wayhop
 server is in Germany, so live bus times only work through a relay whose
 requests come from Greece.
 
@@ -52,7 +52,7 @@ it, gets a free HTTPS certificate for the home's DDNS name and is the only
 part reachable from the internet.
 
 ```
-Move server (DE) ──HTTPS──▶ router :2087 ──▶ Caddy :443 ──▶ node.js :8787 ──▶ OASA
+Wayhop server (DE) ──HTTPS──▶ router :2087 ──▶ Caddy :443 ──▶ node.js :8787 ──▶ OASA
                             YOUR-NAME.ddns.net              (localhost only)
 ```
 
@@ -166,7 +166,7 @@ Check it from outside: a check-host.net *HTTP* check of
 `https://YOUR-NAME.ddns.net:2087/?act=getStopArrivals&p1=10361` should
 answer `401 Unauthorized` (no key, so refused, as it should be).
 
-Optionally, uncomment the two lines in the Caddyfile that let only the Move
+Optionally, uncomment the two lines in the Caddyfile that let only the Wayhop
 server connect (its IP is on `/admin/diagnostics` under **Internet access**)
 and reload Caddy. Everyone else is then cut off before reaching the relay.
 The key already keeps strangers out, so this only adds a second layer. It
