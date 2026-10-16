@@ -172,46 +172,116 @@ function routedFetch({ directUp }) {
     return { fetch, calls };
 }
 
-test('a failed direct request is retried once through the relay', async () => {
+// Lets background work (a route's test) finish
+const settle = async () => { for (let i = 0; i < 10; i++) await new Promise(resolve => setImmediate(resolve)); };
+
+test('at startup a route with a fallback is tested in the background; visitors use the next route meanwhile', async () => {
     const c = clock();
+    const logs = [];
     const { fetch, calls } = routedFetch({ directUp: () => false });
+    const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: m => logs.push(m), relays: [RELAY] });
+    // A visitor right away doesn't wait for the test
+    assert.deepEqual(await client.request('getStopArrivals', '1'), []);
+    await settle();
+    assert.deepEqual(calls, ['direct', 'relay(k)'], 'the test, then the visitor\'s request through the relay');
+    assert.match(logs.join('\n'), /^\[oasa\] direct can't reach OASA \(blocked\); using the relay — testing it again in 24 h$/m);
+    calls.length = 0;
+    await client.request('getStopArrivals', '1');
+    assert.deepEqual(calls, ['relay(k)']);
+    assert.equal(client.status().routes[0].resting, true);
+});
+
+test('once its test passes, a route is used and the ones behind it are not', async () => {
+    const c = clock();
+    const { fetch, calls } = routedFetch({ directUp: () => true });
     const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: quiet, relays: [RELAY] });
+    await settle();
+    for (let i = 0; i < 3; i++) await client.request('getStopArrivals', '1');
+    assert.deepEqual(calls, ['direct', 'direct', 'direct', 'direct']);
+});
+
+test('the test asks for one central stop', async () => {
+    const c = clock();
+    const urls = [];
+    createOasaClient({ fetch: async url => { urls.push(url); return { ok: true, text: async () => '[]' }; }, now: c.now, sleep: c.sleep, log: quiet, relays: [RELAY] });
+    await settle();
+    assert.deepEqual(urls, ['https://telematics.oasa.gr/api/?act=getStopArrivals&p1=10361']);
+});
+
+test('a working route that fails a request falls through to the next one', async () => {
+    const c = clock();
+    let up = true;
+    const { fetch, calls } = routedFetch({ directUp: () => up });
+    const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: quiet, relays: [RELAY] });
+    await settle();
+    up = false;
+    calls.length = 0;
     assert.deepEqual(await client.request('getStopArrivals', '1'), []);
     assert.deepEqual(calls, ['direct', 'relay(k)']);
 });
 
-test('the relay is not used while direct access works', async () => {
+test('after 5 failures in a row a route rests a day, then is tested again in the background', async () => {
     const c = clock();
-    const { fetch, calls } = routedFetch({ directUp: () => true });
-    const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: quiet, relays: [RELAY] });
-    for (let i = 0; i < 3; i++) await client.request('getStopArrivals', '1');
-    assert.deepEqual(calls, ['direct', 'direct', 'direct']);
-});
-
-test('after 5 direct failures only the relay is used for a day, then direct is tried again', async () => {
-    const c = clock();
-    let up = false;
+    let up = true;
     const logs = [];
     const { fetch, calls } = routedFetch({ directUp: () => up });
     const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: m => logs.push(m), relays: [RELAY] });
-
+    await settle();
+    up = false;
     for (let i = 0; i < 5; i++) await client.request('getStopArrivals', '1');
     assert.match(logs.join(), /5 direct failures in a row.*resting it for 24 h — using the relay meanwhile/);
-    calls.length = 0;
 
+    calls.length = 0;
     c.advance(23 * 3_600_000 + 59 * 60_000);
     await client.request('getStopArrivals', '1');
     assert.deepEqual(calls, ['relay(k)']);
 
+    // The rest is over and direct works again: the next visitor still goes through
+    // the relay while direct is tested, and later visitors go direct
     up = true;
     c.advance(60_001);
     calls.length = 0;
     await client.request('getStopArrivals', '1');
-    assert.deepEqual(calls, ['direct']);
+    await settle();
+    assert.deepEqual(calls.toSorted(), ['direct', 'relay(k)']);
     assert.match(logs.at(-1), /direct access is working again/);
+    calls.length = 0;
+    await client.request('getStopArrivals', '1');
+    assert.deepEqual(calls, ['direct']);
 });
 
-test('when both routes fail the request is unavailable, and each fallback still counts against the rate limit', async () => {
+test('a route that fails its test is tested again a day later, quietly', async () => {
+    const c = clock();
+    const logs = [];
+    const { fetch, calls } = routedFetch({ directUp: () => false });
+    const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: m => logs.push(m), relays: [RELAY] });
+    await settle();
+    c.advance(24 * 3_600_000 + 1);
+    calls.length = 0;
+    await client.request('getStopArrivals', '1');
+    await settle();
+    assert.deepEqual(calls.toSorted(), ['direct', 'relay(k)']);
+    assert.equal(logs.length, 1, 'only the first failed test is logged');
+    assert.equal(client.status().routes[0].resting, true);
+});
+
+test('routes with a fallback wait 3 s for an answer, the last route 8 s', async () => {
+    const c = clock();
+    const seen = [];
+    const original = AbortSignal.timeout;
+    AbortSignal.timeout = ms => { seen.push(ms); return original.call(AbortSignal, ms); };
+    try {
+        const { fetch } = routedFetch({ directUp: () => false });
+        const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: quiet, relays: [RELAY] });
+        await client.request('getStopArrivals', '1');
+        await settle();
+    } finally {
+        AbortSignal.timeout = original;
+    }
+    assert.deepEqual(seen.toSorted((a, b) => a - b), [3000, 8000]);
+});
+
+test('the background test and each request take one slot each, however many routes they try', async () => {
     const c = clock();
     const sendAt = [];
     const client = createOasaClient({
@@ -221,19 +291,22 @@ test('when both routes fail the request is unavailable, and each fallback still 
         log: quiet,
         relays: [RELAY],
     });
+    await settle();
     await assert.rejects(client.request('getStopArrivals', '1'), OasaUnavailable);
     await assert.rejects(client.request('getStopArrivals', '1'), OasaUnavailable);
-    // One slot per logical request: the second waits 500 ms, not 1000
-    assert.deepEqual(sendAt, [500]);
+    // The test went at once; each request waits its own 500 ms
+    assert.deepEqual(sendAt, [500, 1000]);
 });
 
 // What the bus page does: several stops requested at the same moment
 test('simultaneous failures put a route to rest once, with one log line', async () => {
     const c = clock();
+    let up = true;
     const logs = [];
-    const { fetch, calls } = routedFetch({ directUp: () => false });
+    const { fetch, calls } = routedFetch({ directUp: () => up });
     const client = createOasaClient({ fetch, now: c.now, sleep: async () => {}, log: m => logs.push(m), relays: [RELAY] });
-
+    await settle();
+    up = false;
     const results = await Promise.all(Array.from({ length: 12 }, () => client.request('getStopArrivals', '1')));
     assert.equal(results.length, 12); // all answered through the relay
     assert.equal(logs.filter(m => m.includes('direct failures')).length, 1);
@@ -291,42 +364,41 @@ function chainFetch(up) {
     return { fetch, calls };
 }
 
-test('routes are tried in order: direct, the relay, then the home relay', async () => {
+test('routes are used in order once their tests pass: direct, the relay, then the home relay', async () => {
     const c = clock();
-    const { fetch, calls } = chainFetch({ direct: false, relay: false, home: true });
+    const { fetch, calls } = chainFetch({ direct: false, relay: true, home: true });
     const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: quiet, relays: [RELAY, HOME] });
-    assert.deepEqual(await client.request('getStopArrivals', '1'), []);
-    assert.deepEqual(calls, ['direct', 'relay', 'home']);
-
-    // An earlier route that works is preferred
-    const second = chainFetch({ direct: false, relay: true, home: true });
-    const client2 = createOasaClient({ fetch: second.fetch, now: c.now, sleep: c.sleep, log: quiet, relays: [RELAY, HOME] });
-    await client2.request('getStopArrivals', '1');
-    assert.deepEqual(second.calls, ['direct', 'relay']);
+    // Before the tests answer, the last route carries the traffic
+    await client.request('getStopArrivals', '1');
+    await settle();
+    assert.deepEqual(calls.toSorted(), ['direct', 'home', 'relay']);
+    // Then the earliest working route
+    calls.length = 0;
+    await client.request('getStopArrivals', '1');
+    assert.deepEqual(calls, ['relay']);
 });
 
 // Today's production: OASA blocks both the server and the Worker
-test('with direct and the relay blocked, both rest a day and the home relay carries the traffic', async () => {
+test('with direct and the relay blocked, no visitor ever waits on them', async () => {
     const c = clock();
     const logs = [];
     const { fetch, calls } = chainFetch({ direct: false, relay: false, home: true });
     const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: m => logs.push(m), relays: [RELAY, HOME] });
+    await settle();
+    assert.match(logs.join('\n'), /direct can't reach OASA \(direct down\); using the relay/);
+    assert.match(logs.join('\n'), /relay can't reach OASA \(relay down\); using the home relay — testing it again in 24 h/);
 
+    // Every visitor's request goes straight to the home relay
+    calls.length = 0;
     for (let i = 0; i < 5; i++) await client.request('getStopArrivals', '1');
-    assert.match(logs.join('\n'), /5 direct failures.*using the relay meanwhile/);
-    assert.match(logs.join('\n'), /5 relay failures.*resting it for 24 h — using the home relay meanwhile/);
+    assert.deepEqual(calls, Array(5).fill('home'));
 
-    // Steady state: straight to the home relay, no time lost on blocked routes
-    calls.length = 0;
-    c.advance(23 * 3_600_000 + 59 * 60_000);
-    await client.request('getStopArrivals', '1');
-    assert.deepEqual(calls, ['home']);
-
-    // After the rest, one request probes the earlier routes again
-    c.advance(60_001);
+    // A day later both are tested again in the background; the visitor still goes home
+    c.advance(24 * 3_600_000 + 1);
     calls.length = 0;
     await client.request('getStopArrivals', '1');
-    assert.deepEqual(calls, ['direct', 'relay', 'home']);
+    await settle();
+    assert.deepEqual(calls.toSorted(), ['direct', 'home', 'relay']);
 });
 
 test('the last route rests only a minute, since nothing comes after it', async () => {
@@ -334,6 +406,7 @@ test('the last route rests only a minute, since nothing comes after it', async (
     const logs = [];
     const { fetch } = chainFetch({ direct: false, relay: false, home: false });
     const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: m => logs.push(m), relays: [RELAY, HOME] });
+    await settle();
     for (let i = 0; i < 5; i++) await assert.rejects(client.request('getStopArrivals', '1'), OasaUnavailable);
     assert.match(logs.join('\n'), /5 home relay failures in a row \(last: home down\); resting it for 60 s$/m);
 });

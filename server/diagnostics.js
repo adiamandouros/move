@@ -242,6 +242,10 @@ function appChecks(appStatus, now) {
     for (const r of appStatus.routes) {
         const parts = [`last success ${ago(r.lastOk)}`];
         if (r.lastError) parts.push(`last error ${ago(r.lastError.at)}: ${r.lastError.message}`);
+        if (r.testing) {
+            out.push(check('Running app', `Route: ${r.name}`, 'ok', `Being tested in the background (visitors use the next route meanwhile); ${parts.join('; ')}`));
+            continue;
+        }
         out.push(r.resting
             ? check('Running app', `Route: ${r.name}`, 'warn', `Resting until ${new Date(r.restUntil).toISOString().slice(0, 16).replace('T', ' ')} UTC after repeated failures; ${parts.join('; ')}`)
             : check('Running app', `Route: ${r.name}`, r.lastError && (!r.lastOk || r.lastError.at > r.lastOk) ? 'warn' : 'ok', parts.join('; ')));

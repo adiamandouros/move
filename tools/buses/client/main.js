@@ -31,6 +31,8 @@ const state = {
     paused: false,
     hideEmpty: false,
     polling: false,
+    // Stops changed during a poll (e.g. a better location fix): poll again after it
+    pollAgain: false,
 };
 
 // ── Rendering ───────────────────────────────────────────────────────────────
@@ -100,22 +102,34 @@ function pickStops() {
     renderStops();
 }
 
+// One request per stop, so each stop shows as soon as its arrivals are in: the
+// server asks OASA for stops it hasn't cached one after another (about 2 a
+// second), so a single request for all of them waited for the slowest.
 async function poll() {
-    if (state.polling || state.paused || document.hidden || !state.stops.length) return;
+    if (state.paused || document.hidden || !state.stops.length) return;
+    if (state.polling) {
+        state.pollAgain = true;
+        return;
+    }
     state.polling = true;
-    try {
-        const codes = state.stops.map(s => s.code).join(',');
-        const res = await fetch(`/api/arrivals?stops=${codes}`, { signal: AbortSignal.timeout(20_000) });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const { stops } = await res.json();
-        Object.assign(state.results, stops);
-    } catch {
-        // Offline or server trouble: keep what we have, but say live times are unavailable for stops with nothing yet
-        for (const s of state.stops) state.results[s.code] ??= { arrivals: [], unavailable: true };
-    } finally {
-        state.polling = false;
-        state.lastPoll = Date.now();
-        patchAll();
+    await Promise.all(state.stops.map(async stop => {
+        try {
+            const res = await fetch(`/api/arrivals?stops=${stop.code}`, { signal: AbortSignal.timeout(20_000) });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            Object.assign(state.results, (await res.json()).stops);
+        } catch {
+            // Offline or server trouble: keep what we have, but say live times are unavailable if there's nothing yet
+            state.results[stop.code] ??= { arrivals: [], unavailable: true };
+        }
+        const item = accordion.querySelector(`[data-stop="${stop.code}"]`);
+        if (item) patchStop(item, stop, state.results[stop.code]);
+    }));
+    state.polling = false;
+    state.lastPoll = Date.now();
+    patchAll();
+    if (state.pollAgain) {
+        state.pollAgain = false;
+        poll();
     }
 }
 
