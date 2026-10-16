@@ -4,6 +4,17 @@ import { getLanguage } from './settings.js';
 // strings.json) into a <script id="strings"> element, so no extra request is
 // needed and translations work offline.
 const strings = JSON.parse(document.getElementById('strings')?.textContent ?? '{}');
+// Paths of the pages that exist in both languages
+const pages = JSON.parse(document.getElementById('pages')?.textContent ?? '[]');
+
+// A link to one of the pages (with any ?query or #hash) in the current
+// language: '/subway?to=x' → '/el/subway?to=x' in Greek. Other links are kept.
+export function localHref(href) {
+    const [, path, rest] = href.match(/^(\/[^?#]*)(.*)$/) ?? [];
+    const base = path?.replace(/^\/el(?=\/|$)/, '') || '/';
+    if (!path || !pages.includes(base)) return href;
+    return (getLanguage() === 'el' ? (base === '/' ? '/el' : `/el${base}`) : base) + rest;
+}
 
 export function t(key) {
     const lang = getLanguage();
@@ -23,10 +34,12 @@ export function translatePage() {
         });
     }
     const titleKey = document.documentElement.dataset.titleKey;
-    if (titleKey) document.title = `${t(titleKey)} — Move`;
+    if (titleKey) document.title = `${t(titleKey)} — Wayhop`;
     document.querySelectorAll('.lang-opt').forEach(opt => {
         opt.classList.toggle('active', opt.dataset.lang === getLanguage());
     });
+    document.querySelectorAll('a[href^="/"]').forEach(a => a.setAttribute('href', localHref(a.getAttribute('href'))));
+    history.replaceState(history.state, '', localHref(location.pathname) + location.search + location.hash);
 }
 
 // Fill {name} placeholders: format(t('subway.ride'), { min: 12 })
