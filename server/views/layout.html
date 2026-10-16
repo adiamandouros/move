@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{lang}}" data-page-lang="{{lang}}" data-bs-theme="dark" data-title-key="{{titleKey}}">
+<html lang="{{lang}}" data-page-lang="{{lang}}"{{staticLanguage}} data-bs-theme="dark" data-title-key="{{titleKey}}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -79,6 +79,28 @@
             var lang = pageLang;
             try { lang = localStorage.getItem('language') || pageLang; } catch (e) {}
             if (lang === pageLang) return;
+            // Links to pages (and this page's address) in the chosen language;
+            // "/a/*" in the list of pages stands for every path under /a/
+            var pages = JSON.parse(document.getElementById('pages').textContent);
+            var isPage = function (path) {
+                for (var i = 0; i !== pages.length; i++) {
+                    var p = pages[i];
+                    if (p.slice(-2) === '/*' ? path.indexOf(p.slice(0, -1)) === 0 : p === path) return true;
+                }
+                return false;
+            };
+            var local = function (href) {
+                var m = href.match(/^(\/[^?#]*)(.*)$/);
+                if (!m) return href;
+                var base = m[1].replace(/^\/el(?=\/|$)/, '') || '/';
+                if (!isPage(base)) return href;
+                return (lang === 'el' ? (base === '/' ? '/el' : '/el' + base) : base) + m[2];
+            };
+            // Pages written in one language (the station pages): load the other one
+            if (document.documentElement.hasAttribute('data-static-language')) {
+                location.replace(local(location.pathname) + location.search + location.hash);
+                return;
+            }
             var strings = JSON.parse(document.getElementById('strings').textContent);
             var get = function (key) { return (strings[lang] || {})[key] || strings.en[key]; };
             document.documentElement.lang = lang;
@@ -97,15 +119,6 @@
             document.querySelectorAll('.lang-opt').forEach(function (el) {
                 el.classList.toggle('active', el.getAttribute('data-lang') === lang);
             });
-            // Links to pages (and this page's address) in the chosen language
-            var pages = JSON.parse(document.getElementById('pages').textContent);
-            var local = function (href) {
-                var m = href.match(/^(\/[^?#]*)(.*)$/);
-                if (!m) return href;
-                var base = m[1].replace(/^\/el(?=\/|$)/, '') || '/';
-                if (pages.indexOf(base) === -1) return href;
-                return (lang === 'el' ? (base === '/' ? '/el' : '/el' + base) : base) + m[2];
-            };
             document.querySelectorAll('a[href^="/"]').forEach(function (a) {
                 a.setAttribute('href', local(a.getAttribute('href')));
             });

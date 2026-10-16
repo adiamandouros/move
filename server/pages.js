@@ -4,6 +4,7 @@ import { createRequire } from 'module';
 import { dirname, join, relative, sep } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
+import { createStationPages, STATIONS_PATH } from './stations.js';
 
 const ROOT       = join(dirname(fileURLToPath(import.meta.url)), '..');
 const VIEWS_DIR  = join(ROOT, 'server', 'views');
@@ -108,9 +109,13 @@ export const localPath = (path, lang) => lang === 'el' ? (path === '/' ? '/el' :
 // the given language. Mirrors localHref in /js/core/i18n.js.
 function localHref(href, lang, pagePaths) {
     const [, path, rest] = href.match(/^(\/[^?#]*)(.*)$/) ?? [];
-    if (!path || !pagePaths.includes(basePath(path))) return href;
+    if (!path || !isPage(basePath(path), pagePaths)) return href;
     return localPath(basePath(path), lang) + rest;
 }
+
+// Whether a path is one of the pages; "/a/*" in the list stands for every path under /a/
+export const isPage = (path, pagePaths) =>
+    pagePaths.some(p => p.endsWith('/*') ? path.startsWith(p.slice(0, -1)) : p === path);
 
 // The page in one language, as the inline script in layout.html would show it:
 // each data-i18n element's text, data-i18n-<attribute> attributes, and links
@@ -222,16 +227,19 @@ export function renderPages(tools = loadTools()) {
     const view = name => readFileSync(join(VIEWS_DIR, `${name}.html`), 'utf8');
     const shellStrings = JSON.parse(readFileSync(join(VIEWS_DIR, 'strings.json'), 'utf8'));
     // Paths of the pages that exist in both languages (English ones)
-    const pagePaths = ['/', '/offline', ...tools.map(t => t.path)];
+    const pagePaths = ['/', '/offline', ...tools.map(t => t.path), STATIONS_PATH, `${STATIONS_PATH}/*`];
     const pageList = `    <script type="application/json" id="pages">${JSON.stringify(pagePaths)}</script>`;
 
-    // path and description are for public pages that belong in search results
-    const render = ({ lang = 'en', active = null, title, titleKey = '', path = null, description = '', content, own, scripts = [], head = '' }) => {
+    // path and description are for public pages that belong in search results.
+    // staticLanguage: the page is written in one language (the station pages),
+    // so switching language loads the other one instead of translating in place.
+    const render = ({ lang = 'en', active = null, title, titleKey = '', path = null, description = '', content, own, scripts = [], head = '', staticLanguage = false }) => {
         const strings = pageStrings(shellStrings, tools, own);
         const get = key => strings[lang][key] ?? strings.en[key];
         const fullTitle = `${(lang !== 'en' && get(titleKey)) || title} — Wayhop`;
         return translate(fill(layout, {
             lang,
+            staticLanguage: staticLanguage ? ' data-static-language' : '',
             title: fullTitle,
             titleKey,
             meta: metaTags({ path, lang, title: fullTitle, description }),
@@ -357,10 +365,12 @@ function renderServiceWorker(tools, pages) {
 
 // Pages, tool client files and the service worker. Everything is rendered once
 // at startup; `node --watch` restarts the server when these files change.
-export function createPages(tools = loadTools()) {
+export function createPages(tools = loadTools(), { railFile } = {}) {
     const { pages, indexed, notFound, render } = renderPages(tools);
     const serviceWorker = renderServiceWorker(tools, pages);
     const router = express.Router();
+    // The station pages, built from rail.json (when there is one)
+    const stations = railFile ? createStationPages({ railFile, render, tools }) : null;
     // SITE_URL if set, so search engines only ever see the public address
     const origin = req => siteUrl() || `${req.protocol}://${req.get('host')}`;
 
@@ -373,12 +383,14 @@ export function createPages(tools = loadTools()) {
     });
 
     router.get('/sitemap.xml', (req, res) => {
-        res.set('Cache-Control', 'no-cache').type('xml').send(sitemapXml(origin(req), indexed));
+        res.set('Cache-Control', 'no-cache').type('xml').send(sitemapXml(origin(req), [...indexed, ...(stations?.paths() ?? [])]));
     });
 
     for (const [path, html] of Object.entries(pages)) {
         router.get(path, (_req, res) => res.set('Cache-Control', 'no-cache').type('html').send(html));
     }
+
+    if (stations) router.use(stations.router);
 
     for (const tool of tools) router.use(`/tools/${tool.id}`, express.static(tool.clientDir));
 

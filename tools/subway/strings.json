@@ -35,7 +35,8 @@
     "subway.pos.center-front": "Near Front",
     "subway.pos.front": "Front",
     "subway.minutes": "minutes",
-    "subway.options": "options"
+    "subway.options": "options",
+    "subway.all-stations": "All metro stations"
   },
   "el": {
     "subway.boarding-label": "Επιβίβαση στη στάση",
@@ -73,6 +74,7 @@
     "subway.pos.center-front": "Κέντρο-Μπροστά",
     "subway.pos.front": "Μπροστά",
     "subway.minutes": "λεπτά",
-    "subway.options": "επιλογές"
+    "subway.options": "επιλογές",
+    "subway.all-stations": "Όλοι οι σταθμοί του μετρό"
   }
 }

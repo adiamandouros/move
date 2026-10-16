@@ -1195,14 +1195,16 @@ html:not([lang="el"]) main [lang="el"]:not(.any-lang) {
     font-weight: 600;
 }
 
-.info-body ol.station-stops {
+.info-body ol.station-stops,
+.station-view ol.station-stops {
     columns: 2 12rem;
     column-gap: 24px;
     padding-left: 1.6rem;
     margin-bottom: 8px;
 }
 
-.info-body ol.station-stops li {
+.info-body ol.station-stops li,
+.station-view ol.station-stops li {
     margin-top: 0;
     padding: 3px 0;
     break-inside: avoid;
@@ -1211,6 +1213,67 @@ html:not([lang="el"]) main [lang="el"]:not(.any-lang) {
 .station-change {
     font-size: 0.8rem;
     color: #9aa3b2;
+}
+
+/* ── Station pages (/subway/stations) ── */
+
+.station-view {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 24px 16px;
+}
+
+.station-view .breadcrumb-item + .breadcrumb-item::before,
+.station-view .breadcrumb-item.active {
+    color: #9aa3b2;
+}
+
+.station-section {
+    margin-bottom: 24px;
+}
+
+.station-line-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.15rem;
+    margin-bottom: 12px;
+}
+
+.station-direction + .station-direction {
+    margin-top: 12px;
+}
+
+.station-direction .leg-title {
+    margin-bottom: 8px;
+}
+
+.station-neighbours li {
+    padding: 2px 0;
+}
+
+.station-subheading {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 16px 0 8px;
+}
+
+.station-times {
+    --bs-table-bg: transparent;
+    max-width: 320px;
+}
+
+.station-actions .btn-outline-secondary {
+    --bs-btn-color: #9aa3b2;
+    --bs-btn-border-color: #9aa3b2;
+    --bs-btn-hover-color: #0f1117;
+    --bs-btn-hover-bg: #9aa3b2;
+    --bs-btn-hover-border-color: #9aa3b2;
+}
+
+.station-index-link {
+    text-align: center;
+    margin-top: 24px;
 }
 
 /* ── Accessibility helpers ── */
@@ -1233,7 +1296,8 @@ html:not([lang="el"]) main [lang="el"]:not(.any-lang) {
 }
 
 /* Bootstrap's primary blue is slightly too dark on the page background */
-.message-view .btn-outline-primary {
+.message-view .btn-outline-primary,
+.station-actions .btn-outline-primary {
     --bs-btn-color: var(--accent);
     --bs-btn-border-color: var(--accent);
     --bs-btn-hover-bg: var(--accent);
