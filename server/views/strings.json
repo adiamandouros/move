@@ -20,7 +20,18 @@
     "announcements.disruption": "Service disruption",
     "announcements.more": "All announcements",
     "announcements.none-other": "No other announcements.",
-    "shell.new-tab": "(opens in a new tab)"
+    "shell.new-tab": "(opens in a new tab)",
+    "footer.about": "About",
+    "footer.privacy": "Privacy",
+    "footer.contact": "Contact",
+    "footer.label": "About this site",
+    "about.title": "About Wayhop",
+    "about.description": "Wayhop is a free app for getting around Athens: live bus arrivals, metro trips with the best carriage for the exit, and service announcements. Where its information comes from.",
+    "privacy.title": "Privacy",
+    "privacy.description": "Wayhop has no accounts, uses no cookies or analytics and doesn't track you. What stays on your device and what reaches the server.",
+    "contact.title": "Contact",
+    "contact.description": "Report wrong information or a problem with Wayhop, the Athens public transport app.",
+    "contact.email": "Email:"
   },
   "el": {
     "shell.skip": "Μετάβαση στο περιεχόμενο",
@@ -43,6 +54,17 @@
     "announcements.disruption": "Διακοπή λειτουργίας",
     "announcements.more": "Όλες οι ανακοινώσεις",
     "announcements.none-other": "Δεν υπάρχουν άλλες ανακοινώσεις.",
-    "shell.new-tab": "(ανοίγει σε νέα καρτέλα)"
+    "shell.new-tab": "(ανοίγει σε νέα καρτέλα)",
+    "footer.about": "Σχετικά",
+    "footer.privacy": "Απόρρητο",
+    "footer.contact": "Επικοινωνία",
+    "footer.label": "Σχετικά με τον ιστότοπο",
+    "about.title": "Σχετικά με το Wayhop",
+    "about.description": "Το Wayhop είναι δωρεάν εφαρμογή για τις μετακινήσεις στην Αθήνα: αφίξεις λεωφορείων σε πραγματικό χρόνο, διαδρομές με το μετρό με το καλύτερο βαγόνι για την έξοδο και ανακοινώσεις. Από πού προέρχονται οι πληροφορίες.",
+    "privacy.title": "Απόρρητο",
+    "privacy.description": "Το Wayhop δεν έχει λογαριασμούς, δεν χρησιμοποιεί cookies ή εργαλεία στατιστικών και δεν σας παρακολουθεί. Τι μένει στη συσκευή σας και τι φτάνει στον διακομιστή.",
+    "contact.title": "Επικοινωνία",
+    "contact.description": "Αναφέρετε λανθασμένες πληροφορίες ή ένα πρόβλημα στο Wayhop, την εφαρμογή για τα μέσα μαζικής μεταφοράς της Αθήνας.",
+    "contact.email": "Email:"
   }
 }
