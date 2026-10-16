@@ -10,7 +10,7 @@ import { renderPages } from '../server/pages.js';
 // accessibility" button on /admin/diagnostics runs axe-core on the live pages.
 
 const { pages, notFound } = renderPages();
-const all = { ...pages, '(404)': notFound };
+const all = { ...pages, '(404)': notFound.en, '(404, Greek)': notFound.el };
 
 const main = html => html.match(/<main[^>]*>([\s\S]*)<\/main>/)[1];
 const attr = (tag, name) => tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1];

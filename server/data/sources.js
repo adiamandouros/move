@@ -9,7 +9,7 @@ import { createExtractorFromFile } from 'node-unrar-js';
 // stops_260518.csv → stops_260901.csv) are picked up without code changes.
 const CKAN_API = 'https://catalog.growthfund.gr/api/3/action/package_show?id=';
 
-export const USER_AGENT = `Move (Athens transit web app${process.env.CONTACT_EMAIL ? `; ${process.env.CONTACT_EMAIL}` : ''})`;
+export const USER_AGENT = `Wayhop (Athens transit web app${process.env.CONTACT_EMAIL ? `; ${process.env.CONTACT_EMAIL}` : ''})`;
 
 const API_TIMEOUT_MS = 30_000;
 const DOWNLOAD_TIMEOUT_MS = 10 * 60_000;

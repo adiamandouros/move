@@ -71,7 +71,7 @@ app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 app.use(pages.notFound);
 
 app.listen(PORT, () => {
-    console.log(`Move app running at http://localhost:${PORT}`);
+    console.log(`Wayhop running at http://localhost:${PORT}`);
     for (const r of relays) console.log(`[oasa] Fallback ${r.name}: ${new URL(r.url).host}`);
     startScheduler();
 });

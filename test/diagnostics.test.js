@@ -132,7 +132,7 @@ test('requests over the OASA budget or over a visitor\'s limit are reported', as
 
 test('formatReport lists the summary, every check and its hint', async () => {
     const text = formatReport(await run(world(), { env: {} }));
-    assert.match(text, /^Move diagnostics, 2026-10-03T12:00:00\.000Z\n\n\[ OK \]/);
+    assert.match(text, /^Wayhop diagnostics, 2026-10-03T12:00:00\.000Z\n\n\[ OK \]/);
     assert.match(text, /\[WARN\] Contact email: CONTACT_EMAIL is not set\n {9}→ Set it in \.env/);
 });
 

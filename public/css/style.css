@@ -64,6 +64,27 @@ body {
     border-color: #1e2538 !important;
 }
 
+/* Brand: the hop-and-ring mark with the lowercase wordmark */
+
+.brand-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #e8eaf0;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+}
+
+.brand-link:hover {
+    color: #fff;
+}
+
+.brand-dot {
+    color: #ffc107;
+}
+
 /* ── Main content ── */
 
 #app-content {

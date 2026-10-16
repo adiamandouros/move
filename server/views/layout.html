@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="dark" data-title-key="{{titleKey}}">
+<html lang="{{lang}}" data-page-lang="{{lang}}" data-bs-theme="dark" data-title-key="{{titleKey}}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,7 +14,7 @@
     <link rel="icon" type="image/svg+xml" href="/icon/favicon.svg">
     <link rel="shortcut icon" href="/icon/favicon.ico">
     <link rel="apple-touch-icon" sizes="180x180" href="/icon/apple-touch-icon.png">
-    <meta name="apple-mobile-web-app-title" content="Move">
+    <meta name="apple-mobile-web-app-title" content="Wayhop">
     <link rel="manifest" href="/icon/site.webmanifest">
 {{head}}
 </head>
@@ -27,7 +27,7 @@
         <!-- Sidebar (desktop) -->
         <nav id="side-nav" class="d-none d-md-flex flex-column border-end" aria-label="Main navigation">
             <div class="side-nav-brand px-3 py-4">
-                <a href="/" class="fw-bold fs-4 text-primary text-decoration-none">Move</a>
+                <a href="/" class="brand-link text-decoration-none"><img src="/icon/logo.svg" alt="" width="38" height="28"><span>wayhop<span class="brand-dot" aria-hidden="true">.</span></span></a>
             </div>
             <div class="d-flex flex-column flex-grow-1 px-2">
 {{sideNav}}
@@ -69,11 +69,16 @@
     <div id="sr-announcer" aria-live="polite" aria-atomic="true" class="sr-only"></div>
 
     <script type="application/json" id="strings">{{strings}}</script>
+{{pages}}
     <script>
-        // Apply the saved language before the first paint (mirrors translatePage in /js/core/i18n.js)
+        // The page comes in its URL's language (English, or Greek under /el). A saved
+        // choice of the other language is applied before the first paint, and the
+        // address changes to match (mirrors translatePage in /js/core/i18n.js).
         (function () {
-            var lang = 'en';
-            try { lang = localStorage.getItem('language') || 'en'; } catch (e) {}
+            var pageLang = document.documentElement.getAttribute('data-page-lang') || 'en';
+            var lang = pageLang;
+            try { lang = localStorage.getItem('language') || pageLang; } catch (e) {}
+            if (lang === pageLang) return;
             var strings = JSON.parse(document.getElementById('strings').textContent);
             var get = function (key) { return (strings[lang] || {})[key] || strings.en[key]; };
             document.documentElement.lang = lang;
@@ -88,10 +93,23 @@
                 });
             });
             var titleKey = document.documentElement.getAttribute('data-title-key');
-            if (titleKey && get(titleKey)) document.title = get(titleKey) + ' — Move';
+            if (titleKey && get(titleKey)) document.title = get(titleKey) + ' — Wayhop';
             document.querySelectorAll('.lang-opt').forEach(function (el) {
                 el.classList.toggle('active', el.getAttribute('data-lang') === lang);
             });
+            // Links to pages (and this page's address) in the chosen language
+            var pages = JSON.parse(document.getElementById('pages').textContent);
+            var local = function (href) {
+                var m = href.match(/^(\/[^?#]*)(.*)$/);
+                if (!m) return href;
+                var base = m[1].replace(/^\/el(?=\/|$)/, '') || '/';
+                if (pages.indexOf(base) === -1) return href;
+                return (lang === 'el' ? (base === '/' ? '/el' : '/el' + base) : base) + m[2];
+            };
+            document.querySelectorAll('a[href^="/"]').forEach(function (a) {
+                a.setAttribute('href', local(a.getAttribute('href')));
+            });
+            history.replaceState(history.state, '', local(location.pathname) + location.search + location.hash);
         })();
     </script>
     <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>

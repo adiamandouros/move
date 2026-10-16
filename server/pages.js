@@ -94,38 +94,84 @@ function fill(template, values) {
 }
 
 const escapeAttr = text => String(text).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+const escapeText = text => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// ── Languages ───────────────────────────────────────────────────────────────
+
+// English pages are at their plain paths, Greek ones under /el
+export const LANGS = ['en', 'el'];
+export const langOf = path => /^\/el(\/|$)/.test(path) ? 'el' : 'en';
+export const basePath = path => path.replace(/^\/el(?=\/|$)/, '') || '/';
+export const localPath = (path, lang) => lang === 'el' ? (path === '/' ? '/el' : `/el${path}`) : path;
+
+// Links to one of the pages (with any ?query or #hash) point at that page in
+// the given language. Mirrors localHref in /js/core/i18n.js.
+function localHref(href, lang, pagePaths) {
+    const [, path, rest] = href.match(/^(\/[^?#]*)(.*)$/) ?? [];
+    if (!path || !pagePaths.includes(basePath(path))) return href;
+    return localPath(basePath(path), lang) + rest;
+}
+
+// The page in one language, as the inline script in layout.html would show it:
+// each data-i18n element's text, data-i18n-<attribute> attributes, and links
+function translate(html, lang, get, pagePaths) {
+    if (lang === 'en') return html;
+    return html
+        .replace(/(<(\w+)\b[^>]*\sdata-i18n="([^"]+)"[^>]*>)[^<]*(<\/\2>)/g,
+            (match, open, _tag, key, close) => get(key) ? open + escapeText(get(key)) + close : match)
+        .replace(/<[a-z][^>]*>/g, tag => {
+            for (const [, name, key] of tag.matchAll(/\sdata-i18n-([a-z-]+)="([^"]+)"/g)) {
+                if (get(key)) tag = tag.replace(new RegExp(`(\\s${name}=")[^"]*"`), `$1${escapeAttr(get(key))}"`);
+            }
+            return tag;
+        })
+        .replace(/(<a\b[^>]*\shref=")(\/[^"]*)"/g, (_, open, href) => `${open}${localHref(href, lang, pagePaths)}"`);
+}
 
 // The public origin (e.g. https://move.gr), for canonical URLs, the sitemap
 // and link previews. Without SITE_URL the pages leave out what needs it.
 export const siteUrl = () => (process.env.SITE_URL ?? '').replace(/\/+$/, '');
 
+const LOCALES = { en: 'en_US', el: 'el_GR' };
+
 // Search and link-preview tags. Pages without a path (the 404, /offline, the
-// admin pages) are kept out of search results.
-function metaTags({ path, title, description }) {
+// admin pages) are kept out of search results. path is the English one.
+function metaTags({ path, lang, title, description }) {
     if (!path) return '    <meta name="robots" content="noindex">';
     const origin = siteUrl();
-    const url = origin && origin + path;
+    const url = origin && origin + localPath(path, lang);
+    // The same page in each language; English is the default for everyone else
+    const alternates = origin ? [
+        ...LANGS.map(l => `<link rel="alternate" hreflang="${l}" href="${origin}${localPath(path, l)}">`),
+        `<link rel="alternate" hreflang="x-default" href="${origin}${path}">`,
+    ] : [];
     return [
         `<meta name="description" content="${escapeAttr(description)}">`,
         url && `<link rel="canonical" href="${url}">`,
+        ...alternates,
         '<meta property="og:type" content="website">',
-        '<meta property="og:site_name" content="Move">',
+        '<meta property="og:site_name" content="Wayhop">',
+        `<meta property="og:locale" content="${LOCALES[lang]}">`,
+        ...LANGS.filter(l => l !== lang).map(l => `<meta property="og:locale:alternate" content="${LOCALES[l]}">`),
         `<meta property="og:title" content="${escapeAttr(title)}">`,
         `<meta property="og:description" content="${escapeAttr(description)}">`,
         url && `<meta property="og:url" content="${url}">`,
-        origin && `<meta property="og:image" content="${origin}/icon/web-app-manifest-512x512.png">`,
-        '<meta name="twitter:card" content="summary">',
+        origin && `<meta property="og:image" content="${origin}/icon/og-image.png">`,
+        origin && '<meta property="og:image:width" content="1200">',
+        origin && '<meta property="og:image:height" content="630">',
+        origin && '<meta property="og:image:alt" content="Wayhop: live buses and metro in Athens">',
+        '<meta name="twitter:card" content="summary_large_image">',
     ].filter(Boolean).map(tag => `    ${tag}`).join('\n');
 }
 
-// Structured data for the home page, so search results can show Move as a free web app
-function appData(description) {
+// Structured data for the home page, so search results can show Wayhop as a free web app
+function appData(description, lang) {
     const data = {
         '@context': 'https://schema.org',
         '@type': 'WebApplication',
-        name: 'Move',
+        name: 'Wayhop',
         description,
-        ...(siteUrl() && { url: `${siteUrl()}/` }),
+        ...(siteUrl() && { url: siteUrl() + localPath('/', lang) }),
         applicationCategory: 'TravelApplication',
         operatingSystem: 'Any',
         inLanguage: ['en', 'el'],
@@ -165,8 +211,7 @@ function pageStrings(shellStrings, tools, own = {}) {
             if (tool.description) out[lang][`tool.${tool.id}.description`] = tool.description[lang];
         }
     }
-    // Escape "<" so the JSON can't close the surrounding <script> element
-    return JSON.stringify(out).replace(/</g, '\\u003c');
+    return out;
 }
 
 // Every page as HTML, by path (exported for test/accessibility.test.js)
@@ -176,48 +221,62 @@ export function renderPages(tools = loadTools()) {
     const imports = importMap(tools);
     const view = name => readFileSync(join(VIEWS_DIR, `${name}.html`), 'utf8');
     const shellStrings = JSON.parse(readFileSync(join(VIEWS_DIR, 'strings.json'), 'utf8'));
+    // Paths of the pages that exist in both languages (English ones)
+    const pagePaths = ['/', '/offline', ...tools.map(t => t.path)];
+    const pageList = `    <script type="application/json" id="pages">${JSON.stringify(pagePaths)}</script>`;
 
     // path and description are for public pages that belong in search results
-    const render = ({ active = null, title, titleKey = '', path = null, description = '', content, own, scripts = [], head = '' }) => fill(layout, {
-        title: `${title} — Move`,
-        titleKey,
-        meta: metaTags({ path, title: `${title} — Move`, description }),
-        head,
-        importMap: imports,
-        sideNav: navLinks(tools, active, 'side'),
-        bottomNav: navLinks(tools, active, 'bottom'),
-        content,
-        strings: pageStrings(shellStrings, tools, own),
-        scripts: scripts.map(src => `    <script type="module" src="${versioned(src)}"></script>`).join('\n'),
-    });
+    const render = ({ lang = 'en', active = null, title, titleKey = '', path = null, description = '', content, own, scripts = [], head = '' }) => {
+        const strings = pageStrings(shellStrings, tools, own);
+        const get = key => strings[lang][key] ?? strings.en[key];
+        const fullTitle = `${(lang !== 'en' && get(titleKey)) || title} — Wayhop`;
+        return translate(fill(layout, {
+            lang,
+            title: fullTitle,
+            titleKey,
+            meta: metaTags({ path, lang, title: fullTitle, description }),
+            head,
+            importMap: imports,
+            pages: pageList,
+            sideNav: navLinks(tools, active, 'side'),
+            bottomNav: navLinks(tools, active, 'bottom'),
+            content,
+            // Escape "<" so the JSON can't close the surrounding <script> element
+            strings: JSON.stringify(strings).replace(/</g, '\\u003c'),
+            scripts: scripts.map(src => `    <script type="module" src="${versioned(src)}"></script>`).join('\n'),
+        }), lang, get, pagePaths);
+    };
 
-    const homeDescription = shellStrings.en['home.description'];
-    const pages = {
-        '/': render({
+    const pages = {};
+    for (const lang of LANGS) {
+        const description = shellStrings[lang]['home.description'];
+        pages[localPath('/', lang)] = render({
+            lang,
             title: 'Athens transit',
             titleKey: 'home.title',
             path: '/',
-            description: homeDescription,
-            head: appData(homeDescription),
+            description,
+            head: appData(description, lang),
             content: view('home'),
             scripts: ['/js/core/announcements.js'],
-        }),
-        '/offline': render({ title: "You're offline", titleKey: 'offline.title', content: fill(view('offline'), { tiles: tiles(tools.filter(t => t.offline)) }) }),
-    };
-    for (const tool of tools) {
-        pages[tool.path] = render({
-            active: tool.id,
-            title: tool.title.en,
-            titleKey: `tool.${tool.id}.title`,
-            path: tool.path,
-            description: tool.description?.en ?? '',
-            content: tool.page,
-            own: tool.strings,
-            scripts: tool.scripts.map(s => `/tools/${tool.id}/${s}`),
         });
+        pages[localPath('/offline', lang)] = render({ lang, title: "You're offline", titleKey: 'offline.title', content: fill(view('offline'), { tiles: tiles(tools.filter(t => t.offline)) }) });
+        for (const tool of tools) {
+            pages[localPath(tool.path, lang)] = render({
+                lang,
+                active: tool.id,
+                title: tool.title.en,
+                titleKey: `tool.${tool.id}.title`,
+                path: tool.path,
+                description: tool.description?.[lang] ?? '',
+                content: tool.page,
+                own: tool.strings,
+                scripts: tool.scripts.map(s => `/tools/${tool.id}/${s}`),
+            });
+        }
     }
-    const notFound = render({ title: 'Page not found', titleKey: 'notfound.title', content: view('notfound') });
-    // The pages search engines should find, for the sitemap
+    const notFound = Object.fromEntries(LANGS.map(lang => [lang, render({ lang, title: 'Page not found', titleKey: 'notfound.title', content: view('notfound') })]));
+    // The pages search engines should find (English paths), for the sitemap
     const indexed = ['/', ...tools.map(t => t.path)];
     return { pages, indexed, notFound, render };
 }
@@ -228,9 +287,13 @@ export function robotsTxt(origin) {
     return `User-agent: *\nDisallow: /api/\n\nSitemap: ${origin}/sitemap.xml\n`;
 }
 
+// Every indexed page in each language, each listing all its languages
 export function sitemapXml(origin, paths) {
-    const urls = paths.map(path => `    <url><loc>${origin}${path}</loc></url>`).join('\n');
-    return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
+    const alternates = path => [...LANGS.map(lang => [lang, localPath(path, lang)]), ['x-default', path]]
+        .map(([lang, p]) => `        <xhtml:link rel="alternate" hreflang="${lang}" href="${origin}${p}"/>`).join('\n');
+    const urls = paths.flatMap(path => LANGS.map(lang =>
+        `    <url>\n        <loc>${origin}${localPath(path, lang)}</loc>\n${alternates(path)}\n    </url>`)).join('\n');
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${urls}\n</urlset>\n`;
 }
 
 // ── Service worker ──────────────────────────────────────────────────────────
@@ -260,11 +323,13 @@ export function shellFiles() {
 
 function renderServiceWorker(tools, pages) {
     const offlineTools = tools.filter(t => t.offline);
+    // Pages in every language, so the Greek ones work offline too
+    const inLangs = path => LANGS.map(lang => localPath(path, lang));
     const precache = [
-        '/', '/offline',
+        ...inLangs('/'), ...inLangs('/offline'),
         ...shellUrls(),
         ...offlineTools.flatMap(t => [
-            t.path,
+            ...inLangs(t.path),
             ...listFiles(t.clientDir).map(f => versioned(urlPath(`/tools/${t.id}`, t.clientDir, f))),
         ]),
     ];
@@ -284,7 +349,7 @@ function renderServiceWorker(tools, pages) {
         version: hash.digest('hex').slice(0, 12),
         precache: JSON.stringify(precache, null, 4),
         precacheData: JSON.stringify(precacheData, null, 4),
-        offlinePages: JSON.stringify(offlineTools.map(t => t.path)),
+        offlinePages: JSON.stringify(offlineTools.flatMap(t => inLangs(t.path))),
     });
 }
 
@@ -321,6 +386,6 @@ export function createPages(tools = loadTools()) {
         router,
         // Render any other page (e.g. the admin pages) with the shared layout
         render,
-        notFound: (_req, res) => res.status(404).type('html').send(notFound),
+        notFound: (req, res) => res.status(404).type('html').send(notFound[langOf(req.path)]),
     };
 }
