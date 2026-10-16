@@ -42,7 +42,8 @@ const announcements = createAnnouncements({ cacheFile: path.join(__dirname, 'dat
 app.use('/api/announcements', announcements);
 app.use('/api', busApi);
 
-const pages = createPages();
+// Station pages are built from rail.json, so they follow its weekly rebuild
+const pages = createPages(undefined, { railFile: path.join(BUILD_DIR, 'rail.json') });
 app.use(pages.router);
 
 // Private station editor — only exists when ADMIN_PASSWORD is set

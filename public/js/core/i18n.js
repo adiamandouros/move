@@ -12,7 +12,9 @@ const pages = JSON.parse(document.getElementById('pages')?.textContent ?? '[]');
 export function localHref(href) {
     const [, path, rest] = href.match(/^(\/[^?#]*)(.*)$/) ?? [];
     const base = path?.replace(/^\/el(?=\/|$)/, '') || '/';
-    if (!path || !pages.includes(base)) return href;
+    // "/a/*" in the list stands for every path under /a/
+    const isPage = pages.some(p => p.endsWith('/*') ? base.startsWith(p.slice(0, -1)) : p === base);
+    if (!path || !isPage) return href;
     return (getLanguage() === 'el' ? (base === '/' ? '/el' : `/el${base}`) : base) + rest;
 }
 

@@ -2,15 +2,21 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { textOn } from '../public/js/core/html.js';
-import { renderPages } from '../server/pages.js';
+import { loadTools, renderPages } from '../server/pages.js';
+import { renderStationPage } from '../server/stations.js';
+import { rail } from './fixtures/rail.js';
 
 // Accessibility checks on every public page as the server sends it (WCAG 2.2
 // AA basics), and on the colours in style.css. Content drawn by the pages'
 // scripts (announcements, routes, arrivals) isn't here: the "Check
 // accessibility" button on /admin/diagnostics runs axe-core on the live pages.
 
-const { pages, notFound } = renderPages();
-const all = { ...pages, '(404)': notFound.en, '(404, Greek)': notFound.el };
+const { pages, notFound, render } = renderPages();
+const tools = loadTools();
+// The station pages, from a small network (the real rail.json isn't in the repository)
+const stationPages = Object.fromEntries(['en', 'el'].flatMap(lang => [null, 'x', 'a', 'b', 'c'].map(id =>
+    [`(station ${id ?? 'index'}, ${lang})`, renderStationPage(rail, id, lang, { render, tools })])));
+const all = { ...pages, '(404)': notFound.en, '(404, Greek)': notFound.el, ...stationPages };
 
 const main = html => html.match(/<main[^>]*>([\s\S]*)<\/main>/)[1];
 const attr = (tag, name) => tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1];

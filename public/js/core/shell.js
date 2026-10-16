@@ -15,6 +15,9 @@ document.querySelectorAll('.lang-toggle-btn').forEach(btn => {
 });
 
 onLanguageChange(translatePage);
+// Pages written in one language (the station pages): translatePage has just
+// moved the address to the other language's page, so load it
+if (document.documentElement.hasAttribute('data-static-language')) onLanguageChange(() => location.reload());
 
 // ── Service worker ───────────────────────────────────────────────────────────
 
