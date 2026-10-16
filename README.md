@@ -1,4 +1,4 @@
-# Move
+# Wayhop
 
 Copyright (C) 2026 adiamandouros. Licensed under the [GNU General Public License v3.0](LICENSE).
 

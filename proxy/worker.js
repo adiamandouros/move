@@ -1,4 +1,4 @@
-// Cloudflare Worker that relays OASA telematics requests for Move's server.
+// Cloudflare Worker that relays OASA telematics requests for Wayhop's server.
 // The server only uses it when it can't reach OASA directly (e.g. its shared
 // hosting IP is blocked). It is deliberately narrow so it can't be used as an
 // open proxy: a shared secret is required, and only the API calls the app
@@ -45,7 +45,7 @@ export default {
         try {
             const upstream = await fetch(`${OASA_API}?act=${act}&p1=${p1}`, {
                 headers: {
-                    'User-Agent': request.headers.get('User-Agent') ?? 'Move relay',
+                    'User-Agent': request.headers.get('User-Agent') ?? 'Wayhop relay',
                     Accept: 'application/json',
                 },
                 signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -64,7 +64,7 @@ async function stasyPage(request, path) {
     if (!STASY_PATH.test(path) || path.includes('..')) return text(400, 'Bad request');
     try {
         const upstream = await fetch(`${STASY}${path}/`, {
-            headers: { 'User-Agent': request.headers.get('User-Agent') ?? 'Move relay', Accept: 'text/html' },
+            headers: { 'User-Agent': request.headers.get('User-Agent') ?? 'Wayhop relay', Accept: 'text/html' },
             signal: AbortSignal.timeout(STASY_TIMEOUT_MS),
         });
         return new Response(upstream.body, {

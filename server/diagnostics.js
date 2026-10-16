@@ -389,7 +389,7 @@ export async function runDiagnostics({
 // Plain-text report, for the terminal and for copying from the admin page
 export function formatReport({ ranAt, summary, checks }) {
     const mark = { ok: '[ OK ]', warn: '[WARN]', fail: '[FAIL]', info: '[INFO]' };
-    const lines = [`Move diagnostics, ${ranAt}`, '', `${mark[summary.status]} ${summary.text}`];
+    const lines = [`Wayhop diagnostics, ${ranAt}`, '', `${mark[summary.status]} ${summary.text}`];
     let group = '';
     for (const c of checks) {
         if (c.group !== group) { group = c.group; lines.push('', `${group}:`); }
