@@ -11,12 +11,15 @@ import { runDiagnostics } from './server/diagnostics.js';
 import { createBusApi } from './server/oasa/index.js';
 import { RELAYS, relaysFromEnv } from './server/oasa/client.js';
 import { createPages, VENDOR } from './server/pages.js';
+import { canonicalHost } from './server/canonical-host.js';
 import { createAnnouncements } from './server/info/announcements.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 // Behind cPanel's Apache proxy: trust its X-Forwarded-* headers for req.ip and req.secure
 app.set('trust proxy', 'loopback');
+// Other addresses (the old move.sonovabitc.win) redirect to SITE_URL
+app.use(canonicalHost());
 app.use(compression());
 const PORT = process.env.PORT || 3000;
 
