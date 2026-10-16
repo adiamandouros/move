@@ -93,6 +93,47 @@ function fill(template, values) {
     return template.replace(/\{\{(\w+)\}\}/g, (_, key) => values[key] ?? '');
 }
 
+const escapeAttr = text => String(text).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
+// The public origin (e.g. https://move.gr), for canonical URLs, the sitemap
+// and link previews. Without SITE_URL the pages leave out what needs it.
+export const siteUrl = () => (process.env.SITE_URL ?? '').replace(/\/+$/, '');
+
+// Search and link-preview tags. Pages without a path (the 404, /offline, the
+// admin pages) are kept out of search results.
+function metaTags({ path, title, description }) {
+    if (!path) return '    <meta name="robots" content="noindex">';
+    const origin = siteUrl();
+    const url = origin && origin + path;
+    return [
+        `<meta name="description" content="${escapeAttr(description)}">`,
+        url && `<link rel="canonical" href="${url}">`,
+        '<meta property="og:type" content="website">',
+        '<meta property="og:site_name" content="Move">',
+        `<meta property="og:title" content="${escapeAttr(title)}">`,
+        `<meta property="og:description" content="${escapeAttr(description)}">`,
+        url && `<meta property="og:url" content="${url}">`,
+        origin && `<meta property="og:image" content="${origin}/icon/web-app-manifest-512x512.png">`,
+        '<meta name="twitter:card" content="summary">',
+    ].filter(Boolean).map(tag => `    ${tag}`).join('\n');
+}
+
+// Structured data for the home page, so search results can show Move as a free web app
+function appData(description) {
+    const data = {
+        '@context': 'https://schema.org',
+        '@type': 'WebApplication',
+        name: 'Move',
+        description,
+        ...(siteUrl() && { url: `${siteUrl()}/` }),
+        applicationCategory: 'TravelApplication',
+        operatingSystem: 'Any',
+        inLanguage: ['en', 'el'],
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
+    };
+    return `    <script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`;
+}
+
 function navLinks(tools, active, variant) {
     return tools.map(tool => {
         const current = tool.id === active;
@@ -136,9 +177,11 @@ export function renderPages(tools = loadTools()) {
     const view = name => readFileSync(join(VIEWS_DIR, `${name}.html`), 'utf8');
     const shellStrings = JSON.parse(readFileSync(join(VIEWS_DIR, 'strings.json'), 'utf8'));
 
-    const render = ({ active = null, title, titleKey = '', content, own, scripts = [], head = '' }) => fill(layout, {
+    // path and description are for public pages that belong in search results
+    const render = ({ active = null, title, titleKey = '', path = null, description = '', content, own, scripts = [], head = '' }) => fill(layout, {
         title: `${title} — Move`,
         titleKey,
+        meta: metaTags({ path, title: `${title} — Move`, description }),
         head,
         importMap: imports,
         sideNav: navLinks(tools, active, 'side'),
@@ -148,8 +191,17 @@ export function renderPages(tools = loadTools()) {
         scripts: scripts.map(src => `    <script type="module" src="${versioned(src)}"></script>`).join('\n'),
     });
 
+    const homeDescription = shellStrings.en['home.description'];
     const pages = {
-        '/': render({ title: 'Athens transit', titleKey: 'home.title', content: view('home'), scripts: ['/js/core/announcements.js'] }),
+        '/': render({
+            title: 'Athens transit',
+            titleKey: 'home.title',
+            path: '/',
+            description: homeDescription,
+            head: appData(homeDescription),
+            content: view('home'),
+            scripts: ['/js/core/announcements.js'],
+        }),
         '/offline': render({ title: "You're offline", titleKey: 'offline.title', content: fill(view('offline'), { tiles: tiles(tools.filter(t => t.offline)) }) }),
     };
     for (const tool of tools) {
@@ -157,13 +209,28 @@ export function renderPages(tools = loadTools()) {
             active: tool.id,
             title: tool.title.en,
             titleKey: `tool.${tool.id}.title`,
+            path: tool.path,
+            description: tool.description?.en ?? '',
             content: tool.page,
             own: tool.strings,
             scripts: tool.scripts.map(s => `/tools/${tool.id}/${s}`),
         });
     }
     const notFound = render({ title: 'Page not found', titleKey: 'notfound.title', content: view('notfound') });
-    return { pages, notFound, render };
+    // The pages search engines should find, for the sitemap
+    const indexed = ['/', ...tools.map(t => t.path)];
+    return { pages, indexed, notFound, render };
+}
+
+// ── robots.txt and sitemap ──────────────────────────────────────────────────
+
+export function robotsTxt(origin) {
+    return `User-agent: *\nDisallow: /api/\n\nSitemap: ${origin}/sitemap.xml\n`;
+}
+
+export function sitemapXml(origin, paths) {
+    const urls = paths.map(path => `    <url><loc>${origin}${path}</loc></url>`).join('\n');
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }
 
 // ── Service worker ──────────────────────────────────────────────────────────
@@ -226,12 +293,22 @@ function renderServiceWorker(tools, pages) {
 // Pages, tool client files and the service worker. Everything is rendered once
 // at startup; `node --watch` restarts the server when these files change.
 export function createPages(tools = loadTools()) {
-    const { pages, notFound, render } = renderPages(tools);
+    const { pages, indexed, notFound, render } = renderPages(tools);
     const serviceWorker = renderServiceWorker(tools, pages);
     const router = express.Router();
+    // SITE_URL if set, so search engines only ever see the public address
+    const origin = req => siteUrl() || `${req.protocol}://${req.get('host')}`;
 
     router.get('/sw.js', (_req, res) => {
         res.set('Cache-Control', 'no-cache').type('js').send(serviceWorker);
+    });
+
+    router.get('/robots.txt', (req, res) => {
+        res.set('Cache-Control', 'no-cache').type('text').send(robotsTxt(origin(req)));
+    });
+
+    router.get('/sitemap.xml', (req, res) => {
+        res.set('Cache-Control', 'no-cache').type('xml').send(sitemapXml(origin(req), indexed));
     });
 
     for (const [path, html] of Object.entries(pages)) {
