@@ -31,6 +31,7 @@ for (const { name, env } of RELAYS) {
 const busApi = createBusApi({
     routesFile: path.join(__dirname, 'data', 'cache', 'oasa-routes.json'),
     statusFile: path.join(__dirname, 'data', 'cache', 'oasa-status.json'),
+    stopsFile: path.join(BUILD_DIR, 'bus-stops.json'),
     relays,
 });
 // Service announcements for the info page, from the OASA and STASY websites

@@ -118,6 +118,18 @@ test('data and running-app problems are reported', async () => {
     assert.match(r.summary.text, /reachable again.*within a day/);
 });
 
+test('requests over the OASA budget or over a visitor\'s limit are reported', async () => {
+    const find = (r, t) => r.checks.find(c => c.title === t);
+    const quiet = await run(world(), { appStatus: { at: NOW, droppedLastHour: 0, limitedLastHour: 0, routes: [] } });
+    assert.equal(find(quiet, 'Request budget').status, 'ok');
+    assert.equal(find(quiet, 'Visitor limit'), undefined);
+
+    const busy = await run(world(), { appStatus: { at: NOW, droppedLastHour: 4, limitedLastHour: 2, routes: [] } });
+    assert.match(find(busy, 'Request budget').detail, /^4 requests .* 2\/s budget/);
+    assert.equal(find(busy, 'Request budget').status, 'warn');
+    assert.match(find(busy, 'Visitor limit').detail, /^2 requests .* more than 30 new stops/);
+});
+
 test('formatReport lists the summary, every check and its hint', async () => {
     const text = formatReport(await run(world(), { env: {} }));
     assert.match(text, /^Move diagnostics, 2026-10-03T12:00:00\.000Z\n\n\[ OK \]/);
