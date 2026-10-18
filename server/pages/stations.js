@@ -2,25 +2,25 @@ import { readFileSync, statSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
-import { textOn } from '../public/js/core/html.js';
-import { athensDate } from '../tools/subway/client/network.js';
-import { LANGS, localPath, siteUrl } from './pages.js';
+import { escapeHtml, format } from '../../public/js/core/html.js';
+import { lineBadge, trainDiagram } from '../../public/js/core/metro.js';
+import { athensDate } from '../../tools/subway/client/network.js';
+import { LANGS, localPath } from './i18n.js';
+import { siteUrl, structuredData } from './seo.js';
 
 // A page for every metro station, and an index of them, in English and Greek:
 // which carriage to ride for the exit, connections and first and last trains.
-// They're written from rail.json in one language each (unlike the tool pages,
-// which the browser translates in place), so they're re-rendered when the
-// weekly rebuild replaces it, without a restart.
+// They're written from rail.json, so they're rendered on request (and kept
+// until rail.json changes) rather than at startup like the pages in
+// registry.js, and follow its weekly rebuild without a restart.
 //   /subway/stations, /subway/stations/<station id>, and the same under /el
 
-const STRINGS = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'views', 'stations.json'), 'utf8'));
+const STRINGS = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'views', 'stations.json'), 'utf8'));
 export const STATIONS_PATH = '/subway/stations';
 const DAY = 86_400;
 // Monday first, for grouping days like "Mon–Fri"
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
 
-const escape = text => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const fill = (text, values) => text.replace(/\{(\w+)\}/g, (match, key) => values[key] ?? match);
 
 // Seconds since midnight → "05:31" (trains after midnight belong to the day before)
 const clock = s => {
@@ -65,34 +65,13 @@ function createWriter(rail, lang, tools) {
     const s = key => own[lang][key] ?? own.en[key] ?? key;
     const name = id => rail.stations[id].name[lang] ?? rail.stations[id].name.en;
     const href = id => `${STATIONS_PATH}/${id}`;
-    const badge = line => {
-        const { color, name: label } = rail.lines[line];
-        return `<span class="line-badge" style="background-color: ${color}; color: ${textOn(color)}">${escape(label)}</span>`;
-    };
+    const badge = line => lineBadge(rail.lines[line]);
     const days = list => list.length > 2
         ? `${s(`stations.day.${list[0]}`)}–${s(`stations.day.${list.at(-1)}`)}`
         : list.map(d => s(`stations.day.${d}`)).join(', ');
     const [y, m, d] = rail.feed.validTo.split('-');
     const validTo = `${d}/${m}/${y}`;
     return { own, s, name, href, badge, days, validTo };
-}
-
-// The same diagram as the subway tool's (tools/subway/client/render.js)
-function trainDiagram(rail, s, exits, elevators) {
-    const label = p => s(`subway.pos.${p}`);
-    const described = [...exits.map(label), ...elevators.map(p => `${label(p)} (${s('subway.elevator')})`)].join(', ');
-    const cls = p => `${exits.includes(p) ? ' highlighted' : ''}${elevators.includes(p) ? ' has-elevator' : ''}`;
-    return `
-            <div class="train-diagram" role="img" aria-label="${escape(`${s('subway.diagram-label')} ${described}`)}">
-                <div class="train-label" aria-hidden="true">${s('subway.train-back')}</div>
-                <div class="train-cars-wrap" aria-hidden="true">
-                    <div class="train-cars">${rail.positions.map(p => `
-                        <div class="train-car${cls(p)}">${exits.includes(p) ? '<i class="bi bi-person-walking" aria-hidden="true"></i>' : ''}${elevators.includes(p) ? '<i class="bi bi-arrow-up-square" aria-hidden="true"></i>' : ''}</div>`).join('')}
-                    </div>
-                    <div class="position-labels">${rail.positions.map(p => `<div class="position-label${cls(p)}">${label(p)}</div>`).join('')}</div>
-                </div>
-                <div class="train-label" aria-hidden="true">${s('subway.train-front')}</div>
-            </div>`;
 }
 
 function directionCard(rail, w, lineId, dirId, id, n) {
@@ -105,38 +84,38 @@ function directionCard(rail, w, lineId, dirId, id, n) {
     const toward = direction.toward[w.lang] ?? direction.toward.en;
     const headingId = `${lineId}-${dirId}-${n}`.toLowerCase();
     const neighbours = [
-        previous && `<li>${s('stations.previous')}: <a href="${href(previous)}">${escape(name(previous))}</a></li>`,
-        next ? `<li>${s('stations.next')}: <a href="${href(next)}">${escape(name(next))}</a></li>` : `<li>${s('stations.terminus')}</li>`,
+        previous && `<li>${s('stations.previous')}: <a href="${href(previous)}">${escapeHtml(name(previous))}</a></li>`,
+        next ? `<li>${s('stations.next')}: <a href="${href(next)}">${escapeHtml(name(next))}</a></li>` : `<li>${s('stations.terminus')}</li>`,
     ].filter(Boolean).join('');
 
     // Arriving here: where to ride for the exit and for each connection
     const arriving = previous ? `
             <h4 class="station-subheading">${s('stations.exit-heading')}</h4>
-            ${stop.exits.length ? `<p class="small mb-2">${s('stations.exit-text')}</p>${trainDiagram(rail, s, stop.exits, stop.elevators ?? [])}` : `<p class="text-secondary fst-italic small">${s('subway.no-position-data')}</p>`}
+            ${stop.exits.length ? `<p class="small mb-2">${s('stations.exit-text')}</p>${trainDiagram(rail.positions, stop.exits, stop.elevators ?? [], s)}` : `<p class="text-secondary fst-italic small">${s('subway.no-position-data')}</p>`}
             ${stop.centralPlatform ? `<p class="central-platform-badge d-inline-block mt-2"><i class="bi bi-symmetry-horizontal me-1" aria-hidden="true"></i>${s('subway.exit-left')}</p>` : ''}
             ${Object.entries(stop.transfers ?? {}).map(([to, where]) => {
                 const [line, dir] = to.split('/');
                 const target = rail.lines[line]?.directions[dir];
                 if (!target || !where.length) return '';
-                return `<p class="small mt-2 mb-0"><i class="bi bi-arrow-left-right me-1" aria-hidden="true"></i>${escape(fill(s('stations.transfer'), {
+                return `<p class="small mt-2 mb-0"><i class="bi bi-arrow-left-right me-1" aria-hidden="true"></i>${escapeHtml(format(s('stations.transfer'), {
                     line: rail.lines[line].name, name: target.toward[w.lang] ?? target.toward.en, where: where.map(p => s(`subway.pos.${p}`)).join(', '),
                 }))}</p>`;
             }).join('')}
-            ${stop.note ? `<div class="stop-note mt-3"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${escape(stop.note)}</div>` : ''}` : '';
+            ${stop.note ? `<div class="stop-note mt-3"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${escapeHtml(stop.note)}</div>` : ''}` : '';
 
     // Leaving from here: first and last trains
     const times = next ? firstAndLast(direction.timetable, index) : [];
     const timetable = times.length ? `
             <h4 class="station-subheading">${s('stations.times-heading')}</h4>
             <table class="table table-sm station-times mb-0">
-                <caption class="sr-only">${escape(fill(s('stations.times-caption'), { name: name(id), toward }))}</caption>
+                <caption class="sr-only">${escapeHtml(format(s('stations.times-caption'), { name: name(id), toward }))}</caption>
                 <thead><tr><th scope="col">${s('stations.days')}</th><th scope="col">${s('stations.first')}</th><th scope="col">${s('stations.last')}</th></tr></thead>
                 <tbody>${times.map(t => `<tr><th scope="row">${w.days(t.days)}</th><td>${t.first === null ? s('stations.all-night') : clock(t.first)}</td><td>${t.last === null ? s('stations.all-night') : clock(t.last)}</td></tr>`).join('')}</tbody>
             </table>` : '';
 
     return `
         <div class="result-card station-direction" role="group" aria-labelledby="${headingId}">
-            <h3 class="leg-title" id="${headingId}"><span aria-hidden="true">→ </span>${escape(fill(s('stations.toward'), { name: toward }))}</h3>
+            <h3 class="leg-title" id="${headingId}"><span aria-hidden="true">→ </span>${escapeHtml(format(s('stations.toward'), { name: toward }))}</h3>
             <ul class="list-unstyled small station-neighbours">${neighbours}</ul>${arriving}${timetable}
         </div>`;
 }
@@ -150,7 +129,7 @@ export function stationContent(rail, id, lang, tools) {
     let n = 0;
     const lines = station.lines.map(lineId => `
     <section class="station-section" aria-labelledby="line-${lineId.toLowerCase()}">
-        <h2 class="station-line-title" id="line-${lineId.toLowerCase()}">${badge(lineId)} ${escape(fill(s('stations.line'), { n: lineId.replace(/^\D+/, '') }))}</h2>
+        <h2 class="station-line-title" id="line-${lineId.toLowerCase()}">${badge(lineId)} ${escapeHtml(format(s('stations.line'), { n: lineId.replace(/^\D+/, '') }))}</h2>
         ${Object.keys(rail.lines[lineId].directions)
             .filter(dir => rail.lines[lineId].directions[dir].stops.some(stop => stop.station === id))
             .map(dir => directionCard(rail, w, lineId, dir, id, n++)).join('')}
@@ -161,17 +140,17 @@ export function stationContent(rail, id, lang, tools) {
         <ol class="breadcrumb small mb-2">
             <li class="breadcrumb-item"><a href="/subway">${s('stations.subway')}</a></li>
             <li class="breadcrumb-item"><a href="${STATIONS_PATH}">${s('stations.title')}</a></li>
-            <li class="breadcrumb-item active" aria-current="page">${escape(name(id))}</li>
+            <li class="breadcrumb-item active" aria-current="page">${escapeHtml(name(id))}</li>
         </ol>
     </nav>
-    <h1 class="fs-3 fw-semibold mb-1">${escape(name(id))}</h1>
+    <h1 class="fs-3 fw-semibold mb-1">${escapeHtml(name(id))}</h1>
     <p class="text-secondary mb-3">${s('stations.lines-here')} ${station.lines.map(badge).join(' ')}</p>
     <div class="station-actions d-flex flex-wrap gap-2 mb-4">
         <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?from=${id}"><i class="bi bi-signpost-split me-1" aria-hidden="true"></i>${s('stations.plan-from')}</a>
         <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?to=${id}"><i class="bi bi-geo-alt me-1" aria-hidden="true"></i>${s('stations.plan-to')}</a>
         <a class="btn btn-sm btn-outline-secondary rounded-pill" href="https://www.google.com/maps/dir/?api=1&amp;destination=${lat},${lng}&amp;travelmode=walking" target="_blank" rel="noopener"><i class="bi bi-person-walking me-1" aria-hidden="true"></i>${s('stations.walk')} <span class="sr-only" data-i18n="shell.new-tab">(opens in a new tab)</span></a>
     </div>${lines}
-    <p class="schedule-disclaimer"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${fill(s(expired ? 'stations.timetable-old' : 'stations.timetable'), { date: w.validTo })}</p>
+    <p class="schedule-disclaimer"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${format(s(expired ? 'stations.timetable-old' : 'stations.timetable'), { date: w.validTo })}</p>
 </div>`;
 }
 
@@ -181,10 +160,10 @@ export function indexContent(rail, lang, tools) {
         const stops = Object.values(line.directions)[0].stops.map(stop => stop.station);
         return `
     <section class="station-section" aria-labelledby="line-${lineId.toLowerCase()}">
-        <h2 class="station-line-title" id="line-${lineId.toLowerCase()}">${badge(lineId)} ${escape(fill(s('stations.line'), { n: lineId.replace(/^\D+/, '') }))}</h2>
+        <h2 class="station-line-title" id="line-${lineId.toLowerCase()}">${badge(lineId)} ${escapeHtml(format(s('stations.line'), { n: lineId.replace(/^\D+/, '') }))}</h2>
         <ol class="station-stops">${stops.map(id => {
             const others = rail.stations[id].lines.filter(l => l !== lineId);
-            return `<li><a href="${href(id)}">${escape(name(id))}</a>${others.length ? ` <span class="station-change">· ${escape(fill(s('stations.interchange'), { lines: others.join(', ') }))}</span>` : ''}</li>`;
+            return `<li><a href="${href(id)}">${escapeHtml(name(id))}</a>${others.length ? ` <span class="station-change">· ${escapeHtml(format(s('stations.interchange'), { lines: others.join(', ') }))}</span>` : ''}</li>`;
         }).join('')}</ol>
     </section>`;
     }).join('');
@@ -212,27 +191,27 @@ function stationData(rail, id, lang, s) {
             [s('stations.subway'), '/subway'], [s('stations.title'), STATIONS_PATH], [name, `${STATIONS_PATH}/${id}`],
         ].map(([itemName, path], i) => ({ '@type': 'ListItem', position: i + 1, name: itemName, item: url(path) })) }] : []),
     ];
-    return `    <script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }).replace(/</g, '\\u003c')}</script>`;
+    return structuredData({ '@context': 'https://schema.org', '@graph': graph });
 }
 
 // One station's page (or the index, for id null) with the site's layout
 export function renderStationPage(rail, id, lang, { render, tools }) {
     const { s, name } = createWriter(rail, lang, tools);
-    const common = { lang, active: 'subway', staticLanguage: true, ad: 'station' };
+    const common = { lang, active: 'subway', ad: 'station' };
     if (!id) {
         return render({ ...common, title: s('stations.title'), path: STATIONS_PATH, description: s('stations.index-description'), content: indexContent(rail, lang, tools) });
     }
     return render({
         ...common,
-        title: fill(s('stations.station-title'), { name: name(id) }),
+        title: format(s('stations.station-title'), { name: name(id) }),
         path: `${STATIONS_PATH}/${id}`,
-        description: fill(s('stations.description'), { name: name(id), lines: rail.stations[id].lines.map(l => rail.lines[l].name).join(', ') }),
+        description: format(s('stations.description'), { name: name(id), lines: rail.stations[id].lines.map(l => rail.lines[l].name).join(', ') }),
         head: stationData(rail, id, lang, s),
         content: stationContent(rail, id, lang, tools),
     });
 }
 
-// → { router, paths() }. render is the layout's (pages.js renderPages);
+// → { router, paths() }. render is the layout's (layout.js createRenderer);
 // paths() lists the English paths for the sitemap.
 export function createStationPages({ railFile, render, tools }) {
     let loaded = { mtime: null, rail: null, html: new Map() };

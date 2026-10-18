@@ -1,6 +1,5 @@
 import { escapeHtml } from '/js/core/html.js';
-import { localHref, t } from '/js/core/i18n.js';
-import { getLanguage } from '/js/core/settings.js';
+import { language, localHref, t } from '/js/core/i18n.js';
 import { BENDS, DASHED, STATIONS } from './map-layout.js';
 
 // The schematic metro map: drawn as SVG from map-layout.js (positions) and
@@ -47,7 +46,6 @@ const SIDES = {
 };
 
 function drawMap(rail) {
-    const lang = getLanguage() === 'el' ? 'el' : 'en';
     const lines = Object.entries(rail.lines);
 
     const tracks = lines.map(([id, line]) => {
@@ -65,7 +63,7 @@ function drawMap(rail) {
         const [x, y] = point(id);
         const [dx, dy, anchor, baseline] = SIDES[STATIONS[id][2]];
         const interchange = station.lines.length > 1;
-        const name = station.name[lang] ?? station.name.en;
+        const name = station.name[language] ?? station.name.en;
         const color = rail.lines[station.lines[0]].color;
         return `<g class="map-station${interchange ? ' map-interchange' : ''}" data-station="${escapeHtml(id)}">
             <title>${escapeHtml(name)}</title>
@@ -78,16 +76,15 @@ function drawMap(rail) {
 }
 
 export function createMetroMap(container, rail) {
-    // Labels use data-i18n attributes, so translatePage keeps them in the current language
     const button = (zoom, key, icon) => `<button type="button" class="btn map-btn" data-zoom="${zoom}"
-        aria-label="${t(key)}" data-i18n-aria-label="${key}" title="${t(key)}" data-i18n-title="${key}"><i class="bi bi-${icon}" aria-hidden="true"></i></button>`;
+        aria-label="${t(key)}" title="${t(key)}"><i class="bi bi-${icon}" aria-hidden="true"></i></button>`;
     container.innerHTML = `
         <div class="map-controls">
             ${button('in', 'info.zoom-in', 'plus-lg')}
             ${button('out', 'info.zoom-out', 'dash-lg')}
             ${button('reset', 'info.zoom-reset', 'arrows-angle-contract')}
         </div>
-        <svg xmlns="${NS}" role="img" aria-label="${t('info.map-label')}" data-i18n-aria-label="info.map-label" aria-describedby="map-help" tabindex="0"></svg>`;
+        <svg xmlns="${NS}" role="img" aria-label="${t('info.map-label')}" aria-describedby="map-help" tabindex="0"></svg>`;
     const svg = container.querySelector('svg');
 
     let base;   // the whole map, as a viewBox
@@ -216,15 +213,12 @@ export function createMetroMap(container, rail) {
     });
 
     draw();
-    // Redraw in the new language, keeping the current view
-    return { redraw: draw };
 }
 
 // The stations of each line in order, as lists of links, with the changes
 // to other lines. The accessible counterpart of the map.
 export function stationList(rail) {
-    const lang = getLanguage() === 'el' ? 'el' : 'en';
-    const name = id => rail.stations[id].name[lang] ?? rail.stations[id].name.en;
+    const name = id => rail.stations[id].name[language] ?? rail.stations[id].name.en;
     return Object.entries(rail.lines).map(([lineId, line]) => {
         const ids = lineStations(line);
         const items = ids.map(id => {

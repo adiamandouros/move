@@ -1,5 +1,4 @@
 import { getCoords, subscribeToLocation } from '/js/core/location.js';
-import { onLanguageChange } from '/js/core/settings.js';
 import { t } from '/js/core/i18n.js';
 import { decodeStops, distanceMeters, nearestStops } from './stops.js';
 import { message, patchStop, stopItem } from './render.js';
@@ -208,8 +207,6 @@ async function start() {
         state.hideEmpty = !state.hideEmpty;
         applyFilter();
     });
-
-    onLanguageChange(() => { if (state.stops.length) renderStops(); });
 }
 
 start();

@@ -4,8 +4,9 @@ import { mkdtempSync, utimesSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import express from 'express';
-import { createPages, loadTools } from '../server/pages.js';
-import { firstAndLast } from '../server/stations.js';
+import { createPages } from '../server/pages/index.js';
+import { loadTools } from '../server/pages/registry.js';
+import { firstAndLast } from '../server/pages/stations.js';
 import { rail } from './fixtures/rail.js';
 
 // The station pages (/subway/stations/<id>), built from rail.json
@@ -61,7 +62,8 @@ test('a station page shows lines, neighbours, where to ride, connections and tim
     assert.match(html, /<title>Cross metro station — Wayhop<\/title>/);
     assert.match(html, /<meta name="description" content="Cross metro station \(L1, L2\): which carriage/);
     assert.match(html, /<link rel="canonical" href="https:\/\/wayhop\.example\/subway\/stations\/x">/);
-    assert.match(html, /<html lang="en" data-page-lang="en" data-static-language/);
+    assert.match(html, /<html lang="en"/);
+    assert.match(html, /<a href="\/el\/subway\/stations\/x" hreflang="el"/);
     const t = text(html);
     for (const expected of [
         'Toward Beta', 'Previous stop: Alpha', 'Next stop: Beta',

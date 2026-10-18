@@ -836,16 +836,6 @@ body {
     margin-left: 8px;
 }
 
-/* ── Text in both languages ── */
-
-/* Longer text that doesn't fit the data-i18n keys is written twice, as
-   lang="en" and lang="el" elements, and only the current language is shown.
-   Add .any-lang to keep an element visible in both (e.g. Greek-only content). */
-html[lang="el"] main [lang="en"]:not(.any-lang),
-html:not([lang="el"]) main [lang="el"]:not(.any-lang) {
-    display: none !important;
-}
-
 /* ── Info tool ── */
 
 .info-view {

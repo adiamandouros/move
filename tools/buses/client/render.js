@@ -1,8 +1,7 @@
 import { escapeHtml } from '/js/core/html.js';
-import { t } from '/js/core/i18n.js';
-import { getLanguage } from '/js/core/settings.js';
+import { language, t } from '/js/core/i18n.js';
 
-const local = pair => escapeHtml(pair?.[getLanguage()] || pair?.en || '');
+const local = pair => escapeHtml(pair?.[language] || pair?.en || '');
 
 function formatDistance(meters) {
     return meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${meters} m`;
@@ -39,14 +38,14 @@ export function stopItem(stop, index) {
             <div class="stop-header-fixed d-flex align-items-center">
                 <span class="header-badge-wrap" aria-hidden="true"></span>
                 <a class="directions-btn d-flex align-items-center justify-content-center" href="${mapsUrl}" target="_blank" rel="noopener"
-                   aria-label="${escapeHtml(`${t('buses.walking-directions-to')} ${stop.name[getLanguage()] || stop.name.en} ${t('shell.new-tab')}`)}">
+                   aria-label="${escapeHtml(`${t('buses.walking-directions-to')} ${stop.name[language] || stop.name.en} ${t('shell.new-tab')}`)}">
                     <i class="bi bi-signpost-2-fill" aria-hidden="true"></i>
                 </a>
             </div>
         </div>
         <div id="stop-${index}" class="accordion-collapse collapse">
             <div class="accordion-body stop-body">
-                <ul class="stop-arrivals list-unstyled mb-0" aria-label="${escapeHtml(`${t('buses.all-arrivals-for')} ${stop.name[getLanguage()] || stop.name.en}`)}"></ul>
+                <ul class="stop-arrivals list-unstyled mb-0" aria-label="${escapeHtml(`${t('buses.all-arrivals-for')} ${stop.name[language] || stop.name.en}`)}"></ul>
                 <p class="stop-lines mb-0">${t('buses.lines')}: ${stop.lines.map(escapeHtml).join(', ')}</p>
             </div>
         </div>

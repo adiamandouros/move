@@ -1,11 +1,10 @@
 import '/js/core/announcements.js';
 import { t } from '/js/core/i18n.js';
-import { onLanguageChange } from '/js/core/settings.js';
 import { createMetroMap, stationList } from './map.js';
 
 // The info page is static apart from the announcements (filled in by
 // /js/core/announcements.js) and the metro map, drawn from rail.json the
-// first time its section is opened and redrawn when the language changes.
+// first time its section is opened.
 
 // ── Sections ─────────────────────────────────────────────────────────────────
 
@@ -26,8 +25,6 @@ document.addEventListener('click', e => {
 const mapBody = document.getElementById('sec-map');
 const mapContainer = document.getElementById('metro-map');
 const stationsContainer = document.getElementById('station-list');
-let rail = null;
-let metroMap = null;
 
 // Drawn the first time the section is opened (it needs to be visible to be measured)
 async function openMap() {
@@ -36,8 +33,8 @@ async function openMap() {
     try {
         const res = await fetch('/data/rail.json');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        rail = await res.json();
-        metroMap = createMetroMap(mapContainer, rail);
+        const rail = await res.json();
+        createMetroMap(mapContainer, rail);
         stationsContainer.innerHTML = stationList(rail);
     } catch {
         mapContainer.innerHTML = `<p class="text-secondary">${t('info.map-error')}</p>`;
@@ -46,7 +43,3 @@ async function openMap() {
 }
 
 openMap();
-onLanguageChange(() => {
-    metroMap?.redraw();
-    if (rail) stationsContainer.innerHTML = stationList(rail);
-});

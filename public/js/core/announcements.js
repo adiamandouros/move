@@ -1,11 +1,9 @@
 import { escapeHtml } from './html.js';
-import { t } from './i18n.js';
-import { getLanguage, onLanguageChange } from './settings.js';
+import { language, t } from './i18n.js';
 
 // Service announcements from /api/announcements (server/info/announcements.js),
 // shown on the home and info pages. Importing this module fills the page's
-// #announcements list and #disruptions banner, if it has them, and redraws
-// them when the language changes.
+// #announcements list and #disruptions banner, if it has them.
 
 const SOURCE_PAGES = {
     rail: 'https://www.stasy.gr/%ce%bd%ce%ad%ce%b1-%ce%b1%ce%bd%ce%b1%ce%ba%ce%bf%ce%b9%ce%bd%cf%8e%cf%83%ce%b5%ce%b9%cf%82/',
@@ -20,13 +18,13 @@ const banner = document.getElementById('disruptions');
 let data = null;
 let failed = false;
 
-const formatDate = iso => new Date(iso).toLocaleDateString(getLanguage() === 'el' ? 'el-GR' : 'en-GB', { day: 'numeric', month: 'short' });
+const formatDate = iso => new Date(iso).toLocaleDateString(language === 'el' ? 'el-GR' : 'en-GB', { day: 'numeric', month: 'short' });
 
 const newTab = () => `<span class="sr-only"> ${t('shell.new-tab')}</span>`;
 
 function item({ title, link, date }, greek) {
     return `<li class="announcement">
-        <a href="${escapeHtml(link)}" target="_blank" rel="noopener"><span${greek ? ' lang="el" class="any-lang"' : ''}>${escapeHtml(title)}</span>${newTab()}</a>
+        <a href="${escapeHtml(link)}" target="_blank" rel="noopener"><span${greek ? ' lang="el"' : ''}>${escapeHtml(title)}</span>${newTab()}</a>
         <span class="announcement-meta">${formatDate(date)}${greek ? ` · ${t('announcements.in-greek')}` : ''}</span>
     </li>`;
 }
@@ -48,12 +46,11 @@ function render() {
         return;
     }
     if (!data) return;
-    const lang = getLanguage() === 'el' ? 'el' : 'en';
-    const bus = data.bus[lang];
-    list.innerHTML = group('announcements.rail', data.rail, SOURCE_PAGES.rail, lang !== 'el')
-        + group('announcements.buses', bus, SOURCE_PAGES.bus[lang], false);
+    const bus = data.bus[language];
+    list.innerHTML = group('announcements.rail', data.rail, SOURCE_PAGES.rail, language !== 'el')
+        + group('announcements.buses', bus, SOURCE_PAGES.bus[language], false);
 
-    const disruptions = [...data.rail.map(i => ({ ...i, greek: lang !== 'el' })), ...bus].filter(i => i.disruption);
+    const disruptions = [...data.rail.map(i => ({ ...i, greek: language !== 'el' })), ...bus].filter(i => i.disruption);
     banner.innerHTML = disruptions.length
         ? `<div class="disruption-banner">
             <div class="fw-semibold"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> ${t('announcements.disruption')}</div>
@@ -73,7 +70,4 @@ async function load() {
     render();
 }
 
-if (list) {
-    onLanguageChange(render);
-    load();
-}
+if (list) load();

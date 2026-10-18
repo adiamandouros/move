@@ -8,7 +8,8 @@ import { formatJson } from '../data/format.js';
 import { applyOverlay, removeEntry, sameEntry, setEntry, tidyEntry, writeOverlay } from '../data/overlay.js';
 import { POSITIONS, validateCurated } from '../data/validate.js';
 import { formatReport } from '../diagnostics.js';
-import { listFiles, shellFiles, shellUrls, urlPath } from '../pages.js';
+import { listFiles, shellFiles, shellUrls, urlPath } from '../pages/assets.js';
+import { fill } from '../pages/layout.js';
 import { createAuth, createLimiter, readCookie } from './auth.js';
 
 const ADMIN_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'admin');
@@ -46,7 +47,7 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
     const loginPage = (error = '') => render({
         title: 'Log in',
         head,
-        content: page('login').replace('{{error}}', error ? `<p class="text-danger small" role="alert">${error}</p>` : ''),
+        content: fill(page('login'), { error: error ? `<p class="text-danger small" role="alert">${error}</p>` : '' }),
     });
 
     router.get('/login', (_req, res) => res.set('Cache-Control', 'no-store').type('html').send(loginPage()));
@@ -198,7 +199,8 @@ function renderServiceWorker() {
     const assets = listFiles(CLIENT_DIR).map(f => urlPath('/admin/assets', CLIENT_DIR, f));
     const hash = createHash('sha256').update(template);
     for (const file of [...listFiles(ADMIN_DIR), ...shellFiles()]) hash.update(readFileSync(file));
-    return template
-        .replace('{{version}}', hash.digest('hex').slice(0, 12))
-        .replace('{{precache}}', JSON.stringify(['/admin/stations', ...assets, ...shellUrls()], null, 4));
+    return fill(template, {
+        version: hash.digest('hex').slice(0, 12),
+        precache: JSON.stringify(['/admin/stations', ...assets, ...shellUrls()], null, 4),
+    });
 }

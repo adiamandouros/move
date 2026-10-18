@@ -24,8 +24,10 @@ tools/<id>/
 | `precache` | Data URLs to cache for offline use, e.g. `["/data/rail.json"]` (best-effort: a missing file doesn't break the cache) |
 
 Longer text that doesn't suit single `data-i18n` keys (paragraphs with links,
-lists) can be written twice in `page.html`, as `lang="en"` and `lang="el"`
-elements; only the current language's are shown (see `style.css`).
+lists) can be written twice in `page.html`, as `data-lang="en"` and
+`data-lang="el"` elements; the server keeps only the page's language. Every
+page is rendered on the server in its language (English, or Greek under `/el`),
+so the browser never translates anything.
 
 Shared browser modules live in `public/js/core/` and are imported by absolute
 path, e.g. `import { t } from '/js/core/i18n.js'`.
