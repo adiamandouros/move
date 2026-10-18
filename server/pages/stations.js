@@ -2,18 +2,19 @@ import { readFileSync, statSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
-import { textOn } from '../public/js/core/html.js';
-import { athensDate } from '../tools/subway/client/network.js';
-import { LANGS, localPath, siteUrl } from './pages.js';
+import { textOn } from '../../public/js/core/html.js';
+import { athensDate } from '../../tools/subway/client/network.js';
+import { LANGS, localPath } from './i18n.js';
+import { siteUrl, structuredData } from './seo.js';
 
 // A page for every metro station, and an index of them, in English and Greek:
 // which carriage to ride for the exit, connections and first and last trains.
-// They're written from rail.json in one language each (unlike the tool pages,
-// which the browser translates in place), so they're re-rendered when the
-// weekly rebuild replaces it, without a restart.
+// They're written from rail.json, so they're rendered on request (and kept
+// until rail.json changes) rather than at startup like the pages in
+// registry.js, and follow its weekly rebuild without a restart.
 //   /subway/stations, /subway/stations/<station id>, and the same under /el
 
-const STRINGS = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'views', 'stations.json'), 'utf8'));
+const STRINGS = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'views', 'stations.json'), 'utf8'));
 export const STATIONS_PATH = '/subway/stations';
 const DAY = 86_400;
 // Monday first, for grouping days like "Mon–Fri"
@@ -212,7 +213,7 @@ function stationData(rail, id, lang, s) {
             [s('stations.subway'), '/subway'], [s('stations.title'), STATIONS_PATH], [name, `${STATIONS_PATH}/${id}`],
         ].map(([itemName, path], i) => ({ '@type': 'ListItem', position: i + 1, name: itemName, item: url(path) })) }] : []),
     ];
-    return `    <script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }).replace(/</g, '\\u003c')}</script>`;
+    return structuredData({ '@context': 'https://schema.org', '@graph': graph });
 }
 
 // One station's page (or the index, for id null) with the site's layout
@@ -232,7 +233,7 @@ export function renderStationPage(rail, id, lang, { render, tools }) {
     });
 }
 
-// → { router, paths() }. render is the layout's (pages.js renderPages);
+// → { router, paths() }. render is the layout's (layout.js createRenderer);
 // paths() lists the English paths for the sitemap.
 export function createStationPages({ railFile, render, tools }) {
     let loaded = { mtime: null, rail: null, html: new Map() };

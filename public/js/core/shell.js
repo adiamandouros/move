@@ -11,8 +11,8 @@ initLocation();
 
 // The language link opens this page in the other language. Remember the
 // choice, so pages open in it from now on (see languageRedirect in
-// server/pages.js), and keep this page's state, like the stations chosen on
-// the subway page, which lives in the address.
+// server/pages/layout.js), and keep this page's state, like the stations
+// chosen on the subway page, which lives in the address.
 document.querySelectorAll('.lang-toggle-btn').forEach(link => {
     link.addEventListener('click', () => {
         try { localStorage.setItem('language', link.hreflang); } catch { /* storage blocked: just this page */ }

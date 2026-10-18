@@ -1,4 +1,4 @@
-import { siteUrl } from './pages.js';
+import { siteUrl } from './pages/seo.js';
 
 // Once SITE_URL is set, every other address the app answers on (the old
 // move.sonovabitc.win, www., aliases) redirects there permanently, so search

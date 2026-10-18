@@ -2,8 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { textOn } from '../public/js/core/html.js';
-import { loadTools, renderPages } from '../server/pages.js';
-import { renderStationPage } from '../server/stations.js';
+import { renderPages } from '../server/pages/index.js';
+import { loadTools } from '../server/pages/registry.js';
+import { renderStationPage } from '../server/pages/stations.js';
 import { rail } from './fixtures/rail.js';
 
 // Accessibility checks on every public page as the server sends it (WCAG 2.2

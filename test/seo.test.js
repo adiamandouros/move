@@ -2,7 +2,9 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import express from 'express';
-import { createPages, loadTools, localPath, renderPages } from '../server/pages.js';
+import { localPath } from '../server/pages/i18n.js';
+import { createPages, renderPages } from '../server/pages/index.js';
+import { loadTools } from '../server/pages/registry.js';
 
 // What search engines and link previews see: meta tags, the Greek pages under
 // /el, robots.txt and the sitemap

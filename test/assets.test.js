@@ -2,10 +2,11 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'path';
 import express from 'express';
-import { assetVersion, createPages, listFiles, renderPages, VENDOR } from '../server/pages.js';
+import { assetVersion, listFiles, VENDOR } from '../server/pages/assets.js';
+import { createPages, renderPages } from '../server/pages/index.js';
 
 // Stylesheets and scripts are linked with ?v=<version> so a deploy can't mix
-// new pages with old cached files (see assetVersion in server/pages.js)
+// new pages with old cached files (see assetVersion in server/pages/assets.js)
 
 const { pages } = renderPages();
 const v = assetVersion();

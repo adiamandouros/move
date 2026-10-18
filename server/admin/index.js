@@ -8,7 +8,7 @@ import { formatJson } from '../data/format.js';
 import { applyOverlay, removeEntry, sameEntry, setEntry, tidyEntry, writeOverlay } from '../data/overlay.js';
 import { POSITIONS, validateCurated } from '../data/validate.js';
 import { formatReport } from '../diagnostics.js';
-import { listFiles, shellFiles, shellUrls, urlPath } from '../pages.js';
+import { listFiles, shellFiles, shellUrls, urlPath } from '../pages/assets.js';
 import { createAuth, createLimiter, readCookie } from './auth.js';
 
 const ADMIN_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'admin');

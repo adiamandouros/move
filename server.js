@@ -10,7 +10,8 @@ import { BUILD_DIR, OVERLAY_FILE, loadCurated, rebuildSoon } from './server/data
 import { runDiagnostics } from './server/diagnostics.js';
 import { createBusApi } from './server/oasa/index.js';
 import { RELAYS, relaysFromEnv } from './server/oasa/client.js';
-import { createPages, VENDOR } from './server/pages.js';
+import { VENDOR } from './server/pages/assets.js';
+import { createPages } from './server/pages/index.js';
 import { canonicalHost } from './server/canonical-host.js';
 import { adsenseProblems } from './server/ads.js';
 import { createAnnouncements } from './server/info/announcements.js';

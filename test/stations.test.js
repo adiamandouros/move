@@ -4,8 +4,9 @@ import { mkdtempSync, utimesSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import express from 'express';
-import { createPages, loadTools } from '../server/pages.js';
-import { firstAndLast } from '../server/stations.js';
+import { createPages } from '../server/pages/index.js';
+import { loadTools } from '../server/pages/registry.js';
+import { firstAndLast } from '../server/pages/stations.js';
 import { rail } from './fixtures/rail.js';
 
 // The station pages (/subway/stations/<id>), built from rail.json

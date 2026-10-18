@@ -5,8 +5,9 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import express from 'express';
 import { adsenseProblems } from '../server/ads.js';
-import { createPages, loadTools, renderPages } from '../server/pages.js';
-import { renderStationPage } from '../server/stations.js';
+import { createPages, renderPages } from '../server/pages/index.js';
+import { loadTools } from '../server/pages/registry.js';
+import { renderStationPage } from '../server/pages/stations.js';
 import { rail } from './fixtures/rail.js';
 
 // AdSense is off until ADSENSE_CLIENT is set; each ADSENSE_SLOT_* adds one ad unit
