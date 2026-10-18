@@ -1,83 +1,14 @@
 import 'dotenv/config';
-import compression from 'compression';
-import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { startScheduler } from './server/scheduler.js';
-import { readFileSync } from 'fs';
-import { createAdmin } from './server/admin/index.js';
-import { BUILD_DIR, OVERLAY_FILE, loadCurated, rebuildSoon } from './server/data/index.js';
-import { runDiagnostics } from './server/diagnostics.js';
-import { createBusApi } from './server/oasa/index.js';
-import { RELAYS, relaysFromEnv } from './server/oasa/client.js';
-import { VENDOR } from './server/pages/assets.js';
-import { createPages } from './server/pages/index.js';
-import { canonicalHost } from './server/canonical-host.js';
+import { createApp } from './server/app.js';
+import { relaysFromEnv } from './server/oasa/client.js';
 import { adsenseProblems } from './server/ads.js';
-import { createAnnouncements } from './server/info/announcements.js';
-import { createHealth } from './server/health.js';
-import { securityHeaders } from './server/security.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const app = express();
-// Behind cPanel's Apache proxy: trust its X-Forwarded-* headers for req.ip and req.secure
-app.set('trust proxy', 'loopback');
-// Other addresses (the old move.sonovabitc.win) redirect to SITE_URL
-app.use(canonicalHost());
-app.use(securityHeaders());
-app.use(compression());
 const PORT = process.env.PORT || 3000;
 for (const problem of adsenseProblems()) console.warn(`[ads] ${problem} — ads are off until it's fixed`);
 
-// Live bus arrivals from OASA, cached and rate-limited (see server/oasa/).
-// The relays are fallbacks for when OASA can't be reached directly (proxy/README.md).
 const relays = relaysFromEnv(process.env);
-for (const { name, env } of RELAYS) {
-    if (Boolean(process.env[`${env}_URL`]) !== Boolean(process.env[`${env}_KEY`])) {
-        console.warn(`[oasa] Only one of ${env}_URL and ${env}_KEY is set — ${name} disabled`);
-    }
-}
-const busApi = createBusApi({
-    routesFile: path.join(__dirname, 'data', 'cache', 'oasa-routes.json'),
-    statusFile: path.join(__dirname, 'data', 'cache', 'oasa-status.json'),
-    stopsFile: path.join(BUILD_DIR, 'bus-stops.json'),
-    relays,
-});
-// Service announcements for the info page, from the OASA and STASY websites
-const announcements = createAnnouncements({ cacheFile: path.join(__dirname, 'data', 'cache', 'announcements.json'), relays });
-app.use('/api/announcements', announcements);
-// Whether the live site works, for the scheduled check (.github/workflows/health.yml)
-app.use('/api/health', createHealth({ busStatus: busApi.status, announcementStatus: announcements.status, buildDir: BUILD_DIR, relays }));
-app.use('/api', busApi);
-
-// Station pages are built from rail.json, so they follow its weekly rebuild
-const pages = createPages(undefined, { railFile: path.join(BUILD_DIR, 'rail.json') });
-app.use(pages.router);
-
-// Private station editor — only exists when ADMIN_PASSWORD is set
-const admin = createAdmin({
-    password: process.env.ADMIN_PASSWORD,
-    overlayFile: OVERLAY_FILE,
-    loadCurated,
-    loadRail: () => { try { return JSON.parse(readFileSync(path.join(BUILD_DIR, 'rail.json'), 'utf8')); } catch { return null; } },
-    rebuild: rebuildSoon,
-    render: pages.render,
-    // Fetches the announcements first, so their checks show the current state
-    diagnose: async () => {
-        await announcements.refreshNow();
-        return runDiagnostics({ dataDir: path.join(__dirname, 'data'), appStatus: busApi.status(), announcements: announcements.status() });
-    },
-});
-if (admin) app.use('/admin', admin);
-
-// Generated data (rail.json, bus-stops.json, meta.json); revalidated on every request via ETag
-app.use('/data', express.static(BUILD_DIR, { maxAge: 0 }));
-
-for (const [url, dir] of Object.entries(VENDOR)) app.use(url, express.static(dir));
-
-app.use(express.static(path.join(__dirname, 'public'), { index: false }));
-
-app.use(pages.notFound);
+const app = createApp({ relays });
 
 app.listen(PORT, () => {
     console.log(`Wayhop running at http://localhost:${PORT}`);
