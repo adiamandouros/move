@@ -6,7 +6,7 @@ import { readFileSync, statSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
-import { escapeHtml, format } from '../../public/js/core/html.js';
+import { escapeHtml, format, icon } from '../../public/js/core/html.js';
 import { lineBadge, trainDiagram } from '../../public/js/core/metro.js';
 import { athensDate } from '../../tools/subway/client/network.js';
 import { LANGS, localPath } from './i18n.js';
@@ -101,16 +101,16 @@ function directionCard(rail, w, lineId, dirId, id, n) {
     const arriving = previous ? `
             <h4 class="station-subheading">${s('stations.exit-heading')}</h4>
             ${stop.exits.length ? `<p class="small mb-2">${s('stations.exit-text')}</p>${trainDiagram(rail.positions, stop.exits, stop.elevators ?? [], s)}` : `<p class="text-secondary fst-italic small">${s('subway.no-position-data')}</p>`}
-            ${stop.centralPlatform ? `<p class="central-platform-badge d-inline-block mt-2"><i class="bi bi-symmetry-horizontal me-1" aria-hidden="true"></i>${s('subway.exit-left')}</p>` : ''}
+            ${stop.centralPlatform ? `<p class="central-platform-badge d-inline-block mt-2">${icon('symmetry-horizontal', 'me-1')}${s('subway.exit-left')}</p>` : ''}
             ${Object.entries(stop.transfers ?? {}).map(([to, where]) => {
                 const [line, dir] = to.split('/');
                 const target = rail.lines[line]?.directions[dir];
                 if (!target || !where.length) return '';
-                return `<p class="small mt-2 mb-0"><i class="bi bi-arrow-left-right me-1" aria-hidden="true"></i>${escapeHtml(format(s('stations.transfer'), {
+                return `<p class="small mt-2 mb-0">${icon('arrow-left-right', 'me-1')}${escapeHtml(format(s('stations.transfer'), {
                     line: rail.lines[line].name, name: target.toward[w.lang] ?? target.toward.en, where: where.map(p => s(`subway.pos.${p}`)).join(', '),
                 }))}</p>`;
             }).join('')}
-            ${stop.note ? `<div class="stop-note mt-3"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${escapeHtml(stop.note)}</div>` : ''}` : '';
+            ${stop.note ? `<div class="stop-note mt-3">${icon('info-circle', 'me-1')}${escapeHtml(stop.note)}</div>` : ''}` : '';
 
     // Leaving from here: first and last trains
     const times = next ? firstAndLast(direction.timetable, index) : [];
@@ -156,11 +156,11 @@ export function stationContent(rail, id, lang, tools) {
     <h1 class="fs-3 fw-semibold mb-1">${escapeHtml(name(id))}</h1>
     <p class="text-secondary mb-3">${s('stations.lines-here')} ${station.lines.map(badge).join(' ')}</p>
     <div class="station-actions d-flex flex-wrap gap-2 mb-4">
-        <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?from=${id}"><i class="bi bi-signpost-split me-1" aria-hidden="true"></i>${s('stations.plan-from')}</a>
-        <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?to=${id}"><i class="bi bi-geo-alt me-1" aria-hidden="true"></i>${s('stations.plan-to')}</a>
-        <a class="btn btn-sm btn-outline-secondary rounded-pill" href="https://www.google.com/maps/dir/?api=1&amp;destination=${lat},${lng}&amp;travelmode=walking" target="_blank" rel="noopener"><i class="bi bi-person-walking me-1" aria-hidden="true"></i>${s('stations.walk')} <span class="sr-only" data-i18n="shell.new-tab">(opens in a new tab)</span></a>
+        <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?from=${id}">${icon('signpost-split', 'me-1')}${s('stations.plan-from')}</a>
+        <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?to=${id}">${icon('geo-alt', 'me-1')}${s('stations.plan-to')}</a>
+        <a class="btn btn-sm btn-outline-secondary rounded-pill" href="https://www.google.com/maps/dir/?api=1&amp;destination=${lat},${lng}&amp;travelmode=walking" target="_blank" rel="noopener">${icon('person-walking', 'me-1')}${s('stations.walk')} <span class="sr-only" data-i18n="shell.new-tab">(opens in a new tab)</span></a>
     </div>${lines}
-    <p class="schedule-disclaimer"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${format(s(expired ? 'stations.timetable-old' : 'stations.timetable'), { date: w.validTo })}</p>
+    <p class="schedule-disclaimer">${icon('info-circle', 'me-1')}${format(s(expired ? 'stations.timetable-old' : 'stations.timetable'), { date: w.validTo })}</p>
 </div>`;
 }
 

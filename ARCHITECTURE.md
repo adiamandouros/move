@@ -50,8 +50,14 @@ All in [server/pages/](server/pages/):
    when first asked for and kept until `rail.json` changes.
 
 The other files there: `assets.js` (stylesheets, scripts and their
-versions), `service-worker.js` (offline cache), `seo.js` (meta tags,
-structured data, robots.txt, sitemap).
+versions), `icons.js` (the icon sprite, `/icons.svg`), `service-worker.js`
+(offline cache), `seo.js` (meta tags, structured data, robots.txt, sitemap).
+
+Icons are Bootstrap Icons, served as one small sprite of only the ones in
+use (listed in `icons.js`): `icon(name, classes)` from `/js/core/html.js`
+writes one, on the server or in the browser; static views write
+`<svg class="bi" aria-hidden="true"><use href="/icons.svg#name"></use></svg>`.
+The server adds the version to every `/icons.svg` link.
 
 ### Text in two languages
 

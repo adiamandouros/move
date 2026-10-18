@@ -1,4 +1,4 @@
-import { escapeHtml } from '/js/core/html.js';
+import { escapeHtml, icon } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
 
 const local = pair => escapeHtml(pair?.[language] || pair?.en || '');
@@ -39,7 +39,7 @@ export function stopItem(stop, index) {
                 <span class="header-badge-wrap" aria-hidden="true"></span>
                 <a class="directions-btn d-flex align-items-center justify-content-center" href="${mapsUrl}" target="_blank" rel="noopener"
                    aria-label="${escapeHtml(`${t('buses.walking-directions-to')} ${stop.name[language] || stop.name.en} ${t('shell.new-tab')}`)}">
-                    <i class="bi bi-signpost-2-fill" aria-hidden="true"></i>
+                    ${icon('signpost-2-fill')}
                 </a>
             </div>
         </div>
@@ -64,7 +64,7 @@ export function patchStop(item, stop, result) {
         ? `<span class="sr-only">. ${t('buses.next-bus-line')} </span><span class="next-bus-line">${lineLabel(first)}</span><span class="sr-only">, </span><span class="next-bus-dest">${destination(first)}</span><span class="sr-only">, ${first.minutes} ${t('buses.minutes')}</span>`
         : result
             ? `<span class="next-bus-dest text-muted fst-italic"><span class="sr-only">. </span>${t(result.unavailable ? 'buses.unavailable' : 'buses.no-arrivals-short')}</span>`
-            : `<span class="next-bus-dest text-muted"><i class="bi bi-arrow-repeat spin" aria-hidden="true"></i><span class="sr-only">. ${t('buses.finding-stops')}</span></span>`;
+            : `<span class="next-bus-dest text-muted">${icon('arrow-repeat', 'spin')}<span class="sr-only">. ${t('buses.finding-stops')}</span></span>`;
 
     item.querySelector('.header-badge-wrap').innerHTML = first ? arrivalBadge(first.minutes) : '';
 
@@ -81,11 +81,13 @@ export function patchStop(item, stop, result) {
 }
 
 // A message in place of the stops, with an optional button (its label).
+// symbol: the icon's name, and "spin" after it to turn it while loading.
 // tabindex="-1" lets the page move the keyboard to it.
-export function message(icon, title, subtitle = '', action = '') {
+export function message(symbol, title, subtitle = '', action = '') {
+    const [name, ...extra] = symbol.split(' ');
     return `
         <div class="bus-message-body d-flex flex-column align-items-center justify-content-center text-muted" tabindex="-1" style="height: 60dvh;">
-            <i class="bi bi-${icon} fs-1 mb-3" aria-hidden="true"></i>
+            ${icon(name, ['fs-1 mb-3', ...extra].join(' '))}
             <p class="fs-5 mb-1 text-center px-4">${escapeHtml(title)}</p>
             ${subtitle ? `<p class="small text-secondary text-center px-4">${escapeHtml(subtitle)}</p>` : ''}
             ${action ? `<button type="button" class="btn btn-primary rounded-pill px-4 mt-2 message-action">${escapeHtml(action)}</button>` : ''}

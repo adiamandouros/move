@@ -1,3 +1,4 @@
+import { icon as iconHtml } from './html.js';
 import { t } from './i18n.js';
 
 // Shared by every page: the language link and the service worker. Each
@@ -65,7 +66,7 @@ function toast(message, icon) {
     const el = document.createElement('div');
     el.className = 'toast-message';
     el.setAttribute('role', 'status');
-    el.innerHTML = `<i class="bi bi-${icon}" aria-hidden="true"></i><span></span>`;
+    el.innerHTML = `${iconHtml(icon)}<span></span>`;
     el.querySelector('span').textContent = message;
     document.body.append(el);
     requestAnimationFrame(() => el.classList.add('show'));

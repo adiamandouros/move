@@ -1,5 +1,7 @@
 // /admin/diagnostics: runs the server checks (server/diagnostics.js) and shows them
 
+import { icon } from '/js/core/html.js';
+
 const $ = id => document.getElementById(id);
 const ICONS = { ok: 'check-circle-fill', warn: 'exclamation-triangle-fill', fail: 'x-octagon-fill', info: 'info-circle' };
 let report = '';
@@ -11,17 +13,17 @@ function el(tag, className, text) {
     return node;
 }
 
-function icon(status) {
-    const i = el('i', `bi bi-${ICONS[status]} diag-icon diag-${status}`);
-    i.setAttribute('aria-hidden', 'true');
-    return i;
+function statusIcon(status) {
+    const box = document.createElement('template');
+    box.innerHTML = icon(ICONS[status], `diag-icon diag-${status}`);
+    return box.content.firstChild;
 }
 
 function render({ summary, checks }) {
     const box = $('diag-summary');
     box.hidden = false;
     box.dataset.status = summary.status;
-    box.replaceChildren(icon(summary.status), el('span', '', summary.text));
+    box.replaceChildren(statusIcon(summary.status), el('span', '', summary.text));
 
     const groups = [];
     let current = null;
@@ -37,7 +39,7 @@ function render({ summary, checks }) {
         body.append(el('div', 'diag-title', c.title), el('div', 'diag-detail', c.detail));
         if (c.hint) body.append(el('div', 'diag-hint', `→ ${c.hint}`));
         const label = el('span', 'sr-only', `${c.status}: `);
-        row.append(icon(c.status), label, body);
+        row.append(statusIcon(c.status), label, body);
         current.append(row);
     }
     $('diag-checks').replaceChildren(...groups);

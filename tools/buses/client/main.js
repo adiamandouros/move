@@ -1,4 +1,5 @@
 import { lastPosition, locationPermission, onLocation, onLocationProblem, restartLocation, startLocation } from '/js/core/location.js';
+import { icon } from '/js/core/html.js';
 import { t } from '/js/core/i18n.js';
 import { decodeStops, distanceMeters, nearestStops } from './stops.js';
 import { message, patchStop, stopItem } from './render.js';
@@ -63,7 +64,7 @@ function applyFilter() {
     });
     const btn = $('toggle-empty-btn');
     btn.setAttribute('aria-pressed', String(state.hideEmpty));
-    btn.querySelector('i').className = `bi bi-${state.hideEmpty ? 'eye' : 'eye-slash'} me-2`;
+    btn.querySelector('.bi').outerHTML = icon(state.hideEmpty ? 'eye' : 'eye-slash', 'me-2');
     const label = btn.querySelector('span');
     label.dataset.i18n = state.hideEmpty ? 'buses.show-all' : 'buses.hide-empty';
     label.textContent = t(label.dataset.i18n);

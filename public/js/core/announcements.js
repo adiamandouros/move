@@ -1,4 +1,4 @@
-import { escapeHtml } from './html.js';
+import { escapeHtml, icon } from './html.js';
 import { language, t } from './i18n.js';
 
 // Service announcements from /api/announcements (server/info/announcements.js),
@@ -53,7 +53,7 @@ function render() {
     const disruptions = [...data.rail.map(i => ({ ...i, greek: language !== 'el' })), ...bus].filter(i => i.disruption);
     banner.innerHTML = disruptions.length
         ? `<div class="disruption-banner">
-            <div class="fw-semibold"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> ${t('announcements.disruption')}</div>
+            <div class="fw-semibold">${icon('exclamation-triangle-fill')} ${t('announcements.disruption')}</div>
             <ul>${disruptions.map(i => item(i, i.greek)).join('')}</ul>
         </div>`
         : '';

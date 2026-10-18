@@ -1,5 +1,5 @@
 // @ts-check
-import { escapeHtml, textOn } from './html.js';
+import { escapeHtml, icon, textOn } from './html.js';
 
 /** @typedef {import('../../../types/data.js').Position} Position */
 
@@ -29,7 +29,7 @@ export function trainDiagram(positions, exits, elevators, s) {
                 <div class="train-label" aria-hidden="true">${s('subway.train-back')}</div>
                 <div class="train-cars-wrap" aria-hidden="true">
                     <div class="train-cars">${positions.map(p => `
-                        <div class="train-car${cls(p)}">${exits.includes(p) ? '<i class="bi bi-person-walking" aria-hidden="true"></i>' : ''}${elevators.includes(p) ? '<i class="bi bi-arrow-up-square" aria-hidden="true"></i>' : ''}</div>`).join('')}
+                        <div class="train-car${cls(p)}">${exits.includes(p) ? icon('person-walking') : ''}${elevators.includes(p) ? icon('arrow-up-square', 'car-elevator') : ''}</div>`).join('')}
                     </div>
                     <div class="position-labels">${positions.map(p => `<div class="position-label${cls(p)}">${label(p)}</div>`).join('')}</div>
                 </div>

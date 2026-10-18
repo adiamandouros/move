@@ -224,6 +224,17 @@ body {
 
 /* ── Utility ── */
 
+/* Icons from the sprite (icon() in core/html.js): the size and colour of the
+   text, like the letters next to them */
+.bi {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    flex-shrink: 0;
+    vertical-align: -0.125em;
+    fill: currentColor;
+}
+
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display: inline-block; animation: spin 1s linear infinite; }
 
@@ -696,7 +707,7 @@ body {
     border-color: var(--accent);
 }
 
-.train-car.has-elevator .bi-arrow-up-square {
+.train-car.has-elevator .car-elevator {
     color: var(--accent);
 }
 
@@ -773,7 +784,7 @@ body {
     font-weight: 600;
 }
 
-.transfer-connector i {
+.transfer-connector .bi {
     font-size: 1.1rem;
 }
 
@@ -914,8 +925,12 @@ body {
 }
 
 .info-toggle::after {
-    content: "\F282"; /* bi-chevron-down */
-    font-family: "bootstrap-icons";
+    content: "";
+    width: 1em;
+    height: 1em;
+    /* Bootstrap Icons' chevron-down, in the text's colour */
+    background-color: currentColor;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708'/%3E%3C/svg%3E") center / contain no-repeat;
     margin-left: auto;
     transition: transform 0.15s;
 }

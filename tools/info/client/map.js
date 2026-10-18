@@ -1,4 +1,4 @@
-import { escapeHtml } from '/js/core/html.js';
+import { escapeHtml, icon } from '/js/core/html.js';
 import { language, localHref, t } from '/js/core/i18n.js';
 import { BENDS, DASHED, STATIONS } from './map-layout.js';
 
@@ -76,8 +76,8 @@ function drawMap(rail) {
 }
 
 export function createMetroMap(container, rail) {
-    const button = (zoom, key, icon) => `<button type="button" class="btn map-btn" data-zoom="${zoom}"
-        aria-label="${t(key)}" title="${t(key)}"><i class="bi bi-${icon}" aria-hidden="true"></i></button>`;
+    const button = (zoom, key, symbol) => `<button type="button" class="btn map-btn" data-zoom="${zoom}"
+        aria-label="${t(key)}" title="${t(key)}">${icon(symbol)}</button>`;
     container.innerHTML = `
         <div class="map-controls">
             ${button('in', 'info.zoom-in', 'plus-lg')}

@@ -2,6 +2,8 @@
 // hidden frame at phone width, in English and Greek, waits for what its
 // scripts draw, and runs axe-core (WCAG 2.2 AA and best practices) on it.
 
+import { icon } from '/js/core/html.js';
+
 const $ = id => document.getElementById(id);
 const ICONS = { ok: 'check-circle-fill', fail: 'x-octagon-fill', warn: 'exclamation-triangle-fill' };
 const RULES = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'];
@@ -40,10 +42,10 @@ function el(tag, className, text) {
     return node;
 }
 
-function icon(status) {
-    const i = el('i', `bi bi-${ICONS[status]} diag-icon diag-${status}`);
-    i.setAttribute('aria-hidden', 'true');
-    return i;
+function statusIcon(status) {
+    const box = document.createElement('template');
+    box.innerHTML = icon(ICONS[status], `diag-icon diag-${status}`);
+    return box.content.firstChild;
 }
 
 // Resolves with the frame's document once the page's content (`ready`) or its
@@ -94,7 +96,7 @@ function resultRow(title, violations, ready) {
         }
         body.append(list);
     }
-    row.append(icon(status), el('span', 'sr-only', `${status}: `), body);
+    row.append(statusIcon(status), el('span', 'sr-only', `${status}: `), body);
     return row;
 }
 
@@ -151,7 +153,7 @@ async function run() {
             ? `${problems} accessibility problem${problems === 1 ? '' : 's'} found`
             : `No accessibility problems found on ${total} page checks`;
         summary.dataset.status = status;
-        summary.replaceChildren(icon(status), el('span', '', incomplete ? `${text}; ${incomplete} page${incomplete === 1 ? '' : 's'} checked before their live content loaded` : text));
+        summary.replaceChildren(statusIcon(status), el('span', '', incomplete ? `${text}; ${incomplete} page${incomplete === 1 ? '' : 's'} checked before their live content loaded` : text));
         // Included in "Copy report"
         window.accessibilityReport = `Accessibility (axe-core, WCAG 2.2 AA):\n${report.join('\n')}`;
     } catch (err) {
