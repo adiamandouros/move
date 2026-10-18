@@ -31,6 +31,6 @@ export function iconSprite() {
         const inner = svg.slice(svg.indexOf('>') + 1, svg.lastIndexOf('</svg>')).replace(/\s*\n\s*/g, '');
         return `<symbol id="${name}" viewBox="${viewBox}">${inner}</symbol>`;
     });
-    sprite = `<svg xmlns="http://www.w3.org/2000/svg">${symbols.join('')}</svg>`;
+    sprite = `<svg xmlns="http://www.w3.org/2000/svg"><!-- Bootstrap Icons, MIT License, https://github.com/twbs/icons/blob/main/LICENSE -->${symbols.join('')}</svg>`;
     return sprite;
 }

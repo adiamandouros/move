@@ -1,6 +1,18 @@
 {
-  "name": "move",
+  "name": "wayhop",
   "version": "1.0.0",
+  "private": true,
+  "description": "Getting around Athens by public transport: metro trips, live bus arrivals and service information, in English and Greek",
+  "homepage": "https://wayhop.gr",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adiamandouros/move.git"
+  },
+  "bugs": {
+    "url": "https://github.com/adiamandouros/move/issues"
+  },
+  "author": "adiamandouros",
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "main": "server.js",
   "scripts": {
@@ -13,10 +25,6 @@
     "typecheck": "tsc -p jsconfig.json",
     "check": "npm run lint && npm run typecheck && npm test"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
     "axe-core": "^4.14.0",
     "bootstrap": "^5.3.8",

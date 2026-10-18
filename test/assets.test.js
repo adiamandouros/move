@@ -62,7 +62,8 @@ test('the icon sprite is served as SVG, kept for good at a versioned address', a
     assert.equal(res.status, 200);
     assert.match(res.headers.get('content-type'), /^image\/svg\+xml/);
     assert.match(res.headers.get('cache-control'), /immutable/);
-    assert.match(await res.text(), /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"><symbol id=/);
+    // Bootstrap Icons are MIT-licensed, so the sprite carries their license notice
+    assert.match(await res.text(), /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"><!-- Bootstrap Icons, MIT License, [^>]+ --><symbol id=/);
     assert.equal((await fetch(`${base}/icons.svg`)).headers.get('cache-control'), 'no-cache');
 });
 

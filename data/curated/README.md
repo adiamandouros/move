@@ -9,6 +9,9 @@ After editing, run `npm test` (checks these files for mistakes) and
 downloaded). A file with errors fails the build, and the site keeps serving the
 previous build.
 
+These files are under CC BY-SA 4.0, not the code's license: see
+[LICENSE.md](LICENSE.md).
+
 ## Editing on the go: /admin/stations
 
 Set `ADMIN_PASSWORD` in `.env` to enable a private, phone-friendly editor for
