@@ -10,7 +10,7 @@ function formatDistance(meters) {
 function arrivalBadge(minutes) {
     const cls = minutes <= 3 ? 'arrival-soon' : minutes <= 8 ? 'arrival-close' : 'arrival-later';
     const label = minutes <= 3 ? `${minutes} ${t('buses.arriving-soon')}` : `${minutes} ${t('buses.minutes')}`;
-    return `<span class="badge arrival-badge ${cls}"><span aria-hidden="true">${minutes} min</span><span class="sr-only">${escapeHtml(label)}</span></span>`;
+    return `<span class="badge arrival-badge ${cls}"><span aria-hidden="true">${minutes} ${t('buses.min')}</span><span class="sr-only">${escapeHtml(label)}</span></span>`;
 }
 
 const lineLabel = a => escapeHtml(a.line ?? '?');
@@ -54,30 +54,41 @@ export function stopItem(stop, index) {
 
 // Fill in one stop's arrivals. `result` is undefined until the first answer arrives.
 export function patchStop(item, stop, result) {
+    item.dataset.hasArrivals = String((result?.arrivals ?? []).length > 0);
+    item.querySelector('.stop-next-bus').innerHTML = nextBus(result);
+    item.querySelector('.header-badge-wrap').innerHTML = headerBadge(result);
+    item.querySelector('.stop-arrivals').innerHTML = arrivalRows(result);
+}
+
+// The rest of the stop button's name: the next bus, or why there's none. The
+// button's name is its text: stop, distance, then this (the minutes badge
+// sits outside the button, so they're repeated for screen readers).
+export function nextBus(result) {
+    const first = result?.arrivals?.[0];
+    if (first) return `<span class="sr-only">. ${t('buses.next-bus-line')} </span><span class="next-bus-line">${lineLabel(first)}</span><span class="sr-only">, </span><span class="next-bus-dest">${destination(first)}</span><span class="sr-only">, ${first.minutes} ${t('buses.minutes')}</span>`;
+    return result
+        ? `<span class="next-bus-dest text-body-secondary fst-italic"><span class="sr-only">. </span>${t(result.unavailable ? 'buses.unavailable' : 'buses.no-arrivals-short')}</span>`
+        : `<span class="next-bus-dest text-body-secondary">${icon('arrow-repeat', 'spin')}<span class="sr-only">. ${t('buses.finding-stops')}</span></span>`;
+}
+
+// The next bus's minutes, beside the button
+export function headerBadge(result) {
+    const first = result?.arrivals?.[0];
+    return first ? arrivalBadge(first.minutes) : '';
+}
+
+// Every arrival, inside the opened stop
+export function arrivalRows(result) {
     const arrivals = result?.arrivals ?? [];
-    const first = arrivals[0];
-    item.dataset.hasArrivals = String(arrivals.length > 0);
-
-    // The button's name is its text: stop, distance, then the next bus (the
-    // minutes badge sits outside the button, so they're repeated for screen readers)
-    item.querySelector('.stop-next-bus').innerHTML = first
-        ? `<span class="sr-only">. ${t('buses.next-bus-line')} </span><span class="next-bus-line">${lineLabel(first)}</span><span class="sr-only">, </span><span class="next-bus-dest">${destination(first)}</span><span class="sr-only">, ${first.minutes} ${t('buses.minutes')}</span>`
-        : result
-            ? `<span class="next-bus-dest text-body-secondary fst-italic"><span class="sr-only">. </span>${t(result.unavailable ? 'buses.unavailable' : 'buses.no-arrivals-short')}</span>`
-            : `<span class="next-bus-dest text-body-secondary">${icon('arrow-repeat', 'spin')}<span class="sr-only">. ${t('buses.finding-stops')}</span></span>`;
-
-    item.querySelector('.header-badge-wrap').innerHTML = first ? arrivalBadge(first.minutes) : '';
-
-    item.querySelector('.stop-arrivals').innerHTML = arrivals.length
-        ? arrivals.map(a => `
+    if (!arrivals.length) return result ? `<li class="text-body-secondary small">${t(result.unavailable ? 'buses.unavailable' : 'buses.no-arrivals')}</li>` : '';
+    return arrivals.map(a => `
             <li class="arrival-row d-flex align-items-center justify-content-between py-2 border-bottom border-secondary-subtle">
                 <span class="d-flex align-items-center gap-2">
                     <span class="line-pill"><span class="sr-only">${t('buses.line')} </span>${lineLabel(a)}</span>
                     <span class="arrival-dest"><span class="sr-only">, </span>${destination(a)}<span class="sr-only">, </span></span>
                 </span>
                 ${arrivalBadge(a.minutes)}
-            </li>`).join('')
-        : result ? `<li class="text-body-secondary small">${t(result.unavailable ? 'buses.unavailable' : 'buses.no-arrivals')}</li>` : '';
+            </li>`).join('');
 }
 
 // A message in place of the stops, with an optional button (its label).
