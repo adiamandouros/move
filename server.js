@@ -15,6 +15,8 @@ import { createPages } from './server/pages/index.js';
 import { canonicalHost } from './server/canonical-host.js';
 import { adsenseProblems } from './server/ads.js';
 import { createAnnouncements } from './server/info/announcements.js';
+import { createHealth } from './server/health.js';
+import { securityHeaders } from './server/security.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -22,6 +24,7 @@ const app = express();
 app.set('trust proxy', 'loopback');
 // Other addresses (the old move.sonovabitc.win) redirect to SITE_URL
 app.use(canonicalHost());
+app.use(securityHeaders());
 app.use(compression());
 const PORT = process.env.PORT || 3000;
 for (const problem of adsenseProblems()) console.warn(`[ads] ${problem} — ads are off until it's fixed`);
@@ -43,6 +46,8 @@ const busApi = createBusApi({
 // Service announcements for the info page, from the OASA and STASY websites
 const announcements = createAnnouncements({ cacheFile: path.join(__dirname, 'data', 'cache', 'announcements.json'), relays });
 app.use('/api/announcements', announcements);
+// Whether the live site works, for the scheduled check (.github/workflows/health.yml)
+app.use('/api/health', createHealth({ busStatus: busApi.status, announcementStatus: announcements.status, buildDir: BUILD_DIR, relays }));
 app.use('/api', busApi);
 
 // Station pages are built from rail.json, so they follow its weekly rebuild

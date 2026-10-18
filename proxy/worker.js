@@ -12,10 +12,18 @@
 // requests come from. OASA's live API only accepts connections from Greece,
 // so this should say loc=GR; the diagnostics page shows it.
 //
+// GET /?act=version (with the key) answers { version: RELAY_VERSION }, so the
+// server's health check can tell a relay that runs older code (a relay from
+// before versions answers 400).
+//
 // GET /?act=stasyPage&path=<one path segment> relays a page of www.stasy.gr
 // (its news page and its posts, for the announcements): STASY refuses the
 // server's data-centre address too. Only single-segment paths on that one
 // site are allowed.
+
+// Bump with every change a deployed relay needs (proxy/README.md): the
+// server's health check reports relays that answer an older version
+export const RELAY_VERSION = 2;
 
 const OASA_API = 'https://telematics.oasa.gr/api/';
 const ALLOWED_ACTIONS = new Set(['getStopArrivals', 'webRoutesForStop']);
@@ -38,6 +46,9 @@ export default {
         const params = new URL(request.url).searchParams;
         const act = params.get('act') ?? '';
         const p1 = params.get('p1') ?? '';
+        if (act === 'version') {
+            return new Response(JSON.stringify({ version: RELAY_VERSION }), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+        }
         if (act === 'whereami') return whereAmI(request);
         if (act === 'stasyPage') return stasyPage(request, params.get('path') ?? '');
         if (!ALLOWED_ACTIONS.has(act) || !/^\d{1,8}$/.test(p1)) return text(400, 'Bad request');
