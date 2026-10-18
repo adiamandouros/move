@@ -41,6 +41,10 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium webkit
       - run: npm run check
+      # Every browser test twice more, to catch flaky ones before a pull
+      # request does (a test that passes only sometimes fails this)
+      - name: Look for flaky browser tests
+        run: npx playwright test --repeat-each=2 --retries=0
       - name: Keep the report, screenshots and traces of failures
         if: failure()
         uses: actions/upload-artifact@v4

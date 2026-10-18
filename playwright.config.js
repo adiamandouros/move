@@ -12,7 +12,11 @@ export default defineConfig({
     expect: { timeout: 5_000 },
     fullyParallel: true,
     forbidOnly: Boolean(process.env.CI),
+    // On GitHub a failed test runs once more, for its trace; one that passes
+    // only the second time still fails the run (flaky tests get fixed, not
+    // retried away)
     retries: process.env.CI ? 1 : 0,
+    failOnFlakyTests: Boolean(process.env.CI),
     reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : [['list']],
     use: {
         baseURL: `http://localhost:${PORT}`,

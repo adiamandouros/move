@@ -28,6 +28,10 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      # The coverage floor of the server code (package.json test:coverage):
+      # Node 20 can't check thresholds, so on 22 only
+      - if: matrix.node == 22
+        run: npm run test:coverage
 
   # The site in real browsers (test/browser/): phone and desktop Chromium, and
   # WebKit as on an iPhone. Also needs no network: the tests run their own
