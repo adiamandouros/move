@@ -197,6 +197,13 @@ Do this after any change to `proxy/` (e.g. October 2026: STASY pages). If
 `/admin/diagnostics` says "The relay doesn't know STASY pages yet", the relay
 hasn't been updated.
 
+Every change a deployed relay needs also raises `RELAY_VERSION` in
+`worker.js`. The server's health check (`/api/health`, checked every 30
+minutes by `.github/workflows/health.yml`) asks each relay for its version
+and opens a GitHub issue while one is behind. So after merging such a change,
+update both relays: the home relay as above, and the Worker with
+`cd proxy && npx wrangler deploy`.
+
 ### If the home connection goes down
 
 Live bus times stop until it's back. The rest of the site isn't affected. The

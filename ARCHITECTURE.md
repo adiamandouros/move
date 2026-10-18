@@ -134,6 +134,25 @@ if a build fails. Where to stand on each
 train is curated by hand in `data/curated/` ([README](data/curated/README.md)),
 and can be edited from a phone at `/admin/stations`.
 
+## Monitoring
+
+`/api/health` (`server/health.js`) says whether the live site works:
+- live arrivals have come in recently;
+- every announcement source loaded;
+- last night's data build worked;
+- the metro timetable doesn't end within a week;
+- each relay runs the current `RELAY_VERSION`.
+
+It answers 503 with the problems in plain words, without addresses, keys or
+error details. Every 30 minutes, `.github/workflows/health.yml` runs
+`scripts/health-check.js` against wayhop.gr. It asks what a visitor would
+(the home pages, one stop's arrivals, the announcements), then reads the
+health page, and rechecks a problem after 2 minutes. While the site is
+unhealthy, an issue labelled `health` stays open; GitHub emails it.
+`/admin/diagnostics` has the details.
+
+`server/security.js` adds the security headers to every response.
+
 ## Ads and search
 
 `server/ads.js`: Google AdSense, off until its `.env` settings exist; ad
