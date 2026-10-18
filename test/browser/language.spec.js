@@ -1,6 +1,6 @@
 // The language link: switching keeps what's on the page, the choice is
 // remembered, and English addresses then open in Greek.
-import { expect, test } from './fixtures.js';
+import { expect, onlyOn, test } from './fixtures.js';
 
 const path = page => { const u = new URL(page.url()); return u.pathname + u.search; };
 const saved = page => page.evaluate(() => localStorage.getItem('language'));
@@ -37,19 +37,23 @@ test('the keyboard switches back to English', async ({ page }, { project }) => {
     await expect(languageLink(page, project.name)).toContainText('Ελληνικά');
 });
 
-test('both station names show in the suggestions', async ({ page }) => {
-    await page.goto('/subway');
-    // Ready once the boarding station comes from the location
-    await expect(page.locator('#stop-search-from')).toHaveValue('Syntagma');
-    await page.locator('#stop-search-to').pressSequentially('Synt');
-    const names = page.locator('#stop-suggestions-to .suggestion-item').first().locator('.suggestion-names > span');
-    await expect(names.filter({ visible: true })).toHaveText(['Σύνταγμα', 'Syntagma']);
-});
+test.describe('on one phone (the same everywhere)', () => {
+    test.beforeEach(onlyOn('phone'));
 
-test('the Greek map\'s station list links to Greek pages', async ({ page }) => {
-    await page.goto('/el/info');
-    await page.locator('#toggle-map').click();
-    await page.locator('#toggle-station-list').click();
-    await expect(page.locator('#station-list a').first()).toHaveAttribute('href', /^\/el\/subway\?to=/);
-    await expect(page.locator('.map-btn').first()).toHaveAttribute('aria-label', 'Μεγέθυνση');
+    test('both station names show in the suggestions', async ({ page }) => {
+        await page.goto('/subway');
+        // Ready once the boarding station comes from the location
+        await expect(page.locator('#stop-search-from')).toHaveValue('Syntagma');
+        await page.locator('#stop-search-to').pressSequentially('Synt');
+        const names = page.locator('#stop-suggestions-to .suggestion-item').first().locator('.suggestion-names > span');
+        await expect(names.filter({ visible: true })).toHaveText(['Σύνταγμα', 'Syntagma']);
+    });
+
+    test('the Greek map\'s station list links to Greek pages', async ({ page }) => {
+        await page.goto('/el/info');
+        await page.locator('#toggle-map').click();
+        await page.locator('#toggle-station-list').click();
+        await expect(page.locator('#station-list a').first()).toHaveAttribute('href', /^\/el\/subway\?to=/);
+        await expect(page.locator('.map-btn').first()).toHaveAttribute('aria-label', 'Μεγέθυνση');
+    });
 });

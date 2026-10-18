@@ -3,6 +3,7 @@
 // minutes count down in between. The clock is moved on by the test, so
 // minutes of refreshes take a second.
 import { arrivalsAt } from './server.js';
+import { refreshEvery } from '../../tools/buses/client/timing.js';
 import { expect, test } from './fixtures.js';
 
 test.beforeEach(({}, { project }) => test.skip(project.name === 'desktop', 'needs a screen too short for every stop'));
@@ -85,8 +86,8 @@ test('each stop is refreshed by when its next bus comes; stops off screen aren\'
         const times = all.filter(a => a.code === code).map(a => a.at);
         const gaps = times.slice(1).map((t, i) => Math.round((t - times[i]) / 1000));
         const next = arrivalsAt(code)[0]?.minutes;
-        // REFRESH in main.js, plus its 2 s of slack; the page checks once a second
-        const every = next === undefined ? 122 : next <= 10 ? 32 : next <= 20 ? 62 : 122;
+        // The tiers in timing.js (tested on their own in bus-timing.test.js); the page checks once a second
+        const every = refreshEvery({ arrivals: next === undefined ? [] : [{ minutes: next }] }) / 1000;
         const what = `stop ${code} (next bus in ${next} min): gaps ${gaps}`;
         expect(gaps.length, what).toBeGreaterThan(0);
         for (const gap of gaps) {

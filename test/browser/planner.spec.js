@@ -1,5 +1,10 @@
-// The subway planner at different times of day, and the home page.
-import { axe, expect, test } from './fixtures.js';
+// The subway planner and the home page in a real browser. What the planner
+// works out and draws at each time of day is tested in Node
+// (subway-network.test.js, subway-render.test.js); here, that the page puts
+// it together, on one phone.
+import { axe, expect, onlyOn, test } from './fixtures.js';
+
+test.beforeEach(onlyOn('phone'));
 
 const content = page => page.locator('#app-content');
 
@@ -13,26 +18,6 @@ test.describe('23:55 on a Wednesday, after the airport branch has stopped', () =
         expect(await axe(page)).toEqual([]);
     });
 
-    test('in Greek too', async ({ page }) => {
-        await page.goto('/el/subway?from=syntagma&to=airport');
-        await expect(content(page)).toContainText('πρώτα δρομολόγια της επόμενης ημέρας');
-        await expect(content(page)).toContainText(/Στις\s*0[5-7]:\d\d/);
-    });
-});
-
-test.describe('01:30, before the first train', () => {
-    test.use({ now: '2026-10-15T01:30:00+03:00' });
-
-    test('the morning\'s first trains as clock times, not "In 240\'"', async ({ page }) => {
-        await page.goto('/subway?from=omonia&to=piraeus');
-        await expect(content(page)).toContainText(/At\s*0[5-6]:\d\d/);
-        await expect(content(page)).not.toContainText('tomorrow');
-    });
-});
-
-test('at noon, minutes', async ({ page }) => {
-    await page.goto('/subway?from=omonia&to=piraeus');
-    await expect(content(page)).toContainText(/In\s*\d+'/);
 });
 
 test('a change of line', async ({ page }) => {

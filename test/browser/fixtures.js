@@ -4,7 +4,7 @@
 //     there (test.use({ now: '…' }) for another moment, now: null for the real one)
 //   - a fake location service (test.use({ location: { … } }), below)
 //   - a failure if the page throws or logs an error
-// and the helpers axe(page) and keyboardWalk(page).
+// and the helpers axe(page), keyboardWalk(page) and onlyOn(...projects).
 import { test as base, expect } from '@playwright/test';
 import { readFileSync } from 'fs';
 import { createRequire } from 'module';
@@ -79,6 +79,12 @@ export const test = base.extend({
         if (testInfo.status === testInfo.expectedStatus) expect(errors, 'no script errors').toEqual([]);
     },
 });
+
+// For tests that behave the same in every browser (their logic is tested in
+// Node too): run them on these projects only. In a describe() or a file:
+//   test.beforeEach(onlyOn('phone'));
+export const onlyOn = (...projects) => ({}, { project }) =>
+    test.skip(!projects.includes(project.name), `the same everywhere: runs on ${projects.join(', ')} only`);
 
 // axe-core's violations on the page as it is now: ["rule-id (nodes): selector", …]
 export async function axe(page) {
