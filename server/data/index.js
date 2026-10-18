@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { athensToday } from './calendar.js';
 import { buildBus } from './build-bus.js';
 import { buildRail } from './build-rail.js';
+import { checkOutput, shrinkage } from './check-output.js';
 import { applyOverlay, pruneOverlay, readOverlay, writeOverlay } from './overlay.js';
 import { fetchSources } from './sources.js';
 import { validateCurated } from './validate.js';
@@ -97,6 +98,9 @@ export async function runBuild({
                 const missing = output.sources.filter(s => sources[s].error);
                 if (missing.length) throw new Error(`source unavailable: ${missing.map(s => `${s} (${sources[s].error})`).join(', ')}`);
                 const { data, warnings } = await output.build(sources, curated.data, today);
+                // Never replace a good file with a broken or much smaller one (--force accepts a smaller one)
+                const problems = [...checkOutput(name, data), ...(force ? [] : shrinkage(name, data, readJson(join(dirs.build, name))))];
+                if (problems.length) throw new Error(`failed its checks: ${problems.join('; ')}`);
                 writeFileSync(join(dirs.next, name), JSON.stringify(data));
                 meta.outputs[name] = { ok: true, warnings };
                 log(`[data] Built ${name} in ${Date.now() - started} ms${warnings.length ? ` with ${warnings.length} warning(s)` : ''}`);

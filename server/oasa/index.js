@@ -4,10 +4,10 @@ import express from 'express';
 import { createArrivals } from './arrivals.js';
 import { createOasaClient } from './client.js';
 import { clientKey, createClientLimiter, hourCounter } from './limits.js';
+import { STOP_CODE } from '../data/check-output.js';
 
 // Most stops one request may ask for (the bus page shows 6 at a time)
 const MAX_STOPS = 12;
-const STOP_CODE = /^\d{1,8}$/;
 
 // /api routes for the bus page.
 //   GET /api/arrivals?stops=10361,10341

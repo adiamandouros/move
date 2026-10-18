@@ -3,6 +3,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { readCsv, readCsvAll } from './csv.js';
 import { isoDate, serviceDates } from './calendar.js';
+import { STOP_CODE } from './check-output.js';
 
 // Build bus-stops.json — a compact index of every bus/trolley stop, so the
 // browser can find nearby stops without calling OASA:
@@ -60,13 +61,17 @@ export async function buildBus({ dir, stopTablePath, today }) {
     const byNumber = (a, b) => a.localeCompare(b, 'el', { numeric: true });
     const stops = [];
     let unserved = 0;
+    const badCodes = [];
     for (const s of await readCsvAll(file('stops.txt'), { required: ['stop_id', 'stop_name', 'stop_lat', 'stop_lon'] })) {
+        // The telematics API and ours only take numeric codes (OASA's feed has had a "-2")
+        if (!STOP_CODE.test(s.stop_id)) { badCodes.push(s.stop_id); continue; }
         const lines = [...(stopLines.get(s.stop_id) ?? [])].sort(byNumber);
         if (!lines.length) { unserved++; continue; }
         stops.push([s.stop_id, round(+s.stop_lat, 5), round(+s.stop_lon, 5), s.stop_name.replace(/\s+/g, ' '), latinName.get(s.stop_id) ?? '', lines]);
     }
     if (stops.length < MIN_STOPS) throw new Error(`Bus feed has only ${stops.length} served stops (expected at least ${MIN_STOPS})`);
     if (unserved) warnings.push(`${unserved} bus stops have no trips and were left out`);
+    if (badCodes.length) warnings.push(`${badCodes.length} bus stops have codes the live times can't use and were left out: ${badCodes.join(', ')}`);
 
     const optional = async name => existsSync(file(name)) ? readCsvAll(file(name)) : [];
     const dates = [...serviceDates(await optional('calendar.txt'), await optional('calendar_dates.txt')).keys()].sort();
