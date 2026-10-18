@@ -212,6 +212,11 @@ opens an issue labelled "nightly".
 The **Check accessibility** button on `/admin/diagnostics` runs axe-core on
 the live pages in your browser.
 
+[test/README.md](test/README.md) maps the whole suite: which kind of test
+goes where, what runs on each commit (lint, types, Node tests) and push
+(browser tests on one phone) through `.githooks/`, the coverage floor
+(`npm run test:coverage`) and the rule that flaky tests fail.
+
 `node scripts/snapshot.js <folder>` writes every response the server sends
 to files; run it before and after a change that shouldn't change any page,
 then `diff -r` the two folders.

@@ -24,9 +24,12 @@ Where tests go:
   to cover what they do.
 - What's worth watching on the live site each night: `test/live/`.
 
-`npm run check` runs lint, type checks and both kinds of tests; run it
-before pushing. GitHub runs the same on every pull request, and every night
-on `main`.
+`npm run check` runs lint, type checks and both kinds of tests. Git runs the
+quick part before every commit and the browser tests on one phone before
+every push (`.githooks/`, set up by `npm install`); GitHub runs everything on
+every pull request, and every night on `main`. Don't skip the hooks to get
+past a failure: fix it. [test/README.md](test/README.md) has the map and the
+rules (no flaky tests, coverage only goes up).
 
 ## Other rules
 
