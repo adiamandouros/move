@@ -4,10 +4,18 @@ import { t } from '/js/core/i18n.js';
 import { decodeStops, distanceMeters, nearestStops } from './stops.js';
 import { message, patchStop, stopItem } from './render.js';
 
-// The server keeps each stop's arrivals for 30 s, so polling faster gains
-// nothing. The extra 2 s make sure the previous answer has expired by the
-// next poll; at exactly 30 s the poll could land just before and get the same data.
-const POLL_MS = 32_000;
+// How often a stop is refreshed, by when its next bus comes: [up to minutes,
+// every ms], and REFRESH_SLOW_MS for later buses or none. An opened stop, and
+// one whose times couldn't be fetched, always at the fastest. Approved
+// 2026-10-18, so OASA's 2 requests a second go further (see also
+// server/oasa/arrivals.js); between refreshes the minutes count down here.
+const REFRESH = [[10, 30_000], [20, 60_000]];
+const REFRESH_SLOW_MS = 120_000;
+// The server keeps each stop's arrivals for 30 s; the extra 2 s make sure the
+// previous answer has expired (at exactly 30 s we could get the same data)
+const SLACK_MS = 2_000;
+// How often the page checks which stops are due, and counts the minutes down
+const TICK_MS = 1_000;
 // Stop polling when nobody has touched the page for this long
 const IDLE_MS = 10 * 60_000;
 // Re-pick the nearby stops after walking this far
@@ -26,13 +34,16 @@ const state = {
     limit: PAGE_SIZE,
     stops: [],
     results: {},
-    lastPoll: 0,
+    // Per stop code: when its answer came in, and how many minutes it had been
+    // counted down by when last drawn
+    fetched: {},
+    drawnElapsed: {},
+    // Stops being asked for, and the ones on screen (only those are refreshed)
+    asking: new Set(),
+    onScreen: new Set(),
     lastInteraction: Date.now(),
     paused: false,
     hideEmpty: false,
-    polling: false,
-    // Stops changed during a poll (e.g. a better location fix): poll again after it
-    pollAgain: false,
     // The stop list couldn't be loaded: its message stays, whatever the location does
     loadFailed: false,
 };
@@ -45,6 +56,9 @@ function renderStops() {
     $('bus-message').innerHTML = '';
     accordion.innerHTML = state.stops.map(stopItem).join('');
     $('bus-actions').hidden = false;
+    observer.disconnect();
+    state.onScreen.clear();
+    accordion.querySelectorAll('.stop-item').forEach(item => observer.observe(item));
     patchAll();
     if (hadFocus) accordion.querySelector('.stop-toggle')?.focus();
 }
@@ -52,7 +66,8 @@ function renderStops() {
 function patchAll() {
     for (const stop of state.stops) {
         const item = accordion.querySelector(`[data-stop="${stop.code}"]`);
-        if (item) patchStop(item, stop, state.results[stop.code]);
+        if (item) patchStop(item, stop, shown(stop.code));
+        state.drawnElapsed[stop.code] = elapsed(stop.code);
     }
     applyFilter();
     renderStatus();
@@ -107,35 +122,73 @@ function pickStops() {
     renderStops();
 }
 
+// Whole minutes since a stop's answer came in
+const elapsed = code => state.fetched[code] ? Math.floor((Date.now() - state.fetched[code]) / 60_000) : 0;
+
+// A stop's answer, counted down to now (between refreshes it can be 2 minutes old)
+function shown(code) {
+    const result = state.results[code];
+    const minutes = elapsed(code);
+    if (!minutes || !result?.arrivals?.length) return result;
+    return { ...result, arrivals: result.arrivals.map(a => ({ ...a, minutes: a.minutes - minutes })).filter(a => a.minutes >= 0) };
+}
+
+const itemOf = code => accordion.querySelector(`[data-stop="${code}"]`);
+
+// How long a stop's answer is good for (see REFRESH)
+function refreshEvery(code) {
+    const result = shown(code);
+    const opened = itemOf(code)?.querySelector('.stop-toggle[aria-expanded="true"]');
+    if (!result || result.unavailable || opened) return REFRESH[0][1] + SLACK_MS;
+    const next = result.arrivals[0]?.minutes;
+    const tier = next === undefined ? null : REFRESH.find(([upTo]) => next <= upTo);
+    return (tier?.[1] ?? REFRESH_SLOW_MS) + SLACK_MS;
+}
+
+// Which stops are on screen: only those are refreshed (and asked for at once
+// when they scroll into view)
+const observer = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+        const code = entry.target.dataset.stop;
+        if (entry.isIntersecting) state.onScreen.add(code);
+        else state.onScreen.delete(code);
+    }
+    poll();
+});
+
+// Ask for the stops that are due: on screen (or hidden by "Hide empty stops",
+// so they come back when a bus is on its way) and past their refresh time
+function poll() {
+    if (state.paused || document.hidden || !state.stops.length) return;
+    for (const stop of state.stops) {
+        const { code } = stop;
+        const eligible = state.onScreen.has(code) || itemOf(code)?.classList.contains('d-none');
+        if (!eligible || state.asking.has(code)) continue;
+        if (Date.now() - (state.fetched[code] ?? 0) >= refreshEvery(code)) ask(stop);
+    }
+}
+
 // One request per stop, so each stop shows as soon as its arrivals are in: the
 // server asks OASA for stops it hasn't cached one after another (about 2 a
 // second), so a single request for all of them waited for the slowest.
-async function poll() {
-    if (state.paused || document.hidden || !state.stops.length) return;
-    if (state.polling) {
-        state.pollAgain = true;
-        return;
+async function ask(stop) {
+    state.asking.add(stop.code);
+    try {
+        const res = await fetch(`/api/arrivals?stops=${stop.code}`, { signal: AbortSignal.timeout(20_000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        Object.assign(state.results, (await res.json()).stops);
+    } catch {
+        // Offline or server trouble: keep what we have, but say live times are unavailable if there's nothing yet
+        state.results[stop.code] ??= { arrivals: [], unavailable: true };
     }
-    state.polling = true;
-    await Promise.all(state.stops.map(async stop => {
-        try {
-            const res = await fetch(`/api/arrivals?stops=${stop.code}`, { signal: AbortSignal.timeout(20_000) });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            Object.assign(state.results, (await res.json()).stops);
-        } catch {
-            // Offline or server trouble: keep what we have, but say live times are unavailable if there's nothing yet
-            state.results[stop.code] ??= { arrivals: [], unavailable: true };
-        }
-        const item = accordion.querySelector(`[data-stop="${stop.code}"]`);
-        if (item) patchStop(item, stop, state.results[stop.code]);
-    }));
-    state.polling = false;
-    state.lastPoll = Date.now();
-    patchAll();
-    if (state.pollAgain) {
-        state.pollAgain = false;
-        poll();
-    }
+    state.fetched[stop.code] = Date.now();
+    state.asking.delete(stop.code);
+    const item = itemOf(stop.code);
+    if (!item) return; // the stops changed meanwhile
+    patchStop(item, stop, shown(stop.code));
+    state.drawnElapsed[stop.code] = 0;
+    applyFilter();
+    renderStatus();
 }
 
 function tick() {
@@ -146,6 +199,8 @@ function tick() {
         return;
     }
     poll();
+    // A minute has passed for a stop: count its arrivals down
+    if (state.stops.some(stop => elapsed(stop.code) !== state.drawnElapsed[stop.code])) patchAll();
 }
 
 // Any tap or key press counts as someone looking at the page
@@ -237,15 +292,17 @@ async function start() {
         poll();
     }
 
-    setInterval(tick, POLL_MS);
+    setInterval(tick, TICK_MS);
 
     document.addEventListener('pointerdown', interact, { passive: true });
     document.addEventListener('keydown', interact);
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) return;
         interact();
-        if (Date.now() - state.lastPoll >= POLL_MS) poll();
+        tick();
     });
+    // An opened stop is refreshed every 30 s: catch up at once if it's older
+    accordion.addEventListener('shown.bs.collapse', () => poll());
 
     $('show-more-btn').addEventListener('click', () => {
         state.limit += PAGE_SIZE;

@@ -5,6 +5,9 @@ import { hourCounter } from './limits.js';
 // to keep our load on it small and predictable:
 //   - at most REQUESTS_PER_SECOND requests, evenly spaced (no bursts)
 //   - a request that would have to wait longer than MAX_WAIT_MS is dropped
+//   - two lanes: 'high' (someone's first look at a stop) goes ahead of
+//     'normal' (refreshes), so newcomers get times quickly at busy times;
+//     queueWait() tells the cache how busy it is (arrivals.js)
 //   - after FAILURES_TO_OPEN failures in a row, a route is rested for a while
 // Callers fall back to cached data when a request is refused or fails.
 //
@@ -54,8 +57,13 @@ const duration = ms => ms >= 3_600_000 ? `${ms / 3_600_000} h` : `${ms / 1000} s
 
 const realSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+const INTERVAL_MS = 1000 / REQUESTS_PER_SECOND;
+
 export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sleep = realSleep, log = console.warn, relays = [] } = {}) {
     let nextSlot = 0;
+    // Requests waiting for a slot, per lane: { go(ok), since }
+    const lanes = { high: [], normal: [] };
+    let pumping = false;
     // Requests dropped because the queue was too long: people saw older arrivals
     const dropped = hourCounter(now);
 
@@ -75,14 +83,37 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
     });
     const usable = r => r.next ? r.working : !r.probing && now() >= r.restUntil;
 
-    // Reserve the next free slot; resolves when it's our turn, or false if the queue is too long
-    async function waitForSlot() {
-        const t = now();
-        const at = Math.max(t, nextSlot);
-        if (at - t > MAX_WAIT_MS) return false;
-        nextSlot = at + 1000 / REQUESTS_PER_SECOND;
-        if (at > t) await sleep(at - t);
-        return true;
+    // How long a refresh asked for now would wait for its slot
+    const queueWait = () => Math.max(0, nextSlot - now()) + (lanes.high.length + lanes.normal.length) * INTERVAL_MS;
+
+    // Wait for a slot; resolves true when it's our turn, or false if the queue is too long
+    function waitForSlot(lane = 'normal') {
+        const ahead = lanes.high.length + (lane === 'normal' ? lanes.normal.length : 0);
+        if (Math.max(0, nextSlot - now()) + ahead * INTERVAL_MS > MAX_WAIT_MS) return Promise.resolve(false);
+        return new Promise(go => {
+            lanes[lane].push({ go, since: now() });
+            pump();
+        });
+    }
+
+    // Hand out the slots, one every INTERVAL_MS, the high lane first. A
+    // refresh that newcomers kept pushing back past MAX_WAIT_MS is dropped
+    // (without using a slot), as it would have been if it had arrived then.
+    async function pump() {
+        if (pumping) return;
+        pumping = true;
+        while (lanes.high.length || lanes.normal.length) {
+            const wait = nextSlot - now();
+            if (wait > 0) await sleep(wait);
+            const next = lanes.high.shift() ?? lanes.normal.shift();
+            if (now() - next.since > MAX_WAIT_MS + INTERVAL_MS) {
+                next.go(false);
+                continue;
+            }
+            nextSlot = Math.max(now(), nextSlot) + INTERVAL_MS;
+            next.go(true);
+        }
+        pumping = false;
     }
 
     function rest(r, reason) {
@@ -161,10 +192,11 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
 
     // Call one API action, e.g. request('getStopArrivals', '10361'). Returns
     // the parsed JSON (OASA answers `null` for "nothing"), or throws OasaUnavailable.
-    async function request(act, p1) {
+    // lane: 'high' for someone's first look at a stop, 'normal' for refreshes.
+    async function request(act, p1, { lane = 'normal' } = {}) {
         testDue();
         if (!routes.some(usable)) throw new OasaUnavailable('OASA is failing — paused');
-        if (!await waitForSlot()) {
+        if (!await waitForSlot(lane)) {
             dropped.add();
             throw new OasaUnavailable('Request budget exhausted');
         }
@@ -187,6 +219,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
         return {
             at: now(),
             droppedLastHour: dropped.count(),
+            queueWaitMs: queueWait(),
             routes: routes.map(r => ({
                 name: r.name,
                 resting: now() < r.restUntil,
@@ -203,5 +236,5 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
     // Find out at once which routes work, before the first visitor asks
     testDue();
 
-    return { request, status };
+    return { request, status, queueWait };
 }
