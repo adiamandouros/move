@@ -1,4 +1,3 @@
-// @ts-check
 
 // Security headers on everything the app sends (pages, the API, files it
 // serves itself):

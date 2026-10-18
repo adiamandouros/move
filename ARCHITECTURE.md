@@ -204,10 +204,14 @@ and `npm run test:live` (`test/live/`): a few checks against wayhop.gr with
 its real data and live bus times, the bus page opened once. Either failing
 opens an issue labelled "nightly".
 - `npm run lint`: ESLint's recommended checks (`eslint.config.js`).
-- `npm run typecheck`: TypeScript checks the files that start with
-  `// @ts-check` against their JSDoc types. The shapes of the data shared by
-  the server and the browser (`rail.json`, `bus-stops.json`, tools, pages)
-  are in `types/`; nothing is compiled, and editors show the types too.
+- `npm run typecheck`: TypeScript checks every file of the app, the scripts
+  and the relays against their JSDoc types (`jsconfig.json`). The shapes of
+  the data shared by the server and the browser (`rail.json`,
+  `bus-stops.json`, tools, pages) are in `types/`, and what the pages use
+  from the browser beyond the DOM (Bootstrap, AdSense) in
+  `types/globals.d.ts`. Nothing is compiled, and editors show the types too.
+  Where TypeScript can't know which element a query finds, a
+  `/** @type {HTMLElement} */ (…)` note says so.
 
 The **Check accessibility** button on `/admin/diagnostics` runs axe-core on
 the live pages in your browser.

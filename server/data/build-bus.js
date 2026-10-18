@@ -1,4 +1,3 @@
-// @ts-check
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { readCsv, readCsvAll } from './csv.js';

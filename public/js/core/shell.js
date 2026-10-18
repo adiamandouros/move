@@ -17,7 +17,7 @@ const storage = {
 // it from now on (see languageRedirect in server/pages/layout.js), and keep
 // this page's state, like the stations chosen on the subway page, which lives
 // in the address.
-document.querySelectorAll('a[hreflang]').forEach(link => {
+/** @type {NodeListOf<HTMLAnchorElement>} */ (document.querySelectorAll('a[hreflang]')).forEach(link => {
     link.addEventListener('click', () => {
         storage.set('language', link.hreflang);
         link.href = link.pathname + location.search + location.hash;
@@ -26,7 +26,7 @@ document.querySelectorAll('a[hreflang]').forEach(link => {
 
 // Offer the other language once, to someone whose browser prefers it and who
 // hasn't chosen a language (on phones the language link is down in the footer)
-const suggestion = document.querySelector('.lang-suggest');
+const suggestion = /** @type {HTMLElement | null} */ (document.querySelector('.lang-suggest'));
 if (suggestion && !storage.get('language') && !storage.get('language-suggested')) {
     const preferred = (navigator.languages ?? [navigator.language])
         .map(l => l?.slice(0, 2).toLowerCase())
@@ -54,7 +54,11 @@ if ('serviceWorker' in navigator) {
         // (Installed iPhone apps get their own storage, so their first launch counts too.)
         const worker = registration?.installing ?? registration?.waiting;
         if (hadController || !worker) return;
-        const done = () => worker.state === 'activated' && toast(t('shell.offline-ready'), 'cloud-check');
+        const done = () => {
+            if (worker.state !== 'activated') return false;
+            toast(t('shell.offline-ready'), 'cloud-check');
+            return true;
+        };
         if (!done()) worker.addEventListener('statechange', done);
     }).catch(() => { /* not allowed here (e.g. some private windows): the site works without offline use */ });
 }

@@ -1,4 +1,3 @@
-// @ts-check
 // Nearby-stop search over bus-stops.json (see server/data/build-bus.js for the
 // format). No DOM access, so it can be unit-tested in Node.
 

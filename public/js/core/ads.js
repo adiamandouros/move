@@ -3,7 +3,7 @@
 // shows its consent message in the EU. Offline, or with the script blocked,
 // the slots are removed so they don't leave an empty box.
 
-const units = [...document.querySelectorAll('ins.adsbygoogle')];
+const units = /** @type {HTMLElement[]} */ ([...document.querySelectorAll('ins.adsbygoogle')]);
 const choices = document.getElementById('ad-choices');
 const client = units[0]?.dataset.adClient ?? choices?.dataset.adClient;
 

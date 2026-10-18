@@ -112,6 +112,7 @@ export function createMetroMap(container, rail) {
     }
 
     // Client coordinates → map coordinates
+    /** @returns {[number, number]} */
     function toMap(clientX, clientY) {
         const rect = svg.getBoundingClientRect();
         return [view.x + (clientX - rect.left) / rect.width * view.w, view.y + (clientY - rect.top) / rect.height * view.h];
@@ -189,7 +190,7 @@ export function createMetroMap(container, rail) {
         } else if (pointers.size === 2) {
             const [a, b] = [...pointers.values()];
             const dist = Math.hypot(a[0] - b[0], a[1] - b[1]);
-            const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+            const mid = /** @type {[number, number]} */ ([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]);
             if (gesture) {
                 moved += 10;
                 panBy(mid[0] - gesture.mid[0], mid[1] - gesture.mid[1]);

@@ -1,4 +1,3 @@
-// @ts-check
 // When the bus page asks again for a stop, and how its minutes count down in
 // between (main.js does the asking and drawing).
 //

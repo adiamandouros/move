@@ -1,4 +1,3 @@
-// @ts-check
 import { readFileSync, statSync } from 'fs';
 
 /** @typedef {import('../../types/data.js').Rail} Rail */

@@ -1,4 +1,3 @@
-// @ts-check
 // Route finding and departure times over rail.json (see server/data/build-rail.js
 // for the format). No DOM access, so it can be unit-tested in Node.
 
