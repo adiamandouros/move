@@ -1,12 +1,14 @@
 // The site as the browser tests see it: the real app (server/app.js) with the
 // data in test/browser/data/, a fake OASA and fake announcement sources, so
-// nothing reaches the network. Playwright starts it (playwright.config.js);
+// nothing reaches the network; and copies of it where things go wrong
+// (SCENARIOS, below). Playwright starts it (playwright.config.js);
 // to look around by hand: node test/browser/server.js, then localhost:3457
 // (BROWSER_TEST_PORT changes the port).
 import { mkdtempSync, readFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
+import express from 'express';
 import { createApp } from '../../server/app.js';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
@@ -64,7 +66,11 @@ async function fetch(url) {
     return new Response(body, { status: 200 });
 }
 
-const app = createApp({
+// ── Scenarios ───────────────────────────────────────────────────────────────
+// Each is its own copy of the app (with its own caches), and a test picks one
+// with a "scenario" cookie (fixtures.js: test.use({ scenario })), so tests
+// running side by side don't affect each other.
+const site = (overrides = {}) => createApp({
     buildDir: DATA,
     cacheDir: mkdtempSync(join(tmpdir(), 'wayhop-browser-')),
     relays: [],
@@ -73,5 +79,34 @@ const app = createApp({
     // Every test comes from 127.0.0.1, so the per-visitor limit would be shared
     limiter: { take: () => 0 },
     adminPassword: '',
+    ...overrides,
+});
+// The site with /api/arrivals answered by `handler` instead
+const withArrivals = handler => express().get('/api/arrivals', handler).use(site());
+const codesOf = req => String(req.query.stops ?? '').split(',');
+const down = async () => { throw new Error('fake OASA: down'); };
+
+const SCENARIOS = {
+    normal: site(),
+    // OASA doesn't answer (and nothing is cached): every stop is unavailable
+    'oasa-down': site({ oasaClient: { ...oasaClient, request: down } }),
+    // OASA stopped answering a while ago: the last answers, marked stale
+    'oasa-stale': withArrivals((req, res) => res.json({ stops: Object.fromEntries(codesOf(req).map(code => [code, {
+        arrivals: arrivalsAt(code).map(a => ({ route: a.route, vehicle: '1', minutes: a.minutes, line: linesOf.get(code)?.[0] ?? null, to: { el: 'ΣΥΝΤΑΓΜΑ', en: 'SYNTAGMA' } })),
+        updated: Date.now() - 2 * 60_000,
+        stale: true,
+    }])) })),
+    // Over the per-visitor limit (server/oasa/limits.js)
+    'oasa-limited': withArrivals((_req, res) => res.status(429).set('Retry-After', '30').json({ error: 'Too many new stops; try again shortly' })),
+    // Neither OASA's nor STASY's website answers
+    'announcements-down': site({ fetch: down }),
+    // Before the first data build: no rail.json or bus-stops.json
+    'no-data': site({ buildDir: mkdtempSync(join(tmpdir(), 'wayhop-nodata-')) }),
+};
+
+const app = express();
+app.use((req, res, next) => {
+    const scenario = req.headers.cookie?.match(/(?:^|;\s*)scenario=([\w-]+)/)?.[1] ?? 'normal';
+    (SCENARIOS[scenario] ?? SCENARIOS.normal)(req, res, next);
 });
 app.listen(PORT, () => console.log(`Wayhop (browser tests) at http://localhost:${PORT}`));

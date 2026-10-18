@@ -3,7 +3,11 @@
 //   - a fixed clock: Wednesday 21 October 2026, 12:00 in Athens, running from
 //     there (test.use({ now: '…' }) for another moment, now: null for the real one)
 //   - a fake location service (test.use({ location: { … } }), below)
-//   - a failure if the page throws or logs an error
+//   - a failure if the page throws or logs an error (test.use({ allowErrors:
+//     [/…/] }) for ones a test expects, like a 503 it set up)
+//   - the normal site, or one where something goes wrong: test.use({ scenario:
+//     'oasa-down' }) (the list is in server.js); setScenario(page, name)
+//     switches mid-test, e.g. when OASA comes back
 // and the helpers axe(page) and keyboardWalk(page).
 import { test as base, expect } from '@playwright/test';
 import { readFileSync } from 'fs';
@@ -61,8 +65,11 @@ function fakeLocation(settings) {
 export const test = base.extend({
     now: ['2026-10-21T12:00:00+03:00', { option: true }],
     location: [LOCATION, { option: true }],
+    scenario: ['normal', { option: true }],
+    allowErrors: [[], { option: true }],
 
-    page: async ({ page, now, location }, use, testInfo) => {
+    page: async ({ page, now, location, scenario, allowErrors }, use, testInfo) => {
+        await setScenario(page, scenario);
         if (now) await page.clock.install({ time: new Date(now) });
         await page.addInitScript(fakeLocation, { ...LOCATION, ...location });
         const errors = [];
@@ -73,12 +80,18 @@ export const test = base.extend({
         page.on('pageerror', e => errors.push(`${page.url()}: ${e.message}`));
         page.on('console', m => {
             if (m.type() !== 'error' || (notFoundPage && /^Failed to load resource: .*404/.test(m.text()))) return;
+            if (allowErrors.some(pattern => pattern.test(m.text()))) return;
             errors.push(`${page.url()}: console: ${m.text()}`);
         });
         await use(page);
         if (testInfo.status === testInfo.expectedStatus) expect(errors, 'no script errors').toEqual([]);
     },
 });
+
+// Which copy of the site this page's requests go to (server.js SCENARIOS)
+export async function setScenario(page, scenario) {
+    await page.context().addCookies([{ name: 'scenario', value: scenario, url: test.info().project.use.baseURL }]);
+}
 
 // axe-core's violations on the page as it is now: ["rule-id (nodes): selector", …]
 export async function axe(page) {
