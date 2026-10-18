@@ -2,7 +2,12 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname } from 'path';
 
 // Live arrivals per stop, shared by every user:
-//   - each stop is fetched at most once per ARRIVALS_TTL_MS
+//   - each stop is fetched at most once per ARRIVALS_TTL_MS, or longer while
+//     requests are queuing for OASA (BUSY_TTLS): people then see answers up
+//     to 90 s old, counted down and marked stale, rather than waiting or
+//     getting nothing
+//   - someone's first look at a stop (nothing cached, or nothing recent) goes
+//     ahead of refreshes in the client's queue
 //   - simultaneous requests for the same stop share one upstream call
 //   - when OASA can't be reached, the last answer is served (marked stale)
 //     for up to STALE_MAX_MS
@@ -11,6 +16,11 @@ import { dirname } from 'path';
 // on disk; route codes rarely change, so each is looked up about once a week.
 
 export const ARRIVALS_TTL_MS = 30_000;
+// [queue wait over, answers fresh for] while OASA's queue is busy (approved
+// 2026-10-18, with the bus page's refresh tiers): back to 30 s when it clears
+export const BUSY_TTLS = [[5_000, 90_000], [2_000, 60_000]];
+// Answers this old are marked stale, so the page says times may be older
+const STALE_AFTER_MS = 60_000;
 const STALE_MAX_MS = 5 * 60_000;
 const ROUTES_TTL_MS = 7 * 86_400_000;
 const MAX_CACHED_STOPS = 5000;
@@ -42,7 +52,8 @@ export function createArrivals({ client, routesFile, now = Date.now, log = conso
     // Look up every route at a stop (one request) and add them to the table
     function lookUpRoutes(stop) {
         if (!routeLookups.has(stop)) {
-            routeLookups.set(stop, client.request('webRoutesForStop', stop)
+            // A new stop's names, which its first look waits for
+            routeLookups.set(stop, client.request('webRoutesForStop', stop, { lane: 'high' })
                 .then(rows => {
                     for (const r of rows ?? []) {
                         routes[r.RouteCode] = {
@@ -86,18 +97,32 @@ export function createArrivals({ client, routesFile, now = Date.now, log = conso
         }
     }
 
+    // How long answers are fresh for, given how busy OASA's queue is
+    function freshFor() {
+        const wait = client.queueWait?.() ?? 0;
+        return BUSY_TTLS.find(([over]) => wait > over)?.[1] ?? ARRIVALS_TTL_MS;
+    }
+
+    // A cached answer, counted down to now
+    const served = hit => {
+        const age = now() - hit.at;
+        return { arrivals: countDown(hit.arrivals, age), updated: hit.at, stale: age >= STALE_AFTER_MS };
+    };
+
     // → { arrivals: [...], updated: ms | null, stale: boolean, unavailable?: true }
     function stopArrivals(stop) {
         const hit = cache.get(stop);
-        if (hit && now() - hit.at < ARRIVALS_TTL_MS) return Promise.resolve({ arrivals: hit.arrivals, updated: hit.at, stale: false });
+        if (hit && now() - hit.at < freshFor()) return Promise.resolve(served(hit));
         if (inflight.has(stop)) return inflight.get(stop);
+        // Nobody has looked at this stop lately: a newcomer, who goes first
+        const lane = hit && now() - hit.at < STALE_MAX_MS ? 'normal' : 'high';
 
         const pending = (async () => {
             // Age answers from when we asked, so a slow reply (e.g. queued behind
             // the rate limit) doesn't stay "fresh" longer than ARRIVALS_TTL_MS
             const asked = now();
             try {
-                const raw = await client.request('getStopArrivals', stop);
+                const raw = await client.request('getStopArrivals', stop, { lane });
                 const arrivals = await describe(stop, Array.isArray(raw) ? raw : []);
                 remember(stop, arrivals, asked);
                 return { arrivals, updated: asked, stale: false };
@@ -113,7 +138,7 @@ export function createArrivals({ client, routesFile, now = Date.now, log = conso
     }
 
     // Whether asking for this stop now costs no new request to OASA
-    const isCached = stop => inflight.has(stop) || now() - (cache.get(stop)?.at ?? -Infinity) < ARRIVALS_TTL_MS;
+    const isCached = stop => inflight.has(stop) || now() - (cache.get(stop)?.at ?? -Infinity) < freshFor();
 
     return { stopArrivals, isCached };
 }

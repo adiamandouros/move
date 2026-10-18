@@ -321,11 +321,15 @@ test('after a rest, simultaneous requests send a single probe', async () => {
     let relayUp = false;
     const logs = [];
     const relayCalls = [];
+    // The probe's answer is held until every request has had its slot
+    let answer;
+    const answered = new Promise(resolve => { answer = resolve; });
     const fetch = async url => {
         await Promise.resolve();
         if (!url.startsWith(RELAY.url)) throw new Error('blocked');
         relayCalls.push(c.now());
         if (!relayUp) throw new Error('relay down');
+        await answered;
         return { ok: true, text: async () => '[]' };
     };
     const client = createOasaClient({ fetch, now: c.now, sleep: async () => {}, log: m => logs.push(m), relays: [RELAY] });
@@ -338,7 +342,10 @@ test('after a rest, simultaneous requests send a single probe', async () => {
     relayUp = true;
     c.advance(60_001);
     relayCalls.length = 0;
-    const results = await Promise.allSettled(Array.from({ length: 6 }, () => client.request('getStopArrivals', '1')));
+    const asked = Promise.allSettled(Array.from({ length: 6 }, () => client.request('getStopArrivals', '1')));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    answer();
+    const results = await asked;
     assert.equal(relayCalls.length, 1, 'one probe, not a burst');
     assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);
     assert.match(logs.at(-1), /relay access is working again/);
