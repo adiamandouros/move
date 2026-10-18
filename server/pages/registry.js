@@ -46,6 +46,7 @@ export function sitePages(tools) {
             content: () => view('home'),
             head: (lang, s) => appData(s('home.description'), lang),
             scripts: ['/js/core/announcements.js'],
+            active: 'home',
             ad: 'home',
         },
         {

@@ -59,8 +59,9 @@ export function createRenderer(tools, pagePaths) {
             importMap: imports,
             sideNav: navLinks(tools, active, 'side'),
             sideLanguage: languageLink(lang, path, 'side'),
-            bottomLanguage: languageLink(lang, path, 'bottom'),
-            bottomNav: navLinks(tools, active, 'bottom'),
+            footerLanguage: languageLink(lang, path, 'footer'),
+            languageSuggestion: languageSuggestion(lang, path, stringsFor(otherLang(lang))),
+            bottomNav: homeLink(active) + '\n' + navLinks(tools, active, 'bottom'),
             content,
             ad: slot,
             // The page's strings, for its scripts (/js/core/i18n.js). Escape
@@ -69,6 +70,13 @@ export function createRenderer(tools, pagePaths) {
             scripts: scripts.map(src => `    <script type="module" src="${versioned(src)}"></script>`).join('\n'),
         }), lang, key => strings[key], pagePaths);
     };
+}
+
+// The bottom navigation (phones) starts with the home page, shown with the
+// Wayhop logo; on wider screens the logo in the sidebar links home
+function homeLink(active) {
+    const current = active === 'home';
+    return `        <a href="/" class="nav-btn btn d-flex flex-column align-items-center py-2${current ? ' active" aria-current="page' : ''}"><img src="/icon/logo.svg" alt="" width="33" height="24" class="nav-logo"><span class="nav-label" data-i18n="nav.home">Home</span></a>`;
 }
 
 function navLinks(tools, active, variant) {
@@ -86,13 +94,17 @@ function navLinks(tools, active, variant) {
 // ── Language link ───────────────────────────────────────────────────────────
 
 // The language link: this page in the other language. Each name is written in
-// its own language, as is usual for language links.
+// its own language, as is usual for language links. In the sidebar on wider
+// screens, in the footer on phones (where the bottom bar is for getting around).
 const LANGUAGE_NAMES = { en: 'English', el: 'Ελληνικά' };
 const LANGUAGE_LABELS = { en: 'EN', el: 'ΕΛ' };
 
 function languageLink(lang, path, variant) {
     if (!path) return '';
     const other = otherLang(lang);
+    if (variant === 'footer') {
+        return `                <a href="${escapeHtml(localPath(path, other))}" hreflang="${other}" lang="${other}" class="footer-language d-md-none">${LANGUAGE_NAMES[other]}</a>`;
+    }
     const [indent, cls, size] = variant === 'side'
         ? ['                    ', 'lang-toggle-btn btn d-flex align-items-center gap-3 px-3 py-2 w-100', 5]
         : ['        ', 'nav-btn lang-toggle-btn btn d-flex flex-column align-items-center py-2', 4];
@@ -102,6 +114,17 @@ ${indent}    <i class="bi bi-globe fs-${size}" aria-hidden="true"></i>
 ${indent}    <span class="sr-only" lang="${other}">${LANGUAGE_NAMES[other]}</span>
 ${indent}    <span class="lang-options" aria-hidden="true">${options}</span>
 ${indent}</a>`;
+}
+
+// Offered once (by /js/core/shell.js) to someone whose browser prefers the
+// other language and hasn't chosen one: written in that language
+function languageSuggestion(lang, path, otherStrings) {
+    if (!path) return '';
+    const other = otherLang(lang);
+    return `            <div class="lang-suggest" lang="${other}" hidden>
+                <a href="${escapeHtml(localPath(path, other))}" hreflang="${other}">${escapeHtml(otherStrings['language.suggest'])}</a>
+                <button type="button" class="lang-suggest-close" aria-label="${escapeHtml(otherStrings['language.close'])}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </div>`;
 }
 
 // Someone who chose the other language with the language link (remembered in

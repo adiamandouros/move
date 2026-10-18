@@ -121,18 +121,30 @@ test('English pages are in English, with English links', () => {
     assert.doesNotMatch(pageLinks(pages['/subway']), /href="\/el/);
 });
 
-test('every page links to itself in the other language, in both navigations', () => {
+test('every page links to itself in the other language: sidebar, footer and a suggestion', () => {
     const languageLinks = html => html.match(/<a href="[^"]*" hreflang="[^"]*"[^>]*>[\s\S]*?<\/a>/g) ?? [];
-    for (const [path, other, lang, name] of [['/subway', '/el/subway', 'el', 'Ελληνικά'], ['/el/subway', '/subway', 'en', 'English'], ['/', '/el', 'el', 'Ελληνικά'], ['/el', '/', 'en', 'English']]) {
-        const links = languageLinks(pages[path]);
-        assert.equal(links.length, 2, `${path}: side and bottom navigation`);
-        for (const link of links) {
-            assert.ok(link.startsWith(`<a href="${other}" hreflang="${lang}"`), link);
-            // Named in its own language; EN / ΕΛ is for sighted users
-            assert.match(link, new RegExp(`<span class="sr-only" lang="${lang}">${name}</span>`));
-            assert.match(link, /<span class="lang-options" aria-hidden="true">/);
-        }
+    for (const [path, other, lang, name, suggest] of [
+        ['/subway', '/el/subway', 'el', 'Ελληνικά', 'Διαβάστε το Wayhop στα ελληνικά'],
+        ['/el/subway', '/subway', 'en', 'English', 'Read Wayhop in English'],
+        ['/', '/el', 'el', 'Ελληνικά', 'Διαβάστε το Wayhop στα ελληνικά'],
+        ['/el', '/', 'en', 'English', 'Read Wayhop in English'],
+    ]) {
+        const [side, footer, suggestion] = ['lang-toggle-btn', 'footer-language', 'lang-suggest'].map(cls =>
+            pages[path].match(new RegExp(`<(a|div)\\b[^>]*class="[^"]*\\b${cls}\\b[^"]*"[^>]*>[\\s\\S]*?</\\1>`))?.[0]);
+        assert.equal(languageLinks(pages[path]).length, 3, `${path}: three language links`);
+        for (const link of [side, footer]) assert.ok(link?.startsWith(`<a href="${other}" hreflang="${lang}"`), link);
+        // Named in its own language; in the sidebar EN / ΕΛ is for sighted users, in the footer the name shows
+        assert.match(side, new RegExp(`<span class="sr-only" lang="${lang}">${name}</span>`));
+        assert.match(footer, new RegExp(`lang="${lang}" class="footer-language d-md-none">${name}</a>`));
+        // The suggestion is hidden until shell.js offers it, in the other language
+        assert.match(suggestion, new RegExp(`^<div class="lang-suggest" lang="${lang}" hidden>`));
+        assert.ok(suggestion.includes(`hreflang="${lang}">${suggest}</a>`), suggestion);
     }
+    // The bottom bar (phones) starts with the home page, highlighted there
+    const bottom = html => html.match(/<nav id="bottom-nav"[\s\S]*?<\/nav>/)[0];
+    assert.match(bottom(pages['/']), /^<nav[^>]*>\s*<a href="\/" class="nav-btn [^"]*active" aria-current="page"><img src="\/icon\/logo\.svg" alt=""/);
+    assert.match(bottom(pages['/el/subway']), /<a href="\/el" class="nav-btn [^"]*py-2"><img src="\/icon\/logo\.svg" alt="" width="33" height="24" class="nav-logo"><span class="nav-label" data-i18n="nav.home">Αρχική</);
+    assert.doesNotMatch(bottom(pages['/subway']), /hreflang/);
     // The 404 links to the same address in the other language; English-only pages have no language link
     assert.match(notFound('/el/nope'), /<a href="\/nope" hreflang="en"/);
     assert.doesNotMatch(render({ title: 'Admin', content: '' }), /hreflang=/);

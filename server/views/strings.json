@@ -41,7 +41,10 @@
     "location.slow": "Still looking for your location…",
     "location.slow-hint": "This can take a while indoors or underground.",
     "location.unsupported": "This browser can't share your location.",
-    "location.try-again": "Try again"
+    "location.try-again": "Try again",
+    "nav.home": "Home",
+    "language.suggest": "Read Wayhop in English",
+    "language.close": "Close"
   },
   "el": {
     "shell.skip": "Μετάβαση στο περιεχόμενο",
@@ -85,6 +88,9 @@
     "location.slow": "Η τοποθεσία σας δεν έχει βρεθεί ακόμα…",
     "location.slow-hint": "Μπορεί να αργήσει σε κλειστούς χώρους ή υπόγεια.",
     "location.unsupported": "Αυτό το πρόγραμμα περιήγησης δεν μπορεί να δώσει την τοποθεσία σας.",
-    "location.try-again": "Δοκιμάστε ξανά"
+    "location.try-again": "Δοκιμάστε ξανά",
+    "nav.home": "Αρχική",
+    "language.suggest": "Διαβάστε το Wayhop στα ελληνικά",
+    "language.close": "Κλείσιμο"
   }
 }
