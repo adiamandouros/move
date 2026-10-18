@@ -1035,6 +1035,12 @@ body {
     box-shadow: none;
 }
 
+/* Tables that scroll sideways on narrow phones can be scrolled with the keyboard */
+.info-body .table-responsive:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
 .info-accordion .info-subtoggle:focus-visible {
     box-shadow: var(--focus-ring);
 }

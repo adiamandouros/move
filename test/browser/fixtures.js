@@ -66,10 +66,13 @@ export const test = base.extend({
         if (now) await page.clock.install({ time: new Date(now) });
         await page.addInitScript(fakeLocation, { ...LOCATION, ...location });
         const errors = [];
+        // A page that answers 404 (the not-found page) is logged as an error;
+        // browsers name its address differently, so any 404 document counts
+        let notFoundPage = false;
+        page.on('response', r => { if (r.status() === 404 && r.request().resourceType() === 'document') notFoundPage = true; });
         page.on('pageerror', e => errors.push(`${page.url()}: ${e.message}`));
         page.on('console', m => {
-            // The browser logs a page that answers 404 (the not-found page) as an error
-            if (m.type() !== 'error' || (m.text().startsWith('Failed to load resource') && m.location().url === page.url())) return;
+            if (m.type() !== 'error' || (notFoundPage && /^Failed to load resource: .*404/.test(m.text()))) return;
             errors.push(`${page.url()}: console: ${m.text()}`);
         });
         await use(page);
