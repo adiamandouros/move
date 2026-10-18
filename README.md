@@ -2,78 +2,59 @@
 
 Copyright (C) 2026 adiamandouros. Licensed under the [GNU General Public License v3.0](LICENSE).
 
-A Progressive Web App for Athens public transportation. Provides real-time bus arrivals near your location and a metro route planner with car positioning guidance.
+A web app for getting around Athens by public transport, in English and Greek.
+It installs like an app, and the subway and info pages work offline.
 
 ## Features
 
-### Nearby Buses
-- Uses device geolocation to find bus stops around you
-- Shows upcoming arrivals with live countdown timers
-- Color-coded badges: arriving soon (≤3 min), close (≤8 min), later
-- Auto-refreshes every 20 seconds
-- Links to Google Maps walking directions for each stop
+- **Subway**: plan a metro trip (lines 1–3), with the next departures from
+  OASA's timetable and which part of the train to ride in for the exit, the
+  next line or an elevator.
+- **Nearby buses**: live arrivals at the bus stops around you, refreshed
+  about every 30 seconds.
+- **Info**: service announcements from OASA and STASY, a zoomable metro map,
+  closing times, tickets, getting to the airport, night buses, accessibility
+  and contacts.
+- **Metro stations**: a page for every station, with where to ride for the
+  exit, connections and first and last trains.
 
-### Subway Position
-- Route planner for the Athens Metro (M1, M2, M3) and Tram (T6, T7)
-- Autocomplete station search in English and Greek
-- Finds direct and single-transfer routes
-- Shows which train car to board for the best exit position at your destination
-- Displays elevator locations within each car
-- Shows next 2 departures based on a locally-built GTFS schedule
+Every page aims to meet WCAG 2.2 AA (keyboard, screen readers, contrast).
 
 ## Setup
 
-### Requirements
-- Node.js
-- An OASA API URL
-
-### Installation
+Needs Node.js 20 or newer.
 
 ```bash
 npm install
+cp .env.example .env
 ```
 
-Create a `.env` file:
+Every setting in `.env` is optional and explained in `.env.example`. Without
+any, the app runs locally with everything except live bus times, which need
+a Greek IP address or a relay (see [proxy/README.md](proxy/README.md)).
 
-```
-OASA_API_URL=https://your-api-url-here
-```
-
-### Running
+## Running
 
 ```bash
-npm start        # Production
-npm run dev      # Development (auto-restart on file changes)
+npm start            # the app, on http://localhost:3000 (PORT in .env)
+npm run dev          # restarts when server, tool or public files change
+npm test             # every test
+npm run build:data   # rebuild the timetables and stops now (the app also does it daily)
+npm run diagnose     # check that the server can reach OASA, the relays and the data portal
 ```
 
-The app runs on `http://localhost:3000` by default. Set `PORT` in `.env` to override.
+On the first start the app downloads OASA's open data and builds
+`data/build/`, which takes a little while; the subway and bus pages need it.
 
-## How It Works
+## Deploying
 
-**API proxy** — The Express server forwards all `/api/*` requests to `OASA_API_URL`, keeping the API URL out of the client.
+The live site runs on cPanel. Its Git deployment runs
+`scripts/cpanel-deploy.sh` (see `.cpanel.yml`), which installs the packages
+and restarts the app.
 
-**Metro schedule** — On startup, the server checks whether the locally-cached GTFS schedule is stale. If so (or on first run), it downloads the official Athens GTFS feed and builds `public/data/metro-schedule.json`. A cron job rebuilds it every Monday at 3:00 AM.
+## More
 
-**Service worker** — Static assets are cached on install for offline use. API calls are never cached. The metro schedule uses network-first so server rebuilds reach clients. The page auto-reloads when a new service worker version activates.
-
-## Project Structure
-
-```
-public/
-├── index.html
-├── sw.js                     # Service worker
-├── css/style.css
-├── js/
-│   ├── app.js                # Entry point
-│   ├── location.js           # Shared geolocation
-│   ├── i18n.js               # EN/EL translations
-│   ├── tools/
-│   │   ├── nearbyBuses.js
-│   │   └── subwayPosition.js
-│   └── data/subway.js        # Static metro network data
-└── data/metro-schedule.json  # Generated — do not edit manually
-server/
-├── scheduler.js              # Cron job
-└── schedule-builder.js       # GTFS → JSON parser
-server.js
-```
+- [ARCHITECTURE.md](ARCHITECTURE.md): how the code fits together
+- [tools/README.md](tools/README.md): adding or changing a page like Subway or Buses
+- [data/curated/README.md](data/curated/README.md): the hand-maintained station data and its editor
+- [proxy/README.md](proxy/README.md): the relays for OASA's live API
