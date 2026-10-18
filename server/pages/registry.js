@@ -2,7 +2,7 @@
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { escapeHtml } from '../../public/js/core/html.js';
+import { escapeHtml, icon } from '../../public/js/core/html.js';
 import { adsenseClient } from '../ads.js';
 import { fill } from './layout.js';
 import { appData } from './seo.js';
@@ -113,8 +113,8 @@ export function loadTools(dir = TOOLS_DIR) {
 
 // The offline page's links to the tools that work offline
 function tiles(tools) {
-    return tools.map(tool => `        <a href="${tool.path}" class="tool-tile">
-            <i class="bi bi-${tool.icon}" aria-hidden="true"></i>
+    return tools.map(tool => `        <a href="${tool.path}" class="card tool-tile">
+            ${icon(tool.icon)}
             <span class="tool-tile-title" data-i18n="tool.${tool.id}.title">${tool.title.en}</span>
             <span class="tool-tile-desc" data-i18n="tool.${tool.id}.description">${tool.description?.en ?? ''}</span>
         </a>`).join('\n');
@@ -136,5 +136,5 @@ const adsVariant = (html, ads) => html.replace(/<!-- (with|without) ads -->\n([\
 function contactEmail(s) {
     const email = process.env.CONTACT_EMAIL;
     if (!email) return '';
-    return `    <p class="contact-email"><i class="bi bi-envelope me-2" aria-hidden="true"></i>${s('contact.email')} <a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></p>`;
+    return `    <p class="contact-email">${icon('envelope', 'me-2')}${s('contact.email')} <a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></p>`;
 }

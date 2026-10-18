@@ -1,3 +1,4 @@
+import { icon as iconHtml } from './html.js';
 import { t } from './i18n.js';
 
 // Shared by every page: the language link and the service worker. Each
@@ -60,17 +61,15 @@ if ('serviceWorker' in navigator) {
 
 // ── Toast ────────────────────────────────────────────────────────────────────
 
-// A short message above the navigation that goes away by itself
+// A short message above the navigation that goes away by itself (Bootstrap's toast)
 function toast(message, icon) {
     const el = document.createElement('div');
-    el.className = 'toast-message';
+    el.className = 'toast toast-message';
     el.setAttribute('role', 'status');
-    el.innerHTML = `<i class="bi bi-${icon}" aria-hidden="true"></i><span></span>`;
+    el.setAttribute('aria-atomic', 'true');
+    el.innerHTML = `<div class="toast-body">${iconHtml(icon)}<span></span></div>`;
     el.querySelector('span').textContent = message;
     document.body.append(el);
-    requestAnimationFrame(() => el.classList.add('show'));
-    setTimeout(() => {
-        el.classList.remove('show');
-        setTimeout(() => el.remove(), 400);
-    }, 4000);
+    el.addEventListener('hidden.bs.toast', () => el.remove());
+    window.bootstrap.Toast.getOrCreateInstance(el, { delay: 4000 }).show();
 }

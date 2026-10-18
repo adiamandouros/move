@@ -14,6 +14,17 @@ export function format(text, values) {
     return text.replace(/\{(\w+)\}/g, (match, key) => String(values[key] ?? match));
 }
 
+// An icon from the sprite (server/pages/icons.js lists them), sized and
+// coloured like the text around it: icon('geo-alt', 'me-1'). Icons are
+// decoration; the text next to them or the control's label says what they mean.
+// In the browser the sprite's URL comes from the page (it carries the asset
+// version); the server versions /icons.svg when it renders the page.
+const sprite = globalThis.document?.documentElement.dataset.icons ?? '/icons.svg';
+/** @param {string} name @param {string} [cls] more classes */
+export function icon(name, cls = '') {
+    return `<svg class="bi${cls ? ` ${cls}` : ''}" aria-hidden="true"><use href="${sprite}#${name}"></use></svg>`;
+}
+
 // Text colour for a label on `background` (#rrggbb): whichever of white and
 // near-black has the higher contrast, so line badges stay readable (WCAG AA)
 /** @param {string} background */

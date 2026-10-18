@@ -1,5 +1,5 @@
 import { language, t } from '/js/core/i18n.js';
-import { escapeHtml, format } from '/js/core/html.js';
+import { escapeHtml, format, icon } from '/js/core/html.js';
 import { lineBadge, trainDiagram } from '/js/core/metro.js';
 import { legPositions } from './network.js';
 
@@ -23,13 +23,13 @@ function legCard(rail, leg, next, now, level) {
     const toward = escapeHtml(direction.toward[language] ?? direction.toward.en);
     const { stop, exits, elevators } = legPositions(rail, leg, next);
     const first = leg.departures[0];
-    const ride = first ? ` <span class="text-secondary">· ${format(t('subway.ride'), { min: Math.round((first.arrives - first.departs) / 60) })}</span>` : '';
+    const ride = first ? ` <span class="text-body-secondary">· ${format(t('subway.ride'), { min: Math.round((first.arrives - first.departs) / 60) })}</span>` : '';
     const action = next
-        ? `<i class="bi bi-arrow-left-right me-2" aria-hidden="true"></i>${t('subway.transfer-at')} <strong>${stationName(rail, leg.to)}</strong>`
-        : `<i class="bi bi-door-open me-2" aria-hidden="true"></i>${t('subway.exit-at')} <strong>${stationName(rail, leg.to)}</strong>`;
+        ? `${icon('arrow-left-right', 'me-2')}${t('subway.transfer-at')} <strong>${stationName(rail, leg.to)}</strong>`
+        : `${icon('door-open', 'me-2')}${t('subway.exit-at')} <strong>${stationName(rail, leg.to)}</strong>`;
 
     return `
-        <div class="result-card">
+        <div class="card result-card"><div class="card-body">
             <div class="result-header d-flex align-items-center gap-2 mb-2">
                 <h${level} class="leg-title">
                     ${lineBadge(line)}
@@ -39,13 +39,13 @@ function legCard(rail, leg, next, now, level) {
             </div>
             <div class="leg-action mb-3">
                 ${action}${ride}
-                ${stop.centralPlatform ? `<span class="central-platform-badge ms-2"><i class="bi bi-symmetry-horizontal me-1" aria-hidden="true"></i>${t('subway.exit-left')}</span>` : ''}
+                ${stop.centralPlatform ? `<span class="central-platform-badge ms-2">${icon('symmetry-horizontal', 'me-1')}${t('subway.exit-left')}</span>` : ''}
             </div>
             ${exits.length
                 ? trainDiagram(rail.positions, exits, elevators, t)
-                : `<p class="text-muted fst-italic small">${t('subway.no-position-data')}</p>`}
-            ${stop.note ? `<div class="stop-note mt-3"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${escapeHtml(stop.note)}</div>` : ''}
-        </div>`;
+                : `<p class="text-body-secondary fst-italic small">${t('subway.no-position-data')}</p>`}
+            ${stop.note ? `<div class="stop-note mt-3">${icon('info-circle', 'me-1')}${escapeHtml(stop.note)}</div>` : ''}
+        </div></div>`;
 }
 
 function routeBlock(rail, route, index, total, now) {
@@ -58,7 +58,7 @@ function routeBlock(rail, route, index, total, now) {
         const next = route.legs[i + 1] ?? null;
         const connector = next ? `
             <div class="transfer-connector" aria-hidden="true">
-                <i class="bi bi-arrow-down-circle-fill"></i>
+                ${icon('arrow-down-circle-fill')}
                 <span>${t('subway.change-to')} ${rail.lines[next.line].name}</span>
             </div>` : '';
         return legCard(rail, leg, next, now, level) + connector;
@@ -66,18 +66,18 @@ function routeBlock(rail, route, index, total, now) {
 }
 
 export function renderResult(rail, plans, now, { expired }) {
-    if (!plans.length) return `<p class="text-muted small mt-3">${t('subway.no-route')}</p>`;
+    if (!plans.length) return `<p class="text-body-secondary small mt-3">${t('subway.no-route')}</p>`;
     const [y, m, d] = rail.feed.validTo.split('-');
     const notice = expired
-        ? `<p class="timetable-notice"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>${format(t('subway.timetable-old'), { date: `${d}/${m}/${y}` })}</p>`
+        ? `<p class="timetable-notice">${icon('exclamation-triangle', 'me-1')}${format(t('subway.timetable-old'), { date: `${d}/${m}/${y}` })}</p>`
         : '';
     return `${notice}
         <div class="routes-wrap">${plans.map((r, i) => routeBlock(rail, r, i, plans.length, now)).join('<hr class="route-divider">')}</div>
-        <p class="schedule-disclaimer"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${t('subway.schedule-disclaimer')}</p>`;
+        <p class="schedule-disclaimer">${icon('info-circle', 'me-1')}${t('subway.schedule-disclaimer')}</p>`;
 }
 
 export function renderMessage(key) {
-    return `<p class="text-muted small mt-3">${t(key)}</p>`;
+    return `<p class="text-body-secondary small mt-3">${t(key)}</p>`;
 }
 
 // A one-sentence version of the result for screen readers, announced when the

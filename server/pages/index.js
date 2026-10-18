@@ -3,6 +3,7 @@ import { readFileSync } from 'fs';
 import express from 'express';
 import { adsTxt } from '../ads.js';
 import { basePath, langOf, LANGS, localPath, pageStrings } from './i18n.js';
+import { iconSprite } from './icons.js';
 import { createRenderer } from './layout.js';
 import { loadTools, NOT_FOUND, sitePages, STATION_PATHS } from './registry.js';
 import { renderServiceWorker } from './service-worker.js';
@@ -16,6 +17,7 @@ import { createStationPages } from './stations.js';
 //   i18n.js             languages, strings and putting a page into its language
 //   seo.js              meta tags, structured data, robots.txt, sitemap
 //   assets.js           stylesheets, scripts and their versions
+//   icons.js            the icon sprite
 //   service-worker.js   what the service worker caches for offline use
 //   stations.js         the station pages, built from rail.json
 
@@ -82,6 +84,12 @@ export function createPages(tools = loadTools(), { railFile } = {}) {
 
     router.get('/sw.js', (_req, res) => {
         res.set('Cache-Control', 'no-cache').type('js').send(serviceWorker);
+    });
+
+    // The icons (icons.js). Pages link it with the asset version, so that
+    // address never changes and is kept for good.
+    router.get('/icons.svg', (req, res) => {
+        res.set('Cache-Control', req.query.v ? 'public, max-age=31536000, immutable' : 'no-cache').type('svg').send(iconSprite());
     });
 
     const stringsFor = pageStrings(tools);

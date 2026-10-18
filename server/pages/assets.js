@@ -3,8 +3,9 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { createRequire } from 'module';
 import { dirname, join, relative, sep } from 'path';
 import { fileURLToPath } from 'url';
+import { iconSprite } from './icons.js';
 
-// The files the pages link to: stylesheets, scripts, icons and the
+// The files the pages link to: stylesheets, scripts, icons (icons.js) and the
 // third-party files, with the version that keeps browsers from mixing
 // files from two deploys.
 
@@ -17,16 +18,14 @@ const packageDir = name => dirname(require.resolve(`${name}/package.json`));
 
 // Third-party files served from node_modules, so nothing loads from a CDN
 export const VENDOR = {
-    '/vendor/bootstrap':       join(packageDir('bootstrap'), 'dist'),
-    '/vendor/bootstrap-icons': join(packageDir('bootstrap-icons'), 'font'),
+    '/vendor/bootstrap': join(packageDir('bootstrap'), 'dist'),
 };
 
 // Files every page needs, cached by the service worker on install
 const SHELL_FILES = [
     '/vendor/bootstrap/css/bootstrap.min.css',
-    '/vendor/bootstrap/js/bootstrap.bundle.min.js',
-    '/vendor/bootstrap-icons/bootstrap-icons.min.css',
-    '/vendor/bootstrap-icons/fonts/bootstrap-icons.woff2',
+    '/vendor/bootstrap/js/bootstrap.min.js',
+    '/icons.svg',
 ];
 const SHELL_DIRS = ['css', 'icon', join('js', 'core')];
 
@@ -44,12 +43,14 @@ export function assetVersion() {
     const toolFiles = listFiles(TOOLS_DIR).filter(f => f.includes(`${sep}client${sep}`));
     for (const file of [...shellFiles(), ...toolFiles]) hash.update(readFileSync(file));
     for (const dir of Object.values(VENDOR)) hash.update(readFileSync(join(dir, '..', 'package.json')));
+    hash.update(iconSprite());
     version = hash.digest('hex').slice(0, 10);
     return version;
 }
 
-const VERSIONED = /^\/(css|js|tools|vendor)\/.+\.(css|js)$/;
-export const versioned = url => VERSIONED.test(url) ? `${url}?v=${assetVersion()}` : url;
+// (and the icon sprite, whose links name an icon after the #)
+const VERSIONED = /^(\/(css|js|tools|vendor)\/.+\.(css|js)|\/icons\.svg)(#.*)?$/;
+export const versioned = url => url.replace(VERSIONED, (_, file, _dir, _ext, hash = '') => `${file}?v=${assetVersion()}${hash}`);
 
 // Every page script, mapped to its versioned URL, so that their imports
 // (import … from '/js/core/i18n.js', './map.js') load the same version

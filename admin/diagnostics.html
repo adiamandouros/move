@@ -3,7 +3,7 @@
         <h1 class="fs-5 m-0">Diagnostics</h1>
         <a class="btn btn-sm btn-outline-secondary" href="/admin/stations">Station editor</a>
     </div>
-    <p class="small text-secondary">Checks whether this server can reach the internet, OASA, the relay and the open-data portal, and what the running app sees. The same checks run with <code>npm run diagnose</code> (cPanel → Setup Node.js App → Run JS script) when the site itself is down.</p>
+    <p class="small text-body-secondary">Checks whether this server can reach the internet, OASA, the relay and the open-data portal, and what the running app sees. The same checks run with <code>npm run diagnose</code> (cPanel → Setup Node.js App → Run JS script) when the site itself is down.</p>
     <div class="d-flex gap-2 mb-3">
         <button id="run-btn" type="button" class="btn btn-primary flex-grow-1">Run checks</button>
         <button id="copy-btn" type="button" class="btn btn-outline-secondary" hidden>Copy report</button>
@@ -13,7 +13,7 @@
 
     <section class="diag-group mt-4" aria-labelledby="a11y-title">
         <h2 id="a11y-title" class="diag-group-title">Accessibility</h2>
-        <p class="small text-secondary">Opens every public page in both languages at phone width, in this browser, waits for its live content (announcements, a route, bus arrivals) and checks it with axe-core against WCAG 2.2 AA. The Buses page uses this device's location if you allow it. <code>npm test</code> checks the pages as the server sends them.</p>
+        <p class="small text-body-secondary">Opens every public page in both languages at phone width, in this browser, waits for its live content (announcements, a route, bus arrivals) and checks it with axe-core against WCAG 2.2 AA. The Buses page uses this device's location if you allow it. <code>npm test</code> checks the pages as the server sends them.</p>
         <button id="a11y-btn" type="button" class="btn btn-outline-primary w-100 mb-3">Check accessibility</button>
         <div id="a11y-summary" class="diag-summary" role="status" hidden></div>
         <div id="a11y-results"></div>

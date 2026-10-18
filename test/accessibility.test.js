@@ -154,23 +154,53 @@ const contrast = (a, b) => {
     return (hi + 0.05) / (lo + 0.05);
 };
 
+// The colours of the dark mode: Bootstrap's own, then style.css's (which
+// sets Bootstrap's variables and adds Wayhop's --wh- ones)
+const STYLE = readFileSync(new URL('../public/css/style.css', import.meta.url), 'utf8');
+const TOKENS = (() => {
+    const bootstrap = readFileSync(new URL('../node_modules/bootstrap/dist/css/bootstrap.css', import.meta.url), 'utf8');
+    // The rules for :root and for the dark mode, in order
+    const blocks = css => [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+        .filter(([, selector]) => selector.split(';').pop().split(',').some(sel => /^(:root|\[data-bs-theme="?dark"?\])$/.test(sel.trim())))
+        .map(m => m[2]);
+    const tokens = {};
+    for (const block of [...blocks(bootstrap), ...blocks(STYLE)]) {
+        for (const [, name, value] of block.matchAll(/(--[\w-]+):\s*([^;]+);/g)) tokens[name] = value.trim();
+    }
+    return tokens;
+})();
+// A colour as #rrggbb: written out, or a var(--name) of one
+function resolve(value) {
+    const name = value.match(/^var\((--[\w-]+)\)$/)?.[1];
+    const colour = name ? TOKENS[name] : value;
+    return /^#[0-9a-f]{3,6}$/i.test(colour ?? '') ? colour.toLowerCase() : null;
+}
+
 // The surfaces text sits on: page, map, card and raised elements
-const SURFACES = ['#0f1117', '#0f131c', '#161b27', '#1e2538'];
+const SURFACES = ['--bs-body-bg', '--wh-map-bg', '--bs-tertiary-bg', '--bs-secondary-bg'];
 
 // Text colours that are allowed below 4.5:1 on those surfaces, and why
 const EXCEPTIONS = {
-    '#0f131c': 'dark text, only used on the light line colours (checked below)',
-    '#2a3350': 'the decorative "/" between EN and ΕΛ, hidden from screen readers',
+    'var(--wh-ink)': 'dark text, only used on the light line colours (checked below)',
+    'var(--bs-border-color)': 'the decorative "/" between EN and ΕΛ, hidden from screen readers',
 };
 
+test('the dark mode\'s colours are all known', () => {
+    for (const name of SURFACES) assert.ok(resolve(`var(${name})`), `${name} isn't a colour`);
+});
+
 test('every text colour in style.css meets WCAG AA (4.5:1) on every surface', () => {
-    const css = readFileSync(new URL('../public/css/style.css', import.meta.url), 'utf8');
-    const colours = new Set([...css.matchAll(/(?<![-\w])color:\s*(#[0-9a-f]{3,6})\b/gi)].map(m => m[1].toLowerCase()));
+    const colours = new Set([...STYLE.matchAll(/(?<![-\w])color:\s*([^;!]+?)\s*(?:!important)?;/gi)].map(m => m[1]));
+    colours.delete('inherit');
+    colours.delete('transparent');
+    assert.ok(colours.size >= 10, 'found the text colours');
     for (const colour of colours) {
         if (EXCEPTIONS[colour]) continue;
+        const hex = resolve(colour);
+        assert.ok(hex, `${colour} isn't a colour or a variable of one`);
         for (const surface of SURFACES) {
-            const ratio = contrast(colour, surface);
-            assert.ok(ratio >= 4.5, `${colour} on ${surface} is ${ratio.toFixed(2)}:1`);
+            const ratio = contrast(hex, resolve(`var(${surface})`));
+            assert.ok(ratio >= 4.5, `${colour} (${hex}) on ${surface} is ${ratio.toFixed(2)}:1`);
         }
     }
 });

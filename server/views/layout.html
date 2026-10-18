@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{lang}}" data-bs-theme="dark">
+<html lang="{{lang}}" data-bs-theme="dark" data-icons="{{icons}}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,7 +9,6 @@
     <meta name="theme-color" content="#161b27">
 {{importMap}}
     <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/vendor/bootstrap-icons/bootstrap-icons.min.css">
     <link rel="stylesheet" href="/css/style.css">
     <link rel="icon" type="image/png" href="/icon/favicon-96x96.png" sizes="96x96">
     <link rel="icon" type="image/svg+xml" href="/icon/favicon.svg">
@@ -61,7 +60,8 @@
     <div id="sr-announcer" aria-live="polite" aria-atomic="true" class="sr-only"></div>
 
     <script type="application/json" id="strings">{{strings}}</script>
-    <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <!-- Bootstrap without Popper: the pages use its collapse (accordions) and toast -->
+    <script src="/vendor/bootstrap/js/bootstrap.min.js" defer></script>
     <script type="module" src="/js/core/shell.js"></script>
 {{scripts}}
 </body>

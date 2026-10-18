@@ -2,7 +2,7 @@
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { escapeHtml } from '../../public/js/core/html.js';
+import { escapeHtml, icon } from '../../public/js/core/html.js';
 import { adSlot, adsenseMeta } from '../ads.js';
 import { importMap, versioned } from './assets.js';
 import { LANGS, localPath, otherLang, pageStrings, translate } from './i18n.js';
@@ -38,8 +38,7 @@ export function fill(template, values) {
  * @returns {(page: import('../../types/pages.js').RenderOptions) => string}
  */
 export function createRenderer(tools, pagePaths) {
-    const layout = readFileSync(join(VIEWS_DIR, 'layout.html'), 'utf8')
-        .replace(/(href|src)="(\/[^"]+)"/g, (_, name, url) => `${name}="${versioned(url)}"`);
+    const layout = readFileSync(join(VIEWS_DIR, 'layout.html'), 'utf8');
     const imports = importMap(tools);
     const stringsFor = pageStrings(tools);
 
@@ -50,8 +49,10 @@ export function createRenderer(tools, pagePaths) {
         const slot = adSlot(ad);
         if (slot || content.includes('id="ad-choices"')) scripts = [...scripts, '/js/core/ads.js'];
         const fullTitle = `${title} — Wayhop`;
-        return translate(fill(layout, {
+        const html = translate(fill(layout, {
             lang,
+            // For icon() in the browser (public/js/core/html.js)
+            icons: versioned('/icons.svg'),
             languageRedirect: languageRedirect(lang, path),
             title: escapeHtml(fullTitle),
             // The installed app opens in the language it was installed in
@@ -71,6 +72,9 @@ export function createRenderer(tools, pagePaths) {
             strings: JSON.stringify(strings).replace(/</g, '\\u003c'),
             scripts: scripts.map(src => `    <script type="module" src="${versioned(src)}"></script>`).join('\n'),
         }), lang, key => strings[key], pagePaths);
+        // Links to stylesheets, scripts and icons, in the layout and the page,
+        // at this deploy's version (assets.js)
+        return html.replace(/(href|src)="(\/[^"]+)"/g, (_, name, url) => `${name}="${versioned(url)}"`);
     };
 }
 
@@ -88,8 +92,8 @@ function navLinks(tools, active, variant) {
             ? 'd-flex align-items-center gap-3 px-3 py-3 mb-1'
             : 'd-flex flex-column align-items-center py-2'}${current ? ' active' : ''}"${current ? ' aria-current="page"' : ''}`;
         return variant === 'side'
-            ? `                <a ${attrs}><i class="bi bi-${tool.icon} fs-5" aria-hidden="true"></i><span data-i18n="tool.${tool.id}.title">${tool.title.en}</span></a>`
-            : `        <a ${attrs}><i class="bi bi-${tool.icon} fs-4" aria-hidden="true"></i><span class="nav-label" data-i18n="tool.${tool.id}.short">${(tool.shortTitle ?? tool.title).en}</span></a>`;
+            ? `                <a ${attrs}>${icon(tool.icon, 'fs-5')}<span data-i18n="tool.${tool.id}.title">${tool.title.en}</span></a>`
+            : `        <a ${attrs}>${icon(tool.icon, 'fs-4')}<span class="nav-label" data-i18n="tool.${tool.id}.short">${(tool.shortTitle ?? tool.title).en}</span></a>`;
     }).join('\n');
 }
 
@@ -112,7 +116,7 @@ function languageLink(lang, path, variant) {
         : ['        ', 'nav-btn lang-toggle-btn btn d-flex flex-column align-items-center py-2', 4];
     const options = LANGS.map(l => `<span class="lang-opt${l === lang ? ' active' : ''}">${LANGUAGE_LABELS[l]}</span>`).join('<span class="lang-sep">/</span>');
     return `${indent}<a href="${escapeHtml(localPath(path, other))}" hreflang="${other}" class="${cls}">
-${indent}    <i class="bi bi-globe fs-${size}" aria-hidden="true"></i>
+${indent}    ${icon('globe', `fs-${size}`)}
 ${indent}    <span class="sr-only" lang="${other}">${LANGUAGE_NAMES[other]}</span>
 ${indent}    <span class="lang-options" aria-hidden="true">${options}</span>
 ${indent}</a>`;
@@ -125,7 +129,7 @@ function languageSuggestion(lang, path, otherStrings) {
     const other = otherLang(lang);
     return `            <div class="lang-suggest" lang="${other}" hidden>
                 <a href="${escapeHtml(localPath(path, other))}" hreflang="${other}">${escapeHtml(otherStrings['language.suggest'])}</a>
-                <button type="button" class="lang-suggest-close" aria-label="${escapeHtml(otherStrings['language.close'])}"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+                <button type="button" class="lang-suggest-close" aria-label="${escapeHtml(otherStrings['language.close'])}">${icon('x-lg')}</button>
             </div>`;
 }
 

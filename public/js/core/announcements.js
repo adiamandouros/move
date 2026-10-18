@@ -1,4 +1,4 @@
-import { escapeHtml } from './html.js';
+import { escapeHtml, icon } from './html.js';
 import { language, t } from './i18n.js';
 
 // Service announcements from /api/announcements (server/info/announcements.js),
@@ -35,13 +35,13 @@ function group(titleKey, items, more, greek) {
     return `<h3 class="info-subhead">${t(titleKey)}</h3>
         ${rest.length
             ? `<ul class="announcements">${rest.slice(0, SHOWN).map(i => item(i, greek)).join('')}</ul>`
-            : `<p class="text-secondary">${t(items.length ? 'announcements.none-other' : 'announcements.none')}</p>`}
+            : `<p class="text-body-secondary">${t(items.length ? 'announcements.none-other' : 'announcements.none')}</p>`}
         <p class="info-source"><a href="${more}" target="_blank" rel="noopener">${t('announcements.more')}${newTab()}</a></p>`;
 }
 
 function render() {
     if (failed) {
-        list.innerHTML = `<p class="text-secondary">${t('announcements.error')}</p>`;
+        list.innerHTML = `<p class="text-body-secondary">${t('announcements.error')}</p>`;
         banner.innerHTML = '';
         return;
     }
@@ -53,7 +53,7 @@ function render() {
     const disruptions = [...data.rail.map(i => ({ ...i, greek: language !== 'el' })), ...bus].filter(i => i.disruption);
     banner.innerHTML = disruptions.length
         ? `<div class="disruption-banner">
-            <div class="fw-semibold"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> ${t('announcements.disruption')}</div>
+            <div class="fw-semibold">${icon('exclamation-triangle-fill')} ${t('announcements.disruption')}</div>
             <ul>${disruptions.map(i => item(i, i.greek)).join('')}</ul>
         </div>`
         : '';

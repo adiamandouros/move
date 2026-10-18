@@ -17,7 +17,7 @@ tools/<id>/
 |---|---|
 | `path` | URL of the page, e.g. `/subway` |
 | `order` | Position in the navigation |
-| `icon` | [Bootstrap icon](https://icons.getbootstrap.com/) name, without `bi-` |
+| `icon` | [Bootstrap icon](https://icons.getbootstrap.com/) name, without `bi-`; add it to `ICONS` in `server/pages/icons.js` |
 | `title`, `shortTitle`, `description` | `{ "en": …, "el": … }`. `shortTitle` is used in the mobile nav, if given |
 | `offline` | `true` to cache the page and its `client/` files for offline use |
 | `scripts` | Files in `client/` to load as modules, e.g. `["main.js"]` |
