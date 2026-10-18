@@ -1196,6 +1196,64 @@ body {
 
 /* ── Home ── */
 
+/* "Get the Wayhop app" (install.js) */
+.install-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 1rem;
+    padding: 14px 4px 14px 16px;
+    background-color: #161b27;
+    border: 1px solid #2a3350;
+    border-radius: 12px;
+}
+
+.install-card[hidden] {
+    display: none;
+}
+
+.install-logo {
+    flex: none;
+    margin-top: 4px;
+}
+
+.install-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.install-title {
+    margin: 0 0 4px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.install-text {
+    margin: 0 0 10px;
+    font-size: 0.85rem;
+    color: #9aa3b2;
+}
+
+.install-close {
+    flex: none;
+    min-width: 44px;
+    min-height: 44px;
+    margin-top: -10px;
+    color: #9aa3b2;
+    background: none;
+    border: none;
+    border-radius: 8px;
+}
+
+.install-close:hover {
+    color: #e8eaf0;
+}
+
+.install-close:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
 .home-section-title {
     display: flex;
     align-items: center;

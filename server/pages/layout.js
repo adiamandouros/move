@@ -54,6 +54,8 @@ export function createRenderer(tools, pagePaths) {
             lang,
             languageRedirect: languageRedirect(lang, path),
             title: escapeHtml(fullTitle),
+            // The installed app opens in the language it was installed in
+            manifest: localPath('/manifest.webmanifest', lang),
             meta: [metaTags({ path, index, lang, title: fullTitle, description }), adsenseMeta()].filter(Boolean).join('\n'),
             head,
             importMap: imports,

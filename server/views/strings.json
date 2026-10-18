@@ -44,7 +44,13 @@
     "location.try-again": "Try again",
     "nav.home": "Home",
     "language.suggest": "Read Wayhop in English",
-    "language.close": "Close"
+    "language.close": "Close",
+    "app.description": "Live bus arrivals, metro trips and service announcements for Athens public transport.",
+    "install.title": "Get the Wayhop app",
+    "install.text": "It opens from your home screen and works offline, underground too.",
+    "install.button": "Install",
+    "install.ios": "In Safari, tap Share, then “Add to Home Screen”.",
+    "install.dismiss": "Not now"
   },
   "el": {
     "shell.skip": "Μετάβαση στο περιεχόμενο",
@@ -91,6 +97,12 @@
     "location.try-again": "Δοκιμάστε ξανά",
     "nav.home": "Αρχική",
     "language.suggest": "Διαβάστε το Wayhop στα ελληνικά",
-    "language.close": "Κλείσιμο"
+    "language.close": "Κλείσιμο",
+    "app.description": "Αφίξεις λεωφορείων σε πραγματικό χρόνο, διαδρομές με το μετρό και ανακοινώσεις για τις συγκοινωνίες της Αθήνας.",
+    "install.title": "Αποκτήστε την εφαρμογή Wayhop",
+    "install.text": "Ανοίγει από την αρχική οθόνη σας και λειτουργεί χωρίς σύνδεση, ακόμα και στο μετρό.",
+    "install.button": "Εγκατάσταση",
+    "install.ios": "Στο Safari, πατήστε Κοινή χρήση και μετά «Προσθήκη στην οθόνη Αφετηρίας».",
+    "install.dismiss": "Όχι τώρα"
   }
 }
