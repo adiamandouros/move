@@ -61,8 +61,14 @@ function fakeLocation(settings) {
 export const test = base.extend({
     now: ['2026-10-21T12:00:00+03:00', { option: true }],
     location: [LOCATION, { option: true }],
+    // The normal site, or one where something goes wrong: test.use({ scenario:
+    // 'oasa-down' }) (the list is in server.js); setScenario() switches mid-test
+    scenario: ['normal', { option: true }],
+    // Console errors a test expects, like a 503 it set up: [/status of 503/]
+    allowErrors: [[], { option: true }],
 
-    page: async ({ page, now, location }, use, testInfo) => {
+    page: async ({ page, now, location, scenario, allowErrors }, use, testInfo) => {
+        await setScenario(page, scenario);
         if (now) await page.clock.install({ time: new Date(now) });
         await page.addInitScript(fakeLocation, { ...LOCATION, ...location });
         const errors = [];
@@ -73,6 +79,7 @@ export const test = base.extend({
         page.on('pageerror', e => errors.push(`${page.url()}: ${e.message}`));
         page.on('console', m => {
             if (m.type() !== 'error' || (notFoundPage && /^Failed to load resource: .*404/.test(m.text()))) return;
+            if (allowErrors.some(pattern => pattern.test(m.text()))) return;
             errors.push(`${page.url()}: console: ${m.text()}`);
         });
         await use(page);
@@ -145,4 +152,10 @@ export async function keyboardWalk(page, { max = 120 } = {}) {
     }
     if (!stops.length) problems.push('Tab reaches nothing');
     return { stops, problems, last: previous?.name };
+}
+
+// Which copy of the site this page's requests go to (server.js SCENARIOS),
+// e.g. setScenario(page, 'normal') when OASA comes back
+export async function setScenario(page, scenario) {
+    await page.context().addCookies([{ name: 'scenario', value: scenario, url: test.info().project.use.baseURL }]);
 }

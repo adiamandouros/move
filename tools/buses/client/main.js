@@ -25,9 +25,12 @@ const state = {
     limit: PAGE_SIZE,
     stops: [],
     results: {},
-    // Per stop code: when its answer came in, and how many minutes it had been
-    // counted down by when last drawn
+    // Per stop code: when its last answer came in (its minutes count down from
+    // then), when it was last asked for, answered or not (its refreshes are
+    // timed from then), and how many minutes it had been counted down by
+    // when last drawn
     fetched: {},
+    asked: {},
     drawnElapsed: {},
     // Stops being asked for, and the ones on screen (only those are refreshed)
     asking: new Set(),
@@ -143,7 +146,7 @@ function poll() {
         const { code } = stop;
         const eligible = state.onScreen.has(code) || itemOf(code)?.classList.contains('d-none');
         if (!eligible || state.asking.has(code)) continue;
-        if (Date.now() - (state.fetched[code] ?? 0) >= refreshEvery(code)) ask(stop);
+        if (Date.now() - (state.asked[code] ?? 0) >= refreshEvery(code)) ask(stop);
     }
 }
 
@@ -156,16 +159,25 @@ async function ask(stop) {
         const res = await fetch(`/api/arrivals?stops=${stop.code}`, { signal: AbortSignal.timeout(20_000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         Object.assign(state.results, (await res.json()).stops);
+        state.fetched[stop.code] = Date.now();
     } catch {
-        // Offline or server trouble: keep what we have, but say live times are unavailable if there's nothing yet
-        state.results[stop.code] ??= { arrivals: [], unavailable: true };
+        // Offline or server trouble: keep the last answer, counting down from
+        // when it came and marked as possibly old; with none, live times are
+        // unavailable
+        const last = state.results[stop.code];
+        if (last && !last.unavailable) {
+            state.results[stop.code] = { ...last, stale: true };
+        } else {
+            state.results[stop.code] = { arrivals: [], unavailable: true };
+            state.fetched[stop.code] = Date.now();
+        }
     }
-    state.fetched[stop.code] = Date.now();
+    state.asked[stop.code] = Date.now();
     state.asking.delete(stop.code);
     const item = itemOf(stop.code);
     if (!item) return; // the stops changed meanwhile
     patchStop(item, stop, shown(stop.code));
-    state.drawnElapsed[stop.code] = 0;
+    state.drawnElapsed[stop.code] = elapsed(stop.code);
     applyFilter();
     renderStatus();
 }
