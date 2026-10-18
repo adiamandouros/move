@@ -1,3 +1,4 @@
+// @ts-check
 import express from 'express';
 import { adsTxt } from '../ads.js';
 import { basePath, langOf, LANGS, localPath, pageStrings } from './i18n.js';
@@ -19,6 +20,7 @@ import { createStationPages } from './stations.js';
 
 // Every page in sitePages (registry.js), rendered in each language, by path;
 // render, for the pages that aren't in the list; notFound(path), the 404 page
+/** @param {import('../../types/pages.js').Tool[]} [tools] */
 export function renderPages(tools = loadTools()) {
     const list = sitePages(tools);
     const pagePaths = [...list.map(page => page.path), ...STATION_PATHS];
@@ -57,6 +59,7 @@ export function renderPages(tools = loadTools()) {
 
 // Pages, tool client files and the service worker. Everything is rendered once
 // at startup; `node --watch` restarts the server when these files change.
+/** @param {import('../../types/pages.js').Tool[]} [tools] @param {{ railFile?: string }} [options] */
 export function createPages(tools = loadTools(), { railFile } = {}) {
     const { pages, indexed, notFound, render } = renderPages(tools);
     const serviceWorker = renderServiceWorker(tools, pages);

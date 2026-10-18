@@ -95,7 +95,7 @@ export function getCoords() {
         };
 
         // Also handle the case where watchPosition itself errors before firing
-        const errorId = navigator.geolocation.getCurrentPosition(
+        navigator.geolocation.getCurrentPosition(
             () => {}, // success handled by watchPosition
             err => {
                 subscribers.delete(onFirst);

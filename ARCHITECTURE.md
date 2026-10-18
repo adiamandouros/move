@@ -133,13 +133,23 @@ and can be edited from a phone at `/admin/stations`.
 slots come after a page's content, never inside results.
 `server/canonical-host.js`: other addresses redirect to `SITE_URL`.
 
-## Tests
+## Checks
 
-`npm test` runs everything in `test/`: building the data, route finding,
-the OASA client and its limits, the relays, announcements, and every page as
-the server sends it (`seo.test.js`, `accessibility.test.js`, `assets.test.js`,
-`stations.test.js`). The **Check accessibility** button on
-`/admin/diagnostics` runs axe-core on the live pages in your browser.
+`npm run check` runs all three below; GitHub runs it on every pull request
+and on `main` (`.github/workflows/checks.yml`), with Node 20 and 22.
+
+- `npm test` runs everything in `test/`: building the data, route finding,
+  the OASA client and its limits, the relays, announcements, and every page
+  as the server sends it (`seo.test.js`, `accessibility.test.js`,
+  `assets.test.js`, `stations.test.js`). The tests need no network.
+- `npm run lint`: ESLint's recommended checks (`eslint.config.js`).
+- `npm run typecheck`: TypeScript checks the files that start with
+  `// @ts-check` against their JSDoc types. The shapes of the data shared by
+  the server and the browser (`rail.json`, `bus-stops.json`, tools, pages)
+  are in `types/`; nothing is compiled, and editors show the types too.
+
+The **Check accessibility** button on `/admin/diagnostics` runs axe-core on
+the live pages in your browser.
 
 ## Common changes
 

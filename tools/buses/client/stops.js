@@ -1,10 +1,17 @@
+// @ts-check
 // Nearby-stop search over bus-stops.json (see server/data/build-bus.js for the
 // format). No DOM access, so it can be unit-tested in Node.
 
+/**
+ * @typedef {{ code: string, lat: number, lng: number, name: import('../../../types/data.js').Names, lines: string[] }} BusStop
+ */
+
 // Turn the compact rows into objects
+/** @param {import('../../../types/data.js').BusStops} data @returns {BusStop[]} */
 export function decodeStops({ fields, stops }) {
     const at = Object.fromEntries(fields.map((f, i) => [f, i]));
-    return stops.map(row => ({
+    // `fields` says which column is which, so a row is read by name rather than by its type
+    return stops.map((/** @type {any[]} */ row) => ({
         code: row[at.code],
         lat: row[at.lat],
         lng: row[at.lng],
@@ -13,6 +20,7 @@ export function decodeStops({ fields, stops }) {
     }));
 }
 
+/** @param {number} lat1 @param {number} lng1 @param {number} lat2 @param {number} lng2 */
 export function distanceMeters(lat1, lng1, lat2, lng2) {
     const R = 6_371_000;
     const rad = Math.PI / 180;
@@ -25,6 +33,10 @@ export function distanceMeters(lat1, lng1, lat2, lng2) {
 // The closest stops within `radius` metres, at most `limit` of them. If fewer
 // than `min` are that close (e.g. in the suburbs), the `min` nearest are
 // returned whatever the distance.
+/**
+ * @param {BusStop[]} stops @param {number} lat @param {number} lng
+ * @returns {(BusStop & { meters: number })[]}
+ */
 export function nearestStops(stops, lat, lng, { limit = 6, radius = 500, min = 3 } = {}) {
     const sorted = stops
         .map(s => ({ ...s, meters: distanceMeters(lat, lng, s.lat, s.lng) }))

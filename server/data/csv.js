@@ -35,7 +35,7 @@ export async function* readCsv(path, { required = [] } = {}) {
         const cols = parseLine(line);
         if (!header) {
             header = cols;
-            header[0] = header[0].replace(/^﻿/, '');
+            header[0] = header[0].replace(/^\uFEFF/, '');
             const missing = required.filter(c => !header.includes(c));
             if (missing.length) throw new Error(`${path}: missing column(s) ${missing.join(', ')}`);
             continue;

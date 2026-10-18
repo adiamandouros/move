@@ -8,7 +8,10 @@
     "dev": "node --watch-path=server --watch-path=tools --watch-path=public/js --watch-path=public/css server.js",
     "build:data": "node server/data/index.js",
     "test": "node --test",
-    "diagnose": "node scripts/diagnose.js"
+    "diagnose": "node scripts/diagnose.js",
+    "lint": "eslint .",
+    "typecheck": "tsc -p jsconfig.json",
+    "check": "npm run lint && npm run typecheck && npm test"
   },
   "keywords": [],
   "author": "",
@@ -26,5 +29,13 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/express": "^5.0.6",
+    "@types/node": "^20.19.43",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0",
+    "typescript": "^7.0.2"
   }
 }

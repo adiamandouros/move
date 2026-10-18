@@ -1,6 +1,7 @@
 import { DAY_NAMES } from './calendar.js';
 
 // Car positions, ordered from the back of the train to the front.
+/** @type {import('../../types/data.js').Position[]} */
 export const POSITIONS = ['back', 'center-back', 'center', 'center-front', 'front'];
 
 const POSITION_KEYS = new Set(['exits', 'elevators', 'centralPlatform', 'transfers', 'note']);

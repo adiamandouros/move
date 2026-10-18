@@ -147,7 +147,7 @@ export function loadCurated({ curatedDir = CURATED_DIR, overlayFile = OVERLAY_FI
         const raw = readFileSync(join(curatedDir, `${name}.json`), 'utf8');
         hash.update(raw);
         try { data[name] = JSON.parse(raw); }
-        catch (err) { throw new Error(`data/curated/${name}.json is not valid JSON: ${err.message}`); }
+        catch (err) { throw new Error(`data/curated/${name}.json is not valid JSON: ${err.message}`, { cause: err }); }
     }
 
     const { overlay, pruned } = pruneOverlay(data.positions, readOverlay(overlayFile));

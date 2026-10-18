@@ -1,10 +1,14 @@
+// @ts-check
 import { escapeHtml, textOn } from './html.js';
+
+/** @typedef {import('../../../types/data.js').Position} Position */
 
 // Metro markup shared by the subway page (drawn in the browser) and the
 // station pages (written on the server, server/pages/stations.js). Strings
 // come from s(key): t() in the browser, the page's strings on the server.
 
 // A line's badge, in its colour: line is rail.json's { name, color }
+/** @param {{ name: string, color: string }} line */
 export function lineBadge(line) {
     return `<span class="line-badge" style="background-color: ${line.color}; color: ${textOn(line.color)}">${escapeHtml(line.name)}</span>`;
 }
@@ -12,6 +16,10 @@ export function lineBadge(line) {
 // The train from back to front (positions: rail.json's), with the parts to
 // ride in for the exit highlighted and the ones next to an elevator marked.
 // One image for screen readers, described by its label.
+/**
+ * @param {Position[]} positions @param {Position[]} exits @param {Position[]} elevators
+ * @param {(key: string) => string} s
+ */
 export function trainDiagram(positions, exits, elevators, s) {
     const label = p => s(`subway.pos.${p}`);
     const described = [...exits.map(label), ...elevators.map(p => `${label(p)} (${s('subway.elevator')})`)].join(', ');
