@@ -1,11 +1,8 @@
-import { initLocation } from './location.js';
 import { t } from './i18n.js';
 
-// Shared by every page: location tracking, the language link and the
-// service worker. Each tool's own script is loaded separately by its page.
-
-// Request location permission once at startup so it's ready when tools need it
-initLocation();
+// Shared by every page: the language link and the service worker. Each
+// tool's own script is loaded separately by its page, and only the pages
+// that use the location start it (/js/core/location.js).
 
 // ── Language link ────────────────────────────────────────────────────────────
 

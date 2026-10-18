@@ -508,6 +508,38 @@ body {
     box-shadow: var(--focus-ring);
 }
 
+/* "Nearest station": the boarding station from the location */
+.locate-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    margin-right: -8px;
+    padding: 0 8px;
+    font-size: 0.85rem;
+    color: #3d8bff;
+}
+
+.locate-btn:hover {
+    color: #e8eaf0;
+    background-color: #1e2538;
+}
+
+.locate-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+.locate-status {
+    margin: 6px 0 0;
+    font-size: 0.8rem;
+    color: #9aa3b2;
+}
+
+.locate-status:empty {
+    display: none;
+}
+
 .timetable-notice {
     font-size: 0.8rem;
     color: var(--bs-warning, #ffc107);
@@ -807,6 +839,12 @@ body {
 #bottom-nav .lang-options {
     font-size: 0.7rem;
     margin-top: 2px;
+}
+
+/* Messages in place of the stops (render.js message); the page may move
+   the keyboard to them, but they aren't controls */
+.bus-message-body:focus {
+    outline: none;
 }
 
 /* ── Nearby Buses: status banner and served lines ── */

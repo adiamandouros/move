@@ -1,119 +1,148 @@
-// ── Shared location module ──────────────────────────────────────────────────
+// The device's location, shared by the pages that use it (Buses, Subway).
 //
-// Manages a single watchPosition for the whole app.
-// Tools subscribe to receive coordinate updates instead of managing their own
-// geolocation calls. Tracking is automatically paused after the app has been
-// in the background for BACKGROUND_TIMEOUT_MS, and restarted on return.
+// - Only pages that need it start it, so the browser asks for permission
+//   once, where it's clear why: when the bus page opens (after a "Use my
+//   location" tap the very first time), or on the subway page's "Nearest
+//   station". Pages that don't need it never ask.
+// - The last position is kept on this device for KEEP_MS, so the next page
+//   has it at once, even without a signal (underground, offline), and
+//   refines it as new positions come in.
+// - Nothing waits for it: pages show what they can without it and update
+//   when it comes. A position that's slow to come is reported, not waited on.
 
-const BACKGROUND_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+// { lat, lng, at } of the last position (rounded to about 10 m)
+const KEY = 'location';
+// Set once a position has come, so pages can start without asking again
+// (some browsers keep reporting "prompt" after someone allowed it)
+const ALLOWED_KEY = 'location-allowed';
+const KEEP_MS = 10 * 60_000;
+// No position after this long: tell the pages (they keep waiting, though)
+const SLOW_MS = 20_000;
+// Stop following the location after the page has been hidden this long
+const BACKGROUND_TIMEOUT_MS = 10 * 60_000;
+// A precise GPS fix can take 5–15 s indoors, so also ask for a quick one: a
+// recent or approximate position the phone already has
+const QUICK_FIX = { enableHighAccuracy: false, maximumAge: 5 * 60_000, timeout: 10_000 };
 
 let watchId = null;
-let currentCoords = null;
+let wanted = false;
+let current = null;
+let slowTimer = null;
 let backgroundTimer = null;
+const positionListeners = new Set();
+const problemListeners = new Set();
 
-const subscribers = new Set();
+// localStorage can be missing or blocked (private windows, some settings)
+const storage = {
+    get: key => { try { return localStorage.getItem(key); } catch { return null; } },
+    set: (key, value) => { try { localStorage.setItem(key, value); } catch { /* only this page has it */ } },
+    remove: key => { try { localStorage.removeItem(key); } catch { /* nothing kept */ } },
+};
+
+const round = n => Math.round(n * 1e4) / 1e4;
+
+// ── For the pages ───────────────────────────────────────────────────────────
+
+// The last position, if it's recent enough to use: { lat, lng, at } or null
+export function lastPosition() {
+    const fresh = position => position && Date.now() - position.at < KEEP_MS;
+    if (fresh(current)) return current;
+    let saved = null;
+    try { saved = JSON.parse(storage.get(KEY)); } catch { /* not a position */ }
+    if (fresh(saved)) return saved;
+    if (saved) storage.remove(KEY);
+    return null;
+}
+
+// Whether the page can start following the location without the browser
+// asking: 'granted', 'prompt' (it would ask), or 'denied'
+export async function locationPermission() {
+    if (!navigator.geolocation) return 'denied';
+    let state = null;
+    try { state = (await navigator.permissions.query({ name: 'geolocation' })).state; } catch { /* no Permissions API */ }
+    if (state === 'denied') return 'denied';
+    return state === 'granted' || storage.get(ALLOWED_KEY) ? 'granted' : 'prompt';
+}
+
+// Follow the location: the browser asks the first time. Positions go to
+// onLocation listeners, problems to onLocationProblem listeners.
+export function startLocation() {
+    wanted = true;
+    if (watchId !== null) return;
+    if (!navigator.geolocation) {
+        notifyProblem('unsupported');
+        return;
+    }
+    clearTimeout(slowTimer);
+    slowTimer = setTimeout(() => { if (!lastPosition()) notifyProblem('slow'); }, SLOW_MS);
+    navigator.geolocation.getCurrentPosition(onPosition, () => {}, QUICK_FIX);
+    watchId = navigator.geolocation.watchPosition(onPosition, onError, { enableHighAccuracy: true });
+}
+
+// Start again, e.g. from a "Try again" button
+export function restartLocation() {
+    stopWatch();
+    startLocation();
+}
+
+// fn({ lat, lng, at }) for every new position. Returns a function that stops it.
+export function onLocation(fn) {
+    positionListeners.add(fn);
+    return () => positionListeners.delete(fn);
+}
+
+// fn(problem): 'denied' (the person or browser said no), 'unavailable' (the
+// device can't tell), 'slow' (no position after SLOW_MS) or 'unsupported'
+export function onLocationProblem(fn) {
+    problemListeners.add(fn);
+    return () => problemListeners.delete(fn);
+}
 
 // ── Internal ────────────────────────────────────────────────────────────────
 
 function onPosition(pos) {
-    currentCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-    subscribers.forEach(fn => fn(currentCoords));
+    const at = pos.timestamp || Date.now();
+    // The quick fix can be older than what the watch already gave
+    if (current && at <= current.at) return;
+    current = { lat: pos.coords.latitude, lng: pos.coords.longitude, at };
+    clearTimeout(slowTimer);
+    storage.set(KEY, JSON.stringify({ lat: round(current.lat), lng: round(current.lng), at }));
+    storage.set(ALLOWED_KEY, '1');
+    positionListeners.forEach(fn => fn(current));
 }
 
 function onError(err) {
-    console.warn('Location watch error:', err.message);
+    // 1: PERMISSION_DENIED, 2: POSITION_UNAVAILABLE (3, TIMEOUT, needs a timeout option)
+    if (err.code === 1) {
+        stopWatch();
+        wanted = false;
+        current = null;
+        storage.remove(KEY);
+        storage.remove(ALLOWED_KEY);
+        notifyProblem('denied');
+    } else if (err.code === 2) {
+        // The watch keeps trying
+        notifyProblem('unavailable');
+    }
 }
 
-// A precise GPS fix can take 5–15 s indoors, so ask for a quick one too: a
-// recent or approximate position the phone already has. It's only used if it
-// comes first; the watch then refines it (and tools re-pick when you've moved).
-const QUICK_FIX = { enableHighAccuracy: false, maximumAge: 5 * 60_000, timeout: 10_000 };
-
-function startWatch() {
-    if (watchId !== null) return;
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(pos => { if (!currentCoords) onPosition(pos); }, () => {}, QUICK_FIX);
-    watchId = navigator.geolocation.watchPosition(onPosition, onError, {
-        enableHighAccuracy: true,
-    });
+function notifyProblem(problem) {
+    problemListeners.forEach(fn => fn(problem));
 }
 
 function stopWatch() {
+    clearTimeout(slowTimer);
     if (watchId === null) return;
     navigator.geolocation.clearWatch(watchId);
     watchId = null;
 }
 
-// ── Visibility handling ──────────────────────────────────────────────────────
-
+// In the background for a while: stop the GPS, and start it again on return
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-        // App went to background — start the timeout
-        backgroundTimer = setTimeout(() => {
-            stopWatch();
-            backgroundTimer = null;
-        }, BACKGROUND_TIMEOUT_MS);
+        backgroundTimer = setTimeout(stopWatch, BACKGROUND_TIMEOUT_MS);
     } else {
-        // App came back to foreground
-        if (backgroundTimer !== null) {
-            // Returned before timeout — cancel it, tracking was never stopped
-            clearTimeout(backgroundTimer);
-            backgroundTimer = null;
-        } else if (watchId === null) {
-            // Returned after timeout — tracking was stopped, restart it and
-            // notify all subscribers to refresh with the new position
-            startWatch();
-        }
+        clearTimeout(backgroundTimer);
+        if (wanted && watchId === null) startLocation();
     }
 });
-
-// ── Public API ───────────────────────────────────────────────────────────────
-
-/** Start tracking. Call once from app.js on startup. */
-export function initLocation() {
-    startWatch();
-}
-
-/**
- * Get the current coords immediately if available, or wait for the first fix.
- * Returns a Promise<{lat, lng}>.
- */
-export function getCoords() {
-    if (currentCoords) return Promise.resolve(currentCoords);
-
-    // No fix yet — wait for the first watchPosition callback
-    return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-            reject(new Error('Geolocation is not supported by your browser.'));
-            return;
-        }
-
-        // One-shot listener
-        const onFirst = coords => {
-            subscribers.delete(onFirst);
-            resolve(coords);
-        };
-
-        // Also handle the case where watchPosition itself errors before firing
-        navigator.geolocation.getCurrentPosition(
-            () => {}, // success handled by watchPosition
-            err => {
-                subscribers.delete(onFirst);
-                reject(err);
-            }
-        );
-
-        subscribers.add(onFirst);
-        // Ensure tracking is running (may have been stopped in background)
-        startWatch();
-    });
-}
-
-/**
- * Subscribe to coordinate updates. The callback fires every time the device
- * detects a position change. Returns an unsubscribe function.
- */
-export function subscribeToLocation(fn) {
-    subscribers.add(fn);
-    return () => subscribers.delete(fn);
-}

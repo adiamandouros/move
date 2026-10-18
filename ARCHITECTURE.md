@@ -80,6 +80,11 @@ structured data, robots.txt, sitemap).
   (`escapeHtml`, `format`, `textOn`), `metro.js` (train diagram, line
   badge), `location.js`, `announcements.js`, `ads.js`.
 - `tools/<id>/client/`: a tool's own scripts, served at `/tools/<id>/`.
+- **Location** (`/js/core/location.js`): only the pages that use it start it
+  (Buses, and Subway when allowed or on "Nearest station"), so the browser
+  asks once, where it's clear why. The last position is kept on the device
+  for 10 minutes and shared by the pages, and nothing waits for it: pages
+  show what they can and update as positions come.
 - Scripts import each other by absolute URL (`/js/core/i18n.js`). An import
   map in every page points those URLs at the current version (`?v=<hash>`),
   so a deploy never mixes old and new files.

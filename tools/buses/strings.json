@@ -3,9 +3,6 @@
     "buses.getting-location": "Getting your location…",
     "buses.finding-stops": "Finding nearby stops…",
     "buses.no-stops": "No stops found nearby",
-    "buses.location-denied": "Location access denied",
-    "buses.location-error": "Could not get location",
-    "buses.location-denied-hint": "Please allow location access in your browser settings and try again.",
     "buses.no-arrivals": "No upcoming arrivals.",
     "buses.no-arrivals-short": "No arrivals",
     "buses.hide-empty": "Hide empty stops",
@@ -24,15 +21,14 @@
     "buses.lines": "Lines",
     "buses.data-error": "Couldn't load the bus stop list. Check your connection and try again.",
     "buses.unknown-line": "Unknown line",
-    "buses.line": "Line"
+    "buses.line": "Line",
+    "buses.ask-title": "See the buses at the stops near you",
+    "buses.ask-text": "Your location stays on your device: the server only sees which stops you look at."
   },
   "el": {
     "buses.getting-location": "Λήψη τοποθεσίας…",
     "buses.finding-stops": "Εύρεση κοντινών στάσεων…",
     "buses.no-stops": "Δεν βρέθηκαν κοντινές στάσεις",
-    "buses.location-denied": "Δεν επιτράπηκε η πρόσβαση τοποθεσίας",
-    "buses.location-error": "Δεν ήταν δυνατή η λήψη τοποθεσίας",
-    "buses.location-denied-hint": "Επιτρέψτε την πρόσβαση τοποθεσίας στις ρυθμίσεις του προγράμματος περιήγησης και δοκιμάστε ξανά.",
     "buses.no-arrivals": "Δεν υπάρχουν επερχόμενες αφίξεις.",
     "buses.no-arrivals-short": "Χωρίς αφίξεις",
     "buses.hide-empty": "Απόκρυψη άδειων στάσεων",
@@ -51,6 +47,8 @@
     "buses.lines": "Γραμμές",
     "buses.data-error": "Δεν ήταν δυνατή η φόρτωση των στάσεων. Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά.",
     "buses.unknown-line": "Άγνωστη γραμμή",
-    "buses.line": "Γραμμή"
+    "buses.line": "Γραμμή",
+    "buses.ask-title": "Δείτε τα λεωφορεία στις στάσεις κοντά σας",
+    "buses.ask-text": "Η τοποθεσία σας μένει στη συσκευή σας: ο διακομιστής βλέπει μόνο ποιες στάσεις κοιτάτε."
   }
 }

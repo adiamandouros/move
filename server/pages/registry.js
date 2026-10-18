@@ -124,7 +124,7 @@ function tiles(tools) {
 // Written once per language: server/views/pages/<name>.<lang>.html
 const TEXT_PAGES = ['about', 'privacy', 'contact'];
 // When privacy.<lang>.html last changed in substance (shown on the page)
-const PRIVACY_UPDATED = { en: '16 October 2026', el: '16 Οκτωβρίου 2026' };
+const PRIVACY_UPDATED = { en: '18 October 2026', el: '18 Οκτωβρίου 2026' };
 
 // Keep the page's <!-- with ads --> or <!-- without ads --> parts (privacy.<lang>.html)
 const adsVariant = (html, ads) => html.replace(/<!-- (with|without) ads -->\n([\s\S]*?)<!-- \/\1 ads -->\n/g,

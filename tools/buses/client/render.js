@@ -80,11 +80,14 @@ export function patchStop(item, stop, result) {
         : result ? `<li class="text-muted small">${t(result.unavailable ? 'buses.unavailable' : 'buses.no-arrivals')}</li>` : '';
 }
 
-export function message(icon, title, subtitle = '') {
+// A message in place of the stops, with an optional button (its label).
+// tabindex="-1" lets the page move the keyboard to it.
+export function message(icon, title, subtitle = '', action = '') {
     return `
-        <div class="d-flex flex-column align-items-center justify-content-center text-muted" style="height: 60dvh;">
+        <div class="bus-message-body d-flex flex-column align-items-center justify-content-center text-muted" tabindex="-1" style="height: 60dvh;">
             <i class="bi bi-${icon} fs-1 mb-3" aria-hidden="true"></i>
-            <p class="fs-5 mb-1">${escapeHtml(title)}</p>
+            <p class="fs-5 mb-1 text-center px-4">${escapeHtml(title)}</p>
             ${subtitle ? `<p class="small text-secondary text-center px-4">${escapeHtml(subtitle)}</p>` : ''}
+            ${action ? `<button type="button" class="btn btn-primary rounded-pill px-4 mt-2 message-action">${escapeHtml(action)}</button>` : ''}
         </div>`;
 }
