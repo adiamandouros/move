@@ -3,11 +3,7 @@
 //   - a fixed clock: Wednesday 21 October 2026, 12:00 in Athens, running from
 //     there (test.use({ now: '…' }) for another moment, now: null for the real one)
 //   - a fake location service (test.use({ location: { … } }), below)
-//   - a failure if the page throws or logs an error (test.use({ allowErrors:
-//     [/…/] }) for ones a test expects, like a 503 it set up)
-//   - the normal site, or one where something goes wrong: test.use({ scenario:
-//     'oasa-down' }) (the list is in server.js); setScenario(page, name)
-//     switches mid-test, e.g. when OASA comes back
+//   - a failure if the page throws or logs an error
 // and the helpers axe(page) and keyboardWalk(page).
 import { test as base, expect } from '@playwright/test';
 import { readFileSync } from 'fs';
@@ -65,7 +61,10 @@ function fakeLocation(settings) {
 export const test = base.extend({
     now: ['2026-10-21T12:00:00+03:00', { option: true }],
     location: [LOCATION, { option: true }],
+    // The normal site, or one where something goes wrong: test.use({ scenario:
+    // 'oasa-down' }) (the list is in server.js); setScenario() switches mid-test
     scenario: ['normal', { option: true }],
+    // Console errors a test expects, like a 503 it set up: [/status of 503/]
     allowErrors: [[], { option: true }],
 
     page: async ({ page, now, location, scenario, allowErrors }, use, testInfo) => {
@@ -87,11 +86,6 @@ export const test = base.extend({
         if (testInfo.status === testInfo.expectedStatus) expect(errors, 'no script errors').toEqual([]);
     },
 });
-
-// Which copy of the site this page's requests go to (server.js SCENARIOS)
-export async function setScenario(page, scenario) {
-    await page.context().addCookies([{ name: 'scenario', value: scenario, url: test.info().project.use.baseURL }]);
-}
 
 // axe-core's violations on the page as it is now: ["rule-id (nodes): selector", …]
 export async function axe(page) {
@@ -152,4 +146,10 @@ export async function keyboardWalk(page, { max = 120 } = {}) {
     }
     if (!stops.length) problems.push('Tab reaches nothing');
     return { stops, problems, last: previous?.name };
+}
+
+// Which copy of the site this page's requests go to (server.js SCENARIOS),
+// e.g. setScenario(page, 'normal') when OASA comes back
+export async function setScenario(page, scenario) {
+    await page.context().addCookies([{ name: 'scenario', value: scenario, url: test.info().project.use.baseURL }]);
 }
