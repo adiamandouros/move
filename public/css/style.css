@@ -267,6 +267,17 @@ body {
     font-weight: 600;
 }
 
+/* The home page's shortcuts: two by two on phones, in a row on wider screens */
+.home-tiles {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    margin-bottom: 1rem;
+}
+
+.home-intro {
+    margin-bottom: 1rem;
+    color: var(--bs-secondary-color);
+}
+
 .tool-tile-desc {
     font-size: 0.875rem;
     color: var(--bs-secondary-color);
@@ -624,6 +635,16 @@ body {
 
 .locate-status:empty {
     display: none;
+}
+
+/* After the last train: the plan is for tomorrow's first trains */
+.tomorrow-notice {
+    font-size: 0.85rem;
+    color: var(--bs-secondary-color);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
 }
 
 .timetable-notice {

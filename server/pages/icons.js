@@ -13,7 +13,7 @@ export const ICONS = [
     'airplane', 'arrow-down-circle-fill', 'arrow-down-up', 'arrow-left-right', 'arrow-repeat', 'arrow-up-square',
     'arrows-angle-contract', 'bus-front', 'check-circle-fill', 'clock', 'cloud-check', 'crosshair', 'dash-lg',
     'door-open', 'download', 'envelope', 'exclamation-triangle', 'exclamation-triangle-fill', 'eye', 'eye-slash',
-    'geo-alt', 'globe', 'heart-pulse', 'info-circle', 'lock', 'map', 'megaphone', 'moon-stars', 'person-walking',
+    'geo-alt', 'globe', 'heart-pulse', 'info-circle', 'list-ul', 'lock', 'map', 'megaphone', 'moon-stars', 'person-walking',
     'person-wheelchair', 'plus-lg', 'signpost-2-fill', 'signpost-split', 'symmetry-horizontal', 'telephone',
     'ticket-perforated', 'train-front', 'wifi-off', 'x-lg', 'x-octagon-fill',
 ];

@@ -1,7 +1,12 @@
 <div class="home-view">
-    <h1 class="fs-4 fw-semibold mb-3" data-i18n="home.title">Getting around Athens</h1>
+    <h1 class="fs-4 fw-semibold mb-2" data-i18n="home.title">Getting around Athens</h1>
+    <p class="home-intro" data-i18n="home.intro">Live bus arrivals at the stops around you, metro trips that show which carriage to ride for your exit, and the latest service announcements. Free, with no account, in English and Greek.</p>
 
     <div id="disruptions" aria-live="polite"></div>
+
+    <div class="tool-tiles home-tiles">
+{{tiles}}
+    </div>
 
     <!-- Shown by /js/core/install.js where the browser can install the app -->
     <section id="install" class="card install-card" aria-labelledby="install-title" hidden>

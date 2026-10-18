@@ -1,6 +1,6 @@
 import { lastPosition, locationPermission, onLocation, onLocationProblem, startLocation } from '/js/core/location.js';
 import { language, t } from '/js/core/i18n.js';
-import { athensNow, closestStation, isTimetableExpired, planJourney } from './network.js';
+import { athensNow, closestStation, isTimetableExpired, planTrip } from './network.js';
 import { stationSearch } from './search.js';
 import { renderMessage, renderResult, routeSummary } from './render.js';
 
@@ -42,10 +42,11 @@ function start(rail) {
             if (speak) announce(t('subway.same-station'));
             return;
         }
-        const now = athensNow();
-        const plans = planJourney(rail, origin, destination, now);
-        result.innerHTML = renderResult(rail, plans, now, { expired: isTimetableExpired(rail, now) });
-        if (speak) announce(routeSummary(rail, plans, now));
+        const today = athensNow();
+        // After the last train, tomorrow's first ones
+        const { plans, now, tomorrow } = planTrip(rail, origin, destination, today);
+        result.innerHTML = renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow });
+        if (speak) announce(routeSummary(rail, plans, now, tomorrow));
     };
 
     // The selection lives in the URL (?from=syntagma&to=airport) so routes can be bookmarked and shared

@@ -33,19 +33,28 @@ test('the home page, every tool and the about, privacy and contact pages are ind
     assert.deepEqual(indexed, ['/', ...tools.map(t => t.path), '/about', '/privacy', '/contact']);
 });
 
-test('the about, privacy and contact pages are written in each language and linked from every page', async () => {
+test('the about, privacy and contact pages are written in each language and linked from the home page', async () => {
     for (const name of ['about', 'privacy', 'contact']) {
         assert.match(pages[`/${name}`], /<html lang="en"/);
         assert.match(pages[`/el/${name}`], /<html lang="el"/);
     }
     assert.match(pages['/privacy'], /<h1>Privacy<\/h1>[\s\S]*Last updated: 18 October 2026/);
     assert.match(pages['/el/privacy'], /<h1>Απόρρητο<\/h1>[\s\S]*Τελευταία ενημέρωση: 18 Οκτωβρίου 2026/);
-    for (const path of ['/', '/subway', '/el/info']) {
+    for (const path of ['/', '/el']) {
         const footer = pages[path].match(/<footer class="site-footer"[\s\S]*?<\/footer>/)[0];
         const prefix = path.startsWith('/el') ? '/el' : '';
         for (const name of ['about', 'privacy', 'contact']) assert.ok(footer.includes(`href="${prefix}/${name}"`), `${path} links to ${name}`);
     }
-    assert.match(pages['/el/subway'], /href="\/el\/privacy" data-i18n="footer\.privacy">Απόρρητο</);
+    assert.match(pages['/el'], /href="\/el\/privacy" data-i18n="footer\.privacy">Απόρρητο</);
+    // Elsewhere the footer only has the language link, for phones
+    for (const path of ['/subway', '/el/info', '/about', '/privacy']) {
+        const footer = pages[path].match(/<footer class="site-footer d-md-none">([\s\S]*?)<\/footer>/)?.[1];
+        assert.ok(footer, `${path} has the phones' footer`);
+        assert.equal((footer.match(/<a /g) ?? []).length, 1, `${path}: only the language link`);
+        assert.match(footer, /class="footer-language d-md-none"/);
+    }
+    // The about page doesn't repeat them
+    assert.doesNotMatch(pages['/about'] + pages['/el/about'], /prose-links/);
 });
 
 test('the contact page shows CONTACT_EMAIL, and leaves it out when unset', () => {

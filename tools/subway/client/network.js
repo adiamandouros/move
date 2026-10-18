@@ -71,17 +71,18 @@ export function findRoutes(rail, from, to) {
 }
 
 // Upcoming departures for one leg at or after `after` seconds (relative to
-// today's midnight). Includes yesterday's trips that run past midnight.
+// today's midnight). Includes yesterday's trips that run past midnight,
+// unless ownDay (only the day's own service).
 // Each result: { departs, arrives, isLast, isSecondLast }.
 /**
  * @param {Rail} rail @param {Leg} leg
- * @param {{ weekday: number, after: number, count?: number }} when
+ * @param {{ weekday: number, after: number, count?: number, ownDay?: boolean }} when
  * @returns {Departure[]}
  */
-export function departures(rail, leg, { weekday, after, count = 2 }) {
+export function departures(rail, leg, { weekday, after, count = 2, ownDay = false }) {
     const { timetable } = rail.lines[leg.line].directions[leg.dir];
     const found = [];
-    for (const dayOffset of [-1, 0]) {
+    for (const dayOffset of ownDay ? [0] : [-1, 0]) {
         const pattern = timetable.patterns[timetable.days[(weekday + dayOffset + 7) % 7]];
         const serviceDay = [];
         for (const [start, p] of pattern) {
@@ -106,12 +107,13 @@ export function departures(rail, leg, { weekday, after, count = 2 }) {
 // arrival of the first upcoming train on the previous leg plus a change.
 // `arrives` is the earliest arrival at the destination, or null if no train
 // makes the whole journey today.
-/** @param {Rail} rail @param {Route} route @param {AthensTime} now @returns {PlannedRoute} */
-export function planRoute(rail, route, now) {
+// ownDay: only the day's own trains (see departures)
+/** @param {Rail} rail @param {Route} route @param {AthensTime} now @param {boolean} [ownDay] @returns {PlannedRoute} */
+export function planRoute(rail, route, now, ownDay = false) {
     let after = now.seconds;
     let reachable = true;
     const legs = route.legs.map(leg => {
-        const next = reachable ? departures(rail, leg, { weekday: now.weekday, after }) : [];
+        const next = reachable ? departures(rail, leg, { weekday: now.weekday, after, ownDay }) : [];
         if (next.length) after = next[0].arrives + TRANSFER_SECONDS;
         else reachable = false;
         return { ...leg, departures: next };
@@ -121,12 +123,34 @@ export function planRoute(rail, route, now) {
 }
 
 // Plan every route and keep the few that arrive first.
-/** @param {Rail} rail @param {string} from @param {string} to @param {AthensTime} now @returns {PlannedRoute[]} */
-export function planJourney(rail, from, to, now) {
+/** @param {Rail} rail @param {string} from @param {string} to @param {AthensTime} now @param {boolean} [ownDay] @returns {PlannedRoute[]} */
+export function planJourney(rail, from, to, now, ownDay = false) {
     return findRoutes(rail, from, to)
-        .map(route => planRoute(rail, route, now))
+        .map(route => planRoute(rail, route, now, ownDay))
         .sort((a, b) => (a.arrives ?? Infinity) - (b.arrives ?? Infinity))
         .slice(0, MAX_OPTIONS);
+}
+
+// The day after `now`, from midnight
+/** @param {AthensTime} now @returns {AthensTime} */
+export function nextDay(now) {
+    const [y, m, d] = now.date.split('-').map(Number);
+    return { weekday: (now.weekday + 1) % 7, seconds: 0, date: new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10) };
+}
+
+// planJourney, and after the last train of the day (no route gets there
+// today) the same trip on tomorrow's first trains. Tomorrow's own: tonight's
+// trains after midnight can't make the trip, or today's plan would have.
+// They'd only leave you waiting at a change until the morning.
+/**
+ * @param {Rail} rail @param {string} from @param {string} to @param {AthensTime} now
+ * @returns {{ plans: PlannedRoute[], now: AthensTime, tomorrow: boolean }} now: the time the plans start from
+ */
+export function planTrip(rail, from, to, now) {
+    const plans = planJourney(rail, from, to, now);
+    if (!plans.length || plans.some(plan => plan.arrives !== null)) return { plans, now, tomorrow: false };
+    const tomorrow = nextDay(now);
+    return { plans: planJourney(rail, from, to, tomorrow, true), now: tomorrow, tomorrow: true };
 }
 
 // Where to stand on a leg: at an interchange, near the way to the next line;
