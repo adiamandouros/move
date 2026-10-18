@@ -14,6 +14,10 @@ jobs:
       matrix:
         # 20: what the live server runs; 22: what development uses
         node: [20, 22]
+    # Times and dates must follow Athens wherever the clock is set: one run
+    # in UTC, the other at UTC+14
+    env:
+      TZ: ${{ matrix.node == 22 && 'Pacific/Kiritimati' || 'UTC' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
