@@ -77,7 +77,7 @@ test('each slot setting adds one labelled ad unit after the content, and only th
         assert.match(html, new RegExp(`<ins class="adsbygoogle ad-unit" data-ad-client="${CLIENT}" data-ad-slot="${slot}"></ins>`));
         assert.match(html, /<aside class="ad-slot" aria-labelledby="ad-label">\s*<p class="ad-label" id="ad-label" data-i18n="ads\.label">/);
         // After the page's own content, before the footer
-        assert.match(html, /<\/div>\s*<aside class="ad-slot"[\s\S]*<\/aside>\s*<footer class="site-footer"/);
+        assert.match(html, /<\/div>\s*<aside class="ad-slot"[\s\S]*<\/aside>\s*<footer class="site-footer[" ]/);
         assert.match(html, /src="\/js\/core\/ads\.js\?v=/);
     }
     assert.match(pages['/el/info'], /data-i18n="ads\.label">Διαφήμιση</);

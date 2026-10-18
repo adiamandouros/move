@@ -62,7 +62,7 @@ export function createRenderer(tools, pagePaths) {
             importMap: imports,
             sideNav: navLinks(tools, active, 'side'),
             sideLanguage: languageLink(lang, path, 'side'),
-            footerLanguage: languageLink(lang, path, 'footer'),
+            footer: footer(active, languageLink(lang, path, 'footer')),
             languageSuggestion: languageSuggestion(lang, path, stringsFor(otherLang(lang))),
             bottomNav: homeLink(active) + '\n' + navLinks(tools, active, 'bottom'),
             content,
@@ -95,6 +95,24 @@ function navLinks(tools, active, variant) {
             ? `                <a ${attrs}>${icon(tool.icon, 'fs-5')}<span data-i18n="tool.${tool.id}.title">${tool.title.en}</span></a>`
             : `        <a ${attrs}>${icon(tool.icon, 'fs-4')}<span class="nav-label" data-i18n="tool.${tool.id}.short">${(tool.shortTitle ?? tool.title).en}</span></a>`;
     }).join('\n');
+}
+
+// The footer: on the home page, the links to the about, privacy and contact
+// pages; on phones, the language link (on wider screens it's in the
+// sidebar). The other pages have only the language link, so there the
+// footer is for phones only.
+function footer(active, language) {
+    if (active === 'home') {
+        return `            <footer class="site-footer" aria-label="About this site" data-i18n-aria-label="footer.label">
+                <a href="/about" data-i18n="footer.about">About</a>
+                <a href="/privacy" data-i18n="footer.privacy">Privacy</a>
+                <a href="/contact" data-i18n="footer.contact">Contact</a>
+${language}
+            </footer>`;
+    }
+    return language ? `            <footer class="site-footer d-md-none">
+${language}
+            </footer>` : '';
 }
 
 // ── Language link ───────────────────────────────────────────────────────────
