@@ -43,6 +43,7 @@ npm run dev          # restarts when server, tool or public files change
 npm test             # the tests that run in Node
 npm run test:browser # the site in real browsers (test/browser/README.md; needs `npx playwright install chromium webkit` once)
 npm run check        # lint, type checks and both kinds of tests: what GitHub runs on every pull request
+npm run test:live    # a few checks against wayhop.gr itself (also nightly)
 npm run build:data   # rebuild the timetables and stops now (the app also does it daily)
 npm run diagnose     # check that the server can reach OASA, the relays and the data portal
 ```
