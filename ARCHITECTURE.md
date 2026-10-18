@@ -218,6 +218,10 @@ then `diff -r` the two folders.
 
 ## Common changes
 
+Every change comes with its tests: new functionality gets new tests,
+changed functionality updates the tests that cover it, and a bug fix gets a
+test that would have caught it ([CLAUDE.md](CLAUDE.md)).
+
 - **A string**: add it to the right strings file in both `en` and `el`, then
   use `data-i18n` in markup or `t()` in a script.
 - **A tool**: copy a `tools/<id>/` folder ([tools/README.md](tools/README.md)).
