@@ -142,8 +142,8 @@ test('every page links to itself in the other language: sidebar, footer and a su
     }
     // The bottom bar (phones) starts with the home page, highlighted there
     const bottom = html => html.match(/<nav id="bottom-nav"[\s\S]*?<\/nav>/)[0];
-    assert.match(bottom(pages['/']), /^<nav[^>]*>\s*<a href="\/" class="nav-btn [^"]*active" aria-current="page"><i class="bi bi-house/);
-    assert.match(bottom(pages['/el/subway']), /<a href="\/el" class="nav-btn [^"]*py-2"><i class="bi bi-house fs-4" aria-hidden="true"><\/i><span class="nav-label" data-i18n="nav.home">Αρχική</);
+    assert.match(bottom(pages['/']), /^<nav[^>]*>\s*<a href="\/" class="nav-btn [^"]*active" aria-current="page"><img src="\/icon\/logo\.svg" alt=""/);
+    assert.match(bottom(pages['/el/subway']), /<a href="\/el" class="nav-btn [^"]*py-2"><img src="\/icon\/logo\.svg" alt="" width="33" height="24" class="nav-logo"><span class="nav-label" data-i18n="nav.home">Αρχική</);
     assert.doesNotMatch(bottom(pages['/subway']), /hreflang/);
     // The 404 links to the same address in the other language; English-only pages have no language link
     assert.match(notFound('/el/nope'), /<a href="\/nope" hreflang="en"/);

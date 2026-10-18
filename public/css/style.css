@@ -109,6 +109,13 @@ body {
     border-color: #1e2538 !important;
 }
 
+/* The Wayhop logo as the Home button, the size of the icons next to it */
+.nav-logo {
+    height: 24px;
+    width: auto;
+    margin: 4px 0;
+}
+
 /* ── Nav buttons (shared) ── */
 
 .nav-btn {
