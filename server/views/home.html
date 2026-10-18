@@ -3,6 +3,18 @@
 
     <div id="disruptions" aria-live="polite"></div>
 
+    <!-- Shown by /js/core/install.js where the browser can install the app -->
+    <section id="install" class="install-card" aria-labelledby="install-title" hidden>
+        <img src="/icon/logo.svg" alt="" width="44" height="32" class="install-logo">
+        <div class="install-body">
+            <h2 id="install-title" class="install-title" data-i18n="install.title">Get the Wayhop app</h2>
+            <p class="install-text" data-i18n="install.text">It opens from your home screen and works offline, underground too.</p>
+            <p id="install-ios" class="install-text" data-i18n="install.ios" hidden>In Safari, tap Share, then “Add to Home Screen”.</p>
+            <button type="button" id="install-btn" class="btn btn-primary btn-sm rounded-pill px-4" data-i18n="install.button" hidden>Install</button>
+        </div>
+        <button type="button" id="install-close" class="install-close" aria-label="Not now" data-i18n-aria-label="install.dismiss"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </section>
+
     <section class="info-section" aria-labelledby="announcements-title">
         <h2 id="announcements-title" class="home-section-title"><i class="bi bi-megaphone" aria-hidden="true"></i><span data-i18n="announcements.title">Announcements</span></h2>
         <div class="info-body">

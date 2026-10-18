@@ -1,4 +1,5 @@
 // @ts-check
+import { readFileSync } from 'fs';
 import express from 'express';
 import { adsTxt } from '../ads.js';
 import { basePath, langOf, LANGS, localPath, pageStrings } from './i18n.js';
@@ -57,6 +58,16 @@ export function renderPages(tools = loadTools()) {
     return { pages, indexed, notFound, render };
 }
 
+// The app manifest in one language (public/icon/site.webmanifest is the
+// English one): an app installed from a Greek page opens at /el, with its
+// description in Greek. Both have the same id, so it's one app either way.
+const BASE_MANIFEST = JSON.parse(readFileSync(new URL('../../public/icon/site.webmanifest', import.meta.url), 'utf8'));
+/** @param {string} lang @param {string} description */
+export function appManifest(lang, description) {
+    const icons = BASE_MANIFEST.icons.map(icon => ({ ...icon }));
+    return { ...BASE_MANIFEST, lang, start_url: localPath('/', lang), description, icons };
+}
+
 // Pages, tool client files and the service worker. Everything is rendered once
 // at startup; `node --watch` restarts the server when these files change.
 /** @param {import('../../types/pages.js').Tool[]} [tools] @param {{ railFile?: string }} [options] */
@@ -72,6 +83,14 @@ export function createPages(tools = loadTools(), { railFile } = {}) {
     router.get('/sw.js', (_req, res) => {
         res.set('Cache-Control', 'no-cache').type('js').send(serviceWorker);
     });
+
+    const stringsFor = pageStrings(tools);
+    for (const lang of LANGS) {
+        const manifest = JSON.stringify(appManifest(lang, stringsFor(lang)['app.description']), null, 2);
+        router.get(localPath('/manifest.webmanifest', lang), (_req, res) => {
+            res.set('Cache-Control', 'no-cache').type('application/manifest+json').send(manifest);
+        });
+    }
 
     router.get('/robots.txt', (req, res) => {
         res.set('Cache-Control', 'no-cache').type('text').send(robotsTxt(origin(req)));

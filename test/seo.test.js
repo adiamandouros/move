@@ -108,7 +108,8 @@ test('Greek pages are in Greek before any script runs', () => {
     assert.match(html, /href="\/el"[^>]*>.*?wayhop</);
     assert.match(html, /href="\/el\/buses"/);
     assert.doesNotMatch(pageLinks(html), /href="\/(subway|buses|info)"/);
-    assert.match(html, /href="\/icon\/site\.webmanifest"/);
+    assert.match(html, /<link rel="manifest" href="\/el\/manifest\.webmanifest">/);
+    assert.match(html, /href="\/icon\/favicon\.svg"/);
     // The page's strings, for its scripts, are Greek only
     const strings = JSON.parse(html.match(/<script type="application\/json" id="strings">(.*?)<\/script>/)[1]);
     assert.equal(strings['shell.skip'], 'Μετάβαση στο περιεχόμενο');
@@ -200,6 +201,22 @@ test('without SITE_URL the pages leave out absolute URLs', () => {
         assert.ok(meta(html, 'name', 'description'));
     } finally {
         process.env.SITE_URL = saved;
+    }
+});
+
+test('each language has its own app manifest, so the installed app opens in it', async () => {
+    assert.match(pages['/subway'], /<link rel="manifest" href="\/manifest\.webmanifest">/);
+    for (const [path, lang, start] of [['/manifest.webmanifest', 'en', '/'], ['/el/manifest.webmanifest', 'el', '/el']]) {
+        const res = await fetch(base + path);
+        assert.equal(res.status, 200, path);
+        assert.match(res.headers.get('content-type'), /^application\/manifest\+json/);
+        const manifest = await res.json();
+        assert.equal(manifest.lang, lang);
+        assert.equal(manifest.start_url, start);
+        assert.equal(manifest.id, '/', 'one app in both languages');
+        assert.equal(manifest.display, 'standalone');
+        assert.ok(manifest.description.length > 20);
+        assert.ok(manifest.icons.some(i => i.sizes === '512x512' && i.purpose === 'maskable'));
     }
 });
 
