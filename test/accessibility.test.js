@@ -6,6 +6,7 @@ import { renderPages } from '../server/pages/index.js';
 import { loadTools } from '../server/pages/registry.js';
 import { renderStationPage } from '../server/pages/stations.js';
 import { rail } from './fixtures/rail.js';
+import { formProblems, headingProblems, iconProblems, idProblems, nameProblems, newTabProblems } from './support/markup.js';
 
 // Accessibility checks on every public page as the server sends it (WCAG 2.2
 // AA basics), and on the colours in style.css. Content drawn by the pages'
@@ -51,22 +52,6 @@ const STRINGS = { en: {}, el: {} };
 }
 
 const main = html => html.match(/<main[^>]*>([\s\S]*)<\/main>/)[1];
-const attr = (tag, name) => tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1];
-
-// Text a screen reader would read: tags removed, aria-hidden parts dropped
-// (our markup doesn't nest an aria-hidden element inside one of the same tag)
-function spoken(fragment) {
-    return fragment
-        .replace(/<(\w+)[^>]*aria-hidden="true"[^>]*>[\s\S]*?<\/\1>/g, '')
-        .replace(/<[^>]+>/g, '')
-        .replace(/&\w+;/g, ' ')
-        .trim();
-}
-
-// [{ open, inner }] for each <name …>…</name> (not nested in itself)
-const elements = (html, name) => [...html.matchAll(new RegExp(`(<${name}\\b[^>]*>)([\\s\\S]*?)</${name}>`, 'g'))]
-    .map(([, open, inner]) => ({ open, inner }));
-
 
 for (const [path, html] of Object.entries(all)) {
     test(`${path}: page language, title and one main heading`, () => {
@@ -76,50 +61,27 @@ for (const [path, html] of Object.entries(all)) {
     });
 
     test(`${path}: headings don't skip levels`, () => {
-        const levels = [...main(html).matchAll(/<h([1-6])\b/g)].map(m => Number(m[1]));
-        levels.forEach((level, i) => {
-            if (i > 0) assert.ok(level <= levels[i - 1] + 1, `<h${level}> follows <h${levels[i - 1]}>`);
-        });
+        assert.deepEqual(headingProblems(main(html)), []);
     });
 
     test(`${path}: buttons and links have names`, () => {
-        for (const name of ['button', 'a']) {
-            for (const { open, inner } of elements(html, name)) {
-                const label = attr(open, 'aria-label') || attr(open, 'title') || spoken(inner);
-                assert.ok(label, `${open} has no text or aria-label`);
-            }
-        }
+        assert.deepEqual(nameProblems(html), []);
     });
 
     test(`${path}: icons are hidden from screen readers, images have alt text`, () => {
-        for (const icon of html.match(/<i class="bi [^"]*"[^>]*>/g) ?? []) {
-            assert.match(icon, /aria-hidden="true"/, `${icon} needs aria-hidden="true"`);
-        }
-        for (const img of html.match(/<img\b[^>]*>/g) ?? []) assert.match(img, /\salt="/, `${img} needs alt`);
+        assert.deepEqual(iconProblems(html), []);
     });
 
     test(`${path}: links that open a new tab say so`, () => {
-        for (const { open, inner } of elements(html, 'a').filter(a => /target="_blank"/.test(a.open))) {
-            assert.ok(/data-i18n="shell\.new-tab"/.test(inner) || /new tab|νέα καρτέλα/i.test(attr(open, 'aria-label') ?? ''),
-                `${open} opens a new tab without saying so`);
-        }
+        assert.deepEqual(newTabProblems(html), []);
     });
 
     test(`${path}: ids are unique, and the ids that labels and ARIA refer to exist`, () => {
-        const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(m => m[1]);
-        assert.deepEqual(ids.filter((id, i) => ids.indexOf(id) !== i), [], 'duplicate ids');
-        for (const [, ref] of html.matchAll(/\s(?:for|aria-controls|aria-describedby|aria-labelledby)="([^"]+)"/g)) {
-            for (const id of ref.split(' ')) assert.ok(ids.includes(id), `nothing has id="${id}"`);
-        }
+        assert.deepEqual(idProblems(html), []);
     });
 
     test(`${path}: form fields have labels, and nothing forces its own tab order`, () => {
-        for (const input of html.match(/<(input|select|textarea)\b[^>]*>/g) ?? []) {
-            if (/type="(hidden|submit|button)"/.test(input)) continue;
-            const id = attr(input, 'id');
-            assert.ok(attr(input, 'aria-label') || (id && html.includes(`for="${id}"`)), `${input} has no label`);
-        }
-        assert.doesNotMatch(html, /tabindex="[1-9]/, 'positive tabindex');
+        assert.deepEqual(formProblems(html), []);
     });
 
     test(`${path}: every translated text exists in English and Greek`, () => {
