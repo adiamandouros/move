@@ -1,0 +1,39 @@
+// Every page, in both languages, once its scripts have drawn it: in the right
+// language, no axe-core violations (WCAG 2.2 AA), and usable with the keyboard
+// alone. New pages in the registry are picked up by themselves.
+import { loadTools, sitePages } from '../../server/pages/registry.js';
+import { axe, expect, keyboardWalk, test } from './fixtures.js';
+
+// What to wait for before checking a page whose content comes from its scripts
+const READY = {
+    '/buses': '.stop-item .arrival-badge',
+    '/info': '#sec-announcements li',
+    '/subway?from=kifisia&to=airport': '.result-card',
+};
+const PAGES = [
+    ...sitePages(loadTools()).map(p => p.path),
+    '/subway?from=kifisia&to=airport',
+    '/subway/stations',
+    '/subway/stations/omonia',
+    '/nope',
+];
+const greek = path => path === '/' ? '/el' : `/el${path}`;
+
+for (const path of PAGES) {
+    for (const [lang, url] of [['en', path], ['el', greek(path)]]) {
+        test(`${url}`, async ({ page }, testInfo) => {
+            await page.goto(url);
+            if (READY[path]) await expect(page.locator(READY[path]).first()).toBeVisible();
+            await expect(page.locator('html')).toHaveAttribute('lang', lang);
+
+            expect(await axe(page), 'axe-core violations').toEqual([]);
+
+            // Phones have no keyboard, except that some people use one with them;
+            // WebKit only tabs to links when Safari's setting is on, so it's skipped there
+            if (testInfo.project.name !== 'iphone') {
+                const walk = await keyboardWalk(page);
+                expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
+            }
+        });
+    }
+}

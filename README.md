@@ -40,8 +40,9 @@ a Greek IP address or a relay (see [proxy/README.md](proxy/README.md)).
 ```bash
 npm start            # the app, on http://localhost:3000 (PORT in .env)
 npm run dev          # restarts when server, tool or public files change
-npm test             # every test
-npm run check        # lint, type checks and tests: what GitHub runs on every pull request
+npm test             # the tests that run in Node
+npm run test:browser # the site in real browsers (test/browser/README.md; needs `npx playwright install chromium webkit` once)
+npm run check        # lint, type checks and both kinds of tests: what GitHub runs on every pull request
 npm run build:data   # rebuild the timetables and stops now (the app also does it daily)
 npm run diagnose     # check that the server can reach OASA, the relays and the data portal
 ```

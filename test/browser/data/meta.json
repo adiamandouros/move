@@ -1,0 +1,29 @@
+{
+  "generated": "2026-10-18T15:14:27.210Z",
+  "fingerprint": {
+    "builder": 1,
+    "curated": "5a0b2b2fbd2e982e1a0a1810f7f09dc8fe69fd206ba73cac8f5783280d26e890",
+    "today": "20261018",
+    "sources": {
+      "rail": "2026-10-06T04:46:54.184974",
+      "bus": "2026-08-06T07:57:34.422340",
+      "stopTable": "2026-08-13T13:26:21.326675"
+    }
+  },
+  "warnings": [],
+  "outputs": {
+    "rail.json": {
+      "ok": true,
+      "warnings": [
+        "positions.json: no exits for M1/kifisia/moschato",
+        "positions.json: no exits for M2/elliniko/anthoupoli"
+      ]
+    },
+    "bus-stops.json": {
+      "ok": true,
+      "warnings": [
+        "Bus feed expired on 2026-08-24"
+      ]
+    }
+  }
+}

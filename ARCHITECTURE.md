@@ -9,7 +9,7 @@ few plain JavaScript modules for its live parts (routes, bus arrivals,
 announcements, the map).
 
 ```
-browser ─► Express (server.js)
+browser ─► Express (server/app.js, started by server.js)
             ├─ pages ─────────────── server/pages/   every page, in English and Greek
             ├─ /api/arrivals ─────── server/oasa/    live bus times from OASA
             ├─ /api/announcements ── server/info/    OASA's and STASY's announcements
@@ -185,13 +185,19 @@ slots come after a page's content, never inside results.
 
 ## Checks
 
-`npm run check` runs all three below; GitHub runs it on every pull request
+`npm run check` runs all four below; GitHub runs them on every pull request
 and on `main` (`.github/workflows/checks.yml`), with Node 20 and 22.
 
-- `npm test` runs everything in `test/`: building the data, route finding,
+- `npm test` runs `test/*.test.js`: building the data, route finding,
   the OASA client and its limits, the relays, announcements, and every page
   as the server sends it (`seo.test.js`, `accessibility.test.js`,
   `assets.test.js`, `stations.test.js`). The tests need no network.
+- `npm run test:browser`: the site in real browsers (phone, desktop and
+  iPhone), with test data and a fake OASA: every page in both languages
+  through axe-core and a keyboard walk, plus location, language, the bus
+  page's requests, the planner at night and offline use. See
+  [test/browser/README.md](test/browser/README.md). The app itself is
+  `server/app.js`; `server.js` only starts it.
 - `npm run lint`: ESLint's recommended checks (`eslint.config.js`).
 - `npm run typecheck`: TypeScript checks the files that start with
   `// @ts-check` against their JSDoc types. The shapes of the data shared by
@@ -200,6 +206,10 @@ and on `main` (`.github/workflows/checks.yml`), with Node 20 and 22.
 
 The **Check accessibility** button on `/admin/diagnostics` runs axe-core on
 the live pages in your browser.
+
+`node scripts/snapshot.js <folder>` writes every response the server sends
+to files; run it before and after a change that shouldn't change any page,
+then `diff -r` the two folders.
 
 ## Common changes
 
