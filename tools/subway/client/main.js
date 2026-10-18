@@ -1,4 +1,4 @@
-import { getCoords } from '/js/core/location.js';
+import { lastPosition, locationPermission, onLocation, onLocationProblem, startLocation } from '/js/core/location.js';
 import { language, t } from '/js/core/i18n.js';
 import { athensNow, closestStation, isTimetableExpired, planJourney } from './network.js';
 import { stationSearch } from './search.js';
@@ -59,12 +59,17 @@ function start(rail) {
 
     const changed = () => { syncUrl(); render({ speak: true }); };
 
+    // Without a station in the address, the boarding station follows the
+    // user's location until they pick one themselves
+    let followLocation = !params.has('from');
+
     const from = stationSearch({
         input: document.getElementById('stop-search-from'),
         list: document.getElementById('stop-suggestions-from'),
         rail,
-        onChange: changed,
+        onChange: () => { followLocation = false; changed(); },
     });
+    document.getElementById('stop-search-from').addEventListener('input', () => { followLocation = false; });
     const to = stationSearch({
         input: document.getElementById('stop-search-to'),
         list: document.getElementById('stop-suggestions-to'),
@@ -79,6 +84,7 @@ function start(rail) {
     document.getElementById('subway-form').addEventListener('submit', e => e.preventDefault());
 
     document.getElementById('swap-stations').addEventListener('click', () => {
+        followLocation = false;
         const origin = from.get();
         from.set(to.get(), { notify: false });
         to.set(origin, { notify: false });
@@ -88,17 +94,62 @@ function start(rail) {
     setInterval(render, REFRESH_MS);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
 
-    // Without a station in the URL, start from the one nearest to the user
-    if (!params.has('from')) {
-        getCoords()
-            .then(({ lat, lng }) => {
-                if (from.get()) return;
-                const id = closestStation(rail, lat, lng);
-                from.set(id);
-                const name = rail.stations[id].name[language] ?? rail.stations[id].name.en;
-                announce(`${t('subway.location-prefix')} ${name} ${t('subway.location-suffix')}`);
-            })
-            .catch(() => {}); // location unavailable or denied
+    // ── The nearest station ──
+    // Set at once from a recent position (even offline, underground), then
+    // from new ones while followLocation lasts. The "Nearest station" button
+    // asks for it (the browser asks for the location the first time).
+    const status = document.getElementById('locate-status');
+    let requested = false;
+
+    const setNearest = ({ lat, lng }, { always = false } = {}) => {
+        status.textContent = '';
+        const id = closestStation(rail, lat, lng);
+        if (id !== from.get()) from.set(id);
+        else if (!always) return;
+        followLocation = true;
+        const name = rail.stations[id].name[language] ?? rail.stations[id].name.en;
+        announce(`${t('subway.location-prefix')} ${name} ${t('subway.location-suffix')}`);
+    };
+
+    onLocation(position => {
+        if (requested) {
+            requested = false;
+            setNearest(position, { always: true });
+        } else if (followLocation) {
+            setNearest(position);
+        }
+    });
+
+    const deniedText = () => `${t('location.denied')}. ${t('location.denied-hint')}`;
+
+    // Only said when someone pressed the button and is waiting for it
+    onLocationProblem(problem => {
+        if (!requested) return;
+        if (problem !== 'slow') requested = false;
+        status.textContent = problem === 'denied' ? deniedText() : t(`location.${problem}`);
+    });
+
+    document.getElementById('locate-btn').addEventListener('click', async () => {
+        followLocation = true;
+        const last = lastPosition();
+        if (last) {
+            setNearest(last, { always: true });
+        } else if (await locationPermission() === 'denied') {
+            // The browser won't ask, and browsers report this differently when asked anyway
+            status.textContent = deniedText();
+            return;
+        } else {
+            requested = true;
+            status.textContent = t('subway.locating');
+        }
+        startLocation();
+    });
+
+    if (followLocation) {
+        const last = lastPosition();
+        if (last) setNearest(last);
+        // Only if the browser won't ask: here it asks when the button is pressed
+        locationPermission().then(permission => { if (permission === 'granted') startLocation(); });
     }
 }
 

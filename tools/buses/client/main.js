@@ -1,4 +1,4 @@
-import { getCoords, subscribeToLocation } from '/js/core/location.js';
+import { lastPosition, locationPermission, onLocation, onLocationProblem, restartLocation, startLocation } from '/js/core/location.js';
 import { t } from '/js/core/i18n.js';
 import { decodeStops, distanceMeters, nearestStops } from './stops.js';
 import { message, patchStop, stopItem } from './render.js';
@@ -32,15 +32,20 @@ const state = {
     polling: false,
     // Stops changed during a poll (e.g. a better location fix): poll again after it
     pollAgain: false,
+    // The stop list couldn't be loaded: its message stays, whatever the location does
+    loadFailed: false,
 };
 
 // ── Rendering ───────────────────────────────────────────────────────────────
 
 function renderStops() {
+    // The keyboard was on a message (e.g. after "Use my location"): move it to the first stop
+    const hadFocus = $('bus-message').contains(document.activeElement);
     $('bus-message').innerHTML = '';
     accordion.innerHTML = state.stops.map(stopItem).join('');
     $('bus-actions').hidden = false;
     patchAll();
+    if (hadFocus) accordion.querySelector('.stop-toggle')?.focus();
 }
 
 function patchAll() {
@@ -95,7 +100,7 @@ function pickStops() {
     if (!state.stops.length) {
         accordion.innerHTML = '';
         $('bus-actions').hidden = true;
-        $('bus-message').innerHTML = message('bus-front', t('buses.no-stops'));
+        showMessage('bus-front', t('buses.no-stops'));
         return;
     }
     renderStops();
@@ -152,32 +157,84 @@ function interact() {
     }
 }
 
-// ── Start ───────────────────────────────────────────────────────────────────
+// ── Location ────────────────────────────────────────────────────────────────
 
-async function start() {
-    $('bus-message').innerHTML = message('arrow-repeat spin', t('buses.getting-location'));
+// A message in place of the stops, with an optional button ({ label, run }).
+// If the keyboard was on the old message's button, it moves to the new message.
+function showMessage(icon, title, subtitle = '', action = null) {
+    const box = $('bus-message');
+    const hadFocus = box.contains(document.activeElement);
+    box.innerHTML = message(icon, title, subtitle, action?.label);
+    const button = box.querySelector('.message-action');
+    button?.addEventListener('click', action.run);
+    if (hadFocus) (button ?? box.firstElementChild).focus();
+}
 
-    const [stopsData, coords] = await Promise.allSettled([
-        fetch('/data/bus-stops.json').then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
-        getCoords(),
-    ]);
+const retry = { label: t('location.try-again'), run: () => { showMessage('arrow-repeat spin', t('buses.getting-location')); restartLocation(); } };
 
-    if (coords.status === 'rejected') {
-        const denied = coords.reason?.code === 1;
-        $('bus-message').innerHTML = message('geo-alt',
-            t(denied ? 'buses.location-denied' : 'buses.location-error'),
-            denied ? t('buses.location-denied-hint') : coords.reason?.message ?? '');
-        return;
+// The first time, the browser asks for the location after a tap here, where
+// it's clear what it's for
+function askForLocation() {
+    showMessage('geo-alt', t('buses.ask-title'), t('buses.ask-text'), {
+        label: t('location.use'),
+        run: () => { showMessage('arrow-repeat spin', t('buses.getting-location')); startLocation(); },
+    });
+}
+
+// A new position: pick the stops near it, unless they were picked from about here
+function located({ lat, lng }) {
+    state.coords = { lat, lng };
+    if (state.loadFailed) return;
+    if (!state.allStops) {
+        showMessage('arrow-repeat spin', t('buses.finding-stops'));
+        return; // picked once the stop list is in
     }
-    if (stopsData.status === 'rejected') {
-        $('bus-message').innerHTML = message('wifi-off', t('buses.data-error'));
-        return;
-    }
-
-    state.allStops = decodeStops(stopsData.value);
-    state.coords = coords.value;
+    if (state.pickedAt && distanceMeters(state.pickedAt.lat, state.pickedAt.lng, lat, lng) < MOVE_THRESHOLD_M) return;
     pickStops();
     poll();
+}
+
+// Until there are stops to show, say what's wrong with the location
+function locationProblem(problem) {
+    if (state.stops.length || state.loadFailed) return;
+    if (problem === 'denied') showMessage('geo-alt', t('location.denied'), t('location.denied-hint'));
+    else if (problem === 'unavailable') showMessage('geo-alt', t('location.unavailable'), '', retry);
+    else if (problem === 'slow') showMessage('geo-alt', t('location.slow'), t('location.slow-hint'), retry);
+    else showMessage('geo-alt', t('location.unsupported'));
+}
+
+// ── Start ───────────────────────────────────────────────────────────────────
+
+// Nothing waits for the location: a recent one (from this page or an earlier
+// one) is used at once, and new positions update the stops as they come.
+async function start() {
+    onLocation(located);
+    onLocationProblem(locationProblem);
+
+    const last = lastPosition();
+    if (last) state.coords = { lat: last.lat, lng: last.lng };
+    showMessage('arrow-repeat spin', t(last ? 'buses.finding-stops' : 'buses.getting-location'));
+
+    // Follow the location if the browser won't need to ask; otherwise ask first
+    locationPermission().then(permission => {
+        if (permission === 'granted') startLocation();
+        else if (permission === 'denied') locationProblem('denied');
+        else if (!state.coords) askForLocation();
+    });
+
+    try {
+        const res = await fetch('/data/bus-stops.json');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        state.allStops = decodeStops(await res.json());
+    } catch {
+        state.loadFailed = true;
+        showMessage('wifi-off', t('buses.data-error'));
+        return;
+    }
+    if (state.coords) {
+        pickStops();
+        poll();
+    }
 
     setInterval(tick, POLL_MS);
 
@@ -187,14 +244,6 @@ async function start() {
         if (document.hidden) return;
         interact();
         if (Date.now() - state.lastPoll >= POLL_MS) poll();
-    });
-
-    subscribeToLocation(({ lat, lng }) => {
-        state.coords = { lat, lng };
-        if (distanceMeters(state.pickedAt.lat, state.pickedAt.lng, lat, lng) >= MOVE_THRESHOLD_M) {
-            pickStops();
-            poll();
-        }
     });
 
     $('show-more-btn').addEventListener('click', () => {

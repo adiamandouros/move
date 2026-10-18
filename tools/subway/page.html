@@ -2,7 +2,12 @@
     <h1 class="sr-only" data-i18n="tool.subway.title">Subway</h1>
     <form id="subway-form" class="subway-form" role="search" autocomplete="off">
         <div class="subway-search-wrap mb-1">
-            <label for="stop-search-from" class="form-label fw-semibold m-0" data-i18n="subway.boarding-label">Boarding at</label>
+            <div class="d-flex align-items-center justify-content-between gap-2">
+                <label for="stop-search-from" class="form-label fw-semibold m-0" data-i18n="subway.boarding-label">Boarding at</label>
+                <button id="locate-btn" type="button" class="btn btn-sm locate-btn">
+                    <i class="bi bi-crosshair" aria-hidden="true"></i><span data-i18n="subway.nearest">Nearest station</span>
+                </button>
+            </div>
             <div class="position-relative">
                 <input id="stop-search-from" class="form-control subway-search-input" type="search"
                        role="combobox" aria-autocomplete="list" aria-controls="stop-suggestions-from" aria-expanded="false"
@@ -10,6 +15,7 @@
                 <ul id="stop-suggestions-from" class="stop-suggestions list-unstyled mb-0" role="listbox"
                     aria-label="Station suggestions" data-i18n-aria-label="subway.station-suggestions" hidden></ul>
             </div>
+            <p id="locate-status" class="locate-status" role="status"></p>
         </div>
 
         <div class="swap-row">

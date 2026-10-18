@@ -38,8 +38,8 @@ test('the about, privacy and contact pages are written in each language and link
         assert.match(pages[`/${name}`], /<html lang="en"/);
         assert.match(pages[`/el/${name}`], /<html lang="el"/);
     }
-    assert.match(pages['/privacy'], /<h1>Privacy<\/h1>[\s\S]*Last updated: 16 October 2026/);
-    assert.match(pages['/el/privacy'], /<h1>Απόρρητο<\/h1>[\s\S]*Τελευταία ενημέρωση: 16 Οκτωβρίου 2026/);
+    assert.match(pages['/privacy'], /<h1>Privacy<\/h1>[\s\S]*Last updated: 18 October 2026/);
+    assert.match(pages['/el/privacy'], /<h1>Απόρρητο<\/h1>[\s\S]*Τελευταία ενημέρωση: 18 Οκτωβρίου 2026/);
     for (const path of ['/', '/subway', '/el/info']) {
         const footer = pages[path].match(/<footer class="site-footer"[\s\S]*?<\/footer>/)[0];
         const prefix = path.startsWith('/el') ? '/el' : '';

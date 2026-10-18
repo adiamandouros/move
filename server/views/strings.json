@@ -33,7 +33,15 @@
     "contact.description": "Report wrong information or a problem with Wayhop, the Athens public transport app.",
     "contact.email": "Email:",
     "ads.label": "Advertisement",
-    "privacy.description-ads": "Wayhop has no accounts or analytics and doesn't track you itself; its ads come from Google. What stays on your device, what reaches the server, and your ad choices."
+    "privacy.description-ads": "Wayhop has no accounts or analytics and doesn't track you itself; its ads come from Google. What stays on your device, what reaches the server, and your ad choices.",
+    "location.use": "Use my location",
+    "location.denied": "Location is blocked for this site",
+    "location.denied-hint": "To use it, allow location for this site in your browser's settings, then reload the page.",
+    "location.unavailable": "Couldn't get your location",
+    "location.slow": "Still looking for your location…",
+    "location.slow-hint": "This can take a while indoors or underground.",
+    "location.unsupported": "This browser can't share your location.",
+    "location.try-again": "Try again"
   },
   "el": {
     "shell.skip": "Μετάβαση στο περιεχόμενο",
@@ -69,6 +77,14 @@
     "contact.description": "Αναφέρετε λανθασμένες πληροφορίες ή ένα πρόβλημα στο Wayhop, την εφαρμογή για τα μέσα μαζικής μεταφοράς της Αθήνας.",
     "contact.email": "Email:",
     "ads.label": "Διαφήμιση",
-    "privacy.description-ads": "Το Wayhop δεν έχει λογαριασμούς ή εργαλεία στατιστικών και δεν σας παρακολουθεί το ίδιο· οι διαφημίσεις του προέρχονται από την Google. Τι μένει στη συσκευή σας, τι φτάνει στον διακομιστή και οι επιλογές σας για τις διαφημίσεις."
+    "privacy.description-ads": "Το Wayhop δεν έχει λογαριασμούς ή εργαλεία στατιστικών και δεν σας παρακολουθεί το ίδιο· οι διαφημίσεις του προέρχονται από την Google. Τι μένει στη συσκευή σας, τι φτάνει στον διακομιστή και οι επιλογές σας για τις διαφημίσεις.",
+    "location.use": "Χρήση της τοποθεσίας μου",
+    "location.denied": "Η τοποθεσία είναι αποκλεισμένη για αυτόν τον ιστότοπο",
+    "location.denied-hint": "Για να τη χρησιμοποιήσετε, επιτρέψτε την τοποθεσία για αυτόν τον ιστότοπο στις ρυθμίσεις του προγράμματος περιήγησης και φορτώστε ξανά τη σελίδα.",
+    "location.unavailable": "Δεν ήταν δυνατή η εύρεση της τοποθεσίας σας",
+    "location.slow": "Η τοποθεσία σας δεν έχει βρεθεί ακόμα…",
+    "location.slow-hint": "Μπορεί να αργήσει σε κλειστούς χώρους ή υπόγεια.",
+    "location.unsupported": "Αυτό το πρόγραμμα περιήγησης δεν μπορεί να δώσει την τοποθεσία σας.",
+    "location.try-again": "Δοκιμάστε ξανά"
   }
 }
