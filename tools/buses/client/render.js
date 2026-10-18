@@ -63,8 +63,8 @@ export function patchStop(item, stop, result) {
     item.querySelector('.stop-next-bus').innerHTML = first
         ? `<span class="sr-only">. ${t('buses.next-bus-line')} </span><span class="next-bus-line">${lineLabel(first)}</span><span class="sr-only">, </span><span class="next-bus-dest">${destination(first)}</span><span class="sr-only">, ${first.minutes} ${t('buses.minutes')}</span>`
         : result
-            ? `<span class="next-bus-dest text-muted fst-italic"><span class="sr-only">. </span>${t(result.unavailable ? 'buses.unavailable' : 'buses.no-arrivals-short')}</span>`
-            : `<span class="next-bus-dest text-muted">${icon('arrow-repeat', 'spin')}<span class="sr-only">. ${t('buses.finding-stops')}</span></span>`;
+            ? `<span class="next-bus-dest text-body-secondary fst-italic"><span class="sr-only">. </span>${t(result.unavailable ? 'buses.unavailable' : 'buses.no-arrivals-short')}</span>`
+            : `<span class="next-bus-dest text-body-secondary">${icon('arrow-repeat', 'spin')}<span class="sr-only">. ${t('buses.finding-stops')}</span></span>`;
 
     item.querySelector('.header-badge-wrap').innerHTML = first ? arrivalBadge(first.minutes) : '';
 
@@ -77,7 +77,7 @@ export function patchStop(item, stop, result) {
                 </span>
                 ${arrivalBadge(a.minutes)}
             </li>`).join('')
-        : result ? `<li class="text-muted small">${t(result.unavailable ? 'buses.unavailable' : 'buses.no-arrivals')}</li>` : '';
+        : result ? `<li class="text-body-secondary small">${t(result.unavailable ? 'buses.unavailable' : 'buses.no-arrivals')}</li>` : '';
 }
 
 // A message in place of the stops, with an optional button (its label).
@@ -86,10 +86,10 @@ export function patchStop(item, stop, result) {
 export function message(symbol, title, subtitle = '', action = '') {
     const [name, ...extra] = symbol.split(' ');
     return `
-        <div class="bus-message-body d-flex flex-column align-items-center justify-content-center text-muted" tabindex="-1" style="height: 60dvh;">
+        <div class="bus-message-body d-flex flex-column align-items-center justify-content-center text-body-secondary" tabindex="-1" style="height: 60dvh;">
             ${icon(name, ['fs-1 mb-3', ...extra].join(' '))}
             <p class="fs-5 mb-1 text-center px-4">${escapeHtml(title)}</p>
-            ${subtitle ? `<p class="small text-secondary text-center px-4">${escapeHtml(subtitle)}</p>` : ''}
+            ${subtitle ? `<p class="small text-body-secondary text-center px-4">${escapeHtml(subtitle)}</p>` : ''}
             ${action ? `<button type="button" class="btn btn-primary rounded-pill px-4 mt-2 message-action">${escapeHtml(action)}</button>` : ''}
         </div>`;
 }

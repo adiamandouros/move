@@ -35,13 +35,13 @@ function group(titleKey, items, more, greek) {
     return `<h3 class="info-subhead">${t(titleKey)}</h3>
         ${rest.length
             ? `<ul class="announcements">${rest.slice(0, SHOWN).map(i => item(i, greek)).join('')}</ul>`
-            : `<p class="text-secondary">${t(items.length ? 'announcements.none-other' : 'announcements.none')}</p>`}
+            : `<p class="text-body-secondary">${t(items.length ? 'announcements.none-other' : 'announcements.none')}</p>`}
         <p class="info-source"><a href="${more}" target="_blank" rel="noopener">${t('announcements.more')}${newTab()}</a></p>`;
 }
 
 function render() {
     if (failed) {
-        list.innerHTML = `<p class="text-secondary">${t('announcements.error')}</p>`;
+        list.innerHTML = `<p class="text-body-secondary">${t('announcements.error')}</p>`;
         banner.innerHTML = '';
         return;
     }

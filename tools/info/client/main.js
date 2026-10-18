@@ -37,7 +37,7 @@ async function openMap() {
         createMetroMap(mapContainer, rail);
         stationsContainer.innerHTML = stationList(rail);
     } catch {
-        mapContainer.innerHTML = `<p class="text-secondary">${t('info.map-error')}</p>`;
+        mapContainer.innerHTML = `<p class="text-body-secondary">${t('info.map-error')}</p>`;
         delete mapContainer.dataset.loaded;
     }
 }

@@ -23,7 +23,7 @@ function legCard(rail, leg, next, now, level) {
     const toward = escapeHtml(direction.toward[language] ?? direction.toward.en);
     const { stop, exits, elevators } = legPositions(rail, leg, next);
     const first = leg.departures[0];
-    const ride = first ? ` <span class="text-secondary">· ${format(t('subway.ride'), { min: Math.round((first.arrives - first.departs) / 60) })}</span>` : '';
+    const ride = first ? ` <span class="text-body-secondary">· ${format(t('subway.ride'), { min: Math.round((first.arrives - first.departs) / 60) })}</span>` : '';
     const action = next
         ? `${icon('arrow-left-right', 'me-2')}${t('subway.transfer-at')} <strong>${stationName(rail, leg.to)}</strong>`
         : `${icon('door-open', 'me-2')}${t('subway.exit-at')} <strong>${stationName(rail, leg.to)}</strong>`;
@@ -43,7 +43,7 @@ function legCard(rail, leg, next, now, level) {
             </div>
             ${exits.length
                 ? trainDiagram(rail.positions, exits, elevators, t)
-                : `<p class="text-muted fst-italic small">${t('subway.no-position-data')}</p>`}
+                : `<p class="text-body-secondary fst-italic small">${t('subway.no-position-data')}</p>`}
             ${stop.note ? `<div class="stop-note mt-3">${icon('info-circle', 'me-1')}${escapeHtml(stop.note)}</div>` : ''}
         </div>`;
 }
@@ -66,7 +66,7 @@ function routeBlock(rail, route, index, total, now) {
 }
 
 export function renderResult(rail, plans, now, { expired }) {
-    if (!plans.length) return `<p class="text-muted small mt-3">${t('subway.no-route')}</p>`;
+    if (!plans.length) return `<p class="text-body-secondary small mt-3">${t('subway.no-route')}</p>`;
     const [y, m, d] = rail.feed.validTo.split('-');
     const notice = expired
         ? `<p class="timetable-notice">${icon('exclamation-triangle', 'me-1')}${format(t('subway.timetable-old'), { date: `${d}/${m}/${y}` })}</p>`
@@ -77,7 +77,7 @@ export function renderResult(rail, plans, now, { expired }) {
 }
 
 export function renderMessage(key) {
-    return `<p class="text-muted small mt-3">${t(key)}</p>`;
+    return `<p class="text-body-secondary small mt-3">${t(key)}</p>`;
 }
 
 // A one-sentence version of the result for screen readers, announced when the

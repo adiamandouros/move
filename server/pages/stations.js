@@ -100,7 +100,7 @@ function directionCard(rail, w, lineId, dirId, id, n) {
     // Arriving here: where to ride for the exit and for each connection
     const arriving = previous ? `
             <h4 class="station-subheading">${s('stations.exit-heading')}</h4>
-            ${stop.exits.length ? `<p class="small mb-2">${s('stations.exit-text')}</p>${trainDiagram(rail.positions, stop.exits, stop.elevators ?? [], s)}` : `<p class="text-secondary fst-italic small">${s('subway.no-position-data')}</p>`}
+            ${stop.exits.length ? `<p class="small mb-2">${s('stations.exit-text')}</p>${trainDiagram(rail.positions, stop.exits, stop.elevators ?? [], s)}` : `<p class="text-body-secondary fst-italic small">${s('subway.no-position-data')}</p>`}
             ${stop.centralPlatform ? `<p class="central-platform-badge d-inline-block mt-2">${icon('symmetry-horizontal', 'me-1')}${s('subway.exit-left')}</p>` : ''}
             ${Object.entries(stop.transfers ?? {}).map(([to, where]) => {
                 const [line, dir] = to.split('/');
@@ -154,7 +154,7 @@ export function stationContent(rail, id, lang, tools) {
         </ol>
     </nav>
     <h1 class="fs-3 fw-semibold mb-1">${escapeHtml(name(id))}</h1>
-    <p class="text-secondary mb-3">${s('stations.lines-here')} ${station.lines.map(badge).join(' ')}</p>
+    <p class="text-body-secondary mb-3">${s('stations.lines-here')} ${station.lines.map(badge).join(' ')}</p>
     <div class="station-actions d-flex flex-wrap gap-2 mb-4">
         <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?from=${id}">${icon('signpost-split', 'me-1')}${s('stations.plan-from')}</a>
         <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?to=${id}">${icon('geo-alt', 'me-1')}${s('stations.plan-to')}</a>
@@ -186,7 +186,7 @@ export function indexContent(rail, lang, tools) {
         </ol>
     </nav>
     <h1 class="fs-3 fw-semibold mb-2">${s('stations.title')}</h1>
-    <p class="text-secondary">${s('stations.index-intro')}</p>${lines}
+    <p class="text-body-secondary">${s('stations.index-intro')}</p>${lines}
 </div>`;
 }
 
