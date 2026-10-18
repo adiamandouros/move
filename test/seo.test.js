@@ -33,8 +33,8 @@ test('the home page, every tool and the about, privacy and contact pages are ind
 
 test('the about, privacy and contact pages are written in each language and linked from every page', async () => {
     for (const name of ['about', 'privacy', 'contact']) {
-        assert.match(pages[`/${name}`], /<html lang="en" data-page-lang="en" data-static-language/);
-        assert.match(pages[`/el/${name}`], /<html lang="el" data-page-lang="el" data-static-language/);
+        assert.match(pages[`/${name}`], /<html lang="en"/);
+        assert.match(pages[`/el/${name}`], /<html lang="el"/);
     }
     assert.match(pages['/privacy'], /<h1>Privacy<\/h1>[\s\S]*Last updated: 16 October 2026/);
     assert.match(pages['/el/privacy'], /<h1>Απόρρητο<\/h1>[\s\S]*Τελευταία ενημέρωση: 16 Οκτωβρίου 2026/);
@@ -77,7 +77,7 @@ for (const path of indexed.flatMap(p => [p, localPath(p, 'el')])) {
 }
 
 test('pages that aren\'t for search results are noindex', () => {
-    for (const html of [pages['/offline'], pages['/el/offline'], notFound.en, notFound.el, render({ title: 'Admin', content: '' })]) {
+    for (const html of [pages['/offline'], pages['/el/offline'], notFound('/nope'), notFound('/el/nope'), render({ title: 'Admin', content: '' })]) {
         assert.equal(meta(html, 'name', 'robots'), 'noindex');
         assert.equal(canonical(html), undefined);
         assert.equal(meta(html, 'name', 'description'), undefined);
@@ -92,9 +92,12 @@ for (const path of indexed) {
     });
 }
 
+// <a> tags, without the language links
+const pageLinks = html => (html.match(/<a\b[^>]*>/g) ?? []).filter(a => !/\shreflang="/.test(a)).join('\n');
+
 test('Greek pages are in Greek before any script runs', () => {
     const html = pages['/el/subway'];
-    assert.match(html, /<html lang="el" data-page-lang="el"/);
+    assert.match(html, /<html lang="el"/);
     assert.equal(html.match(/<title>(.*?)<\/title>/)[1], 'Μετρό — Wayhop');
     assert.equal(meta(html, 'name', 'description'), tools.find(t => t.id === 'subway').description.el);
     assert.equal(meta(html, 'property', 'og:locale'), 'el_GR');
@@ -102,14 +105,52 @@ test('Greek pages are in Greek before any script runs', () => {
     // Links to pages stay in Greek; other links don't change
     assert.match(html, /href="\/el"[^>]*>.*?wayhop</);
     assert.match(html, /href="\/el\/buses"/);
-    assert.doesNotMatch(html, /<a [^>]*href="\/(subway|buses|info)"/);
+    assert.doesNotMatch(pageLinks(html), /href="\/(subway|buses|info)"/);
     assert.match(html, /href="\/icon\/site\.webmanifest"/);
+    // The page's strings, for its scripts, are Greek only
+    const strings = JSON.parse(html.match(/<script type="application\/json" id="strings">(.*?)<\/script>/)[1]);
+    assert.equal(strings['shell.skip'], 'Μετάβαση στο περιεχόμενο');
+    assert.equal(strings['tool.subway.title'], 'Μετρό');
 });
 
-test('English pages stay as written', () => {
-    assert.match(pages['/subway'], /<html lang="en" data-page-lang="en"/);
+test('English pages are in English, with English links', () => {
+    assert.match(pages['/subway'], /<html lang="en"/);
     assert.match(pages['/subway'], /data-i18n="shell\.skip">Skip to content</);
-    assert.doesNotMatch(pages['/subway'], /href="\/el/);
+    assert.doesNotMatch(pageLinks(pages['/subway']), /href="\/el/);
+});
+
+test('every page links to itself in the other language, in both navigations', () => {
+    const languageLinks = html => html.match(/<a href="[^"]*" hreflang="[^"]*"[^>]*>[\s\S]*?<\/a>/g) ?? [];
+    for (const [path, other, lang, name] of [['/subway', '/el/subway', 'el', 'Ελληνικά'], ['/el/subway', '/subway', 'en', 'English'], ['/', '/el', 'el', 'Ελληνικά'], ['/el', '/', 'en', 'English']]) {
+        const links = languageLinks(pages[path]);
+        assert.equal(links.length, 2, `${path}: side and bottom navigation`);
+        for (const link of links) {
+            assert.ok(link.startsWith(`<a href="${other}" hreflang="${lang}"`), link);
+            // Named in its own language; EN / ΕΛ is for sighted users
+            assert.match(link, new RegExp(`<span class="sr-only" lang="${lang}">${name}</span>`));
+            assert.match(link, /<span class="lang-options" aria-hidden="true">/);
+        }
+    }
+    // The 404 links to the same address in the other language; English-only pages have no language link
+    assert.match(notFound('/el/nope'), /<a href="\/nope" hreflang="en"/);
+    assert.doesNotMatch(render({ title: 'Admin', content: '' }), /hreflang=/);
+});
+
+test('a saved choice of the other language opens the page in it before it shows', () => {
+    const redirect = html => html.match(/<head>\s*<meta charset="UTF-8">\s*<meta name="viewport"[^>]*>\s*<script>([\s\S]*?)<\/script>/)?.[1];
+    assert.match(redirect(pages['/subway']), /localStorage\.getItem\('language'\) === 'el'\) location\.replace\("\/el\/subway" \+ location\.search \+ location\.hash\)/);
+    assert.match(redirect(pages['/el/info']), /=== 'en'\) location\.replace\("\/info" \+/);
+    assert.match(redirect(notFound('/a/b')), /location\.replace\("\/el\/a\/b" \+/);
+    assert.equal(redirect(render({ title: 'Admin', content: '' })), undefined);
+    // The address can't break out of the script
+    assert.doesNotMatch(notFound('/</script><b>'), /<\/script><b>/);
+});
+
+test('text written in both languages keeps only the page\'s language', () => {
+    assert.match(pages['/info'], /<th scope="row"><span>Piraeus<\/span><\/th>/);
+    assert.match(pages['/el/info'], /<th scope="row"><span>Πειραιάς<\/span><\/th>/);
+    assert.doesNotMatch(pages['/info'], /Πειραιάς|data-lang=/);
+    assert.doesNotMatch(pages['/el/info'], /Piraeus|data-lang=/);
 });
 
 test('a missing page under /el gets the Greek 404', async () => {

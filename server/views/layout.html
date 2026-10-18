@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html lang="{{lang}}" data-page-lang="{{lang}}"{{staticLanguage}} data-bs-theme="dark" data-title-key="{{titleKey}}">
+<html lang="{{lang}}" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+{{languageRedirect}}
     <title>{{title}}</title>
 {{meta}}
     <meta name="theme-color" content="#161b27">
@@ -32,15 +33,7 @@
             <div class="d-flex flex-column flex-grow-1 px-2">
 {{sideNav}}
                 <div class="mt-auto pb-3">
-                    <button class="lang-toggle-btn btn d-flex align-items-center gap-3 px-3 py-2 w-100" type="button">
-                        <i class="bi bi-globe fs-5" aria-hidden="true"></i>
-                        <span class="sr-only" data-i18n="shell.switch-language">Switch language</span>
-                        <span class="lang-options" aria-hidden="true">
-                            <span class="lang-opt" data-lang="en">EN</span>
-                            <span class="lang-sep">/</span>
-                            <span class="lang-opt" data-lang="el">ΕΛ</span>
-                        </span>
-                    </button>
+{{sideLanguage}}
                 </div>
             </div>
         </nav>
@@ -59,15 +52,7 @@
 
     <!-- Bottom nav (mobile) -->
     <nav id="bottom-nav" class="d-flex d-md-none fixed-bottom border-top" aria-label="Main navigation">
-        <button class="nav-btn lang-toggle-btn btn d-flex flex-column align-items-center py-2" type="button">
-            <i class="bi bi-globe fs-4" aria-hidden="true"></i>
-            <span class="sr-only" data-i18n="shell.switch-language">Switch language</span>
-            <span class="lang-options" aria-hidden="true">
-                <span class="lang-opt" data-lang="en">EN</span>
-                <span class="lang-sep">/</span>
-                <span class="lang-opt" data-lang="el">ΕΛ</span>
-            </span>
-        </button>
+{{bottomLanguage}}
 {{bottomNav}}
     </nav>
 
@@ -75,62 +60,6 @@
     <div id="sr-announcer" aria-live="polite" aria-atomic="true" class="sr-only"></div>
 
     <script type="application/json" id="strings">{{strings}}</script>
-{{pages}}
-    <script>
-        // The page comes in its URL's language (English, or Greek under /el). A saved
-        // choice of the other language is applied before the first paint, and the
-        // address changes to match (mirrors translatePage in /js/core/i18n.js).
-        (function () {
-            var pageLang = document.documentElement.getAttribute('data-page-lang') || 'en';
-            var lang = pageLang;
-            try { lang = localStorage.getItem('language') || pageLang; } catch (e) {}
-            if (lang === pageLang) return;
-            // Links to pages (and this page's address) in the chosen language;
-            // "/a/*" in the list of pages stands for every path under /a/
-            var pages = JSON.parse(document.getElementById('pages').textContent);
-            var isPage = function (path) {
-                for (var i = 0; i !== pages.length; i++) {
-                    var p = pages[i];
-                    if (p.slice(-2) === '/*' ? path.indexOf(p.slice(0, -1)) === 0 : p === path) return true;
-                }
-                return false;
-            };
-            var local = function (href) {
-                var m = href.match(/^(\/[^?#]*)(.*)$/);
-                if (!m) return href;
-                var base = m[1].replace(/^\/el(?=\/|$)/, '') || '/';
-                if (!isPage(base)) return href;
-                return (lang === 'el' ? (base === '/' ? '/el' : '/el' + base) : base) + m[2];
-            };
-            // Pages written in one language (the station pages): load the other one
-            if (document.documentElement.hasAttribute('data-static-language')) {
-                location.replace(local(location.pathname) + location.search + location.hash);
-                return;
-            }
-            var strings = JSON.parse(document.getElementById('strings').textContent);
-            var get = function (key) { return (strings[lang] || {})[key] || strings.en[key]; };
-            document.documentElement.lang = lang;
-            document.querySelectorAll('[data-i18n]').forEach(function (el) {
-                var text = get(el.getAttribute('data-i18n'));
-                if (text) el.textContent = text;
-            });
-            ['placeholder', 'aria-label', 'title'].forEach(function (attr) {
-                document.querySelectorAll('[data-i18n-' + attr + ']').forEach(function (el) {
-                    var text = get(el.getAttribute('data-i18n-' + attr));
-                    if (text) el.setAttribute(attr, text);
-                });
-            });
-            var titleKey = document.documentElement.getAttribute('data-title-key');
-            if (titleKey && get(titleKey)) document.title = get(titleKey) + ' — Wayhop';
-            document.querySelectorAll('.lang-opt').forEach(function (el) {
-                el.classList.toggle('active', el.getAttribute('data-lang') === lang);
-            });
-            document.querySelectorAll('a[href^="/"]').forEach(function (a) {
-                a.setAttribute('href', local(a.getAttribute('href')));
-            });
-            history.replaceState(history.state, '', local(location.pathname) + location.search + location.hash);
-        })();
-    </script>
     <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
     <script type="module" src="/js/core/shell.js"></script>
 {{scripts}}

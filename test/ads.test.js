@@ -43,7 +43,7 @@ const slots = html => (html.match(/<ins class="adsbygoogle/g) ?? []).length;
 
 test('without ADSENSE_CLIENT there is no trace of ads', async () => {
     const { pages, notFound, station } = withEnv({ ADSENSE_SLOT_HOME: '1234567890' });
-    for (const html of [...Object.values(pages), notFound.en, station]) {
+    for (const html of [...Object.values(pages), notFound('/nope'), station]) {
         // (the import map lists every core module, ads.js too, but nothing loads it)
         assert.doesNotMatch(html, /adsbygoogle|google-adsense-account|src="\/js\/core\/ads\.js|ad-slot/);
         assert.doesNotMatch(html, /<!-- \/?(with|without) ads -->/);
@@ -55,7 +55,7 @@ test('without ADSENSE_CLIENT there is no trace of ads', async () => {
 
 test('ADSENSE_CLIENT alone: the verification tag and ads.txt for the review, the ads privacy page, no ads', async () => {
     const { pages, notFound, station } = withEnv({ ADSENSE_CLIENT: CLIENT });
-    for (const html of [...Object.values(pages), notFound.el, station]) {
+    for (const html of [...Object.values(pages), notFound('/el/nope'), station]) {
         assert.match(html, /<meta name="google-adsense-account" content="ca-pub-1234567890123456">/);
         assert.equal(slots(html), 0);
     }

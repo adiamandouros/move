@@ -1,5 +1,5 @@
 import { textOn } from '/js/core/html.js';
-import { getLanguage } from '/js/core/settings.js';
+import { language } from '/js/core/i18n.js';
 
 const MAX_SUGGESTIONS = 8;
 
@@ -7,7 +7,7 @@ export function normalise(text) {
     return text.toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ς/g, 'σ');
 }
 
-const stationName = station => station.name[getLanguage()] ?? station.name.en;
+const stationName = station => station.name[language] ?? station.name.en;
 
 // Stations whose Greek or English name contains the query; names that start
 // with it come first.
@@ -127,7 +127,5 @@ export function stationSearch({ input, list, rail, onChange }) {
     return {
         get: () => selected,
         set,
-        // Show the selected station's name in the current language
-        refresh: () => { if (selected) input.value = stationName(rail.stations[selected]); },
     };
 }

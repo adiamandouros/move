@@ -28,6 +28,9 @@ async function openInfo(doc) {
     }
 }
 
+// The page at url in a language: Greek ones are under /el
+const localUrl = (url, lang) => lang === 'el' ? `/el${url === '/' ? '' : url}` : url;
+
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 function el(tag, className, text) {
@@ -104,7 +107,8 @@ async function run() {
     summary.hidden = false;
     summary.dataset.status = 'info';
 
-    // The public pages read the language from localStorage, which this page shares
+    // A saved language sends the public pages to that language (it's shared
+    // with this page), so it's set to the one being checked and restored after
     let savedLanguage = null;
     try { savedLanguage = localStorage.getItem('language'); } catch { /* private mode */ }
     const frame = el('iframe', 'a11y-frame');
@@ -132,7 +136,7 @@ async function run() {
                 let violations;
                 let ready = true;
                 try {
-                    ({ violations, ready } = await checkPage(frame, axeSource, page));
+                    ({ violations, ready } = await checkPage(frame, axeSource, { ...page, url: localUrl(page.url, lang) }));
                 } catch (err) {
                     violations = [{ impact: 'error', help: `Couldn't check the page: ${err.message}`, helpUrl: page.url, nodes: [{ target: [page.url] }] }];
                 }

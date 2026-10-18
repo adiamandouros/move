@@ -218,7 +218,7 @@ function stationData(rail, id, lang, s) {
 // One station's page (or the index, for id null) with the site's layout
 export function renderStationPage(rail, id, lang, { render, tools }) {
     const { s, name } = createWriter(rail, lang, tools);
-    const common = { lang, active: 'subway', staticLanguage: true, ad: 'station' };
+    const common = { lang, active: 'subway', ad: 'station' };
     if (!id) {
         return render({ ...common, title: s('stations.title'), path: STATIONS_PATH, description: s('stations.index-description'), content: indexContent(rail, lang, tools) });
     }

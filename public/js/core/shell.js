@@ -1,23 +1,24 @@
 import { initLocation } from './location.js';
-import { getLanguage, setLanguage, onLanguageChange } from './settings.js';
-import { t, translatePage } from './i18n.js';
+import { t } from './i18n.js';
 
-// Shared by every page: location tracking, the language toggle and the
+// Shared by every page: location tracking, the language link and the
 // service worker. Each tool's own script is loaded separately by its page.
 
 // Request location permission once at startup so it's ready when tools need it
 initLocation();
 
-// ── Language toggle ──────────────────────────────────────────────────────────
+// ── Language link ────────────────────────────────────────────────────────────
 
-document.querySelectorAll('.lang-toggle-btn').forEach(btn => {
-    btn.addEventListener('click', () => setLanguage(getLanguage() === 'en' ? 'el' : 'en'));
+// The language link opens this page in the other language. Remember the
+// choice, so pages open in it from now on (see languageRedirect in
+// server/pages.js), and keep this page's state, like the stations chosen on
+// the subway page, which lives in the address.
+document.querySelectorAll('.lang-toggle-btn').forEach(link => {
+    link.addEventListener('click', () => {
+        try { localStorage.setItem('language', link.hreflang); } catch { /* storage blocked: just this page */ }
+        link.href = link.pathname + location.search + location.hash;
+    });
 });
-
-onLanguageChange(translatePage);
-// Pages written in one language (the station pages): translatePage has just
-// moved the address to the other language's page, so load it
-if (document.documentElement.hasAttribute('data-static-language')) onLanguageChange(() => location.reload());
 
 // ── Service worker ───────────────────────────────────────────────────────────
 

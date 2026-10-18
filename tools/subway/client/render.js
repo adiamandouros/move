@@ -1,11 +1,8 @@
-import { getLanguage } from '/js/core/settings.js';
-import { format, t } from '/js/core/i18n.js';
+import { format, language, t } from '/js/core/i18n.js';
 import { escapeHtml, textOn } from '/js/core/html.js';
 import { legPositions } from './network.js';
 
-const lang = () => getLanguage();
-
-const stationName = (rail, id) => escapeHtml(rail.stations[id].name[lang()] ?? rail.stations[id].name.en);
+const stationName = (rail, id) => escapeHtml(rail.stations[id].name[language] ?? rail.stations[id].name.en);
 
 function trainDiagram(rail, exits, elevators) {
     const label = p => t(`subway.pos.${p}`);
@@ -48,7 +45,7 @@ function departureChips(departures, now) {
 function legCard(rail, leg, next, now, level) {
     const line = rail.lines[leg.line];
     const direction = line.directions[leg.dir];
-    const toward = escapeHtml(direction.toward[lang()] ?? direction.toward.en);
+    const toward = escapeHtml(direction.toward[language] ?? direction.toward.en);
     const { stop, exits, elevators } = legPositions(rail, leg, next);
     const first = leg.departures[0];
     const ride = first ? ` <span class="text-secondary">· ${format(t('subway.ride'), { min: Math.round((first.arrives - first.departs) / 60) })}</span>` : '';
@@ -114,7 +111,7 @@ export function routeSummary(rail, plans, now) {
     if (!plans.length) return t('subway.no-route');
     const leg = plans[0].legs[0];
     const line = rail.lines[leg.line];
-    const toward = line.directions[leg.dir].toward[lang()] ?? line.directions[leg.dir].toward.en;
+    const toward = line.directions[leg.dir].toward[language] ?? line.directions[leg.dir].toward.en;
     const first = leg.departures[0];
     const when = first ? `, ${t('subway.schedule-in').toLowerCase()} ${Math.max(0, Math.floor((first.departs - now.seconds) / 60))} ${t('subway.minutes')}` : '';
     const options = plans.length > 1 ? `${plans.length} ${t('subway.options')}. ${t('subway.option')} 1: ` : '';

@@ -32,7 +32,22 @@ const adPages = (() => {
         for (const k of keys) saved[k] === undefined ? delete process.env[k] : process.env[k] = saved[k];
     }
 })();
-const all = { ...pages, '(404)': notFound.en, '(404, Greek)': notFound.el, ...stationPages, ...adPages };
+const all = { ...pages, '(404)': notFound('/nope'), '(404, Greek)': notFound('/el/nope'), ...stationPages, ...adPages };
+
+// Every string in each language: the shell's, the station pages', each tool's and the tools' names
+const STRINGS = { en: {}, el: {} };
+{
+    const read = file => JSON.parse(readFileSync(new URL(file, import.meta.url), 'utf8'));
+    const tables = [read('../server/views/strings.json'), read('../server/views/stations.json'), ...tools.map(t => t.strings)];
+    for (const lang of ['en', 'el']) {
+        for (const table of tables) Object.assign(STRINGS[lang], table[lang]);
+        for (const tool of tools) {
+            STRINGS[lang][`tool.${tool.id}.title`] = tool.title[lang];
+            STRINGS[lang][`tool.${tool.id}.short`] = (tool.shortTitle ?? tool.title)[lang];
+            STRINGS[lang][`tool.${tool.id}.description`] = tool.description?.[lang];
+        }
+    }
+}
 
 const main = html => html.match(/<main[^>]*>([\s\S]*)<\/main>/)[1];
 const attr = (tag, name) => tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1];
@@ -51,7 +66,6 @@ function spoken(fragment) {
 const elements = (html, name) => [...html.matchAll(new RegExp(`(<${name}\\b[^>]*>)([\\s\\S]*?)</${name}>`, 'g'))]
     .map(([, open, inner]) => ({ open, inner }));
 
-const strings = html => JSON.parse(html.match(/<script type="application\/json" id="strings">([\s\S]*?)<\/script>/)[1]);
 
 for (const [path, html] of Object.entries(all)) {
     test(`${path}: page language, title and one main heading`, () => {
@@ -108,18 +122,23 @@ for (const [path, html] of Object.entries(all)) {
     });
 
     test(`${path}: every translated text exists in English and Greek`, () => {
-        const { en, el } = strings(html);
         for (const [, key] of html.matchAll(/data-i18n(?:-[a-z-]+)?="([^"]+)"/g)) {
-            assert.ok(en[key], `"${key}" is missing in English`);
-            assert.ok(el[key], `"${key}" is missing in Greek`);
+            assert.ok(STRINGS.en[key], `"${key}" is missing in English`);
+            assert.ok(STRINGS.el[key], `"${key}" is missing in Greek`);
         }
     });
 
-    test(`${path}: text written in both languages comes in pairs`, () => {
-        const count = lang => (main(html).match(new RegExp(`\\slang="${lang}"(?![^>]*any-lang)`, 'g')) ?? []).length;
-        assert.equal(count('en'), count('el'), 'as many lang="en" as lang="el" blocks');
+    test(`${path}: text written in both languages is only there in the page's language`, () => {
+        assert.doesNotMatch(html, /\sdata-lang="/);
     });
 }
+
+test('text written in both languages comes in pairs', () => {
+    for (const tool of tools) {
+        const count = lang => (tool.page.match(new RegExp(`\\sdata-lang="${lang}"`, 'g')) ?? []).length;
+        assert.equal(count('en'), count('el'), `tools/${tool.id}/page.html: as many data-lang="en" as data-lang="el" blocks`);
+    }
+});
 
 // ── Colours ─────────────────────────────────────────────────────────────────
 

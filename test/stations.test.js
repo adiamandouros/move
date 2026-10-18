@@ -61,7 +61,8 @@ test('a station page shows lines, neighbours, where to ride, connections and tim
     assert.match(html, /<title>Cross metro station — Wayhop<\/title>/);
     assert.match(html, /<meta name="description" content="Cross metro station \(L1, L2\): which carriage/);
     assert.match(html, /<link rel="canonical" href="https:\/\/wayhop\.example\/subway\/stations\/x">/);
-    assert.match(html, /<html lang="en" data-page-lang="en" data-static-language/);
+    assert.match(html, /<html lang="en"/);
+    assert.match(html, /<a href="\/el\/subway\/stations\/x" hreflang="el"/);
     const t = text(html);
     for (const expected of [
         'Toward Beta', 'Previous stop: Alpha', 'Next stop: Beta',

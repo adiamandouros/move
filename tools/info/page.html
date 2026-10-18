@@ -17,8 +17,8 @@
         <div class="info-body" id="sec-map" hidden>
             <div id="metro-map" class="metro-map"></div>
             <div id="map-help">
-                <p class="info-source" lang="en">Pinch, double-tap or use the buttons to zoom; with a keyboard, focus the map and use + and − to zoom and the arrow keys to move. Tap a station for directions to it, or pick one from the list of stations below. See also the <a href="https://www.stasy.gr/en/timetables/map/" target="_blank" rel="noopener">official map with the tram<span class="sr-only" data-i18n="shell.new-tab"> (opens in a new tab)</span></a>.</p>
-                <p class="info-source" lang="el">Τσιμπήστε, πατήστε δύο φορές ή χρησιμοποιήστε τα κουμπιά για μεγέθυνση· με πληκτρολόγιο, εστιάστε στον χάρτη και χρησιμοποιήστε τα + και − για μεγέθυνση και τα βέλη για μετακίνηση. Πατήστε έναν σταθμό για οδηγίες προς αυτόν ή επιλέξτε τον από τη λίστα σταθμών παρακάτω. Δείτε και τον <a href="https://www.stasy.gr/%ce%b4%cf%81%ce%bf%ce%bc%ce%bf%ce%bb%cf%8c%ce%b3%ce%b9%ce%b1/%cf%87%ce%ac%cf%81%cf%84%ce%b7%cf%82/" target="_blank" rel="noopener">επίσημο χάρτη με το τραμ<span class="sr-only" data-i18n="shell.new-tab"> (opens in a new tab)</span></a>.</p>
+                <p class="info-source" data-lang="en">Pinch, double-tap or use the buttons to zoom; with a keyboard, focus the map and use + and − to zoom and the arrow keys to move. Tap a station for directions to it, or pick one from the list of stations below. See also the <a href="https://www.stasy.gr/en/timetables/map/" target="_blank" rel="noopener">official map with the tram<span class="sr-only" data-i18n="shell.new-tab"> (opens in a new tab)</span></a>.</p>
+                <p class="info-source" data-lang="el">Τσιμπήστε, πατήστε δύο φορές ή χρησιμοποιήστε τα κουμπιά για μεγέθυνση· με πληκτρολόγιο, εστιάστε στον χάρτη και χρησιμοποιήστε τα + και − για μεγέθυνση και τα βέλη για μετακίνηση. Πατήστε έναν σταθμό για οδηγίες προς αυτόν ή επιλέξτε τον από τη λίστα σταθμών παρακάτω. Δείτε και τον <a href="https://www.stasy.gr/%ce%b4%cf%81%ce%bf%ce%bc%ce%bf%ce%bb%cf%8c%ce%b3%ce%b9%ce%b1/%cf%87%ce%ac%cf%81%cf%84%ce%b7%cf%82/" target="_blank" rel="noopener">επίσημο χάρτη με το τραμ<span class="sr-only" data-i18n="shell.new-tab"> (opens in a new tab)</span></a>.</p>
             </div>
             <div class="station-index">
                 <h3 class="info-subhead"><button type="button" class="info-toggle info-toggle-small" aria-expanded="false" aria-controls="station-list" id="toggle-station-list"><span data-i18n="info.stations-by-line">Stations by line</span></button></h3>
@@ -30,8 +30,8 @@
     <section class="info-section">
         <h2 class="info-heading"><button type="button" class="info-toggle" aria-expanded="false" aria-controls="sec-hours" id="toggle-hours"><i class="bi bi-clock" aria-hidden="true"></i><span data-i18n="info.hours">Closing times</span></button></h2>
         <div class="info-body" id="sec-hours" hidden>
-            <p lang="en">Last train from each end of the line. Lines 2 and 3 and the tram run all night on Saturdays; line 1 and the airport branch don't. First trains leave at about 05:00 on line 1 and 05:30 on the rest.</p>
-            <p lang="el">Τελευταίος συρμός από κάθε αφετηρία. Οι γραμμές 2 και 3 και το τραμ λειτουργούν όλη τη νύχτα τα Σάββατα· η γραμμή 1 και το τμήμα προς το αεροδρόμιο όχι. Οι πρώτοι συρμοί ξεκινούν περίπου στις 05:00 στη γραμμή 1 και στις 05:30 στις υπόλοιπες.</p>
+            <p data-lang="en">Last train from each end of the line. Lines 2 and 3 and the tram run all night on Saturdays; line 1 and the airport branch don't. First trains leave at about 05:00 on line 1 and 05:30 on the rest.</p>
+            <p data-lang="el">Τελευταίος συρμός από κάθε αφετηρία. Οι γραμμές 2 και 3 και το τραμ λειτουργούν όλη τη νύχτα τα Σάββατα· η γραμμή 1 και το τμήμα προς το αεροδρόμιο όχι. Οι πρώτοι συρμοί ξεκινούν περίπου στις 05:00 στη γραμμή 1 και στις 05:30 στις υπόλοιπες.</p>
             <div class="table-responsive">
                 <table class="table table-sm info-table">
                     <caption class="sr-only" data-i18n="info.hours-caption">Last train from each end of the line</caption>
@@ -39,23 +39,23 @@
                         <tr><th scope="col" data-i18n="info.line">Line</th><th scope="col" data-i18n="info.from">From</th><th scope="col"><span aria-hidden="true" data-i18n="info.sun-thu">Sun–Thu</span><span class="sr-only" data-i18n="info.sun-thu-full">Sunday to Thursday</span></th><th scope="col"><span aria-hidden="true" data-i18n="info.fri">Fri</span><span class="sr-only" data-i18n="info.fri-full">Friday</span></th><th scope="col"><span aria-hidden="true" data-i18n="info.sat">Sat</span><span class="sr-only" data-i18n="info.sat-full">Saturday</span></th></tr>
                     </thead>
                     <tbody>
-                        <tr><th scope="rowgroup" rowspan="2"><span class="line-badge line-m1">M1</span></th><th scope="row"><span lang="en">Piraeus</span><span lang="el">Πειραιάς</span></th><td colspan="3">00:15</td></tr>
-                        <tr><th scope="row"><span lang="en">Kifisia</span><span lang="el">Κηφισιά</span></th><td colspan="3">00:15</td></tr>
-                        <tr><th scope="rowgroup" rowspan="2"><span class="line-badge line-m2">M2</span></th><th scope="row"><span lang="en">Anthoupoli</span><span lang="el">Ανθούπολη</span></th><td>00:06</td><td>01:43</td><td rowspan="2" data-i18n="info.all-night">all night</td></tr>
-                        <tr><th scope="row"><span lang="en">Elliniko</span><span lang="el">Ελληνικό</span></th><td>00:03</td><td>01:40</td></tr>
-                        <tr><th scope="rowgroup" rowspan="4"><span class="line-badge line-m3">M3</span></th><th scope="row"><span lang="en">Dimotiko Theatro</span><span lang="el">Δημοτικό Θέατρο</span></th><td>23:57</td><td>01:34</td><td rowspan="2" data-i18n="info.all-night">all night</td></tr>
-                        <tr><th scope="row"><span lang="en">Douk. Plakentias</span><span lang="el">Δουκ. Πλακεντίας</span></th><td>00:01</td><td>01:38</td></tr>
-                        <tr><th scope="row"><span lang="en">Dim. Theatro → Airport</span><span lang="el">Δημ. Θέατρο → Αεροδρόμιο</span></th><td colspan="3">22:54</td></tr>
-                        <tr><th scope="row"><span lang="en">Airport</span><span lang="el">Αεροδρόμιο</span></th><td colspan="3">23:34</td></tr>
-                        <tr><th scope="rowgroup" rowspan="2"><span class="line-badge line-t6">T6</span></th><th scope="row"><span lang="en">Syntagma</span><span lang="el">Σύνταγμα</span></th><td>00:50</td><td>01:40</td><td rowspan="4" data-i18n="info.all-night">all night</td></tr>
-                        <tr><th scope="row"><span lang="en">Pikrodafni</span><span lang="el">Πικροδάφνη</span></th><td>00:10</td><td>00:57</td></tr>
-                        <tr><th scope="rowgroup" rowspan="2"><span class="line-badge line-t7">T7</span></th><th scope="row"><span lang="en">Akti Posidonos</span><span lang="el">Ακτή Ποσειδώνος</span></th><td>00:40</td><td>01:50</td></tr>
-                        <tr><th scope="row"><span lang="en">Asklipiio Voulas</span><span lang="el">Ασκληπιείο Βούλας</span></th><td>23:43</td><td>00:54</td></tr>
+                        <tr><th scope="rowgroup" rowspan="2"><span class="line-badge line-m1">M1</span></th><th scope="row"><span data-lang="en">Piraeus</span><span data-lang="el">Πειραιάς</span></th><td colspan="3">00:15</td></tr>
+                        <tr><th scope="row"><span data-lang="en">Kifisia</span><span data-lang="el">Κηφισιά</span></th><td colspan="3">00:15</td></tr>
+                        <tr><th scope="rowgroup" rowspan="2"><span class="line-badge line-m2">M2</span></th><th scope="row"><span data-lang="en">Anthoupoli</span><span data-lang="el">Ανθούπολη</span></th><td>00:06</td><td>01:43</td><td rowspan="2" data-i18n="info.all-night">all night</td></tr>
+                        <tr><th scope="row"><span data-lang="en">Elliniko</span><span data-lang="el">Ελληνικό</span></th><td>00:03</td><td>01:40</td></tr>
+                        <tr><th scope="rowgroup" rowspan="4"><span class="line-badge line-m3">M3</span></th><th scope="row"><span data-lang="en">Dimotiko Theatro</span><span data-lang="el">Δημοτικό Θέατρο</span></th><td>23:57</td><td>01:34</td><td rowspan="2" data-i18n="info.all-night">all night</td></tr>
+                        <tr><th scope="row"><span data-lang="en">Douk. Plakentias</span><span data-lang="el">Δουκ. Πλακεντίας</span></th><td>00:01</td><td>01:38</td></tr>
+                        <tr><th scope="row"><span data-lang="en">Dim. Theatro → Airport</span><span data-lang="el">Δημ. Θέατρο → Αεροδρόμιο</span></th><td colspan="3">22:54</td></tr>
+                        <tr><th scope="row"><span data-lang="en">Airport</span><span data-lang="el">Αεροδρόμιο</span></th><td colspan="3">23:34</td></tr>
+                        <tr><th scope="rowgroup" rowspan="2"><span class="line-badge line-t6">T6</span></th><th scope="row"><span data-lang="en">Syntagma</span><span data-lang="el">Σύνταγμα</span></th><td>00:50</td><td>01:40</td><td rowspan="4" data-i18n="info.all-night">all night</td></tr>
+                        <tr><th scope="row"><span data-lang="en">Pikrodafni</span><span data-lang="el">Πικροδάφνη</span></th><td>00:10</td><td>00:57</td></tr>
+                        <tr><th scope="rowgroup" rowspan="2"><span class="line-badge line-t7">T7</span></th><th scope="row"><span data-lang="en">Akti Posidonos</span><span data-lang="el">Ακτή Ποσειδώνος</span></th><td>00:40</td><td>01:50</td></tr>
+                        <tr><th scope="row"><span data-lang="en">Asklipiio Voulas</span><span data-lang="el">Ασκληπιείο Βούλας</span></th><td>23:43</td><td>00:54</td></tr>
                     </tbody>
                 </table>
             </div>
-            <p lang="en">On line 1, one more train leaves each end at 00:30 but only goes as far as Omonia. Temporary changes, such as closures for works, appear under Announcements.</p>
-            <p lang="el">Στη γραμμή 1, ένας ακόμη συρμός ξεκινά από κάθε άκρο στις 00:30 αλλά φτάνει μόνο ως την Ομόνοια. Προσωρινές αλλαγές, όπως κλεισίματα λόγω έργων, εμφανίζονται στις Ανακοινώσεις.</p>
+            <p data-lang="en">On line 1, one more train leaves each end at 00:30 but only goes as far as Omonia. Temporary changes, such as closures for works, appear under Announcements.</p>
+            <p data-lang="el">Στη γραμμή 1, ένας ακόμη συρμός ξεκινά από κάθε άκρο στις 00:30 αλλά φτάνει μόνο ως την Ομόνοια. Προσωρινές αλλαγές, όπως κλεισίματα λόγω έργων, εμφανίζονται στις Ανακοινώσεις.</p>
             <p class="info-source"><span data-i18n="info.checked">Checked on 14/10/2026 at</span> <a href="https://www.stasy.gr/en/timetables/" target="_blank" rel="noopener">stasy.gr<span class="sr-only" data-i18n="shell.new-tab"> (opens in a new tab)</span></a></p>
         </div>
     </section>
@@ -63,8 +63,8 @@
     <section class="info-section">
         <h2 class="info-heading"><button type="button" class="info-toggle" aria-expanded="false" aria-controls="sec-tickets" id="toggle-tickets"><i class="bi bi-ticket-perforated" aria-hidden="true"></i><span data-i18n="info.tickets">Tickets</span></button></h2>
         <div class="info-body" id="sec-tickets" hidden>
-            <p lang="en">One ticket covers the metro, tram, buses, trolleys and the suburban railway within the city. It doesn't cover the airport (beyond Koropi) or the airport express buses.</p>
-            <p lang="el">Ένα εισιτήριο ισχύει σε μετρό, τραμ, λεωφορεία, τρόλεϊ και προαστιακό εντός της πόλης. Δεν ισχύει για το αεροδρόμιο (μετά το Κορωπί) ούτε για τα λεωφορεία express του αεροδρομίου.</p>
+            <p data-lang="en">One ticket covers the metro, tram, buses, trolleys and the suburban railway within the city. It doesn't cover the airport (beyond Koropi) or the airport express buses.</p>
+            <p data-lang="el">Ένα εισιτήριο ισχύει σε μετρό, τραμ, λεωφορεία, τρόλεϊ και προαστιακό εντός της πόλης. Δεν ισχύει για το αεροδρόμιο (μετά το Κορωπί) ούτε για τα λεωφορεία express του αεροδρομίου.</p>
             <div class="table-responsive">
                 <table class="table table-sm info-table">
                     <caption class="sr-only" data-i18n="info.tickets-caption">Ticket prices</caption>
@@ -72,21 +72,21 @@
                         <tr><th scope="col" data-i18n="info.ticket">Ticket</th><th scope="col" data-i18n="info.price">Price</th><th scope="col" data-i18n="info.reduced">Reduced</th></tr>
                     </thead>
                     <tbody>
-                        <tr><th scope="row"><span lang="en">90 minutes</span><span lang="el">90 λεπτών</span></th><td>€1.20</td><td>€0.50</td></tr>
-                        <tr><th scope="row"><span lang="en">24 hours</span><span lang="el">24 ωρών</span></th><td>€4.10</td><td>–</td></tr>
-                        <tr><th scope="row"><span lang="en">5 days</span><span lang="el">5 ημερών</span></th><td>€8.20</td><td>–</td></tr>
-                        <tr><th scope="row"><span lang="en">3-day tourist, with an airport round trip</span><span lang="el">3 ημερών τουριστικό, με μετ' επιστροφής στο αεροδρόμιο</span></th><td>€20.00</td><td>–</td></tr>
-                        <tr><th scope="row"><span lang="en">Packs of 2 / 5 / 10+1 × 90 minutes</span><span lang="el">Πακέτα 2 / 5 / 10+1 × 90 λεπτών</span></th><td>€2.30 / €5.70 / €12.00</td><td>€1.00 / €2.50 / €5.00</td></tr>
+                        <tr><th scope="row"><span data-lang="en">90 minutes</span><span data-lang="el">90 λεπτών</span></th><td>€1.20</td><td>€0.50</td></tr>
+                        <tr><th scope="row"><span data-lang="en">24 hours</span><span data-lang="el">24 ωρών</span></th><td>€4.10</td><td>–</td></tr>
+                        <tr><th scope="row"><span data-lang="en">5 days</span><span data-lang="el">5 ημερών</span></th><td>€8.20</td><td>–</td></tr>
+                        <tr><th scope="row"><span data-lang="en">3-day tourist, with an airport round trip</span><span data-lang="el">3 ημερών τουριστικό, με μετ' επιστροφής στο αεροδρόμιο</span></th><td>€20.00</td><td>–</td></tr>
+                        <tr><th scope="row"><span data-lang="en">Packs of 2 / 5 / 10+1 × 90 minutes</span><span data-lang="el">Πακέτα 2 / 5 / 10+1 × 90 λεπτών</span></th><td>€2.30 / €5.70 / €12.00</td><td>€1.00 / €2.50 / €5.00</td></tr>
                     </tbody>
                 </table>
             </div>
-            <ul lang="en">
+            <ul data-lang="en">
                 <li><strong>Pay by card:</strong> tap a contactless Visa or Mastercard (or your phone) on the reader. You're never charged more than €4.10 a day in the city. Use the same card or device every time, and keep it apart from any ATH.ENA card.</li>
                 <li><strong>Buy:</strong> at the machines and ticket offices in metro stations, or at kiosks. Reduced fares need a personalised ATH.ENA card.</li>
                 <li><strong>Validate:</strong> on every entry and exit in the metro and suburban railway, and once when boarding a bus, trolley or tram.</li>
                 <li><strong>Fine:</strong> €100 without a valid ticket (€50 for reduced fares).</li>
             </ul>
-            <ul lang="el">
+            <ul data-lang="el">
                 <li><strong>Πληρωμή με κάρτα:</strong> ακουμπήστε μια ανέπαφη Visa ή Mastercard (ή το κινητό σας) στο ακυρωτικό. Η χρέωση στην πόλη δεν ξεπερνά τα €4,10 τη μέρα. Χρησιμοποιείτε πάντα την ίδια κάρτα ή συσκευή και κρατήστε τη χωριστά από την κάρτα ATH.ENA.</li>
                 <li><strong>Αγορά:</strong> στα μηχανήματα και τα εκδοτήρια των σταθμών του μετρό ή στα περίπτερα. Για μειωμένο κόμιστρο χρειάζεται προσωποποιημένη κάρτα ATH.ENA.</li>
                 <li><strong>Επικύρωση:</strong> σε κάθε είσοδο και έξοδο στο μετρό και τον προαστιακό, και μία φορά κατά την επιβίβαση σε λεωφορείο, τρόλεϊ ή τραμ.</li>
@@ -99,11 +99,11 @@
     <section class="info-section">
         <h2 class="info-heading"><button type="button" class="info-toggle" aria-expanded="false" aria-controls="sec-airport" id="toggle-airport"><i class="bi bi-airplane" aria-hidden="true"></i><span data-i18n="info.airport">Getting to the airport</span></button></h2>
         <div class="info-body" id="sec-airport" hidden>
-            <ul lang="en">
+            <ul data-lang="en">
                 <li><strong>Metro <span class="line-badge line-m3">M3</span>:</strong> every 36 minutes, about 40 minutes from Syntagma. €9, or €16 return (valid 30 days). First train from the airport 06:10, last 23:34; last to the airport from Dimotiko Theatro 22:54. The same ticket works on the suburban railway.</li>
                 <li><strong>Express buses:</strong> €5.50, every day around the clock. <span class="line-pill">X95</span> Syntagma, <span class="line-pill">X96</span> Piraeus, <span class="line-pill">X97</span> Elliniko metro, <span class="line-pill">X93</span> Kifisos intercity bus station.</li>
             </ul>
-            <ul lang="el">
+            <ul data-lang="el">
                 <li><strong>Μετρό <span class="line-badge line-m3">M3</span>:</strong> κάθε 36 λεπτά, περίπου 40 λεπτά από το Σύνταγμα. €9, ή €16 μετ' επιστροφής (ισχύει 30 ημέρες). Πρώτος συρμός από το αεροδρόμιο 06:10, τελευταίος 23:34· τελευταίος προς το αεροδρόμιο από το Δημοτικό Θέατρο 22:54. Το ίδιο εισιτήριο ισχύει και στον προαστιακό.</li>
                 <li><strong>Λεωφορεία express:</strong> €5,50, κάθε μέρα όλο το 24ωρο. <span class="line-pill">X95</span> Σύνταγμα, <span class="line-pill">X96</span> Πειραιάς, <span class="line-pill">X97</span> Στ. Ελληνικό, <span class="line-pill">X93</span> ΚΤΕΛ Κηφισού.</li>
             </ul>
@@ -114,32 +114,32 @@
     <section class="info-section">
         <h2 class="info-heading"><button type="button" class="info-toggle" aria-expanded="false" aria-controls="sec-night" id="toggle-night"><i class="bi bi-moon-stars" aria-hidden="true"></i><span data-i18n="info.night">Night buses</span></button></h2>
         <div class="info-body" id="sec-night" hidden>
-            <h3 class="info-subhead"><span lang="en">All day and night, every day</span><span lang="el">Όλο το 24ωρο, κάθε μέρα</span></h3>
+            <h3 class="info-subhead"><span data-lang="en">All day and night, every day</span><span data-lang="el">Όλο το 24ωρο, κάθε μέρα</span></h3>
             <ul class="info-lines">
-                <li><span class="line-pill">040</span> <span lang="en">Piraeus – Syntagma</span><span lang="el">Πειραιάς – Σύνταγμα</span></li>
-                <li><span class="line-pill">11</span> <span lang="en">Ano Patisia – N. Pagrati – N. Elvetia</span><span lang="el">Άνω Πατήσια – Ν. Παγκράτι – Ν. Ελβετία</span></li>
-                <li><span class="line-pill">X93</span> <span class="line-pill">X95</span> <span class="line-pill">X96</span> <span class="line-pill">X97</span> <span lang="en">to the airport</span><span lang="el">προς το αεροδρόμιο</span></li>
+                <li><span class="line-pill">040</span> <span data-lang="en">Piraeus – Syntagma</span><span data-lang="el">Πειραιάς – Σύνταγμα</span></li>
+                <li><span class="line-pill">11</span> <span data-lang="en">Ano Patisia – N. Pagrati – N. Elvetia</span><span data-lang="el">Άνω Πατήσια – Ν. Παγκράτι – Ν. Ελβετία</span></li>
+                <li><span class="line-pill">X93</span> <span class="line-pill">X95</span> <span class="line-pill">X96</span> <span class="line-pill">X97</span> <span data-lang="en">to the airport</span><span data-lang="el">προς το αεροδρόμιο</span></li>
             </ul>
-            <h3 class="info-subhead"><span lang="en">Night only, every day</span><span lang="el">Μόνο τη νύχτα, κάθε μέρα</span></h3>
+            <h3 class="info-subhead"><span data-lang="en">Night only, every day</span><span data-lang="el">Μόνο τη νύχτα, κάθε μέρα</span></h3>
             <ul class="info-lines">
-                <li><span class="line-pill">400</span> <span lang="en">Piraeus – Douk. Plakentias metro</span><span lang="el">Πειραιάς – Στ. Δουκίσσης Πλακεντίας</span></li>
-                <li><span class="line-pill">500</span> <span lang="en">Piraeus – Kifisia</span><span lang="el">Πειραιάς – Κηφισιά</span></li>
-                <li><span class="line-pill">790</span> <span lang="en">Glyfada – Peristeri – Anthoupoli</span><span lang="el">Γλυφάδα – Περιστέρι – Ανθούπολη</span></li>
-                <li><span class="line-pill">X14</span> <span lang="en">Syntagma – Kifisia</span><span lang="el">Σύνταγμα – Κηφισιά</span></li>
+                <li><span class="line-pill">400</span> <span data-lang="en">Piraeus – Douk. Plakentias metro</span><span data-lang="el">Πειραιάς – Στ. Δουκίσσης Πλακεντίας</span></li>
+                <li><span class="line-pill">500</span> <span data-lang="en">Piraeus – Kifisia</span><span data-lang="el">Πειραιάς – Κηφισιά</span></li>
+                <li><span class="line-pill">790</span> <span data-lang="en">Glyfada – Peristeri – Anthoupoli</span><span data-lang="el">Γλυφάδα – Περιστέρι – Ανθούπολη</span></li>
+                <li><span class="line-pill">X14</span> <span data-lang="en">Syntagma – Kifisia</span><span data-lang="el">Σύνταγμα – Κηφισιά</span></li>
             </ul>
-            <h3 class="info-subhead"><span lang="en">All night on Saturdays</span><span lang="el">Όλη τη νύχτα τα Σάββατα</span></h3>
+            <h3 class="info-subhead"><span data-lang="en">All night on Saturdays</span><span data-lang="el">Όλη τη νύχτα τα Σάββατα</span></h3>
             <ul class="info-lines">
-                <li><span class="line-pill">049</span> <span lang="en">Piraeus – Omonia</span><span lang="el">Πειραιάς – Ομόνοια</span></li>
-                <li><span class="line-pill">221</span> <span lang="en">Panepistimioupoli – Akadimia</span><span lang="el">Πανεπιστημιούπολη – Ακαδημία</span></li>
-                <li><span class="line-pill">224</span> <span lang="en">Kaisariani – El. Venizelou</span><span lang="el">Καισαριανή – Ελ. Βενιζέλου</span></li>
-                <li><span class="line-pill">421</span> <span lang="en">Agioi Anargyroi – Agia Paraskevi</span><span lang="el">Άγιοι Ανάργυροι – Αγία Παρασκευή</span></li>
-                <li><span class="line-pill">550</span> <span lang="en">Palaio Faliro – Kifisia</span><span lang="el">Παλαιό Φάληρο – Κηφισιά</span></li>
-                <li><span class="line-pill">608</span> <span lang="en">Galatsi – Akadimia – Zografou cemetery</span><span lang="el">Γαλάτσι – Ακαδημία – Νεκρ. Ζωγράφου</span></li>
-                <li><span class="line-pill">703</span> <span lang="en">Piraeus – Ag. Anargyroi – Ag. Eleftherios (via Thivon)</span><span lang="el">Πειραιάς – Αγ. Ανάργυροι – Αγ. Ελευθέριος (μέσω Θηβών)</span></li>
-                <li><span class="line-pill">842</span> <span lang="en">Perama – Korydallos metro</span><span lang="el">Πέραμα – Στ. Κορυδαλλός</span></li>
-                <li><span class="line-pill">A15</span> <span lang="en">Larissa station – Dasos</span><span lang="el">Στ. Λαρίσης – Δάσος</span></li>
-                <li><span class="line-pill">B11</span> <span lang="en">Pl. Vathis – Ilion – Petroupoli</span><span lang="el">Πλ. Βάθη – Ίλιον – Πετρούπολη</span></li>
-                <li><span class="line-pill">B12</span> <span lang="en">Attiki metro – Ano Liosia</span><span lang="el">Στ. Αττική – Άνω Λιόσια</span></li>
+                <li><span class="line-pill">049</span> <span data-lang="en">Piraeus – Omonia</span><span data-lang="el">Πειραιάς – Ομόνοια</span></li>
+                <li><span class="line-pill">221</span> <span data-lang="en">Panepistimioupoli – Akadimia</span><span data-lang="el">Πανεπιστημιούπολη – Ακαδημία</span></li>
+                <li><span class="line-pill">224</span> <span data-lang="en">Kaisariani – El. Venizelou</span><span data-lang="el">Καισαριανή – Ελ. Βενιζέλου</span></li>
+                <li><span class="line-pill">421</span> <span data-lang="en">Agioi Anargyroi – Agia Paraskevi</span><span data-lang="el">Άγιοι Ανάργυροι – Αγία Παρασκευή</span></li>
+                <li><span class="line-pill">550</span> <span data-lang="en">Palaio Faliro – Kifisia</span><span data-lang="el">Παλαιό Φάληρο – Κηφισιά</span></li>
+                <li><span class="line-pill">608</span> <span data-lang="en">Galatsi – Akadimia – Zografou cemetery</span><span data-lang="el">Γαλάτσι – Ακαδημία – Νεκρ. Ζωγράφου</span></li>
+                <li><span class="line-pill">703</span> <span data-lang="en">Piraeus – Ag. Anargyroi – Ag. Eleftherios (via Thivon)</span><span data-lang="el">Πειραιάς – Αγ. Ανάργυροι – Αγ. Ελευθέριος (μέσω Θηβών)</span></li>
+                <li><span class="line-pill">842</span> <span data-lang="en">Perama – Korydallos metro</span><span data-lang="el">Πέραμα – Στ. Κορυδαλλός</span></li>
+                <li><span class="line-pill">A15</span> <span data-lang="en">Larissa station – Dasos</span><span data-lang="el">Στ. Λαρίσης – Δάσος</span></li>
+                <li><span class="line-pill">B11</span> <span data-lang="en">Pl. Vathis – Ilion – Petroupoli</span><span data-lang="el">Πλ. Βάθη – Ίλιον – Πετρούπολη</span></li>
+                <li><span class="line-pill">B12</span> <span data-lang="en">Attiki metro – Ano Liosia</span><span data-lang="el">Στ. Αττική – Άνω Λιόσια</span></li>
             </ul>
             <p class="info-source"><span data-i18n="info.checked">Checked on 14/10/2026 at</span> <a href="https://www.osy.gr/" target="_blank" rel="noopener">osy.gr<span class="sr-only" data-i18n="shell.new-tab"> (opens in a new tab)</span></a></p>
         </div>
@@ -148,13 +148,13 @@
     <section class="info-section">
         <h2 class="info-heading"><button type="button" class="info-toggle" aria-expanded="false" aria-controls="sec-access" id="toggle-access"><i class="bi bi-person-wheelchair" aria-hidden="true"></i><span data-i18n="info.access">Accessibility</span></button></h2>
         <div class="info-body" id="sec-access" hidden>
-            <ul lang="en">
+            <ul data-lang="en">
                 <li>STASY lists the <a href="https://www.stasy.gr/en/%ce%bb%ce%b5%ce%b9%cf%84%ce%bf%cf%85%cf%81%ce%b3%ce%b9%ce%ba%cf%8c%cf%84%ce%b7%cf%84%ce%b1-%ce%b1%ce%bd%ce%b5%ce%bb%ce%ba%cf%85%cf%83%cf%84%ce%ae%cf%81%cf%89%ce%bd-%ce%b5%ce%bd/" target="_blank" rel="noopener">lifts that are out of service<span class="sr-only" data-i18n="shell.new-tab"> (opens in a new tab)</span></a> at each station.</li>
                 <li>The <a href="/subway">Subway</a> tool shows which carriage stops next to the lift.</li>
                 <li>Use the wide gates if you have a wheelchair, a pram or luggage.</li>
                 <li>OASA helpline for disabled passengers: <a href="tel:+302108200887">210 820 0887</a>, weekdays 06:30–21:30, weekends 07:30–21:30.</li>
             </ul>
-            <ul lang="el">
+            <ul data-lang="el">
                 <li>Η ΣΤΑΣΥ δημοσιεύει τους <a href="https://www.stasy.gr/elevators/" target="_blank" rel="noopener">ανελκυστήρες που δεν λειτουργούν<span class="sr-only" data-i18n="shell.new-tab"> (opens in a new tab)</span></a> σε κάθε σταθμό.</li>
                 <li>Το εργαλείο <a href="/subway">Μετρό</a> δείχνει ποιο βαγόνι σταματά δίπλα στον ανελκυστήρα.</li>
                 <li>Χρησιμοποιήστε τις φαρδιές πύλες αν έχετε αμαξίδιο, καρότσι ή αποσκευές.</li>
@@ -166,13 +166,13 @@
     <section class="info-section">
         <h2 class="info-heading"><button type="button" class="info-toggle" aria-expanded="false" aria-controls="sec-contacts" id="toggle-contacts"><i class="bi bi-telephone" aria-hidden="true"></i><span data-i18n="info.contacts">Contacts</span></button></h2>
         <div class="info-body" id="sec-contacts" hidden>
-            <ul lang="en">
+            <ul data-lang="en">
                 <li><strong>OASA information:</strong> <a href="tel:11185">11185</a> (from abroad <a href="tel:+302108202900">+30 210 820 2900</a>), weekdays 06:30–21:30, weekends and holidays 07:30–21:30.</li>
                 <li><strong>ATH.ENA cards and card payments:</strong> <a href="tel:+302108200900">210 820 0900</a> (weekdays 07:30–15:30), <a href="mailto:athenacard@oasa.gr">athenacard@oasa.gr</a>.</li>
                 <li><strong>Lost and found:</strong> <a href="https://www.stasy.gr/en/passenger-service/lost-and-found/" target="_blank" rel="noopener">metro and tram<span class="sr-only" data-i18n="shell.new-tab"> (opens in a new tab)</span></a>, <a href="https://www.oasa.gr/en/passenger-service/information/lost-and-found/" target="_blank" rel="noopener">buses and trolleys<span class="sr-only" data-i18n="shell.new-tab"> (opens in a new tab)</span></a>.</li>
                 <li><strong>Paying or disputing a fine:</strong> <a href="https://www.oasa.gr/en/passenger-service/information/payment-of-fines/" target="_blank" rel="noopener">oasa.gr<span class="sr-only" data-i18n="shell.new-tab"> (opens in a new tab)</span></a>.</li>
             </ul>
-            <ul lang="el">
+            <ul data-lang="el">
                 <li><strong>Πληροφορίες ΟΑΣΑ:</strong> <a href="tel:11185">11185</a> (από το εξωτερικό <a href="tel:+302108202900">+30 210 820 2900</a>), καθημερινές 06:30–21:30, Σαββατοκύριακα και αργίες 07:30–21:30.</li>
                 <li><strong>Κάρτες ATH.ENA και πληρωμές με κάρτα:</strong> <a href="tel:+302108200900">210 820 0900</a> (καθημερινές 07:30–15:30), <a href="mailto:athenacard@oasa.gr">athenacard@oasa.gr</a>.</li>
                 <li><strong>Απολεσθέντα:</strong> <a href="https://www.stasy.gr/%ce%b5%ce%be%cf%85%cf%80%ce%b7%cf%81%ce%ad%cf%84%ce%b7%cf%83%ce%b7-%ce%b5%cf%80%ce%b9%ce%b2%ce%b1%cf%84%cf%8e%ce%bd/%ce%b1%ce%bd%ce%b1%ce%b6%ce%ae%cf%84%ce%b7%cf%83%ce%b7-%ce%b1%cf%80%ce%bf%ce%bb%ce%b5%cf%83%ce%b8%ce%ad%ce%bd%cf%84%cf%89%ce%bd/" target="_blank" rel="noopener">μετρό και τραμ<span class="sr-only" data-i18n="shell.new-tab"> (opens in a new tab)</span></a>, <a href="https://www.oasa.gr/en/passenger-service/information/lost-and-found/" target="_blank" rel="noopener">λεωφορεία και τρόλεϊ<span class="sr-only" data-i18n="shell.new-tab"> (opens in a new tab)</span></a>.</li>

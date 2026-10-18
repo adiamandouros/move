@@ -1,6 +1,5 @@
 import { getCoords } from '/js/core/location.js';
-import { onLanguageChange, getLanguage } from '/js/core/settings.js';
-import { t } from '/js/core/i18n.js';
+import { language, t } from '/js/core/i18n.js';
 import { athensNow, closestStation, isTimetableExpired, planJourney } from './network.js';
 import { stationSearch } from './search.js';
 import { renderMessage, renderResult, routeSummary } from './render.js';
@@ -86,12 +85,6 @@ function start(rail) {
         changed();
     });
 
-    onLanguageChange(() => {
-        from.refresh();
-        to.refresh();
-        render();
-    });
-
     setInterval(render, REFRESH_MS);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
 
@@ -102,7 +95,7 @@ function start(rail) {
                 if (from.get()) return;
                 const id = closestStation(rail, lat, lng);
                 from.set(id);
-                const name = rail.stations[id].name[getLanguage()] ?? rail.stations[id].name.en;
+                const name = rail.stations[id].name[language] ?? rail.stations[id].name.en;
                 announce(`${t('subway.location-prefix')} ${name} ${t('subway.location-suffix')}`);
             })
             .catch(() => {}); // location unavailable or denied

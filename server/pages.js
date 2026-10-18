@@ -115,8 +115,10 @@ export const langOf = path => /^\/el(\/|$)/.test(path) ? 'el' : 'en';
 export const basePath = path => path.replace(/^\/el(?=\/|$)/, '') || '/';
 export const localPath = (path, lang) => lang === 'el' ? (path === '/' ? '/el' : `/el${path}`) : path;
 
+const otherLang = lang => lang === 'el' ? 'en' : 'el';
+
 // Links to one of the pages (with any ?query or #hash) point at that page in
-// the given language. Mirrors localHref in /js/core/i18n.js.
+// the given language
 function localHref(href, lang, pagePaths) {
     const [, path, rest] = href.match(/^(\/[^?#]*)(.*)$/) ?? [];
     if (!path || !isPage(basePath(path), pagePaths)) return href;
@@ -127,20 +129,98 @@ function localHref(href, lang, pagePaths) {
 export const isPage = (path, pagePaths) =>
     pagePaths.some(p => p.endsWith('/*') ? path.startsWith(p.slice(0, -1)) : p === path);
 
-// The page in one language, as the inline script in layout.html would show it:
-// each data-i18n element's text, data-i18n-<attribute> attributes, and links
+// The page in its language. Every page is written in English and put into
+// its language here, on the server (browsers get it ready to show):
+//   - an element with data-i18n="key" gets that string as its text, and
+//     data-i18n-<attribute>="key" sets that attribute
+//   - text written in both languages, as data-lang="en" and data-lang="el"
+//     elements, keeps only the page's language
+//   - in Greek, links to the pages point at the Greek ones (except links
+//     that name their language with hreflang, like the language link)
 function translate(html, lang, get, pagePaths) {
-    if (lang === 'en') return html;
-    return html
-        .replace(/(<(\w+)\b[^>]*\sdata-i18n="([^"]+)"[^>]*>)[^<]*(<\/\2>)/g,
-            (match, open, _tag, key, close) => get(key) ? open + escapeText(get(key)) + close : match)
+    html = keepLanguage(html, lang)
+        .replace(/(<(\w+)\b[^>]*\sdata-i18n="([^"]+)"[^>]*>)([^<]*)(<\/\2>)/g, (match, open, _tag, key, text, close) => {
+            if (!get(key)) return match;
+            // Keep the spaces around the text, e.g. before "(opens in a new tab)"
+            const [, before, after] = text.match(/^(\s*)[\s\S]*?(\s*)$/);
+            return open + before + escapeText(get(key)) + after + close;
+        })
         .replace(/<[a-z][^>]*>/g, tag => {
             for (const [, name, key] of tag.matchAll(/\sdata-i18n-([a-z-]+)="([^"]+)"/g)) {
                 if (get(key)) tag = tag.replace(new RegExp(`(\\s${name}=")[^"]*"`), `$1${escapeAttr(get(key))}"`);
             }
             return tag;
-        })
-        .replace(/(<a\b[^>]*\shref=")(\/[^"]*)"/g, (_, open, href) => `${open}${localHref(href, lang, pagePaths)}"`);
+        });
+    if (lang === 'en') return html;
+    return html.replace(/<a\b[^>]*>/g, tag => /\shreflang="/.test(tag) ? tag
+        : tag.replace(/(\shref=")(\/[^"]*)"/, (_, open, href) => `${open}${localHref(href, lang, pagePaths)}"`));
+}
+
+// Remove each data-lang element of the other language, with everything in it,
+// and the data-lang attribute of the ones that stay
+function keepLanguage(html, lang) {
+    const opening = /<(\w+)\b[^>]*\sdata-lang="(\w+)"[^>]*>/g;
+    let out = '';
+    let from = 0;
+    for (let m; (m = opening.exec(html));) {
+        const [tag, name, only] = m;
+        out += html.slice(from, m.index);
+        if (only === lang) {
+            out += tag.replace(/\sdata-lang="\w+"/, '');
+            from = m.index + tag.length;
+        } else {
+            from = elementEnd(html, name, m.index + tag.length);
+            opening.lastIndex = from;
+            // An element on a line of its own takes the line with it
+            if (/\n[ \t]*$/.test(out) && html[from] === '\n') {
+                out = out.replace(/[ \t]*$/, '');
+                from++;
+            }
+        }
+    }
+    return out + html.slice(from);
+}
+
+// Where the <name> element whose content starts at `start` ends (after its closing tag)
+function elementEnd(html, name, start) {
+    const tags = new RegExp(`<(/?)${name}\\b[^>]*>`, 'g');
+    tags.lastIndex = start;
+    let depth = 1;
+    for (let m; (m = tags.exec(html));) {
+        depth += m[1] ? -1 : 1;
+        if (!depth) return m.index + m[0].length;
+    }
+    throw new Error(`<${name} data-lang> is never closed`);
+}
+
+// The language link: this page in the other language. Each name is written in
+// its own language, as is usual for language links.
+const LANGUAGE_NAMES = { en: 'English', el: 'Ελληνικά' };
+const LANGUAGE_LABELS = { en: 'EN', el: 'ΕΛ' };
+
+function languageLink(lang, path, variant) {
+    if (!path) return '';
+    const other = otherLang(lang);
+    const [indent, cls, size] = variant === 'side'
+        ? ['                    ', 'lang-toggle-btn btn d-flex align-items-center gap-3 px-3 py-2 w-100', 5]
+        : ['        ', 'nav-btn lang-toggle-btn btn d-flex flex-column align-items-center py-2', 4];
+    const options = LANGS.map(l => `<span class="lang-opt${l === lang ? ' active' : ''}">${LANGUAGE_LABELS[l]}</span>`).join('<span class="lang-sep">/</span>');
+    return `${indent}<a href="${escapeAttr(localPath(path, other))}" hreflang="${other}" class="${cls}">
+${indent}    <i class="bi bi-globe fs-${size}" aria-hidden="true"></i>
+${indent}    <span class="sr-only" lang="${other}">${LANGUAGE_NAMES[other]}</span>
+${indent}    <span class="lang-options" aria-hidden="true">${options}</span>
+${indent}</a>`;
+}
+
+// Someone who chose the other language with the language link (remembered in
+// localStorage by /js/core/shell.js) gets this page in it, before it shows
+function languageRedirect(lang, path) {
+    if (!path) return '';
+    const other = otherLang(lang);
+    const target = JSON.stringify(localPath(path, other)).replace(/</g, '\\u003c');
+    return `    <script>
+        try { if (localStorage.getItem('language') === '${other}') location.replace(${target} + location.search + location.hash); } catch (e) {}
+    </script>`;
 }
 
 // The public origin (e.g. https://move.gr), for canonical URLs, the sitemap
@@ -149,10 +229,10 @@ export const siteUrl = () => (process.env.SITE_URL ?? '').replace(/\/+$/, '');
 
 const LOCALES = { en: 'en_US', el: 'el_GR' };
 
-// Search and link-preview tags. Pages without a path (the 404, /offline, the
-// admin pages) are kept out of search results. path is the English one.
-function metaTags({ path, lang, title, description }) {
-    if (!path) return '    <meta name="robots" content="noindex">';
+// Search and link-preview tags. Pages that aren't indexed (the 404, /offline,
+// the admin pages) are kept out of search results. path is the English one.
+function metaTags({ path, index, lang, title, description }) {
+    if (!path || !index) return '    <meta name="robots" content="noindex">';
     const origin = siteUrl();
     const url = origin && origin + localPath(path, lang);
     // The same page in each language; English is the default for everyone else
@@ -215,18 +295,20 @@ function tiles(tools) {
         </a>`).join('\n');
 }
 
-// Strings for one page: the shell's, every tool's name (for the nav) and the page's own.
-function pageStrings(shellStrings, tools, own = {}) {
-    const out = {};
-    for (const lang of ['en', 'el']) {
-        out[lang] = { ...shellStrings[lang], ...own[lang] };
+// Strings for one page in one language: the shell's, every tool's name (for
+// the nav) and the page's own, with English for any that aren't translated
+function pageStrings(shellStrings, tools, own = {}, lang) {
+    const strings = l => {
+        const out = { ...shellStrings[l], ...own[l] };
         for (const tool of tools) {
-            out[lang][`tool.${tool.id}.title`] = tool.title[lang];
-            out[lang][`tool.${tool.id}.short`] = (tool.shortTitle ?? tool.title)[lang];
-            if (tool.description) out[lang][`tool.${tool.id}.description`] = tool.description[lang];
+            out[`tool.${tool.id}.title`] = tool.title[l];
+            out[`tool.${tool.id}.short`] = (tool.shortTitle ?? tool.title)[l];
+            if (tool.description) out[`tool.${tool.id}.description`] = tool.description[l];
         }
-    }
-    return out;
+        return out;
+    };
+    const translated = Object.entries(strings(lang)).filter(([, text]) => text !== undefined);
+    return { ...strings('en'), ...Object.fromEntries(translated) };
 }
 
 // Every page as HTML, by path (exported for test/accessibility.test.js)
@@ -238,33 +320,35 @@ export function renderPages(tools = loadTools()) {
     const shellStrings = JSON.parse(readFileSync(join(VIEWS_DIR, 'strings.json'), 'utf8'));
     // Paths of the pages that exist in both languages (English ones)
     const pagePaths = ['/', '/offline', ...tools.map(t => t.path), ...TEXT_PAGES.map(name => `/${name}`), STATIONS_PATH, `${STATIONS_PATH}/*`];
-    const pageList = `    <script type="application/json" id="pages">${JSON.stringify(pagePaths)}</script>`;
 
-    // path and description are for public pages that belong in search results.
-    // staticLanguage: the page is written in one language (the station pages),
-    // so switching language loads the other one instead of translating in place.
-    const render = ({ lang = 'en', active = null, title, titleKey = '', path = null, description = '', content, own, scripts = [], head = '', staticLanguage = false, ad = null }) => {
-        const strings = pageStrings(shellStrings, tools, own);
+    // Every page is rendered in one language (lang). path: its English path,
+    // for the link to it in the other language; pages without one (the
+    // admin pages) are English only. index: false keeps it out of search
+    // results; description is for those that are in them. title is in the
+    // page's language.
+    const render = ({ lang = 'en', active = null, title, path = null, index = true, description = '', content, own, scripts = [], head = '', ad = null }) => {
+        const strings = pageStrings(shellStrings, tools, own, lang);
         // ad: where this page has an ad slot (server/ads.js); /js/core/ads.js
         // loads AdSense for it, and for the privacy page's ad choices button
         const slot = adSlot(ad);
         if (slot || content.includes('id="ad-choices"')) scripts = [...scripts, '/js/core/ads.js'];
-        const get = key => strings[lang][key] ?? strings.en[key];
-        const fullTitle = `${(lang !== 'en' && get(titleKey)) || title} — Wayhop`;
+        const get = key => strings[key];
+        const fullTitle = `${title} — Wayhop`;
         return translate(fill(layout, {
             lang,
-            staticLanguage: staticLanguage ? ' data-static-language' : '',
-            title: fullTitle,
-            titleKey,
-            meta: [metaTags({ path, lang, title: fullTitle, description }), adsenseMeta()].filter(Boolean).join('\n'),
+            languageRedirect: languageRedirect(lang, path),
+            title: escapeText(fullTitle),
+            meta: [metaTags({ path, index, lang, title: fullTitle, description }), adsenseMeta()].filter(Boolean).join('\n'),
             head,
             importMap: imports,
-            pages: pageList,
             sideNav: navLinks(tools, active, 'side'),
+            sideLanguage: languageLink(lang, path, 'side'),
+            bottomLanguage: languageLink(lang, path, 'bottom'),
             bottomNav: navLinks(tools, active, 'bottom'),
             content,
             ad: slot,
-            // Escape "<" so the JSON can't close the surrounding <script> element
+            // The page's strings, for its scripts (/js/core/i18n.js). Escape
+            // "<" so the JSON can't close the surrounding <script> element.
             strings: JSON.stringify(strings).replace(/</g, '\\u003c'),
             scripts: scripts.map(src => `    <script type="module" src="${versioned(src)}"></script>`).join('\n'),
         }), lang, get, pagePaths);
@@ -275,8 +359,7 @@ export function renderPages(tools = loadTools()) {
         const description = shellStrings[lang]['home.description'];
         pages[localPath('/', lang)] = render({
             lang,
-            title: 'Athens transit',
-            titleKey: 'home.title',
+            title: shellStrings[lang]['home.page-title'],
             path: '/',
             description,
             head: appData(description, lang),
@@ -284,13 +367,18 @@ export function renderPages(tools = loadTools()) {
             scripts: ['/js/core/announcements.js'],
             ad: 'home',
         });
-        pages[localPath('/offline', lang)] = render({ lang, title: "You're offline", titleKey: 'offline.title', content: fill(view('offline'), { tiles: tiles(tools.filter(t => t.offline)) }) });
+        pages[localPath('/offline', lang)] = render({
+            lang,
+            title: shellStrings[lang]['offline.title'],
+            path: '/offline',
+            index: false,
+            content: fill(view('offline'), { tiles: tiles(tools.filter(t => t.offline)) }),
+        });
         for (const tool of tools) {
             pages[localPath(tool.path, lang)] = render({
                 lang,
                 active: tool.id,
-                title: tool.title.en,
-                titleKey: `tool.${tool.id}.title`,
+                title: tool.title[lang],
                 path: tool.path,
                 description: tool.description?.[lang] ?? '',
                 content: tool.page,
@@ -309,11 +397,14 @@ export function renderPages(tools = loadTools()) {
                 // The privacy page has its own description once it describes ads
                 description: shellStrings[lang][`${name}.description${name === 'privacy' && adsenseClient() ? '-ads' : ''}`],
                 content: fill(adsVariant(view(`pages/${name}.${lang}`), Boolean(adsenseClient())), { updated: PRIVACY_UPDATED[lang], email: contactEmail(shellStrings[lang]), adClient: adsenseClient() ?? '' }),
-                staticLanguage: true,
             });
         }
     }
-    const notFound = Object.fromEntries(LANGS.map(lang => [lang, render({ lang, title: 'Page not found', titleKey: 'notfound.title', content: view('notfound') })]));
+    // The 404 page for a path, in its language, with the language link to the same path
+    const notFound = path => {
+        const lang = langOf(path);
+        return render({ lang, title: shellStrings[lang]['notfound.title'], path: basePath(path), index: false, content: view('notfound') });
+    };
     // The pages search engines should find (English paths), for the sitemap
     const indexed = ['/', ...tools.map(t => t.path), ...TEXT_PAGES.map(name => `/${name}`)];
     return { pages, indexed, notFound, render };
@@ -439,6 +530,6 @@ export function createPages(tools = loadTools(), { railFile } = {}) {
         router,
         // Render any other page (e.g. the admin pages) with the shared layout
         render,
-        notFound: (req, res) => res.status(404).type('html').send(notFound[langOf(req.path)]),
+        notFound: (req, res) => res.status(404).type('html').send(notFound(req.path)),
     };
 }
