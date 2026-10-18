@@ -122,8 +122,10 @@ only when someone asks, and kept on disk.
 [server/data/](server/data/) downloads OASA's open data (GTFS, from the CKAN
 portal) and builds `data/build/rail.json` (metro lines, stations, timetables
 and where to stand) and `data/build/bus-stops.json`. It runs when the server
-starts and daily at 04:30 Athens time, downloads only what changed, and
-keeps serving the previous build if a build fails. Where to stand on each
+starts and daily at 04:30 Athens time, in a child process at low priority
+(`runBuildInChild`), so it doesn't slow the site or add to its memory. It
+downloads only what changed, and the site keeps serving the previous build
+if a build fails. Where to stand on each
 train is curated by hand in `data/curated/` ([README](data/curated/README.md)),
 and can be edited from a phone at `/admin/stations`.
 

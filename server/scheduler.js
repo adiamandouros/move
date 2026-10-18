@@ -1,13 +1,9 @@
 import cron from 'node-cron';
-import { runBuild } from './data/index.js';
+import { runBuildInChild } from './data/index.js';
 
-async function build() {
-    try {
-        await runBuild();
-    } catch (err) {
-        console.error('[data] Build failed:', err.message);
-    }
-}
+// Each build runs in its own process (see runBuildInChild), which logs its
+// own progress and failures
+const build = () => runBuildInChild();
 
 export function startScheduler() {
     // Run immediately on startup (non-blocking), so a restart catches up on anything missed

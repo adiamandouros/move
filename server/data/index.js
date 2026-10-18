@@ -1,6 +1,8 @@
 import 'dotenv/config';
+import { fork } from 'child_process';
 import { createHash } from 'crypto';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'fs';
+import { getPriority, setPriority } from 'os';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { athensToday } from './calendar.js';
@@ -23,6 +25,8 @@ const LOCK_FILE   = join(DATA_DIR, '.build.lock');
 // Bump when the output format or build logic changes, to force a rebuild.
 const BUILDER_VERSION = 1;
 const LOCK_STALE_MS = 30 * 60_000;
+// Exit code of the CLI (below) when another build holds the lock
+const BUSY_EXIT_CODE = 3;
 
 const OUTPUTS = {
     'rail.json': {
@@ -98,6 +102,27 @@ export async function runBuild({ force = false, offline = false } = {}) {
     }
 }
 
+// The server runs its builds through this: a child process running this
+// file's CLI, so a build doesn't share the server's memory or event loop. A
+// build parses OASA's 220 MB bus timetable; in the server, that grew it by
+// over 100 MB (kept afterwards) and paused it for up to 140 ms, and running
+// out of memory would have stopped the site, not just the build.
+// → 'built' (or already up to date), 'failed' or 'busy' (another build is running)
+export function runBuildInChild({ force = false, offline = false } = {}) {
+    const args = [...(force ? ['--force'] : []), ...(offline ? ['--offline'] : [])];
+    return new Promise(resolve => {
+        // Without the server's own flags: `node --watch-path` (npm run dev) would keep the build running
+        const child = fork(fileURLToPath(import.meta.url), args, { execArgv: [] });
+        // Lower priority than the server (19 is the lowest), so visitors come first
+        try { setPriority(child.pid, Math.min(19, getPriority() + 10)); } catch { /* not allowed here: same priority, still a separate process */ }
+        child.on('error', err => {
+            log(`[data] Couldn't start the build: ${err.message}`);
+            resolve('failed');
+        });
+        child.on('exit', code => resolve(code === 0 ? 'built' : code === BUSY_EXIT_CODE ? 'busy' : 'failed'));
+    });
+}
+
 // Rebuild shortly after the curated data changes (e.g. an editor save),
 // without re-downloading feeds. Saves in quick succession share one build, and
 // a save during a running build triggers another one afterwards.
@@ -112,10 +137,8 @@ export function rebuildSoon() {
         if (rebuildRunning) { rebuildAgain = true; return; }
         rebuildRunning = true;
         try {
-            // null means another build holds the lock; try again once it's done
-            if (await runBuild({ offline: true }) === null) rebuildAgain = true;
-        } catch (err) {
-            log(`[data] Rebuild failed: ${err.message}`);
+            // Another build holds the lock: try again once it's done
+            if (await runBuildInChild({ offline: true }) === 'busy') rebuildAgain = true;
         } finally {
             rebuildRunning = false;
             if (rebuildAgain) { rebuildAgain = false; rebuildSoon(); }
@@ -192,12 +215,14 @@ function readJson(path) {
 }
 
 // CLI: npm run build:data [-- --force] [-- --offline]
+// Exits with 0 when built or up to date, 1 when something failed, and
+// BUSY_EXIT_CODE when another build is running.
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
     const args = new Set(process.argv.slice(2));
     runBuild({ force: args.has('--force'), offline: args.has('--offline') })
         .then(meta => {
             const failed = meta && Object.values(meta.outputs).some(o => !o.ok);
-            process.exitCode = failed ? 1 : 0;
+            process.exitCode = meta === null ? BUSY_EXIT_CODE : failed ? 1 : 0;
         })
         .catch(err => {
             console.error(`[data] Build failed: ${err.message}`);
