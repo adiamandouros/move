@@ -267,6 +267,17 @@ body {
     font-weight: 600;
 }
 
+/* The home page's shortcuts: two by two on phones, in a row on wider screens */
+.home-tiles {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    margin-bottom: 1rem;
+}
+
+.home-intro {
+    margin-bottom: 1rem;
+    color: var(--bs-secondary-color);
+}
+
 .tool-tile-desc {
     font-size: 0.875rem;
     color: var(--bs-secondary-color);

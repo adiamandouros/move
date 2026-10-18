@@ -43,7 +43,7 @@ export function sitePages(tools) {
             path: '/',
             title: 'home.page-title',
             description: 'home.description',
-            content: () => view('home'),
+            content: () => fill(view('home'), { tiles: [...tools.map(toolTile), stationsTile()].join('\n') }),
             head: (lang, s) => appData(s('home.description'), lang),
             scripts: ['/js/core/announcements.js', '/js/core/install.js'],
             active: 'home',
@@ -53,7 +53,7 @@ export function sitePages(tools) {
             path: '/offline',
             title: 'offline.title',
             index: false,
-            content: () => fill(view('offline'), { tiles: tiles(tools.filter(t => t.offline)) }),
+            content: () => fill(view('offline'), { tiles: tools.filter(t => t.offline).map(toolTile).join('\n') }),
         },
         // The tools: tools/<id>/ (see tools/README.md)
         ...tools.map(tool => ({
@@ -111,14 +111,23 @@ export function loadTools(dir = TOOLS_DIR) {
         .sort((a, b) => a.order - b.order);
 }
 
-// The offline page's links to the tools that work offline
-function tiles(tools) {
-    return tools.map(tool => `        <a href="${tool.path}" class="card tool-tile">
-            ${icon(tool.icon)}
-            <span class="tool-tile-title" data-i18n="tool.${tool.id}.title">${tool.title.en}</span>
-            <span class="tool-tile-desc" data-i18n="tool.${tool.id}.description">${tool.description?.en ?? ''}</span>
-        </a>`).join('\n');
+// A link to a page as a tile (the home page's shortcuts, the offline page's
+// tools that work offline). The text is the English placeholder; data-i18n
+// puts it into the page's language.
+function tile(href, iconHtml, titleKey, title, descriptionKey, description) {
+    return `        <a href="${href}" class="card tool-tile">
+            ${iconHtml}
+            <span class="tool-tile-title" data-i18n="${titleKey}">${title}</span>
+            <span class="tool-tile-desc" data-i18n="${descriptionKey}">${description}</span>
+        </a>`;
 }
+
+const toolTile = tool => tile(tool.path, icon(tool.icon), `tool.${tool.id}.title`, tool.title.en,
+    `tool.${tool.id}.description`, tool.description?.en ?? '');
+
+// The metro stations' pages, from the home page
+const stationsTile = () => tile(STATIONS_PATH, icon('list-ul'), 'home.stations', 'Metro stations',
+    'home.stations-text', 'Every station: exits, connections, first and last trains');
 
 // ── Pages of text ───────────────────────────────────────────────────────────
 
