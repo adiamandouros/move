@@ -1,5 +1,18 @@
+// @ts-check
 // Route finding and departure times over rail.json (see server/data/build-rail.js
 // for the format). No DOM access, so it can be unit-tested in Node.
+
+/** @typedef {import('../../../types/data.js').Rail} Rail */
+/** @typedef {import('../../../types/data.js').Stop} Stop */
+/** @typedef {import('../../../types/data.js').Position} Position */
+/**
+ * A ride on one line, between stop indexes of one direction
+ * @typedef {{ line: string, dir: string, from: string, to: string, fromIndex: number, toIndex: number }} Leg
+ */
+/** @typedef {{ departs: number, arrives: number, isLast: boolean, isSecondLast: boolean }} Departure */
+/** @typedef {{ via?: string, legs: Leg[] }} Route */
+/** @typedef {Route & { legs: (Leg & { departures: Departure[] })[], arrives: number | null }} PlannedRoute */
+/** @typedef {{ weekday: number, seconds: number, date: string }} AthensTime */
 
 const DAY = 86_400;
 // Minimum time to change trains at an interchange
@@ -10,6 +23,7 @@ const MAX_OPTIONS = 3;
 
 // Current weekday (0 = Sunday) and seconds since midnight in Athens, wherever
 // the device's clock is set.
+/** @returns {AthensTime} */
 export function athensNow(date = new Date()) {
     const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
         timeZone: 'Europe/Athens', weekday: 'short', hour: 'numeric', minute: 'numeric', second: 'numeric', hourCycle: 'h23',
@@ -23,6 +37,7 @@ export function athensDate(date = new Date()) {
 }
 
 // Every way to ride one line from `from` to `to` without changing.
+/** @param {Rail} rail @param {string} from @param {string} to @returns {Leg[]} */
 function legsBetween(rail, from, to) {
     const legs = [];
     for (const [line, { directions }] of Object.entries(rail.lines)) {
@@ -37,6 +52,7 @@ function legsBetween(rail, from, to) {
 
 // Direct routes if there are any, otherwise every one-change route. All three
 // metro lines cross each other, so one change is always enough.
+/** @param {Rail} rail @param {string} from @param {string} to @returns {Route[]} */
 export function findRoutes(rail, from, to) {
     if (!from || !to || from === to) return [];
     const direct = legsBetween(rail, from, to);
@@ -57,6 +73,11 @@ export function findRoutes(rail, from, to) {
 // Upcoming departures for one leg at or after `after` seconds (relative to
 // today's midnight). Includes yesterday's trips that run past midnight.
 // Each result: { departs, arrives, isLast, isSecondLast }.
+/**
+ * @param {Rail} rail @param {Leg} leg
+ * @param {{ weekday: number, after: number, count?: number }} when
+ * @returns {Departure[]}
+ */
 export function departures(rail, leg, { weekday, after, count = 2 }) {
     const { timetable } = rail.lines[leg.line].directions[leg.dir];
     const found = [];
@@ -85,6 +106,7 @@ export function departures(rail, leg, { weekday, after, count = 2 }) {
 // arrival of the first upcoming train on the previous leg plus a change.
 // `arrives` is the earliest arrival at the destination, or null if no train
 // makes the whole journey today.
+/** @param {Rail} rail @param {Route} route @param {AthensTime} now @returns {PlannedRoute} */
 export function planRoute(rail, route, now) {
     let after = now.seconds;
     let reachable = true;
@@ -99,6 +121,7 @@ export function planRoute(rail, route, now) {
 }
 
 // Plan every route and keep the few that arrive first.
+/** @param {Rail} rail @param {string} from @param {string} to @param {AthensTime} now @returns {PlannedRoute[]} */
 export function planJourney(rail, from, to, now) {
     return findRoutes(rail, from, to)
         .map(route => planRoute(rail, route, now))
@@ -108,12 +131,17 @@ export function planJourney(rail, from, to, now) {
 
 // Where to stand on a leg: at an interchange, near the way to the next line;
 // otherwise near the exit.
+/**
+ * @param {Rail} rail @param {Leg} leg @param {Leg | null} next
+ * @returns {{ stop: Stop, exits: Position[], elevators: Position[] }}
+ */
 export function legPositions(rail, leg, next) {
     const stop = rail.lines[leg.line].directions[leg.dir].stops[leg.toIndex];
     const exits = next ? stop.transfers?.[`${next.line}/${next.dir}`] ?? stop.exits : stop.exits;
     return { stop, exits, elevators: stop.elevators ?? [] };
 }
 
+/** @param {Rail} rail @param {number} lat @param {number} lng @returns {string} */
 export function closestStation(rail, lat, lng) {
     let best = null;
     let bestDist = Infinity;
@@ -127,6 +155,7 @@ export function closestStation(rail, lat, lng) {
     return best;
 }
 
+/** @param {Rail} rail @param {AthensTime} now */
 export function isTimetableExpired(rail, now) {
     return now.date > rail.feed.validTo;
 }

@@ -1,4 +1,8 @@
+// @ts-check
 import { readFileSync, statSync } from 'fs';
+
+/** @typedef {import('../../types/data.js').Rail} Rail */
+/** @typedef {import('../../types/pages.js').Lang} Lang */
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
@@ -32,6 +36,10 @@ const clock = s => {
 // days that look the same: [{ days: [1, 2, 3, 4, 5], first, last }], times in
 // seconds since that day's midnight, or null when the trains run all night
 // (the day's service runs into the next day's, like line 3 on Saturdays).
+/**
+ * @param {import('../../types/data.js').Timetable} timetable @param {number} index
+ * @returns {{ days: number[], first: number | null, last: number | null }[]}
+ */
 export function firstAndLast(timetable, index) {
     const day = weekday => {
         const times = timetable.patterns[timetable.days[weekday]].flatMap(([start, p]) => {
@@ -60,6 +68,7 @@ export function firstAndLast(timetable, index) {
     return groups;
 }
 
+/** @param {Rail} rail @param {Lang} lang @param {import('../../types/pages.js').Tool[]} tools */
 function createWriter(rail, lang, tools) {
     const own = Object.fromEntries(LANGS.map(l => [l, { ...STRINGS[l], ...tools.find(t => t.id === 'subway')?.strings[l] }]));
     const s = key => own[lang][key] ?? own.en[key] ?? key;
@@ -120,6 +129,7 @@ function directionCard(rail, w, lineId, dirId, id, n) {
         </div>`;
 }
 
+/** @param {Rail} rail @param {string} id @param {Lang} lang @param {import('../../types/pages.js').Tool[]} tools */
 export function stationContent(rail, id, lang, tools) {
     const w = { ...createWriter(rail, lang, tools), lang };
     const { s, name, badge } = w;
@@ -154,6 +164,7 @@ export function stationContent(rail, id, lang, tools) {
 </div>`;
 }
 
+/** @param {Rail} rail @param {Lang} lang @param {import('../../types/pages.js').Tool[]} tools */
 export function indexContent(rail, lang, tools) {
     const { s, name, href, badge } = { ...createWriter(rail, lang, tools) };
     const lines = Object.entries(rail.lines).map(([lineId, line]) => {
@@ -195,6 +206,10 @@ function stationData(rail, id, lang, s) {
 }
 
 // One station's page (or the index, for id null) with the site's layout
+/**
+ * @param {Rail} rail @param {string | null} id @param {Lang} lang
+ * @param {{ render: (page: import('../../types/pages.js').RenderOptions) => string, tools: import('../../types/pages.js').Tool[] }} options
+ */
 export function renderStationPage(rail, id, lang, { render, tools }) {
     const { s, name } = createWriter(rail, lang, tools);
     const common = { lang, active: 'subway', ad: 'station' };
@@ -213,6 +228,7 @@ export function renderStationPage(rail, id, lang, { render, tools }) {
 
 // → { router, paths() }. render is the layout's (layout.js createRenderer);
 // paths() lists the English paths for the sitemap.
+/** @param {{ railFile: string, render: (page: import('../../types/pages.js').RenderOptions) => string, tools: import('../../types/pages.js').Tool[] }} options */
 export function createStationPages({ railFile, render, tools }) {
     let loaded = { mtime: null, rail: null, html: new Map() };
 

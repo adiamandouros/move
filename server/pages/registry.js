@@ -1,3 +1,4 @@
+// @ts-check
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -32,6 +33,10 @@ const TOOLS_DIR = join(ROOT, 'tools');
 
 const view = name => readFileSync(join(VIEWS_DIR, `${name}.html`), 'utf8');
 
+/** @typedef {import('../../types/pages.js').Page} Page */
+/** @typedef {import('../../types/pages.js').Tool} Tool */
+
+/** @param {Tool[]} tools @returns {Page[]} */
 export function sitePages(tools) {
     return [
         {
@@ -72,6 +77,7 @@ export function sitePages(tools) {
     ];
 }
 
+/** @type {Page} */
 export const NOT_FOUND = { title: 'notfound.title', index: false, content: () => view('notfound') };
 
 export const STATION_PATHS = [STATIONS_PATH, `${STATIONS_PATH}/*`];
@@ -79,6 +85,7 @@ export const STATION_PATHS = [STATIONS_PATH, `${STATIONS_PATH}/*`];
 // ── Tools ───────────────────────────────────────────────────────────────────
 
 // Read every tools/<id>/ folder. See tools/README.md for the format.
+/** @returns {Tool[]} */
 export function loadTools(dir = TOOLS_DIR) {
     return readdirSync(dir)
         .filter(id => existsSync(join(dir, id, 'tool.json')))

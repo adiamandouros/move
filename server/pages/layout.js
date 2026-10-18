@@ -1,3 +1,4 @@
+// @ts-check
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -32,6 +33,10 @@ export function fill(template, values) {
 //   scripts      browser modules to load
 //   head         more for <head> (e.g. structured data)
 //   ad           where it has an ad slot (server/ads.js)
+/**
+ * @param {import('../../types/pages.js').Tool[]} tools @param {string[]} pagePaths
+ * @returns {(page: import('../../types/pages.js').RenderOptions) => string}
+ */
 export function createRenderer(tools, pagePaths) {
     const layout = readFileSync(join(VIEWS_DIR, 'layout.html'), 'utf8')
         .replace(/(href|src)="(\/[^"]+)"/g, (_, name, url) => `${name}="${versioned(url)}"`);

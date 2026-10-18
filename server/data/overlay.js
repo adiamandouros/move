@@ -13,7 +13,7 @@ import { POSITIONS } from './validate.js';
 export function readOverlay(path) {
     if (!existsSync(path)) return {};
     try { return JSON.parse(readFileSync(path, 'utf8')); }
-    catch (err) { throw new Error(`${path} is not valid JSON: ${err.message}`); }
+    catch (err) { throw new Error(`${path} is not valid JSON: ${err.message}`, { cause: err }); }
 }
 
 // Write via a temp file and rename, so a crash never leaves a half-written file

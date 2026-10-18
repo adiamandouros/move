@@ -1,3 +1,4 @@
+// @ts-check
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { readCsv, readCsvAll } from './csv.js';
@@ -20,6 +21,10 @@ export const BUS_SCHEMA = 1;
 
 const MIN_STOPS = 1000;
 
+/**
+ * @param {{ dir: string, stopTablePath?: string, today: string }} options
+ * @returns {Promise<{ data: import('../../types/data.js').BusStops, warnings: string[] }>}
+ */
 export async function buildBus({ dir, stopTablePath, today }) {
     const file = name => join(dir, name);
     const warnings = [];

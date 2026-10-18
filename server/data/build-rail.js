@@ -1,3 +1,4 @@
+// @ts-check
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { readCsv, readCsvAll } from './csv.js';
@@ -28,6 +29,10 @@ import { POSITIONS } from './validate.js';
 
 export const RAIL_SCHEMA = 1;
 
+/**
+ * @param {{ dir: string, curated: any, today: string }} options
+ * @returns {Promise<{ data: import('../../types/data.js').Rail, warnings: string[] }>}
+ */
 export async function buildRail({ dir, curated, today }) {
     const { stations, lines, positions, overrides } = curated;
     const file = name => join(dir, name);

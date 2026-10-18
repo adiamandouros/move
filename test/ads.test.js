@@ -1,8 +1,5 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
 import express from 'express';
 import { adsenseProblems } from '../server/ads.js';
 import { createPages, renderPages } from '../server/pages/index.js';
