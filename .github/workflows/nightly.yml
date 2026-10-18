@@ -1,0 +1,66 @@
+# Every night, the whole regression suite on main: lint, type checks, the
+# Node tests and the browser tests (npm run check), as on a pull request.
+# It catches what changes without a commit: the date (late-night trains, a
+# timetable running out), browsers, GitHub's runners. When it fails, an issue
+# labelled "nightly" is opened, which GitHub emails to the repository's
+# watchers, with a link to the run and its report; it's closed by the next
+# good night. Run it by hand from the Actions tab ("Run workflow").
+# (GitHub may run scheduled jobs late, and pauses them after 60 days without
+# activity in the repository.)
+name: Nightly
+
+on:
+  schedule:
+    # 00:17 UTC: 02:17 or 03:17 in Athens, when nobody is deploying
+    - cron: '17 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: nightly
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Run everything
+        id: suite
+        continue-on-error: true
+        run: npm run check
+      - name: Keep the report, screenshots and traces of failures
+        if: steps.suite.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+      - name: Open or close the nightly issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          open=$(gh issue list --label nightly --state open --json number --jq '.[0].number')
+          if [ "${{ steps.suite.outcome }}" = failure ]; then
+            if [ -z "$open" ]; then
+              gh label create nightly --color D93F0B --description "Nightly regression run" 2>/dev/null || true
+              gh issue create --title "The nightly regression run is failing" --label nightly \
+                --body "The run on main failed: $RUN (the report, screenshots and traces are under Artifacts)."
+            else
+              gh issue comment "$open" --body "Still failing: $RUN"
+            fi
+            exit 1
+          elif [ -n "$open" ]; then
+            gh issue close "$open" --comment "Passing again: $RUN"
+          fi
