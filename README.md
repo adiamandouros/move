@@ -1,6 +1,7 @@
 # Wayhop
 
-Copyright (C) 2026 adiamandouros. Licensed under the [GNU General Public License v3.0](LICENSE).
+Copyright (C) 2026 adiamandouros. Licensed under the
+[GNU Affero General Public License v3.0 or later](LICENSE) (see [License](#license)).
 
 A web app for getting around Athens by public transport, in English and Greek.
 It installs like an app, and the subway and info pages work offline.
@@ -60,3 +61,20 @@ and restarts the app.
 - [tools/README.md](tools/README.md): adding or changing a page like Subway or Buses
 - [data/curated/README.md](data/curated/README.md): the hand-maintained station data and its editor
 - [proxy/README.md](proxy/README.md): the relays for OASA's live API
+
+## License
+
+- **Code**: the [GNU Affero General Public License](LICENSE), version 3 or
+  (at your option) any later version. If you run a changed copy as a website
+  or service, you must offer its users the source code of your version.
+- **Curated data** (`data/curated/`): [CC BY-SA 4.0](data/curated/LICENSE.md).
+- **The Wayhop name and logo** aren't covered by either: see
+  [TRADEMARKS.md](TRADEMARKS.md).
+- **Other people's code and data**: see
+  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Additional permission under GNU AGPL version 3 section 7: if you modify this
+program, or any covered work, by linking or combining it with node-unrar-js
+(or a modified version of that library), containing parts covered by the
+terms of the unRAR license, the licensors of this program grant you
+additional permission to convey the resulting work.
