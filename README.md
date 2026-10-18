@@ -11,7 +11,8 @@ It installs like an app, and the subway and info pages work offline.
   OASA's timetable and which part of the train to ride in for the exit, the
   next line or an elevator.
 - **Nearby buses**: live arrivals at the bus stops around you, refreshed
-  about every 30 seconds.
+  every 30 seconds when a bus is near (less often when the next one is
+  further away).
 - **Info**: service announcements from OASA and STASY, a zoomable metro map,
   closing times, tickets, getting to the airport, night buses, accessibility
   and contacts.

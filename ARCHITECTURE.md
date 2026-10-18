@@ -125,11 +125,18 @@ the version, which replaces the whole cache.
 
 [server/oasa/](server/oasa/) is the only code that talks to OASA's live API:
 
-- `client.js`: at most 2 requests a second. Routes are tried in order:
+- `client.js`: at most 2 requests a second, in two lanes: someone's first
+  look at a stop goes ahead of refreshes. Routes are tried in order:
   direct, the Cloudflare Worker, the home relay ([proxy/README.md](proxy/README.md));
   OASA only accepts Greek addresses. A route that keeps failing rests for a day.
-- `arrivals.js`: each stop's arrivals are shared by everyone for 30 s, and
-  served for up to 5 minutes more (marked stale) when OASA can't be reached.
+- `arrivals.js`: each stop's arrivals are shared by everyone for 30 s; while
+  requests queue for OASA (over 2 s, over 5 s), for 60 s or 90 s, counted
+  down and marked stale from a minute old. When OASA can't be reached, the
+  last answer is served for up to 5 minutes.
+- The bus page ([tools/buses/client/main.js](tools/buses/client/main.js))
+  refreshes only the stops on screen, by when their next bus comes: within
+  10 minutes every 30 s, 10–20 minutes every 60 s, later or none every 2
+  minutes (an opened stop every 30 s), and counts the minutes down in between.
 - `limits.js`: each visitor may ask for 30 stops a minute that aren't cached.
 - `index.js`: `/api/arrivals`, for stops in `bus-stops.json` only.
 
