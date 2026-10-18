@@ -9,8 +9,8 @@ import { rail } from './fixtures/rail.js';
 
 // Accessibility checks on every public page as the server sends it (WCAG 2.2
 // AA basics), and on the colours in style.css. Content drawn by the pages'
-// scripts (announcements, routes, arrivals) isn't here: the "Check
-// accessibility" button on /admin/diagnostics runs axe-core on the live pages.
+// scripts (announcements, routes, arrivals) is checked in real browsers by
+// test/browser/ (axe-core and a keyboard walk on every page).
 
 const { pages, notFound, render } = renderPages();
 const tools = loadTools();

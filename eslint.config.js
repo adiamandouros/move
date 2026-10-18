@@ -5,7 +5,7 @@ import globals from 'globals';
 // unreachable code, …), with the globals of where each file runs
 export default [
     // The service worker templates have {{slots}}, so they aren't JavaScript until filled in
-    { ignores: ['node_modules/', 'data/', 'server/views/sw.js', 'admin/sw.js', 'proxy/.wrangler/'] },
+    { ignores: ['node_modules/', 'data/', 'test-results/', 'playwright-report/', 'server/views/sw.js', 'admin/sw.js', 'proxy/.wrangler/'] },
     js.configs.recommended,
     {
         languageOptions: { ecmaVersion: 'latest', sourceType: 'module' },
@@ -17,6 +17,13 @@ export default [
     {
         files: ['*.js', 'server/**', 'scripts/**', 'test/**', 'proxy/node.js'],
         languageOptions: { globals: globals.node },
+    },
+    {
+        // Browser tests run in Node, but the functions they hand the page run there
+        files: ['test/browser/**'],
+        languageOptions: { globals: { ...globals.node, ...globals.browser } },
+        // Playwright hooks that only need the test's details take ({}, testInfo)
+        rules: { 'no-empty-pattern': 'off' },
     },
     {
         files: ['public/js/**', 'tools/*/client/**', 'admin/client/**'],

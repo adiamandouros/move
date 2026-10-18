@@ -52,11 +52,11 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').then(registration => {
         // First install: say so once everything is saved for offline use.
         // (Installed iPhone apps get their own storage, so their first launch counts too.)
-        const worker = registration.installing ?? registration.waiting;
+        const worker = registration?.installing ?? registration?.waiting;
         if (hadController || !worker) return;
         const done = () => worker.state === 'activated' && toast(t('shell.offline-ready'), 'cloud-check');
         if (!done()) worker.addEventListener('statechange', done);
-    });
+    }).catch(() => { /* not allowed here (e.g. some private windows): the site works without offline use */ });
 }
 
 // ── Toast ────────────────────────────────────────────────────────────────────

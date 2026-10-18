@@ -11,3 +11,6 @@ data/cache/
 tmp/
 proxy/.dev.vars
 proxy/.wrangler/
+# Browser test output (npm run test:browser)
+test-results/
+playwright-report/
