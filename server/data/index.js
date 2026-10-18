@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { athensToday } from './calendar.js';
 import { buildBus } from './build-bus.js';
 import { buildRail } from './build-rail.js';
+import { checkOutput, shrinkage } from './check-output.js';
 import { applyOverlay, pruneOverlay, readOverlay, writeOverlay } from './overlay.js';
 import { fetchSources } from './sources.js';
 import { validateCurated } from './validate.js';
@@ -16,11 +17,17 @@ const DATA_DIR    = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'd
 export const CURATED_DIR = join(DATA_DIR, 'curated');
 // Uncommitted station edits from the admin editor (gitignored)
 export const OVERLAY_FILE = join(DATA_DIR, 'local', 'positions.json');
-const RAW_DIR     = join(DATA_DIR, 'raw');
 export const BUILD_DIR = join(DATA_DIR, 'build');
-const NEXT_DIR    = join(DATA_DIR, 'build.next');
-const PREV_DIR    = join(DATA_DIR, 'build.prev');
-const LOCK_FILE   = join(DATA_DIR, '.build.lock');
+
+// Where a build keeps its files, under a data folder (data/, or a test's own)
+const foldersIn = dataDir => ({
+    data: dataDir,
+    raw: join(dataDir, 'raw'),
+    build: join(dataDir, 'build'),
+    next: join(dataDir, 'build.next'),
+    prev: join(dataDir, 'build.prev'),
+    lock: join(dataDir, '.build.lock'),
+});
 
 // Bump when the output format or build logic changes, to force a rebuild.
 const BUILDER_VERSION = 1;
@@ -39,25 +46,34 @@ const OUTPUTS = {
     },
 };
 
-const log = msg => console.log(msg);
-
 // Fetch any changed feeds and rebuild data/build. Outputs are rebuilt when a
 // feed or a curated file changed, the builder changed, or the day changed
 // (the weekly timetable is chosen relative to today). An output that fails to
 // build keeps its previous version; the failure is recorded in meta.json.
-export async function runBuild({ force = false, offline = false } = {}) {
-    if (!acquireLock()) {
+// The other options are for tests: their own data folder and curated files,
+// a fake portal (`fetch`) and a fixed day (`today`, 'YYYYMMDD').
+export async function runBuild({
+    force = false,
+    offline = false,
+    dataDir = DATA_DIR,
+    curatedDir = CURATED_DIR,
+    overlayFile = OVERLAY_FILE,
+    fetch = globalThis.fetch,
+    today = athensToday(),
+    log = console.log,
+} = {}) {
+    const dirs = foldersIn(dataDir);
+    if (!acquireLock(dirs)) {
         log('[data] Another build is running — skipping');
         return null;
     }
     try {
-        const curated = loadCurated();
+        const curated = loadCurated({ curatedDir, overlayFile, log });
         const check = validateCurated(curated.data);
         for (const w of check.warnings) log(`[data] warning: ${w}`);
         if (check.errors.length) throw new Error(`Curated data has errors:\n  ${check.errors.join('\n  ')}`);
 
-        const sources = await fetchSources({ rawDir: RAW_DIR, offline, log });
-        const today = athensToday();
+        const sources = await fetchSources({ rawDir: dirs.raw, offline, log, fetch });
         const fingerprint = {
             builder: BUILDER_VERSION,
             curated: curated.hash,
@@ -65,15 +81,15 @@ export async function runBuild({ force = false, offline = false } = {}) {
             sources: Object.fromEntries(Object.entries(sources).map(([k, s]) => [k, s.modified ?? null])),
         };
 
-        const previous = readJson(join(BUILD_DIR, 'meta.json'));
+        const previous = readJson(join(dirs.build, 'meta.json'));
         const allOk = previous && Object.keys(OUTPUTS).every(name => previous.outputs?.[name]?.ok);
         if (!force && allOk && JSON.stringify(previous.fingerprint) === JSON.stringify(fingerprint)) {
             log('[data] Build is up to date');
             return previous;
         }
 
-        rmSync(NEXT_DIR, { recursive: true, force: true });
-        mkdirSync(NEXT_DIR, { recursive: true });
+        rmSync(dirs.next, { recursive: true, force: true });
+        mkdirSync(dirs.next, { recursive: true });
         const meta = { generated: new Date().toISOString(), fingerprint, warnings: check.warnings, outputs: {} };
 
         for (const [name, output] of Object.entries(OUTPUTS)) {
@@ -82,23 +98,26 @@ export async function runBuild({ force = false, offline = false } = {}) {
                 const missing = output.sources.filter(s => sources[s].error);
                 if (missing.length) throw new Error(`source unavailable: ${missing.map(s => `${s} (${sources[s].error})`).join(', ')}`);
                 const { data, warnings } = await output.build(sources, curated.data, today);
-                writeFileSync(join(NEXT_DIR, name), JSON.stringify(data));
+                // Never replace a good file with a broken or much smaller one (--force accepts a smaller one)
+                const problems = [...checkOutput(name, data), ...(force ? [] : shrinkage(name, data, readJson(join(dirs.build, name))))];
+                if (problems.length) throw new Error(`failed its checks: ${problems.join('; ')}`);
+                writeFileSync(join(dirs.next, name), JSON.stringify(data));
                 meta.outputs[name] = { ok: true, warnings };
                 log(`[data] Built ${name} in ${Date.now() - started} ms${warnings.length ? ` with ${warnings.length} warning(s)` : ''}`);
                 for (const w of warnings) log(`[data]   ${w}`);
             } catch (err) {
-                const kept = existsSync(join(BUILD_DIR, name));
-                if (kept) copyFileSync(join(BUILD_DIR, name), join(NEXT_DIR, name));
+                const kept = existsSync(join(dirs.build, name));
+                if (kept) copyFileSync(join(dirs.build, name), join(dirs.next, name));
                 meta.outputs[name] = { ok: false, error: err.message, keptPrevious: kept };
                 log(`[data] FAILED ${name}: ${err.message}${kept ? ' — keeping the previous version' : ''}`);
             }
         }
 
-        writeFileSync(join(NEXT_DIR, 'meta.json'), JSON.stringify(meta, null, 2));
-        publish();
+        writeFileSync(join(dirs.next, 'meta.json'), JSON.stringify(meta, null, 2));
+        publish(dirs);
         return meta;
     } finally {
-        rmSync(LOCK_FILE, { force: true });
+        rmSync(dirs.lock, { force: true });
     }
 }
 
@@ -116,7 +135,7 @@ export function runBuildInChild({ force = false, offline = false } = {}) {
         // Lower priority than the server (19 is the lowest), so visitors come first
         try { setPriority(child.pid, Math.min(19, getPriority() + 10)); } catch { /* not allowed here: same priority, still a separate process */ }
         child.on('error', err => {
-            log(`[data] Couldn't start the build: ${err.message}`);
+            console.log(`[data] Couldn't start the build: ${err.message}`);
             resolve('failed');
         });
         child.on('exit', code => resolve(code === 0 ? 'built' : code === BUSY_EXIT_CODE ? 'busy' : 'failed'));
@@ -148,22 +167,22 @@ export function rebuildSoon() {
 
 // Move each file from build.next into build with an atomic rename, so the
 // server never serves a half-written file. The replaced files go to build.prev.
-function publish() {
-    mkdirSync(BUILD_DIR, { recursive: true });
-    rmSync(PREV_DIR, { recursive: true, force: true });
-    mkdirSync(PREV_DIR);
+function publish(dirs) {
+    mkdirSync(dirs.build, { recursive: true });
+    rmSync(dirs.prev, { recursive: true, force: true });
+    mkdirSync(dirs.prev);
     for (const name of [...Object.keys(OUTPUTS), 'meta.json']) {
-        const next = join(NEXT_DIR, name);
+        const next = join(dirs.next, name);
         if (!existsSync(next)) continue;
-        if (existsSync(join(BUILD_DIR, name))) copyFileSync(join(BUILD_DIR, name), join(PREV_DIR, name));
-        renameSync(next, join(BUILD_DIR, name));
+        if (existsSync(join(dirs.build, name))) copyFileSync(join(dirs.build, name), join(dirs.prev, name));
+        renameSync(next, join(dirs.build, name));
     }
-    rmSync(NEXT_DIR, { recursive: true, force: true });
+    rmSync(dirs.next, { recursive: true, force: true });
 }
 
 // Read the curated files and apply the editor's overlay on top of positions.
 // Overlay entries that the committed positions.json now matches are pruned.
-export function loadCurated({ curatedDir = CURATED_DIR, overlayFile = OVERLAY_FILE } = {}) {
+export function loadCurated({ curatedDir = CURATED_DIR, overlayFile = OVERLAY_FILE, log = console.log } = {}) {
     const hash = createHash('sha256');
     const data = {};
     for (const name of ['stations', 'lines', 'positions', 'overrides']) {
@@ -184,19 +203,19 @@ export function loadCurated({ curatedDir = CURATED_DIR, overlayFile = OVERLAY_FI
     return { data, committed, overlay, hash: hash.digest('hex') };
 }
 
-function acquireLock() {
-    mkdirSync(DATA_DIR, { recursive: true });
+function acquireLock(dirs) {
+    mkdirSync(dirs.data, { recursive: true });
     try {
-        writeFileSync(LOCK_FILE, String(process.pid), { flag: 'wx' });
+        writeFileSync(dirs.lock, String(process.pid), { flag: 'wx' });
         return true;
     } catch (err) {
         if (err.code !== 'EEXIST') throw err;
         // A lock left behind by a crashed or killed process doesn't count
-        const holder = Number(readFileSync(LOCK_FILE, 'utf8'));
-        const fresh = Date.now() - statSync(LOCK_FILE).mtimeMs < LOCK_STALE_MS;
+        const holder = Number(readFileSync(dirs.lock, 'utf8'));
+        const fresh = Date.now() - statSync(dirs.lock).mtimeMs < LOCK_STALE_MS;
         if (fresh && isRunning(holder)) return false;
-        rmSync(LOCK_FILE, { force: true });
-        return acquireLock();
+        rmSync(dirs.lock, { force: true });
+        return acquireLock(dirs);
     }
 }
 
