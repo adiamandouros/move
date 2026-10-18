@@ -3,17 +3,8 @@ import { icon } from '/js/core/html.js';
 import { t } from '/js/core/i18n.js';
 import { decodeStops, distanceMeters, nearestStops } from './stops.js';
 import { message, patchStop, stopItem } from './render.js';
+import { countDown, elapsedMinutes, refreshEvery as refreshFor } from './timing.js';
 
-// How often a stop is refreshed, by when its next bus comes: [up to minutes,
-// every ms], and REFRESH_SLOW_MS for later buses or none. An opened stop, and
-// one whose times couldn't be fetched, always at the fastest. Approved
-// 2026-10-18, so OASA's 2 requests a second go further (see also
-// server/oasa/arrivals.js); between refreshes the minutes count down here.
-const REFRESH = [[10, 30_000], [20, 60_000]];
-const REFRESH_SLOW_MS = 120_000;
-// The server keeps each stop's arrivals for 30 s; the extra 2 s make sure the
-// previous answer has expired (at exactly 30 s we could get the same data)
-const SLACK_MS = 2_000;
 // How often the page checks which stops are due, and counts the minutes down
 const TICK_MS = 1_000;
 // Stop polling when nobody has touched the page for this long
@@ -123,27 +114,15 @@ function pickStops() {
 }
 
 // Whole minutes since a stop's answer came in
-const elapsed = code => state.fetched[code] ? Math.floor((Date.now() - state.fetched[code]) / 60_000) : 0;
+const elapsed = code => elapsedMinutes(state.fetched[code], Date.now());
 
 // A stop's answer, counted down to now (between refreshes it can be 2 minutes old)
-function shown(code) {
-    const result = state.results[code];
-    const minutes = elapsed(code);
-    if (!minutes || !result?.arrivals?.length) return result;
-    return { ...result, arrivals: result.arrivals.map(a => ({ ...a, minutes: a.minutes - minutes })).filter(a => a.minutes >= 0) };
-}
+const shown = code => countDown(state.results[code], elapsed(code));
 
 const itemOf = code => accordion.querySelector(`[data-stop="${code}"]`);
 
-// How long a stop's answer is good for (see REFRESH)
-function refreshEvery(code) {
-    const result = shown(code);
-    const opened = itemOf(code)?.querySelector('.stop-toggle[aria-expanded="true"]');
-    if (!result || result.unavailable || opened) return REFRESH[0][1] + SLACK_MS;
-    const next = result.arrivals[0]?.minutes;
-    const tier = next === undefined ? null : REFRESH.find(([upTo]) => next <= upTo);
-    return (tier?.[1] ?? REFRESH_SLOW_MS) + SLACK_MS;
-}
+// How long a stop's answer is good for (timing.js)
+const refreshEvery = code => refreshFor(shown(code), { opened: Boolean(itemOf(code)?.querySelector('.stop-toggle[aria-expanded="true"]')) });
 
 // Which stops are on screen: only those are refreshed (and asked for at once
 // when they scroll into view)
