@@ -36,8 +36,8 @@ export const SOURCES = {
 //
 // Returns { [source]: { dir, files: { name: path }, modified } } or
 // { [source]: { error } } when a source can't be fetched and there is no
-// earlier copy to fall back on.
-export async function fetchSources({ rawDir, offline = false, log = console.log }) {
+// earlier copy to fall back on. `fetch` reaches the portal (tests pass a fake).
+export async function fetchSources({ rawDir, offline = false, log = console.log, fetch = globalThis.fetch }) {
     const result = {};
     for (const [key, source] of Object.entries(SOURCES)) {
         const dir = join(rawDir, key);
@@ -45,7 +45,7 @@ export async function fetchSources({ rawDir, offline = false, log = console.log 
         try {
             result[key] = offline
                 ? useLocal(dir, source)
-                : await syncSource(dir, source, log);
+                : await syncSource(dir, source, log, fetch);
         } catch (err) {
             try {
                 result[key] = useLocal(dir, source);
@@ -59,7 +59,7 @@ export async function fetchSources({ rawDir, offline = false, log = console.log 
     return result;
 }
 
-async function syncSource(dir, source, log) {
+async function syncSource(dir, source, log, fetch) {
     const res = await fetch(CKAN_API + source.dataset, {
         headers: { 'User-Agent': USER_AGENT },
         signal: AbortSignal.timeout(API_TIMEOUT_MS),
@@ -87,7 +87,7 @@ async function syncSource(dir, source, log) {
         const known = manifest[spec.out];
         if (!known || known.url !== resource.url || known.version !== version || !existsSync(dest)) {
             log(`[data] Downloading ${resource.url}`);
-            await download(resource.url, dest, spec.out);
+            await download(resource.url, dest, spec.out, fetch);
             manifest[spec.out] = { url: resource.url, version };
             writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
         }
@@ -116,7 +116,7 @@ function useLocal(dir, source) {
     return { dir, files, modified };
 }
 
-async function download(url, dest, wanted) {
+async function download(url, dest, wanted, fetch) {
     const tmp = `${dest}.download`;
     const res = await fetch(url, {
         headers: { 'User-Agent': USER_AGENT },
