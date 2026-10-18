@@ -25,7 +25,7 @@ const PAGES = [
 async function openInfo(doc) {
     // Twice: the station list's toggle only exists once the map section is open
     for (let i = 0; i < 2; i++) {
-        doc.querySelectorAll('.info-toggle[aria-expanded="false"]').forEach(b => b.click());
+        doc.querySelectorAll('.accordion-button.collapsed').forEach(b => b.click());
         await sleep(800);
     }
 }

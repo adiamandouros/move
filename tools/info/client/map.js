@@ -84,8 +84,8 @@ export function createMetroMap(container, rail) {
             ${button('out', 'info.zoom-out', 'dash-lg')}
             ${button('reset', 'info.zoom-reset', 'arrows-angle-contract')}
         </div>
-        <svg xmlns="${NS}" role="img" aria-label="${t('info.map-label')}" aria-describedby="map-help" tabindex="0"></svg>`;
-    const svg = container.querySelector('svg');
+        <svg xmlns="${NS}" class="map-svg" role="img" aria-label="${t('info.map-label')}" aria-describedby="map-help" tabindex="0"></svg>`;
+    const svg = container.querySelector('.map-svg');
 
     let base;   // the whole map, as a viewBox
     let view;   // the visible part

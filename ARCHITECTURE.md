@@ -59,6 +59,17 @@ writes one, on the server or in the browser; static views write
 `<svg class="bi" aria-hidden="true"><use href="/icons.svg#name"></use></svg>`.
 The server adds the version to every `/icons.svg` link.
 
+Styles are Bootstrap 5.3 (from `node_modules`, no build step) plus
+`public/css/style.css`. Wayhop's colours are Bootstrap's CSS variables, set
+once per colour mode at the top of `style.css` (`--wh-` ones for Wayhop's
+own components); rules use the variable names, never colour values, and
+`test/accessibility.test.js` checks their contrast. Use Bootstrap's
+components (accordion, card, toast, buttons) and utilities, themed through
+their `--bs-` variables; `style.css` is for what Bootstrap doesn't have
+(the train diagram, the map, arrival badges, the navigation). Bootstrap's
+JavaScript is the build without Popper: collapse and toast are all the
+pages use.
+
 ### Text in two languages
 
 - **Short text**: `data-i18n="key"` on an element sets its text, and

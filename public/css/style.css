@@ -242,14 +242,8 @@ body {
 }
 
 .tool-tile {
-    display: flex;
-    flex-direction: column;
     gap: 4px;
     padding: 16px;
-    border-radius: 12px;
-    background-color: var(--bs-tertiary-bg);
-    border: 1px solid var(--wh-divider);
-    color: var(--bs-body-color);
     text-decoration: none;
     transition: border-color 0.15s, background-color 0.15s;
 }
@@ -276,6 +270,26 @@ body {
 .tool-tile-desc {
     font-size: 0.875rem;
     color: var(--bs-secondary-color);
+}
+
+/* ── Bootstrap's components, in Wayhop's colours ── */
+
+/* Cards: the page's raised surface */
+.card {
+    --bs-card-bg: var(--bs-tertiary-bg);
+    --bs-card-border-color: var(--bs-border-color);
+    --bs-card-border-radius: 12px;
+    --bs-card-inner-border-radius: 11px;
+    --bs-card-color: var(--bs-body-color);
+}
+
+/* The accordion's chevron in the text's colour (Bootstrap draws a picture
+   of a fixed blue one) */
+.accordion .accordion-button::after {
+    --bs-accordion-btn-icon: none;
+    --bs-accordion-btn-active-icon: none;
+    background-color: currentColor;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 /* ── Utility ── */
@@ -685,10 +699,8 @@ body {
 
 /* Result card */
 .result-card {
-    background-color: var(--bs-tertiary-bg);
-    border: 1px solid var(--bs-border-color);
-    border-radius: 12px;
-    padding: 20px;
+    --bs-card-spacer-x: 20px;
+    --bs-card-spacer-y: 20px;
 }
 
 .line-badge {
@@ -950,75 +962,58 @@ body {
     padding: 24px 16px;
 }
 
-.info-section {
-    background-color: var(--bs-tertiary-bg);
-    border: 1px solid var(--bs-border-color);
-    border-radius: 12px;
+/* The sections are Bootstrap's accordion, as separate cards */
+.info-accordion {
+    --bs-accordion-bg: var(--bs-tertiary-bg);
+    --bs-accordion-border-radius: 12px;
+    --bs-accordion-inner-border-radius: 11px;
+    --bs-accordion-btn-padding-x: 16px;
+    --bs-accordion-btn-padding-y: 14px;
+    --bs-accordion-btn-icon-width: 1rem;
+    --bs-accordion-body-padding-x: 16px;
+    --bs-accordion-body-padding-y: 16px;
+    --bs-accordion-active-color: var(--bs-body-color);
+    --bs-accordion-active-bg: transparent;
+    /* Inside, so the card's rounded corners don't cut it off */
+    --bs-accordion-btn-focus-box-shadow: inset var(--focus-ring);
+}
+
+.info-accordion > .accordion-item {
     margin-bottom: 12px;
+    border-top: var(--bs-accordion-border-width) solid var(--bs-accordion-border-color);
+    border-radius: var(--bs-accordion-border-radius);
+    overflow: hidden;
 }
 
-.info-heading {
-    margin: 0;
-    font-size: 1rem;
-}
-
-/* The button that opens and closes a section (see tools/info/client/main.js) */
-.info-toggle {
-    display: flex;
-    align-items: center;
+.info-accordion .accordion-button {
     gap: 12px;
-    width: 100%;
-    padding: 14px 16px;
-    font: inherit;
     font-weight: 600;
-    color: inherit;
-    text-align: left;
-    background: none;
-    border: 0;
-    border-radius: 12px;
 }
 
-.info-toggle::after {
-    content: "";
-    width: 1em;
-    height: 1em;
-    /* Bootstrap Icons' chevron-down, in the text's colour */
-    background-color: currentColor;
-    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708'/%3E%3C/svg%3E") center / contain no-repeat;
-    margin-left: auto;
-    transition: transform 0.15s;
-}
-
-.info-toggle[aria-expanded="true"]::after {
-    transform: rotate(180deg);
-}
-
-.info-toggle:focus-visible {
-    box-shadow: var(--focus-ring);
-    outline: none;
-}
-
-.info-toggle .bi {
+.info-accordion .accordion-button > .bi {
     color: var(--bs-primary);
     font-size: 1.2rem;
 }
 
 /* A smaller toggle inside a section, styled like its sub-headings */
-.info-toggle-small {
-    padding: 8px 0;
-    font-size: inherit;
+.info-accordion .info-subtoggle {
+    --bs-accordion-btn-padding-x: 0;
+    --bs-accordion-btn-padding-y: 8px;
+    font: inherit;
     letter-spacing: inherit;
     text-transform: inherit;
     color: inherit;
+    background: none;
     border-radius: 4px;
+    box-shadow: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .info-toggle::after { transition: none; }
+.info-accordion .info-subtoggle:focus-visible {
+    box-shadow: var(--focus-ring);
 }
 
+/* Text in a section or card: the Info page's and the home page's */
 .info-body {
-    padding: 0 16px 16px;
     font-size: 0.95rem;
 }
 
@@ -1122,7 +1117,7 @@ body {
     overflow: hidden;
 }
 
-.metro-map svg {
+.metro-map .map-svg {
     display: block;
     width: 100%;
     height: auto;
@@ -1131,12 +1126,12 @@ body {
     -webkit-user-select: none;
 }
 
-.metro-map.zoomed svg {
+.metro-map.zoomed .map-svg {
     touch-action: none;
     cursor: grab;
 }
 
-.metro-map svg:focus-visible {
+.metro-map .map-svg:focus-visible {
     outline: none;
     box-shadow: inset var(--focus-ring);
 }
@@ -1221,30 +1216,27 @@ body {
 /* ── Toast (core/shell.js) ── */
 
 .toast-message {
+    --bs-toast-bg: var(--bs-secondary-bg);
+    --bs-toast-border-color: var(--bs-border-color);
+    --bs-toast-border-radius: 24px;
+    --bs-toast-font-size: 0.9rem;
+    --bs-toast-padding-x: 16px;
+    --bs-toast-padding-y: 10px;
+    --bs-toast-max-width: calc(100% - 32px);
+    --bs-toast-box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
     position: fixed;
     left: 50%;
     bottom: calc(var(--bottom-nav-height) + 16px);
     z-index: 1050;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    max-width: calc(100% - 32px);
-    padding: 10px 16px;
-    font-size: 0.9rem;
-    color: var(--bs-body-color);
-    background-color: var(--bs-secondary-bg);
-    border: 1px solid var(--bs-border-color);
-    border-radius: 24px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-    opacity: 0;
-    transform: translate(-50%, 8px);
-    transition: opacity 0.3s, transform 0.3s;
+    width: auto;
+    transform: translateX(-50%);
     pointer-events: none;
 }
 
-.toast-message.show {
-    opacity: 1;
-    transform: translate(-50%, 0);
+.toast-message .toast-body {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .toast-message .bi {
@@ -1259,22 +1251,15 @@ body {
     }
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .toast-message { transition: none; }
-}
-
 /* ── Home ── */
 
 /* "Get the Wayhop app" (install.js) */
 .install-card {
-    display: flex;
+    flex-direction: row;
     align-items: flex-start;
     gap: 14px;
     margin-bottom: 1rem;
     padding: 14px 4px 14px 16px;
-    background-color: var(--bs-tertiary-bg);
-    border: 1px solid var(--bs-border-color);
-    border-radius: 12px;
 }
 
 .install-card[hidden] {

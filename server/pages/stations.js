@@ -123,10 +123,10 @@ function directionCard(rail, w, lineId, dirId, id, n) {
             </table>` : '';
 
     return `
-        <div class="result-card station-direction" role="group" aria-labelledby="${headingId}">
+        <div class="card result-card station-direction" role="group" aria-labelledby="${headingId}"><div class="card-body">
             <h3 class="leg-title" id="${headingId}"><span aria-hidden="true">→ </span>${escapeHtml(format(s('stations.toward'), { name: toward }))}</h3>
             <ul class="list-unstyled small station-neighbours">${neighbours}</ul>${arriving}${timetable}
-        </div>`;
+        </div></div>`;
 }
 
 /** @param {Rail} rail @param {string} id @param {Lang} lang @param {import('../../types/pages.js').Tool[]} tools */

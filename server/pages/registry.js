@@ -113,7 +113,7 @@ export function loadTools(dir = TOOLS_DIR) {
 
 // The offline page's links to the tools that work offline
 function tiles(tools) {
-    return tools.map(tool => `        <a href="${tool.path}" class="tool-tile">
+    return tools.map(tool => `        <a href="${tool.path}" class="card tool-tile">
             ${icon(tool.icon)}
             <span class="tool-tile-title" data-i18n="tool.${tool.id}.title">${tool.title.en}</span>
             <span class="tool-tile-desc" data-i18n="tool.${tool.id}.description">${tool.description?.en ?? ''}</span>

@@ -24,7 +24,7 @@ export const VENDOR = {
 // Files every page needs, cached by the service worker on install
 const SHELL_FILES = [
     '/vendor/bootstrap/css/bootstrap.min.css',
-    '/vendor/bootstrap/js/bootstrap.bundle.min.js',
+    '/vendor/bootstrap/js/bootstrap.min.js',
     '/icons.svg',
 ];
 const SHELL_DIRS = ['css', 'icon', join('js', 'core')];

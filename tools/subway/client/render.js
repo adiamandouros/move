@@ -29,7 +29,7 @@ function legCard(rail, leg, next, now, level) {
         : `${icon('door-open', 'me-2')}${t('subway.exit-at')} <strong>${stationName(rail, leg.to)}</strong>`;
 
     return `
-        <div class="result-card">
+        <div class="card result-card"><div class="card-body">
             <div class="result-header d-flex align-items-center gap-2 mb-2">
                 <h${level} class="leg-title">
                     ${lineBadge(line)}
@@ -45,7 +45,7 @@ function legCard(rail, leg, next, now, level) {
                 ? trainDiagram(rail.positions, exits, elevators, t)
                 : `<p class="text-body-secondary fst-italic small">${t('subway.no-position-data')}</p>`}
             ${stop.note ? `<div class="stop-note mt-3">${icon('info-circle', 'me-1')}${escapeHtml(stop.note)}</div>` : ''}
-        </div>`;
+        </div></div>`;
 }
 
 function routeBlock(rail, route, index, total, now) {
