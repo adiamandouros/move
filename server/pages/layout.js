@@ -1,9 +1,10 @@
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { escapeHtml } from '../../public/js/core/html.js';
 import { adSlot, adsenseMeta } from '../ads.js';
 import { importMap, versioned } from './assets.js';
-import { escapeAttr, escapeText, LANGS, localPath, otherLang, pageStrings, translate } from './i18n.js';
+import { LANGS, localPath, otherLang, pageStrings, translate } from './i18n.js';
 import { metaTags } from './seo.js';
 
 // The layout every page shares (server/views/layout.html): the head, the
@@ -47,7 +48,7 @@ export function createRenderer(tools, pagePaths) {
         return translate(fill(layout, {
             lang,
             languageRedirect: languageRedirect(lang, path),
-            title: escapeText(fullTitle),
+            title: escapeHtml(fullTitle),
             meta: [metaTags({ path, index, lang, title: fullTitle, description }), adsenseMeta()].filter(Boolean).join('\n'),
             head,
             importMap: imports,
@@ -91,7 +92,7 @@ function languageLink(lang, path, variant) {
         ? ['                    ', 'lang-toggle-btn btn d-flex align-items-center gap-3 px-3 py-2 w-100', 5]
         : ['        ', 'nav-btn lang-toggle-btn btn d-flex flex-column align-items-center py-2', 4];
     const options = LANGS.map(l => `<span class="lang-opt${l === lang ? ' active' : ''}">${LANGUAGE_LABELS[l]}</span>`).join('<span class="lang-sep">/</span>');
-    return `${indent}<a href="${escapeAttr(localPath(path, other))}" hreflang="${other}" class="${cls}">
+    return `${indent}<a href="${escapeHtml(localPath(path, other))}" hreflang="${other}" class="${cls}">
 ${indent}    <i class="bi bi-globe fs-${size}" aria-hidden="true"></i>
 ${indent}    <span class="sr-only" lang="${other}">${LANGUAGE_NAMES[other]}</span>
 ${indent}    <span class="lang-options" aria-hidden="true">${options}</span>

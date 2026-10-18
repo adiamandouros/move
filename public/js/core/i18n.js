@@ -16,8 +16,3 @@ export function t(key) {
 export function localHref(href) {
     return language === 'el' ? `/el${href === '/' ? '' : href}` : href;
 }
-
-// Fill {name} placeholders: format(t('subway.ride'), { min: 12 })
-export function format(text, values) {
-    return text.replace(/\{(\w+)\}/g, (match, key) => values[key] ?? match);
-}

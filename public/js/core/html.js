@@ -1,6 +1,14 @@
-// Escape text for safe use inside HTML built with template strings
+// Helpers for building HTML with template strings, shared by the browser and
+// the server (which imports this file from public/js/core/)
+
+// Escape text for safe use inside HTML, as text or in an attribute
 export function escapeHtml(text) {
     return String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+}
+
+// Fill {name} placeholders: format(t('subway.ride'), { min: 12 })
+export function format(text, values) {
+    return text.replace(/\{(\w+)\}/g, (match, key) => values[key] ?? match);
 }
 
 // Text colour for a label on `background` (#rrggbb): whichever of white and

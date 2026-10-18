@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { escapeHtml } from '../../public/js/core/html.js';
 
 // Languages: every page exists in English at its plain path and in Greek
 // under /el, and is rendered on the server in its language (browsers get it
@@ -13,9 +14,6 @@ export const langOf = path => /^\/el(\/|$)/.test(path) ? 'el' : 'en';
 export const otherLang = lang => lang === 'el' ? 'en' : 'el';
 export const basePath = path => path.replace(/^\/el(?=\/|$)/, '') || '/';
 export const localPath = (path, lang) => lang === 'el' ? (path === '/' ? '/el' : `/el${path}`) : path;
-
-export const escapeAttr = text => String(text).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-export const escapeText = text => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // ── Strings ─────────────────────────────────────────────────────────────────
 
@@ -67,11 +65,11 @@ export function translate(html, lang, get, pagePaths) {
             if (!get(key)) return match;
             // Keep the spaces around the text, e.g. before "(opens in a new tab)"
             const [, before, after] = text.match(/^(\s*)[\s\S]*?(\s*)$/);
-            return open + before + escapeText(get(key)) + after + close;
+            return open + before + escapeHtml(get(key)) + after + close;
         })
         .replace(/<[a-z][^>]*>/g, tag => {
             for (const [, name, key] of tag.matchAll(/\sdata-i18n-([a-z-]+)="([^"]+)"/g)) {
-                if (get(key)) tag = tag.replace(new RegExp(`(\\s${name}=")[^"]*"`), `$1${escapeAttr(get(key))}"`);
+                if (get(key)) tag = tag.replace(new RegExp(`(\\s${name}=")[^"]*"`), `$1${escapeHtml(get(key))}"`);
             }
             return tag;
         });

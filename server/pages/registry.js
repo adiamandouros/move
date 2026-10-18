@@ -1,8 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { escapeHtml } from '../../public/js/core/html.js';
 import { adsenseClient } from '../ads.js';
-import { escapeAttr, escapeText } from './i18n.js';
 import { fill } from './layout.js';
 import { appData } from './seo.js';
 import { STATIONS_PATH } from './stations.js';
@@ -128,5 +128,5 @@ const adsVariant = (html, ads) => html.replace(/<!-- (with|without) ads -->\n([\
 function contactEmail(s) {
     const email = process.env.CONTACT_EMAIL;
     if (!email) return '';
-    return `    <p class="contact-email"><i class="bi bi-envelope me-2" aria-hidden="true"></i>${s('contact.email')} <a href="mailto:${escapeAttr(email)}">${escapeText(email)}</a></p>`;
+    return `    <p class="contact-email"><i class="bi bi-envelope me-2" aria-hidden="true"></i>${s('contact.email')} <a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></p>`;
 }

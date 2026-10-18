@@ -1,34 +1,9 @@
-import { format, language, t } from '/js/core/i18n.js';
-import { escapeHtml, textOn } from '/js/core/html.js';
+import { language, t } from '/js/core/i18n.js';
+import { escapeHtml, format } from '/js/core/html.js';
+import { lineBadge, trainDiagram } from '/js/core/metro.js';
 import { legPositions } from './network.js';
 
 const stationName = (rail, id) => escapeHtml(rail.stations[id].name[language] ?? rail.stations[id].name.en);
-
-function trainDiagram(rail, exits, elevators) {
-    const label = p => t(`subway.pos.${p}`);
-    const described = [
-        ...exits.map(label),
-        ...elevators.map(p => `${label(p)} (${t('subway.elevator')})`),
-    ].join(', ');
-    const cls = p => `${exits.includes(p) ? ' highlighted' : ''}${elevators.includes(p) ? ' has-elevator' : ''}`;
-    return `
-        <div class="train-diagram" role="img" aria-label="${escapeHtml(`${t('subway.diagram-label')} ${described}`)}">
-            <div class="train-label" aria-hidden="true">${t('subway.train-back')}</div>
-            <div class="train-cars-wrap" aria-hidden="true">
-                <div class="train-cars">
-                    ${rail.positions.map(p => `
-                        <div class="train-car${cls(p)}">
-                            ${exits.includes(p) ? '<i class="bi bi-person-walking"></i>' : ''}
-                            ${elevators.includes(p) ? '<i class="bi bi-arrow-up-square"></i>' : ''}
-                        </div>`).join('')}
-                </div>
-                <div class="position-labels">
-                    ${rail.positions.map(p => `<div class="position-label${cls(p)}">${label(p)}</div>`).join('')}
-                </div>
-            </div>
-            <div class="train-label" aria-hidden="true">${t('subway.train-front')}</div>
-        </div>`;
-}
 
 function departureChips(departures, now) {
     if (!departures.length) return `<span class="schedule-label">${t('subway.no-trains')}</span>`;
@@ -57,7 +32,7 @@ function legCard(rail, leg, next, now, level) {
         <div class="result-card">
             <div class="result-header d-flex align-items-center gap-2 mb-2">
                 <h${level} class="leg-title">
-                    <span class="line-badge" style="background-color: ${line.color}; color: ${textOn(line.color)}">${line.name}</span>
+                    ${lineBadge(line)}
                     <span class="direction-text"><span aria-hidden="true">→ </span><span class="sr-only">${t('subway.toward')} </span>${toward}</span>
                 </h${level}>
                 <div class="schedule-section ms-auto">${departureChips(leg.departures, now)}</div>
@@ -67,7 +42,7 @@ function legCard(rail, leg, next, now, level) {
                 ${stop.centralPlatform ? `<span class="central-platform-badge ms-2"><i class="bi bi-symmetry-horizontal me-1" aria-hidden="true"></i>${t('subway.exit-left')}</span>` : ''}
             </div>
             ${exits.length
-                ? trainDiagram(rail, exits, elevators)
+                ? trainDiagram(rail.positions, exits, elevators, t)
                 : `<p class="text-muted fst-italic small">${t('subway.no-position-data')}</p>`}
             ${stop.note ? `<div class="stop-note mt-3"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>${escapeHtml(stop.note)}</div>` : ''}
         </div>`;
