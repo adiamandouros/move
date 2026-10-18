@@ -4,18 +4,41 @@ import { t } from './i18n.js';
 // tool's own script is loaded separately by its page, and only the pages
 // that use the location start it (/js/core/location.js).
 
-// ── Language link ────────────────────────────────────────────────────────────
+// ── Language ─────────────────────────────────────────────────────────────────
 
-// The language link opens this page in the other language. Remember the
-// choice, so pages open in it from now on (see languageRedirect in
-// server/pages/layout.js), and keep this page's state, like the stations
-// chosen on the subway page, which lives in the address.
-document.querySelectorAll('.lang-toggle-btn').forEach(link => {
+const storage = {
+    get: key => { try { return localStorage.getItem(key); } catch { return null; } },
+    set: (key, value) => { try { localStorage.setItem(key, value); } catch { /* storage blocked: just this page */ } },
+};
+
+// The language links (sidebar, footer, suggestion: the links with hreflang)
+// open this page in the other language. Remember the choice, so pages open in
+// it from now on (see languageRedirect in server/pages/layout.js), and keep
+// this page's state, like the stations chosen on the subway page, which lives
+// in the address.
+document.querySelectorAll('a[hreflang]').forEach(link => {
     link.addEventListener('click', () => {
-        try { localStorage.setItem('language', link.hreflang); } catch { /* storage blocked: just this page */ }
+        storage.set('language', link.hreflang);
         link.href = link.pathname + location.search + location.hash;
     });
 });
+
+// Offer the other language once, to someone whose browser prefers it and who
+// hasn't chosen a language (on phones the language link is down in the footer)
+const suggestion = document.querySelector('.lang-suggest');
+if (suggestion && !storage.get('language') && !storage.get('language-suggested')) {
+    const preferred = (navigator.languages ?? [navigator.language])
+        .map(l => l?.slice(0, 2).toLowerCase())
+        .find(l => l === 'en' || l === 'el');
+    if (preferred && preferred !== document.documentElement.lang) {
+        suggestion.hidden = false;
+        suggestion.querySelector('button').addEventListener('click', () => {
+            suggestion.hidden = true;
+            storage.set('language-suggested', '1');
+            document.getElementById('app-content').focus();
+        });
+    }
+}
 
 // ── Service worker ───────────────────────────────────────────────────────────
 
