@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { athensNow, departures, findRoutes, isTimetableExpired, legPositions, planJourney } from '../tools/subway/client/network.js';
+import { athensNow, departures, findRoutes, isTimetableExpired, legPositions, nextDay, planJourney, planTrip } from '../tools/subway/client/network.js';
 
 const H = 3600;
 const everyDay = patternIndex => [0, 0, 0, 0, 0, 0, 0].map(() => patternIndex);
@@ -77,6 +77,37 @@ test('planJourney times the second leg from the first arrival plus a change', ()
     // Arrive at x 08:05, change takes 3 min, so 08:06:40 is missed and 08:10 is the first train
     assert.equal(plan.legs[1].departures[0].departs, 8 * H + 600);
     assert.equal(plan.arrives, 8 * H + 840);
+});
+
+test('planTrip plans for now while a route still gets there today', () => {
+    const now = { weekday: 3, seconds: 8 * H, date: '2026-10-14' };
+    const trip = planTrip(rail, 'a', 'c', now);
+    assert.equal(trip.tomorrow, false);
+    assert.equal(trip.now, now);
+    assert.equal(trip.plans[0].arrives, 8 * H + 840);
+});
+
+test("after the last train, planTrip plans tomorrow's first trains of the day", () => {
+    // 10:00: line 1 still runs (until 00:30) but line 2's last train left at 08:15
+    const trip = planTrip(rail, 'a', 'c', { weekday: 3, seconds: 10 * H, date: '2026-10-14' });
+    assert.equal(trip.tomorrow, true);
+    assert.deepEqual(trip.now, { weekday: 4, seconds: 0, date: '2026-10-15' });
+    // Not tonight's 00:30 on line 1 (that would mean waiting at x until 08:06),
+    // but tomorrow's 08:00, which makes the 08:10 change
+    const [plan] = trip.plans;
+    assert.deepEqual(plan.legs.map(l => l.departures[0].departs), [8 * H, 8 * H + 600]);
+    assert.equal(plan.arrives, 8 * H + 840);
+    // A direct trip after its last train is planned for tomorrow too
+    const direct = planTrip(rail, 'a', 'b', { weekday: 3, seconds: 24.6 * H, date: '2026-10-14' });
+    assert.equal(direct.tomorrow, true);
+    assert.equal(direct.plans[0].legs[0].departures[0].departs, 8 * H);
+    // No route at all: nothing to plan for tomorrow either
+    assert.deepEqual(planTrip(rail, 'b', 'a', { weekday: 3, seconds: 10 * H, date: '2026-10-14' }).plans, []);
+});
+
+test('nextDay moves to the next date and weekday, over months and years', () => {
+    assert.deepEqual(nextDay({ weekday: 6, seconds: 80_000, date: '2026-10-31' }), { weekday: 0, seconds: 0, date: '2026-11-01' });
+    assert.deepEqual(nextDay({ weekday: 4, seconds: 1, date: '2026-12-31' }), { weekday: 5, seconds: 0, date: '2027-01-01' });
 });
 
 test('legPositions uses transfer positions at interchanges', () => {

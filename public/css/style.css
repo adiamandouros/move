@@ -637,6 +637,16 @@ body {
     display: none;
 }
 
+/* After the last train: the plan is for tomorrow's first trains */
+.tomorrow-notice {
+    font-size: 0.85rem;
+    color: var(--bs-secondary-color);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+}
+
 .timetable-notice {
     font-size: 0.8rem;
     color: var(--bs-warning);
