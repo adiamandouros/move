@@ -5,7 +5,7 @@ import globals from 'globals';
 // unreachable code, …), with the globals of where each file runs
 export default [
     // The service worker templates have {{slots}}, so they aren't JavaScript until filled in
-    { ignores: ['node_modules/', 'data/', 'test-results/', 'playwright-report/', 'server/views/sw.js', 'admin/sw.js', 'proxy/.wrangler/'] },
+    { ignores: ['node_modules/', 'data/', 'test-results/', 'playwright-report/', 'test-results-live/', 'playwright-report-live/', 'server/views/sw.js', 'admin/sw.js', 'proxy/.wrangler/'] },
     js.configs.recommended,
     {
         languageOptions: { ecmaVersion: 'latest', sourceType: 'module' },

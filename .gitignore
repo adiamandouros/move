@@ -14,3 +14,5 @@ proxy/.wrangler/
 # Browser test output (npm run test:browser)
 test-results/
 playwright-report/
+test-results-live/
+playwright-report-live/

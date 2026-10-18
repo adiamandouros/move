@@ -198,6 +198,11 @@ and on `main` (`.github/workflows/checks.yml`), with Node 20 and 22.
   page's requests, the planner at night and offline use. See
   [test/browser/README.md](test/browser/README.md). The app itself is
   `server/app.js`; `server.js` only starts it.
+
+Every night `.github/workflows/nightly.yml` runs `npm run check` on `main`,
+and `npm run test:live` (`test/live/`): a few checks against wayhop.gr with
+its real data and live bus times, the bus page opened once. Either failing
+opens an issue labelled "nightly".
 - `npm run lint`: ESLint's recommended checks (`eslint.config.js`).
 - `npm run typecheck`: TypeScript checks the files that start with
   `// @ts-check` against their JSDoc types. The shapes of the data shared by

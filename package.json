@@ -21,6 +21,7 @@
     "build:data": "node server/data/index.js",
     "test": "node --test test/*.test.js",
     "test:browser": "playwright test",
+    "test:live": "playwright test --config playwright.live.config.js",
     "diagnose": "node scripts/diagnose.js",
     "lint": "eslint .",
     "typecheck": "tsc -p jsconfig.json",
