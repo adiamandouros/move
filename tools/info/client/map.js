@@ -1,5 +1,6 @@
 import { html, icon, localName, setHtml } from '/js/core/html.js';
 import { language, localHref, t } from '/js/core/i18n.js';
+import { lineBadge } from '/js/core/metro.js';
 import { BENDS, DASHED, STATIONS } from './map-layout.js';
 
 // The schematic metro map: drawn as SVG from map-layout.js (positions) and
@@ -225,7 +226,7 @@ export function stationList(rail) {
             const change = others.length > 0 && html` <span class="station-change">· ${t('info.change-to')} ${others.join(', ')}</span>`;
             return html`<li><a href="${localHref(`/subway?to=${encodeURIComponent(id)}`)}">${name(id)}</a>${change}</li>`;
         });
-        return html`<h4 class="station-line"><span class="line-badge line-${lineId.toLowerCase()}">${lineId}</span> ${name(ids[0])} – ${name(ids.at(-1))}</h4>
+        return html`<h4 class="station-line">${lineBadge(lineId, line.name)} ${name(ids[0])} – ${name(ids.at(-1))}</h4>
             <ol class="station-stops">${items}</ol>`;
     })}`;
 }

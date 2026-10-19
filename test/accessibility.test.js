@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
-import { textOn } from '../public/js/core/html.js';
 import { loadConfig } from '../server/config.js';
 import { renderPages } from '../server/pages/index.js';
 import { loadTools } from '../server/pages/registry.js';
@@ -149,12 +148,31 @@ test('every text colour in style.css meets WCAG AA (4.5:1) on every surface', ()
     }
 });
 
-test('line badges are readable on every line colour', () => {
+// The line colours in style.css (.line-m1 { background-color; color }), by line
+const LINE_COLOURS = (() => {
+    const rules = {};
+    for (const [, selectors, body] of STYLE.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/((?:\s*\.line-[a-z]+\d+\s*,?)+)\{([^}]*)\}/g)) {
+        const background = body.match(/background-color:\s*([^;]+);/)?.[1].trim();
+        const color = body.match(/(?<![-\w])color:\s*([^;]+);/)?.[1].trim();
+        for (const [, id] of selectors.matchAll(/\.line-([a-z]+\d+)/g)) rules[id] = { background, color };
+    }
+    return rules;
+})();
+
+test('every metro line\'s colour in style.css is its colour in lines.json', () => {
     const lines = JSON.parse(readFileSync(new URL('../data/curated/lines.json', import.meta.url), 'utf8'));
-    // The metro lines (badges use textOn) and the tram colour in style.css (dark text)
-    const pairs = [...Object.values(lines).map(l => [textOn(l.color), l.color]), ['#0f131c', '#e07b00']];
-    for (const [text, background] of pairs) {
-        const ratio = contrast(text, background);
-        assert.ok(ratio >= 4.5, `${text} on ${background} is ${ratio.toFixed(2)}:1`);
+    for (const [id, line] of Object.entries(lines)) {
+        assert.equal(LINE_COLOURS[id.toLowerCase()]?.background?.toLowerCase(), line.color.toLowerCase(), `.line-${id.toLowerCase()} in style.css`);
+    }
+    assert.ok(LINE_COLOURS.t6 && LINE_COLOURS.t7, 'and the tram');
+});
+
+test('line badges are readable on every line colour', () => {
+    assert.ok(Object.keys(LINE_COLOURS).length >= 5);
+    for (const [id, { background, color }] of Object.entries(LINE_COLOURS)) {
+        const text = resolve(color ?? '');
+        assert.ok(text, `.line-${id} sets its text colour`);
+        const ratio = contrast(text, resolve(background));
+        assert.ok(ratio >= 4.5, `.line-${id}: ${text} on ${background} is ${ratio.toFixed(2)}:1`);
     }
 });

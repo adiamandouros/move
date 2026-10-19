@@ -52,7 +52,7 @@ function legCard(rail, leg, next, now, level, tomorrow) {
         <div class="card result-card"><div class="card-body">
             <div class="result-header d-flex align-items-center gap-2 mb-2">
                 <${heading} class="leg-title">
-                    ${lineBadge(line)}
+                    ${lineBadge(leg.line, line.name)}
                     <span class="direction-text"><span aria-hidden="true">→ </span><span class="sr-only">${t('subway.toward')} </span>${toward}</span>
                 </${heading}>
                 <div class="schedule-section ms-auto">${departureChips(leg.departures, now, tomorrow)}</div>

@@ -10,9 +10,9 @@ import { createHash } from 'crypto';
 // - Scripts: our own files, and the inline ones by hash (the language
 //   redirect and the import map; pages are rendered once, so hashes fit
 //   better than per-request nonces).
-// - Styles: our own files and inline style="" attributes. The line colours
-//   come from the data that way; every value is escaped, and style injection
-//   is a minor risk next to scripts. Tighten when the colours become classes.
+// - Styles: our own files and inline style="" attributes. Our pages have
+//   none (csp.test.js), but AdSense needs them; without ads 'unsafe-inline'
+//   could go (item 8 on the roadmap).
 // - Images: our own and data: (Bootstrap's accordion arrows).
 // - Nothing in frames, no plugins, no <base>, forms only to us, and only we
 //   may show the site in a frame.

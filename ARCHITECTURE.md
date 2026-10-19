@@ -107,7 +107,10 @@ Styles are Bootstrap 5.3 (from `node_modules`, no build step) plus
 `public/css/style.css`. Wayhop's colours are Bootstrap's CSS variables, set
 once per colour mode at the top of `style.css` (`--wh-` ones for Wayhop's
 own components); rules use the variable names, never colour values, and
-`test/accessibility.test.js` checks their contrast. Use Bootstrap's
+`test/accessibility.test.js` checks their contrast. Line colours are
+classes too (`.line-m1`, for `lineBadge` in `/js/core/metro.js`), kept the
+same as `data/curated/lines.json`'s by that test, so pages have no inline
+styles (`csp.test.js` checks). Use Bootstrap's
 components (accordion, card, toast, buttons) and utilities, themed through
 their `--bs-` variables; `style.css` is for what Bootstrap doesn't have
 (the train diagram, the map, arrival badges, the navigation). Bootstrap's

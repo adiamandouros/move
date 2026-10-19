@@ -42,7 +42,7 @@ export function stationSearch({ input, list, rail, onChange }) {
                     <span class="suggestion-name-gr" lang="el">${s.name.el}</span>
                     <span class="suggestion-name-en" lang="en">${s.name.en}</span>
                 </span>
-                <span class="suggestion-lines" aria-hidden="true">${s.lines.map(line => lineBadge(rail.lines[line], 'suggestion-line-badge'))}</span>
+                <span class="suggestion-lines" aria-hidden="true">${s.lines.map(line => lineBadge(line, rail.lines[line].name, 'suggestion-line-badge'))}</span>
                 <span class="sr-only">, ${s.lines.join(', ')}</span>
             </li>`;
         })}`);

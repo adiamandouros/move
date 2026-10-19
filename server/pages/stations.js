@@ -91,7 +91,7 @@ export function stationView(rail, id, lang, s) {
     let n = 0;
     const lines = station.lines.map(lineId => ({
         key: lineId.toLowerCase(),
-        badge: lineBadge(rail.lines[lineId]),
+        badge: lineBadge(lineId, rail.lines[lineId].name),
         number: lineNumber(lineId),
         directions: Object.entries(rail.lines[lineId].directions)
             .filter(([, direction]) => direction.stops.some(stop => stop.station === id))
@@ -140,7 +140,7 @@ export function indexView(rail, lang) {
     return {
         lines: Object.entries(rail.lines).map(([lineId, line]) => ({
             key: lineId.toLowerCase(),
-            badge: lineBadge(line),
+            badge: lineBadge(lineId, line.name),
             number: lineNumber(lineId),
             stops: Object.values(line.directions)[0].stops.map(({ station: id }) => ({
                 href: `${STATIONS_PATH}/${id}`,

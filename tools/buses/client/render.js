@@ -99,7 +99,7 @@ export function arrivalRows(result) {
 export function message(symbol, title, subtitle = '', action = '') {
     const [name, ...extra] = symbol.split(' ');
     return html`
-        <div class="bus-message-body d-flex flex-column align-items-center justify-content-center text-body-secondary" tabindex="-1" style="height: 60dvh;">
+        <div class="bus-message-body d-flex flex-column align-items-center justify-content-center text-body-secondary" tabindex="-1">
             ${icon(name, ['fs-1 mb-3', ...extra].join(' '))}
             <p class="fs-5 mb-1 text-center px-4">${title}</p>
             ${subtitle && html`<p class="small text-body-secondary text-center px-4">${subtitle}</p>`}
