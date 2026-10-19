@@ -58,6 +58,11 @@ test('every string a view uses exists in English and Greek', () => {
             assert.ok(STRINGS.en[key.value], `${name}: "${key.value}" is missing in English`);
             assert.ok(STRINGS.el[key.value], `${name}: "${key.value}" is missing in Greek`);
         }
+        // And the titles of accordion sections: {{#> section title="info.map"}}
+        for (const block of [...nodes(parseTemplate(source))].filter(n => n.type === 'PartialBlockStatement' && n.name.original === 'section')) {
+            const title = block.hash.pairs.find(pair => pair.key === 'title').value.value;
+            assert.ok(STRINGS.en[title] && STRINGS.el[title], `${name}: section title "${title}" is missing in a language`);
+        }
     }
 });
 
@@ -133,6 +138,18 @@ test('{{formatDate}}, and {{> checked}}: when a page\'s facts were checked, and 
     assert.equal(render('{{> checked section}}', { section }, { lang: 'en', strings }).trim(),
         '<p class="info-source">Checked on 14/10/2026 at <a href="https://www.stasy.gr/" target="_blank" rel="noopener">stasy.gr<span class="sr-only"> (opens in a new tab)</span></a>, '
         + '<a href="https://www.oasa.gr/" target="_blank" rel="noopener">oasa.gr<span class="sr-only"> (opens in a new tab)</span></a></p>');
+});
+
+test('{{#> section}}: an accordion section around its content, closed unless open=true', () => {
+    const strings = { 'info.map': 'Map' };
+    const html = source => render(source, { inside: 'x' }, { lang: 'en', strings }).replace(/\s+</g, '<');
+    const closed = html('{{#> section id="map" iconName="map" title="info.map"}}<p>{{inside}}</p>{{/section}}');
+    assert.match(closed, /<button type="button" class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#sec-map" aria-expanded="false" aria-controls="sec-map" id="toggle-map"><svg [^]*#map"><\/use><\/svg><span>Map<\/span><\/button>/);
+    // The content, with the page's values, inside the section's body
+    assert.match(closed, /<div class="accordion-collapse collapse" id="sec-map"><div class="accordion-body info-body"><p>x<\/p><\/div>/);
+    const open = html('{{#> section id="map" iconName="map" title="info.map" open=true}}{{/section}}');
+    assert.match(open, /class="accordion-button" [^>]*aria-expanded="true"/);
+    assert.match(open, /class="accordion-collapse collapse show"/);
 });
 
 test('fill() fills a script\'s slots as they are, and fails on a missing one', () => {

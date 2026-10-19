@@ -1,0 +1,12 @@
+{{!-- One section of an accordion, around what's inside it:
+{{#> section id="map" iconName="map" title="info.map"}}…{{/section}}, and
+open=true for one that starts open. Its button is #toggle-<id>, its content
+#sec-<id>. --}}
+<section class="accordion-item">
+    <h2 class="accordion-header"><button type="button" class="accordion-button{{#unless open}} collapsed{{/unless}}" data-bs-toggle="collapse" data-bs-target="#sec-{{id}}" aria-expanded="{{#if open}}true{{else}}false{{/if}}" aria-controls="sec-{{id}}" id="toggle-{{id}}">{{icon iconName}}<span>{{t title}}</span></button></h2>
+    <div class="accordion-collapse collapse{{#if open}} show{{/if}}" id="sec-{{id}}">
+        <div class="accordion-body info-body">
+{{> @partial-block}}
+        </div>
+    </div>
+</section>
