@@ -117,7 +117,8 @@ ${SITE_PAGES.map(([name, title]) => `                        <a href="/${name}" 
 // On phones, the last button in the bottom bar (by the right thumb) opens the
 // menu: a popover, so the browser opens and closes it (Esc, a tap outside)
 // and moves the keyboard into it and back without a script. Closed until then.
-const MENU_BUTTON = `        <button type="button" class="nav-btn menu-btn btn d-flex flex-column align-items-center py-2" popovertarget="site-menu">${icon('list', 'fs-4')}<span class="nav-label" data-i18n="nav.menu">Menu</span></button>`;
+// Only the icon shows, filling the button; screen readers hear its name.
+const MENU_BUTTON = `        <button type="button" class="nav-btn menu-btn btn d-flex flex-column align-items-center py-2" popovertarget="site-menu" aria-label="Menu" data-i18n-aria-label="nav.menu">${icon('list', 'fs-4')}</button>`;
 
 function siteMenu(lang, path) {
     return `    <nav id="site-menu" class="site-menu d-md-none" popover aria-label="Menu" data-i18n-aria-label="nav.menu">

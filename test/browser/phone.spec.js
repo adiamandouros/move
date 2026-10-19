@@ -11,7 +11,9 @@ test.describe('a phone set to Greek', () => {
 
     test('on an English page: the suggestion, once', async ({ page }, { project }) => {
         await page.goto('/subway?from=omonia&to=airport');
-        await expect(page.locator('#bottom-nav a, #bottom-nav button')).toHaveText(['Home', 'Subway', 'Buses', 'Info', 'Menu']);
+        await expect(page.locator('#bottom-nav a')).toHaveText(['Home', 'Subway', 'Buses', 'Info']);
+        await expect(page.locator('#bottom-nav button')).toHaveText('');
+        await expect(page.locator('#bottom-nav button')).toHaveAccessibleName('Menu');
         await expect(page.locator('.lang-suggest')).toBeVisible();
         await expect(page.locator('.lang-suggest a')).toHaveText('Διαβάστε το Wayhop στα ελληνικά');
         await expect(page.locator('#site-menu .menu-language')).toBeAttached();
@@ -90,15 +92,48 @@ test.describe('the install card', () => {
     });
 });
 
-test('the bottom bar: Home and Menu line up with the other icons and labels', async ({ page }) => {
+test('the bottom bar: Home lines up with the other icons, and the labels with each other', async ({ page }) => {
     await page.goto('/subway');
-    const links = page.locator('#bottom-nav > *');
-    await expect(links).toHaveCount(5);
-    const tops = await links.evaluateAll(as => as.map(a => ({
-        icon: Math.round(a.firstElementChild.getBoundingClientRect().top),
-        label: Math.round(a.querySelector('.nav-label').getBoundingClientRect().top),
-    })));
-    for (const top of tops) expect(top).toEqual(tops[1]);
+    const items = page.locator('#bottom-nav > a');
+    await expect(items).toHaveCount(4);
+    const icons = await items.evaluateAll(els => els.map(el => el.firstElementChild).map(el => Math.round(el.getBoundingClientRect().top)));
+    const labels = await page.locator('#bottom-nav .nav-label').evaluateAll(els => els.map(el => Math.round(el.getBoundingClientRect().top)));
+    expect(labels).toHaveLength(4);
+    for (const t of icons) expect(t).toBe(icons[1]);
+    for (const t of labels) expect(t).toBe(labels[1]);
+});
+
+test('the bottom bar: the menu icon fills its button, in the middle', async ({ page }) => {
+    await page.goto('/subway');
+    const { button, icon } = await page.locator('#bottom-nav .menu-btn').evaluate(el => {
+        const style = getComputedStyle(el);
+        const px = name => parseFloat(style[name]);
+        const b = el.getBoundingClientRect();
+        // Inside the button's border and padding
+        const button = {
+            left: b.left + px('borderLeftWidth') + px('paddingLeft'), right: b.right - px('borderRightWidth') - px('paddingRight'),
+            top: b.top + px('borderTopWidth') + px('paddingTop'), bottom: b.bottom - px('borderBottomWidth') - px('paddingBottom'),
+        };
+        const i = el.querySelector('svg').getBoundingClientRect();
+        return { button, icon: { left: i.left, right: i.right, top: i.top, bottom: i.bottom } };
+    });
+    for (const side of ['left', 'right', 'top', 'bottom']) expect(Math.abs(icon[side] - button[side])).toBeLessThan(0.5);
+    // The SVG keeps the icon's shape and centres it (its default preserveAspectRatio)
+    expect(await page.locator('#bottom-nav .menu-btn svg').getAttribute('preserveAspectRatio')).toBeNull();
+});
+
+test('the bottom bar: the buttons sit in the middle of it, all the same height', async ({ page }) => {
+    await page.goto('/subway');
+    const { above, below, heights } = await page.locator('#bottom-nav').evaluate(bar => {
+        // Inside the bar's top border
+        const top = bar.getBoundingClientRect().top + bar.clientTop;
+        const bottom = top + bar.clientHeight;
+        const boxes = [...bar.children].map(el => el.getBoundingClientRect());
+        return { above: boxes[0].top - top, below: bottom - boxes[0].bottom, heights: boxes.map(b => Math.round(b.height * 10) / 10) };
+    });
+    expect(Math.abs(above - below)).toBeLessThan(1);
+    expect(above).toBeGreaterThan(0);
+    for (const h of heights) expect(h).toBe(heights[0]);
 });
 
 test.describe('the menu', () => {

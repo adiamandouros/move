@@ -162,7 +162,13 @@ body {
 
 /* ── Bottom nav (mobile) ── */
 
+/* One row of equal columns, as tall as the tallest button, in the middle of
+   the bar; every button fills the row, so the icon-only menu button is as tall
+   as the others */
 #bottom-nav {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    align-content: center;
     height: var(--bottom-nav-height);
     background-color: var(--bs-tertiary-bg);
     border-color: var(--wh-divider) !important;
@@ -1497,8 +1503,12 @@ body {
 /* ── Menu (phones) ── */
 
 /* The button that opens it, last in the bottom bar: three lines in the
-   logo's yellow */
+   logo's yellow. With no label, the icon fills the button inside its padding;
+   the SVG keeps its shape, so the lines are as big as fit, in the middle. */
 .menu-btn .bi {
+    flex: 1 1 0;
+    width: 100%;
+    min-height: 0;
     color: var(--wh-brand-yellow);
 }
 
