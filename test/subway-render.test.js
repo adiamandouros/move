@@ -91,3 +91,9 @@ test('the one-sentence summary for screen readers', async () => {
     assert.match(summary(TRIPS['tomorrow\'s first trains']), /^No more trains today\. These are tomorrow's first trains\. M3 toward Doukissis \/ Airport, at 0[5-7]:\d\d\.$/);
     assert.equal(render.routeSummary(rail, [], NOON), render.renderResult(rail, [], NOON, {}).replace(/<[^>]+>/g, ''));
 });
+
+test('the signpost beside the boarding station: walking directions to it', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    const [lat, lng] = rail.stations.syntagma.coords;
+    assert.equal(render.walkingUrl(rail, 'syntagma'), `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`);
+});

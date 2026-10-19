@@ -8,12 +8,18 @@
                     <svg class="bi" aria-hidden="true"><use href="/icons.svg#crosshair"></use></svg><span data-i18n="subway.nearest">Nearest station</span>
                 </button>
             </div>
-            <div class="position-relative">
+            <div class="d-flex align-items-stretch gap-2">
+            <div class="position-relative flex-grow-1">
                 <input id="stop-search-from" class="form-control subway-search-input" type="search"
                        role="combobox" aria-autocomplete="list" aria-controls="stop-suggestions-from" aria-expanded="false"
                        placeholder="Type your boarding station…" data-i18n-placeholder="subway.boarding-placeholder">
                 <ul id="stop-suggestions-from" class="stop-suggestions list-unstyled mb-0" role="listbox"
                     aria-label="Station suggestions" data-i18n-aria-label="subway.station-suggestions" hidden></ul>
+            </div>
+            <a id="walk-btn" class="directions-btn walk-btn" target="_blank" rel="noopener" hidden>
+                <svg class="bi" aria-hidden="true"><use href="/icons.svg#signpost-2-fill"></use></svg>
+                <span class="sr-only"><span data-i18n="subway.walking-directions-to">Walking directions to</span> <span id="walk-station"></span> <span data-i18n="shell.new-tab">(opens in a new tab)</span></span>
+            </a>
             </div>
             <p id="locate-status" class="locate-status" role="status"></p>
         </div>

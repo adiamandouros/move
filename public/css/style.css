@@ -639,6 +639,18 @@ body {
     box-shadow: var(--focus-ring);
 }
 
+/* Walking directions to the boarding station, beside its field */
+.walk-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--bs-border-radius);
+}
+
+.walk-btn[hidden] {
+    display: none;
+}
+
 .locate-status {
     margin: 6px 0 0;
     font-size: 0.8rem;

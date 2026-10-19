@@ -26,6 +26,20 @@ test('a change of line', async ({ page }) => {
     expect(await axe(page)).toEqual([]);
 });
 
+test('the signpost walks you to the boarding station, and goes when there is none', async ({ page }) => {
+    await page.goto('/subway?from=syntagma&to=airport');
+    const walk = page.locator('#walk-btn');
+    await expect(walk).toHaveAccessibleName('Walking directions to Syntagma (opens in a new tab)');
+    await expect(walk).toHaveAttribute('href', /destination=37\.\d+,23\.\d+&travelmode=walking/);
+    const syntagma = await walk.getAttribute('href');
+    await page.locator('#swap-stations').click();
+    await expect(walk).toHaveAccessibleName(/Walking directions to Airport/);
+    expect(await walk.getAttribute('href')).not.toBe(syntagma);
+    await page.locator('#stop-search-from').fill('');
+    await expect(walk).toBeHidden();
+    expect(await axe(page)).toEqual([]);
+});
+
 test('home: intro and shortcuts, and no footer (the links are in the menu and the sidebar)', async ({ page }) => {
     await page.goto('/');
     await expect(content(page)).toContainText('Live bus arrivals at the stops around you');
