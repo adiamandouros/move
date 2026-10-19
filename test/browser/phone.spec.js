@@ -88,3 +88,14 @@ test.describe('the install card', () => {
         await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href', '/el/manifest.webmanifest');
     });
 });
+
+test('the bottom bar: Home lines up with the other icons and labels', async ({ page }) => {
+    await page.goto('/subway');
+    const links = page.locator('#bottom-nav a');
+    await expect(links).toHaveCount(4);
+    const tops = await links.evaluateAll(as => as.map(a => ({
+        icon: Math.round(a.firstElementChild.getBoundingClientRect().top),
+        label: Math.round(a.querySelector('.nav-label').getBoundingClientRect().top),
+    })));
+    for (const top of tops) expect(top).toEqual(tops[1]);
+});

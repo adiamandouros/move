@@ -168,11 +168,11 @@ body {
     border-color: var(--wh-divider) !important;
 }
 
-/* The Wayhop logo as the Home button, the size of the icons next to it */
+/* The Wayhop logo as the Home button, the height of the icons next to it
+   (fs-4, like them, and 1em like .bi) so the labels line up */
 .nav-logo {
-    height: 24px;
+    height: 1em;
     width: auto;
-    margin: 4px 0;
 }
 
 /* ── Nav buttons (shared) ── */

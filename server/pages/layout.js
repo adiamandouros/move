@@ -82,7 +82,7 @@ export function createRenderer(tools, pagePaths) {
 // Wayhop logo; on wider screens the logo in the sidebar links home
 function homeLink(active) {
     const current = active === 'home';
-    return `        <a href="/" class="nav-btn btn d-flex flex-column align-items-center py-2${current ? ' active" aria-current="page' : ''}"><img src="/icon/logo.svg" alt="" width="33" height="24" class="nav-logo"><span class="nav-label" data-i18n="nav.home">Home</span></a>`;
+    return `        <a href="/" class="nav-btn btn d-flex flex-column align-items-center py-2${current ? ' active" aria-current="page' : ''}"><img src="/icon/logo.svg" alt="" width="33" height="24" class="nav-logo fs-4"><span class="nav-label" data-i18n="nav.home">Home</span></a>`;
 }
 
 function navLinks(tools, active, variant) {
