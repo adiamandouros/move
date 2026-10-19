@@ -92,15 +92,34 @@ test.describe('the install card', () => {
     });
 });
 
-test('the bottom bar: Home and Menu line up with the other icons, and the labels with each other', async ({ page }) => {
+test('the bottom bar: Home lines up with the other icons, and the labels with each other', async ({ page }) => {
     await page.goto('/subway');
-    const items = page.locator('#bottom-nav > *');
-    await expect(items).toHaveCount(5);
+    const items = page.locator('#bottom-nav > a');
+    await expect(items).toHaveCount(4);
     const icons = await items.evaluateAll(els => els.map(el => el.firstElementChild).map(el => Math.round(el.getBoundingClientRect().top)));
     const labels = await page.locator('#bottom-nav .nav-label').evaluateAll(els => els.map(el => Math.round(el.getBoundingClientRect().top)));
     expect(labels).toHaveLength(4);
     for (const t of icons) expect(t).toBe(icons[1]);
     for (const t of labels) expect(t).toBe(labels[1]);
+});
+
+test('the bottom bar: the menu icon fills its button, in the middle', async ({ page }) => {
+    await page.goto('/subway');
+    const { button, icon } = await page.locator('#bottom-nav .menu-btn').evaluate(el => {
+        const style = getComputedStyle(el);
+        const px = name => parseFloat(style[name]);
+        const b = el.getBoundingClientRect();
+        // Inside the button's border and padding
+        const button = {
+            left: b.left + px('borderLeftWidth') + px('paddingLeft'), right: b.right - px('borderRightWidth') - px('paddingRight'),
+            top: b.top + px('borderTopWidth') + px('paddingTop'), bottom: b.bottom - px('borderBottomWidth') - px('paddingBottom'),
+        };
+        const i = el.querySelector('svg').getBoundingClientRect();
+        return { button, icon: { left: i.left, right: i.right, top: i.top, bottom: i.bottom } };
+    });
+    for (const side of ['left', 'right', 'top', 'bottom']) expect(Math.abs(icon[side] - button[side])).toBeLessThan(0.5);
+    // The SVG keeps the icon's shape and centres it (its default preserveAspectRatio)
+    expect(await page.locator('#bottom-nav .menu-btn svg').getAttribute('preserveAspectRatio')).toBeNull();
 });
 
 test('the bottom bar: the buttons sit in the middle of it, all the same height', async ({ page }) => {
