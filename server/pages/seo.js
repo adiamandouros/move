@@ -4,17 +4,14 @@ import { LANGS, localPath } from './i18n.js';
 // What search engines and link previews see: meta tags, structured data,
 // robots.txt and the sitemap.
 
-// The public origin (e.g. https://wayhop.gr), for canonical URLs, the sitemap
-// and link previews. Without SITE_URL the pages leave out what needs it.
-export const siteUrl = () => (process.env.SITE_URL ?? '').replace(/\/+$/, '');
-
 const LOCALES = { en: 'en_US', el: 'el_GR' };
 
 // Search and link-preview tags. Pages that aren't indexed (the 404, /offline,
-// the admin pages) are kept out of search results. path is the English one.
-export function metaTags({ path, index, lang, title, description }) {
+// the admin pages) are kept out of search results. path is the English one;
+// origin is the public address (SITE_URL), without which the tags that need
+// it are left out.
+export function metaTags({ path, index, lang, title, description, origin = '' }) {
     if (!path || !index) return '    <meta name="robots" content="noindex">';
-    const origin = siteUrl();
     const url = origin && origin + localPath(path, lang);
     // The same page in each language; English is the default for everyone else
     const alternates = origin ? [
@@ -44,13 +41,13 @@ export function metaTags({ path, index, lang, title, description }) {
 export const structuredData = data => `    <script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`;
 
 // For the home page, so search results can show Wayhop as a free web app
-export function appData(description, lang) {
+export function appData(description, lang, origin = '') {
     return structuredData({
         '@context': 'https://schema.org',
         '@type': 'WebApplication',
         name: 'Wayhop',
         description,
-        ...(siteUrl() && { url: siteUrl() + localPath('/', lang) }),
+        ...(origin && { url: origin + localPath('/', lang) }),
         applicationCategory: 'TravelApplication',
         operatingSystem: 'Any',
         inLanguage: ['en', 'el'],

@@ -2,6 +2,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import express from 'express';
+import { loadConfig } from '../server/config.js';
 import { localPath } from '../server/pages/i18n.js';
 import { createPages, renderPages } from '../server/pages/index.js';
 import { loadTools } from '../server/pages/registry.js';
@@ -9,9 +10,9 @@ import { loadTools } from '../server/pages/registry.js';
 // What search engines and link previews see: meta tags, the Greek pages under
 // /el, robots.txt and the sitemap
 
-process.env.SITE_URL = 'https://move.example/';
+const config = loadConfig({ SITE_URL: 'https://move.example/' });
 const tools = loadTools();
-const { pages, indexed, notFound, render } = renderPages(tools);
+const { pages, indexed, notFound, render } = renderPages(tools, config);
 
 const head = html => html.match(/<head>([\s\S]*?)<\/head>/)[1];
 const meta = (html, attr, name) => head(html).match(new RegExp(`<meta ${attr}="${name}" content="([^"]*)">`))?.[1];
@@ -21,7 +22,7 @@ let server;
 let base;
 before(async () => {
     const app = express();
-    const served = createPages(tools);
+    const served = createPages(tools, { config });
     app.use(served.router);
     app.use(served.notFound);
     await new Promise(resolve => { server = app.listen(0, resolve); });
@@ -62,18 +63,10 @@ test('the about, privacy and contact pages are written in each language and link
 });
 
 test('the contact page shows CONTACT_EMAIL, and leaves it out when unset', () => {
-    const saved = process.env.CONTACT_EMAIL;
-    try {
-        process.env.CONTACT_EMAIL = 'hello@wayhop.example';
-        assert.match(renderPages(tools).pages['/contact'], /Email: <a href="mailto:hello@wayhop\.example">hello@wayhop\.example<\/a>/);
-        delete process.env.CONTACT_EMAIL;
-        const html = renderPages(tools).pages['/el/contact'];
-        assert.doesNotMatch(html, /mailto:/);
-        assert.match(html, /github\.com\/adiamandouros\/move\/issues/);
-    } finally {
-        if (saved === undefined) delete process.env.CONTACT_EMAIL;
-        else process.env.CONTACT_EMAIL = saved;
-    }
+    assert.match(renderPages(tools, loadConfig({ CONTACT_EMAIL: 'hello@wayhop.example' })).pages['/contact'], /Email: <a href="mailto:hello@wayhop\.example">hello@wayhop\.example<\/a>/);
+    const html = renderPages(tools, loadConfig({})).pages['/el/contact'];
+    assert.doesNotMatch(html, /mailto:/);
+    assert.match(html, /github\.com\/adiamandouros\/move\/issues/);
 });
 
 const alternates = html => Object.fromEntries([...head(html).matchAll(/<link rel="alternate" hreflang="([^"]+)" href="([^"]+)">/g)].map(m => m.slice(1)));
@@ -216,16 +209,10 @@ test('the home page describes Wayhop as a web app', () => {
 });
 
 test('without SITE_URL the pages leave out absolute URLs', () => {
-    const saved = process.env.SITE_URL;
-    delete process.env.SITE_URL;
-    try {
-        const html = renderPages(tools).pages['/'];
-        assert.equal(canonical(html), undefined);
-        assert.equal(meta(html, 'property', 'og:image'), undefined);
-        assert.ok(meta(html, 'name', 'description'));
-    } finally {
-        process.env.SITE_URL = saved;
-    }
+    const html = renderPages(tools, loadConfig({})).pages['/'];
+    assert.equal(canonical(html), undefined);
+    assert.equal(meta(html, 'property', 'og:image'), undefined);
+    assert.ok(meta(html, 'name', 'description'));
 });
 
 test('each language has its own app manifest, so the installed app opens in it', async () => {

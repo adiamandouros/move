@@ -1,4 +1,4 @@
-import { USER_AGENT } from '../data/sources.js';
+import { userAgentFor } from '../config.js';
 import { hourCounter } from './limits.js';
 
 // The one place that talks to OASA's telematics API. Everything here exists
@@ -13,8 +13,8 @@ import { hourCounter } from './limits.js';
 //
 // Optionally, relays (proxy/) are used when OASA can't be reached directly:
 // its live API only accepts Greek IPs and the server is in Germany. Routes are
-// tried in order (direct, then each relay in RELAYS), and a failed request
-// moves on to the next one.
+// tried in order (direct, then each relay in config.relays, server/config.js),
+// and a failed request moves on to the next one.
 //
 // A route with another route behind it is only used once it's known to work:
 // it's tested in the background with one request of our own (at startup, and
@@ -27,7 +27,9 @@ import { hourCounter } from './limits.js';
 // The last route has nothing behind it: it's always tried, and after
 // repeated failures only rests for LAST_REST_MS.
 
-const API = 'https://telematics.oasa.gr/api/';
+// Imported by scripts/health-check.js, which runs without node_modules: keep
+// this file's imports to the app's own dependency-free files (config.test.js)
+export const OASA_API = 'https://telematics.oasa.gr/api/';
 export const REQUESTS_PER_SECOND = 2;
 const MAX_WAIT_MS = 8_000;
 const TIMEOUT_MS = 8_000;
@@ -36,20 +38,9 @@ const FALLBACK_TIMEOUT_MS = 3_000;
 const FAILURES_TO_OPEN = 5;
 const FALLBACK_REST_MS = 24 * 3_600_000;
 const LAST_REST_MS = 60_000;
-// What the background test asks for (a central stop, as the diagnostics do)
+// Syntagma, a busy stop: what the background test, the diagnostics and the
+// scheduled health check (scripts/health-check.js) ask for
 export const TEST_STOP = '10361';
-
-// The relays, in the order they're tried after direct access, and the .env
-// settings (<env>_URL and <env>_KEY) that turn each one on. See proxy/README.md.
-export const RELAYS = [
-    { name: 'relay', env: 'OASA_RELAY' },           // Cloudflare Worker
-    { name: 'home relay', env: 'OASA_HOME_RELAY' }, // e.g. a Raspberry Pi at home
-];
-
-// → [{ name, env, url, key }] for each relay whose URL and key are both set
-export const relaysFromEnv = env => RELAYS
-    .filter(r => env[`${r.env}_URL`] && env[`${r.env}_KEY`])
-    .map(r => ({ ...r, url: env[`${r.env}_URL`], key: env[`${r.env}_KEY`] }));
 
 export class OasaUnavailable extends Error {}
 
@@ -59,7 +50,8 @@ const realSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const INTERVAL_MS = 1000 / REQUESTS_PER_SECOND;
 
-export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sleep = realSleep, log = console.warn, relays = [] } = {}) {
+// relays: config.relays; userAgent: config.userAgent (server/config.js)
+export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sleep = realSleep, log = console.warn, relays = [], userAgent = userAgentFor(null) } = {}) {
     let nextSlot = 0;
     // Requests waiting for a slot, per lane: { go(ok), since }
     const lanes = { high: [], normal: [] };
@@ -75,7 +67,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
         name, url, headers, failures: 0, restUntil: 0, probing: false, working: false,
         lastOk: null, lastError: null, // for diagnostics
     });
-    const routes = [route('direct', API), ...relays.map(r => route(r.name, r.url, { 'X-Relay-Key': r.key }))];
+    const routes = [route('direct', OASA_API), ...relays.map(r => route(r.name, r.url, { 'X-Relay-Key': r.key }))];
     routes.forEach((r, i) => {
         r.next = routes[i + 1] ?? null;
         r.restMs = r.next ? FALLBACK_REST_MS : LAST_REST_MS;
@@ -131,7 +123,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
         const url = `${r.url}?act=${encodeURIComponent(act)}&p1=${encodeURIComponent(p1)}`;
         try {
             const res = await fetch(url, {
-                headers: { 'User-Agent': USER_AGENT, Accept: 'application/json', ...r.headers },
+                headers: { 'User-Agent': userAgent, Accept: 'application/json', ...r.headers },
                 signal: AbortSignal.timeout(r.timeoutMs),
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);

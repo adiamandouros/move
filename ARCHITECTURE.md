@@ -18,6 +18,22 @@ browser ─► Express (server/app.js, started by server.js)
             └─ files ─────────────── public/, tools/<id>/client/, /vendor (node_modules)
 ```
 
+## Settings
+
+[server/config.js](server/config.js) reads every setting from the
+environment (`.env`, explained in `.env.example`) once, and checks it.
+`loadConfig()` gives a frozen object: the public address, the contact email
+and the User-Agent built from it, the admin password, the CSP mode, AdSense
+and the relays. A setting that's given but can't be used is left off and
+listed in its `problems`. `server.js` loads `.env`, logs the problems and
+hands the config to `createApp`; everything else is passed what it needs.
+So tests pass their own settings (`loadConfig({ SITE_URL: … })`) instead of
+changing `process.env`, and `test/config.test.js` fails if any other server
+file reads it. `/admin/diagnostics` lists the problems too.
+
+`server/files.js` has the file helpers the caches and the data build share:
+reading a JSON file, and writing a file through a temporary one and a rename.
+
 ## Pages
 
 Every page exists twice: in English at its path (`/subway`) and in Greek

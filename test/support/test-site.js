@@ -7,12 +7,13 @@ import { join } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
 import { createApp } from '../../server/app.js';
+import { loadConfig } from '../../server/config.js';
 
 export const DATA = fileURLToPath(new URL('../browser/data/', import.meta.url));
 
-// Fixed settings, whatever .env says
-Object.assign(process.env, { SITE_URL: '', CONTACT_EMAIL: 'hello@wayhop.example' });
-for (const key of Object.keys(process.env)) if (key.startsWith('ADSENSE_')) delete process.env[key];
+// The site's settings (server/config.js), whatever .env says: the policy
+// enforced, so a page that breaks it fails its browser tests
+export const SETTINGS = { CONTACT_EMAIL: 'hello@wayhop.example', CSP_MODE: 'enforce' };
 
 // ── A fake OASA ─────────────────────────────────────────────────────────────
 // Every stop has three buses, the first 1–19 minutes away depending on its
@@ -74,20 +75,17 @@ export function brokenData() {
 
 // ── The site, and copies of it where things go wrong ────────────────────────
 // site(overrides): the app with this data and these fakes; createApp's
-// options override them. Scenarios are each their own copy (with their own
+// options override them, and `env` adds settings (e.g. { ADMIN_PASSWORD: 'x' }). Scenarios are each their own copy (with their own
 // caches); the browser tests pick one with a "scenario" cookie (fixtures.js:
 // test.use({ scenario })), so tests running side by side don't affect each other.
-export const site = (overrides = {}) => createApp({
+export const site = ({ env = {}, ...overrides } = {}) => createApp({
+    config: loadConfig({ ...SETTINGS, ...env }),
     buildDir: DATA,
     cacheDir: mkdtempSync(join(tmpdir(), 'wayhop-browser-')),
-    relays: [],
     fetch: fakeNetwork,
     oasaClient,
     // Every test comes from 127.0.0.1, so the per-visitor limit would be shared
     limiter: { take: () => 0 },
-    adminPassword: '',
-    // Enforced, so a page that breaks the policy fails its browser tests
-    cspMode: 'enforce',
     ...overrides,
 });
 // The site with /api/arrivals answered by `handler` instead

@@ -9,7 +9,7 @@ import { escapeHtml, format, icon } from '../../public/js/core/html.js';
 import { lineBadge, trainDiagram } from '../../public/js/core/metro.js';
 import { athensDate } from '../../tools/subway/client/network.js';
 import { LANGS, localPath } from './i18n.js';
-import { siteUrl, structuredData } from './seo.js';
+import { structuredData } from './seo.js';
 
 // A page for every metro station, and an index of them, in English and Greek:
 // which carriage to ride for the exit, connections and first and last trains.
@@ -189,9 +189,9 @@ export function indexContent(rail, lang, tools) {
 </div>`;
 }
 
-// Structured data: the station with its location, and where it sits in the site
-function stationData(rail, id, lang, s) {
-    const origin = siteUrl();
+// Structured data: the station with its location, and where it sits in the
+// site (origin: the public address, SITE_URL)
+function stationData(rail, id, lang, s, origin) {
     const url = path => origin + localPath(path, lang);
     const name = rail.stations[id].name[lang] ?? rail.stations[id].name.en;
     const [latitude, longitude] = rail.stations[id].coords;
@@ -204,12 +204,13 @@ function stationData(rail, id, lang, s) {
     return structuredData({ '@context': 'https://schema.org', '@graph': graph });
 }
 
-// One station's page (or the index, for id null) with the site's layout
+// One station's page (or the index, for id null) with the site's layout.
+// origin: the public address (SITE_URL), for the structured data.
 /**
  * @param {Rail} rail @param {string | null} id @param {Lang} lang
- * @param {{ render: (page: import('../../types/pages.js').RenderOptions) => string, tools: import('../../types/pages.js').Tool[] }} options
+ * @param {{ render: (page: import('../../types/pages.js').RenderOptions) => string, tools: import('../../types/pages.js').Tool[], origin?: string }} options
  */
-export function renderStationPage(rail, id, lang, { render, tools }) {
+export function renderStationPage(rail, id, lang, { render, tools, origin = '' }) {
     const { s, name } = createWriter(rail, lang, tools);
     const common = { lang, active: 'subway', ad: 'station' };
     if (!id) {
@@ -220,15 +221,15 @@ export function renderStationPage(rail, id, lang, { render, tools }) {
         title: format(s('stations.station-title'), { name: name(id) }),
         path: `${STATIONS_PATH}/${id}`,
         description: format(s('stations.description'), { name: name(id), lines: rail.stations[id].lines.map(l => rail.lines[l].name).join(', ') }),
-        head: stationData(rail, id, lang, s),
+        head: stationData(rail, id, lang, s, origin),
         content: stationContent(rail, id, lang, tools),
     });
 }
 
 // → { router, paths() }. render is the layout's (layout.js createRenderer);
 // paths() lists the English paths for the sitemap.
-/** @param {{ railFile: string, render: (page: import('../../types/pages.js').RenderOptions) => string, tools: import('../../types/pages.js').Tool[] }} options */
-export function createStationPages({ railFile, render, tools }) {
+/** @param {{ railFile: string, render: (page: import('../../types/pages.js').RenderOptions) => string, tools: import('../../types/pages.js').Tool[], origin?: string }} options */
+export function createStationPages({ railFile, render, tools, origin = '' }) {
     let loaded = { mtime: null, rail: null, html: new Map() };
 
     // rail.json as it is now; rendered pages are kept until it changes (or the day does,
@@ -247,7 +248,7 @@ export function createStationPages({ railFile, render, tools }) {
         // Object.hasOwn: "constructor" or "__proto__" in the address isn't a station
         if (!rail || (id && !Object.hasOwn(rail.stations, id))) return null;
         const cacheKey = `${lang} ${id ?? ''}`;
-        if (!html.has(cacheKey)) html.set(cacheKey, renderStationPage(rail, id, lang, { render, tools }));
+        if (!html.has(cacheKey)) html.set(cacheKey, renderStationPage(rail, id, lang, { render, tools, origin }));
         return html.get(cacheKey);
     }
 

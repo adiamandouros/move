@@ -4,6 +4,7 @@ import { mkdtempSync, utimesSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import express from 'express';
+import { loadConfig } from '../server/config.js';
 import { createPages } from '../server/pages/index.js';
 import { loadTools } from '../server/pages/registry.js';
 import { firstAndLast } from '../server/pages/stations.js';
@@ -11,7 +12,6 @@ import { rail } from './fixtures/rail.js';
 
 // The station pages (/subway/stations/<id>), built from rail.json
 
-process.env.SITE_URL = 'https://wayhop.example';
 const tools = loadTools();
 const railFile = join(mkdtempSync(join(tmpdir(), 'stations-')), 'rail.json');
 writeFileSync(railFile, JSON.stringify(rail));
@@ -20,7 +20,7 @@ let server;
 let base;
 before(async () => {
     const app = express();
-    const pages = createPages(tools, { railFile });
+    const pages = createPages(tools, { railFile, config: loadConfig({ SITE_URL: 'https://wayhop.example' }) });
     app.use(pages.router);
     app.use(pages.notFound);
     await new Promise(resolve => { server = app.listen(0, resolve); });

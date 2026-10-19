@@ -11,9 +11,8 @@
 import { appendFileSync } from 'fs';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
-
-// Syntagma: busy at most hours, as in the diagnostics
-const TEST_STOP = '10361';
+// Runs on GitHub without npm install: only the app's dependency-free files (config.test.js)
+import { TEST_STOP } from '../server/oasa/client.js';
 const RECHECK_MS = 2 * 60_000;
 const TIMEOUT_MS = 30_000;
 

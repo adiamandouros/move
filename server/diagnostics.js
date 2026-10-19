@@ -1,8 +1,10 @@
 import { lookup } from 'dns/promises';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { USER_AGENT } from './data/sources.js';
-import { RELAYS, REQUESTS_PER_SECOND, relaysFromEnv } from './oasa/client.js';
+import { loadConfig } from './config.js';
+import { CKAN_API, SOURCES } from './data/sources.js';
+import { readJson } from './files.js';
+import { OASA_API, REQUESTS_PER_SECOND, TEST_STOP } from './oasa/client.js';
 import { NEW_STOPS_PER_MINUTE } from './oasa/limits.js';
 
 // Health checks for when something goes wrong on the server: can it reach the
@@ -11,11 +13,8 @@ import { NEW_STOPS_PER_MINUTE } from './oasa/limits.js';
 // most likely means and what to do. Used by /admin/diagnostics and
 // `npm run diagnose` (scripts/diagnose.js).
 
-const OASA_API = 'https://telematics.oasa.gr/api/';
-const PORTAL = 'https://catalog.growthfund.gr/api/3/action/package_show?id=dromologia-statheron-sygkinonion';
+const PORTAL = CKAN_API + SOURCES.rail.dataset;
 const INTERNET = 'https://www.cloudflare.com/cdn-cgi/trace';
-// Syntagma: a busy stop, so a working API answers with real data
-const TEST_STOP = '10361';
 const TIMEOUT_MS = 8_000;
 // Longer than the relay's own 6 s limit on OASA, so its "can't reach OASA" answer arrives
 const RELAY_TIMEOUT_MS = 12_000;
@@ -57,7 +56,7 @@ function describeHttp(status) {
 async function probe(fetch, url, headers = {}, timeoutMs = TIMEOUT_MS) {
     const started = Date.now();
     try {
-        const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT, ...headers }, signal: AbortSignal.timeout(timeoutMs) });
+        const res = await fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
         const text = await res.text();
         let json;
         try { json = JSON.parse(text); } catch { json = undefined; }
@@ -77,39 +76,28 @@ const failureText = p => p.status === null ? p.reason
 
 const check = (group, title, status, detail, hint) => ({ group, title, status, detail, ...(hint ? { hint } : {}) });
 
-function configChecks(env, nodeVersion) {
+// The settings (server/config.js): the ones that matter for reaching OASA,
+// and every setting that was given but can't be used
+/** @param {import('../types/config.js').Config} config @param {string} nodeVersion */
+function configChecks(config, nodeVersion) {
     const major = Number(nodeVersion.replace(/^v/, '').split('.')[0]);
+    const relays = config.relays.map(r => check('Configuration', `${capital(r.name)} fallback`, 'ok', `Configured: ${new URL(r.url).host}`));
+    const relayProblems = config.problems.some(p => / fallback$/.test(p.title));
     return [
         major >= MIN_NODE
             ? check('Configuration', 'Node.js version', 'ok', nodeVersion)
             : check('Configuration', 'Node.js version', 'fail', `${nodeVersion} is too old`, `Select Node.js ${MIN_NODE} or newer in cPanel → Setup Node.js App.`),
-        env.CONTACT_EMAIL
-            ? check('Configuration', 'Contact email', 'ok', `Sent to OASA as ${env.CONTACT_EMAIL}`)
+        config.contactEmail
+            ? check('Configuration', 'Contact email', 'ok', `Sent to OASA as ${config.contactEmail}`)
             : check('Configuration', 'Contact email', 'warn', 'CONTACT_EMAIL is not set', 'Set it in .env so OASA can contact you instead of blocking the server.'),
-        ...relayConfigChecks(env),
+        ...relays,
+        ...(relays.length || relayProblems ? []
+            : [check('Configuration', 'Relay fallback', 'warn', 'Not configured: if OASA blocks this server, live times stop', 'See proxy/README.md to set up a relay.')]),
+        ...config.problems.map(p => check('Configuration', p.title, 'fail', p.text, p.hint)),
     ];
 }
 
 const capital = text => text[0].toUpperCase() + text.slice(1);
-
-function relayConfigChecks(env) {
-    const rows = RELAYS.map(({ name, env: prefix }) => {
-        const url = env[`${prefix}_URL`];
-        const key = env[`${prefix}_KEY`];
-        const title = `${capital(name)} fallback`;
-        if (url && key) return check('Configuration', title, 'ok', `Configured: ${safeHost(url)}`);
-        if (url || key) {
-            return check('Configuration', title, 'fail', `Only ${prefix}_${url ? 'URL' : 'KEY'} is set, so the ${name} is disabled`, `Set both ${prefix}_URL and ${prefix}_KEY in .env, then restart the app.`);
-        }
-        return null;
-    }).filter(Boolean);
-    return rows.length ? rows
-        : [check('Configuration', 'Relay fallback', 'warn', 'Not configured: if OASA blocks this server, live times stop', 'See proxy/README.md to set up a relay.')];
-}
-
-function safeHost(url) {
-    try { return new URL(url).host; } catch { return `invalid URL "${url}"`; }
-}
 
 async function dnsCheck(dnsLookup, host) {
     try {
@@ -378,13 +366,13 @@ function expectBlockedRelays(relays) {
 
 /**
  * @param {{
- *   env?: Record<string, string | undefined>, dataDir?: string, appStatus?: any, announcements?: any,
+ *   config?: import('../types/config.js').Config, dataDir?: string, appStatus?: any, announcements?: any,
  *   fetch?: typeof globalThis.fetch, dnsLookup?: typeof lookup, now?: () => number, nodeVersion?: string,
  *   csp?: { mode: string, kinds?: any[], dropped?: number } | null,
  * }} [options]
  */
 export async function runDiagnostics({
-    env = process.env,
+    config = loadConfig({}),
     dataDir,
     appStatus = null,
     announcements = null,
@@ -394,22 +382,24 @@ export async function runDiagnostics({
     nodeVersion = process.version,
     csp = null,
 } = {}) {
-    const hosts = ['telematics.oasa.gr', 'catalog.growthfund.gr'];
-    const relaySettings = relaysFromEnv(env);
-    for (const r of relaySettings) { try { hosts.push(new URL(r.url).hostname); } catch { /* reported by the relay checks */ } }
+    // Every request says who we are, as the app's do
+    const send = (url, init = {}) => fetch(url, { ...init, headers: { 'User-Agent': config.userAgent, ...init.headers } });
+    const hosts = [new URL(OASA_API).hostname, new URL(CKAN_API).hostname];
+    const relaySettings = config.relays;
+    for (const r of relaySettings) hosts.push(new URL(r.url).hostname);
 
     const [internet, dns, oasaProbe, relays, portal] = await Promise.all([
-        internetCheck(fetch),
+        internetCheck(send),
         Promise.all(hosts.map(h => dnsCheck(dnsLookup, h))),
-        probeOasa(fetch),
-        Promise.all(relaySettings.map(r => relayChecks(fetch, r))),
-        portalCheck(fetch),
+        probeOasa(send),
+        Promise.all(relaySettings.map(r => relayChecks(send, r))),
+        portalCheck(send),
     ]);
     const oasa = oasaCheck(oasaProbe, internet.loc);
     expectBlockedRelays(relays);
 
     const checks = [
-        ...configChecks(env, nodeVersion),
+        ...configChecks(config, nodeVersion),
         internet.result,
         ...dns,
         oasa.result,
@@ -443,8 +433,4 @@ export function formatReport({ ranAt, summary, checks }) {
         if (c.hint) lines.push(`         → ${c.hint}`);
     }
     return lines.join('\n');
-}
-
-function readJson(path) {
-    try { return JSON.parse(readFileSync(path, 'utf8')); } catch { return null; }
 }

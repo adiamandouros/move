@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { loadConfig } from '../server/config.js';
 import { classifyError, formatReport, runDiagnostics } from '../server/diagnostics.js';
 
 const NOW = Date.parse('2026-10-03T12:00:00Z');
@@ -45,8 +46,9 @@ function dataDir({ hoursAgo = 2, failed = null } = {}) {
     return dir;
 }
 
-const run = (fetch, extra = {}) => runDiagnostics({
-    env: ENV, dataDir: dataDir(), fetch, dnsLookup: async () => ({ address: '192.0.2.1' }), now: () => NOW, nodeVersion: 'v20.20.2', ...extra,
+// extra.env: the settings, as in .env (ENV unless given)
+const run = (fetch, { env = ENV, ...extra } = {}) => runDiagnostics({
+    config: loadConfig(env), dataDir: dataDir(), fetch, dnsLookup: async () => ({ address: '192.0.2.1' }), now: () => NOW, nodeVersion: 'v20.20.2', ...extra,
 });
 
 test('classifyError names the usual network failures', () => {
@@ -92,7 +94,7 @@ test('wrong relay key', async () => {
 });
 
 test('no relay configured and OASA unreachable', async () => {
-    const r = await run(world({ oasa: () => netError('ECONNRESET') }), { env: { CONTACT_EMAIL: 'x' } });
+    const r = await run(world({ oasa: () => netError('ECONNRESET') }), { env: { CONTACT_EMAIL: 'me@example.com' } });
     assert.equal(r.summary.status, 'fail');
     assert.match(r.summary.text, /no relay, so live times are down/);
     assert.equal(r.checks.find(c => c.title === 'Relay fallback').status, 'warn');

@@ -1,33 +1,27 @@
-import { test, after } from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
-import { adsenseProblems } from '../server/ads.js';
+import { loadConfig } from '../server/config.js';
 import { createPages, renderPages } from '../server/pages/index.js';
 import { loadTools } from '../server/pages/registry.js';
 import { renderStationPage } from '../server/pages/stations.js';
 import { rail } from './fixtures/rail.js';
 
-// AdSense is off until ADSENSE_CLIENT is set; each ADSENSE_SLOT_* adds one ad unit
+// AdSense is off until ADSENSE_CLIENT is set; each ADSENSE_SLOT_* adds one ad
+// unit. (Which settings count, and the problems with wrong ones: config.test.js.)
 
 const CLIENT = 'ca-pub-1234567890123456';
 const tools = loadTools();
-const KEYS = ['ADSENSE_CLIENT', 'ADSENSE_SLOT_HOME', 'ADSENSE_SLOT_INFO', 'ADSENSE_SLOT_STATION'];
-const saved = Object.fromEntries(KEYS.map(k => [k, process.env[k]]));
-after(() => { for (const k of KEYS) saved[k] === undefined ? delete process.env[k] : process.env[k] = saved[k]; });
 
 function withEnv(env) {
-    for (const k of KEYS) delete process.env[k];
-    Object.assign(process.env, env);
-    const rendered = renderPages(tools);
+    const rendered = renderPages(tools, loadConfig(env));
     const station = renderStationPage(rail, 'x', 'en', { render: rendered.render, tools });
     return { ...rendered, station };
 }
 
 async function adsTxt(env) {
-    for (const k of KEYS) delete process.env[k];
-    Object.assign(process.env, env);
     const app = express();
-    app.use(createPages(tools).router);
+    app.use(createPages(tools, { config: loadConfig(env) }).router);
     const server = await new Promise(resolve => { const s = app.listen(0, () => resolve(s)); });
     try {
         const res = await fetch(`http://localhost:${server.address().port}/ads.txt`);
@@ -95,13 +89,7 @@ test('a slot without its own setting stays off', () => {
     assert.equal(slots(station), 0);
 });
 
-test('settings that look wrong are reported and leave ads off', () => {
-    assert.deepEqual(adsenseProblems({ ADSENSE_CLIENT: 'pub-123', ADSENSE_SLOT_HOME: 'abc', ADSENSE_SLOT_INFO: '1234567' }), [
-        'ADSENSE_CLIENT should look like ca-pub-1234567890123456',
-        "ADSENSE_SLOT_HOME should be the ad unit's number (data-ad-slot)",
-        'ADSENSE_SLOT_INFO needs ADSENSE_CLIENT too',
-    ]);
-    assert.deepEqual(adsenseProblems({ ADSENSE_CLIENT: CLIENT, ADSENSE_SLOT_HOME: '1234567890' }), []);
+test('settings that look wrong leave ads off', () => {
     const { pages } = withEnv({ ADSENSE_CLIENT: 'pub-123', ADSENSE_SLOT_HOME: '1111111111' });
     assert.doesNotMatch(pages['/'], /adsbygoogle|google-adsense-account/);
 });

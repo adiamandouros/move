@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'crypto';
 import { contentSecurityPolicy, cspHeaders, hashOf, inlineScripts } from '../server/csp.js';
+import { loadConfig } from '../server/config.js';
 import { cspChecks } from '../server/diagnostics.js';
 import { createPages, renderPages } from '../server/pages/index.js';
 import { loadTools } from '../server/pages/registry.js';
@@ -22,16 +23,9 @@ function everyPage() {
     const { pages, notFound, errorPage, render } = renderPages(tools);
     const all = { ...pages, '(404)': notFound('/nope'), '(404, Greek)': notFound('/el/nope'), '(error)': errorPage('/x'), '(error, Greek)': errorPage('/el/x'), '(admin)': render({ title: 'Admin', content: '<p>x</p>' }) };
     for (const lang of ['en', 'el']) for (const id of [null, 'x', 'a']) all[`(station ${id ?? 'index'}, ${lang})`] = renderStationPage(rail, id, lang, { render, tools });
-    const keys = ['ADSENSE_CLIENT', 'ADSENSE_SLOT_HOME', 'ADSENSE_SLOT_INFO', 'ADSENSE_SLOT_STATION'];
-    const saved = Object.fromEntries(keys.map(k => [k, process.env[k]]));
-    Object.assign(process.env, { ADSENSE_CLIENT: 'ca-pub-1234567890123456', ADSENSE_SLOT_HOME: '1111111111', ADSENSE_SLOT_INFO: '2222222222', ADSENSE_SLOT_STATION: '3333333333' });
-    try {
-        const withAds = renderPages(tools);
-        all['/ (with ads)'] = withAds.pages['/'];
-        all['/el/privacy (with ads)'] = withAds.pages['/el/privacy'];
-    } finally {
-        for (const k of keys) saved[k] === undefined ? delete process.env[k] : process.env[k] = saved[k];
-    }
+    const withAds = renderPages(tools, loadConfig({ ADSENSE_CLIENT: 'ca-pub-1234567890123456', ADSENSE_SLOT_HOME: '1111111111', ADSENSE_SLOT_INFO: '2222222222', ADSENSE_SLOT_STATION: '3333333333' }));
+    all['/ (with ads)'] = withAds.pages['/'];
+    all['/el/privacy (with ads)'] = withAds.pages['/el/privacy'];
     return all;
 }
 

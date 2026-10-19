@@ -34,9 +34,10 @@ export function fill(template, values) {
 //   ad           where it has an ad slot (server/ads.js)
 /**
  * @param {import('../../types/pages.js').Tool[]} tools @param {string[]} pagePaths
+ * @param {import('../../types/config.js').Config} config the public address and AdSense
  * @returns {(page: import('../../types/pages.js').RenderOptions) => string}
  */
-export function createRenderer(tools, pagePaths) {
+export function createRenderer(tools, pagePaths, config) {
     const layout = readFileSync(join(VIEWS_DIR, 'layout.html'), 'utf8');
     const imports = importMap(tools);
     const stringsFor = pageStrings(tools);
@@ -45,7 +46,7 @@ export function createRenderer(tools, pagePaths) {
         const strings = stringsFor(lang, own);
         // /js/core/ads.js loads AdSense for the ad slot, and for the privacy
         // page's ad choices button
-        const slot = adSlot(ad);
+        const slot = adSlot(config.adsense, ad);
         if (slot || content.includes('id="ad-choices"')) scripts = [...scripts, '/js/core/ads.js'];
         const fullTitle = `${title} — Wayhop`;
         const html = translate(fill(layout, {
@@ -57,7 +58,7 @@ export function createRenderer(tools, pagePaths) {
             title: escapeHtml(fullTitle),
             // The installed app opens in the language it was installed in
             manifest: localPath('/manifest.webmanifest', lang),
-            meta: [metaTags({ path, index, lang, title: fullTitle, description }), adsenseMeta()].filter(Boolean).join('\n'),
+            meta: [metaTags({ path, index, lang, title: fullTitle, description, origin: config.siteUrl }), adsenseMeta(config.adsense)].filter(Boolean).join('\n'),
             head,
             importMap: imports,
             sideNav: navLinks(tools, active, 'side'),
