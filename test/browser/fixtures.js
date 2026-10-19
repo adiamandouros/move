@@ -95,7 +95,8 @@ export const onlyOn = (...projects) => ({}, { project }) =>
 
 // axe-core's violations on the page as it is now: ["rule-id (nodes): selector", …]
 export async function axe(page) {
-    if (!(await page.evaluate(() => 'axe' in window))) await page.addScriptTag({ content: AXE });
+    // Through the devtools, not a <script> element, which the Content-Security-Policy blocks
+    if (!(await page.evaluate(() => 'axe' in window))) await page.evaluate(AXE);
     return page.evaluate(async tags => {
         // Colours halfway through a fade aren't what anyone reads
         await Promise.all(document.getAnimations().map(a => a.finished.catch(() => {})));

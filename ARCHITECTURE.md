@@ -175,7 +175,16 @@ health page, and rechecks a problem after 2 minutes. While the site is
 unhealthy, an issue labelled `health` stays open; GitHub emails it.
 `/admin/diagnostics` has the details.
 
-`server/security.js` adds the security headers to every response.
+`server/security.js` adds the security headers to every response, including
+the Content-Security-Policy from `server/csp.js`. The policy is built at
+startup from the inline scripts the pages really have (two: the language
+redirect, the same on every page, and the import map), allowed by hash; so
+don't add inline scripts or `onclick="…"` attributes: put code in a file
+(`csp.test.js` fails otherwise). AdSense's hosts are added only when
+`ADSENSE_CLIENT` is set. `CSP_MODE` in `.env` chooses `report-only` (the
+default while it's tried out: browsers report, nothing is blocked) or
+`enforce`; reports go to `/api/csp-report` (`server/csp-reports.js`) and
+show on `/admin/diagnostics`. The tests always enforce it.
 
 ## Ads and search
 

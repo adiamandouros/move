@@ -1,5 +1,6 @@
 import { readFileSync } from 'fs';
 import express from 'express';
+import { inlineScripts } from '../csp.js';
 import { adsTxt } from '../ads.js';
 import { basePath, langOf, LANGS, localPath, pageStrings } from './i18n.js';
 import { iconSprite } from './icons.js';
@@ -122,6 +123,10 @@ export function createPages(tools = loadTools(), { railFile } = {}) {
         router,
         // Render any other page (e.g. the admin pages) with the shared layout
         render,
+        // The inline scripts of every page, for the Content-Security-Policy
+        // (server/csp.js). Station and admin pages share the layout, so the
+        // same scripts; csp.test.js checks every page against the policy.
+        inlineScripts: new Set([...Object.values(pages), notFound('/'), notFound('/el/')].flatMap(inlineScripts)),
         notFound: (req, res) => res.status(404).type('html').send(notFound(req.path)),
     };
 }

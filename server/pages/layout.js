@@ -52,7 +52,8 @@ export function createRenderer(tools, pagePaths) {
             lang,
             // For icon() in the browser (public/js/core/html.js)
             icons: versioned('/icons.svg'),
-            languageRedirect: languageRedirect(lang, path),
+            otherLanguage: otherLanguage(lang, path),
+            languageRedirect: path ? LANGUAGE_REDIRECT : '',
             title: escapeHtml(fullTitle),
             // The installed app opens in the language it was installed in
             manifest: localPath('/manifest.webmanifest', lang),
@@ -151,12 +152,13 @@ function languageSuggestion(lang, path, otherStrings) {
 }
 
 // Someone who chose the other language with the language link (remembered in
-// localStorage by /js/core/shell.js) gets this page in it, before it shows
-function languageRedirect(lang, path) {
-    if (!path) return '';
-    const other = otherLang(lang);
-    const target = JSON.stringify(localPath(path, other)).replace(/</g, '\\u003c');
-    return `    <script>
-        try { if (localStorage.getItem('language') === '${other}') location.replace(${target} + location.search + location.hash); } catch (e) {}
+// localStorage by /js/core/shell.js) gets this page in it, before it shows.
+// The script is the same on every page, so the Content-Security-Policy can
+// allow it by one hash (server/csp.js); <html> says which page is the other
+// language's (otherLanguage).
+export const LANGUAGE_REDIRECT = `    <script>
+        try { var root = document.documentElement; if (localStorage.getItem('language') === root.dataset.otherLang) location.replace(root.dataset.otherPath + location.search + location.hash); } catch (e) {}
     </script>`;
-}
+const otherLanguage = (lang, path) => path
+    ? ` data-other-lang="${otherLang(lang)}" data-other-path="${escapeHtml(localPath(path, otherLang(lang)))}"`
+    : '';
