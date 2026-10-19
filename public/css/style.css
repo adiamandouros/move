@@ -146,6 +146,9 @@ body {
 #app-content {
     flex: 1;
     overflow-y: auto;
+    /* Holds what's absolutely positioned in a page (screen-reader-only text),
+       so it scrolls with the page instead of making the whole window scroll */
+    position: relative;
     padding-bottom: var(--bottom-nav-height);
     /* Whatever the keyboard moves to scrolls clear of the bottom nav (WCAG 2.4.11) */
     scroll-padding-bottom: calc(var(--bottom-nav-height) + 8px);
