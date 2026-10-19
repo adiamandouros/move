@@ -11,7 +11,9 @@ test.describe('a phone set to Greek', () => {
 
     test('on an English page: the suggestion, once', async ({ page }, { project }) => {
         await page.goto('/subway?from=omonia&to=airport');
-        await expect(page.locator('#bottom-nav a, #bottom-nav button')).toHaveText(['Home', 'Subway', 'Buses', 'Info', 'Menu']);
+        await expect(page.locator('#bottom-nav a')).toHaveText(['Home', 'Subway', 'Buses', 'Info']);
+        await expect(page.locator('#bottom-nav button')).toHaveText('');
+        await expect(page.locator('#bottom-nav button')).toHaveAccessibleName('Menu');
         await expect(page.locator('.lang-suggest')).toBeVisible();
         await expect(page.locator('.lang-suggest a')).toHaveText('Διαβάστε το Wayhop στα ελληνικά');
         await expect(page.locator('#site-menu .menu-language')).toBeAttached();
@@ -90,15 +92,15 @@ test.describe('the install card', () => {
     });
 });
 
-test('the bottom bar: Home and Menu line up with the other icons and labels', async ({ page }) => {
+test('the bottom bar: Home and Menu line up with the other icons, and the labels with each other', async ({ page }) => {
     await page.goto('/subway');
-    const links = page.locator('#bottom-nav > *');
-    await expect(links).toHaveCount(5);
-    const tops = await links.evaluateAll(as => as.map(a => ({
-        icon: Math.round(a.firstElementChild.getBoundingClientRect().top),
-        label: Math.round(a.querySelector('.nav-label').getBoundingClientRect().top),
-    })));
-    for (const top of tops) expect(top).toEqual(tops[1]);
+    const items = page.locator('#bottom-nav > *');
+    await expect(items).toHaveCount(5);
+    const icons = await items.evaluateAll(els => els.map(el => el.firstElementChild).map(el => Math.round(el.getBoundingClientRect().top)));
+    const labels = await page.locator('#bottom-nav .nav-label').evaluateAll(els => els.map(el => Math.round(el.getBoundingClientRect().top)));
+    expect(labels).toHaveLength(4);
+    for (const t of icons) expect(t).toBe(icons[1]);
+    for (const t of labels) expect(t).toBe(labels[1]);
 });
 
 test.describe('the menu', () => {
