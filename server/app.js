@@ -28,7 +28,7 @@ const DATA_DIR = path.join(ROOT, 'data');
 // and a fake OASA.
 //   config:   the settings (server/config.js): the relays, the admin password,
 //             the CSP mode, the public address, AdSense
-//   buildDir: rail.json, bus-stops.json, meta.json (data/build)
+//   buildDir: rail.json, bus-stops.json, bus-lines.json, meta.json (data/build)
 //   cacheDir: OASA's routes, the route status and the announcements (data/cache)
 //   fetch:    how OASA, STASY and the relays are reached
 //   oasaClient, limiter: stand-ins for OASA and the per-visitor limit (oasa/index.js), for tests
@@ -105,7 +105,7 @@ export function createApp({
     });
     if (admin) app.use('/admin', admin);
 
-    // Generated data (rail.json, bus-stops.json, meta.json); revalidated on every request via ETag
+    // Generated data (rail.json, bus-stops.json, bus-lines.json, meta.json); revalidated on every request via ETag
     app.use('/data', express.static(buildDir, { maxAge: 0 }));
 
     for (const [url, dir] of Object.entries(VENDOR)) app.use(url, express.static(dir));

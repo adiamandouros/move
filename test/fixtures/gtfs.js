@@ -98,8 +98,52 @@ export function busFeed({ stops = 1000, extraStops = [], dir = mkdtempSync(join(
     write('stop_times.txt', [
         'trip_id,arrival_time,departure_time,stop_id,stop_sequence',
         ...codes.map((code, i) => `t1,08:00:00,08:00:00,${code},${i + 1}`),
-        `t2,09:00:00,09:00:00,${codes[0]},1`,
         ...extraStops.map((row, i) => `t1,10:00:00,10:00:00,${row.split(',')[0]},${stops + i + 1}`),
+        `t2,09:00:00,09:00:00,${codes[0]},1`,
+    ]);
+    return dir;
+}
+
+// A bus feed for the lines (bus-lines.json): stops 1–4 in a row from south to
+// north and a loop 5–6–5. The 040 goes 1→4 (two trips, as OASA writes its
+// headsign), back 4→1 (two trips) and has rarer variants: 1→3→4 and a night
+// 4→3→1. Its short working (route r2, one trip) is the same line number.
+// Κ1 is circular. `ungrouped` lists one trip's stops in two places.
+export function busLinesFeed({ ungrouped = false } = {}) {
+    const dir = mkdtempSync(join(tmpdir(), 'wayhop-buslines-'));
+    const write = (name, rows) => writeFileSync(join(dir, name), rows.join('\n') + '\n');
+    write('routes.txt', ['route_id,route_short_name,route_long_name', 'r1,040,ΠΕΙΡΑΙΑΣ  - ΣΥΝΤΑΓΜΑ', 'r2,040,ΠΕΙΡΑΙΑΣ - ΣΥΝΤΑΓΜΑ (ΑΠΟ ΣΤΑΣΗ Β)', 'r3,Κ1,ΚΥΚΛΟΣ (ΚΥΚΛΙΚΗ)']);
+    write('trips.txt', [
+        'route_id,service_id,trip_id,trip_headsign,direction_id',
+        'r1,wk,up1,ΣΥΝΤΑΓΜΑ - ΠΕΙΡΑΙΑΣ (ΠΡΟΣΩΡΙΝΗ ΛΟΓΩ ΕΡΓΩΝ),0', 'r1,wk,up2,ΣΥΝΤΑΓΜΑ - ΠΕΙΡΑΙΑΣ (ΠΡΟΣΩΡΙΝΗ ΛΟΓΩ ΕΡΓΩΝ),0',
+        'r1,wk,down1,ΠΕΙΡΑΙΑΣ - ΣΥΝΤΑΓΜΑ,0', 'r1,wk,down2,ΠΕΙΡΑΙΑΣ - ΣΥΝΤΑΓΜΑ,0', 'r1,wk,upskip,ΣΥΝΤΑΓΜΑ - ΠΕΙΡΑΙΑΣ,0', 'r1,wk,night,ΠΕΙΡΑΙΑΣ - ΣΥΝΤΑΓΜΑ (22:00-06:00),0',
+        'r2,wk,short,ΠΕΙΡΑΙΑΣ - ΣΥΝΤΑΓΜΑ (ΑΠΟ ΣΤΑΣΗ Β),0',
+        'r3,wk,loop1,ΚΥΚΛΟΣ,0', 'r3,wk,loop2,ΚΥΚΛΟΣ,0',
+    ]);
+    write('calendar.txt', [
+        'service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date',
+        'wk,1,1,1,1,1,1,1,20260803,20260809',
+    ]);
+    write('stops.txt', [
+        'stop_id,stop_name,stop_lat,stop_lon',
+        '1,ΣΥΝΤΑΓΜΑ,37.90,23.70', '2,Β,37.91,23.70', '3,Γ,37.92,23.70', '4,ΤΕΡΜΑ  ΠΕΙΡΑΙΑ,37.93,23.70',
+        '5,ΑΡΧΗ,37.95,23.75', '6,ΜΕΣΗ,37.96,23.75', '-2,ΓΡΑΜΜΑΤΙΚΟ,37.97,23.75',
+    ]);
+    const trip = (id, stops) => stops.map((stop, i) => `${id},08:00:00,08:00:00,${stop},${i + 1}`);
+    const up1 = trip('up1', [1, 2, 3, 4]);
+    write('stop_times.txt', [
+        'trip_id,arrival_time,departure_time,stop_id,stop_sequence',
+        // Out of order within the trip: the sequence numbers say the order
+        up1[2], up1[0], up1[1], ...(ungrouped ? [] : [up1[3]]),
+        ...trip('up2', [1, 2, 3, 4]),
+        ...trip('down1', [4, 3, 2, 1]),
+        ...trip('down2', [4, 3, 2, 1]),
+        ...trip('upskip', [1, 3, 4]),
+        ...trip('night', [4, 3, 1]),
+        ...trip('short', [2, 3]),
+        ...trip('loop1', [5, 6, '-2', 5]),
+        ...trip('loop2', [5, 6, '-2', 5]),
+        ...(ungrouped ? [up1[3]] : []),
     ]);
     return dir;
 }

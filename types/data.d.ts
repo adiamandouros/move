@@ -83,3 +83,18 @@ export interface BusStops {
     /** [code, lat, lng, Greek name, English name (may be empty), line numbers] */
     stops: [string, number, number, string, string, string[]][];
 }
+
+/** data/build/bus-lines.json, built by server/data/build-bus.js: each line's stops in order */
+export interface BusLines {
+    schema: number;
+    generated: string;
+    feed: { validFrom: string; validTo: string };
+    /** Sorted by line number. One or two directions (a circular line has one) */
+    lines: {
+        line: string;
+        /** OASA's Greek name, e.g. 'ΠΕΙΡΑΙΑΣ - ΣΥΝΤΑΓΜΑ' (may be empty) */
+        name: string;
+        /** `to`: where it goes, in Greek; `stops`: codes in bus-stops.json, in order */
+        directions: { to: string; stops: string[] }[];
+    }[];
+}
