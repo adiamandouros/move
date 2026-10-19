@@ -4,6 +4,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameS
 import { getPriority, setPriority } from 'os';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 import { loadConfig, userAgentFor } from '../config.js';
 import { readJson } from '../files.js';
 import { athensToday } from './calendar.js';
@@ -245,9 +246,11 @@ function isRunning(pid) {
 // Exits with 0 when built or up to date, 1 when something failed, and
 // BUSY_EXIT_CODE when another build is running.
 // The server's builds run it too (runBuildInChild), with the server's settings
-// already in their environment; from a terminal, they come from .env.
+// already in their environment; from a terminal, they come from .env. (No
+// top-level await here, or anywhere the server imports: the live host starts
+// server.js with require(), which can't load it. test/startup.test.js)
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-    await import('dotenv/config');
+    dotenv.config();
     const args = new Set(process.argv.slice(2));
     runBuild({ force: args.has('--force'), offline: args.has('--offline'), userAgent: loadConfig().userAgent })
         .then(meta => {
