@@ -56,7 +56,8 @@ test('the last stop of a direction has no departures', () => {
     assert.deepEqual(firstAndLast(rail.lines.L1.directions.east.timetable, 2), []);
 });
 
-// The data the station views draw (server/views/stations/*.hbs), without any HTML
+// The data the station views draw (server/views/stations/*.hbs): plain values,
+// and the metro pieces shared with the subway page (metro.js) as html``
 test('what a station\'s page shows, as data: lines, neighbours, where to ride, connections, times', () => {
     const view = stationView(rail, 'x', 'en', key => key);
     assert.equal(view.name, 'Cross');
@@ -64,9 +65,14 @@ test('what a station\'s page shows, as data: lines, neighbours, where to ride, c
     const [east] = view.lines[0].directions;
     assert.equal(east.toward, 'Beta');
     assert.deepEqual([east.previous, east.next], [{ href: '/subway/stations/a', name: 'Alpha' }, { href: '/subway/stations/b', name: 'Beta' }]);
+    assert.equal(east.arriving.exitsKnown, true);
     assert.match(String(east.arriving.diagram), /class="train-diagram"/);
+    assert.equal(east.arriving.centralPlatform, null);
     assert.deepEqual(east.arriving.transfers, [{ line: 'L2', toward: 'Gamma', where: 'subway.pos.center-front' }]);
-    assert.equal(east.arriving.note, 'Unreliable data');
+    assert.match(String(east.arriving.note), /class="stop-note[^"]*">.*Unreliable data<\/div>$/);
+    assert.equal(view.lines[0].directions[1].arriving.note, null);
+    // Arriving at b on L1: a central platform
+    assert.match(String(stationView(rail, 'b', 'en', key => key).lines[0].directions[0].arriving.centralPlatform), /class="central-platform-badge">.*subway\.exit-left/);
     assert.deepEqual(east.times, [
         { days: 'stations.day.1–stations.day.5', first: '05:32', last: '00:32' },
         { days: 'stations.day.6, stations.day.0', first: '06:02', last: '01:02' },

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { escapeHtml, format, formatDate, html, Html, icon, localName, raw, safeUrl, setHtml, walkingUrl } from '../public/js/core/html.js';
-import { clockTime, lineBadge } from '../public/js/core/metro.js';
+import { centralPlatformBadge, clockTime, exitDiagram, lineBadge, stopNote } from '../public/js/core/metro.js';
 
 // Building HTML (public/js/core/html.js): html`` escapes every value put into
 // it, except pieces it built itself; and the small helpers around it
@@ -80,6 +80,23 @@ test('walking directions, times and dates', () => {
 test('icon() is built with html``, so its classes are escaped', () => {
     assert.equal(String(icon('geo-alt', 'me-1')), '<svg class="bi me-1" aria-hidden="true"><use href="/icons.svg#geo-alt"></use></svg>');
     assert.doesNotMatch(String(icon('x', '"><script>')), /<script>/);
+});
+
+// Shared by the subway page and the station pages, so they look the same on both
+test('where to ride: the train diagram, or a note when the stop\'s exits aren\'t known', () => {
+    const s = key => key;
+    const positions = ['back', 'center', 'front'];
+    assert.match(String(exitDiagram(positions, ['back'], [], s)), /class="train-diagram"/);
+    assert.equal(String(exitDiagram(positions, [], [], s)), '<p class="text-body-secondary fst-italic small">subway.no-position-data</p>');
+});
+
+test('the central platform badge and a stop\'s note', () => {
+    const s = key => key;
+    assert.match(String(centralPlatformBadge(s)), /^<span class="central-platform-badge"><svg [^]*<\/svg>subway\.exit-left<\/span>$/);
+    assert.match(String(centralPlatformBadge(s, 'ms-2')), /^<span class="central-platform-badge ms-2">/);
+    assert.match(String(stopNote('No data yet!')), /^<div class="stop-note mt-3"><svg [^]*<\/svg>No data yet!<\/div>$/);
+    assert.match(String(stopNote('<b>x</b>')), /&lt;b&gt;x&lt;\/b&gt;/);
+    for (const none of [null, undefined, '']) assert.equal(stopNote(none), null);
 });
 
 test('a line badge is coloured by its class (style.css), with no inline style', () => {

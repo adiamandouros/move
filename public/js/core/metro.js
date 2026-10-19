@@ -47,3 +47,27 @@ export function trainDiagram(positions, exits, elevators, s) {
                 <div class="train-label" aria-hidden="true">${s('subway.train-front')}</div>
             </div>`;
 }
+
+// Where to ride for the exit: the train diagram, or a note that it isn't
+// known yet for this stop
+/**
+ * @param {Position[]} positions @param {Position[]} exits @param {Position[]} elevators
+ * @param {(key: string) => string} s
+ */
+export function exitDiagram(positions, exits, elevators, s) {
+    return exits.length
+        ? trainDiagram(positions, exits, elevators, s)
+        : html`<p class="text-body-secondary fst-italic small">${s('subway.no-position-data')}</p>`;
+}
+
+// The badge for a central platform (the doors open on the left). cls: where it sits.
+/** @param {(key: string) => string} s @param {string} [cls] */
+export function centralPlatformBadge(s, cls = '') {
+    return html`<span class="central-platform-badge${cls ? ` ${cls}` : ''}">${icon('symmetry-horizontal', 'me-1')}${s('subway.exit-left')}</span>`;
+}
+
+// A stop's note ("Unreliable data", "No data yet!"), or nothing
+/** @param {string | null | undefined} note */
+export function stopNote(note) {
+    return note ? html`<div class="stop-note mt-3">${icon('info-circle', 'me-1')}${note}</div>` : null;
+}

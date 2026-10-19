@@ -6,7 +6,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
 import { format, formatDate, html, localName, walkingUrl } from '../../public/js/core/html.js';
-import { clockTime, lineBadge, trainDiagram } from '../../public/js/core/metro.js';
+import { centralPlatformBadge, clockTime, exitDiagram, lineBadge, stopNote } from '../../public/js/core/metro.js';
 import { athensDate } from '../../tools/subway/client/network.js';
 import { LANGS, localPath, pageStrings } from './i18n.js';
 import { structuredData } from './seo.js';
@@ -107,15 +107,16 @@ export function stationView(rail, id, lang, s) {
                     next: link(next),
                     // Arriving here (not at the first stop): where to ride for the exit and for each connection
                     arriving: previous ? {
-                        diagram: stop.exits.length ? trainDiagram(rail.positions, stop.exits, stop.elevators ?? [], s) : null,
-                        centralPlatform: Boolean(stop.centralPlatform),
+                        exitsKnown: stop.exits.length > 0,
+                        diagram: exitDiagram(rail.positions, stop.exits, stop.elevators ?? [], s),
+                        centralPlatform: stop.centralPlatform ? centralPlatformBadge(s) : null,
                         transfers: Object.entries(stop.transfers ?? {}).flatMap(([to, where]) => {
                             const [line, dir] = to.split('/');
                             const target = rail.lines[line]?.directions[dir];
                             if (!target || !where.length) return [];
                             return [{ line: rail.lines[line].name, toward: localName(target.toward, lang), where: where.map(p => s(`subway.pos.${p}`)).join(', ') }];
                         }),
-                        note: stop.note ?? null,
+                        note: stopNote(stop.note),
                     } : null,
                     // Leaving from here (not at the last stop): first and last trains
                     times: (next ? firstAndLast(direction.timetable, index) : [])
