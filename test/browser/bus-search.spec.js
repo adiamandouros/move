@@ -144,8 +144,14 @@ test('Back and Forward move between the views; a shared address opens the same v
     await results(page).locator('a[href*="?line=040"]').click();
     await expect(page).toHaveURL(/\/el\/buses\?line=040$/);
     await expect(page.locator('.line-heading')).toBeFocused();
-    await page.locator('.stop-item').first().locator('.stop-toggle').click();
-    await page.locator('.stop-item').first().getByRole('link', { name: '040' }).click();
+    const entries = () => page.evaluate(() => history.length);
+    const before = await entries();
+    const first = page.locator('.stop-item').first();
+    await first.locator('.stop-toggle').click();
+    // Opened all the way (Bootstrap's "collapsing" while it slides)
+    await expect(first.locator('.accordion-collapse')).toHaveClass(/(^| )show( |$)/);
+    await first.getByRole('link', { name: '040' }).click();
+    await expect.poll(entries, 'the stop\'s line link adds a page to the history').toBe(before + 1);
     await page.goBack();
     await page.goBack();
     await expect(page).toHaveURL(/\/el\/buses$/);
