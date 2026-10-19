@@ -5,6 +5,12 @@ import { legPositions } from './network.js';
 
 const stationName = (rail, id) => escapeHtml(rail.stations[id].name[language] ?? rail.stations[id].name.en);
 
+// Google Maps walking directions to a station
+export function walkingUrl(rail, id) {
+    const [lat, lng] = rail.stations[id].coords;
+    return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`;
+}
+
 const HOUR = 3600;
 
 // "05:32" for a time in seconds after midnight (trains after midnight count on)

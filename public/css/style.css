@@ -598,6 +598,8 @@ body {
     display: flex;
     justify-content: flex-end;
     margin: -4px 0 -12px;
+    /* Centres the 36px button under the 52px signpost above it */
+    padding-right: 8px;
 }
 
 .swap-btn {
@@ -605,6 +607,12 @@ body {
     border-radius: 50%;
     width: 36px;
     height: 36px;
+}
+
+/* Bolder arrows: the icon is filled shapes, so an outline thickens them */
+.swap-btn .bi {
+    stroke: currentColor;
+    stroke-width: 0.6;
 }
 
 .swap-btn:hover {
@@ -637,6 +645,18 @@ body {
 .locate-btn:focus-visible {
     outline: none;
     box-shadow: var(--focus-ring);
+}
+
+/* Walking directions to the boarding station, beside its field */
+.walk-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--bs-border-radius);
+}
+
+.walk-btn[hidden] {
+    display: none;
 }
 
 .locate-status {

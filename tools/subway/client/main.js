@@ -2,7 +2,7 @@ import { lastPosition, locationPermission, onLocation, onLocationProblem, startL
 import { language, t } from '/js/core/i18n.js';
 import { athensNow, closestStation, isTimetableExpired, planTrip } from './network.js';
 import { stationSearch } from './search.js';
-import { renderMessage, renderResult, routeSummary } from './render.js';
+import { renderMessage, renderResult, routeSummary, walkingUrl } from './render.js';
 
 // Keeps the "in N minutes" chips current while the page is open
 const REFRESH_MS = 30_000;
@@ -58,7 +58,17 @@ function start(rail) {
         history.replaceState(null, '', search ? `${location.pathname}?${search}` : location.pathname);
     };
 
-    const changed = () => { syncUrl(); render({ speak: true }); };
+    // The signpost beside the boarding station: walking directions to it
+    const walk = /** @type {HTMLAnchorElement} */ (document.getElementById('walk-btn'));
+    const syncWalk = () => {
+        walk.hidden = !from.get();
+        if (walk.hidden) return;
+        const station = rail.stations[from.get()];
+        walk.href = walkingUrl(rail, from.get());
+        document.getElementById('walk-station').textContent = station.name[language] ?? station.name.en;
+    };
+
+    const changed = () => { syncUrl(); syncWalk(); render({ speak: true }); };
 
     // Without a station in the address, the boarding station follows the
     // user's location until they pick one themselves

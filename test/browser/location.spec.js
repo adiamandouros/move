@@ -15,6 +15,7 @@ test.describe('a first visit, where the browser would ask', () => {
         }
         // The subway page asks only from "Nearest station"
         await expect(page.locator('#stop-search-from')).toHaveValue('');
+        await expect(page.locator('#walk-btn')).toBeHidden();
     });
 
     test('the bus page asks after a tap, and the next pages have it at once', async ({ page }, { project }) => {
@@ -53,6 +54,7 @@ test.describe('no signal: the location never comes', () => {
         }, OMONIA);
         await page.goto('/subway?to=airport');
         await expect(page.locator('#stop-search-from')).toHaveValue('Omonia');
+        await expect(page.locator('#walk-btn')).toHaveAccessibleName(/Walking directions to Omonia/);
         await expect(page.locator('.result-card').first()).toBeVisible();
         await page.goto('/buses');
         await expect(page.locator('.stop-item').first()).toBeVisible();
