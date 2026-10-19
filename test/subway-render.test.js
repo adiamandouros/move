@@ -84,6 +84,20 @@ test('an old timetable says so, with its last day', async () => {
     assert.match(draw(render, TRIPS['an old timetable']).html, new RegExp(`timetable-notice[\\s\\S]*${d}/${m}/${y}`));
 });
 
+test('one train: minutes on screen and in full for screen readers, or a clock time; the last ones marked', async () => {
+    const { departureChip } = await browserModule('tools/subway/client/render.js', 'en');
+    const now = { seconds: 12 * 3600 };
+    assert.equal(String(departureChip({ departs: now.seconds + 12 * 60 + 30 }, now, false)),
+        '<span class="schedule-chip"><span aria-hidden="true">12\'</span><span class="sr-only">12 minutes,</span></span>');
+    assert.equal(String(departureChip({ departs: 5.5 * 3600 + 120, isLast: true }, now, true)),
+        '<span class="schedule-chip schedule-chip--last" title="Last train">05:32<span class="sr-only"> (Last train),</span></span>');
+    const secondLast = String(departureChip({ departs: now.seconds + 5 * 60, isSecondLast: true }, now, false));
+    assert.match(secondLast, /class="schedule-chip schedule-chip--second-last" title="Second to last train"/);
+    assert.equal(spoken(secondLast), '5 minutes (Second to last train),');
+    // A train that's already due: 0, never less
+    assert.match(String(departureChip({ departs: now.seconds - 30 }, now, false)), />0'</);
+});
+
 test('the one-sentence summary for screen readers', async () => {
     const render = await browserModule('tools/subway/client/render.js', 'en');
     const summary = trip => { const { plans, now, tomorrow } = draw(render, trip).trip; return render.routeSummary(rail, plans, now, tomorrow); };

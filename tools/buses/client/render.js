@@ -79,18 +79,23 @@ export function headerBadge(result) {
     return first ? arrivalBadge(first.minutes) : html``;
 }
 
-// Every arrival, inside the opened stop
-export function arrivalRows(result) {
-    const arrivals = result?.arrivals ?? [];
-    if (!arrivals.length) return result ? html`<li class="text-body-secondary small">${t(result.unavailable ? 'buses.unavailable' : 'buses.no-arrivals')}</li>` : html``;
-    return html`${arrivals.map(a => html`
+// One arrival: the line, where it goes and in how many minutes
+export function arrivalRow(a) {
+    return html`
             <li class="arrival-row d-flex align-items-center justify-content-between py-2 border-bottom border-secondary-subtle">
                 <span class="d-flex align-items-center gap-2">
                     <span class="line-pill"><span class="sr-only">${t('buses.line')} </span>${lineLabel(a)}</span>
                     <span class="arrival-dest"><span class="sr-only">, </span>${destination(a)}<span class="sr-only">, </span></span>
                 </span>
                 ${arrivalBadge(a.minutes)}
-            </li>`)}`;
+            </li>`;
+}
+
+// Every arrival, inside the opened stop
+export function arrivalRows(result) {
+    const arrivals = result?.arrivals ?? [];
+    if (!arrivals.length) return result ? html`<li class="text-body-secondary small">${t(result.unavailable ? 'buses.unavailable' : 'buses.no-arrivals')}</li>` : html``;
+    return html`${arrivals.map(arrivalRow)}`;
 }
 
 // A message in place of the stops, with an optional button (its label).

@@ -19,19 +19,23 @@ const HOUR = 3600;
 // and trains over an hour away (after midnight, the first ones of the morning)
 const asClock = (departures, now, tomorrow) => tomorrow || departures[0].departs - now.seconds > HOUR;
 
+// One train: in how many minutes it leaves, or at what time (clock), marked
+// when it's the last or second to last
+export function departureChip(d, now, clock) {
+    const minutes = Math.max(0, Math.floor((d.departs - now.seconds) / 60));
+    const note = d.isLast ? t('subway.last-train') : d.isSecondLast ? t('subway.second-last-train') : '';
+    const cls = d.isLast ? ' schedule-chip--last' : d.isSecondLast ? ' schedule-chip--second-last' : '';
+    // "12'" on screen, "12 minutes" for screen readers; or "05:32" for both
+    const time = clock
+        ? html`${clockTime(d.departs)}<span class="sr-only">${note && ` (${note})`},</span>`
+        : html`<span aria-hidden="true">${minutes}'</span><span class="sr-only">${minutes} ${t('subway.minutes')}${note && ` (${note})`},</span>`;
+    return html`<span class="schedule-chip${cls}"${note && html` title="${note}"`}>${time}</span>`;
+}
+
 function departureChips(departures, now, tomorrow) {
     if (!departures.length) return html`<span class="schedule-label">${t('subway.no-trains')}</span>`;
     const clock = asClock(departures, now, tomorrow);
-    const chips = departures.map(d => {
-        const minutes = Math.max(0, Math.floor((d.departs - now.seconds) / 60));
-        const note = d.isLast ? t('subway.last-train') : d.isSecondLast ? t('subway.second-last-train') : '';
-        const cls = d.isLast ? ' schedule-chip--last' : d.isSecondLast ? ' schedule-chip--second-last' : '';
-        // "12'" on screen, "12 minutes" for screen readers; or "05:32" for both
-        const time = clock
-            ? html`${clockTime(d.departs)}<span class="sr-only">${note && ` (${note})`},</span>`
-            : html`<span aria-hidden="true">${minutes}'</span><span class="sr-only">${minutes} ${t('subway.minutes')}${note && ` (${note})`},</span>`;
-        return html`<span class="schedule-chip${cls}"${note && html` title="${note}"`}>${time}</span>`;
-    });
+    const chips = departures.map(d => departureChip(d, now, clock));
     return html`<span class="schedule-label">${t(clock ? 'subway.schedule-at' : 'subway.schedule-in')}</span><span class="schedule-chips">${chips}</span>`;
 }
 
