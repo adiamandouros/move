@@ -1123,10 +1123,11 @@ body {
 }
 
 /* Line colours, for badges (lineBadge in /js/core/metro.js). The metro's are
-   data/curated/lines.json's: test/accessibility.test.js checks they're the
-   same, and that the text on each meets WCAG AA (dark text on the lighter
-   ones). The tram isn't in the planner, so it's only here. */
-.line-m1 { background-color: #4caf50; color: var(--wh-ink); }
+   data/curated/lines.json's, with white text (M1's green is a little darker
+   than OASA's for it): test/accessibility.test.js checks they're the same,
+   and that the text on each meets WCAG AA. The tram isn't in the planner, so
+   it's only here, with dark text. */
+.line-m1 { background-color: #3a833c; color: #fff; }
 .line-m2 { background-color: #cc0000; color: #fff; }
 .line-m3 { background-color: #0057b8; color: #fff; }
 .line-t6,

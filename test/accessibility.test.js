@@ -167,6 +167,11 @@ test('every metro line\'s colour in style.css is its colour in lines.json', () =
     assert.ok(LINE_COLOURS.t6 && LINE_COLOURS.t7, 'and the tram');
 });
 
+test('the metro lines\' badges have white text', () => {
+    const lines = JSON.parse(readFileSync(new URL('../data/curated/lines.json', import.meta.url), 'utf8'));
+    for (const id of Object.keys(lines)) assert.equal(resolve(LINE_COLOURS[id.toLowerCase()].color), '#fff', `.line-${id.toLowerCase()}`);
+});
+
 test('line badges are readable on every line colour', () => {
     assert.ok(Object.keys(LINE_COLOURS).length >= 5);
     for (const [id, { background, color }] of Object.entries(LINE_COLOURS)) {

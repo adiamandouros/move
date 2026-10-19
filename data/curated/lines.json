@@ -1,7 +1,7 @@
 {
   "M1": {
     "name": "M1",
-    "color": "#4caf50",
+    "color": "#3a833c",
     "directions": {
       "kifisia": { "gtfsDirection": "0", "toward": { "el": "Κηφισιά", "en": "Kifisia" } },
       "piraeus": { "gtfsDirection": "1", "toward": { "el": "Πειραιάς", "en": "Piraeus" } }
