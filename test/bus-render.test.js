@@ -38,14 +38,14 @@ for (const lang of ['en', 'el']) {
 
 test('the stop row: name, distance, directions in a new tab, lines', async () => {
     const { stopItem } = await browserModule('tools/buses/client/render.js', 'en');
-    const html = stopItem({ ...stop, meters: 1530 }, 3);
+    const html = String(stopItem({ ...stop, meters: 1530 }, 3));
     assert.match(html, /data-stop="10361"/);
     assert.match(html, /aria-controls="stop-3"/);
     assert.match(spoken(html), /SYNTAGMA\s*,\s*1\.5 km/);
     assert.match(html, /aria-label="Walking directions to SYNTAGMA \(opens in a new tab\)"/);
-    assert.match(html, /destination=37\.97491,23\.73488&travelmode=walking/);
+    assert.match(html, /destination=37\.97491,23\.73488&amp;travelmode=walking/);
     assert.match(html, /Lines: 040, Χ95/);
-    assert.match((await browserModule('tools/buses/client/render.js', 'el')).stopItem(stop, 0), /ΣΥΝΤΑΓΜΑ/);
+    assert.match(String((await browserModule('tools/buses/client/render.js', 'el')).stopItem(stop, 0)), /ΣΥΝΤΑΓΜΑ/);
 });
 
 test('the next bus, as a screen reader hears the stop button', async () => {
@@ -55,13 +55,13 @@ test('the next bus, as a screen reader hears the stop button', async () => {
     assert.equal(spoken(el.nextBus({ arrivals })).replace(/\s+/g, ' '), '. Επόμενο λεωφορείο: γραμμή Χ95, ΣΥΝΤΑΓΜΑ - ΑΕΡΟΔΡΟΜΙΟ, 2 λεπτά');
     assert.equal(spoken(en.nextBus({ arrivals: [] })), '. No arrivals');
     assert.match(spoken(en.nextBus({ arrivals: [], unavailable: true })), /unavailable/i);
-    assert.match(en.nextBus(undefined), /class="bi[^"]* spin"/);
+    assert.match(String(en.nextBus(undefined)), /class="bi[^"]* spin"/);
 });
 
 test('the minutes badge: colour by how soon, short on screen, in full for screen readers, in the page\'s language', async () => {
     const en = await browserModule('tools/buses/client/render.js', 'en');
     const el = await browserModule('tools/buses/client/render.js', 'el');
-    const badge = (r, m) => r.headerBadge({ arrivals: [{ line: '1', minutes: m }] });
+    const badge = (r, m) => String(r.headerBadge({ arrivals: [{ line: '1', minutes: m }] }));
     assert.match(badge(en, 3), /arrival-soon/);
     assert.match(badge(en, 4), /arrival-close/);
     assert.match(badge(en, 8), /arrival-close/);
@@ -69,23 +69,23 @@ test('the minutes badge: colour by how soon, short on screen, in full for screen
     assert.match(badge(en, 9), /<span aria-hidden="true">9 min<\/span><span class="sr-only">9 minutes<\/span>/);
     assert.match(badge(el, 9), /<span aria-hidden="true">9 λεπ\.<\/span><span class="sr-only">9 λεπτά<\/span>/);
     assert.match(badge(en, 2), /<span class="sr-only">2 minutes, arriving soon<\/span>/);
-    assert.equal(en.headerBadge({ arrivals: [] }), '');
+    assert.equal(String(en.headerBadge({ arrivals: [] })), '');
 });
 
 test('every arrival is listed; an unknown line or destination says so', async () => {
     const { arrivalRows } = await browserModule('tools/buses/client/render.js', 'en');
-    const html = arrivalRows({ arrivals });
+    const html = String(arrivalRows({ arrivals }));
     assert.equal((html.match(/class="arrival-row/g) ?? []).length, 3);
     assert.match(spoken(html), /\?/);
     assert.match(html, /Unknown line|unknown/i);
-    assert.match(arrivalRows({ arrivals: [], unavailable: true }), /unavailable/i);
-    assert.equal(arrivalRows(undefined), '');
+    assert.match(String(arrivalRows({ arrivals: [], unavailable: true })), /unavailable/i);
+    assert.equal(String(arrivalRows(undefined)), '');
 });
 
 test('names from OASA are escaped', async () => {
     const { arrivalRows, stopItem } = await browserModule('tools/buses/client/render.js', 'en');
-    const html = arrivalRows({ arrivals: [{ line: '<b>', to: { en: '<img src=x onerror=alert(1)>' }, minutes: 1 }] })
-        + stopItem({ ...stop, name: { en: 'A & <B>' } }, 0);
+    const html = String(arrivalRows({ arrivals: [{ line: '<b>', to: { en: '<img src=x onerror=alert(1)>' }, minutes: 1 }] }))
+        + String(stopItem({ ...stop, name: { en: 'A & <B>' } }, 0));
     assert.doesNotMatch(html, /<img|<b>/);
     assert.match(html, /&lt;img src=x/);
     assert.match(html, /A &amp; &lt;B&gt;/);

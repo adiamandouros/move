@@ -1,6 +1,6 @@
 // /admin/diagnostics: runs the server checks (server/diagnostics.js) and shows them
 
-import { icon } from '/js/core/html.js';
+import { icon, setHtml } from '/js/core/html.js';
 
 const $ = id => document.getElementById(id);
 const ICONS = { ok: 'check-circle-fill', warn: 'exclamation-triangle-fill', fail: 'x-octagon-fill', info: 'info-circle' };
@@ -15,7 +15,7 @@ function el(tag, className, text) {
 
 function statusIcon(status) {
     const box = document.createElement('template');
-    box.innerHTML = icon(ICONS[status], `diag-icon diag-${status}`);
+    setHtml(box, icon(ICONS[status], `diag-icon diag-${status}`));
     return box.content.firstChild;
 }
 

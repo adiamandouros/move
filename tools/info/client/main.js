@@ -1,4 +1,5 @@
 import '/js/core/announcements.js';
+import { html, setHtml } from '/js/core/html.js';
 import { t } from '/js/core/i18n.js';
 import { createMetroMap, stationList } from './map.js';
 
@@ -24,9 +25,9 @@ async function openMap() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const rail = await res.json();
         createMetroMap(mapContainer, rail);
-        stationsContainer.innerHTML = stationList(rail);
+        setHtml(stationsContainer, stationList(rail));
     } catch {
-        mapContainer.innerHTML = `<p class="text-body-secondary">${t('info.map-error')}</p>`;
+        setHtml(mapContainer, html`<p class="text-body-secondary">${t('info.map-error')}</p>`);
         delete mapContainer.dataset.loaded;
     }
 }

@@ -257,3 +257,16 @@ test('diagnostics show each source, and which route STASY came through', () => {
         ['OASA (English)', 'warn', 'HTTP 500. Showing the copy from 60 min ago.'],
     ]);
 });
+
+test('only links to web addresses are kept: a javascript: link would run in the page', () => {
+    const evil = rssItem('Τροποποίηση γραμμής 418', 'Wed, 14 Oct 2026 03:00:23 +0000', ['Ανακοινώσεις'])
+        .replace(/<link>[^<]*<\/link>/, '<link>javascript:alert(1)</link>');
+    const good = rssItem('Temporary line X24', 'Fri, 09 Oct 2026 05:00:18 +0000', ['Announcements']);
+    assert.deepEqual(parseOasaFeed(feed(evil, good)).map(i => i.title), ['Temporary line X24']);
+
+    const posts = parseStasyList(
+        stasyArticle(1, 'l3', 'Κυκλοφοριακές ρυθμίσεις στη Γραμμή 3').replace('https://www.stasy.gr/l3/', 'javascript:alert(1)')
+        + stasyArticle(2, 'l1', 'Κλειστός ο σταθμός Ομόνοια'),
+    );
+    assert.deepEqual(posts, [{ title: 'Κλειστός ο σταθμός Ομόνοια', link: 'https://www.stasy.gr/l1/' }]);
+});

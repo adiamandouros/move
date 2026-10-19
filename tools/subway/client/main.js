@@ -1,4 +1,5 @@
 import { lastPosition, locationPermission, onLocation, onLocationProblem, startLocation } from '/js/core/location.js';
+import { localName, setHtml } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
 import { athensNow, closestStation, isTimetableExpired, planTrip } from './network.js';
 import { stationSearch } from './search.js';
@@ -16,7 +17,7 @@ async function loadRail() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return await res.json();
     } catch {
-        result.innerHTML = renderMessage('subway.data-error');
+        setHtml(result, renderMessage('subway.data-error'));
         return null;
     }
 }
@@ -36,16 +37,16 @@ function start(rail) {
     const render = ({ speak = false } = {}) => {
         const origin = from.get();
         const destination = to.get();
-        if (!origin || !destination) { result.innerHTML = ''; return; }
+        if (!origin || !destination) { setHtml(result, ''); return; }
         if (origin === destination) {
-            result.innerHTML = renderMessage('subway.same-station');
+            setHtml(result, renderMessage('subway.same-station'));
             if (speak) announce(t('subway.same-station'));
             return;
         }
         const today = athensNow();
         // After the last train, tomorrow's first ones
         const { plans, now, tomorrow } = planTrip(rail, origin, destination, today);
-        result.innerHTML = renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow });
+        setHtml(result, renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow }));
         if (speak) announce(routeSummary(rail, plans, now, tomorrow));
     };
 
@@ -63,9 +64,8 @@ function start(rail) {
     const syncWalk = () => {
         walk.hidden = !from.get();
         if (walk.hidden) return;
-        const station = rail.stations[from.get()];
         walk.href = walkingUrl(rail, from.get());
-        document.getElementById('walk-station').textContent = station.name[language] ?? station.name.en;
+        document.getElementById('walk-station').textContent = localName(rail.stations[from.get()].name, language);
     };
 
     const changed = () => { syncUrl(); syncWalk(); render({ speak: true }); };
@@ -118,8 +118,7 @@ function start(rail) {
         if (id !== from.get()) from.set(id);
         else if (!always) return;
         followLocation = true;
-        const name = rail.stations[id].name[language] ?? rail.stations[id].name.en;
-        announce(`${t('subway.location-prefix')} ${name} ${t('subway.location-suffix')}`);
+        announce(`${t('subway.location-prefix')} ${localName(rail.stations[id].name, language)} ${t('subway.location-suffix')}`);
     };
 
     onLocation(position => {

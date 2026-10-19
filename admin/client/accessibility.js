@@ -2,7 +2,7 @@
 // hidden frame at phone width, in English and Greek, waits for what its
 // scripts draw, and runs axe-core (WCAG 2.2 AA and best practices) on it.
 
-import { icon } from '/js/core/html.js';
+import { icon, setHtml } from '/js/core/html.js';
 
 const $ = id => document.getElementById(id);
 const ICONS = { ok: 'check-circle-fill', fail: 'x-octagon-fill', warn: 'exclamation-triangle-fill' };
@@ -44,7 +44,7 @@ function el(tag, className, text) {
 
 function statusIcon(status) {
     const box = document.createElement('template');
-    box.innerHTML = icon(ICONS[status], `diag-icon diag-${status}`);
+    setHtml(box, icon(ICONS[status], `diag-icon diag-${status}`));
     return box.content.firstChild;
 }
 

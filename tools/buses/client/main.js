@@ -1,5 +1,5 @@
 import { lastPosition, locationPermission, onLocation, onLocationProblem, restartLocation, startLocation } from '/js/core/location.js';
-import { icon } from '/js/core/html.js';
+import { html, icon, setHtml } from '/js/core/html.js';
 import { t } from '/js/core/i18n.js';
 import { decodeStops, distanceMeters, nearestStops } from './stops.js';
 import { message, patchStop, stopItem } from './render.js';
@@ -47,8 +47,8 @@ const state = {
 function renderStops() {
     // The keyboard was on a message (e.g. after "Use my location"): move it to the first stop
     const hadFocus = $('bus-message').contains(document.activeElement);
-    $('bus-message').innerHTML = '';
-    accordion.innerHTML = state.stops.map(stopItem).join('');
+    setHtml($('bus-message'), '');
+    setHtml(accordion, html`${state.stops.map(stopItem)}`);
     $('bus-actions').hidden = false;
     observer.disconnect();
     state.onScreen.clear();
@@ -73,7 +73,9 @@ function applyFilter() {
     });
     const btn = $('toggle-empty-btn');
     btn.setAttribute('aria-pressed', String(state.hideEmpty));
-    btn.querySelector('.bi').outerHTML = icon(state.hideEmpty ? 'eye' : 'eye-slash', 'me-2');
+    const swap = document.createElement('span');
+    setHtml(swap, icon(state.hideEmpty ? 'eye' : 'eye-slash', 'me-2'));
+    btn.querySelector('.bi').replaceWith(swap.firstElementChild);
     const label = btn.querySelector('span');
     label.dataset.i18n = state.hideEmpty ? 'buses.show-all' : 'buses.hide-empty';
     label.textContent = t(label.dataset.i18n);
@@ -108,7 +110,7 @@ function pickStops() {
         radius: state.limit > PAGE_SIZE ? WIDER_RADIUS_M : RADIUS_M,
     });
     if (!state.stops.length) {
-        accordion.innerHTML = '';
+        setHtml(accordion, '');
         $('bus-actions').hidden = true;
         showMessage('bus-front', t('buses.no-stops'));
         return;
@@ -211,7 +213,7 @@ function interact() {
 function showMessage(icon, title, subtitle = '', action = null) {
     const box = $('bus-message');
     const hadFocus = box.contains(document.activeElement);
-    box.innerHTML = message(icon, title, subtitle, action?.label);
+    setHtml(box, message(icon, title, subtitle, action?.label));
     const button = box.querySelector('.message-action');
     button?.addEventListener('click', action.run);
     if (hadFocus) /** @type {HTMLElement} */ (button ?? box.firstElementChild).focus();

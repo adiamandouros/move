@@ -2,6 +2,7 @@
 // Only for checking (npm run typecheck) and editor hints.
 
 import type { Names } from './data.js';
+import type { Html } from '../public/js/core/html.js';
 
 export type Lang = 'en' | 'el';
 
@@ -62,7 +63,8 @@ export interface RenderOptions {
     index?: boolean;
     title: string;
     description?: string;
-    content: string;
+    /** The HTML inside <main>: a string, or built with html`` */
+    content: string | Html;
     strings?: Strings;
     scripts?: string[];
     head?: string;

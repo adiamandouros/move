@@ -111,9 +111,17 @@ pages use.
 
 - `public/js/core/`: modules any page can import. `shell.js` runs on every
   page (location, language link, service worker). `i18n.js`, `html.js`
-  (`escapeHtml`, `format`, `textOn`), `metro.js` (train diagram, line
-  badge), `location.js`, `announcements.js`, `ads.js`.
+  (`html`, `setHtml`, `safeUrl`, `format`, `localName`, `walkingUrl`,
+  `icon`), `metro.js` (train diagram, line badge, times and dates),
+  `location.js`, `announcements.js`, `ads.js`.
 - `tools/<id>/client/`: a tool's own scripts, served at `/tools/<id>/`.
+- **Building HTML**: with ``html`…` `` from `/js/core/html.js`, which escapes
+  every value put into it (names from OASA, the strings, numbers) except
+  pieces built with ``html`` `` themselves. It goes into the page with
+  `setHtml(element, view)`, never by setting `innerHTML` to a string; links
+  from data go through `safeUrl()`, so only web addresses are linked. The
+  station pages are built the same way on the server. `test/escaping.test.js`
+  feeds markup into every name and note and checks it comes out as text.
 - **Location** (`/js/core/location.js`): only the pages that use it start it
   (Buses, and Subway when allowed or on "Nearest station"), so the browser
   asks once, where it's clear why. The last position is kept on the device

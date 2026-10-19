@@ -23,7 +23,7 @@ const TRIPS = {
 };
 const draw = (render, [from, to, now, options = {}]) => {
     const trip = planTrip(rail, from, to, now);
-    return { trip, html: render.renderResult(rail, trip.plans, trip.now, { expired: false, tomorrow: trip.tomorrow, ...options }) };
+    return { trip, html: String(render.renderResult(rail, trip.plans, trip.now, { expired: false, tomorrow: trip.tomorrow, ...options })) };
 };
 
 for (const lang of ['en', 'el']) {
@@ -89,7 +89,7 @@ test('the one-sentence summary for screen readers', async () => {
     const summary = trip => { const { plans, now, tomorrow } = draw(render, trip).trip; return render.routeSummary(rail, plans, now, tomorrow); };
     assert.match(summary(TRIPS['a direct trip']), /^M3 toward Doukissis \/ Airport, in \d+ minutes\.$/);
     assert.match(summary(TRIPS['tomorrow\'s first trains']), /^No more trains today\. These are tomorrow's first trains\. M3 toward Doukissis \/ Airport, at 0[5-7]:\d\d\.$/);
-    assert.equal(render.routeSummary(rail, [], NOON), render.renderResult(rail, [], NOON, {}).replace(/<[^>]+>/g, ''));
+    assert.equal(render.routeSummary(rail, [], NOON), String(render.renderResult(rail, [], NOON, {})).replace(/<[^>]+>/g, ''));
 });
 
 test('the signpost beside the boarding station: walking directions to it', async () => {

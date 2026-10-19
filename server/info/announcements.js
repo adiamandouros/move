@@ -1,4 +1,5 @@
 import express from 'express';
+import { safeUrl } from '../../public/js/core/html.js';
 import { userAgentFor } from '../config.js';
 import { readJson, writeFileAtomic } from '../files.js';
 
@@ -53,26 +54,30 @@ export const isDisruption = title => DISRUPTION.test(fold(title));
 // OASA's feeds also carry tenders and corporate news; keep the passenger notices
 const OASA_CATEGORIES = /ΑΝΑΚΟΙΝΩΣΕΙΣ|ANNOUNCEMENTS|ALERTS/;
 
-// → [{ title, link, date }]
+// → [{ title, link, date }]. Only items that link to a web address are kept:
+// the pages link to them, and a javascript: link would run there.
 export function parseOasaFeed(xml) {
     return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].flatMap(([, item]) => {
         const field = name => item.match(new RegExp(`<${name}>([\\s\\S]*?)</${name}>`))?.[1];
         const categories = [...item.matchAll(/<category>([\s\S]*?)<\/category>/g)].map(m => fold(decode(m[1])));
         const date = new Date(field('pubDate'));
-        if (!categories.some(c => OASA_CATEGORIES.test(c)) || Number.isNaN(date.getTime())) return [];
-        return [{ title: decode(field('title') ?? ''), link: decode(field('link') ?? ''), date: date.toISOString() }];
+        const link = safeUrl(decode(field('link') ?? ''));
+        if (!categories.some(c => OASA_CATEGORIES.test(c)) || Number.isNaN(date.getTime()) || !link) return [];
+        return [{ title: decode(field('title') ?? ''), link, date: date.toISOString() }];
     });
 }
 
 // STASY's news page also lists job ads, tenders and shareholder notices
 const STASY_SKIP = /ΠΡΟΚΗΡΥΞ|ΠΡΟΣΚΛΗΣ|ΔΙΑΓΩΝΙΣ|ΣΥΝΕΝΤΕΥΞ|ΠΙΝΑΚ|ΣΥΝΕΛΕΥΣ|ΑΠΟΤΕΛΕΣΜΑΤ|ΠΡΟΣΛΗΨ|ΘΕΣΗΣ|ΘΕΣΕΩΝ|ΔΙΑΒΟΥΛΕΥΣ|ΟΙΚΟΝΟΜΙΚ/;
 
-// → [{ title, link }], in page order (newest first)
+// → [{ title, link }], in page order (newest first). Only posts that link to
+// a web address are kept (each one's page is fetched for its date, and the
+// pages link to it).
 export function parseStasyList(html) {
     const seen = new Set();
     return [...html.matchAll(/<article id="post-\d+" class="clearfix">\s*<a href="([^"]+)"[\s\S]*?<span class="light">([\s\S]*?)<\/span>/g)]
-        .map(([, link, title]) => ({ title: decode(title), link: decode(link) }))
-        .filter(({ title, link }) => title && !STASY_SKIP.test(fold(title)) && !seen.has(link) && seen.add(link));
+        .map(([, link, title]) => ({ title: decode(title), link: safeUrl(decode(link)) }))
+        .filter(({ title, link }) => title && link && !STASY_SKIP.test(fold(title)) && !seen.has(link) && seen.add(link));
 }
 
 // → ISO date or null
