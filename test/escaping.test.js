@@ -14,10 +14,11 @@ import { browserModule } from './support/browser-modules.js';
 
 const EVIL = '<img src=x onerror="alert(1)">';
 const ESCAPED = '&lt;img src=x onerror=&quot;alert(1)&quot;&gt;';
+// (Handlebars writes = as &#x3D;; browsers read both the same)
 const safe = (view, where) => {
     const text = String(view);
     assert.doesNotMatch(text, /<img src=x|onerror="/, where);
-    assert.ok(text.includes(ESCAPED), `${where}: the text is still shown`);
+    assert.ok(text.replaceAll('&#x3D;', '=').includes(ESCAPED), `${where}: the text is still shown`);
 };
 
 // A copy of a network with markup in every name and note

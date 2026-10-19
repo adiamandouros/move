@@ -1,16 +1,11 @@
-import { readFileSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
 import { adUnit, adsenseMeta } from '../ads.js';
 import { importMap, versioned } from './assets.js';
 import { LANGS, localiseLinks, localPath, otherLang, pageStrings } from './i18n.js';
 import { metaTags } from './seo.js';
-import { compileView } from './templates.js';
+import { view } from './templates.js';
 
 // The layout every page shares (server/views/layout.hbs): the head, the
 // navigation, the language link and the menu around the page's content.
-
-const VIEWS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'views');
 
 // The pages about the site: on phones in the menu, on wider screens near the
 // bottom of the sidebar, above the language button
@@ -41,7 +36,7 @@ const LANGUAGE_LABELS = { en: 'EN', el: 'ΕΛ' };
  * @returns {(page: import('../../types/pages.js').RenderOptions) => string}
  */
 export function createRenderer(tools, pagePaths, config) {
-    const layout = compileView(readFileSync(join(VIEWS_DIR, 'layout.hbs'), 'utf8'), 'server/views/layout.hbs');
+    const layout = view('layout');
     const imports = importMap(tools);
     const stringsFor = pageStrings(tools);
 

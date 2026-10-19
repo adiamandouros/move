@@ -7,7 +7,7 @@ import express from 'express';
 import { loadConfig } from '../server/config.js';
 import { createPages } from '../server/pages/index.js';
 import { loadTools } from '../server/pages/registry.js';
-import { firstAndLast } from '../server/pages/stations.js';
+import { firstAndLast, indexView, stationView } from '../server/pages/stations.js';
 import { rail } from './fixtures/rail.js';
 
 // The station pages (/subway/stations/<id>), built from rail.json
@@ -54,6 +54,40 @@ test('service that runs into the next day is "all night" on both sides', () => {
 
 test('the last stop of a direction has no departures', () => {
     assert.deepEqual(firstAndLast(rail.lines.L1.directions.east.timetable, 2), []);
+});
+
+// The data the station views draw (server/views/stations/*.hbs), without any HTML
+test('what a station\'s page shows, as data: lines, neighbours, where to ride, connections, times', () => {
+    const view = stationView(rail, 'x', 'en', key => key);
+    assert.equal(view.name, 'Cross');
+    assert.deepEqual(view.lines.map(l => [l.key, l.number, l.directions.map(d => d.headingId)]), [['l1', '1', ['l1-east-0', 'l1-west-1']], ['l2', '2', ['l2-east-2']]]);
+    const [east] = view.lines[0].directions;
+    assert.equal(east.toward, 'Beta');
+    assert.deepEqual([east.previous, east.next], [{ href: '/subway/stations/a', name: 'Alpha' }, { href: '/subway/stations/b', name: 'Beta' }]);
+    assert.match(String(east.arriving.diagram), /class="train-diagram"/);
+    assert.deepEqual(east.arriving.transfers, [{ line: 'L2', toward: 'Gamma', where: 'subway.pos.center-front' }]);
+    assert.equal(east.arriving.note, 'Unreliable data');
+    assert.deepEqual(east.times, [
+        { days: 'stations.day.1–stations.day.5', first: '05:32', last: '00:32' },
+        { days: 'stations.day.6, stations.day.0', first: '06:02', last: '01:02' },
+    ]);
+    // Leaving the first stop of L2: nothing about arriving; all night on Saturday
+    const [l2] = view.lines[1].directions;
+    assert.equal(l2.previous, null);
+    assert.equal(l2.arriving, null);
+    assert.deepEqual(l2.times.map(t => [t.first, t.last]), [['05:00', '00:00'], ['05:00', 'stations.all-night'], ['stations.all-night', '00:00']]);
+    // In Greek, and the timetable it comes from
+    assert.equal(stationView(rail, 'x', 'el', key => key).lines[0].directions[0].toward, 'Βήτα');
+    assert.deepEqual(view.timetable, { old: false, date: '31/12/2099' });
+    assert.equal(String(view.walking), 'https://www.google.com/maps/dir/?api=1&amp;destination=38,23.7&amp;travelmode=walking');
+});
+
+test('the index, as data: every station by line, with the other lines there', () => {
+    assert.deepEqual(indexView(rail, 'el').lines.map(l => [l.key, l.stops.map(s => [s.name, s.changes])]), [
+        ['l1', [['Άλφα', null], ['Κόμβος', 'L2'], ['Βήτα', null]]],
+        ['l2', [['Κόμβος', 'L1'], ['Γάμμα', null]]],
+    ]);
+    assert.equal(indexView(rail, 'en').lines[0].stops[1].href, '/subway/stations/x');
 });
 
 test('a station page shows lines, neighbours, where to ride, connections and times', async () => {

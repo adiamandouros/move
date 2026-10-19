@@ -7,7 +7,8 @@
 //                                                  html`` (and lists of them) go in as they are
 //   html`${cond && html`<b>…</b>`}`                 null, undefined and false give nothing
 // raw(text) marks HTML that's safe as it is; it's rarely needed. HTML goes
-// into the page with setHtml(element, view), and on the server as String(view).
+// into the page with setHtml(element, view), and on the server as String(view)
+// or into a Handlebars view as {{value}} (server/pages/templates.js).
 
 // Marks HTML as built safely; a global symbol, so pieces built by another
 // copy of this module (each language loads its own in the tests) count too
@@ -21,6 +22,9 @@ export class Html {
         this[SAFE] = true;
     }
     toString() { return this.text; }
+    // Handlebars doesn't escape what has toHTML(), so pieces built with html``
+    // go into a view as {{piece}}, and plain text is still escaped
+    toHTML() { return this.text; }
 }
 
 /** @param {unknown} value @returns {value is Html} */

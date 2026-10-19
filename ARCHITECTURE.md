@@ -49,7 +49,7 @@ lists them all and says where the rest are:
 | Home, offline | `registry.js` | `server/views/home.hbs`, `offline.hbs` |
 | Subway, Buses, Info | `tools/<id>/tool.json` | `tools/<id>/page.hbs`, see [tools/README.md](tools/README.md) |
 | About, Privacy, Contact | `registry.js` | `server/views/pages/<name>.<lang>.hbs`, one file per language |
-| Metro stations | `server/pages/stations.js` | written from `rail.json` on request |
+| Metro stations | `server/pages/stations.js` | `server/views/stations/*.hbs`, from `rail.json` on request |
 | Not found (404) | `registry.js` (`NOT_FOUND`) | `server/views/notfound.hbs` |
 | Error (500) | `registry.js` (`SERVER_ERROR`) | `server/views/error.hbs` |
 | Admin | `server/admin/` | `admin/*.hbs`, English only |
@@ -65,9 +65,10 @@ All in [server/pages/](server/pages/):
    menu, the page's strings and its scripts. Links to the pages point at
    the page's language (`localiseLinks` in `i18n.js`), and links to
    stylesheets, scripts and icons carry this deploy's version.
-3. The HTML is kept in memory and sent as it is. Station pages are built
-   with ``html`` `` from `rail.json` when first asked for, and kept until
-   it changes.
+3. The HTML is kept in memory and sent as it is. Station pages are
+   rendered from `rail.json` when first asked for, and kept until it
+   changes: `stations.js` works out what each one shows as plain data
+   (`stationView`, `indexView`, tested without HTML) and its views draw it.
 
 ### Views
 
@@ -75,7 +76,8 @@ Views are [Handlebars](https://handlebarsjs.com/) templates (`.hbs`),
 compiled once by [templates.js](server/pages/templates.js) and only on the
 server: browsers get finished HTML, and nothing is added to what they load.
 `{{value}}` is escaped; `{{{value}}}` is for HTML that's already built (the
-page's content inside the layout). Four helpers:
+page's content inside the layout), and pieces built with ``html`` `` (a line
+badge, the train diagram) go in as `{{value}}`. Four helpers:
 
 - `{{t "key"}}`: the page's string; `{{t "stations.toward" name=toward}}`
   fills its `{name}`.

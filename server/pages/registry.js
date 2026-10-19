@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { loadConfig } from '../config.js';
 import { appData } from './seo.js';
 import { STATIONS_PATH } from './stations.js';
-import { compileView, registerPartial } from './templates.js';
+import { compileView, view } from './templates.js';
 
 // Every page of the site. Each one is at its path in English and under /el
 // in Greek, and is rendered in both languages at startup (index.js), in the
@@ -28,20 +28,8 @@ import { compileView, registerPartial } from './templates.js';
 //   - the admin pages (server/admin/), private and in English only
 
 const ROOT      = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const VIEWS_DIR = join(ROOT, 'server', 'views');
 const TOOLS_DIR = join(ROOT, 'tools');
 
-// The views (server/views/<name>.hbs, see templates.js), each compiled once,
-// and the partials they share (server/views/partials/<name>.hbs, {{> name}})
-const views = new Map();
-const view = name => {
-    if (!views.has(name)) views.set(name, compileView(readFileSync(join(VIEWS_DIR, `${name}.hbs`), 'utf8'), `server/views/${name}.hbs`));
-    return views.get(name);
-};
-const PARTIALS_DIR = join(VIEWS_DIR, 'partials');
-for (const file of readdirSync(PARTIALS_DIR).filter(f => f.endsWith('.hbs'))) {
-    registerPartial(file.slice(0, -'.hbs'.length), readFileSync(join(PARTIALS_DIR, file), 'utf8'));
-}
 
 /** @typedef {import('../../types/pages.js').Page} Page */
 /** @typedef {import('../../types/pages.js').Tool} Tool */
