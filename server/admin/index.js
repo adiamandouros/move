@@ -8,6 +8,7 @@ import { formatJson } from '../data/format.js';
 import { applyOverlay, removeEntry, sameEntry, setEntry, tidyEntry, writeOverlay } from '../data/overlay.js';
 import { POSITIONS, validateCurated } from '../data/validate.js';
 import { formatReport } from '../diagnostics.js';
+import { sendFresh } from '../http.js';
 import { listFiles, shellFiles, shellUrls, urlPath } from '../pages/assets.js';
 import { fill, view } from '../pages/templates.js';
 import { createAuth, createLimiter, readCookie } from './auth.js';
@@ -90,7 +91,7 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
     router.get('/', (_req, res) => res.redirect(303, '/admin/stations'));
 
     router.get('/stations', (_req, res) => {
-        res.set('Cache-Control', 'no-cache').type('html').send(render({
+        sendFresh(res, 'html', render({
             title: 'Station editor',
             styles,
             content: views.stations({}, english),
@@ -127,7 +128,7 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
 
     // Scoped to /admin/, separate from the public service worker, so the
     // editor opens offline on this device without ever entering the public cache
-    router.get('/sw.js', (_req, res) => res.set('Cache-Control', 'no-cache').type('js').send(serviceWorker));
+    router.get('/sw.js', (_req, res) => sendFresh(res, 'js', serviceWorker));
 
 
     // ── API ─────────────────────────────────────────────────────────────────

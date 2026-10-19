@@ -8,6 +8,7 @@ import express from 'express';
 import { formatDate, localName, walkingUrl } from '../../public/js/core/html.js';
 import { centralPlatformBadge, clockTime, exitDiagram, lineBadge, stopNote } from '../../public/js/core/metro.js';
 import { athensDate } from '../../tools/subway/client/network.js';
+import { sendFresh } from '../http.js';
 import { LANGS, localPath, mergeStrings, stringGetter } from './i18n.js';
 import { view } from './templates.js';
 
@@ -68,6 +69,18 @@ const daysText = (list, s) => list.length > 2
 
 const lineNumber = lineId => lineId.replace(/^\D+/, '');
 
+// Where a station's page (or the index, for id null) sits in the site:
+// [{ name, path }] from the subway page to itself. Its view's breadcrumb and
+// its structured data both show it.
+/** @param {Rail} rail @param {string | null} id @param {Lang} lang @param {(key: string) => string} s */
+export function breadcrumb(rail, id, lang, s) {
+    return [
+        { name: s('stations.subway'), path: '/subway' },
+        { name: s('stations.title'), path: STATIONS_PATH },
+        ...(id ? [{ name: localName(rail.stations[id].name, lang), path: `${STATIONS_PATH}/${id}` }] : []),
+    ];
+}
+
 // What a station's page shows, as data for server/views/stations/station.hbs:
 // its lines, and per direction the stops on either side, where to ride when
 // arriving here and the first and last trains from here. s(key) gives the
@@ -120,6 +133,7 @@ export function stationView(rail, id, lang, s) {
     return {
         id,
         name: name(id),
+        crumbs: breadcrumb(rail, id, lang, s),
         lines,
         walking: walkingUrl(lat, lng),
         timetable: { old: athensDate() > rail.feed.validTo, date: formatDate(rail.feed.validTo) },
@@ -127,9 +141,10 @@ export function stationView(rail, id, lang, s) {
 }
 
 // The index of every station by line, as data for server/views/stations/index.hbs
-/** @param {Rail} rail @param {Lang} lang */
-export function indexView(rail, lang) {
+/** @param {Rail} rail @param {Lang} lang @param {(key: string) => string} s */
+export function indexView(rail, lang, s) {
     return {
+        crumbs: breadcrumb(rail, null, lang, s),
         lines: Object.entries(rail.lines).map(([lineId, line]) => ({
             key: lineId.toLowerCase(),
             badge: lineBadge(lineId, line.name),
@@ -152,9 +167,8 @@ function stationData(rail, id, lang, s, origin) {
     const [latitude, longitude] = rail.stations[id].coords;
     const graph = [
         { '@type': 'SubwayStation', name, ...(origin && { url: url(`${STATIONS_PATH}/${id}`) }), geo: { '@type': 'GeoCoordinates', latitude, longitude } },
-        ...(origin ? [{ '@type': 'BreadcrumbList', itemListElement: [
-            [s('stations.subway'), '/subway'], [s('stations.title'), STATIONS_PATH], [name, `${STATIONS_PATH}/${id}`],
-        ].map(([itemName, path], i) => ({ '@type': 'ListItem', position: i + 1, name: itemName, item: url(path) })) }] : []),
+        ...(origin ? [{ '@type': 'BreadcrumbList', itemListElement: breadcrumb(rail, id, lang, s)
+            .map((crumb, i) => ({ '@type': 'ListItem', position: i + 1, name: crumb.name, item: url(crumb.path) })) }] : []),
     ];
     return { '@context': 'https://schema.org', '@graph': graph };
 }
@@ -172,7 +186,7 @@ export function stationPage(rail, id, { tools, origin = '' }) {
     if (!id) {
         return {
             ...common, path: STATIONS_PATH, title: 'stations.title', description: 'stations.index-description',
-            content: (lang, strings) => view('server/views/stations/index.hbs')(indexView(rail, lang), { lang, strings }),
+            content: (lang, strings) => view('server/views/stations/index.hbs')(indexView(rail, lang, stringGetter(strings, lang)), { lang, strings }),
         };
     }
     return {
@@ -218,7 +232,7 @@ export function createStationPages({ railFile, renderPage, tools, origin = '' })
     const router = express.Router();
     for (const lang of LANGS) {
         const base = localPath(STATIONS_PATH, lang);
-        const send = (res, next, html) => html ? res.set('Cache-Control', 'no-cache').type('html').send(html) : next();
+        const send = (res, next, html) => html ? sendFresh(res, 'html', html) : next();
         router.get(base, (_req, res, next) => send(res, next, page(null, lang)));
         router.get(`${base}/:id`, (req, res, next) => send(res, next, page(req.params.id, lang)));
     }

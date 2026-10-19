@@ -1,3 +1,5 @@
+import { sendFresh } from './http.js';
+
 // Once SITE_URL is set, every other address the app answers on (the old
 // move.sonovabitc.win, www., aliases) redirects there permanently, so search
 // engines and people end up at one address. Exceptions:
@@ -25,7 +27,7 @@ export function canonicalHost(siteUrl) {
     const host = siteUrl ? new URL(siteUrl).hostname : null;
     return (req, res, next) => {
         if (!host || LOCAL.has(req.hostname) || req.hostname === host) return next();
-        if (req.path === '/sw.js') return res.set('Cache-Control', 'no-cache').type('js').send(RETIRED_WORKER);
+        if (req.path === '/sw.js') return sendFresh(res, 'js', RETIRED_WORKER);
         if (KEPT.test(req.path)) return next();
         // 308 keeps the method (e.g. the admin login form's POST)
         res.redirect(['GET', 'HEAD'].includes(req.method) ? 301 : 308, siteUrl + req.originalUrl);

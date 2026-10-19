@@ -8,7 +8,7 @@ import { loadConfig } from '../server/config.js';
 import { createPages } from '../server/pages/index.js';
 import { loadTools } from '../server/pages/registry.js';
 import { renderPages } from '../server/pages/index.js';
-import { firstAndLast, indexView, stationPage, stationView } from '../server/pages/stations.js';
+import { breadcrumb, firstAndLast, indexView, stationPage, stationView } from '../server/pages/stations.js';
 import { rail } from './fixtures/rail.js';
 
 // The station pages (/subway/stations/<id>), built from rail.json
@@ -90,11 +90,11 @@ test('what a station\'s page shows, as data: lines, neighbours, where to ride, c
 });
 
 test('the index, as data: every station by line, with the other lines there', () => {
-    assert.deepEqual(indexView(rail, 'el').lines.map(l => [l.key, l.stops.map(s => [s.name, s.changes])]), [
+    assert.deepEqual(indexView(rail, 'el', key => key).lines.map(l => [l.key, l.stops.map(s => [s.name, s.changes])]), [
         ['l1', [['Άλφα', null], ['Κόμβος', 'L2'], ['Βήτα', null]]],
         ['l2', [['Κόμβος', 'L1'], ['Γάμμα', null]]],
     ]);
-    assert.equal(indexView(rail, 'en').lines[0].stops[1].href, '/subway/stations/x');
+    assert.equal(indexView(rail, 'en', key => key).lines[0].stops[1].href, '/subway/stations/x');
 });
 
 test('a station page shows lines, neighbours, where to ride, connections and times', async () => {
@@ -214,4 +214,14 @@ test('a page\'s own strings go to the browser only when it has scripts of its ow
     assert.equal(station['stations.toward'], undefined);
     assert.equal(station['shell.new-tab'], '(opens in a new tab)');
     assert.equal(sent(pages['/subway'])['subway.exit-left'], tools.find(t => t.id === 'subway').strings.en['subway.exit-left']);
+});
+
+test('the breadcrumb: from the subway page to the page itself, in the views and the structured data alike', () => {
+    const s = key => ({ 'stations.subway': 'Subway', 'stations.title': 'Metro stations' })[key];
+    assert.deepEqual(breadcrumb(rail, 'x', 'el', s), [
+        { name: 'Subway', path: '/subway' }, { name: 'Metro stations', path: '/subway/stations' }, { name: 'Κόμβος', path: '/subway/stations/x' },
+    ]);
+    assert.deepEqual(breadcrumb(rail, null, 'en', s).map(c => c.path), ['/subway', '/subway/stations']);
+    assert.deepEqual(stationView(rail, 'x', 'en', s).crumbs, breadcrumb(rail, 'x', 'en', s));
+    assert.deepEqual(indexView(rail, 'en', s).crumbs, breadcrumb(rail, null, 'en', s));
 });
