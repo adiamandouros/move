@@ -16,10 +16,11 @@
                 <ul id="stop-suggestions-from" class="stop-suggestions list-unstyled mb-0" role="listbox"
                     aria-label="{{t "subway.station-suggestions"}}" hidden></ul>
             </div>
-            <a id="walk-btn" class="directions-btn walk-btn" target="_blank" rel="noopener" hidden>
+            {{!-- Its address and station are filled in by the page's script --}}
+            {{#external id="walk-btn" class="directions-btn walk-btn" hidden=true}}
                 {{icon "signpost-2-fill"}}
-                <span class="sr-only"><span>{{t "subway.walking-directions-to"}}</span> <span id="walk-station"></span> <span>{{t "shell.new-tab"}}</span></span>
-            </a>
+                <span class="sr-only">{{t "subway.walking-directions-to"}} <span id="walk-station"></span></span>
+            {{/external}}
             </div>
             <p id="locate-status" class="locate-status" role="status"></p>
         </div>

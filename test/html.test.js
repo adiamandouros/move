@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { escapeHtml, format, formatDate, html, Html, icon, localName, raw, safeUrl, setHtml, walkingUrl } from '../public/js/core/html.js';
+import { Html, escapeHtml, externalLink, format, formatDate, html, icon, localName, raw, safeUrl, setHtml, walkingUrl } from '../public/js/core/html.js';
 import { centralPlatformBadge, clockTime, exitDiagram, lineBadge, stopNote } from '../public/js/core/metro.js';
 
 // Building HTML (public/js/core/html.js): html`` escapes every value put into
@@ -75,6 +75,12 @@ test('walking directions, times and dates', () => {
     assert.equal(clockTime(5 * 3600 + 32 * 60 + 59), '05:32');
     assert.equal(clockTime(24 * 3600 + 15 * 60), '00:15');
     assert.equal(formatDate('2026-10-31'), '31/10/2026');
+});
+
+test('externalLink(): opens a new tab and says so; its attributes are escaped, and left out when empty', () => {
+    assert.equal(String(externalLink({ href: 'https://x.gr/?a=1&b=2', class: 'btn', hidden: true, id: null, lang: false }, 'X', '(new tab)')),
+        '<a href="https://x.gr/?a=1&amp;b=2" class="btn" hidden target="_blank" rel="noopener">X<span class="sr-only"> (new tab)</span></a>');
+    assert.doesNotMatch(String(externalLink({ href: '"><script>' }, '<b>', '(new tab)')), /<script>|<b>/);
 });
 
 test('icon() is built with html``, so its classes are escaped', () => {

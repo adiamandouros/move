@@ -1,4 +1,4 @@
-import { html, icon, localName, setHtml, walkingUrl } from '/js/core/html.js';
+import { externalLink, html, icon, localName, setHtml, walkingUrl } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
 
 // What the bus page draws, with html`` (every value escaped: stop names,
@@ -39,10 +39,8 @@ export function stopItem(stop, index) {
             </h2>
             <div class="stop-header-fixed d-flex align-items-center">
                 <span class="header-badge-wrap" aria-hidden="true"></span>
-                <a class="directions-btn d-flex align-items-center justify-content-center" href="${walkingUrl(stop.lat, stop.lng)}" target="_blank" rel="noopener"
-                   aria-label="${t('buses.walking-directions-to')} ${local(stop.name)} ${t('shell.new-tab')}">
-                    ${icon('signpost-2-fill')}
-                </a>
+                ${externalLink({ class: 'directions-btn d-flex align-items-center justify-content-center', href: walkingUrl(stop.lat, stop.lng) },
+                    html`${icon('signpost-2-fill')}<span class="sr-only">${t('buses.walking-directions-to')} ${local(stop.name)}</span>`, t('shell.new-tab'))}
             </div>
         </div>
         <div id="stop-${index}" class="accordion-collapse collapse">

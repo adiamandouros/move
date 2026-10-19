@@ -83,7 +83,7 @@ too: `seo.js` gives the meta tags' values (`partials/meta.hbs` writes them),
 and structured data and the import map go in with `{{json}}`. Pieces built with ``html`` `` (a line
 badge, the train diagram, a stop's note) go in as `{{value}}`. The metro
 pieces both the subway page and the station pages show are built once, in
-`metro.js`, so they look the same on both. Five helpers:
+`metro.js`, so they look the same on both. Six helpers:
 
 - `{{t "key"}}`: the page's string; `{{t "stations.toward" name=toward}}`
   fills its `{name}`.
@@ -92,6 +92,10 @@ pieces both the subway page and the station pages show are built once, in
 - `{{icon "geo-alt" "me-1"}}`: an icon from the sprite.
 - `{{json value}}`: JSON that's safe inside a `<script>` element.
 - `{{formatDate "2026-10-14"}}`: a date as people write it, 14/10/2026.
+- `{{#external href="https://…"}}text{{/external}}`: a link that opens in a
+  new tab and tells screen readers so (`class`, `lang`, `id`, `hidden=true`
+  as needed). It's `externalLink()` from `/js/core/html.js`, which the
+  browser's code uses too; a test keeps every such link written this way.
 
 They're compiled strictly: a value the view names but isn't given, a helper
 that doesn't exist or a missing string throws, and every page is rendered

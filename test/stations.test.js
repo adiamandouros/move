@@ -85,7 +85,7 @@ test('what a station\'s page shows, as data: lines, neighbours, where to ride, c
     // In Greek, and the timetable it comes from
     assert.equal(stationView(rail, 'x', 'el', key => key).lines[0].directions[0].toward, 'Βήτα');
     assert.deepEqual(view.timetable, { old: false, date: '31/12/2099' });
-    assert.equal(String(view.walking), 'https://www.google.com/maps/dir/?api=1&amp;destination=38,23.7&amp;travelmode=walking');
+    assert.equal(view.walking, 'https://www.google.com/maps/dir/?api=1&destination=38,23.7&travelmode=walking');
 });
 
 test('the index, as data: every station by line, with the other lines there', () => {
@@ -116,7 +116,7 @@ test('a station page shows lines, neighbours, where to ride, connections and tim
     assert.match(html, /href="\/subway\/stations\/a">Alpha</);
     assert.match(html, /href="\/subway\?from=x"/);
     assert.match(html, /href="\/subway\?to=x"/);
-    assert.match(html, /href="https:\/\/www\.google\.com\/maps\/dir\/\?api=1&amp;destination=38,23\.7&amp;travelmode=walking" target="_blank"/);
+    assert.match(html, /<a href="https:\/\/www\.google\.com\/maps\/dir\/\?api=1&amp;destination=38,23\.7&amp;travelmode=walking" class="[^"]+" target="_blank" rel="noopener">/);
 });
 
 test('arriving at a terminus shows the exit; leaving the first stop shows only times', async () => {

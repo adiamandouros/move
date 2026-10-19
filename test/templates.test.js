@@ -96,7 +96,7 @@ const PAGE = { lang: 'el', strings: { greeting: 'Γεια σου, {name}', 'shel
 const render = (source, context = {}, page = PAGE) => compileView(source, 'test.hbs')(context, page);
 
 test('only these helpers exist', () => {
-    assert.deepEqual(HELPERS.sort(), ['formatDate', 'icon', 'ifLang', 'json', 't']);
+    assert.deepEqual(HELPERS.sort(), ['external', 'formatDate', 'icon', 'ifLang', 'json', 't']);
     assert.throws(() => render('{{shout "x"}}'), /test\.hbs/);
 });
 
@@ -138,6 +138,18 @@ test('{{formatDate}}, and {{> checked}}: when a page\'s facts were checked, and 
     assert.equal(render('{{> checked section}}', { section }, { lang: 'en', strings }).trim(),
         '<p class="info-source">Checked on 14/10/2026 at <a href="https://www.stasy.gr/" target="_blank" rel="noopener">stasy.gr<span class="sr-only"> (opens in a new tab)</span></a>, '
         + '<a href="https://www.oasa.gr/" target="_blank" rel="noopener">oasa.gr<span class="sr-only"> (opens in a new tab)</span></a></p>');
+});
+
+test('{{#external}}: a link to another site, in a new tab, that says so; nothing else of the view\'s data in it', () => {
+    const page = { lang: 'en', strings: { 'shell.new-tab': '(opens in a new tab)' } };
+    assert.equal(render('{{#external href="https://oasa.gr/?a=1&b=2"}}OASA{{/external}}', {}, page),
+        '<a href="https://oasa.gr/?a=1&amp;b=2" target="_blank" rel="noopener">OASA<span class="sr-only"> (opens in a new tab)</span></a>');
+    // Attributes as given, from values too; the view's own values (id here) stay out
+    assert.equal(render('{{#external href=url class="btn" lang="en" hidden=true}}<b>{{name}}</b>{{/external}}', { id: 'omonia', url: 'https://x.gr/', name: '<i>' }, page),
+        '<a href="https://x.gr/" class="btn" hidden lang="en" target="_blank" rel="noopener"><b>&lt;i&gt;</b><span class="sr-only"> (opens in a new tab)</span></a>');
+    // No address yet (the page's script sets it)
+    assert.match(render('{{#external id="walk-btn"}}x{{/external}}', {}, page), /^<a id="walk-btn" target="_blank"/);
+    assert.throws(() => render('{{#external href="https://x.gr/"}}x{{/external}}', {}, { lang: 'el', strings: {} }), /no string "shell\.new-tab" \(el\)/);
 });
 
 test('{{#> section}}: an accordion section around its content, closed unless open=true', () => {
