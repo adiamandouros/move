@@ -1,0 +1,132 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'fs';
+import { join, relative } from 'path';
+import { fileURLToPath } from 'url';
+import { listFiles } from '../server/pages/assets.js';
+import { renderPages } from '../server/pages/index.js';
+import { loadTools } from '../server/pages/registry.js';
+import { compileView, fill, HELPERS, parseTemplate } from '../server/pages/templates.js';
+
+// The Handlebars views (server/pages/templates.js): what they may use, how
+// strictly they're checked, and the views themselves: every string they use
+// exists in both languages, and text written in both languages is complete
+
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const tools = loadTools();
+const VIEWS = ['server/views', 'admin', ...tools.map(t => `tools/${t.id}`)]
+    .flatMap(dir => listFiles(join(ROOT, dir)))
+    .filter(file => file.endsWith('.hbs'))
+    .map(file => ({ name: relative(ROOT, file), source: readFileSync(file, 'utf8') }));
+
+// Every string in each language: the shell's, the station pages', each tool's and the tools' names
+const STRINGS = { en: {}, el: {} };
+{
+    const read = file => JSON.parse(readFileSync(join(ROOT, file), 'utf8'));
+    for (const lang of ['en', 'el']) {
+        for (const table of [read('server/views/strings.json'), read('server/views/stations.json'), ...tools.map(t => t.strings)]) Object.assign(STRINGS[lang], table[lang]);
+        for (const tool of tools) {
+            STRINGS[lang][`tool.${tool.id}.title`] = tool.title[lang];
+            STRINGS[lang][`tool.${tool.id}.short`] = (tool.shortTitle ?? tool.title)[lang];
+            STRINGS[lang][`tool.${tool.id}.description`] = tool.description?.[lang];
+        }
+    }
+}
+
+// Every node of a parsed template
+function* nodes(node) {
+    if (!node || typeof node !== 'object') return;
+    if (node.type) yield node;
+    for (const value of Object.values(node)) {
+        if (Array.isArray(value)) for (const child of value) yield* nodes(child);
+        else if (value && typeof value === 'object' && value !== node.loc) yield* nodes(value);
+    }
+}
+const calls = (ast, helper) => [...nodes(ast)].filter(n => ['MustacheStatement', 'SubExpression', 'BlockStatement'].includes(n.type) && n.path?.original === helper);
+
+test('the views are found, and parse', () => {
+    assert.ok(VIEWS.length >= 15, `${VIEWS.length} views`);
+    for (const { name, source } of VIEWS) assert.doesNotThrow(() => parseTemplate(source), name);
+});
+
+test('every string a view uses exists in English and Greek', () => {
+    for (const { name, source } of VIEWS) {
+        for (const call of calls(parseTemplate(source), 't')) {
+            const [key] = call.params;
+            // A key from the view's data ({{t titleKey}}) is checked when the page renders
+            if (key.type !== 'StringLiteral') continue;
+            assert.ok(STRINGS.en[key.value], `${name}: "${key.value}" is missing in English`);
+            assert.ok(STRINGS.el[key.value], `${name}: "${key.value}" is missing in Greek`);
+        }
+    }
+});
+
+test('text written in both languages has both: {{#ifLang "en"}}…{{else}}…{{/ifLang}}', () => {
+    let blocks = 0;
+    for (const { name, source } of VIEWS) {
+        for (const block of calls(parseTemplate(source), 'ifLang')) {
+            blocks++;
+            const where = `${name}, line ${block.loc.start.line}`;
+            assert.deepEqual(block.params.map(p => p.value), ['en'], `${where}: {{#ifLang "en"}}, with the Greek after {{else}}`);
+            assert.ok(block.inverse?.body.some(n => n.type !== 'ContentStatement' || n.value.trim()), `${where}: no Greek after {{else}}`);
+        }
+    }
+    assert.ok(blocks > 20, 'the info page writes many');
+});
+
+test('nothing is left of the old ways: data-i18n, data-lang, <!-- with ads -->', () => {
+    for (const { name, source } of VIEWS) assert.doesNotMatch(source, /data-i18n|data-lang|<!-- \/?(with|without) ads -->/, name);
+});
+
+test('every page renders, with nothing left of its template', () => {
+    const { pages, notFound, errorPage } = renderPages(tools);
+    for (const [path, html] of Object.entries({ ...pages, '(404)': notFound('/el/nope'), '(error)': errorPage('/x') })) {
+        assert.doesNotMatch(html, /\{\{/, path);
+    }
+});
+
+// ── The helpers ─────────────────────────────────────────────────────────────
+
+const PAGE = { lang: 'el', strings: { greeting: 'Γεια σου, {name}', 'shell.skip': 'Μετάβαση' } };
+const render = (source, context = {}, page = PAGE) => compileView(source, 'test.hbs')(context, page);
+
+test('only the four helpers exist', () => {
+    assert.deepEqual(HELPERS.sort(), ['icon', 'ifLang', 'json', 't']);
+    assert.throws(() => render('{{shout "x"}}'), /test\.hbs/);
+});
+
+test('values are escaped, unless written with three braces', () => {
+    assert.equal(render('<p title="{{v}}">{{v}}</p>{{{h}}}', { v: '"><script>', h: '<b>ok</b>' }), '<p title="&quot;&gt;&lt;script&gt;">&quot;&gt;&lt;script&gt;</p><b>ok</b>');
+});
+
+test('a value the view names but isn\'t given fails, naming the view', () => {
+    assert.throws(() => render('<p>{{missing}}</p>'), /test\.hbs: "missing" not defined/);
+    assert.throws(() => render('{{#each items}}{{name}}{{/each}}', { items: [{}] }), /"name" not defined/);
+    // null or false is given: it just shows nothing
+    assert.equal(render('{{#if v}}x{{/if}}[{{w}}]', { v: false, w: null }), '[]');
+});
+
+test('{{t}}: the page\'s string, escaped, with its placeholders filled; a missing one fails', () => {
+    assert.equal(render('{{t "shell.skip"}}'), 'Μετάβαση');
+    assert.equal(render('{{t "greeting" name=who}}', { who: '<Ελένη>' }), 'Γεια σου, &lt;Ελένη&gt;');
+    assert.equal(render('{{t key}}', { key: 'shell.skip' }), 'Μετάβαση');
+    assert.throws(() => render('{{t "nope"}}'), /test\.hbs: There's no string "nope" \(el\)/);
+});
+
+test('{{#ifLang}} keeps the page\'s language', () => {
+    const source = '{{#ifLang "en"}}Piraeus{{else}}Πειραιάς{{/ifLang}}';
+    assert.equal(render(source), 'Πειραιάς');
+    assert.equal(render(source, {}, { lang: 'en', strings: {} }), 'Piraeus');
+});
+
+test('{{icon}} and {{json}}', () => {
+    assert.equal(render('{{icon "geo-alt"}}'), '<svg class="bi" aria-hidden="true"><use href="/icons.svg#geo-alt"></use></svg>');
+    assert.equal(render('{{icon "geo-alt" "me-1"}}'), '<svg class="bi me-1" aria-hidden="true"><use href="/icons.svg#geo-alt"></use></svg>');
+    assert.equal(render('<script type="application/json">{{json v}}</script>', { v: { a: '</script><script>alert(1)</script>' } }),
+        '<script type="application/json">{"a":"\\u003c/script>\\u003cscript>alert(1)\\u003c/script>"}</script>');
+});
+
+test('fill() fills a script\'s slots as they are, and fails on a missing one', () => {
+    assert.equal(fill('const A = {{a}};', { a: '["x"]' }), 'const A = ["x"];');
+    assert.throws(() => fill('{{a}} {{b}}', { a: '1' }), /No value for \{\{b\}\}/);
+});

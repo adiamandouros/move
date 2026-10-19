@@ -7,7 +7,7 @@ import { renderPages } from '../server/pages/index.js';
 import { loadTools } from '../server/pages/registry.js';
 import { renderStationPage } from '../server/pages/stations.js';
 import { rail } from './fixtures/rail.js';
-import { formProblems, headingProblems, iconProblems, idProblems, nameProblems, newTabProblems } from './support/markup.js';
+import { formProblems, headingProblems, iconProblems, idProblems, nameProblems, newTabProblems, untranslatedProblems } from './support/markup.js';
 
 // Accessibility checks on every public page as the server sends it (WCAG 2.2
 // AA basics), and on the colours in style.css. Content drawn by the pages'
@@ -78,24 +78,12 @@ for (const [path, html] of Object.entries(all)) {
         assert.deepEqual(formProblems(html), []);
     });
 
-    test(`${path}: every translated text exists in English and Greek`, () => {
-        for (const [, key] of html.matchAll(/data-i18n(?:-[a-z-]+)?="([^"]+)"/g)) {
-            assert.ok(STRINGS.en[key], `"${key}" is missing in English`);
-            assert.ok(STRINGS.el[key], `"${key}" is missing in Greek`);
-        }
-    });
-
-    test(`${path}: text written in both languages is only there in the page's language`, () => {
-        assert.doesNotMatch(html, /\sdata-lang="/);
+    // (Every string a view uses exists in both languages: templates.test.js)
+    test(`${path}: no string shows as its key, and nothing is left of the templates`, () => {
+        assert.deepEqual(untranslatedProblems(main(html), Object.keys(STRINGS.en)), []);
+        assert.doesNotMatch(html, /\{\{|\sdata-(lang|i18n)/);
     });
 }
-
-test('text written in both languages comes in pairs', () => {
-    for (const tool of tools) {
-        const count = lang => (tool.page.match(new RegExp(`\\sdata-lang="${lang}"`, 'g')) ?? []).length;
-        assert.equal(count('en'), count('el'), `tools/${tool.id}/page.html: as many data-lang="en" as data-lang="el" blocks`);
-    }
-});
 
 // ── Colours ─────────────────────────────────────────────────────────────────
 

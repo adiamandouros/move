@@ -8,8 +8,8 @@ folder and edit it; no other file needs to change.
 ```
 tools/<id>/
   tool.json      settings (below)
-  page.html      the page's markup, placed inside <main>
-  strings.json   { "en": { "key": "text" }, "el": { … } } — use with data-i18n="key" (also data-i18n-placeholder, -aria-label, -title) or t('key')
+  page.hbs       the page's view, placed inside <main> (a Handlebars template, see ARCHITECTURE.md, "Views")
+  strings.json   { "en": { "key": "text" }, "el": { … } } — use with {{t "key"}} in page.hbs, or t('key') in a script
   client/        browser files, served at /tools/<id>/
 ```
 
@@ -23,9 +23,9 @@ tools/<id>/
 | `scripts` | Files in `client/` to load as modules, e.g. `["main.js"]` |
 | `precache` | Data URLs to cache for offline use, e.g. `["/data/rail.json"]` (best-effort: a missing file doesn't break the cache) |
 
-Longer text that doesn't suit single `data-i18n` keys (paragraphs with links,
-lists) can be written twice in `page.html`, as `data-lang="en"` and
-`data-lang="el"` elements; the server keeps only the page's language. Every
+Longer text that doesn't suit single strings (paragraphs with links, lists)
+can be written twice in `page.hbs`, as `{{#ifLang "en"}}…{{else}}…{{/ifLang}}`
+(English first); the server keeps only the page's language. Every
 page is rendered on the server in its language (English, or Greek under `/el`),
 so the browser never translates anything.
 

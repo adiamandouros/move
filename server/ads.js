@@ -16,16 +16,12 @@
 /** @param {AdSense} adsense */
 export const adsenseMeta = adsense => adsense.client ? `    <meta name="google-adsense-account" content="${adsense.client}">` : '';
 
-// The ad unit for a place, or '' when that place has no slot
-/** @param {AdSense} adsense @param {string | null} place */
-export function adSlot(adsense, place) {
-    const id = place && adsense.slots[place];
-    if (!id) return '';
-    return `
-            <aside class="ad-slot" aria-labelledby="ad-label">
-                <p class="ad-label" id="ad-label" data-i18n="ads.label">Advertisement</p>
-                <ins class="adsbygoogle ad-unit" data-ad-client="${adsense.client}" data-ad-slot="${id}"></ins>
-            </aside>`;
+// The ad unit for a place ({ client, slot }, drawn by the layout,
+// server/views/layout.hbs), or null when that place has no slot
+/** @param {AdSense} adsense @param {string | null} place @returns {{ client: string, slot: string } | null} */
+export function adUnit(adsense, place) {
+    const slot = place && adsense.slots[place];
+    return slot ? { client: adsense.client, slot } : null;
 }
 
 // /ads.txt: Google is allowed to sell this site's ad space (null when off)

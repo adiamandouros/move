@@ -1,11 +1,10 @@
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { escapeHtml, icon } from '../../public/js/core/html.js';
 import { loadConfig } from '../config.js';
-import { fill } from './layout.js';
 import { appData } from './seo.js';
 import { STATIONS_PATH } from './stations.js';
+import { compileView, registerPartial } from './templates.js';
 
 // Every page of the site. Each one is at its path in English and under /el
 // in Greek, and is rendered in both languages at startup (index.js), in the
@@ -14,7 +13,8 @@ import { STATIONS_PATH } from './stations.js';
 //   title         strings key of its title
 //   description   strings key of its description in search results
 //   index         false keeps it out of search results and the sitemap
-//   content       (lang, s) → the HTML inside <main>; s(key) gives a string
+//   content       (lang, strings) → the HTML inside <main>, from its view;
+//                 strings: the page's, for {{t}}
 //   strings       its own strings ({ en, el }), for data-i18n and its scripts
 //   scripts       browser modules to load
 //   head          (lang, s) → more for <head>
@@ -31,7 +31,17 @@ const ROOT      = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const VIEWS_DIR = join(ROOT, 'server', 'views');
 const TOOLS_DIR = join(ROOT, 'tools');
 
-const view = name => readFileSync(join(VIEWS_DIR, `${name}.html`), 'utf8');
+// The views (server/views/<name>.hbs, see templates.js), each compiled once,
+// and the partials they share (server/views/partials/<name>.hbs, {{> name}})
+const views = new Map();
+const view = name => {
+    if (!views.has(name)) views.set(name, compileView(readFileSync(join(VIEWS_DIR, `${name}.hbs`), 'utf8'), `server/views/${name}.hbs`));
+    return views.get(name);
+};
+const PARTIALS_DIR = join(VIEWS_DIR, 'partials');
+for (const file of readdirSync(PARTIALS_DIR).filter(f => f.endsWith('.hbs'))) {
+    registerPartial(file.slice(0, -'.hbs'.length), readFileSync(join(PARTIALS_DIR, file), 'utf8'));
+}
 
 /** @typedef {import('../../types/pages.js').Page} Page */
 /** @typedef {import('../../types/pages.js').Tool} Tool */
@@ -46,7 +56,7 @@ export function sitePages(tools, config = loadConfig({})) {
             path: '/',
             title: 'home.page-title',
             description: 'home.description',
-            content: () => fill(view('home'), { tiles: [...tools.map(toolTile), stationsTile()].join('\n') }),
+            content: (lang, strings) => view('home')({ tiles: [...tools.map(toolTile), STATIONS_TILE] }, { lang, strings }),
             head: (lang, s) => appData(s('home.description'), lang, config.siteUrl),
             scripts: ['/js/core/announcements.js', '/js/core/install.js'],
             active: 'home',
@@ -56,37 +66,42 @@ export function sitePages(tools, config = loadConfig({})) {
             path: '/offline',
             title: 'offline.title',
             index: false,
-            content: () => fill(view('offline'), { tiles: tools.filter(t => t.offline).map(toolTile).join('\n') }),
+            content: (lang, strings) => view('offline')({ tiles: tools.filter(t => t.offline).map(toolTile) }, { lang, strings }),
         },
         // The tools: tools/<id>/ (see tools/README.md)
-        ...tools.map(tool => ({
-            path: tool.path,
-            title: `tool.${tool.id}.title`,
-            description: `tool.${tool.id}.description`,
-            content: () => tool.page,
-            strings: tool.strings,
-            scripts: tool.scripts.map(s => `/tools/${tool.id}/${s}`),
-            active: tool.id,
-            ad: tool.ad,
-        })),
+        ...tools.map(tool => {
+            const page = compileView(tool.page, `tools/${tool.id}/page.hbs`);
+            return {
+                path: tool.path,
+                title: `tool.${tool.id}.title`,
+                description: `tool.${tool.id}.description`,
+                content: (lang, strings) => page({}, { lang, strings }),
+                strings: tool.strings,
+                scripts: tool.scripts.map(s => `/tools/${tool.id}/${s}`),
+                active: tool.id,
+                ad: tool.ad,
+            };
+        }),
         ...TEXT_PAGES.map(name => ({
             path: `/${name}`,
             title: `${name}.title`,
             // The privacy page has its own description once it describes ads
             description: `${name}.description${name === 'privacy' && ads ? '-ads' : ''}`,
-            content: (lang, s) => fill(adsVariant(view(`pages/${name}.${lang}`), ads), {
-                updated: PRIVACY_UPDATED[lang], email: contactEmail(s, config.contactEmail), adClient: config.adsense.client ?? '',
-            }),
+            // The privacy page has parts for with and without ads, and the
+            // contact page shows CONTACT_EMAIL (the address OASA also sees) when it's set
+            content: (lang, strings) => view(`pages/${name}.${lang}`)({
+                updated: PRIVACY_UPDATED[lang], email: config.contactEmail, ads, adClient: config.adsense.client ?? '',
+            }, { lang, strings }),
         })),
     ];
 }
 
 /** @type {Page} */
-export const NOT_FOUND = { title: 'notfound.title', index: false, content: () => view('notfound') };
+export const NOT_FOUND = { title: 'notfound.title', index: false, content: (lang, strings) => view('notfound')({}, { lang, strings }) };
 
 // When answering failed (server/errors.js)
 /** @type {Page} */
-export const SERVER_ERROR = { title: 'error.title', index: false, content: () => view('error') };
+export const SERVER_ERROR = { title: 'error.title', index: false, content: (lang, strings) => view('error')({}, { lang, strings }) };
 
 export const STATION_PATHS = [STATIONS_PATH, `${STATIONS_PATH}/*`];
 
@@ -110,7 +125,7 @@ export function loadTools(dir = TOOLS_DIR) {
                 scripts: [],
                 precache: [],
                 ...config,
-                page: readFileSync(join(toolDir, 'page.html'), 'utf8'),
+                page: readFileSync(join(toolDir, 'page.hbs'), 'utf8'),
                 strings: existsSync(join(toolDir, 'strings.json')) ? JSON.parse(readFileSync(join(toolDir, 'strings.json'), 'utf8')) : {},
                 clientDir: join(toolDir, 'client'),
             };
@@ -119,37 +134,15 @@ export function loadTools(dir = TOOLS_DIR) {
 }
 
 // A link to a page as a tile (the home page's shortcuts, the offline page's
-// tools that work offline). The text is the English placeholder; data-i18n
-// puts it into the page's language.
-function tile(href, iconHtml, titleKey, title, descriptionKey, description) {
-    return `        <a href="${href}" class="card tool-tile">
-            ${iconHtml}
-            <span class="tool-tile-title" data-i18n="${titleKey}">${title}</span>
-            <span class="tool-tile-desc" data-i18n="${descriptionKey}">${description}</span>
-        </a>`;
-}
-
-const toolTile = tool => tile(tool.path, icon(tool.icon), `tool.${tool.id}.title`, tool.title.en,
-    `tool.${tool.id}.description`, tool.description?.en ?? '');
+// tools that work offline): server/views/partials/tile.hbs
+const toolTile = tool => ({ href: tool.path, iconName: tool.icon, titleKey: `tool.${tool.id}.title`, descriptionKey: `tool.${tool.id}.description` });
 
 // The metro stations' pages, from the home page
-const stationsTile = () => tile(STATIONS_PATH, icon('list-ul'), 'home.stations', 'Metro stations',
-    'home.stations-text', 'Every station: exits, connections, first and last trains');
+const STATIONS_TILE = { href: STATIONS_PATH, iconName: 'list-ul', titleKey: 'home.stations', descriptionKey: 'home.stations-text' };
 
 // ── Pages of text ───────────────────────────────────────────────────────────
 
-// Written once per language: server/views/pages/<name>.<lang>.html
+// Written once per language: server/views/pages/<name>.<lang>.hbs
 const TEXT_PAGES = ['about', 'privacy', 'contact'];
-// When privacy.<lang>.html last changed in substance (shown on the page)
+// When privacy.<lang>.hbs last changed in substance (shown on the page)
 const PRIVACY_UPDATED = { en: '18 October 2026', el: '18 Οκτωβρίου 2026' };
-
-// Keep the page's <!-- with ads --> or <!-- without ads --> parts (privacy.<lang>.html)
-const adsVariant = (html, ads) => html.replace(/<!-- (with|without) ads -->\n([\s\S]*?)<!-- \/\1 ads -->\n/g,
-    (_, which, part) => (which === 'with') === ads ? part : '');
-
-// The contact page's email line: CONTACT_EMAIL (the address OASA also sees),
-// or nothing when it isn't set
-function contactEmail(s, email) {
-    if (!email) return '';
-    return `    <p class="contact-email">${icon('envelope', 'me-2')}${s('contact.email')} <a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></p>`;
-}

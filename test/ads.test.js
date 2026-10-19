@@ -69,12 +69,12 @@ test('each slot setting adds one labelled ad unit after the content, and only th
     for (const [html, slot] of [[pages['/'], '1111111111'], [pages['/el/info'], '2222222222'], [station, '3333333333']]) {
         assert.equal(slots(html), 1);
         assert.match(html, new RegExp(`<ins class="adsbygoogle ad-unit" data-ad-client="${CLIENT}" data-ad-slot="${slot}"></ins>`));
-        assert.match(html, /<aside class="ad-slot" aria-labelledby="ad-label">\s*<p class="ad-label" id="ad-label" data-i18n="ads\.label">/);
+        assert.match(html, /<aside class="ad-slot" aria-labelledby="ad-label">\s*<p class="ad-label" id="ad-label">Advertisement|Διαφήμιση</);
         // After the page's own content, last in it
         assert.match(html, /<\/div>\s*<aside class="ad-slot"[\s\S]*<\/aside>\s*<\/main>/);
         assert.match(html, /src="\/js\/core\/ads\.js\?v=/);
     }
-    assert.match(pages['/el/info'], /data-i18n="ads\.label">Διαφήμιση</);
+    assert.match(pages['/el/info'], /<p class="ad-label" id="ad-label">Διαφήμιση</);
     // Never on the live tools, the offline page, or the text pages
     for (const path of ['/subway', '/buses', '/offline', '/about', '/contact', '/el/subway']) {
         assert.equal(slots(pages[path]), 0, path);

@@ -55,7 +55,7 @@ test('the about, privacy and contact pages are written in each language and link
             assert.ok(menu.includes(`href="${prefix}/${name}"`), `${path}: menu links to ${name}`);
         }
     }
-    assert.match(pages['/el'], /href="\/el\/privacy" class="site-menu-link"><svg[^>]*>[\s\S]*?<\/svg><span data-i18n="menu\.privacy">Απόρρητο</);
+    assert.match(pages['/el'], /href="\/el\/privacy" class="site-menu-link"><svg[^>]*>[\s\S]*?<\/svg><span>Απόρρητο</);
     // No footer: the menu replaced it
     assert.doesNotMatch(pages['/'] + pages['/subway'], /<footer/);
     // The about page doesn't repeat them
@@ -109,7 +109,8 @@ test('Greek pages are in Greek before any script runs', () => {
     assert.equal(html.match(/<title>(.*?)<\/title>/)[1], 'Μετρό — Wayhop');
     assert.equal(meta(html, 'name', 'description'), tools.find(t => t.id === 'subway').description.el);
     assert.equal(meta(html, 'property', 'og:locale'), 'el_GR');
-    assert.match(html, /data-i18n="shell\.skip">Μετάβαση στο περιεχόμενο</);
+    assert.match(html, /class="skip-link">Μετάβαση στο περιεχόμενο</);
+    assert.match(html, /<nav id="side-nav"[^>]*aria-label="Κύρια πλοήγηση"/);
     // Links to pages stay in Greek; other links don't change
     assert.match(html, /href="\/el"[^>]*>.*?wayhop</);
     assert.match(html, /href="\/el\/buses"/);
@@ -124,7 +125,8 @@ test('Greek pages are in Greek before any script runs', () => {
 
 test('English pages are in English, with English links', () => {
     assert.match(pages['/subway'], /<html lang="en"/);
-    assert.match(pages['/subway'], /data-i18n="shell\.skip">Skip to content</);
+    assert.match(pages['/subway'], /class="skip-link">Skip to content</);
+    assert.match(pages['/subway'], /<nav id="bottom-nav"[^>]*aria-label="Main navigation"/);
     assert.doesNotMatch(pageLinks(pages['/subway']), /href="\/el/);
 });
 
@@ -150,10 +152,10 @@ test('every page links to itself in the other language: sidebar, menu and a sugg
     // The bottom bar (phones) starts with the home page, highlighted there
     const bottom = html => html.match(/<nav id="bottom-nav"[\s\S]*?<\/nav>/)[0];
     assert.match(bottom(pages['/']), /^<nav[^>]*>\s*<a href="\/" class="nav-btn [^"]*active" aria-current="page"><img src="\/icon\/logo\.svg" alt=""/);
-    assert.match(bottom(pages['/el/subway']), /<a href="\/el" class="nav-btn [^"]*py-2"><img src="\/icon\/logo\.svg" alt="" width="33" height="24" class="nav-logo fs-4"><span class="nav-label" data-i18n="nav.home">Αρχική</);
+    assert.match(bottom(pages['/el/subway']), /<a href="\/el" class="nav-btn [^"]*py-2"><img src="\/icon\/logo\.svg" alt="" width="33" height="24" class="nav-logo fs-4"><span class="nav-label">Αρχική</);
     assert.doesNotMatch(bottom(pages['/subway']), /hreflang/);
     // …and ends with the button that opens the menu: only the icon, named for screen readers
-    assert.match(bottom(pages['/el/subway']), /<button type="button" class="nav-btn menu-btn [^"]*" popovertarget="site-menu" aria-label="Μενού" data-i18n-aria-label="nav.menu"><svg class="bi fs-4"[^>]*><use href="[^"]*#list"><\/use><\/svg><\/button>\s*<\/nav>/);
+    assert.match(bottom(pages['/el/subway']), /<button type="button" class="nav-btn menu-btn [^"]*" popovertarget="site-menu" aria-label="Μενού"><svg class="bi fs-4"[^>]*><use href="[^"]*#list"><\/use><\/svg><\/button>\s*<\/nav>/);
     assert.match(pages['/subway'], /<nav id="site-menu" class="site-menu d-md-none" popover aria-label="Menu"/);
     // The 404 links to the same address in the other language; English-only pages have no language link
     assert.match(notFound('/el/nope'), /<a href="\/nope" hreflang="en"/);
@@ -179,8 +181,8 @@ test('a saved choice of the other language opens the page in it before it shows'
 });
 
 test('text written in both languages keeps only the page\'s language', () => {
-    assert.match(pages['/info'], /<th scope="row"><span>Piraeus<\/span><\/th>/);
-    assert.match(pages['/el/info'], /<th scope="row"><span>Πειραιάς<\/span><\/th>/);
+    assert.match(pages['/info'], /<th scope="row">Piraeus<\/th>/);
+    assert.match(pages['/el/info'], /<th scope="row">Πειραιάς<\/th>/);
     assert.doesNotMatch(pages['/info'], /Πειραιάς|data-lang=/);
     assert.doesNotMatch(pages['/el/info'], /Piraeus|data-lang=/);
 });

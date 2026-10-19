@@ -1,0 +1,10 @@
+<div class="message-view">
+    {{icon "wifi-off" "fs-1 mb-3"}}
+    <h1 class="fs-4">{{t "offline.title"}}</h1>
+    <p>{{t "offline.text"}}</p>
+    <div class="tool-tiles">
+{{#each tiles}}
+{{> tile}}
+{{/each}}
+    </div>
+</div>

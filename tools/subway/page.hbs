@@ -1,24 +1,24 @@
 <div class="subway-view">
-    <h1 class="sr-only" data-i18n="tool.subway.title">Subway</h1>
+    <h1 class="sr-only">{{t "tool.subway.title"}}</h1>
     <form id="subway-form" class="subway-form" role="search" autocomplete="off">
         <div class="subway-search-wrap mb-1">
             <div class="d-flex align-items-center justify-content-between gap-2">
-                <label for="stop-search-from" class="form-label fw-semibold m-0" data-i18n="subway.boarding-label">Boarding at</label>
+                <label for="stop-search-from" class="form-label fw-semibold m-0">{{t "subway.boarding-label"}}</label>
                 <button id="locate-btn" type="button" class="btn btn-sm locate-btn">
-                    <svg class="bi" aria-hidden="true"><use href="/icons.svg#crosshair"></use></svg><span data-i18n="subway.nearest">Nearest station</span>
+                    {{icon "crosshair"}}<span>{{t "subway.nearest"}}</span>
                 </button>
             </div>
             <div class="d-flex align-items-stretch gap-2">
             <div class="position-relative flex-grow-1">
                 <input id="stop-search-from" class="form-control subway-search-input" type="search"
                        role="combobox" aria-autocomplete="list" aria-controls="stop-suggestions-from" aria-expanded="false"
-                       placeholder="Type your boarding station…" data-i18n-placeholder="subway.boarding-placeholder">
+                       placeholder="{{t "subway.boarding-placeholder"}}">
                 <ul id="stop-suggestions-from" class="stop-suggestions list-unstyled mb-0" role="listbox"
-                    aria-label="Station suggestions" data-i18n-aria-label="subway.station-suggestions" hidden></ul>
+                    aria-label="{{t "subway.station-suggestions"}}" hidden></ul>
             </div>
             <a id="walk-btn" class="directions-btn walk-btn" target="_blank" rel="noopener" hidden>
-                <svg class="bi" aria-hidden="true"><use href="/icons.svg#signpost-2-fill"></use></svg>
-                <span class="sr-only"><span data-i18n="subway.walking-directions-to">Walking directions to</span> <span id="walk-station"></span> <span data-i18n="shell.new-tab">(opens in a new tab)</span></span>
+                {{icon "signpost-2-fill"}}
+                <span class="sr-only"><span>{{t "subway.walking-directions-to"}}</span> <span id="walk-station"></span> <span>{{t "shell.new-tab"}}</span></span>
             </a>
             </div>
             <p id="locate-status" class="locate-status" role="status"></p>
@@ -26,24 +26,24 @@
 
         <div class="swap-row">
             <button id="swap-stations" type="button" class="btn btn-sm swap-btn"
-                    title="Swap stations" data-i18n-title="subway.swap" aria-label="Swap stations" data-i18n-aria-label="subway.swap">
-                <svg class="bi" aria-hidden="true"><use href="/icons.svg#arrow-down-up"></use></svg>
+                    title="{{t "subway.swap"}}" aria-label="{{t "subway.swap"}}">
+                {{icon "arrow-down-up"}}
             </button>
         </div>
 
         <div class="subway-search-wrap mb-1">
-            <label for="stop-search-to" class="form-label fw-semibold m-0" data-i18n="subway.destination-label">Getting off at</label>
+            <label for="stop-search-to" class="form-label fw-semibold m-0">{{t "subway.destination-label"}}</label>
             <div class="position-relative">
                 <input id="stop-search-to" class="form-control subway-search-input" type="search"
                        role="combobox" aria-autocomplete="list" aria-controls="stop-suggestions-to" aria-expanded="false"
-                       placeholder="Type your destination…" data-i18n-placeholder="subway.destination-placeholder">
+                       placeholder="{{t "subway.destination-placeholder"}}">
                 <ul id="stop-suggestions-to" class="stop-suggestions list-unstyled mb-0" role="listbox"
-                    aria-label="Station suggestions" data-i18n-aria-label="subway.station-suggestions" hidden></ul>
+                    aria-label="{{t "subway.station-suggestions"}}" hidden></ul>
             </div>
         </div>
     </form>
 
     <div id="subway-result"></div>
 
-    <p class="station-index-link small"><a href="/subway/stations" data-i18n="subway.all-stations">All metro stations</a></p>
+    <p class="station-index-link small"><a href="/subway/stations">{{t "subway.all-stations"}}</a></p>
 </div>

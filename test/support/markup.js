@@ -41,7 +41,7 @@ export function iconProblems(html) {
 
 export function newTabProblems(html) {
     return elements(html, 'a').filter(a => /target="_blank"/.test(a.open))
-        .filter(({ open, inner }) => !(/data-i18n="shell\.new-tab"/.test(inner) || /new tab|νέα καρτέλα/i.test(`${attr(open, 'aria-label') ?? ''} ${spoken(inner)}`)))
+        .filter(({ open, inner }) => !/new tab|νέα καρτέλα/i.test(`${attr(open, 'aria-label') ?? ''} ${spoken(inner)}`))
         .map(({ open }) => `${open} opens a new tab without saying so`);
 }
 
