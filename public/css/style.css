@@ -976,6 +976,10 @@ body {
 
 /* Messages in place of the stops (render.js message); the page may move
    the keyboard to them, but they aren't controls */
+.bus-message-body {
+    height: 60dvh;
+}
+
 .bus-message-body:focus {
     outline: none;
 }
@@ -1118,16 +1122,16 @@ body {
     margin: 12px 0 0;
 }
 
-.line-m1 { background-color: #4caf50; }
-.line-m2 { background-color: #cc0000; }
-.line-m3 { background-color: #0057b8; }
+/* Line colours, for badges (lineBadge in /js/core/metro.js). The metro's are
+   data/curated/lines.json's, with white text (M1's green is a little darker
+   than OASA's for it): test/accessibility.test.js checks they're the same,
+   and that the text on each meets WCAG AA. The tram isn't in the planner, so
+   it's only here, with dark text. */
+.line-m1 { background-color: #3a833c; color: #fff; }
+.line-m2 { background-color: #cc0000; color: #fff; }
+.line-m3 { background-color: #0057b8; color: #fff; }
 .line-t6,
-.line-t7 { background-color: #e07b00; }
-
-/* White text is too faint on the lighter line colours; dark text meets WCAG AA */
-.line-badge.line-m1,
-.line-badge.line-t6,
-.line-badge.line-t7 { color: var(--wh-ink); }
+.line-t7 { background-color: #e07b00; color: var(--wh-ink); }
 
 .info-body ul.announcements,
 .disruption-banner ul {

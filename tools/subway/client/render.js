@@ -1,6 +1,6 @@
 import { language, t } from '/js/core/i18n.js';
-import { format, html, icon, localName, walkingUrl as walkingTo } from '/js/core/html.js';
-import { clockTime, feedDate, lineBadge, trainDiagram } from '/js/core/metro.js';
+import { format, formatDate, html, icon, localName, walkingUrl as walkingTo } from '/js/core/html.js';
+import { clockTime, lineBadge, trainDiagram } from '/js/core/metro.js';
 import { legPositions } from './network.js';
 
 // What the subway page draws, with html`` (every value escaped)
@@ -52,7 +52,7 @@ function legCard(rail, leg, next, now, level, tomorrow) {
         <div class="card result-card"><div class="card-body">
             <div class="result-header d-flex align-items-center gap-2 mb-2">
                 <${heading} class="leg-title">
-                    ${lineBadge(line)}
+                    ${lineBadge(leg.line, line.name)}
                     <span class="direction-text"><span aria-hidden="true">→ </span><span class="sr-only">${t('subway.toward')} </span>${toward}</span>
                 </${heading}>
                 <div class="schedule-section ms-auto">${departureChips(leg.departures, now, tomorrow)}</div>
@@ -86,7 +86,7 @@ function routeBlock(rail, route, index, total, now, tomorrow) {
 // tomorrow: the plans are for tomorrow's first trains (planTrip in network.js)
 export function renderResult(rail, plans, now, { expired, tomorrow = false }) {
     if (!plans.length) return html`<p class="text-body-secondary small mt-3">${t('subway.no-route')}</p>`;
-    const notice = expired && html`<p class="timetable-notice">${icon('exclamation-triangle', 'me-1')}${format(t('subway.timetable-old'), { date: feedDate(rail.feed.validTo) })}</p>`;
+    const notice = expired && html`<p class="timetable-notice">${icon('exclamation-triangle', 'me-1')}${format(t('subway.timetable-old'), { date: formatDate(rail.feed.validTo) })}</p>`;
     const tomorrowNotice = tomorrow && html`<p class="tomorrow-notice">${icon('moon-stars', 'me-1')}${t('subway.tomorrow')}</p>`;
     const routes = plans.map((r, i) => html`${i > 0 && html`<hr class="route-divider">`}${routeBlock(rail, r, i, plans.length, now, tomorrow)}`);
     return html`${notice}${tomorrowNotice}

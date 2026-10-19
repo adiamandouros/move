@@ -49,7 +49,7 @@ lists them all and says where the rest are:
 | Home, offline | `registry.js` | `server/views/home.hbs`, `offline.hbs` |
 | Subway, Buses, Info | `tools/<id>/tool.json` | `tools/<id>/page.hbs`, see [tools/README.md](tools/README.md) |
 | About, Privacy, Contact | `registry.js` | `server/views/pages/<name>.<lang>.hbs`, one file per language |
-| Metro stations | `server/pages/stations.js` | written from `rail.json` on request |
+| Metro stations | `server/pages/stations.js` | `server/views/stations/*.hbs`, from `rail.json` on request |
 | Not found (404) | `registry.js` (`NOT_FOUND`) | `server/views/notfound.hbs` |
 | Error (500) | `registry.js` (`SERVER_ERROR`) | `server/views/error.hbs` |
 | Admin | `server/admin/` | `admin/*.hbs`, English only |
@@ -65,9 +65,10 @@ All in [server/pages/](server/pages/):
    menu, the page's strings and its scripts. Links to the pages point at
    the page's language (`localiseLinks` in `i18n.js`), and links to
    stylesheets, scripts and icons carry this deploy's version.
-3. The HTML is kept in memory and sent as it is. Station pages are built
-   with ``html`` `` from `rail.json` when first asked for, and kept until
-   it changes.
+3. The HTML is kept in memory and sent as it is. Station pages are
+   rendered from `rail.json` when first asked for, and kept until it
+   changes: `stations.js` works out what each one shows as plain data
+   (`stationView`, `indexView`, tested without HTML) and its views draw it.
 
 ### Views
 
@@ -75,7 +76,8 @@ Views are [Handlebars](https://handlebarsjs.com/) templates (`.hbs`),
 compiled once by [templates.js](server/pages/templates.js) and only on the
 server: browsers get finished HTML, and nothing is added to what they load.
 `{{value}}` is escaped; `{{{value}}}` is for HTML that's already built (the
-page's content inside the layout). Four helpers:
+page's content inside the layout), and pieces built with ``html`` `` (a line
+badge, the train diagram) go in as `{{value}}`. Five helpers:
 
 - `{{t "key"}}`: the page's string; `{{t "stations.toward" name=toward}}`
   fills its `{name}`.
@@ -83,13 +85,15 @@ page's content inside the layout). Four helpers:
   (paragraphs with links, lists), the English first.
 - `{{icon "geo-alt" "me-1"}}`: an icon from the sprite.
 - `{{json value}}`: JSON that's safe inside a `<script>` element.
+- `{{formatDate "2026-10-14"}}`: a date as people write it, 14/10/2026.
 
 They're compiled strictly: a value the view names but isn't given, a helper
 that doesn't exist or a missing string throws, and every page is rendered
 at startup, so a typo fails `npm test` rather than showing on the site.
 `test/templates.test.js` checks that every string the views use exists in
 both languages and that every `{{#ifLang}}` has its Greek. Partials, shared
-by views as `{{> name}}`, are in `server/views/partials/`. The service
+by views as `{{> name}}`, are in `server/views/partials/`. A tool's
+`data.json` gives its `page.hbs` its values. The service
 workers aren't HTML: `fill()` puts their version and file lists in.
 
 The other files there: `assets.js` (stylesheets, scripts and their
@@ -105,7 +109,10 @@ Styles are Bootstrap 5.3 (from `node_modules`, no build step) plus
 `public/css/style.css`. Wayhop's colours are Bootstrap's CSS variables, set
 once per colour mode at the top of `style.css` (`--wh-` ones for Wayhop's
 own components); rules use the variable names, never colour values, and
-`test/accessibility.test.js` checks their contrast. Use Bootstrap's
+`test/accessibility.test.js` checks their contrast. Line colours are
+classes too (`.line-m1`, for `lineBadge` in `/js/core/metro.js`), kept the
+same as `data/curated/lines.json`'s by that test, so pages have no inline
+styles (`csp.test.js` checks). Use Bootstrap's
 components (accordion, card, toast, buttons) and utilities, themed through
 their `--bs-` variables; `style.css` is for what Bootstrap doesn't have
 (the train diagram, the map, arrival badges, the navigation). Bootstrap's
@@ -223,6 +230,12 @@ error details. Every 30 minutes, `.github/workflows/health.yml` runs
 health page, and rechecks a problem after 2 minutes. While the site is
 unhealthy, an issue labelled `health` stays open; GitHub emails it.
 `/admin/diagnostics` has the details.
+
+Facts written on the pages by hand (the Info page's closing times, prices,
+airport and night buses) say when they were last checked: one date per
+section, in `tools/info/data.json`, shown on the page with `{{> checked}}`.
+`/admin/diagnostics` warns once a section is over 90 days old, and so does
+the nightly live check (`test/live/`), which reads the dates on wayhop.gr.
 
 `server/errors.js` is the last stop for a request whose answer failed: the
 error is logged, and the visitor gets the error page (JSON from an API)

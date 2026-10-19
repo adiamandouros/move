@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { escapeHtml, format, html, Html, icon, localName, raw, safeUrl, setHtml, walkingUrl } from '../public/js/core/html.js';
-import { clockTime, feedDate, lineBadge } from '../public/js/core/metro.js';
+import { escapeHtml, format, formatDate, html, Html, icon, localName, raw, safeUrl, setHtml, walkingUrl } from '../public/js/core/html.js';
+import { clockTime, lineBadge } from '../public/js/core/metro.js';
 
 // Building HTML (public/js/core/html.js): html`` escapes every value put into
 // it, except pieces it built itself; and the small helpers around it
@@ -74,7 +74,7 @@ test('walking directions, times and dates', () => {
     assert.equal(walkingUrl(37.97, 23.73), 'https://www.google.com/maps/dir/?api=1&destination=37.97,23.73&travelmode=walking');
     assert.equal(clockTime(5 * 3600 + 32 * 60 + 59), '05:32');
     assert.equal(clockTime(24 * 3600 + 15 * 60), '00:15');
-    assert.equal(feedDate('2026-10-31'), '31/10/2026');
+    assert.equal(formatDate('2026-10-31'), '31/10/2026');
 });
 
 test('icon() is built with html``, so its classes are escaped', () => {
@@ -82,9 +82,8 @@ test('icon() is built with html``, so its classes are escaped', () => {
     assert.doesNotMatch(String(icon('x', '"><script>')), /<script>/);
 });
 
-test('a line badge only puts a #rrggbb colour into its style', () => {
-    assert.equal(String(lineBadge({ name: 'M1', color: '#4caf50' })), '<span class="line-badge" style="background-color: #4caf50; color: #0f131c">M1</span>');
-    const hostile = String(lineBadge({ name: '<b>M9</b>', color: 'red; background-image: url(https://evil.example/)' }, 'suggestion-line-badge'));
-    assert.doesNotMatch(hostile, /evil|<b>/);
-    assert.match(hostile, /^<span class="suggestion-line-badge" style="background-color: #6c757d;/);
+test('a line badge is coloured by its class (style.css), with no inline style', () => {
+    assert.equal(String(lineBadge('M1', 'M1')), '<span class="line-badge line-m1">M1</span>');
+    assert.equal(String(lineBadge('M3', 'M3', 'suggestion-line-badge')), '<span class="suggestion-line-badge line-m3">M3</span>');
+    assert.doesNotMatch(String(lineBadge('M9" onclick="x', '<b>M9</b>')), /<b>|" onclick/);
 });

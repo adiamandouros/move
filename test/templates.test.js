@@ -90,8 +90,8 @@ test('every page renders, with nothing left of its template', () => {
 const PAGE = { lang: 'el', strings: { greeting: 'Γεια σου, {name}', 'shell.skip': 'Μετάβαση' } };
 const render = (source, context = {}, page = PAGE) => compileView(source, 'test.hbs')(context, page);
 
-test('only the four helpers exist', () => {
-    assert.deepEqual(HELPERS.sort(), ['icon', 'ifLang', 'json', 't']);
+test('only these helpers exist', () => {
+    assert.deepEqual(HELPERS.sort(), ['formatDate', 'icon', 'ifLang', 'json', 't']);
     assert.throws(() => render('{{shout "x"}}'), /test\.hbs/);
 });
 
@@ -124,6 +124,15 @@ test('{{icon}} and {{json}}', () => {
     assert.equal(render('{{icon "geo-alt" "me-1"}}'), '<svg class="bi me-1" aria-hidden="true"><use href="/icons.svg#geo-alt"></use></svg>');
     assert.equal(render('<script type="application/json">{{json v}}</script>', { v: { a: '</script><script>alert(1)</script>' } }),
         '<script type="application/json">{"a":"\\u003c/script>\\u003cscript>alert(1)\\u003c/script>"}</script>');
+});
+
+test('{{formatDate}}, and {{> checked}}: when a page\'s facts were checked, and where', () => {
+    assert.equal(render('{{formatDate "2026-10-14"}}'), '14/10/2026');
+    const section = { date: '2026-10-14', sources: [{ name: 'stasy.gr', url: 'https://www.stasy.gr/' }, { name: 'oasa.gr', url: 'https://www.oasa.gr/' }] };
+    const strings = { 'info.checked': 'Checked on {date} at', 'shell.new-tab': '(opens in a new tab)' };
+    assert.equal(render('{{> checked section}}', { section }, { lang: 'en', strings }).trim(),
+        '<p class="info-source">Checked on 14/10/2026 at <a href="https://www.stasy.gr/" target="_blank" rel="noopener">stasy.gr<span class="sr-only"> (opens in a new tab)</span></a>, '
+        + '<a href="https://www.oasa.gr/" target="_blank" rel="noopener">oasa.gr<span class="sr-only"> (opens in a new tab)</span></a></p>');
 });
 
 test('fill() fills a script\'s slots as they are, and fails on a missing one', () => {

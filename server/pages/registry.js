@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { loadConfig } from '../config.js';
 import { appData } from './seo.js';
 import { STATIONS_PATH } from './stations.js';
-import { compileView, registerPartial } from './templates.js';
+import { compileView, view } from './templates.js';
 
 // Every page of the site. Each one is at its path in English and under /el
 // in Greek, and is rendered in both languages at startup (index.js), in the
@@ -28,20 +28,8 @@ import { compileView, registerPartial } from './templates.js';
 //   - the admin pages (server/admin/), private and in English only
 
 const ROOT      = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const VIEWS_DIR = join(ROOT, 'server', 'views');
 const TOOLS_DIR = join(ROOT, 'tools');
 
-// The views (server/views/<name>.hbs, see templates.js), each compiled once,
-// and the partials they share (server/views/partials/<name>.hbs, {{> name}})
-const views = new Map();
-const view = name => {
-    if (!views.has(name)) views.set(name, compileView(readFileSync(join(VIEWS_DIR, `${name}.hbs`), 'utf8'), `server/views/${name}.hbs`));
-    return views.get(name);
-};
-const PARTIALS_DIR = join(VIEWS_DIR, 'partials');
-for (const file of readdirSync(PARTIALS_DIR).filter(f => f.endsWith('.hbs'))) {
-    registerPartial(file.slice(0, -'.hbs'.length), readFileSync(join(PARTIALS_DIR, file), 'utf8'));
-}
 
 /** @typedef {import('../../types/pages.js').Page} Page */
 /** @typedef {import('../../types/pages.js').Tool} Tool */
@@ -75,7 +63,8 @@ export function sitePages(tools, config = loadConfig({})) {
                 path: tool.path,
                 title: `tool.${tool.id}.title`,
                 description: `tool.${tool.id}.description`,
-                content: (lang, strings) => page({}, { lang, strings }),
+                // Its data.json gives the view its values
+                content: (lang, strings) => page(tool.data, { lang, strings }),
                 strings: tool.strings,
                 scripts: tool.scripts.map(s => `/tools/${tool.id}/${s}`),
                 active: tool.id,
@@ -127,6 +116,7 @@ export function loadTools(dir = TOOLS_DIR) {
                 ...config,
                 page: readFileSync(join(toolDir, 'page.hbs'), 'utf8'),
                 strings: existsSync(join(toolDir, 'strings.json')) ? JSON.parse(readFileSync(join(toolDir, 'strings.json'), 'utf8')) : {},
+                data: existsSync(join(toolDir, 'data.json')) ? JSON.parse(readFileSync(join(toolDir, 'data.json'), 'utf8')) : {},
                 clientDir: join(toolDir, 'client'),
             };
         })
@@ -146,3 +136,16 @@ const STATIONS_TILE = { href: STATIONS_PATH, iconName: 'list-ul', titleKey: 'hom
 const TEXT_PAGES = ['about', 'privacy', 'contact'];
 // When privacy.<lang>.hbs last changed in substance (shown on the page)
 const PRIVACY_UPDATED = { en: '18 October 2026', el: '18 Οκτωβρίου 2026' };
+
+// ── Facts checked by hand ───────────────────────────────────────────────────
+
+// When the facts written on the pages by hand were last checked: each
+// section of a tool's data.json "checked" ({{> checked}} shows it on the
+// page), named by its heading, for /admin/diagnostics (factsChecks)
+/** @param {Tool[]} tools @returns {{ what: string, date: string }[]} */
+export function checkedFacts(tools) {
+    return tools.flatMap(tool => Object.entries(tool.data?.checked ?? {}).map(([section, { date }]) => ({
+        what: `${tool.title.en}: ${tool.strings.en?.[`${tool.id}.${section}`] ?? section}`,
+        date,
+    })));
+}

@@ -71,7 +71,7 @@
                     {{else}}
                     <p>Στη γραμμή 1, ένας ακόμη συρμός ξεκινά από κάθε άκρο στις 00:30 αλλά φτάνει μόνο ως την Ομόνοια. Προσωρινές αλλαγές, όπως κλεισίματα λόγω έργων, εμφανίζονται στις Ανακοινώσεις.</p>
                     {{/ifLang}}
-                    <p class="info-source"><span>{{t "info.checked"}}</span> <a href="https://www.stasy.gr/en/timetables/" target="_blank" rel="noopener">stasy.gr<span class="sr-only"> {{t "shell.new-tab"}}</span></a></p>
+{{> checked checked.hours}}
                 </div>
             </div>
         </section>
@@ -115,7 +115,7 @@
                         <li><strong>Πρόστιμο:</strong> €100 χωρίς έγκυρο εισιτήριο (€50 για μειωμένο κόμιστρο).</li>
                     </ul>
                     {{/ifLang}}
-                    <p class="info-source"><span>{{t "info.checked"}}</span> <a href="https://www.oasa.gr/en/tickets/prices-of-products/" target="_blank" rel="noopener">oasa.gr<span class="sr-only"> {{t "shell.new-tab"}}</span></a></p>
+{{> checked checked.tickets}}
                 </div>
             </div>
         </section>
@@ -135,7 +135,7 @@
                         <li><strong>Λεωφορεία express:</strong> €5,50, κάθε μέρα όλο το 24ωρο. <span class="line-pill">X95</span> Σύνταγμα, <span class="line-pill">X96</span> Πειραιάς, <span class="line-pill">X97</span> Στ. Ελληνικό, <span class="line-pill">X93</span> ΚΤΕΛ Κηφισού.</li>
                     </ul>
                     {{/ifLang}}
-                    <p class="info-source"><span>{{t "info.checked"}}</span> <a href="https://www.stasy.gr/en/timetables/line-3/" target="_blank" rel="noopener">stasy.gr<span class="sr-only"> {{t "shell.new-tab"}}</span></a>, <a href="https://www.oasa.gr/en/tickets/prices-of-products/" target="_blank" rel="noopener">oasa.gr<span class="sr-only"> {{t "shell.new-tab"}}</span></a></p>
+{{> checked checked.airport}}
                 </div>
             </div>
         </section>
@@ -171,7 +171,7 @@
                         <li><span class="line-pill">B11</span> {{#ifLang "en"}}Pl. Vathis – Ilion – Petroupoli{{else}}Πλ. Βάθη – Ίλιον – Πετρούπολη{{/ifLang}}</li>
                         <li><span class="line-pill">B12</span> {{#ifLang "en"}}Attiki metro – Ano Liosia{{else}}Στ. Αττική – Άνω Λιόσια{{/ifLang}}</li>
                     </ul>
-                    <p class="info-source"><span>{{t "info.checked"}}</span> <a href="https://www.osy.gr/" target="_blank" rel="noopener">osy.gr<span class="sr-only"> {{t "shell.new-tab"}}</span></a></p>
+{{> checked checked.night}}
                 </div>
             </div>
         </section>

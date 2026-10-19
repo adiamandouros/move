@@ -1,15 +1,20 @@
+import { readdirSync, readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import Handlebars from 'handlebars';
-import { format, icon } from '../../public/js/core/html.js';
+import { format, formatDate, icon } from '../../public/js/core/html.js';
 
 // The server's views are Handlebars templates (.hbs): the layout
 // (server/views/layout.hbs), the pages' views (server/views/, the tools'
 // page.hbs, admin/) and the partials they share. {{value}} is escaped;
 // {{{value}}} puts in HTML that's already built (the page's content, its
-// meta tags). Helpers:
+// meta tags); pieces built with html`` (/js/core/html.js) go in as {{piece}}.
+// Helpers:
 //   {{t "key"}}                     the page's string for key, escaped;
 //                                   {{t "stations.toward" name=toward}} fills {name}
 //   {{icon "geo-alt" "me-1"}}       an icon from the sprite (/js/core/html.js)
 //   {{json value}}                  JSON that's safe inside a <script> element
+//   {{formatDate "2026-10-14"}}     a date as people write it: 14/10/2026
 //   {{#ifLang "en"}}…{{else}}…{{/ifLang}}  text written in both languages:
 //                                   the first part on English pages, the rest on Greek ones
 // Templates are compiled strictly: a value the template names but isn't
@@ -23,7 +28,7 @@ import { format, icon } from '../../public/js/core/html.js';
 const hb = Handlebars.create();
 
 // (A value can't have a helper's name: {{lang}} is the page's language)
-export const HELPERS = ['t', 'icon', 'json', 'ifLang'];
+export const HELPERS = ['t', 'icon', 'json', 'ifLang', 'formatDate'];
 const OPTIONS = {
     strict: true,
     knownHelpersOnly: true,
@@ -40,6 +45,8 @@ hb.registerHelper('t', (key, options) => {
 hb.registerHelper('icon', (name, ...rest) => new hb.SafeString(String(icon(name, rest.length > 1 ? rest[0] : ''))));
 
 hb.registerHelper('json', value => new hb.SafeString(JSON.stringify(value).replace(/</g, '\\u003c')));
+
+hb.registerHelper('formatDate', date => formatDate(date));
 
 hb.registerHelper('ifLang', function (code, options) {
     return options.data.lang === code ? options.fn(this) : options.inverse(this);
@@ -68,6 +75,24 @@ export function compileView(source, name) {
 /** @param {string} name @param {string} source */
 export function registerPartial(name, source) {
     hb.registerPartial(name, hb.compile(source, OPTIONS));
+}
+
+// ── The server's views ──────────────────────────────────────────────────────
+
+const VIEWS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'views');
+
+// A view in server/views/ by name ('home', 'pages/about.en', 'stations/station'), compiled once
+const views = new Map();
+/** @param {string} name @returns {View} */
+export function view(name) {
+    if (!views.has(name)) views.set(name, compileView(readFileSync(join(VIEWS_DIR, `${name}.hbs`), 'utf8'), `server/views/${name}.hbs`));
+    return views.get(name);
+}
+
+// The partials they share: server/views/partials/<name>.hbs, as {{> name}}
+const PARTIALS_DIR = join(VIEWS_DIR, 'partials');
+for (const file of readdirSync(PARTIALS_DIR).filter(f => f.endsWith('.hbs'))) {
+    registerPartial(file.slice(0, -'.hbs'.length), readFileSync(join(PARTIALS_DIR, file), 'utf8'));
 }
 
 // The parsed template, for checks on the templates themselves (test/templates.test.js)

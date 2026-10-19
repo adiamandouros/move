@@ -1,0 +1,70 @@
+{{!-- A metro station's page (server/pages/stations.js, stationView) --}}
+<div class="station-view">
+    <nav aria-label="{{t "stations.breadcrumb"}}">
+        <ol class="breadcrumb small mb-2">
+            <li class="breadcrumb-item"><a href="/subway">{{t "stations.subway"}}</a></li>
+            <li class="breadcrumb-item"><a href="/subway/stations">{{t "stations.title"}}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{name}}</li>
+        </ol>
+    </nav>
+    <h1 class="fs-3 fw-semibold mb-1">{{name}}</h1>
+    <p class="text-body-secondary mb-3">{{t "stations.lines-here"}}{{#each lines}} {{badge}}{{/each}}</p>
+    <div class="station-actions d-flex flex-wrap gap-2 mb-4">
+        <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?from={{id}}">{{icon "signpost-split" "me-1"}}{{t "stations.plan-from"}}</a>
+        <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?to={{id}}">{{icon "geo-alt" "me-1"}}{{t "stations.plan-to"}}</a>
+        <a class="btn btn-sm btn-outline-secondary rounded-pill" href="{{walking}}" target="_blank" rel="noopener">{{icon "person-walking" "me-1"}}{{t "stations.walk"}} <span class="sr-only">{{t "shell.new-tab"}}</span></a>
+    </div>
+{{#each lines}}
+    <section class="station-section" aria-labelledby="line-{{key}}">
+        <h2 class="station-line-title" id="line-{{key}}">{{badge}} {{t "stations.line" n=number}}</h2>
+{{#each directions}}
+        <div class="card result-card station-direction" role="group" aria-labelledby="{{headingId}}"><div class="card-body">
+            <h3 class="leg-title" id="{{headingId}}"><span aria-hidden="true">→ </span>{{t "stations.toward" name=toward}}</h3>
+            <ul class="list-unstyled small station-neighbours">
+{{#if previous}}
+                <li>{{t "stations.previous"}}: <a href="{{previous.href}}">{{previous.name}}</a></li>
+{{/if}}
+{{#if next}}
+                <li>{{t "stations.next"}}: <a href="{{next.href}}">{{next.name}}</a></li>
+{{else}}
+                <li>{{t "stations.terminus"}}</li>
+{{/if}}
+            </ul>
+{{#if arriving}}
+            {{!-- Arriving here: where to ride for the exit and for each connection --}}
+            <h4 class="station-subheading">{{t "stations.exit-heading"}}</h4>
+{{#if arriving.diagram}}
+            <p class="small mb-2">{{t "stations.exit-text"}}</p>
+            {{arriving.diagram}}
+{{else}}
+            <p class="text-body-secondary fst-italic small">{{t "subway.no-position-data"}}</p>
+{{/if}}
+{{#if arriving.centralPlatform}}
+            <p class="central-platform-badge d-inline-block mt-2">{{icon "symmetry-horizontal" "me-1"}}{{t "subway.exit-left"}}</p>
+{{/if}}
+{{#each arriving.transfers}}
+            <p class="small mt-2 mb-0">{{icon "arrow-left-right" "me-1"}}{{t "stations.transfer" line=line name=toward where=where}}</p>
+{{/each}}
+{{#if arriving.note}}
+            <div class="stop-note mt-3">{{icon "info-circle" "me-1"}}{{arriving.note}}</div>
+{{/if}}
+{{/if}}
+{{#if times.length}}
+            {{!-- Leaving from here: first and last trains --}}
+            <h4 class="station-subheading">{{t "stations.times-heading"}}</h4>
+            <table class="table table-sm station-times mb-0">
+                <caption class="sr-only">{{t "stations.times-caption" name=@root.name toward=toward}}</caption>
+                <thead><tr><th scope="col">{{t "stations.days"}}</th><th scope="col">{{t "stations.first"}}</th><th scope="col">{{t "stations.last"}}</th></tr></thead>
+                <tbody>
+{{#each times}}
+                    <tr><th scope="row">{{days}}</th><td>{{first}}</td><td>{{last}}</td></tr>
+{{/each}}
+                </tbody>
+            </table>
+{{/if}}
+        </div></div>
+{{/each}}
+    </section>
+{{/each}}
+    <p class="schedule-disclaimer">{{icon "info-circle" "me-1"}}{{#if timetable.old}}{{t "stations.timetable-old" date=timetable.date}}{{else}}{{t "stations.timetable" date=timetable.date}}{{/if}}</p>
+</div>

@@ -302,6 +302,23 @@ export function cspChecks(csp, now = Date.now) {
     ];
 }
 
+// The facts written on the pages by hand (closing times, prices, night
+// buses: checkedFacts in server/pages/registry.js) are worth checking again
+// after FACTS_MAX_AGE_DAYS; the nightly live check (test/live/) says so too
+export const FACTS_MAX_AGE_DAYS = 90;
+
+/** @param {{ what: string, date: string }[]} facts @param {() => number} now */
+export function factsChecks(facts, now = Date.now) {
+    const GROUP = 'Facts checked by hand';
+    return facts.map(({ what, date }) => {
+        const days = Math.floor((now() - Date.parse(date)) / 86_400_000);
+        return days > FACTS_MAX_AGE_DAYS
+            ? check(GROUP, what, 'warn', `Last checked on ${date}, ${days} days ago`,
+                'Check them against the sources the page links to, update the page if anything changed, and set the date in its tools/<id>/data.json.')
+            : check(GROUP, what, 'ok', `Checked on ${date} (${days} days ago)`);
+    });
+}
+
 function verdict({ internet, ip, loc, dns, oasa, relays, appStatus }) {
     const ipText = ip ? ` (this server's public IP is ${ip})` : '';
     const abroad = r => Boolean(r.location) && r.location.loc !== 'GR';
@@ -369,6 +386,7 @@ function expectBlockedRelays(relays) {
  *   config?: import('../types/config.js').Config, dataDir?: string, appStatus?: any, announcements?: any,
  *   fetch?: typeof globalThis.fetch, dnsLookup?: typeof lookup, now?: () => number, nodeVersion?: string,
  *   csp?: { mode: string, kinds?: any[], dropped?: number } | null,
+ *   facts?: { what: string, date: string }[],
  * }} [options]
  */
 export async function runDiagnostics({
@@ -381,6 +399,7 @@ export async function runDiagnostics({
     now = Date.now,
     nodeVersion = process.version,
     csp = null,
+    facts = [],
 } = {}) {
     // Every request says who we are, as the app's do
     const send = (url, init = {}) => fetch(url, { ...init, headers: { 'User-Agent': config.userAgent, ...init.headers } });
@@ -409,6 +428,7 @@ export async function runDiagnostics({
         ...appChecks(appStatus, now),
         ...announcementChecks(announcements, now),
         ...cspChecks(csp, now),
+        ...factsChecks(facts, now),
     ];
     const summary = verdict({
         internet: internet.result,

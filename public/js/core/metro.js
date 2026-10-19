@@ -1,4 +1,4 @@
-import { html, icon, textOn } from './html.js';
+import { html, icon } from './html.js';
 
 /** @typedef {import('../../../types/data.js').Position} Position */
 
@@ -6,15 +6,14 @@ import { html, icon, textOn } from './html.js';
 // station pages (written on the server, server/pages/stations.js). Strings
 // come from s(key): t() in the browser, the page's strings on the server.
 
-const COLOR = /^#[0-9a-f]{6}$/i;
-
-// A line's badge, in its colour: line is rail.json's { name, color }. cls:
-// the badge's class (the station suggestions have smaller ones). Only a
-// #rrggbb colour goes into the style attribute.
-/** @param {{ name: string, color: string }} line @param {string} [cls] */
-export function lineBadge(line, cls = 'line-badge') {
-    const color = COLOR.test(line.color) ? line.color : '#6c757d';
-    return html`<span class="${cls}" style="background-color: ${color}; color: ${textOn(color)}">${line.name}</span>`;
+// A line's badge, in its colour: id is rail.json's key ('M1'), name what it
+// says. The colours are classes in style.css (.line-m1), so no page needs
+// inline styles; test/accessibility.test.js keeps them the same as
+// data/curated/lines.json's, and readable. cls: the badge's own class (the
+// station suggestions have smaller ones).
+/** @param {string} id @param {string} name @param {string} [cls] */
+export function lineBadge(id, name, cls = 'line-badge') {
+    return html`<span class="${cls} line-${id.toLowerCase()}">${name}</span>`;
 }
 
 // "05:32" for a time in seconds after midnight; trains after midnight belong
@@ -23,13 +22,6 @@ export function lineBadge(line, cls = 'line-badge') {
 export function clockTime(seconds) {
     const minutes = Math.floor(seconds / 60) % (24 * 60);
     return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
-}
-
-// A timetable's date ('2026-10-31', rail.json's feed.validTo) as people write it: "31/10/2026"
-/** @param {string} date */
-export function feedDate(date) {
-    const [y, m, d] = date.split('-');
-    return `${d}/${m}/${y}`;
 }
 
 // The train from back to front (positions: rail.json's), with the parts to

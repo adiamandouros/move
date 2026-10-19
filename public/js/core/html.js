@@ -7,7 +7,8 @@
 //                                                  html`` (and lists of them) go in as they are
 //   html`${cond && html`<b>…</b>`}`                 null, undefined and false give nothing
 // raw(text) marks HTML that's safe as it is; it's rarely needed. HTML goes
-// into the page with setHtml(element, view), and on the server as String(view).
+// into the page with setHtml(element, view), and on the server as String(view)
+// or into a Handlebars view as {{value}} (server/pages/templates.js).
 
 // Marks HTML as built safely; a global symbol, so pieces built by another
 // copy of this module (each language loads its own in the tests) count too
@@ -21,6 +22,9 @@ export class Html {
         this[SAFE] = true;
     }
     toString() { return this.text; }
+    // Handlebars doesn't escape what has toHTML(), so pieces built with html``
+    // go into a view as {{piece}}, and plain text is still escaped
+    toHTML() { return this.text; }
 }
 
 /** @param {unknown} value @returns {value is Html} */
@@ -79,6 +83,13 @@ export function format(text, values) {
 /** @param {{ el?: string, en?: string } | null | undefined} names @param {string} lang */
 export const localName = (names, lang) => names?.[lang] || names?.en || '';
 
+// A date ('2026-10-31', as the data writes them) as people write it: "31/10/2026"
+/** @param {string} date */
+export function formatDate(date) {
+    const [y, m, d] = date.split('-');
+    return `${d}/${m}/${y}`;
+}
+
 // Google Maps walking directions to a place
 /** @param {number} lat @param {number} lng */
 export const walkingUrl = (lat, lng) => `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`;
@@ -92,14 +103,4 @@ const sprite = globalThis.document?.documentElement.dataset.icons ?? '/icons.svg
 /** @param {string} name @param {string} [cls] more classes @returns {Html} */
 export function icon(name, cls = '') {
     return html`<svg class="bi${cls ? ` ${cls}` : ''}" aria-hidden="true"><use href="${sprite}#${name}"></use></svg>`;
-}
-
-// Text colour for a label on `background` (#rrggbb): whichever of white and
-// near-black has the higher contrast, so line badges stay readable (WCAG AA)
-/** @param {string} background */
-export function textOn(background) {
-    const [r, g, b] = [1, 3, 5].map(i => parseInt(background.slice(i, i + 2), 16) / 255)
-        .map(c => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    return 1.05 / (lum + 0.05) >= (lum + 0.05) / 0.0607 ? '#fff' : '#0f131c';
 }

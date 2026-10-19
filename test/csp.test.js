@@ -7,7 +7,10 @@ import { cspChecks } from '../server/diagnostics.js';
 import { createPages, renderPages } from '../server/pages/index.js';
 import { loadTools } from '../server/pages/registry.js';
 import { renderStationPage } from '../server/pages/stations.js';
+import { readFileSync } from 'fs';
+import { athensNow, planTrip } from '../tools/subway/client/network.js';
 import { rail } from './fixtures/rail.js';
+import { browserModule } from './support/browser-modules.js';
 
 // The Content-Security-Policy (server/csp.js) against every page the server
 // can render: anything a page runs inline must be allowed by the policy, and
@@ -103,4 +106,22 @@ test('the diagnostics say the mode and list what was reported', () => {
     assert.match(reported[2].hint, /browser extension/);
     assert.match(reported.at(-1).detail, /3 reports not kept/);
     assert.deepEqual(cspChecks(null), []);
+});
+
+// No inline styles: what keeps 'unsafe-inline' in style-src is AdSense (and
+// Bootstrap's scripts, which set styles through the DOM, which the policy allows)
+test('no page, and nothing the pages\' scripts draw, has a style attribute', async () => {
+    for (const [page, html] of Object.entries(everyPage())) assert.doesNotMatch(html, /\sstyle="/, page);
+    const real = JSON.parse(readFileSync(new URL('./browser/data/rail.json', import.meta.url), 'utf8'));
+    const subway = await browserModule('tools/subway/client/render.js', 'en');
+    const buses = await browserModule('tools/buses/client/render.js', 'en');
+    const map = await browserModule('tools/info/client/map.js', 'en');
+    const trip = planTrip(real, 'kifisia', 'aigaleo', athensNow(new Date('2026-10-21T09:00:00Z')));
+    const drawn = {
+        'a route': subway.renderResult(real, trip.plans, trip.now, { expired: true, tomorrow: false }),
+        'a bus stop': buses.stopItem({ code: '1', name: { en: 'A' }, lat: 37.9, lng: 23.7, meters: 50, lines: ['040'] }, 0),
+        'a bus message': buses.message('geo-alt', 'Title', 'Subtitle', 'Try again'),
+        'the station list': map.stationList(real),
+    };
+    for (const [what, view] of Object.entries(drawn)) assert.doesNotMatch(String(view), /\sstyle="/, what);
 });
