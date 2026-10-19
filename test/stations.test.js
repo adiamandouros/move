@@ -145,5 +145,5 @@ test('the pages follow a rebuilt rail.json without a restart', async () => {
 });
 
 test('the subway page links to the station index', async () => {
-    assert.match((await get('/subway')).html, /href="\/subway\/stations" data-i18n="subway\.all-stations">All metro stations</);
+    assert.match((await get('/subway')).html, /href="\/subway\/stations">All metro stations</);
 });

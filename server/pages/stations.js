@@ -8,7 +8,7 @@ import express from 'express';
 import { format, html, icon, localName, walkingUrl } from '../../public/js/core/html.js';
 import { clockTime, feedDate, lineBadge, trainDiagram } from '../../public/js/core/metro.js';
 import { athensDate } from '../../tools/subway/client/network.js';
-import { LANGS, localPath } from './i18n.js';
+import { LANGS, localPath, pageStrings } from './i18n.js';
 import { structuredData } from './seo.js';
 
 // A page for every metro station, and an index of them, in English and Greek:
@@ -62,8 +62,11 @@ export function firstAndLast(timetable, index) {
 
 /** @param {Rail} rail @param {Lang} lang @param {import('../../types/pages.js').Tool[]} tools */
 function createWriter(rail, lang, tools) {
+    // The pages' strings (the shell's, with English for any not translated),
+    // the station pages' own and the subway page's
     const own = Object.fromEntries(LANGS.map(l => [l, { ...STRINGS[l], ...tools.find(t => t.id === 'subway')?.strings[l] }]));
-    const s = key => own[lang][key] ?? own.en[key] ?? key;
+    const strings = pageStrings(tools)(lang, own);
+    const s = key => strings[key] ?? key;
     const name = id => localName(rail.stations[id].name, lang);
     const href = id => `${STATIONS_PATH}/${id}`;
     const badge = line => lineBadge(rail.lines[line]);
@@ -147,7 +150,7 @@ export function stationContent(rail, id, lang, tools) {
     <div class="station-actions d-flex flex-wrap gap-2 mb-4">
         <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?from=${id}">${icon('signpost-split', 'me-1')}${s('stations.plan-from')}</a>
         <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?to=${id}">${icon('geo-alt', 'me-1')}${s('stations.plan-to')}</a>
-        <a class="btn btn-sm btn-outline-secondary rounded-pill" href="${walkingUrl(lat, lng)}" target="_blank" rel="noopener">${icon('person-walking', 'me-1')}${s('stations.walk')} <span class="sr-only" data-i18n="shell.new-tab">(opens in a new tab)</span></a>
+        <a class="btn btn-sm btn-outline-secondary rounded-pill" href="${walkingUrl(lat, lng)}" target="_blank" rel="noopener">${icon('person-walking', 'me-1')}${s('stations.walk')} <span class="sr-only">${s('shell.new-tab')}</span></a>
     </div>${lines}
     <p class="schedule-disclaimer">${icon('info-circle', 'me-1')}${format(s(expired ? 'stations.timetable-old' : 'stations.timetable'), { date: w.validTo })}</p>
 </div>`;

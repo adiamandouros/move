@@ -1,12 +1,12 @@
 <div class="nearby-buses-view">
-    <h1 class="sr-only" data-i18n="tool.buses.title">Nearby Buses</h1>
+    <h1 class="sr-only">{{t "tool.buses.title"}}</h1>
     <div id="bus-status" class="bus-status" role="status" hidden></div>
     <div id="bus-message" aria-live="polite"></div>
     <div id="stops-accordion" class="accordion accordion-flush"></div>
     <div id="bus-actions" class="filter-bar" hidden>
-        <button id="show-more-btn" type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-4" data-i18n="buses.show-more">Show more stops</button>
+        <button id="show-more-btn" type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-4">{{t "buses.show-more"}}</button>
         <button id="toggle-empty-btn" type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-4" aria-pressed="false">
-            <svg class="bi me-2" aria-hidden="true"><use href="/icons.svg#eye-slash"></use></svg><span data-i18n="buses.hide-empty">Hide empty stops</span>
+            {{icon "eye-slash" "me-2"}}<span>{{t "buses.hide-empty"}}</span>
         </button>
     </div>
 </div>

@@ -43,7 +43,7 @@ export function renderPages(tools = loadTools(), config = loadConfig({})) {
             index: page.index ?? true,
             title: s(page.title),
             description: page.description ? s(page.description) : '',
-            content: page.content(lang, s),
+            content: page.content(lang, strings),
             strings: page.strings,
             scripts: page.scripts,
             head: page.head?.(lang, s) ?? '',

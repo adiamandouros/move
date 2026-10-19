@@ -4,7 +4,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { listFiles, shellFiles, shellUrls, urlPath, VENDOR, versioned } from './assets.js';
 import { LANGS, localPath } from './i18n.js';
-import { fill } from './layout.js';
+import { fill } from './templates.js';
 
 // The service worker (server/views/sw.js), with what it caches for offline
 // use filled in: the home and offline pages, the files every page needs, and

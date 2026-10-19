@@ -3,10 +3,10 @@
         <h1 class="fs-5 m-0">Station editor</h1>
         <div class="d-flex gap-2">
             <a class="btn btn-sm btn-outline-secondary" href="/admin/diagnostics" title="Diagnostics" aria-label="Diagnostics">
-                <svg class="bi" aria-hidden="true"><use href="/icons.svg#heart-pulse"></use></svg>
+                {{icon "heart-pulse"}}
             </a>
             <a class="btn btn-sm btn-outline-secondary" href="/admin/api/export" download>
-                <svg class="bi me-1" aria-hidden="true"><use href="/icons.svg#download"></use></svg>Export
+                {{icon "download" "me-1"}}Export
             </a>
             <form method="post" action="/admin/logout">
                 <button type="submit" class="btn btn-sm btn-outline-secondary">Log out</button>
@@ -24,7 +24,7 @@
             <label for="station-picker" class="sr-only">Station</label>
             <select id="station-picker" class="form-select"></select>
             <button id="nearest-btn" type="button" class="btn btn-outline-primary" title="Nearest station" aria-label="Nearest station">
-                <svg class="bi" aria-hidden="true"><use href="/icons.svg#geo-alt"></use></svg>
+                {{icon "geo-alt"}}
             </button>
         </div>
     </div>

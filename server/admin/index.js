@@ -9,7 +9,7 @@ import { applyOverlay, removeEntry, sameEntry, setEntry, tidyEntry, writeOverlay
 import { POSITIONS, validateCurated } from '../data/validate.js';
 import { formatReport } from '../diagnostics.js';
 import { listFiles, shellFiles, shellUrls, urlPath } from '../pages/assets.js';
-import { fill } from '../pages/layout.js';
+import { compileView, fill } from '../pages/templates.js';
 import { createAuth, createLimiter, readCookie } from './auth.js';
 
 const ADMIN_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'admin');
@@ -30,7 +30,10 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
     const auth = createAuth(password);
     const limiter = createLimiter();
     const router = express.Router();
-    const page = name => readFileSync(join(ADMIN_DIR, `${name}.html`), 'utf8');
+    // The admin pages' views (admin/<name>.hbs), in English only
+    const view = name => compileView(readFileSync(join(ADMIN_DIR, `${name}.hbs`), 'utf8'), `admin/${name}.hbs`);
+    const views = { login: view('login'), stations: view('stations'), diagnostics: view('diagnostics') };
+    const english = { lang: 'en', strings: {} };
     const head = '    <link rel="stylesheet" href="/admin/assets/admin.css">';
     const serviceWorker = renderServiceWorker();
 
@@ -47,7 +50,7 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
     const loginPage = (error = '') => render({
         title: 'Log in',
         head,
-        content: fill(page('login'), { error: error ? `<p class="text-danger small" role="alert">${error}</p>` : '' }),
+        content: views.login({ error }, english),
     });
 
     router.get('/login', (_req, res) => res.set('Cache-Control', 'no-store').type('html').send(loginPage()));
@@ -91,7 +94,7 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
         res.set('Cache-Control', 'no-cache').type('html').send(render({
             title: 'Station editor',
             head,
-            content: page('stations'),
+            content: views.stations({}, english),
             scripts: ['/admin/assets/editor.js'],
         }));
     });
@@ -100,7 +103,7 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
         res.set('Cache-Control', 'no-store').type('html').send(render({
             title: 'Diagnostics',
             head,
-            content: page('diagnostics'),
+            content: views.diagnostics({}, english),
             scripts: ['/admin/assets/diagnostics.js', '/admin/assets/accessibility.js'],
         }));
     });

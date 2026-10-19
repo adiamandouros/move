@@ -76,9 +76,7 @@ function applyFilter() {
     const swap = document.createElement('span');
     setHtml(swap, icon(state.hideEmpty ? 'eye' : 'eye-slash', 'me-2'));
     btn.querySelector('.bi').replaceWith(swap.firstElementChild);
-    const label = btn.querySelector('span');
-    label.dataset.i18n = state.hideEmpty ? 'buses.show-all' : 'buses.hide-empty';
-    label.textContent = t(label.dataset.i18n);
+    btn.querySelector('span').textContent = t(state.hideEmpty ? 'buses.show-all' : 'buses.hide-empty');
 }
 
 function renderStatus() {

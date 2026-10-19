@@ -28,7 +28,7 @@ export interface Tool {
     scripts: string[];
     precache: string[];
     ad?: string;
-    /** page.html */
+    /** page.hbs: the page's view (server/pages/templates.js) */
     page: string;
     /** strings.json */
     strings: Strings;
@@ -46,7 +46,8 @@ export interface Page {
     description?: string;
     /** false keeps it out of search results and the sitemap */
     index?: boolean;
-    content: (lang: Lang, s: StringGetter) => string;
+    /** The HTML inside <main>, from its view; strings: the page's, for {{t}} */
+    content: (lang: Lang, strings: Record<string, string>) => string;
     strings?: Strings;
     scripts?: string[];
     head?: (lang: Lang, s: StringGetter) => string;

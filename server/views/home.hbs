@@ -1,0 +1,33 @@
+<div class="home-view">
+    <h1 class="fs-4 fw-semibold mb-2">{{t "home.title"}}</h1>
+    <p class="home-intro">{{t "home.intro"}}</p>
+
+    <div id="disruptions" aria-live="polite"></div>
+
+    <div class="tool-tiles home-tiles">
+{{#each tiles}}
+{{> tile}}
+{{/each}}
+    </div>
+
+    <!-- Shown by /js/core/install.js where the browser can install the app -->
+    <section id="install" class="card install-card" aria-labelledby="install-title" hidden>
+        <img src="/icon/logo.svg" alt="" width="44" height="32" class="install-logo">
+        <div class="install-body">
+            <h2 id="install-title" class="install-title">{{t "install.title"}}</h2>
+            <p class="install-text">{{t "install.text"}}</p>
+            <p id="install-ios" class="install-text" hidden>{{t "install.ios"}}</p>
+            <button type="button" id="install-btn" class="btn btn-primary btn-sm rounded-pill px-4" hidden>{{t "install.button"}}</button>
+        </div>
+        <button type="button" id="install-close" class="install-close" aria-label="{{t "install.dismiss"}}">{{icon "x-lg"}}</button>
+    </section>
+
+    <section class="card" aria-labelledby="announcements-title">
+        <h2 id="announcements-title" class="home-section-title">{{icon "megaphone"}}<span>{{t "announcements.title"}}</span></h2>
+        <div class="card-body pt-0 info-body">
+            <div id="announcements">
+                <p class="text-body-secondary">{{t "announcements.loading"}}</p>
+            </div>
+        </div>
+    </section>
+</div>

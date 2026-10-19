@@ -46,25 +46,51 @@ lists them all and says where the rest are:
 
 | Page | Defined in | Its content |
 |---|---|---|
-| Home, offline | `registry.js` | `server/views/home.html`, `offline.html` |
-| Subway, Buses, Info | `tools/<id>/tool.json` | `tools/<id>/page.html`, see [tools/README.md](tools/README.md) |
-| About, Privacy, Contact | `registry.js` | `server/views/pages/<name>.<lang>.html`, one file per language |
+| Home, offline | `registry.js` | `server/views/home.hbs`, `offline.hbs` |
+| Subway, Buses, Info | `tools/<id>/tool.json` | `tools/<id>/page.hbs`, see [tools/README.md](tools/README.md) |
+| About, Privacy, Contact | `registry.js` | `server/views/pages/<name>.<lang>.hbs`, one file per language |
 | Metro stations | `server/pages/stations.js` | written from `rail.json` on request |
-| Not found (404) | `registry.js` (`NOT_FOUND`) | `server/views/notfound.html` |
-| Error (500) | `registry.js` (`SERVER_ERROR`) | `server/views/error.html` |
-| Admin | `server/admin/` | `admin/*.html`, English only |
+| Not found (404) | `registry.js` (`NOT_FOUND`) | `server/views/notfound.hbs` |
+| Error (500) | `registry.js` (`SERVER_ERROR`) | `server/views/error.hbs` |
+| Admin | `server/admin/` | `admin/*.hbs`, English only |
 
 ### How a page is rendered
 
 All in [server/pages/](server/pages/):
 
-1. `index.js` takes each page in the registry, in each language.
-2. `layout.js` puts its content into `server/views/layout.html`: the head
+1. `index.js` takes each page in the registry, in each language, and
+   renders its view (below) with the page's strings.
+2. `layout.js` puts the result into `server/views/layout.hbs`: the head
    (search tags from `seo.js`), the navigation, the language link, the
-   menu, the page's strings and its scripts.
-3. `i18n.js` puts the result into the page's language (below).
-4. The HTML is kept in memory and sent as it is. Station pages are rendered
-   when first asked for and kept until `rail.json` changes.
+   menu, the page's strings and its scripts. Links to the pages point at
+   the page's language (`localiseLinks` in `i18n.js`), and links to
+   stylesheets, scripts and icons carry this deploy's version.
+3. The HTML is kept in memory and sent as it is. Station pages are built
+   with ``html`` `` from `rail.json` when first asked for, and kept until
+   it changes.
+
+### Views
+
+Views are [Handlebars](https://handlebarsjs.com/) templates (`.hbs`),
+compiled once by [templates.js](server/pages/templates.js) and only on the
+server: browsers get finished HTML, and nothing is added to what they load.
+`{{value}}` is escaped; `{{{value}}}` is for HTML that's already built (the
+page's content inside the layout). Four helpers:
+
+- `{{t "key"}}`: the page's string; `{{t "stations.toward" name=toward}}`
+  fills its `{name}`.
+- `{{#ifLang "en"}}…{{else}}…{{/ifLang}}`: text written in both languages
+  (paragraphs with links, lists), the English first.
+- `{{icon "geo-alt" "me-1"}}`: an icon from the sprite.
+- `{{json value}}`: JSON that's safe inside a `<script>` element.
+
+They're compiled strictly: a value the view names but isn't given, a helper
+that doesn't exist or a missing string throws, and every page is rendered
+at startup, so a typo fails `npm test` rather than showing on the site.
+`test/templates.test.js` checks that every string the views use exists in
+both languages and that every `{{#ifLang}}` has its Greek. Partials, shared
+by views as `{{> name}}`, are in `server/views/partials/`. The service
+workers aren't HTML: `fill()` puts their version and file lists in.
 
 The other files there: `assets.js` (stylesheets, scripts and their
 versions), `icons.js` (the icon sprite, `/icons.svg`), `service-worker.js`
@@ -72,9 +98,8 @@ versions), `icons.js` (the icon sprite, `/icons.svg`), `service-worker.js`
 
 Icons are Bootstrap Icons, served as one small sprite of only the ones in
 use (listed in `icons.js`): `icon(name, classes)` from `/js/core/html.js`
-writes one, on the server or in the browser; static views write
-`<svg class="bi" aria-hidden="true"><use href="/icons.svg#name"></use></svg>`.
-The server adds the version to every `/icons.svg` link.
+writes one, on the server or in the browser, and views write
+`{{icon "name"}}`. The server adds the version to every `/icons.svg` link.
 
 Styles are Bootstrap 5.3 (from `node_modules`, no build step) plus
 `public/css/style.css`. Wayhop's colours are Bootstrap's CSS variables, set
@@ -89,15 +114,14 @@ pages use.
 
 ### Text in two languages
 
-- **Short text**: `data-i18n="key"` on an element sets its text, and
-  `data-i18n-placeholder`, `-aria-label` and `-title` set those attributes.
-  The English text in the markup is only a placeholder; the strings files
-  decide. Strings live in `server/views/strings.json` (shared: navigation,
-  home, menu, announcements), `tools/<id>/strings.json` (a tool's) and
-  `server/views/stations.json` (station pages), each with `en` and `el`.
+- **Short text**: `{{t "key"}}` in a view, in text or in an attribute
+  (`aria-label="{{t "nav.menu"}}"`). Strings live in
+  `server/views/strings.json` (shared: navigation, home, menu,
+  announcements), `tools/<id>/strings.json` (a tool's) and
+  `server/views/stations.json` (station pages), each with `en` and `el`; a
+  string missing in Greek shows in English.
 - **Longer text** (paragraphs with links, lists): written twice, side by
-  side, as `data-lang="en"` and `data-lang="el"` elements. The server keeps
-  the page's language.
+  side, in `{{#ifLang "en"}}…{{else}}…{{/ifLang}}`.
 - **Pages of prose** (about, privacy, contact): one file per language.
 - **In the browser**: `/js/core/i18n.js` gives `t(key)`, `language` and
   `localHref(path)`. Each page carries only its own language's strings.
@@ -274,9 +298,9 @@ changed functionality updates the tests that cover it, and a bug fix gets a
 test that would have caught it ([CLAUDE.md](CLAUDE.md)).
 
 - **A string**: add it to the right strings file in both `en` and `el`, then
-  use `data-i18n` in markup or `t()` in a script.
+  use `{{t "key"}}` in a view or `t()` in a script.
 - **A tool**: copy a `tools/<id>/` folder ([tools/README.md](tools/README.md)).
 - **Another page**: add an entry to `sitePages` in `registry.js`, with a
   view in `server/views/`.
-- **The layout**: `server/views/layout.html` and `server/pages/layout.js`.
+- **The layout**: `server/views/layout.hbs` and `server/pages/layout.js`.
 - **What works offline**: `"offline"` and `"precache"` in `tool.json`.
