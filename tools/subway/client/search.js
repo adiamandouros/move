@@ -91,11 +91,11 @@ export function stationSearch({ input, list, rail, onChange }) {
     });
 
     list.addEventListener('keydown', e => {
-        const focused = document.activeElement.closest('[role="option"]');
+        const focused = /** @type {HTMLElement | null} */ (document.activeElement.closest('[role="option"]'));
         if (!focused) return;
         if (e.key === 'ArrowDown') {
             e.preventDefault();
-            focused.nextElementSibling?.focus();
+            /** @type {HTMLElement | null} */ (focused.nextElementSibling)?.focus();
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             (focused.previousElementSibling ?? input).focus();

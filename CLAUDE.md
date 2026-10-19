@@ -15,7 +15,9 @@ and [README.md](README.md) (running it).
 Where tests go:
 
 - Logic, data building, what the server sends: `test/*.test.js`
-  (`node:test`, `npm test`).
+  (`node:test`, `npm test`). The whole server over HTTP: `server.test.js`.
+  Browser code that only works things out or builds HTML: in Node too, with
+  `test/support/browser-modules.js`.
 - What a person does in a page (flows, keyboard, location, timing, offline):
   `test/browser/*.spec.js` (Playwright, `npm run test:browser`).
   [test/browser/README.md](test/browser/README.md) covers the fixed clock,

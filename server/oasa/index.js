@@ -21,6 +21,15 @@ const MAX_STOPS = 12;
 //
 // `statusFile`: where the live route status is written about once a minute,
 // so `npm run diagnose` (a separate process) can show what the app sees.
+/**
+ * @param {{
+ *   routesFile?: string, statusFile?: string, stopsFile?: string,
+ *   relays?: { name: string, url: string, key: string }[],
+ *   client?: ReturnType<typeof createOasaClient>,
+ *   limiter?: { take(key: string, stops: number): number },
+ *   now?: () => number,
+ * }} [options]
+ */
 export function createBusApi({ routesFile, statusFile, stopsFile, relays = [], client = createOasaClient({ relays }), limiter, now = Date.now } = {}) {
     const arrivals = createArrivals({ client, routesFile, now });
     limiter ??= createClientLimiter({ now });

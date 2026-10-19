@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'child_process';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { cpSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { runBuild } from '../server/data/index.js';
+import { builderFingerprint, runBuild } from '../server/data/index.js';
 import { checkOutput } from '../server/data/check-output.js';
 import { SOURCES } from '../server/data/sources.js';
 import { busFeed, curatedDir, fakePortal, railCurated, railFeed, stopTable, tempDir } from './fixtures/gtfs.js';
@@ -55,6 +55,28 @@ test('nothing changed: no rebuild; a new day: rebuilt without downloading', asyn
     assert.notEqual(nextDay.generated, first.generated);
     assert.equal(nextDay.fingerprint.today, '20260806');
     assert.equal(portal.downloads.length, downloads);
+});
+
+test('a change to the build\'s code rebuilds, with the same feeds on the same day', async () => {
+    const { build, portal } = setup();
+    const first = await build({ builder: 'aaaaaaaaaaaa' });
+    const downloads = portal.downloads.length;
+    assert.equal((await build({ builder: 'aaaaaaaaaaaa' })).generated, first.generated);
+    const rebuilt = await build({ builder: 'bbbbbbbbbbbb' });
+    assert.notEqual(rebuilt.generated, first.generated);
+    assert.equal(rebuilt.fingerprint.builder, 'bbbbbbbbbbbb');
+    assert.equal(portal.downloads.length, downloads, 'nothing downloaded again');
+});
+
+test('the builder\'s fingerprint follows its code', () => {
+    const dir = tempDir('wayhop-builder-');
+    cpSync(new URL('../server/data/', import.meta.url), dir, { recursive: true });
+    const before = builderFingerprint(dir);
+    assert.match(before, /^[0-9a-f]{12}$/);
+    assert.equal(builderFingerprint(dir), before, 'the same code, the same fingerprint');
+    writeFileSync(join(dir, 'build-bus.js'), `${readFileSync(join(dir, 'build-bus.js'), 'utf8')}\n// a fix\n`);
+    assert.notEqual(builderFingerprint(dir), before);
+    assert.equal(builderFingerprint(), builderFingerprint(new URL('../server/data/', import.meta.url).pathname), 'by default, server/data/');
 });
 
 test('a new feed is downloaded and built, and the replaced files are kept in build.prev', async () => {

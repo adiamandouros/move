@@ -2,7 +2,7 @@
 // screen are asked for, each refreshed by when its next bus comes, and the
 // minutes count down in between. The clock is moved on by the test, so
 // minutes of refreshes take a second.
-import { arrivalsAt } from './server.js';
+import { arrivalsAt } from '../support/test-site.js';
 import { refreshEvery } from '../../tools/buses/client/timing.js';
 import { expect, test } from './fixtures.js';
 

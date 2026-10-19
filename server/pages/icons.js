@@ -1,4 +1,3 @@
-// @ts-check
 import { readFileSync } from 'fs';
 import { createRequire } from 'module';
 import { dirname, join } from 'path';

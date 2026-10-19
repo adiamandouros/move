@@ -1,4 +1,3 @@
-// @ts-check
 import { POSITIONS } from './validate.js';
 
 // Checks on what a build made, before it replaces the files the site serves

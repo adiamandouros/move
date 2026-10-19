@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { fork } from 'child_process';
 import { createHash } from 'crypto';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'fs';
 import { getPriority, setPriority } from 'os';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
@@ -29,8 +29,15 @@ const foldersIn = dataDir => ({
     lock: join(dataDir, '.build.lock'),
 });
 
-// Bump when the output format or build logic changes, to force a rebuild.
-const BUILDER_VERSION = 1;
+// The build's own code, as a short hash of every file in this folder: when
+// it changes (a deploy with a fix to the build), the next build rebuilds
+// everything, even with the same feeds on the same day. Before, a version
+// number had to be bumped by hand, and forgetting it delayed a fix by a day.
+export function builderFingerprint(dir = dirname(fileURLToPath(import.meta.url))) {
+    const hash = createHash('sha256');
+    for (const name of readdirSync(dir).filter(n => n.endsWith('.js')).sort()) hash.update(name).update(readFileSync(join(dir, name)));
+    return hash.digest('hex').slice(0, 12);
+}
 const LOCK_STALE_MS = 30 * 60_000;
 // Exit code of the CLI (below) when another build holds the lock
 const BUSY_EXIT_CODE = 3;
@@ -51,7 +58,8 @@ const OUTPUTS = {
 // (the weekly timetable is chosen relative to today). An output that fails to
 // build keeps its previous version; the failure is recorded in meta.json.
 // The other options are for tests: their own data folder and curated files,
-// a fake portal (`fetch`) and a fixed day (`today`, 'YYYYMMDD').
+// a fake portal (`fetch`), a fixed day (`today`, 'YYYYMMDD') and the
+// builder's fingerprint.
 export async function runBuild({
     force = false,
     offline = false,
@@ -61,6 +69,7 @@ export async function runBuild({
     fetch = globalThis.fetch,
     today = athensToday(),
     log = console.log,
+    builder = builderFingerprint(),
 } = {}) {
     const dirs = foldersIn(dataDir);
     if (!acquireLock(dirs)) {
@@ -75,7 +84,7 @@ export async function runBuild({
 
         const sources = await fetchSources({ rawDir: dirs.raw, offline, log, fetch });
         const fingerprint = {
-            builder: BUILDER_VERSION,
+            builder,
             curated: curated.hash,
             today,
             sources: Object.fromEntries(Object.entries(sources).map(([k, s]) => [k, s.modified ?? null])),
@@ -184,7 +193,7 @@ function publish(dirs) {
 // Overlay entries that the committed positions.json now matches are pruned.
 export function loadCurated({ curatedDir = CURATED_DIR, overlayFile = OVERLAY_FILE, log = console.log } = {}) {
     const hash = createHash('sha256');
-    const data = {};
+    const data = /** @type {{ stations: any, lines: any, positions: any, overrides: any }} */ ({});
     for (const name of ['stations', 'lines', 'positions', 'overrides']) {
         const raw = readFileSync(join(curatedDir, `${name}.json`), 'utf8');
         hash.update(raw);

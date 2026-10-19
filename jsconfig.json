@@ -1,7 +1,9 @@
 {
-    // npm run typecheck: TypeScript checks the files that start with
-    // // @ts-check against the JSDoc types in them and in types/. Nothing is
-    // compiled; the app runs the same JavaScript. Editors use this file too.
+    // npm run typecheck: TypeScript checks every file of the app against the
+    // JSDoc types in it and in types/. Nothing is compiled; the app runs the
+    // same JavaScript. Editors use this file too. Packages without types count
+    // as untyped (maxNodeModuleJsDepth), and '/js/…' is public/js/ as in the
+    // pages' import map.
     "compilerOptions": {
         "target": "es2023",
         "module": "nodenext",
@@ -9,11 +11,13 @@
         "lib": ["es2023", "dom", "dom.iterable"],
         "types": ["node"],
         "allowJs": true,
-        "checkJs": false,
+        "checkJs": true,
+        "maxNodeModuleJsDepth": 0,
         "noEmit": true,
         "strict": false,
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "paths": { "/js/*": ["./public/js/*"] }
     },
-    "include": ["server.js", "server/**/*.js", "tools/*/client/**/*.js", "public/js/**/*.js", "types/**/*.d.ts"],
+    "include": ["server.js", "server/**/*.js", "tools/*/client/**/*.js", "public/js/**/*.js", "scripts/**/*.js", "proxy/*.js", "types/**/*.d.ts"],
     "exclude": ["server/views/sw.js"]
 }

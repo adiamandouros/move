@@ -54,7 +54,7 @@ function renderStops() {
     state.onScreen.clear();
     accordion.querySelectorAll('.stop-item').forEach(item => observer.observe(item));
     patchAll();
-    if (hadFocus) accordion.querySelector('.stop-toggle')?.focus();
+    if (hadFocus) /** @type {HTMLElement | null} */ (accordion.querySelector('.stop-toggle'))?.focus();
 }
 
 function patchAll() {
@@ -68,7 +68,7 @@ function patchAll() {
 }
 
 function applyFilter() {
-    accordion.querySelectorAll('.stop-item').forEach(item => {
+    /** @type {NodeListOf<HTMLElement>} */ (accordion.querySelectorAll('.stop-item')).forEach(item => {
         item.classList.toggle('d-none', state.hideEmpty && item.dataset.hasArrivals !== 'true');
     });
     const btn = $('toggle-empty-btn');
@@ -131,7 +131,7 @@ const refreshEvery = code => refreshFor(shown(code), { opened: Boolean(itemOf(co
 // when they scroll into view)
 const observer = new IntersectionObserver(entries => {
     for (const entry of entries) {
-        const code = entry.target.dataset.stop;
+        const code = /** @type {HTMLElement} */ (entry.target).dataset.stop;
         if (entry.isIntersecting) state.onScreen.add(code);
         else state.onScreen.delete(code);
     }
@@ -214,7 +214,7 @@ function showMessage(icon, title, subtitle = '', action = null) {
     box.innerHTML = message(icon, title, subtitle, action?.label);
     const button = box.querySelector('.message-action');
     button?.addEventListener('click', action.run);
-    if (hadFocus) (button ?? box.firstElementChild).focus();
+    if (hadFocus) /** @type {HTMLElement} */ (button ?? box.firstElementChild).focus();
 }
 
 const retry = { label: t('location.try-again'), run: () => { showMessage('arrow-repeat spin', t('buses.getting-location')); restartLocation(); } };

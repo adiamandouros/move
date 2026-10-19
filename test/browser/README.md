@@ -24,7 +24,7 @@ the run's `playwright-report` artifact.
 
 ## What they run against
 
-`server.js` here starts the real app (`server/app.js`) with:
+`test/support/test-site.js` builds the real app (`server/app.js`) with:
 
 - **data/**: the real `rail.json`, and the bus stops around Syntagma and
   Omonia from `bus-stops.json`. `node test/browser/data/update.js` refreshes
@@ -33,9 +33,12 @@ the run's `playwright-report` artifact.
   depending on its code (`arrivalsAt()`), named after the stop's own lines.
 - **fake announcement sources**: two OASA posts and one STASY post.
 
+It also builds the copies where something goes wrong (`scenarios()`), and
+the Node tests of the whole server (`test/server.test.js`) use the same site.
 Nothing reaches the network, so the tests give the same result anywhere.
-Playwright starts this server itself; `node test/browser/server.js` runs it
-on <http://localhost:3457> to look around.
+`server.js` here serves it, each scenario picked by a cookie; Playwright
+starts it itself, and `node test/browser/server.js` runs it on
+<http://localhost:3457> to look around.
 
 ## Writing one
 

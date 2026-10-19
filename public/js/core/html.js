@@ -1,4 +1,3 @@
-// @ts-check
 // Helpers for building HTML with template strings, shared by the browser and
 // the server (which imports this file from public/js/core/)
 

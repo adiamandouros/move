@@ -1,4 +1,3 @@
-// @ts-check
 import { escapeHtml, icon, textOn } from './html.js';
 
 /** @typedef {import('../../../types/data.js').Position} Position */

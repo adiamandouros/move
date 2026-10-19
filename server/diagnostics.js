@@ -356,6 +356,12 @@ function expectBlockedRelays(relays) {
 
 // ── Entry point ─────────────────────────────────────────────────────────────
 
+/**
+ * @param {{
+ *   env?: Record<string, string | undefined>, dataDir?: string, appStatus?: any, announcements?: any,
+ *   fetch?: typeof globalThis.fetch, dnsLookup?: typeof lookup, now?: () => number, nodeVersion?: string,
+ * }} [options]
+ */
 export async function runDiagnostics({
     env = process.env,
     dataDir,

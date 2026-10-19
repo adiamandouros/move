@@ -85,6 +85,12 @@ export function parseStasyDate(html) {
 // ── Fetching ────────────────────────────────────────────────────────────────
 
 // `relays`: [{ name, url, key }], as for the OASA client (relaysFromEnv)
+/**
+ * @param {{
+ *   fetch?: typeof globalThis.fetch, now?: () => number, log?: (message: string) => void,
+ *   cacheFile?: string, relays?: { name: string, url: string, key: string }[],
+ * }} [options]
+ */
 export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, log = console.warn, cacheFile, relays = [] } = {}) {
     // Last good result per source, and STASY post dates by link (posts don't move)
     let state = { oasaEl: null, oasaEn: null, stasy: null, dates: {} };

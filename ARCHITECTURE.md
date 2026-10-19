@@ -189,9 +189,12 @@ slots come after a page's content, never inside results.
 and on `main` (`.github/workflows/checks.yml`), with Node 20 and 22.
 
 - `npm test` runs `test/*.test.js`: building the data, route finding,
-  the OASA client and its limits, the relays, announcements, and every page
-  as the server sends it (`seo.test.js`, `accessibility.test.js`,
-  `assets.test.js`, `stations.test.js`). The tests need no network.
+  the OASA client and its limits, the relays, announcements, every page as
+  the server sends it (`seo.test.js`, `accessibility.test.js`,
+  `assets.test.js`, `stations.test.js`), the whole server over HTTP
+  (`server.test.js`: headers, 404s, caching, the APIs' refusals), and the
+  browser code's logic and drawing (loaded by `test/support/browser-modules.js`).
+  The tests need no network.
 - `npm run test:browser`: the site in real browsers (phone, desktop and
   iPhone), with test data and a fake OASA: every page in both languages
   through axe-core and a keyboard walk, plus location, language, the bus
@@ -204,10 +207,14 @@ and `npm run test:live` (`test/live/`): a few checks against wayhop.gr with
 its real data and live bus times, the bus page opened once. Either failing
 opens an issue labelled "nightly".
 - `npm run lint`: ESLint's recommended checks (`eslint.config.js`).
-- `npm run typecheck`: TypeScript checks the files that start with
-  `// @ts-check` against their JSDoc types. The shapes of the data shared by
-  the server and the browser (`rail.json`, `bus-stops.json`, tools, pages)
-  are in `types/`; nothing is compiled, and editors show the types too.
+- `npm run typecheck`: TypeScript checks every file of the app, the scripts
+  and the relays against their JSDoc types (`jsconfig.json`). The shapes of
+  the data shared by the server and the browser (`rail.json`,
+  `bus-stops.json`, tools, pages) are in `types/`, and what the pages use
+  from the browser beyond the DOM (Bootstrap, AdSense) in
+  `types/globals.d.ts`. Nothing is compiled, and editors show the types too.
+  Where TypeScript can't know which element a query finds, a
+  `/** @type {HTMLElement} */ (…)` note says so.
 
 The **Check accessibility** button on `/admin/diagnostics` runs axe-core on
 the live pages in your browser.
