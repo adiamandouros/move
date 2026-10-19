@@ -9,10 +9,14 @@ const READY = {
     '/buses': '.stop-item .arrival-badge',
     '/info': '#sec-announcements li',
     '/subway?from=kifisia&to=airport': '.result-card',
+    '/buses?stop=10341': '.stop-item .arrival-row',
+    '/buses?line=040': '.stop-item .stop-toggle',
 };
 const PAGES = [
     ...sitePages(loadTools()).map(p => p.path),
     '/subway?from=kifisia&to=airport',
+    '/buses?stop=10341',
+    '/buses?line=040',
     '/subway/stations',
     '/subway/stations/omonia',
     '/nope',

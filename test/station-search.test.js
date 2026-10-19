@@ -12,12 +12,14 @@ const en = await browserModule('tools/subway/client/search.js', 'en');
 const el = await browserModule('tools/subway/client/search.js', 'el');
 const names = (ids, lang = 'en') => ids.map(id => rail.stations[id].name[lang]);
 
-test('normalise ignores capitals, accents and the final sigma', () => {
-    assert.equal(en.normalise('  Σύνταγμα '), 'συνταγμα');
-    assert.equal(en.normalise('ΠΕΙΡΑΙΆΣ'), 'πειραιασ');
-    assert.equal(en.normalise('Πειραιάς'), 'πειραιασ');
-    assert.equal(en.normalise('Ευαγγελισμός'), en.normalise('ευαγγελισμοσ'));
-    assert.equal(en.normalise('Ampelókipoi'), 'ampelokipoi');
+test('normalise ignores capitals, accents, the final sigma and extra spaces', async () => {
+    const { normalise } = await browserModule('public/js/core/text.js');
+    assert.equal(normalise('  Σύνταγμα '), 'συνταγμα');
+    assert.equal(normalise('ΠΕΙΡΑΙΆΣ'), 'πειραιασ');
+    assert.equal(normalise('Πειραιάς'), 'πειραιασ');
+    assert.equal(normalise('Ευαγγελισμός'), normalise('ευαγγελισμοσ'));
+    assert.equal(normalise('Ampelókipoi'), 'ampelokipoi');
+    assert.equal(normalise('GEFYRA  ATTIKHS ODOY'), 'gefyra attikhs odoy');
 });
 
 test('either name finds a station, however it\'s typed', () => {

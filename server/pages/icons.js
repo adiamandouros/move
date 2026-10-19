@@ -9,7 +9,7 @@ import { dirname, join } from 'path';
 // A new icon goes in this list (test/icons.test.js checks the code's icons are).
 
 export const ICONS = [
-    'airplane', 'arrow-down-circle-fill', 'arrow-down-up', 'arrow-left-right', 'arrow-repeat', 'arrow-up-square',
+    'airplane', 'arrow-down-circle-fill', 'arrow-down-up', 'arrow-left', 'arrow-left-right', 'arrow-repeat', 'arrow-up-square',
     'arrows-angle-contract', 'bus-front', 'check-circle-fill', 'clock', 'cloud-check', 'crosshair', 'dash-lg',
     'door-open', 'download', 'envelope', 'exclamation-triangle', 'exclamation-triangle-fill', 'eye', 'eye-slash',
     'geo-alt', 'globe', 'heart-pulse', 'info-circle', 'list', 'list-ul', 'lock', 'map', 'megaphone', 'moon-stars', 'person-walking',

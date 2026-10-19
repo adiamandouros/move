@@ -1,12 +1,9 @@
 import { html, localName, setHtml } from '/js/core/html.js';
 import { language } from '/js/core/i18n.js';
 import { lineBadge } from '/js/core/metro.js';
+import { normalise } from '/js/core/text.js';
 
 const MAX_SUGGESTIONS = 8;
-
-export function normalise(text) {
-    return text.toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ς/g, 'σ');
-}
 
 const stationName = station => localName(station.name, language);
 

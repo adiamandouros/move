@@ -1,7 +1,7 @@
 // The live site with its real data (npm run test:live, nightly): the pages
 // load without errors, the planner finds a route in the real timetable, the
-// announcements come in, the Info page's facts aren't too old, and the bus
-// page gets live times from OASA. Only
+// announcements come in, the Info page's facts aren't too old, the bus
+// page gets live times from OASA and has the lines. Only
 // what breaks is checked, not what changes: at 3 a.m. there may be no buses,
 // but there must be an answer.
 import { axe, expect, test } from '../browser/fixtures.js';
@@ -61,6 +61,15 @@ test('the bus page gets live times from OASA', async ({ page }) => {
     const unavailable = answers.flatMap(a => Object.entries(a.body?.stops ?? {}).filter(([, s]) => s.unavailable).map(([code]) => code));
     expect(unavailable, 'stops OASA gave no answer for').toEqual([]);
     await expect(page.locator('#bus-status')).not.toContainText('Live times are unavailable');
+});
+
+// From last night's data build; no stop is opened, so OASA isn't asked
+test('the bus page has the lines, with their stops in order', async ({ page }) => {
+    await page.goto('/buses?line=040');
+    await expect(page.locator('.line-heading')).toContainText('040');
+    await expect.poll(() => page.locator('.stop-item').count()).toBeGreaterThan(10);
+    await page.getByLabel('Find a stop by name or code, or a line').fill('x95');
+    await expect(page.locator('#search-results a[href*="?line="]').first()).toContainText('Χ95');
 });
 
 test('the Content-Security-Policy is sent and allows the page\'s own inline scripts', async ({ page }) => {

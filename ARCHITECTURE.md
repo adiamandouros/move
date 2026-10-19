@@ -185,7 +185,9 @@ pages use.
   map in every page points those URLs at the current version (`?v=<hash>`),
   so a deploy never mixes old and new files.
 - Logic without the DOM (route finding in `tools/subway/client/network.js`,
-  nearest stops in `tools/buses/client/stops.js`) is tested in Node.
+  nearest stops in `tools/buses/client/stops.js`, finding a stop or a line in
+  `tools/buses/client/search.js`) is tested in Node. `/js/core/text.js` has
+  `normalise()`, how both searches compare what's typed with names.
 - `html.js`, `metro.js` and `network.js` are also used by the server (the
   station pages), so they only import other files by relative path, which
   works in both.
@@ -216,6 +218,8 @@ the version, which replaces the whole cache.
   refreshes only the stops on screen, by when their next bus comes: within
   10 minutes every 30 s, 10–20 minutes every 60 s, later or none every 2
   minutes (an opened stop every 30 s), and counts the minutes down in between.
+  A stop or a line opened from the search (`?stop=`, `?line=`) asks only for
+  the stops opened, every 30 s; searching asks OASA nothing.
 - `limits.js`: each visitor may ask for 30 stops a minute that aren't cached.
 - `index.js`: `/api/arrivals`, for stops in `bus-stops.json` only.
 
@@ -229,7 +233,11 @@ only when someone asks, and kept on disk.
 
 [server/data/](server/data/) downloads OASA's open data (GTFS, from the CKAN
 portal) and builds `data/build/rail.json` (metro lines, stations, timetables
-and where to stand) and `data/build/bus-stops.json`. It runs when the server
+and where to stand), `data/build/bus-stops.json` (every stop, its names and
+lines) and `data/build/bus-lines.json` (each line's stops in order; OASA files
+every trip under one direction, so a line's directions are the stop sequences
+most of its trips follow, there and back). Both bus files come from one read
+of the 220 MB bus timetable. It runs when the server
 starts and daily at 04:30 Athens time, in a child process at low priority
 (`runBuildInChild`), so it doesn't slow the site or add to its memory. It
 downloads only what changed, and the site keeps serving the previous build
@@ -309,7 +317,7 @@ opens an issue labelled "nightly".
 - `npm run typecheck`: TypeScript checks every file of the app, the scripts
   and the relays against their JSDoc types (`jsconfig.json`). The shapes of
   the data shared by the server and the browser (`rail.json`,
-  `bus-stops.json`, tools, pages) are in `types/`, and what the pages use
+  `bus-stops.json`, `bus-lines.json`, tools, pages) are in `types/`, and what the pages use
   from the browser beyond the DOM (Bootstrap, AdSense) in
   `types/globals.d.ts`. Nothing is compiled, and editors show the types too.
   Where TypeScript can't know which element a query finds, a

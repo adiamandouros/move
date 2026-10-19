@@ -412,6 +412,30 @@ body {
     margin-top: 3px;
 }
 
+/* A stop's code, as on its sign: what tells same-named stops apart */
+.stop-code {
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+}
+
+/* On a line: the stop nearest to you */
+.stop-nearest-note:empty {
+    display: none;
+}
+
+.stop-nearest-note {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--bs-primary-text-emphasis);
+    margin-top: 2px;
+}
+
+.stop-nearest .stop-label {
+    border-left: 4px solid var(--bs-primary);
+}
+
 /* Middle: next bus — shrinks and truncates */
 .stop-next-bus {
     padding: 0 12px;
@@ -1014,6 +1038,111 @@ body {
     margin-left: 8px;
 }
 
+/* Search: a stop by name or code, or a line */
+.bus-search {
+    padding: 12px 16px 4px;
+}
+
+.bus-search-label {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.bus-search-hint {
+    font-size: 0.8rem;
+    color: var(--bs-secondary-color);
+    margin: 4px 0 0;
+}
+
+.search-status {
+    font-size: 0.8rem;
+    color: var(--bs-secondary-color);
+    margin: 4px 0 0;
+}
+
+.search-status:empty {
+    display: none;
+}
+
+.search-heading {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--bs-secondary-color);
+    margin: 12px 16px 4px;
+}
+
+.search-list {
+    background-color: transparent;
+}
+
+.search-result {
+    color: var(--bs-body-color);
+    text-decoration: none;
+    min-height: 44px;
+}
+
+.search-result:focus-visible {
+    outline: none;
+    box-shadow: inset var(--focus-ring);
+}
+
+.search-result-meta,
+.search-result-lines {
+    font-size: 0.8rem;
+    color: var(--bs-secondary-color);
+}
+
+.search-result-lines {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Above a stop or a line: the way back, the line and its directions */
+.view-header {
+    padding: 4px 16px 8px;
+}
+
+.back-link {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.line-heading {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 4px 0 8px;
+}
+
+.line-heading:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: 4px;
+}
+
+.line-toward {
+    font-size: 0.9rem;
+    color: var(--bs-secondary-color);
+    margin: 0;
+}
+
+.direction-switch .btn {
+    min-height: 44px;
+}
+
+/* The direction shown: filled, as the others are when hovered */
+.direction-switch .btn[aria-pressed="true"] {
+    --bs-btn-color: var(--bs-body-bg);
+    --bs-btn-bg: var(--bs-secondary-color);
+}
+
+.stop-lines a {
+    color: var(--bs-link-color);
+}
+
 /* ── Info tool ── */
 
 .info-view {
@@ -1472,7 +1601,12 @@ body {
     max-width: 320px;
 }
 
-.station-actions .btn-outline-secondary {
+/* Bootstrap's grey is too faint on the dark background: the lighter one, as
+   the text around it has (the bus page's buttons too) */
+.station-actions .btn-outline-secondary,
+#bus-actions .btn-outline-secondary,
+.search-results .btn-outline-secondary,
+.direction-switch .btn-outline-secondary {
     --bs-btn-color: var(--bs-secondary-color);
     --bs-btn-border-color: var(--bs-secondary-color);
     --bs-btn-hover-color: var(--bs-body-bg);
