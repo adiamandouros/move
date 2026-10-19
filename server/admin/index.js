@@ -34,7 +34,7 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
     const view = name => compileView(readFileSync(join(ADMIN_DIR, `${name}.hbs`), 'utf8'), `admin/${name}.hbs`);
     const views = { login: view('login'), stations: view('stations'), diagnostics: view('diagnostics') };
     const english = { lang: 'en', strings: {} };
-    const head = '    <link rel="stylesheet" href="/admin/assets/admin.css">';
+    const styles = ['/admin/assets/admin.css'];
     const serviceWorker = renderServiceWorker();
 
     router.use((req, res, next) => {
@@ -49,7 +49,7 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
 
     const loginPage = (error = '') => render({
         title: 'Log in',
-        head,
+        styles,
         content: views.login({ error }, english),
     });
 
@@ -93,7 +93,7 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
     router.get('/stations', (_req, res) => {
         res.set('Cache-Control', 'no-cache').type('html').send(render({
             title: 'Station editor',
-            head,
+            styles,
             content: views.stations({}, english),
             scripts: ['/admin/assets/editor.js'],
         }));
@@ -102,7 +102,7 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
     router.get('/diagnostics', (_req, res) => {
         res.set('Cache-Control', 'no-store').type('html').send(render({
             title: 'Diagnostics',
-            head,
+            styles,
             content: views.diagnostics({}, english),
             scripts: ['/admin/assets/diagnostics.js', '/admin/assets/accessibility.js'],
         }));

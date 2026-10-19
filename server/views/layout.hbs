@@ -1,7 +1,6 @@
-{{!-- The layout around every page (server/pages/layout.js). data-icons is
-our own address with its ?v=, which {{icons}} would write as ?v&#x3D; --}}
+{{!-- The layout around every page (server/pages/layout.js) --}}
 <!DOCTYPE html>
-<html lang="{{lang}}" data-bs-theme="dark" data-icons="{{{icons}}}"{{#if other}} data-other-lang="{{other.lang}}" data-other-path="{{other.path}}"{{/if}}>
+<html lang="{{lang}}" data-bs-theme="dark" data-icons="{{icons}}"{{#if other}} data-other-lang="{{other.lang}}" data-other-path="{{other.path}}"{{/if}}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,9 +14,13 @@ our own address with its ?v=, which {{icons}} would write as ?v&#x3D; --}}
     </script>
 {{/if}}
     <title>{{title}} — Wayhop</title>
-{{{meta}}}
+{{> meta seo}}
+{{#if adsenseClient}}
+    {{!-- Tells AdSense which account the site belongs to (its site review checks for it) --}}
+    <meta name="google-adsense-account" content="{{adsenseClient}}">
+{{/if}}
     <meta name="theme-color" content="#161b27">
-{{{importMap}}}
+    <script type="importmap">{{json importMap}}</script>
     <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="/css/style.css">
     <link rel="icon" type="image/png" href="/icon/favicon-96x96.png" sizes="96x96">
@@ -26,7 +29,12 @@ our own address with its ?v=, which {{icons}} would write as ?v&#x3D; --}}
     <link rel="apple-touch-icon" sizes="180x180" href="/icon/apple-touch-icon.png">
     <meta name="apple-mobile-web-app-title" content="Wayhop">
     <link rel="manifest" href="{{manifest}}">
-{{{head}}}
+{{#each styles}}
+    <link rel="stylesheet" href="{{this}}">
+{{/each}}
+{{#if structuredData}}
+    <script type="application/ld+json">{{json structuredData}}</script>
+{{/if}}
 </head>
 <body>
 

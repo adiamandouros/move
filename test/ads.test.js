@@ -56,7 +56,8 @@ test('ADSENSE_CLIENT alone: the verification tag and ads.txt for the review, the
     const privacy = pages['/privacy'];
     // Neither the page nor its description (the embedded string table holds every string, unused ones too)
     assert.doesNotMatch(privacy.replace(/<script type="application\/json" id="strings">.*?<\/script>/s, ''), /uses no cookies/);
-    assert.match(privacy, /<meta name="description" content="Wayhop has no accounts or analytics and doesn&#39;t track you itself|<meta name="description" content="Wayhop has no accounts or analytics and doesn't track you itself/);
+    // (escaped by the view: Handlebars writes ' as &#x27;)
+    assert.match(privacy, /<meta name="description" content="Wayhop has no accounts or analytics and doesn&#x27;t track you itself/);
     assert.match(privacy, /<h2 id="advertising">Advertising<\/h2>/);
     assert.match(privacy, /<button type="button" id="ad-choices"[^>]*data-ad-client="ca-pub-1234567890123456" hidden>Change your ad choices<\/button>/);
     assert.match(privacy, /src="\/js\/core\/ads\.js\?v=/);

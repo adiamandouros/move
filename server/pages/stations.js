@@ -9,7 +9,6 @@ import { format, formatDate, html, localName, walkingUrl } from '../../public/js
 import { centralPlatformBadge, clockTime, exitDiagram, lineBadge, stopNote } from '../../public/js/core/metro.js';
 import { athensDate } from '../../tools/subway/client/network.js';
 import { LANGS, localPath, pageStrings } from './i18n.js';
-import { structuredData } from './seo.js';
 import { view } from './templates.js';
 
 // A page for every metro station, and an index of them, in English and Greek:
@@ -165,7 +164,7 @@ function stationData(rail, id, lang, s, origin) {
             [s('stations.subway'), '/subway'], [s('stations.title'), STATIONS_PATH], [name, `${STATIONS_PATH}/${id}`],
         ].map(([itemName, path], i) => ({ '@type': 'ListItem', position: i + 1, name: itemName, item: url(path) })) }] : []),
     ];
-    return structuredData({ '@context': 'https://schema.org', '@graph': graph });
+    return { '@context': 'https://schema.org', '@graph': graph };
 }
 
 // One station's page (or the index, for id null) with the site's layout.
@@ -190,7 +189,7 @@ export function renderStationPage(rail, id, lang, { render, tools, origin = '' }
         title: format(s('stations.station-title'), { name }),
         path: `${STATIONS_PATH}/${id}`,
         description: format(s('stations.description'), { name, lines: rail.stations[id].lines.map(l => rail.lines[l].name).join(', ') }),
-        head: stationData(rail, id, lang, s, origin),
+        structuredData: stationData(rail, id, lang, s, origin),
         content: view('stations/station')(stationView(rail, id, lang, s), { lang, strings }),
     });
 }

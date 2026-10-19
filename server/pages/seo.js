@@ -1,4 +1,3 @@
-import { escapeHtml } from '../../public/js/core/html.js';
 import { LANGS, localPath } from './i18n.js';
 
 // What search engines and link previews see: meta tags, structured data,
@@ -6,43 +5,34 @@ import { LANGS, localPath } from './i18n.js';
 
 const LOCALES = { en: 'en_US', el: 'el_GR' };
 
-// Search and link-preview tags. Pages that aren't indexed (the 404, /offline,
-// the admin pages) are kept out of search results. path is the English one;
-// origin is the public address (SITE_URL), without which the tags that need
-// it are left out.
-export function metaTags({ path, index, lang, title, description, origin = '' }) {
-    if (!path || !index) return '    <meta name="robots" content="noindex">';
+// What search engines and link previews are told about a page, as data for
+// the layout's <head> (server/views/partials/meta.hbs). Pages that aren't
+// indexed (the 404, /offline, the admin pages) are kept out of search
+// results. path is the English one; origin is the public address
+// (SITE_URL), without which the tags that need it are left out.
+export function pageMeta({ path, index, lang, title, description, origin = '' }) {
+    if (!path || !index) return { index: false };
     const url = origin && origin + localPath(path, lang);
-    // The same page in each language; English is the default for everyone else
-    const alternates = origin ? [
-        ...LANGS.map(l => `<link rel="alternate" hreflang="${l}" href="${origin}${localPath(path, l)}">`),
-        `<link rel="alternate" hreflang="x-default" href="${origin}${path}">`,
-    ] : [];
-    return [
-        `<meta name="description" content="${escapeHtml(description)}">`,
-        url && `<link rel="canonical" href="${url}">`,
-        ...alternates,
-        '<meta property="og:type" content="website">',
-        '<meta property="og:site_name" content="Wayhop">',
-        `<meta property="og:locale" content="${LOCALES[lang]}">`,
-        ...LANGS.filter(l => l !== lang).map(l => `<meta property="og:locale:alternate" content="${LOCALES[l]}">`),
-        `<meta property="og:title" content="${escapeHtml(title)}">`,
-        `<meta property="og:description" content="${escapeHtml(description)}">`,
-        url && `<meta property="og:url" content="${url}">`,
-        origin && `<meta property="og:image" content="${origin}/icon/og-image.png">`,
-        origin && '<meta property="og:image:width" content="1200">',
-        origin && '<meta property="og:image:height" content="630">',
-        origin && '<meta property="og:image:alt" content="Wayhop: live buses and metro in Athens">',
-        '<meta name="twitter:card" content="summary_large_image">',
-    ].filter(Boolean).map(tag => `    ${tag}`).join('\n');
+    return {
+        index: true,
+        title,
+        description,
+        url,
+        // The same page in each language; English is the default for everyone else
+        alternates: url ? [
+            ...LANGS.map(l => ({ lang: l, href: origin + localPath(path, l) })),
+            { lang: 'x-default', href: origin + path },
+        ] : [],
+        locale: LOCALES[lang],
+        otherLocales: LANGS.filter(l => l !== lang).map(l => LOCALES[l]),
+        image: origin && `${origin}/icon/og-image.png`,
+    };
 }
 
-// Structured data (schema.org), for the page's <head>
-export const structuredData = data => `    <script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`;
-
-// For the home page, so search results can show Wayhop as a free web app
+// Structured data (schema.org) for the home page, so search results can show
+// Wayhop as a free web app; the layout writes it into <head>
 export function appData(description, lang, origin = '') {
-    return structuredData({
+    return {
         '@context': 'https://schema.org',
         '@type': 'WebApplication',
         name: 'Wayhop',
@@ -52,7 +42,7 @@ export function appData(description, lang, origin = '') {
         operatingSystem: 'Any',
         inLanguage: ['en', 'el'],
         offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
-    });
+    };
 }
 
 export function robotsTxt(origin) {

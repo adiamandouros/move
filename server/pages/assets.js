@@ -59,8 +59,7 @@ export function importMap(tools) {
         ...listFiles(join(PUBLIC_DIR, 'js', 'core')).map(f => urlPath('', PUBLIC_DIR, f)),
         ...tools.flatMap(t => listFiles(t.clientDir).map(f => urlPath(`/tools/${t.id}`, t.clientDir, f))),
     ].filter(url => url.endsWith('.js'));
-    const map = { imports: Object.fromEntries(modules.map(url => [url, versioned(url)])) };
-    return `    <script type="importmap">${JSON.stringify(map)}</script>`;
+    return { imports: Object.fromEntries(modules.map(url => [url, versioned(url)])) };
 }
 
 // ── Files ───────────────────────────────────────────────────────────────────

@@ -17,7 +17,7 @@ import { compileView, view } from './templates.js';
 //                 strings: the page's, for {{t}}
 //   strings       its own strings ({ en, el }), for data-i18n and its scripts
 //   scripts       browser modules to load
-//   head          (lang, s) → more for <head>
+//   structuredData  (lang, s) → its schema.org data, for <head> (seo.js)
 //   active        the tool whose navigation entry is highlighted
 //   ad            where it has an ad slot (server/ads.js)
 //
@@ -45,7 +45,7 @@ export function sitePages(tools, config = loadConfig({})) {
             title: 'home.page-title',
             description: 'home.description',
             content: (lang, strings) => view('home')({ tiles: [...tools.map(toolTile), STATIONS_TILE] }, { lang, strings }),
-            head: (lang, s) => appData(s('home.description'), lang, config.siteUrl),
+            structuredData: (lang, s) => appData(s('home.description'), lang, config.siteUrl),
             scripts: ['/js/core/announcements.js', '/js/core/install.js'],
             active: 'home',
             ad: 'home',
