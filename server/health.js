@@ -1,7 +1,7 @@
-import { readFileSync } from 'fs';
 import { join } from 'path';
 import express from 'express';
 import { RELAY_VERSION } from '../proxy/worker.js';
+import { readJson } from './files.js';
 import { athensDate } from '../tools/subway/client/network.js';
 
 // GET /api/health: whether the live site works, for the scheduled check in
@@ -37,7 +37,7 @@ const DAY_MS = 86_400_000;
  * }} options
  */
 export function createHealth({ busStatus, announcementStatus, buildDir, relays = [], fetch = globalThis.fetch, now = Date.now }) {
-    const readJson = name => { try { return JSON.parse(readFileSync(join(buildDir, name), 'utf8')); } catch { return null; } };
+    const buildFile = name => readJson(join(buildDir, name));
 
     function arrivals() {
         const working = busStatus().routes.filter(r => r.lastOk && now() - r.lastOk < ARRIVALS_FRESH_MS);
@@ -55,8 +55,8 @@ export function createHealth({ busStatus, announcementStatus, buildDir, relays =
     }
 
     function data() {
-        const meta = readJson('meta.json');
-        const validTo = readJson('rail.json')?.feed?.validTo ?? null;
+        const meta = buildFile('meta.json');
+        const validTo = buildFile('rail.json')?.feed?.validTo ?? null;
         const built = meta?.generated ? Date.parse(meta.generated) : null;
         const outputs = Object.fromEntries(Object.entries(meta?.outputs ?? {}).map(([name, o]) => [name, Boolean(o.ok)]));
         // Whole days from today (Athens) to the timetable's last day

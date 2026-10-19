@@ -1,15 +1,15 @@
-import { createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs';
+import { createWriteStream, existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'fs';
 import { basename, join } from 'path';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
 import { createExtractorFromFile } from 'node-unrar-js';
+import { userAgentFor } from '../config.js';
+import { readJson } from '../files.js';
 
 // OASA publishes its open data on a CKAN portal. Datasets are looked up by
 // name through the CKAN API, so renamed or re-uploaded files (e.g.
 // stops_260518.csv → stops_260901.csv) are picked up without code changes.
-const CKAN_API = 'https://catalog.growthfund.gr/api/3/action/package_show?id=';
-
-export const USER_AGENT = `Wayhop (Athens transit web app${process.env.CONTACT_EMAIL ? `; ${process.env.CONTACT_EMAIL}` : ''})`;
+export const CKAN_API = 'https://catalog.growthfund.gr/api/3/action/package_show?id=';
 
 const API_TIMEOUT_MS = 30_000;
 const DOWNLOAD_TIMEOUT_MS = 10 * 60_000;
@@ -36,8 +36,9 @@ export const SOURCES = {
 //
 // Returns { [source]: { dir, files: { name: path }, modified } } or
 // { [source]: { error } } when a source can't be fetched and there is no
-// earlier copy to fall back on. `fetch` reaches the portal (tests pass a fake).
-export async function fetchSources({ rawDir, offline = false, log = console.log, fetch = globalThis.fetch }) {
+// earlier copy to fall back on. `fetch` reaches the portal (tests pass a fake);
+// `userAgent` is what it sees us as (config.userAgent).
+export async function fetchSources({ rawDir, offline = false, log = console.log, fetch = globalThis.fetch, userAgent = userAgentFor(null) }) {
     const result = {};
     for (const [key, source] of Object.entries(SOURCES)) {
         const dir = join(rawDir, key);
@@ -45,7 +46,7 @@ export async function fetchSources({ rawDir, offline = false, log = console.log,
         try {
             result[key] = offline
                 ? useLocal(dir, source)
-                : await syncSource(dir, source, log, fetch);
+                : await syncSource(dir, source, log, fetch, userAgent);
         } catch (err) {
             try {
                 result[key] = useLocal(dir, source);
@@ -59,9 +60,9 @@ export async function fetchSources({ rawDir, offline = false, log = console.log,
     return result;
 }
 
-async function syncSource(dir, source, log, fetch) {
+async function syncSource(dir, source, log, fetch, userAgent) {
     const res = await fetch(CKAN_API + source.dataset, {
-        headers: { 'User-Agent': USER_AGENT },
+        headers: { 'User-Agent': userAgent },
         signal: AbortSignal.timeout(API_TIMEOUT_MS),
     });
     if (!res.ok) throw new Error(`portal returned HTTP ${res.status} for ${source.dataset}`);
@@ -87,7 +88,7 @@ async function syncSource(dir, source, log, fetch) {
         const known = manifest[spec.out];
         if (!known || known.url !== resource.url || known.version !== version || !existsSync(dest)) {
             log(`[data] Downloading ${resource.url}`);
-            await download(resource.url, dest, spec.out, fetch);
+            await download(resource.url, dest, spec.out, fetch, userAgent);
             manifest[spec.out] = { url: resource.url, version };
             writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
         }
@@ -116,10 +117,10 @@ function useLocal(dir, source) {
     return { dir, files, modified };
 }
 
-async function download(url, dest, wanted, fetch) {
+async function download(url, dest, wanted, fetch, userAgent) {
     const tmp = `${dest}.download`;
     const res = await fetch(url, {
-        headers: { 'User-Agent': USER_AGENT },
+        headers: { 'User-Agent': userAgent },
         signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
@@ -149,8 +150,4 @@ async function extractRar(rarPath, wanted, dest) {
     } finally {
         rmSync(outDir, { recursive: true, force: true });
     }
-}
-
-function readJson(path) {
-    try { return JSON.parse(readFileSync(path, 'utf8')); } catch { return null; }
 }

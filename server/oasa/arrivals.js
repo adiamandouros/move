@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs';
-import { dirname } from 'path';
+import { existsSync, readFileSync } from 'fs';
+import { writeFileAtomic } from '../files.js';
 
 // Live arrivals per stop, shared by every user:
 //   - each stop is fetched at most once per ARRIVALS_TTL_MS, or longer while
@@ -39,9 +39,7 @@ export function createArrivals({ client, routesFile, now = Date.now, log = conso
         clearTimeout(saveTimer);
         saveTimer = setTimeout(() => {
             try {
-                mkdirSync(dirname(routesFile), { recursive: true });
-                writeFileSync(`${routesFile}.tmp`, JSON.stringify(routes));
-                renameSync(`${routesFile}.tmp`, routesFile);
+                writeFileAtomic(routesFile, JSON.stringify(routes));
             } catch (err) {
                 log(`[oasa] Couldn't save the route table: ${err.message}`);
             }

@@ -31,7 +31,8 @@ npm install
 cp .env.example .env
 ```
 
-Every setting in `.env` is optional and explained in `.env.example`. Without
+Every setting in `.env` is optional and explained in `.env.example`
+(`server/config.js` reads and checks them). Without
 any, the app runs locally with everything except live bus times, which need
 a Greek IP address or a relay (see [proxy/README.md](proxy/README.md)).
 

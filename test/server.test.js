@@ -17,6 +17,7 @@ async function serve(overrides) {
     const get = (path, init = {}) => fetch(base + path, { redirect: 'manual', ...init });
     // A browser revalidating its copy: only If-None-Match (fetch() would add
     // Cache-Control: no-cache, which asks for a full answer) → the status
+    get.base = base;
     get.revalidate = (path, etag) => new Promise((resolve, reject) => http.get(`${base}${path}`, { headers: { 'if-none-match': etag } }, res => { res.resume(); resolve(res.statusCode); }).on('error', reject));
     return get;
 }
@@ -109,7 +110,7 @@ test('an API answer that fails: a JSON error without details', async () => {
 
 test('a request the server refuses (a login form that\'s too big) keeps its status, without details', async () => {
     const logged = [];
-    const admin = await serve({ adminPassword: 'secret', logError: message => logged.push(message) });
+    const admin = await serve({ env: { ADMIN_PASSWORD: 'secret' }, logError: message => logged.push(message) });
     const res = await admin('/admin/login', {
         method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `password=${'x'.repeat(5000)}`,
     });
@@ -214,7 +215,7 @@ test('the health check answers JSON that is never cached', async () => {
 
 test('the admin pages exist only with a password, and only after logging in', async () => {
     assert.equal((await get('/admin/login')).status, 404, 'no password: no admin');
-    const admin = await serve({ adminPassword: 'secret' });
+    const admin = await serve({ env: { ADMIN_PASSWORD: 'secret' } });
     const login = await admin('/admin/login');
     assert.equal(login.status, 200);
     assert.equal(login.headers.get('cache-control'), 'no-store');
@@ -239,8 +240,22 @@ test('the Content-Security-Policy comes with every answer, and reports are taken
 });
 
 test('while it\'s tried out, the policy is only reported', async () => {
-    const trying = await serve({ cspMode: 'report-only' });
+    const trying = await serve({ env: { CSP_MODE: 'report-only' } });
     const res = await trying('/');
     assert.equal(res.headers.get('content-security-policy'), null);
     assert.match(res.headers.get('content-security-policy-report-only') ?? '', /^default-src 'self'/);
+});
+
+test('the settings reach every part: the public address, ads and the contact address', async () => {
+    const live = await serve({ env: { SITE_URL: 'https://wayhop.example', ADSENSE_CLIENT: 'ca-pub-1234567890123456', ADSENSE_SLOT_HOME: '1111111111' } });
+    const home = await (await live('/')).text();
+    assert.match(home, /<link rel="canonical" href="https:\/\/wayhop\.example\/">/);
+    assert.match(home, /data-ad-slot="1111111111"/);
+    assert.match(await (await live('/robots.txt')).text(), /^Sitemap: https:\/\/wayhop\.example\/sitemap\.xml$/m);
+    assert.equal((await live('/ads.txt')).status, 200);
+    assert.match(await (await live('/contact')).text(), /mailto:hello@wayhop\.example/);
+    // Another address redirects to it
+    const moved = await new Promise((resolve, reject) => http.get(live.base + '/subway', { headers: { host: 'old.example' } }, res => { res.resume(); resolve(res); }).on('error', reject));
+    assert.equal(moved.statusCode, 301);
+    assert.equal(moved.headers.location, 'https://wayhop.example/subway');
 });

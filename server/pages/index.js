@@ -2,12 +2,13 @@ import { readFileSync } from 'fs';
 import express from 'express';
 import { inlineScripts } from '../csp.js';
 import { adsTxt } from '../ads.js';
+import { loadConfig } from '../config.js';
 import { basePath, langOf, LANGS, localPath, pageStrings } from './i18n.js';
 import { iconSprite } from './icons.js';
 import { createRenderer } from './layout.js';
 import { loadTools, NOT_FOUND, SERVER_ERROR, sitePages, STATION_PATHS } from './registry.js';
 import { renderServiceWorker } from './service-worker.js';
-import { robotsTxt, siteUrl, sitemapXml } from './seo.js';
+import { robotsTxt, sitemapXml } from './seo.js';
 import { createStationPages } from './stations.js';
 
 // The public pages, and what goes with them: the service worker, robots.txt,
@@ -23,12 +24,13 @@ import { createStationPages } from './stations.js';
 
 // Every page in sitePages (registry.js), rendered in each language, by path;
 // render, for the pages that aren't in the list; notFound(path), the 404 page;
-// errorPage(path), the page for when answering failed
-/** @param {import('../../types/pages.js').Tool[]} [tools] */
-export function renderPages(tools = loadTools()) {
-    const list = sitePages(tools);
+// errorPage(path), the page for when answering failed. config: the settings
+// (server/config.js); without them, no public address and no ads.
+/** @param {import('../../types/pages.js').Tool[]} [tools] @param {import('../../types/config.js').Config} [config] */
+export function renderPages(tools = loadTools(), config = loadConfig({})) {
+    const list = sitePages(tools, config);
     const pagePaths = [...list.map(page => page.path), ...STATION_PATHS];
-    const render = createRenderer(tools, pagePaths);
+    const render = createRenderer(tools, pagePaths, config);
     const stringsFor = pageStrings(tools);
 
     // A page from the registry in one language, at `path`
@@ -75,15 +77,19 @@ export function appManifest(lang, description) {
 
 // Pages, tool client files and the service worker. Everything is rendered once
 // at startup; `node --watch` restarts the server when these files change.
-/** @param {import('../../types/pages.js').Tool[]} [tools] @param {{ railFile?: string }} [options] */
-export function createPages(tools = loadTools(), { railFile } = {}) {
-    const { pages, indexed, notFound, errorPage, render } = renderPages(tools);
+// config: the settings (server/config.js); without them, no public address and no ads.
+/**
+ * @param {import('../../types/pages.js').Tool[]} [tools]
+ * @param {{ railFile?: string, config?: import('../../types/config.js').Config }} [options]
+ */
+export function createPages(tools = loadTools(), { railFile, config = loadConfig({}) } = {}) {
+    const { pages, indexed, notFound, errorPage, render } = renderPages(tools, config);
     const serviceWorker = renderServiceWorker(tools, pages);
     const router = express.Router();
     // The station pages, built from rail.json (when there is one)
-    const stations = railFile ? createStationPages({ railFile, render, tools }) : null;
+    const stations = railFile ? createStationPages({ railFile, render, tools, origin: config.siteUrl }) : null;
     // SITE_URL if set, so search engines only ever see the public address
-    const origin = req => siteUrl() || `${req.protocol}://${req.get('host')}`;
+    const origin = req => config.siteUrl || `${req.protocol}://${req.get('host')}`;
 
     router.get('/sw.js', (_req, res) => {
         res.set('Cache-Control', 'no-cache').type('js').send(serviceWorker);
@@ -108,7 +114,8 @@ export function createPages(tools = loadTools(), { railFile } = {}) {
     });
 
     // Which ad networks may sell this site's ad space (only once AdSense is set up)
-    router.get('/ads.txt', (_req, res, next) => adsTxt() ? res.set('Cache-Control', 'no-cache').type('text').send(adsTxt()) : next());
+    const ads = adsTxt(config.adsense);
+    router.get('/ads.txt', (_req, res, next) => ads ? res.set('Cache-Control', 'no-cache').type('text').send(ads) : next());
 
     router.get('/sitemap.xml', (req, res) => {
         res.set('Cache-Control', 'no-cache').type('xml').send(sitemapXml(origin(req), [...indexed, ...(stations?.paths() ?? [])]));

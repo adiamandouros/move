@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { escapeHtml, icon } from '../../public/js/core/html.js';
-import { adsenseClient } from '../ads.js';
+import { loadConfig } from '../config.js';
 import { fill } from './layout.js';
 import { appData } from './seo.js';
 import { STATIONS_PATH } from './stations.js';
@@ -36,15 +36,18 @@ const view = name => readFileSync(join(VIEWS_DIR, `${name}.html`), 'utf8');
 /** @typedef {import('../../types/pages.js').Page} Page */
 /** @typedef {import('../../types/pages.js').Tool} Tool */
 
-/** @param {Tool[]} tools @returns {Page[]} */
-export function sitePages(tools) {
+// config: the settings (server/config.js), for the ads and the contact
+// address; without them (e.g. to list the paths), none
+/** @param {Tool[]} tools @param {import('../../types/config.js').Config} [config] @returns {Page[]} */
+export function sitePages(tools, config = loadConfig({})) {
+    const ads = Boolean(config.adsense.client);
     return [
         {
             path: '/',
             title: 'home.page-title',
             description: 'home.description',
             content: () => fill(view('home'), { tiles: [...tools.map(toolTile), stationsTile()].join('\n') }),
-            head: (lang, s) => appData(s('home.description'), lang),
+            head: (lang, s) => appData(s('home.description'), lang, config.siteUrl),
             scripts: ['/js/core/announcements.js', '/js/core/install.js'],
             active: 'home',
             ad: 'home',
@@ -70,9 +73,9 @@ export function sitePages(tools) {
             path: `/${name}`,
             title: `${name}.title`,
             // The privacy page has its own description once it describes ads
-            description: `${name}.description${name === 'privacy' && adsenseClient() ? '-ads' : ''}`,
-            content: (lang, s) => fill(adsVariant(view(`pages/${name}.${lang}`), Boolean(adsenseClient())), {
-                updated: PRIVACY_UPDATED[lang], email: contactEmail(s), adClient: adsenseClient() ?? '',
+            description: `${name}.description${name === 'privacy' && ads ? '-ads' : ''}`,
+            content: (lang, s) => fill(adsVariant(view(`pages/${name}.${lang}`), ads), {
+                updated: PRIVACY_UPDATED[lang], email: contactEmail(s, config.contactEmail), adClient: config.adsense.client ?? '',
             }),
         })),
     ];
@@ -146,8 +149,7 @@ const adsVariant = (html, ads) => html.replace(/<!-- (with|without) ads -->\n([\
 
 // The contact page's email line: CONTACT_EMAIL (the address OASA also sees),
 // or nothing when it isn't set
-function contactEmail(s) {
-    const email = process.env.CONTACT_EMAIL;
+function contactEmail(s, email) {
     if (!email) return '';
     return `    <p class="contact-email">${icon('envelope', 'me-2')}${s('contact.email')} <a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a></p>`;
 }

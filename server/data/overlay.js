@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs';
-import { dirname } from 'path';
+import { existsSync, readFileSync } from 'fs';
+import { writeFileAtomic } from '../files.js';
 import { formatJson } from './format.js';
 import { POSITIONS } from './validate.js';
 
@@ -16,12 +16,8 @@ export function readOverlay(path) {
     catch (err) { throw new Error(`${path} is not valid JSON: ${err.message}`, { cause: err }); }
 }
 
-// Write via a temp file and rename, so a crash never leaves a half-written file
 export function writeOverlay(path, overlay) {
-    mkdirSync(dirname(path), { recursive: true });
-    const tmp = `${path}.tmp`;
-    writeFileSync(tmp, formatJson(overlay, 3) + '\n');
-    renameSync(tmp, path);
+    writeFileAtomic(path, formatJson(overlay, 3) + '\n');
 }
 
 export function overlayEntries(overlay) {

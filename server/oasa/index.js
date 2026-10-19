@@ -1,6 +1,6 @@
-import { mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'fs';
-import { dirname } from 'path';
+import { readFileSync, statSync } from 'fs';
 import express from 'express';
+import { writeFileAtomic } from '../files.js';
 import { createArrivals } from './arrivals.js';
 import { createOasaClient } from './client.js';
 import { clientKey, createClientLimiter, hourCounter } from './limits.js';
@@ -42,11 +42,7 @@ export function createBusApi({ routesFile, statusFile, stopsFile, relays = [], c
         // Written every minute even when nothing changed, so its timestamp also
         // shows whether the app is running
         const write = () => {
-            try {
-                mkdirSync(dirname(statusFile), { recursive: true });
-                writeFileSync(`${statusFile}.tmp`, JSON.stringify(status()));
-                renameSync(`${statusFile}.tmp`, statusFile);
-            } catch { /* diagnostics only */ }
+            try { writeFileAtomic(statusFile, JSON.stringify(status())); } catch { /* diagnostics only */ }
         };
         write();
         setInterval(write, 60_000).unref();

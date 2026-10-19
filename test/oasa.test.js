@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { countDown, createArrivals } from '../server/oasa/arrivals.js';
-import { createOasaClient, OasaUnavailable, relaysFromEnv } from '../server/oasa/client.js';
+import { createOasaClient, OasaUnavailable } from '../server/oasa/client.js';
 
 // A fake clock where sleeping just moves time forward
 function clock() {
@@ -416,15 +416,4 @@ test('the last route rests only a minute, since nothing comes after it', async (
     await settle();
     for (let i = 0; i < 5; i++) await assert.rejects(client.request('getStopArrivals', '1'), OasaUnavailable);
     assert.match(logs.join('\n'), /5 home relay failures in a row \(last: home down\); resting it for 60 s$/m);
-});
-
-test('relaysFromEnv keeps the order and skips half-configured relays', () => {
-    assert.deepEqual(relaysFromEnv({ OASA_HOME_RELAY_URL: 'https://h/', OASA_HOME_RELAY_KEY: 'b', OASA_RELAY_URL: 'https://w/', OASA_RELAY_KEY: 'a' }), [
-        { name: 'relay', env: 'OASA_RELAY', url: 'https://w/', key: 'a' },
-        { name: 'home relay', env: 'OASA_HOME_RELAY', url: 'https://h/', key: 'b' },
-    ]);
-    assert.deepEqual(relaysFromEnv({ OASA_RELAY_URL: 'https://w/', OASA_HOME_RELAY_URL: 'https://h/', OASA_HOME_RELAY_KEY: 'b' }), [
-        { name: 'home relay', env: 'OASA_HOME_RELAY', url: 'https://h/', key: 'b' },
-    ]);
-    assert.deepEqual(relaysFromEnv({}), []);
 });

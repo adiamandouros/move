@@ -1,7 +1,6 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs';
-import { dirname } from 'path';
 import express from 'express';
-import { USER_AGENT } from '../data/sources.js';
+import { userAgentFor } from '../config.js';
+import { readJson, writeFileAtomic } from '../files.js';
 
 // Service announcements for the info page, from the operators' own websites:
 //   - OASA (buses, trolleys and general notices): its RSS feeds, in Greek and English
@@ -84,18 +83,18 @@ export function parseStasyDate(html) {
 
 // ── Fetching ────────────────────────────────────────────────────────────────
 
-// `relays`: [{ name, url, key }], as for the OASA client (relaysFromEnv)
+// `relays`: [{ name, url, key }] and `userAgent`, as for the OASA client (config.relays, config.userAgent)
 /**
  * @param {{
  *   fetch?: typeof globalThis.fetch, now?: () => number, log?: (message: string) => void,
- *   cacheFile?: string, relays?: { name: string, url: string, key: string }[],
+ *   cacheFile?: string, relays?: readonly { name: string, url: string, key: string }[], userAgent?: string,
  * }} [options]
  */
-export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, log = console.warn, cacheFile, relays = [] } = {}) {
+export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, log = console.warn, cacheFile, relays = [], userAgent = userAgentFor(null) } = {}) {
     // Last good result per source, and STASY post dates by link (posts don't move)
     let state = { oasaEl: null, oasaEn: null, stasy: null, dates: {} };
     if (cacheFile) {
-        try { state = { ...state, ...JSON.parse(readFileSync(cacheFile, 'utf8')) }; } catch { /* first run */ }
+        state = { ...state, ...readJson(cacheFile) };
     }
     let checkedAt = 0;
     let refreshing = null;
@@ -105,7 +104,7 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
     let stasyRoute = null;
 
     async function get(url) {
-        const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+        const res = await fetch(url, { headers: { 'User-Agent': userAgent }, signal: AbortSignal.timeout(TIMEOUT_MS) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.text();
     }
@@ -127,7 +126,7 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
         for (const relay of path && !path.includes('/') ? relays : []) {
             try {
                 const res = await fetch(`${relay.url}?act=stasyPage&path=${encodeURIComponent(path)}`, {
-                    headers: { 'X-Relay-Key': relay.key, 'User-Agent': USER_AGENT },
+                    headers: { 'X-Relay-Key': relay.key, 'User-Agent': userAgent },
                     signal: AbortSignal.timeout(RELAY_TIMEOUT_MS),
                 });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -170,11 +169,7 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
         }));
         checkedAt = now();
         if (cacheFile) {
-            try {
-                mkdirSync(dirname(cacheFile), { recursive: true });
-                writeFileSync(`${cacheFile}.tmp`, JSON.stringify(state));
-                renameSync(`${cacheFile}.tmp`, cacheFile);
-            } catch { /* the cache is only an optimisation */ }
+            try { writeFileAtomic(cacheFile, JSON.stringify(state)); } catch { /* the cache is only an optimisation */ }
         }
     }
 

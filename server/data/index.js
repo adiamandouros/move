@@ -1,10 +1,11 @@
-import 'dotenv/config';
 import { fork } from 'child_process';
 import { createHash } from 'crypto';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'fs';
 import { getPriority, setPriority } from 'os';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
+import { loadConfig, userAgentFor } from '../config.js';
+import { readJson } from '../files.js';
 import { athensToday } from './calendar.js';
 import { buildBus } from './build-bus.js';
 import { buildRail } from './build-rail.js';
@@ -57,9 +58,10 @@ const OUTPUTS = {
 // feed or a curated file changed, the builder changed, or the day changed
 // (the weekly timetable is chosen relative to today). An output that fails to
 // build keeps its previous version; the failure is recorded in meta.json.
-// The other options are for tests: their own data folder and curated files,
-// a fake portal (`fetch`), a fixed day (`today`, 'YYYYMMDD') and the
-// builder's fingerprint.
+// `userAgent` is what the portal sees us as (config.userAgent). The other
+// options are for tests: their own data folder and curated files, a fake
+// portal (`fetch`), a fixed day (`today`, 'YYYYMMDD') and the builder's
+// fingerprint.
 export async function runBuild({
     force = false,
     offline = false,
@@ -67,6 +69,7 @@ export async function runBuild({
     curatedDir = CURATED_DIR,
     overlayFile = OVERLAY_FILE,
     fetch = globalThis.fetch,
+    userAgent = userAgentFor(null),
     today = athensToday(),
     log = console.log,
     builder = builderFingerprint(),
@@ -82,7 +85,7 @@ export async function runBuild({
         for (const w of check.warnings) log(`[data] warning: ${w}`);
         if (check.errors.length) throw new Error(`Curated data has errors:\n  ${check.errors.join('\n  ')}`);
 
-        const sources = await fetchSources({ rawDir: dirs.raw, offline, log, fetch });
+        const sources = await fetchSources({ rawDir: dirs.raw, offline, log, fetch, userAgent });
         const fingerprint = {
             builder,
             curated: curated.hash,
@@ -238,16 +241,15 @@ function isRunning(pid) {
     }
 }
 
-function readJson(path) {
-    try { return JSON.parse(readFileSync(path, 'utf8')); } catch { return null; }
-}
-
 // CLI: npm run build:data [-- --force] [-- --offline]
 // Exits with 0 when built or up to date, 1 when something failed, and
 // BUSY_EXIT_CODE when another build is running.
+// The server's builds run it too (runBuildInChild), with the server's settings
+// already in their environment; from a terminal, they come from .env.
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+    await import('dotenv/config');
     const args = new Set(process.argv.slice(2));
-    runBuild({ force: args.has('--force'), offline: args.has('--offline') })
+    runBuild({ force: args.has('--force'), offline: args.has('--offline'), userAgent: loadConfig().userAgent })
         .then(meta => {
             const failed = meta && Object.values(meta.outputs).some(o => !o.ok);
             process.exitCode = meta === null ? BUSY_EXIT_CODE : failed ? 1 : 0;
