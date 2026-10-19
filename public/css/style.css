@@ -162,7 +162,13 @@ body {
 
 /* ── Bottom nav (mobile) ── */
 
+/* One row of equal columns, as tall as the tallest button, in the middle of
+   the bar; every button fills the row, so the icon-only menu button is as tall
+   as the others and its icon level with theirs */
 #bottom-nav {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    align-content: center;
     height: var(--bottom-nav-height);
     background-color: var(--bs-tertiary-bg);
     border-color: var(--wh-divider) !important;

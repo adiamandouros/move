@@ -103,6 +103,20 @@ test('the bottom bar: Home and Menu line up with the other icons, and the labels
     for (const t of labels) expect(t).toBe(labels[1]);
 });
 
+test('the bottom bar: the buttons sit in the middle of it, all the same height', async ({ page }) => {
+    await page.goto('/subway');
+    const { above, below, heights } = await page.locator('#bottom-nav').evaluate(bar => {
+        // Inside the bar's top border
+        const top = bar.getBoundingClientRect().top + bar.clientTop;
+        const bottom = top + bar.clientHeight;
+        const boxes = [...bar.children].map(el => el.getBoundingClientRect());
+        return { above: boxes[0].top - top, below: bottom - boxes[0].bottom, heights: boxes.map(b => Math.round(b.height * 10) / 10) };
+    });
+    expect(Math.abs(above - below)).toBeLessThan(1);
+    expect(above).toBeGreaterThan(0);
+    for (const h of heights) expect(h).toBe(heights[0]);
+});
+
 test.describe('the menu', () => {
     const menu = page => page.locator('#site-menu');
 
