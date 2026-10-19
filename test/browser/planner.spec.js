@@ -31,6 +31,9 @@ test('the signpost walks you to the boarding station, and goes when there is non
     const walk = page.locator('#walk-btn');
     await expect(walk).toHaveAccessibleName('Walking directions to Syntagma (opens in a new tab)');
     await expect(walk).toHaveAttribute('href', /destination=37\.\d+,23\.\d+&travelmode=walking/);
+    // The swap button sits right under it
+    const centre = async locator => { const box = await locator.boundingBox(); return box.x + box.width / 2; };
+    expect(Math.abs(await centre(walk) - await centre(page.locator('#swap-stations')))).toBeLessThan(1);
     const syntagma = await walk.getAttribute('href');
     await page.locator('#swap-stations').click();
     await expect(walk).toHaveAccessibleName(/Walking directions to Airport/);

@@ -598,6 +598,8 @@ body {
     display: flex;
     justify-content: flex-end;
     margin: -4px 0 -12px;
+    /* Centres the 36px button under the 52px signpost above it */
+    padding-right: 8px;
 }
 
 .swap-btn {
