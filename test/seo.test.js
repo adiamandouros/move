@@ -33,26 +33,26 @@ test('the home page, every tool and the about, privacy and contact pages are ind
     assert.deepEqual(indexed, ['/', ...tools.map(t => t.path), '/about', '/privacy', '/contact']);
 });
 
-test('the about, privacy and contact pages are written in each language and linked from the home page', async () => {
+test('the about, privacy and contact pages are written in each language and linked from every page', async () => {
     for (const name of ['about', 'privacy', 'contact']) {
         assert.match(pages[`/${name}`], /<html lang="en"/);
         assert.match(pages[`/el/${name}`], /<html lang="el"/);
     }
     assert.match(pages['/privacy'], /<h1>Privacy<\/h1>[\s\S]*Last updated: 18 October 2026/);
     assert.match(pages['/el/privacy'], /<h1>Απόρρητο<\/h1>[\s\S]*Τελευταία ενημέρωση: 18 Οκτωβρίου 2026/);
-    for (const path of ['/', '/el']) {
-        const footer = pages[path].match(/<footer class="site-footer"[\s\S]*?<\/footer>/)[0];
+    // Every page links to them: in the sidebar, and in the menu on phones
+    for (const path of ['/', '/el', '/subway', '/el/info', '/about']) {
         const prefix = path.startsWith('/el') ? '/el' : '';
-        for (const name of ['about', 'privacy', 'contact']) assert.ok(footer.includes(`href="${prefix}/${name}"`), `${path} links to ${name}`);
+        const side = pages[path].match(/<div class="side-links">[\s\S]*?<\/div>/)[0];
+        const menu = pages[path].match(/<nav id="site-menu"[\s\S]*?<\/nav>/)[0];
+        for (const name of ['about', 'privacy', 'contact']) {
+            assert.ok(side.includes(`href="${prefix}/${name}"`), `${path}: sidebar links to ${name}`);
+            assert.ok(menu.includes(`href="${prefix}/${name}"`), `${path}: menu links to ${name}`);
+        }
     }
-    assert.match(pages['/el'], /href="\/el\/privacy" data-i18n="footer\.privacy">Απόρρητο</);
-    // Elsewhere the footer only has the language link, for phones
-    for (const path of ['/subway', '/el/info', '/about', '/privacy']) {
-        const footer = pages[path].match(/<footer class="site-footer d-md-none">([\s\S]*?)<\/footer>/)?.[1];
-        assert.ok(footer, `${path} has the phones' footer`);
-        assert.equal((footer.match(/<a /g) ?? []).length, 1, `${path}: only the language link`);
-        assert.match(footer, /class="footer-language d-md-none"/);
-    }
+    assert.match(pages['/el'], /href="\/el\/privacy" class="site-menu-link"><svg[^>]*>[\s\S]*?<\/svg><span data-i18n="menu\.privacy">Απόρρητο</);
+    // No footer: the menu replaced it
+    assert.doesNotMatch(pages['/'] + pages['/subway'], /<footer/);
     // The about page doesn't repeat them
     assert.doesNotMatch(pages['/about'] + pages['/el/about'], /prose-links/);
 });
@@ -131,7 +131,7 @@ test('English pages are in English, with English links', () => {
     assert.doesNotMatch(pageLinks(pages['/subway']), /href="\/el/);
 });
 
-test('every page links to itself in the other language: sidebar, footer and a suggestion', () => {
+test('every page links to itself in the other language: sidebar, menu and a suggestion', () => {
     const languageLinks = html => html.match(/<a href="[^"]*" hreflang="[^"]*"[^>]*>[\s\S]*?<\/a>/g) ?? [];
     for (const [path, other, lang, name, suggest] of [
         ['/subway', '/el/subway', 'el', 'Ελληνικά', 'Διαβάστε το Wayhop στα ελληνικά'],
@@ -139,13 +139,13 @@ test('every page links to itself in the other language: sidebar, footer and a su
         ['/', '/el', 'el', 'Ελληνικά', 'Διαβάστε το Wayhop στα ελληνικά'],
         ['/el', '/', 'en', 'English', 'Read Wayhop in English'],
     ]) {
-        const [side, footer, suggestion] = ['lang-toggle-btn', 'footer-language', 'lang-suggest'].map(cls =>
+        const [side, menu, suggestion] = ['lang-toggle-btn', 'menu-language', 'lang-suggest'].map(cls =>
             pages[path].match(new RegExp(`<(a|div)\\b[^>]*class="[^"]*\\b${cls}\\b[^"]*"[^>]*>[\\s\\S]*?</\\1>`))?.[0]);
         assert.equal(languageLinks(pages[path]).length, 3, `${path}: three language links`);
-        for (const link of [side, footer]) assert.ok(link?.startsWith(`<a href="${other}" hreflang="${lang}"`), link);
-        // Named in its own language; in the sidebar EN / ΕΛ is for sighted users, in the footer the name shows
+        for (const link of [side, menu]) assert.ok(link?.startsWith(`<a href="${other}" hreflang="${lang}"`), link);
+        // Named in its own language; in the sidebar EN / ΕΛ is for sighted users, in the menu the name shows
         assert.match(side, new RegExp(`<span class="sr-only" lang="${lang}">${name}</span>`));
-        assert.match(footer, new RegExp(`lang="${lang}" class="footer-language d-md-none">${name}</a>`));
+        assert.match(menu, new RegExp(`lang="${lang}" class="site-menu-link menu-language">.*<span>${name}</span></a>`));
         // The suggestion is hidden until shell.js offers it, in the other language
         assert.match(suggestion, new RegExp(`^<div class="lang-suggest" lang="${lang}" hidden>`));
         assert.ok(suggestion.includes(`hreflang="${lang}">${suggest}</a>`), suggestion);
@@ -155,6 +155,9 @@ test('every page links to itself in the other language: sidebar, footer and a su
     assert.match(bottom(pages['/']), /^<nav[^>]*>\s*<a href="\/" class="nav-btn [^"]*active" aria-current="page"><img src="\/icon\/logo\.svg" alt=""/);
     assert.match(bottom(pages['/el/subway']), /<a href="\/el" class="nav-btn [^"]*py-2"><img src="\/icon\/logo\.svg" alt="" width="33" height="24" class="nav-logo fs-4"><span class="nav-label" data-i18n="nav.home">Αρχική</);
     assert.doesNotMatch(bottom(pages['/subway']), /hreflang/);
+    // …and ends with the button that opens the menu, which starts closed
+    assert.match(bottom(pages['/el/subway']), /<button type="button" class="nav-btn menu-btn [^"]*" popovertarget="site-menu"><svg class="bi fs-4"[^>]*><use href="[^"]*#list"><\/use><\/svg><span class="nav-label" data-i18n="nav.menu">Μενού<\/span><\/button>\s*<\/nav>/);
+    assert.match(pages['/subway'], /<nav id="site-menu" class="site-menu d-md-none" popover aria-label="Menu"/);
     // The 404 links to the same address in the other language; English-only pages have no language link
     assert.match(notFound('/el/nope'), /<a href="\/nope" hreflang="en"/);
     assert.doesNotMatch(render({ title: 'Admin', content: '' }), /hreflang=/);

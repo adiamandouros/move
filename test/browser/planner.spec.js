@@ -26,14 +26,11 @@ test('a change of line', async ({ page }) => {
     expect(await axe(page)).toEqual([]);
 });
 
-test('home: intro, shortcuts, and its own footer links', async ({ page }) => {
+test('home: intro and shortcuts, and no footer (the links are in the menu and the sidebar)', async ({ page }) => {
     await page.goto('/');
     await expect(content(page)).toContainText('Live bus arrivals at the stops around you');
     await expect(content(page)).toContainText('Metro stations');
-    await expect(content(page)).toContainText('Privacy');
+    await expect(page.locator('footer')).toHaveCount(0);
     await page.goto('/el');
     await expect(content(page)).toContainText('Σταθμοί μετρό');
-    // Other pages keep only the language link, on phones
-    await page.goto('/about');
-    await expect(content(page)).not.toContainText('Contact · Privacy');
 });

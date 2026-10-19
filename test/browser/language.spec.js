@@ -4,14 +4,18 @@ import { expect, onlyOn, test } from './fixtures.js';
 
 const path = page => { const u = new URL(page.url()); return u.pathname + u.search; };
 const saved = page => page.evaluate(() => localStorage.getItem('language'));
-// Phones have it in the footer, wider screens in the sidebar
-const languageLink = (page, project) => page.locator(project === 'desktop' ? '#side-nav .lang-toggle-btn' : '.footer-language');
+// Wider screens have it in the sidebar, phones in the menu (opened first)
+const languageLink = async (page, project) => {
+    if (project === 'desktop') return page.locator('#side-nav .lang-toggle-btn');
+    await page.locator('.menu-btn').click();
+    return page.locator('#site-menu .menu-language');
+};
 
 test('switching keeps the route and is remembered', async ({ page }, { project }) => {
     await page.goto('/subway?from=syntagma&to=airport');
     await expect(page.locator('.result-card')).toBeVisible();
 
-    await languageLink(page, project.name).click();
+    await (await languageLink(page, project.name)).click();
     await expect(page).toHaveURL(/:\d+\/el\/subway\?from=syntagma&to=airport$/);
     await expect(page.locator('html')).toHaveAttribute('lang', 'el');
     expect(await saved(page)).toBe('el');
@@ -30,11 +34,11 @@ test('the keyboard switches back to English', async ({ page }, { project }) => {
     test.skip(project.name === 'iphone', 'WebKit only tabs to links with Safari\'s setting on');
     await page.goto('/el/subway?from=omonia&to=piraeus');
     await page.evaluate(() => localStorage.setItem('language', 'el'));
-    await languageLink(page, project.name).focus();
+    await (await languageLink(page, project.name)).focus();
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/:\d+\/subway\?from=omonia&to=piraeus$/);
     expect(await saved(page)).toBe('en');
-    await expect(languageLink(page, project.name)).toContainText('Ελληνικά');
+    await expect(await languageLink(page, project.name)).toContainText('Ελληνικά');
 });
 
 test.describe('on one phone (the same everywhere)', () => {

@@ -1,4 +1,4 @@
-// The phone layout: Home in the bottom bar, the language link in the footer,
+// The phone layout: Home and the menu in the bottom bar, the language link in the menu,
 // the one-time suggestion of the other language, and the install card.
 import { axe, expect, test } from './fixtures.js';
 
@@ -11,10 +11,10 @@ test.describe('a phone set to Greek', () => {
 
     test('on an English page: the suggestion, once', async ({ page }, { project }) => {
         await page.goto('/subway?from=omonia&to=airport');
-        await expect(page.locator('#bottom-nav a')).toHaveText(['Home', 'Subway', 'Buses', 'Info']);
+        await expect(page.locator('#bottom-nav a, #bottom-nav button')).toHaveText(['Home', 'Subway', 'Buses', 'Info', 'Menu']);
         await expect(page.locator('.lang-suggest')).toBeVisible();
         await expect(page.locator('.lang-suggest a')).toHaveText('Διαβάστε το Wayhop στα ελληνικά');
-        await expect(page.locator('.footer-language')).toBeAttached();
+        await expect(page.locator('#site-menu .menu-language')).toBeAttached();
         expect(await visible(page.locator('.lang-toggle-btn').first())).toBe(false);
         expect(await axe(page)).toEqual([]);
 
@@ -30,7 +30,8 @@ test.describe('a phone set to Greek', () => {
 
     test('the footer link switches, and Home goes home', async ({ page }) => {
         await page.goto('/subway?from=omonia&to=airport');
-        await page.locator('.footer-language').click();
+        await page.locator('.menu-btn').click();
+        await page.locator('#site-menu .menu-language').click();
         await expect(page).toHaveURL(/:\d+\/el\/subway\?from=omonia&to=airport$/);
         const home = page.locator('#bottom-nav a').first();
         await expect(home).toHaveAttribute('href', '/el');
@@ -89,13 +90,61 @@ test.describe('the install card', () => {
     });
 });
 
-test('the bottom bar: Home lines up with the other icons and labels', async ({ page }) => {
+test('the bottom bar: Home and Menu line up with the other icons and labels', async ({ page }) => {
     await page.goto('/subway');
-    const links = page.locator('#bottom-nav a');
-    await expect(links).toHaveCount(4);
+    const links = page.locator('#bottom-nav > *');
+    await expect(links).toHaveCount(5);
     const tops = await links.evaluateAll(as => as.map(a => ({
         icon: Math.round(a.firstElementChild.getBoundingClientRect().top),
         label: Math.round(a.querySelector('.nav-label').getBoundingClientRect().top),
     })));
     for (const top of tops) expect(top).toEqual(tops[1]);
+});
+
+test.describe('the menu', () => {
+    const menu = page => page.locator('#site-menu');
+
+    test('starts closed, opens above the bar by the right thumb, and closes with a tap outside', async ({ page }) => {
+        await page.goto('/subway');
+        const button = page.locator('#bottom-nav .menu-btn');
+        await expect(button).toBeVisible();
+        await expect(menu(page)).toBeHidden();
+        // The three lines are in the logo's yellow
+        expect(await button.locator('svg use').getAttribute('href')).toMatch(/#list$/);
+        expect(await button.locator('svg').evaluate(svg => getComputedStyle(svg).color)).toBe('rgb(255, 193, 7)');
+
+        await button.click();
+        await expect(menu(page)).toBeVisible();
+        await expect(menu(page).locator('a')).toHaveText(['Ελληνικά', 'About', 'Privacy', 'Contact']);
+        expect(await axe(page)).toEqual([]);
+        const [box, bar, view] = [await menu(page).boundingBox(), await page.locator('#bottom-nav').boundingBox(), page.viewportSize()];
+        expect(box.y + box.height).toBeLessThanOrEqual(bar.y);
+        expect(view.width - (box.x + box.width)).toBeLessThan(16);
+
+        await page.mouse.click(view.width / 2, 10);
+        await expect(menu(page)).toBeHidden();
+    });
+
+    test('its links go to the pages, in the page\'s language', async ({ page }) => {
+        await page.goto('/el/info');
+        await page.locator('.menu-btn').click();
+        await expect(menu(page).locator('a')).toHaveText(['English', 'Σχετικά', 'Απόρρητο', 'Επικοινωνία']);
+        await menu(page).getByText('Απόρρητο').click();
+        await expect(page).toHaveURL(/:\d+\/el\/privacy$/);
+        await expect(menu(page)).toBeHidden();
+    });
+
+    test('with the keyboard: Enter opens it, Tab goes in, Esc closes it and goes back to the button', async ({ page }, { project }) => {
+        test.skip(project.name === 'iphone', 'WebKit only tabs to links with Safari\'s setting on');
+        await page.goto('/subway');
+        const button = page.locator('.menu-btn');
+        await button.focus();
+        await page.keyboard.press('Enter');
+        await expect(menu(page)).toBeVisible();
+        await page.keyboard.press('Tab');
+        await expect(menu(page).locator('.menu-language')).toBeFocused();
+        await page.keyboard.press('Escape');
+        await expect(menu(page)).toBeHidden();
+        await expect(button).toBeFocused();
+    });
 });
