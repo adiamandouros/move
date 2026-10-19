@@ -1,0 +1,11 @@
+#!/bin/sh
+# Before every commit: lint, type checks and the Node tests, a few seconds
+# all together, so a mistake is caught before it's committed. To skip once:
+# git commit --no-verify. Set up by `npm install` (package.json "prepare").
+echo "[pre-commit] lint, type checks, Node tests…"
+npm run --silent lint && npm run --silent typecheck && npm test --silent > /tmp/wayhop-pre-commit.log 2>&1 || {
+    status=$?
+    [ -s /tmp/wayhop-pre-commit.log ] && grep -E "^not ok|^# (pass|fail)|error|expected|actual" /tmp/wayhop-pre-commit.log | head -40
+    echo "[pre-commit] Failed: fix it, or commit with --no-verify to skip the checks once."
+    exit $status
+}
