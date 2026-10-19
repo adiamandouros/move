@@ -162,12 +162,20 @@ test('every page links to itself in the other language: sidebar, footer and a su
 
 test('a saved choice of the other language opens the page in it before it shows', () => {
     const redirect = html => html.match(/<head>\s*<meta charset="UTF-8">\s*<meta name="viewport"[^>]*>\s*<script>([\s\S]*?)<\/script>/)?.[1];
-    assert.match(redirect(pages['/subway']), /localStorage\.getItem\('language'\) === 'el'\) location\.replace\("\/el\/subway" \+ location\.search \+ location\.hash\)/);
-    assert.match(redirect(pages['/el/info']), /=== 'en'\) location\.replace\("\/info" \+/);
-    assert.match(redirect(notFound('/a/b')), /location\.replace\("\/el\/a\/b" \+/);
+    const html = page => page.match(/<html[^>]*>/)[0];
+    // The same script everywhere (so the Content-Security-Policy allows it by one hash)…
+    assert.match(redirect(pages['/subway']), /localStorage\.getItem\('language'\) === root\.dataset\.otherLang\) location\.replace\(root\.dataset\.otherPath \+ location\.search \+ location\.hash\)/);
+    assert.equal(redirect(pages['/el/info']), redirect(pages['/subway']));
+    assert.equal(redirect(notFound('/a/b')), redirect(pages['/subway']));
+    // …reading which page is the other language's from <html>
+    assert.match(html(pages['/subway']), / data-other-lang="el" data-other-path="\/el\/subway"/);
+    assert.match(html(pages['/el/info']), / data-other-lang="en" data-other-path="\/info"/);
+    assert.match(html(notFound('/a/b')), / data-other-path="\/el\/a\/b"/);
+    // Pages without an address of their own (admin) have neither
     assert.equal(redirect(render({ title: 'Admin', content: '' })), undefined);
-    // The address can't break out of the script
-    assert.doesNotMatch(notFound('/</script><b>'), /<\/script><b>/);
+    assert.doesNotMatch(html(render({ title: 'Admin', content: '' })), /data-other/);
+    // The address can't break out of its attribute
+    assert.match(html(notFound('/"><script>x</script>')), /data-other-path="\/el\/&quot;&gt;&lt;script&gt;/);
 });
 
 test('text written in both languages keeps only the page\'s language', () => {
