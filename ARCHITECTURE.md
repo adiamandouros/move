@@ -77,7 +77,7 @@ compiled once by [templates.js](server/pages/templates.js) and only on the
 server: browsers get finished HTML, and nothing is added to what they load.
 `{{value}}` is escaped; `{{{value}}}` is for HTML that's already built (the
 page's content inside the layout), and pieces built with ``html`` `` (a line
-badge, the train diagram) go in as `{{value}}`. Four helpers:
+badge, the train diagram) go in as `{{value}}`. Five helpers:
 
 - `{{t "key"}}`: the page's string; `{{t "stations.toward" name=toward}}`
   fills its `{name}`.
@@ -85,13 +85,15 @@ badge, the train diagram) go in as `{{value}}`. Four helpers:
   (paragraphs with links, lists), the English first.
 - `{{icon "geo-alt" "me-1"}}`: an icon from the sprite.
 - `{{json value}}`: JSON that's safe inside a `<script>` element.
+- `{{formatDate "2026-10-14"}}`: a date as people write it, 14/10/2026.
 
 They're compiled strictly: a value the view names but isn't given, a helper
 that doesn't exist or a missing string throws, and every page is rendered
 at startup, so a typo fails `npm test` rather than showing on the site.
 `test/templates.test.js` checks that every string the views use exists in
 both languages and that every `{{#ifLang}}` has its Greek. Partials, shared
-by views as `{{> name}}`, are in `server/views/partials/`. The service
+by views as `{{> name}}`, are in `server/views/partials/`. A tool's
+`data.json` gives its `page.hbs` its values. The service
 workers aren't HTML: `fill()` puts their version and file lists in.
 
 The other files there: `assets.js` (stylesheets, scripts and their
@@ -228,6 +230,12 @@ error details. Every 30 minutes, `.github/workflows/health.yml` runs
 health page, and rechecks a problem after 2 minutes. While the site is
 unhealthy, an issue labelled `health` stays open; GitHub emails it.
 `/admin/diagnostics` has the details.
+
+Facts written on the pages by hand (the Info page's closing times, prices,
+airport and night buses) say when they were last checked: one date per
+section, in `tools/info/data.json`, shown on the page with `{{> checked}}`.
+`/admin/diagnostics` warns once a section is over 90 days old, and so does
+the nightly live check (`test/live/`), which reads the dates on wayhop.gr.
 
 `server/errors.js` is the last stop for a request whose answer failed: the
 error is logged, and the visitor gets the error page (JSON from an API)

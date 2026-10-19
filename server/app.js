@@ -9,6 +9,7 @@ import { createBusApi } from './oasa/index.js';
 import { createOasaClient } from './oasa/client.js';
 import { VENDOR } from './pages/assets.js';
 import { createPages } from './pages/index.js';
+import { checkedFacts, loadTools } from './pages/registry.js';
 import { canonicalHost } from './canonical-host.js';
 import { createAnnouncements } from './info/announcements.js';
 import { createHealth } from './health.js';
@@ -96,7 +97,10 @@ export function createApp({
         // Fetches the announcements first, so their checks show the current state
         diagnose: async () => {
             await announcements.refreshNow();
-            return runDiagnostics({ config, dataDir: DATA_DIR, appStatus: busApi.status(), announcements: announcements.status(), csp: { mode: cspMode, ...cspReports.status() } });
+            return runDiagnostics({
+                config, dataDir: DATA_DIR, appStatus: busApi.status(), announcements: announcements.status(),
+                csp: { mode: cspMode, ...cspReports.status() }, facts: checkedFacts(loadTools()),
+            });
         },
     });
     if (admin) app.use('/admin', admin);

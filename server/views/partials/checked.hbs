@@ -1,0 +1,4 @@
+{{!-- When facts on a page were last checked, and where: {{> checked section}}
+with a section of the page's data.json, { "date": "2026-10-14", "sources":
+[{ "name", "url" }] }. /admin/diagnostics warns when it's old. --}}
+                    <p class="info-source">{{t "info.checked" date=(formatDate date)}} {{#each sources}}{{#unless @first}}, {{/unless}}<a href="{{url}}" target="_blank" rel="noopener">{{name}}<span class="sr-only"> {{t "shell.new-tab"}}</span></a>{{/each}}</p>

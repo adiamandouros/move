@@ -83,6 +83,13 @@ export function format(text, values) {
 /** @param {{ el?: string, en?: string } | null | undefined} names @param {string} lang */
 export const localName = (names, lang) => names?.[lang] || names?.en || '';
 
+// A date ('2026-10-31', as the data writes them) as people write it: "31/10/2026"
+/** @param {string} date */
+export function formatDate(date) {
+    const [y, m, d] = date.split('-');
+    return `${d}/${m}/${y}`;
+}
+
 // Google Maps walking directions to a place
 /** @param {number} lat @param {number} lng */
 export const walkingUrl = (lat, lng) => `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`;

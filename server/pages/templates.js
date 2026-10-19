@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import Handlebars from 'handlebars';
-import { format, icon } from '../../public/js/core/html.js';
+import { format, formatDate, icon } from '../../public/js/core/html.js';
 
 // The server's views are Handlebars templates (.hbs): the layout
 // (server/views/layout.hbs), the pages' views (server/views/, the tools'
@@ -14,6 +14,7 @@ import { format, icon } from '../../public/js/core/html.js';
 //                                   {{t "stations.toward" name=toward}} fills {name}
 //   {{icon "geo-alt" "me-1"}}       an icon from the sprite (/js/core/html.js)
 //   {{json value}}                  JSON that's safe inside a <script> element
+//   {{formatDate "2026-10-14"}}     a date as people write it: 14/10/2026
 //   {{#ifLang "en"}}…{{else}}…{{/ifLang}}  text written in both languages:
 //                                   the first part on English pages, the rest on Greek ones
 // Templates are compiled strictly: a value the template names but isn't
@@ -27,7 +28,7 @@ import { format, icon } from '../../public/js/core/html.js';
 const hb = Handlebars.create();
 
 // (A value can't have a helper's name: {{lang}} is the page's language)
-export const HELPERS = ['t', 'icon', 'json', 'ifLang'];
+export const HELPERS = ['t', 'icon', 'json', 'ifLang', 'formatDate'];
 const OPTIONS = {
     strict: true,
     knownHelpersOnly: true,
@@ -44,6 +45,8 @@ hb.registerHelper('t', (key, options) => {
 hb.registerHelper('icon', (name, ...rest) => new hb.SafeString(String(icon(name, rest.length > 1 ? rest[0] : ''))));
 
 hb.registerHelper('json', value => new hb.SafeString(JSON.stringify(value).replace(/</g, '\\u003c')));
+
+hb.registerHelper('formatDate', date => formatDate(date));
 
 hb.registerHelper('ifLang', function (code, options) {
     return options.data.lang === code ? options.fn(this) : options.inverse(this);

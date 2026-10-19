@@ -24,13 +24,6 @@ export function clockTime(seconds) {
     return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 }
 
-// A timetable's date ('2026-10-31', rail.json's feed.validTo) as people write it: "31/10/2026"
-/** @param {string} date */
-export function feedDate(date) {
-    const [y, m, d] = date.split('-');
-    return `${d}/${m}/${y}`;
-}
-
 // The train from back to front (positions: rail.json's), with the parts to
 // ride in for the exit highlighted and the ones next to an elevator marked.
 // One image for screen readers, described by its label.

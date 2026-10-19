@@ -1,0 +1,44 @@
+{
+  "checked": {
+    "hours": {
+      "date": "2026-10-14",
+      "sources": [
+        {
+          "name": "stasy.gr",
+          "url": "https://www.stasy.gr/en/timetables/"
+        }
+      ]
+    },
+    "tickets": {
+      "date": "2026-10-14",
+      "sources": [
+        {
+          "name": "oasa.gr",
+          "url": "https://www.oasa.gr/en/tickets/prices-of-products/"
+        }
+      ]
+    },
+    "airport": {
+      "date": "2026-10-14",
+      "sources": [
+        {
+          "name": "stasy.gr",
+          "url": "https://www.stasy.gr/en/timetables/line-3/"
+        },
+        {
+          "name": "oasa.gr",
+          "url": "https://www.oasa.gr/en/tickets/prices-of-products/"
+        }
+      ]
+    },
+    "night": {
+      "date": "2026-10-14",
+      "sources": [
+        {
+          "name": "osy.gr",
+          "url": "https://www.osy.gr/"
+        }
+      ]
+    }
+  }
+}

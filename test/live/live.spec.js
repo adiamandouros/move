@@ -1,10 +1,12 @@
 // The live site with its real data (npm run test:live, nightly): the pages
 // load without errors, the planner finds a route in the real timetable, the
-// announcements come in, and the bus page gets live times from OASA. Only
+// announcements come in, the Info page's facts aren't too old, and the bus
+// page gets live times from OASA. Only
 // what breaks is checked, not what changes: at 3 a.m. there may be no buses,
 // but there must be an answer.
 import { axe, expect, test } from '../browser/fixtures.js';
 import { hashOf, inlineScripts } from '../../server/csp.js';
+import { FACTS_MAX_AGE_DAYS } from '../../server/diagnostics.js';
 
 // The real time, not the browser tests' fixed one; the location stays Syntagma
 test.use({ now: null });
@@ -29,6 +31,17 @@ test('the announcements come in', async ({ page }) => {
     const list = page.locator('#announcements');
     await expect(list).not.toContainText('Loading announcements');
     await expect(list).not.toContainText('Couldn\'t load the announcements');
+});
+
+// Closing times, prices and night buses are written by hand: a reminder to
+// check them again, as visitors see them (the dates come from tools/info/data.json)
+test(`the facts on the Info page were checked in the last ${FACTS_MAX_AGE_DAYS} days`, async ({ page }) => {
+    await page.goto('/info');
+    const notes = await page.locator('.info-source').allTextContents();
+    const dates = notes.flatMap(text => [...text.matchAll(/Checked on (\d\d)\/(\d\d)\/(\d{4})/g)]).map(([, d, m, y]) => `${y}-${m}-${d}`);
+    expect(dates.length, 'the "Checked on" notes').toBeGreaterThanOrEqual(4);
+    const old = dates.filter(date => (Date.now() - Date.parse(date)) / 86_400_000 > FACTS_MAX_AGE_DAYS);
+    expect(old, 'checked too long ago: check them against the linked sources, then update the page and tools/info/data.json').toEqual([]);
 });
 
 test('the bus page gets live times from OASA', async ({ page }) => {

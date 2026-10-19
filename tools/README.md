@@ -10,6 +10,7 @@ tools/<id>/
   tool.json      settings (below)
   page.hbs       the page's view, placed inside <main> (a Handlebars template, see ARCHITECTURE.md, "Views")
   strings.json   { "en": { "key": "text" }, "el": { … } } — use with {{t "key"}} in page.hbs, or t('key') in a script
+  data.json      optional: the values page.hbs gets, e.g. when its facts were checked ({{> checked checked.hours}})
   client/        browser files, served at /tools/<id>/
 ```
 

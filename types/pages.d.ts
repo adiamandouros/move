@@ -32,6 +32,8 @@ export interface Tool {
     page: string;
     /** strings.json */
     strings: Strings;
+    /** data.json: the values its page.hbs gets ({} without one) */
+    data: Record<string, any>;
     /** Full path of client/ */
     clientDir: string;
 }

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { escapeHtml, format, html, Html, icon, localName, raw, safeUrl, setHtml, walkingUrl } from '../public/js/core/html.js';
-import { clockTime, feedDate, lineBadge } from '../public/js/core/metro.js';
+import { escapeHtml, format, formatDate, html, Html, icon, localName, raw, safeUrl, setHtml, walkingUrl } from '../public/js/core/html.js';
+import { clockTime, lineBadge } from '../public/js/core/metro.js';
 
 // Building HTML (public/js/core/html.js): html`` escapes every value put into
 // it, except pieces it built itself; and the small helpers around it
@@ -74,7 +74,7 @@ test('walking directions, times and dates', () => {
     assert.equal(walkingUrl(37.97, 23.73), 'https://www.google.com/maps/dir/?api=1&destination=37.97,23.73&travelmode=walking');
     assert.equal(clockTime(5 * 3600 + 32 * 60 + 59), '05:32');
     assert.equal(clockTime(24 * 3600 + 15 * 60), '00:15');
-    assert.equal(feedDate('2026-10-31'), '31/10/2026');
+    assert.equal(formatDate('2026-10-31'), '31/10/2026');
 });
 
 test('icon() is built with html``, so its classes are escaped', () => {
