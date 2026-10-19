@@ -83,6 +83,15 @@ const api = (path, cookie, init = {}) => fetch(`${base}/api${path}`, {
     redirect: 'manual',
 });
 
+test('names every object has aren\'t lines, directions or stations: 404, not a crash', async () => {
+    const { cookie } = await login();
+    for (const path of ['/positions/constructor/kifisia/moschato', '/positions/__proto__/kifisia/moschato', '/positions/M1/constructor/moschato', '/positions/M1/kifisia/toString']) {
+        const put = await api(path, cookie, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entry: { exits: ['front'] } }) });
+        assert.equal(put.status, 404, `PUT ${path}`);
+        assert.equal((await api(path, cookie, { method: 'DELETE' })).status, 404, `DELETE ${path}`);
+    }
+});
+
 test('createAdmin is disabled without a password', () => {
     assert.equal(createAdmin({ password: '' }), null);
 });

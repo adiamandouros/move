@@ -57,7 +57,8 @@ export function stationSearch({ input, list, rail, onChange }) {
     }
 
     function set(id, { notify = true } = {}) {
-        selected = id && rail.stations[id] ? id : null;
+        // Object.hasOwn: ?from=constructor isn't a station
+        selected = id && Object.hasOwn(rail.stations, id) ? id : null;
         input.value = selected ? stationName(rail.stations[selected]) : '';
         hide();
         if (notify) onChange(selected);

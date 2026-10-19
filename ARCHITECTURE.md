@@ -35,6 +35,7 @@ lists them all and says where the rest are:
 | About, Privacy, Contact | `registry.js` | `server/views/pages/<name>.<lang>.html`, one file per language |
 | Metro stations | `server/pages/stations.js` | written from `rail.json` on request |
 | Not found (404) | `registry.js` (`NOT_FOUND`) | `server/views/notfound.html` |
+| Error (500) | `registry.js` (`SERVER_ERROR`) | `server/views/error.html` |
 | Admin | `server/admin/` | `admin/*.html`, English only |
 
 ### How a page is rendered
@@ -174,6 +175,11 @@ error details. Every 30 minutes, `.github/workflows/health.yml` runs
 health page, and rechecks a problem after 2 minutes. While the site is
 unhealthy, an issue labelled `health` stays open; GitHub emails it.
 `/admin/diagnostics` has the details.
+
+`server/errors.js` is the last stop for a request whose answer failed: the
+error is logged, and the visitor gets the error page (JSON from an API)
+without its details. Look things up by an address's part with
+`Object.hasOwn`, so `constructor` or `__proto__` in an address finds nothing.
 
 `server/security.js` adds the security headers to every response, including
 the Content-Security-Policy from `server/csp.js`. The policy is built at

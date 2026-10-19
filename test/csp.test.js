@@ -15,12 +15,12 @@ import { rail } from './fixtures/rail.js';
 
 const directive = (policy, name) => policy.split('; ').find(d => d.startsWith(`${name} `))?.split(' ').slice(1) ?? [];
 
-// Every page: the registry's in both languages, the 404s, the station pages,
+// Every page: the registry's in both languages, the 404s, the error pages, the station pages,
 // a page rendered for the admin, and the pages with every ad setting on
 function everyPage() {
     const tools = loadTools();
-    const { pages, notFound, render } = renderPages(tools);
-    const all = { ...pages, '(404)': notFound('/nope'), '(404, Greek)': notFound('/el/nope'), '(admin)': render({ title: 'Admin', content: '<p>x</p>' }) };
+    const { pages, notFound, errorPage, render } = renderPages(tools);
+    const all = { ...pages, '(404)': notFound('/nope'), '(404, Greek)': notFound('/el/nope'), '(error)': errorPage('/x'), '(error, Greek)': errorPage('/el/x'), '(admin)': render({ title: 'Admin', content: '<p>x</p>' }) };
     for (const lang of ['en', 'el']) for (const id of [null, 'x', 'a']) all[`(station ${id ?? 'index'}, ${lang})`] = renderStationPage(rail, id, lang, { render, tools });
     const keys = ['ADSENSE_CLIENT', 'ADSENSE_SLOT_HOME', 'ADSENSE_SLOT_INFO', 'ADSENSE_SLOT_STATION'];
     const saved = Object.fromEntries(keys.map(k => [k, process.env[k]]));

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import http from 'http';
 import { loadTools, sitePages } from '../server/pages/registry.js';
-import { down, site } from './support/test-site.js';
+import { brokenData, down, site } from './support/test-site.js';
 
 // The whole server (server/app.js) as a browser or a search engine meets it,
 // over HTTP, without a browser: what every kind of address answers, with
@@ -66,6 +66,56 @@ test('unknown addresses get the not-found page, in their language', async () => 
         assert.match(html, new RegExp(`<html lang="${lang}"`), path);
         assert.match(html, new RegExp(`<h1[^>]*>[^<]*${title}`), path);
     }
+});
+
+test('names every object has aren\'t stations: the not-found page, not a crash', async () => {
+    for (const id of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
+        for (const [lang, path] of [['en', `/subway/stations/${id}`], ['el', `/el/subway/stations/${id}`]]) {
+            const res = await get(path);
+            assert.equal(res.status, 404, path);
+            const html = await res.text();
+            assert.match(html, new RegExp(`<html lang="${lang}"`), path);
+            assert.doesNotMatch(html, /TypeError|node_modules/, path);
+        }
+    }
+});
+
+test('a page that can\'t be drawn: the error page in its language, the details only in the log', async () => {
+    const logged = [];
+    const broken = await serve({ buildDir: brokenData(), logError: message => logged.push(message) });
+    for (const [lang, path, title] of [['en', '/subway/stations/omonia', 'Something went wrong'], ['el', '/el/subway/stations/omonia', 'Κάτι πήγε στραβά']]) {
+        const res = await broken(path);
+        assert.equal(res.status, 500, path);
+        assert.equal(res.headers.get('cache-control'), 'no-store', path);
+        const html = await res.text();
+        assert.match(html, new RegExp(`<html lang="${lang}"`), path);
+        assert.match(html, new RegExp(`<h1[^>]*>[^<]*${title}`), path);
+        assert.doesNotMatch(html, /TypeError|\bat \w+ \(|node_modules|\/home\//, path);
+    }
+    assert.equal(logged.length, 2);
+    assert.match(logged[0], /^\[server\] GET \/subway\/stations\/omonia failed: TypeError/);
+    // The rest of the site still works
+    assert.equal((await broken('/subway/stations/syntagma')).status, 200);
+});
+
+test('an API answer that fails: a JSON error without details', async () => {
+    const logged = [];
+    const failing = await serve({ limiter: { take() { throw new Error('limiter broke'); } }, logError: message => logged.push(message) });
+    const res = await failing('/api/arrivals?stops=10157');
+    assert.equal(res.status, 500);
+    assert.deepEqual(await res.json(), { error: 'Internal Server Error' });
+    assert.equal(logged.length, 1);
+});
+
+test('a request the server refuses (a login form that\'s too big) keeps its status, without details', async () => {
+    const logged = [];
+    const admin = await serve({ adminPassword: 'secret', logError: message => logged.push(message) });
+    const res = await admin('/admin/login', {
+        method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `password=${'x'.repeat(5000)}`,
+    });
+    assert.equal(res.status, 413);
+    assert.doesNotMatch(await res.text(), /PayloadTooLargeError|node_modules/);
+    assert.deepEqual(logged, []);
 });
 
 test('data files are revalidated every time, and unchanged ones cost a 304', async () => {

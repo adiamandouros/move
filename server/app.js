@@ -17,6 +17,7 @@ import { securityHeaders } from './security.js';
 import { contentSecurityPolicy, cspHeaders, REPORT_PATH } from './csp.js';
 import { createCspReports } from './csp-reports.js';
 import { adsenseClient } from './ads.js';
+import { errorHandler } from './errors.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATA_DIR = path.join(ROOT, 'data');
@@ -30,6 +31,7 @@ const DATA_DIR = path.join(ROOT, 'data');
 //   oasaClient, limiter: stand-ins for OASA and the per-visitor limit (oasa/index.js), for tests
 //   cspMode:  'report-only' (browsers report what the policy would block) or
 //             'enforce'; CSP_MODE in .env, report-only by default while it's tried out
+//   logError: where failed requests are logged (server/errors.js)
 export function createApp({
     buildDir = BUILD_DIR,
     cacheDir = path.join(DATA_DIR, 'cache'),
@@ -39,6 +41,7 @@ export function createApp({
     oasaClient = createOasaClient({ relays, fetch }),
     limiter = undefined,
     cspMode = process.env.CSP_MODE === 'enforce' ? 'enforce' : 'report-only',
+    logError = console.error,
 } = {}) {
     // Pages first: the Content-Security-Policy is built from their inline scripts
     const pages = createPages(undefined, { railFile: path.join(buildDir, 'rail.json') });
@@ -105,5 +108,7 @@ export function createApp({
     app.use(express.static(path.join(ROOT, 'public'), { index: false }));
 
     app.use(pages.notFound);
+    // Anything that failed: logged, and answered without its details
+    app.use(errorHandler({ page: pages.errorPage, log: logError }));
     return app;
 }

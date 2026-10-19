@@ -24,6 +24,7 @@ import { STATIONS_PATH } from './stations.js';
 // Pages that aren't in this list:
 //   - the station pages (STATION_PATHS), built on request from rail.json by stations.js
 //   - the 404 page (NOT_FOUND), rendered for the address that wasn't found
+//   - the error page (SERVER_ERROR), for an address whose answer failed
 //   - the admin pages (server/admin/), private and in English only
 
 const ROOT      = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -79,6 +80,10 @@ export function sitePages(tools) {
 
 /** @type {Page} */
 export const NOT_FOUND = { title: 'notfound.title', index: false, content: () => view('notfound') };
+
+// When answering failed (server/errors.js)
+/** @type {Page} */
+export const SERVER_ERROR = { title: 'error.title', index: false, content: () => view('error') };
 
 export const STATION_PATHS = [STATIONS_PATH, `${STATIONS_PATH}/*`];
 

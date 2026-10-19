@@ -5,7 +5,7 @@ import { adsTxt } from '../ads.js';
 import { basePath, langOf, LANGS, localPath, pageStrings } from './i18n.js';
 import { iconSprite } from './icons.js';
 import { createRenderer } from './layout.js';
-import { loadTools, NOT_FOUND, sitePages, STATION_PATHS } from './registry.js';
+import { loadTools, NOT_FOUND, SERVER_ERROR, sitePages, STATION_PATHS } from './registry.js';
 import { renderServiceWorker } from './service-worker.js';
 import { robotsTxt, siteUrl, sitemapXml } from './seo.js';
 import { createStationPages } from './stations.js';
@@ -22,7 +22,8 @@ import { createStationPages } from './stations.js';
 //   stations.js         the station pages, built from rail.json
 
 // Every page in sitePages (registry.js), rendered in each language, by path;
-// render, for the pages that aren't in the list; notFound(path), the 404 page
+// render, for the pages that aren't in the list; notFound(path), the 404 page;
+// errorPage(path), the page for when answering failed
 /** @param {import('../../types/pages.js').Tool[]} [tools] */
 export function renderPages(tools = loadTools()) {
     const list = sitePages(tools);
@@ -55,9 +56,11 @@ export function renderPages(tools = loadTools()) {
     }
     // The 404 page for a path, in its language, with the language link to the same path
     const notFound = path => renderPage(NOT_FOUND, langOf(path), basePath(path));
+    // The same for the error page (server/errors.js)
+    const errorPage = path => renderPage(SERVER_ERROR, langOf(path), basePath(path));
     // The pages search engines should find (English paths), for the sitemap
     const indexed = list.filter(page => page.index !== false).map(page => page.path);
-    return { pages, indexed, notFound, render };
+    return { pages, indexed, notFound, errorPage, render };
 }
 
 // The app manifest in one language (public/icon/site.webmanifest is the
@@ -74,7 +77,7 @@ export function appManifest(lang, description) {
 // at startup; `node --watch` restarts the server when these files change.
 /** @param {import('../../types/pages.js').Tool[]} [tools] @param {{ railFile?: string }} [options] */
 export function createPages(tools = loadTools(), { railFile } = {}) {
-    const { pages, indexed, notFound, render } = renderPages(tools);
+    const { pages, indexed, notFound, errorPage, render } = renderPages(tools);
     const serviceWorker = renderServiceWorker(tools, pages);
     const router = express.Router();
     // The station pages, built from rail.json (when there is one)
@@ -126,7 +129,9 @@ export function createPages(tools = loadTools(), { railFile } = {}) {
         // The inline scripts of every page, for the Content-Security-Policy
         // (server/csp.js). Station and admin pages share the layout, so the
         // same scripts; csp.test.js checks every page against the policy.
-        inlineScripts: new Set([...Object.values(pages), notFound('/'), notFound('/el/')].flatMap(inlineScripts)),
+        inlineScripts: new Set([...Object.values(pages), notFound('/'), notFound('/el/'), errorPage('/')].flatMap(inlineScripts)),
         notFound: (req, res) => res.status(404).type('html').send(notFound(req.path)),
+        // The error page for an address, in its language (server/errors.js)
+        errorPage,
     };
 }

@@ -13,7 +13,7 @@ import { formProblems, headingProblems, iconProblems, idProblems, nameProblems, 
 // scripts (announcements, routes, arrivals) is checked in real browsers by
 // test/browser/ (axe-core and a keyboard walk on every page).
 
-const { pages, notFound, render } = renderPages();
+const { pages, notFound, errorPage, render } = renderPages();
 const tools = loadTools();
 // The station pages, from a small network (the real rail.json isn't in the repository)
 const stationPages = Object.fromEntries(['en', 'el'].flatMap(lang => [null, 'x', 'a', 'b', 'c'].map(id =>
@@ -34,7 +34,7 @@ const adPages = (() => {
         for (const k of keys) saved[k] === undefined ? delete process.env[k] : process.env[k] = saved[k];
     }
 })();
-const all = { ...pages, '(404)': notFound('/nope'), '(404, Greek)': notFound('/el/nope'), ...stationPages, ...adPages };
+const all = { ...pages, '(404)': notFound('/nope'), '(404, Greek)': notFound('/el/nope'), '(error)': errorPage('/subway/stations/x'), '(error, Greek)': errorPage('/el/subway/stations/x'), ...stationPages, ...adPages };
 
 // Every string in each language: the shell's, the station pages', each tool's and the tools' names
 const STRINGS = { en: {}, el: {} };

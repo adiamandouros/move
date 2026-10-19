@@ -4,7 +4,7 @@
 // accessible, keep trying at the approved pace, and recover by itself.
 // The scenarios are copies of the site in server.js; the bus page's timing
 // rules are in tools/buses/client/timing.js.
-import { axe, expect, setScenario, test } from './fixtures.js';
+import { axe, expect, keyboardWalk, setScenario, test } from './fixtures.js';
 
 // The same in every browser: one phone is enough
 test.beforeEach(({}, { project }) => test.skip(project.name !== 'phone', 'the same everywhere: runs on phone only'));
@@ -144,5 +144,24 @@ test.describe('losing the connection on the bus page', () => {
         await page.clock.fastForward(33_000);
         await expect.poll(() => asked.length).toBeGreaterThan(offline);
         await expect(status(page)).toBeHidden();
+    });
+});
+
+test.describe('a page that can\'t be drawn', () => {
+    // Omonia's data is broken in this copy of the site, so its page fails (500)
+    test.use({ scenario: 'broken-data', allowErrors: [/status of 500/] });
+
+    test('the error page, in the page\'s language, without the error, and a way home', async ({ page }) => {
+        for (const [path, title, home] of [['/subway/stations/omonia', 'Something went wrong', 'Go to the home page'], ['/el/subway/stations/omonia', 'Κάτι πήγε στραβά', 'Μετάβαση στην αρχική σελίδα']]) {
+            const res = await page.goto(path);
+            expect(res.status()).toBe(500);
+            await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
+            await expect(page.locator('main')).not.toContainText('TypeError');
+            expect(await axe(page)).toEqual([]);
+            const walk = await keyboardWalk(page);
+            expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
+            await page.getByRole('link', { name: home }).click();
+            await expect(page).toHaveURL(path.startsWith('/el') ? /\/el$/ : /\/$/);
+        }
     });
 });
