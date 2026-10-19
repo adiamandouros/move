@@ -6,11 +6,13 @@
 
 export const attr = (tag, name) => tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1];
 
-// Text a screen reader would read: tags removed, aria-hidden parts dropped
+// Text a screen reader would read: tags removed, aria-hidden parts dropped.
+// Each check takes HTML as a string or built with html``.
 export function spoken(fragment) {
-    return fragment
+    return String(fragment)
         .replace(/<(\w+)[^>]*aria-hidden="true"[^>]*>[\s\S]*?<\/\1>/g, '')
         .replace(/<[^>]+>/g, '')
+        .replace(/&(amp|lt|gt|quot|#39);/g, (_, name) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" })[name])
         .replace(/&\w+;/g, ' ')
         .trim();
 }
@@ -72,7 +74,8 @@ export function untranslatedProblems(html, keys) {
 }
 
 // Everything above, for a piece of a page (ids it points at must be in it too)
-export function markupProblems(html, { keys = [] } = {}) {
+export function markupProblems(view, { keys = [] } = {}) {
+    const html = String(view);
     return [
         ...headingProblems(html), ...nameProblems(html), ...iconProblems(html), ...newTabProblems(html),
         ...idProblems(html), ...formProblems(html), ...untranslatedProblems(html, keys),

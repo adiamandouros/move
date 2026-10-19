@@ -1,4 +1,4 @@
-import { escapeHtml, icon } from '/js/core/html.js';
+import { html, icon, localName, setHtml } from '/js/core/html.js';
 import { language, localHref, t } from '/js/core/i18n.js';
 import { BENDS, DASHED, STATIONS } from './map-layout.js';
 
@@ -33,6 +33,9 @@ function linePoints(ids) {
 
 const pathData = points => points.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join('');
 
+// A line's colour for the map: rail.json's, if it's a #rrggbb colour
+const lineColor = line => /^#[0-9a-f]{6}$/i.test(line.color) ? line.color : '#6c757d';
+
 // Text placement for each label side: offset direction, anchor and baseline
 const SIDES = {
     n:  [0, -1, 'middle', 'auto'],
@@ -50,48 +53,43 @@ function drawMap(rail) {
 
     const tracks = lines.map(([id, line]) => {
         const ids = lineStations(line);
-        let out = `<path class="map-line" d="${pathData(linePoints(ids))}" stroke="${line.color}"/>`;
         const dashed = DASHED[id];
-        if (dashed) {
-            const [a, b] = dashed.map(s => ids.indexOf(s)).sort((x, y) => x - y);
-            out += `<path class="map-line-dash" d="${pathData(linePoints(ids.slice(a, b + 1)))}"/>`;
-        }
-        return out;
-    }).join('');
+        const [a, b] = dashed ? dashed.map(s => ids.indexOf(s)).sort((x, y) => x - y) : [];
+        return html`<path class="map-line" d="${pathData(linePoints(ids))}" stroke="${lineColor(line)}"/>${dashed && html`<path class="map-line-dash" d="${pathData(linePoints(ids.slice(a, b + 1)))}"/>`}`;
+    });
 
     const stations = Object.entries(rail.stations).filter(([id]) => STATIONS[id]).map(([id, station]) => {
         const [x, y] = point(id);
         const [dx, dy, anchor, baseline] = SIDES[STATIONS[id][2]];
         const interchange = station.lines.length > 1;
-        const name = station.name[language] ?? station.name.en;
-        const color = rail.lines[station.lines[0]].color;
-        return `<g class="map-station${interchange ? ' map-interchange' : ''}" data-station="${escapeHtml(id)}">
-            <title>${escapeHtml(name)}</title>
-            <circle cx="${x}" cy="${y}" r="${interchange ? 9 : 6}"${interchange ? '' : ` stroke="${color}"`}/>
-            <text x="${x + dx * LABEL_GAP}" y="${y + dy * LABEL_GAP}" text-anchor="${anchor}" dominant-baseline="${baseline}">${escapeHtml(name)}</text>
+        const name = localName(station.name, language);
+        return html`<g class="map-station${interchange ? ' map-interchange' : ''}" data-station="${id}">
+            <title>${name}</title>
+            <circle cx="${x}" cy="${y}" r="${interchange ? 9 : 6}"${!interchange && html` stroke="${lineColor(rail.lines[station.lines[0]])}"`}/>
+            <text x="${x + dx * LABEL_GAP}" y="${y + dy * LABEL_GAP}" text-anchor="${anchor}" dominant-baseline="${baseline}">${name}</text>
         </g>`;
-    }).join('');
+    });
 
-    return `<g class="map-content">${tracks}${stations}</g>`;
+    return html`<g class="map-content">${tracks}${stations}</g>`;
 }
 
 export function createMetroMap(container, rail) {
-    const button = (zoom, key, symbol) => `<button type="button" class="btn map-btn" data-zoom="${zoom}"
+    const button = (zoom, key, symbol) => html`<button type="button" class="btn map-btn" data-zoom="${zoom}"
         aria-label="${t(key)}" title="${t(key)}">${icon(symbol)}</button>`;
-    container.innerHTML = `
+    setHtml(container, html`
         <div class="map-controls">
             ${button('in', 'info.zoom-in', 'plus-lg')}
             ${button('out', 'info.zoom-out', 'dash-lg')}
             ${button('reset', 'info.zoom-reset', 'arrows-angle-contract')}
         </div>
-        <svg xmlns="${NS}" class="map-svg" role="img" aria-label="${t('info.map-label')}" aria-describedby="map-help" tabindex="0"></svg>`;
+        <svg xmlns="${NS}" class="map-svg" role="img" aria-label="${t('info.map-label')}" aria-describedby="map-help" tabindex="0"></svg>`);
     const svg = container.querySelector('.map-svg');
 
     let base;   // the whole map, as a viewBox
     let view;   // the visible part
 
     function draw() {
-        svg.innerHTML = drawMap(rail);
+        setHtml(svg, drawMap(rail));
         const box = svg.querySelector('.map-content').getBBox();
         const pad = UNIT / 2;
         base = { x: box.x - pad, y: box.y - pad, w: box.width + 2 * pad, h: box.height + 2 * pad };
@@ -219,15 +217,15 @@ export function createMetroMap(container, rail) {
 // The stations of each line in order, as lists of links, with the changes
 // to other lines. The accessible counterpart of the map.
 export function stationList(rail) {
-    const name = id => rail.stations[id].name[language] ?? rail.stations[id].name.en;
-    return Object.entries(rail.lines).map(([lineId, line]) => {
+    const name = id => localName(rail.stations[id].name, language);
+    return html`${Object.entries(rail.lines).map(([lineId, line]) => {
         const ids = lineStations(line);
         const items = ids.map(id => {
             const others = rail.stations[id].lines.filter(l => l !== lineId);
-            const change = others.length ? ` <span class="station-change">· ${t('info.change-to')} ${others.join(', ')}</span>` : '';
-            return `<li><a href="${localHref(`/subway?to=${encodeURIComponent(id)}`)}">${escapeHtml(name(id))}</a>${change}</li>`;
-        }).join('');
-        return `<h4 class="station-line"><span class="line-badge line-${lineId.toLowerCase()}">${lineId}</span> ${escapeHtml(name(ids[0]))} – ${escapeHtml(name(ids.at(-1)))}</h4>
+            const change = others.length > 0 && html` <span class="station-change">· ${t('info.change-to')} ${others.join(', ')}</span>`;
+            return html`<li><a href="${localHref(`/subway?to=${encodeURIComponent(id)}`)}">${name(id)}</a>${change}</li>`;
+        });
+        return html`<h4 class="station-line"><span class="line-badge line-${lineId.toLowerCase()}">${lineId}</span> ${name(ids[0])} – ${name(ids.at(-1))}</h4>
             <ol class="station-stops">${items}</ol>`;
-    }).join('');
+    })}`;
 }

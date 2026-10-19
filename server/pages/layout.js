@@ -27,7 +27,7 @@ export function fill(template, values) {
 //                the pages that are in them
 //   title        in the page's language, without " — Wayhop"
 //   active       the tool whose navigation entry is highlighted
-//   content      the HTML inside <main>
+//   content      the HTML inside <main> (a string, or built with html``)
 //   strings      the page's own strings ({ en, el }), for data-i18n and its scripts
 //   scripts      browser modules to load
 //   head         more for <head> (e.g. structured data)
@@ -42,7 +42,9 @@ export function createRenderer(tools, pagePaths, config) {
     const imports = importMap(tools);
     const stringsFor = pageStrings(tools);
 
-    return ({ lang = 'en', active = null, title, path = null, index = true, description = '', content, strings: own, scripts = [], head = '', ad = null }) => {
+    return ({ lang = 'en', active = null, title, path = null, index = true, description = '', content: view, strings: own, scripts = [], head = '', ad = null }) => {
+        // Built with html`` (the station pages) or read from a view
+        const content = String(view);
         const strings = stringsFor(lang, own);
         // /js/core/ads.js loads AdSense for the ad slot, and for the privacy
         // page's ad choices button

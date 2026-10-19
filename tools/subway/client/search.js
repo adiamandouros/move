@@ -1,5 +1,6 @@
-import { textOn } from '/js/core/html.js';
+import { html, localName, setHtml } from '/js/core/html.js';
 import { language } from '/js/core/i18n.js';
+import { lineBadge } from '/js/core/metro.js';
 
 const MAX_SUGGESTIONS = 8;
 
@@ -7,7 +8,7 @@ export function normalise(text) {
     return text.toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ς/g, 'σ');
 }
 
-const stationName = station => station.name[language] ?? station.name.en;
+const stationName = station => localName(station.name, language);
 
 // Stations whose Greek or English name contains the query; names that start
 // with it come first.
@@ -33,20 +34,18 @@ export function stationSearch({ input, list, rail, onChange }) {
 
     function render(ids) {
         if (!ids.length) { hide(); return; }
-        list.innerHTML = ids.map(id => {
+        setHtml(list, html`${ids.map(id => {
             const s = rail.stations[id];
-            const badges = s.lines.map(line =>
-                `<span class="suggestion-line-badge" style="background-color:${rail.lines[line].color}; color:${textOn(rail.lines[line].color)}">${rail.lines[line].name}</span>`).join('');
-            return `
+            return html`
             <li role="option" aria-selected="false" class="suggestion-item" tabindex="-1" data-id="${id}">
                 <span class="suggestion-names">
                     <span class="suggestion-name-gr" lang="el">${s.name.el}</span>
                     <span class="suggestion-name-en" lang="en">${s.name.en}</span>
                 </span>
-                <span class="suggestion-lines" aria-hidden="true">${badges}</span>
+                <span class="suggestion-lines" aria-hidden="true">${s.lines.map(line => lineBadge(rail.lines[line], 'suggestion-line-badge'))}</span>
                 <span class="sr-only">, ${s.lines.join(', ')}</span>
             </li>`;
-        }).join('');
+        })}`);
         list.hidden = false;
         input.setAttribute('aria-expanded', 'true');
     }

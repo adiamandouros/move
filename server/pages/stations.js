@@ -5,8 +5,8 @@ import { readFileSync, statSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
-import { escapeHtml, format, icon } from '../../public/js/core/html.js';
-import { lineBadge, trainDiagram } from '../../public/js/core/metro.js';
+import { format, html, icon, localName, walkingUrl } from '../../public/js/core/html.js';
+import { clockTime, feedDate, lineBadge, trainDiagram } from '../../public/js/core/metro.js';
 import { athensDate } from '../../tools/subway/client/network.js';
 import { LANGS, localPath } from './i18n.js';
 import { structuredData } from './seo.js';
@@ -23,13 +23,6 @@ export const STATIONS_PATH = '/subway/stations';
 const DAY = 86_400;
 // Monday first, for grouping days like "Mon–Fri"
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
-
-
-// Seconds since midnight → "05:31" (trains after midnight belong to the day before)
-const clock = s => {
-    const m = Math.floor((s % DAY) / 60);
-    return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-};
 
 // First and last train leaving stop `index` on one direction, for each run of
 // days that look the same: [{ days: [1, 2, 3, 4, 5], first, last }], times in
@@ -71,15 +64,13 @@ export function firstAndLast(timetable, index) {
 function createWriter(rail, lang, tools) {
     const own = Object.fromEntries(LANGS.map(l => [l, { ...STRINGS[l], ...tools.find(t => t.id === 'subway')?.strings[l] }]));
     const s = key => own[lang][key] ?? own.en[key] ?? key;
-    const name = id => rail.stations[id].name[lang] ?? rail.stations[id].name.en;
+    const name = id => localName(rail.stations[id].name, lang);
     const href = id => `${STATIONS_PATH}/${id}`;
     const badge = line => lineBadge(rail.lines[line]);
     const days = list => list.length > 2
         ? `${s(`stations.day.${list[0]}`)}–${s(`stations.day.${list.at(-1)}`)}`
         : list.map(d => s(`stations.day.${d}`)).join(', ');
-    const [y, m, d] = rail.feed.validTo.split('-');
-    const validTo = `${d}/${m}/${y}`;
-    return { own, s, name, href, badge, days, validTo };
+    return { own, s, name, href, badge, days, validTo: feedDate(rail.feed.validTo) };
 }
 
 function directionCard(rail, w, lineId, dirId, id, n) {
@@ -89,41 +80,40 @@ function directionCard(rail, w, lineId, dirId, id, n) {
     const stop = direction.stops[index];
     const previous = direction.stops[index - 1]?.station;
     const next = direction.stops[index + 1]?.station;
-    const toward = direction.toward[w.lang] ?? direction.toward.en;
+    const toward = localName(direction.toward, w.lang);
     const headingId = `${lineId}-${dirId}-${n}`.toLowerCase();
-    const neighbours = [
-        previous && `<li>${s('stations.previous')}: <a href="${href(previous)}">${escapeHtml(name(previous))}</a></li>`,
-        next ? `<li>${s('stations.next')}: <a href="${href(next)}">${escapeHtml(name(next))}</a></li>` : `<li>${s('stations.terminus')}</li>`,
-    ].filter(Boolean).join('');
+    const neighbours = html`${previous && html`<li>${s('stations.previous')}: <a href="${href(previous)}">${name(previous)}</a></li>`}${next
+        ? html`<li>${s('stations.next')}: <a href="${href(next)}">${name(next)}</a></li>`
+        : html`<li>${s('stations.terminus')}</li>`}`;
 
     // Arriving here: where to ride for the exit and for each connection
-    const arriving = previous ? `
+    const arriving = previous && html`
             <h4 class="station-subheading">${s('stations.exit-heading')}</h4>
-            ${stop.exits.length ? `<p class="small mb-2">${s('stations.exit-text')}</p>${trainDiagram(rail.positions, stop.exits, stop.elevators ?? [], s)}` : `<p class="text-body-secondary fst-italic small">${s('subway.no-position-data')}</p>`}
-            ${stop.centralPlatform ? `<p class="central-platform-badge d-inline-block mt-2">${icon('symmetry-horizontal', 'me-1')}${s('subway.exit-left')}</p>` : ''}
+            ${stop.exits.length ? html`<p class="small mb-2">${s('stations.exit-text')}</p>${trainDiagram(rail.positions, stop.exits, stop.elevators ?? [], s)}` : html`<p class="text-body-secondary fst-italic small">${s('subway.no-position-data')}</p>`}
+            ${stop.centralPlatform && html`<p class="central-platform-badge d-inline-block mt-2">${icon('symmetry-horizontal', 'me-1')}${s('subway.exit-left')}</p>`}
             ${Object.entries(stop.transfers ?? {}).map(([to, where]) => {
                 const [line, dir] = to.split('/');
                 const target = rail.lines[line]?.directions[dir];
                 if (!target || !where.length) return '';
-                return `<p class="small mt-2 mb-0">${icon('arrow-left-right', 'me-1')}${escapeHtml(format(s('stations.transfer'), {
-                    line: rail.lines[line].name, name: target.toward[w.lang] ?? target.toward.en, where: where.map(p => s(`subway.pos.${p}`)).join(', '),
-                }))}</p>`;
-            }).join('')}
-            ${stop.note ? `<div class="stop-note mt-3">${icon('info-circle', 'me-1')}${escapeHtml(stop.note)}</div>` : ''}` : '';
+                return html`<p class="small mt-2 mb-0">${icon('arrow-left-right', 'me-1')}${format(s('stations.transfer'), {
+                    line: rail.lines[line].name, name: localName(target.toward, w.lang), where: where.map(p => s(`subway.pos.${p}`)).join(', '),
+                })}</p>`;
+            })}
+            ${stop.note && html`<div class="stop-note mt-3">${icon('info-circle', 'me-1')}${stop.note}</div>`}`;
 
     // Leaving from here: first and last trains
     const times = next ? firstAndLast(direction.timetable, index) : [];
-    const timetable = times.length ? `
+    const timetable = times.length > 0 && html`
             <h4 class="station-subheading">${s('stations.times-heading')}</h4>
             <table class="table table-sm station-times mb-0">
-                <caption class="sr-only">${escapeHtml(format(s('stations.times-caption'), { name: name(id), toward }))}</caption>
+                <caption class="sr-only">${format(s('stations.times-caption'), { name: name(id), toward })}</caption>
                 <thead><tr><th scope="col">${s('stations.days')}</th><th scope="col">${s('stations.first')}</th><th scope="col">${s('stations.last')}</th></tr></thead>
-                <tbody>${times.map(t => `<tr><th scope="row">${w.days(t.days)}</th><td>${t.first === null ? s('stations.all-night') : clock(t.first)}</td><td>${t.last === null ? s('stations.all-night') : clock(t.last)}</td></tr>`).join('')}</tbody>
-            </table>` : '';
+                <tbody>${times.map(t => html`<tr><th scope="row">${w.days(t.days)}</th><td>${t.first === null ? s('stations.all-night') : clockTime(t.first)}</td><td>${t.last === null ? s('stations.all-night') : clockTime(t.last)}</td></tr>`)}</tbody>
+            </table>`;
 
-    return `
+    return html`
         <div class="card result-card station-direction" role="group" aria-labelledby="${headingId}"><div class="card-body">
-            <h3 class="leg-title" id="${headingId}"><span aria-hidden="true">→ </span>${escapeHtml(format(s('stations.toward'), { name: toward }))}</h3>
+            <h3 class="leg-title" id="${headingId}"><span aria-hidden="true">→ </span>${format(s('stations.toward'), { name: toward })}</h3>
             <ul class="list-unstyled small station-neighbours">${neighbours}</ul>${arriving}${timetable}
         </div></div>`;
 }
@@ -136,28 +126,28 @@ export function stationContent(rail, id, lang, tools) {
     const [lat, lng] = station.coords;
     const expired = athensDate() > rail.feed.validTo;
     let n = 0;
-    const lines = station.lines.map(lineId => `
+    const lines = station.lines.map(lineId => html`
     <section class="station-section" aria-labelledby="line-${lineId.toLowerCase()}">
-        <h2 class="station-line-title" id="line-${lineId.toLowerCase()}">${badge(lineId)} ${escapeHtml(format(s('stations.line'), { n: lineId.replace(/^\D+/, '') }))}</h2>
+        <h2 class="station-line-title" id="line-${lineId.toLowerCase()}">${badge(lineId)} ${format(s('stations.line'), { n: lineId.replace(/^\D+/, '') })}</h2>
         ${Object.keys(rail.lines[lineId].directions)
             .filter(dir => rail.lines[lineId].directions[dir].stops.some(stop => stop.station === id))
-            .map(dir => directionCard(rail, w, lineId, dir, id, n++)).join('')}
-    </section>`).join('');
+            .map(dir => directionCard(rail, w, lineId, dir, id, n++))}
+    </section>`);
 
-    return `<div class="station-view">
+    return html`<div class="station-view">
     <nav aria-label="${s('stations.breadcrumb')}">
         <ol class="breadcrumb small mb-2">
             <li class="breadcrumb-item"><a href="/subway">${s('stations.subway')}</a></li>
             <li class="breadcrumb-item"><a href="${STATIONS_PATH}">${s('stations.title')}</a></li>
-            <li class="breadcrumb-item active" aria-current="page">${escapeHtml(name(id))}</li>
+            <li class="breadcrumb-item active" aria-current="page">${name(id)}</li>
         </ol>
     </nav>
-    <h1 class="fs-3 fw-semibold mb-1">${escapeHtml(name(id))}</h1>
-    <p class="text-body-secondary mb-3">${s('stations.lines-here')} ${station.lines.map(badge).join(' ')}</p>
+    <h1 class="fs-3 fw-semibold mb-1">${name(id)}</h1>
+    <p class="text-body-secondary mb-3">${s('stations.lines-here')} ${station.lines.map((line, i) => html`${i > 0 && ' '}${badge(line)}`)}</p>
     <div class="station-actions d-flex flex-wrap gap-2 mb-4">
         <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?from=${id}">${icon('signpost-split', 'me-1')}${s('stations.plan-from')}</a>
         <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?to=${id}">${icon('geo-alt', 'me-1')}${s('stations.plan-to')}</a>
-        <a class="btn btn-sm btn-outline-secondary rounded-pill" href="https://www.google.com/maps/dir/?api=1&amp;destination=${lat},${lng}&amp;travelmode=walking" target="_blank" rel="noopener">${icon('person-walking', 'me-1')}${s('stations.walk')} <span class="sr-only" data-i18n="shell.new-tab">(opens in a new tab)</span></a>
+        <a class="btn btn-sm btn-outline-secondary rounded-pill" href="${walkingUrl(lat, lng)}" target="_blank" rel="noopener">${icon('person-walking', 'me-1')}${s('stations.walk')} <span class="sr-only" data-i18n="shell.new-tab">(opens in a new tab)</span></a>
     </div>${lines}
     <p class="schedule-disclaimer">${icon('info-circle', 'me-1')}${format(s(expired ? 'stations.timetable-old' : 'stations.timetable'), { date: w.validTo })}</p>
 </div>`;
@@ -168,16 +158,16 @@ export function indexContent(rail, lang, tools) {
     const { s, name, href, badge } = { ...createWriter(rail, lang, tools) };
     const lines = Object.entries(rail.lines).map(([lineId, line]) => {
         const stops = Object.values(line.directions)[0].stops.map(stop => stop.station);
-        return `
+        return html`
     <section class="station-section" aria-labelledby="line-${lineId.toLowerCase()}">
-        <h2 class="station-line-title" id="line-${lineId.toLowerCase()}">${badge(lineId)} ${escapeHtml(format(s('stations.line'), { n: lineId.replace(/^\D+/, '') }))}</h2>
+        <h2 class="station-line-title" id="line-${lineId.toLowerCase()}">${badge(lineId)} ${format(s('stations.line'), { n: lineId.replace(/^\D+/, '') })}</h2>
         <ol class="station-stops">${stops.map(id => {
             const others = rail.stations[id].lines.filter(l => l !== lineId);
-            return `<li><a href="${href(id)}">${escapeHtml(name(id))}</a>${others.length ? ` <span class="station-change">· ${escapeHtml(format(s('stations.interchange'), { lines: others.join(', ') }))}</span>` : ''}</li>`;
-        }).join('')}</ol>
+            return html`<li><a href="${href(id)}">${name(id)}</a>${others.length > 0 && html` <span class="station-change">· ${format(s('stations.interchange'), { lines: others.join(', ') })}</span>`}</li>`;
+        })}</ol>
     </section>`;
-    }).join('');
-    return `<div class="station-view">
+    });
+    return html`<div class="station-view">
     <nav aria-label="${s('stations.breadcrumb')}">
         <ol class="breadcrumb small mb-2">
             <li class="breadcrumb-item"><a href="/subway">${s('stations.subway')}</a></li>
@@ -193,7 +183,7 @@ export function indexContent(rail, lang, tools) {
 // site (origin: the public address, SITE_URL)
 function stationData(rail, id, lang, s, origin) {
     const url = path => origin + localPath(path, lang);
-    const name = rail.stations[id].name[lang] ?? rail.stations[id].name.en;
+    const name = localName(rail.stations[id].name, lang);
     const [latitude, longitude] = rail.stations[id].coords;
     const graph = [
         { '@type': 'SubwayStation', name, ...(origin && { url: url(`${STATIONS_PATH}/${id}`) }), geo: { '@type': 'GeoCoordinates', latitude, longitude } },
