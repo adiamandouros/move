@@ -46,7 +46,7 @@ export function renderPages(tools = loadTools(), config = loadConfig({})) {
             content: page.content(lang, strings),
             strings: page.strings,
             scripts: page.scripts,
-            head: page.head?.(lang, s) ?? '',
+            structuredData: page.structuredData?.(lang, s) ?? null,
             active: page.active,
             ad: page.ad,
         });

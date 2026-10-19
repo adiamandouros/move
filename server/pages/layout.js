@@ -1,7 +1,8 @@
-import { adUnit, adsenseMeta } from '../ads.js';
+import { html } from '../../public/js/core/html.js';
+import { adUnit } from '../ads.js';
 import { importMap, versioned } from './assets.js';
 import { LANGS, localiseLinks, localPath, otherLang, pageStrings } from './i18n.js';
-import { metaTags } from './seo.js';
+import { pageMeta } from './seo.js';
 import { view } from './templates.js';
 
 // The layout every page shares (server/views/layout.hbs): the head, the
@@ -28,7 +29,8 @@ const LANGUAGE_LABELS = { en: 'EN', el: 'ΕΛ' };
 //   content      the HTML inside <main> (a string, or built with html``)
 //   strings      the page's own strings ({ en, el }), for its view and its scripts
 //   scripts      browser modules to load
-//   head         more for <head> (e.g. structured data)
+//   structuredData  schema.org data for <head> (seo.js), or null
+//   styles       more stylesheets (the admin pages')
 //   ad           where it has an ad slot (server/ads.js)
 /**
  * @param {import('../../types/pages.js').Tool[]} tools @param {string[]} pagePaths
@@ -40,7 +42,7 @@ export function createRenderer(tools, pagePaths, config) {
     const imports = importMap(tools);
     const stringsFor = pageStrings(tools);
 
-    return ({ lang = 'en', active = null, title, path = null, index = true, description = '', content: view, strings: own, scripts = [], head = '', ad = null }) => {
+    return ({ lang = 'en', active = null, title, path = null, index = true, description = '', content: view, strings: own, scripts = [], structuredData = null, styles = [], ad = null }) => {
         // Built with html`` (the station pages) or by a view
         const content = String(view);
         const strings = stringsFor(lang, own);
@@ -49,10 +51,11 @@ export function createRenderer(tools, pagePaths, config) {
         // page's ad choices button
         if (unit || content.includes('id="ad-choices"')) scripts = [...scripts, '/js/core/ads.js'];
         const other = path ? otherLang(lang) : null;
-        const html = layout({
+        const page = layout({
             lang,
-            // For icon() in the browser (public/js/core/html.js)
-            icons: versioned('/icons.svg'),
+            // For icon() in the browser (public/js/core/html.js); built with
+            // html``, so Handlebars keeps the = of its ?v= as it is
+            icons: html`${versioned('/icons.svg')}`,
             // This page in the other language
             other: other && { lang: other, path: localPath(path, other), name: LANGUAGE_NAMES[other] },
             languages: LANGS.map(l => ({ label: LANGUAGE_LABELS[l], active: l === lang })),
@@ -60,8 +63,10 @@ export function createRenderer(tools, pagePaths, config) {
             title,
             // The installed app opens in the language it was installed in
             manifest: localPath('/manifest.webmanifest', lang),
-            meta: [metaTags({ path, index, lang, title: `${title} — Wayhop`, description, origin: config.siteUrl }), adsenseMeta(config.adsense)].filter(Boolean).join('\n'),
-            head,
+            seo: pageMeta({ path, index, lang, title: `${title} — Wayhop`, description, origin: config.siteUrl }),
+            adsenseClient: config.adsense.client ?? null,
+            structuredData,
+            styles,
             importMap: imports,
             home: active === 'home',
             tools: tools.map(tool => ({
@@ -78,6 +83,6 @@ export function createRenderer(tools, pagePaths, config) {
         }, { lang, strings });
         // Links to stylesheets, scripts and icons, in the layout and the page,
         // at this deploy's version (assets.js); links to the pages in the page's language
-        return localiseLinks(html, lang, pagePaths).replace(/(href|src)="(\/[^"]+)"/g, (_, name, url) => `${name}="${versioned(url)}"`);
+        return localiseLinks(page, lang, pagePaths).replace(/(href|src)="(\/[^"]+)"/g, (_, name, url) => `${name}="${versioned(url)}"`);
     };
 }

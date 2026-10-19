@@ -52,7 +52,8 @@ export interface Page {
     content: (lang: Lang, strings: Record<string, string>) => string;
     strings?: Strings;
     scripts?: string[];
-    head?: (lang: Lang, s: StringGetter) => string;
+    /** Its schema.org data, for <head> (seo.js) */
+    structuredData?: (lang: Lang, s: StringGetter) => object;
     /** The tool whose navigation entry is highlighted */
     active?: string;
     /** Where it has an ad slot (server/ads.js) */
@@ -70,7 +71,10 @@ export interface RenderOptions {
     content: string | Html;
     strings?: Strings;
     scripts?: string[];
-    head?: string;
+    /** schema.org data for <head> (seo.js) */
+    structuredData?: object | null;
+    /** More stylesheets (the admin pages') */
+    styles?: string[];
     active?: string | null;
     ad?: string | null;
 }

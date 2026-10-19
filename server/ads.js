@@ -12,10 +12,6 @@
 
 /** @typedef {import('../types/config.js').Config['adsense']} AdSense */
 
-// Tells AdSense which account the site belongs to (its site review checks for it)
-/** @param {AdSense} adsense */
-export const adsenseMeta = adsense => adsense.client ? `    <meta name="google-adsense-account" content="${adsense.client}">` : '';
-
 // The ad unit for a place ({ client, slot }, drawn by the layout,
 // server/views/layout.hbs), or null when that place has no slot
 /** @param {AdSense} adsense @param {string | null} place @returns {{ client: string, slot: string } | null} */

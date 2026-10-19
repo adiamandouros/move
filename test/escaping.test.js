@@ -1,9 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
+import { listFiles } from '../server/pages/assets.js';
 import { renderPages } from '../server/pages/index.js';
 import { loadTools } from '../server/pages/registry.js';
 import { renderStationPage } from '../server/pages/stations.js';
+import { parseTemplate } from '../server/pages/templates.js';
 import { athensNow, planTrip } from '../tools/subway/client/network.js';
 import { rail as smallRail } from './fixtures/rail.js';
 import { browserModule } from './support/browser-modules.js';
@@ -83,4 +85,44 @@ test('announcements: titles are text, and only web addresses are linked', async 
     const unlinked = String(item({ title: 'Closed', link: 'javascript:alert(1)', date }, true));
     assert.doesNotMatch(unlinked, /<a\b|javascript:/);
     assert.match(unlinked, /<span lang="el">Closed<\/span>/);
+});
+
+// HTML is written in two ways only, both escaping what goes in: Handlebars
+// views (.hbs) and html`` (/js/core/html.js). Not in plain strings, and not
+// put into a view with {{{three braces}}}, except the page inside the layout.
+// (Strings may still start an XML or SVG document: the sitemap, the icon sprite.)
+const XML = new Set(['xml', 'urlset', 'url', 'loc', 'xhtml:link', 'svg', 'symbol']);
+const sources = dirs => dirs.flatMap(dir => listFiles(dir)).map(file => ({ file, text: readFileSync(file, 'utf8') }));
+
+test('no HTML in plain strings: views or html`` only', () => {
+    const found = [];
+    for (const { file, text } of sources(['server', 'public/js', 'tools', 'admin']).filter(f => f.file.endsWith('.js'))) {
+        // A string that starts with a tag, where a string can start (not inside html``)
+        for (const m of text.matchAll(/(?:^|[=(,:?[{]|return|&&|\|\|)\s*(?<!html)[`'"]\s*<\/?\??([a-zA-Z][\w:]*)/gm)) {
+            if (!XML.has(m[1])) found.push(`${file}:${text.slice(0, m.index).split('\n').length}`);
+        }
+    }
+    assert.deepEqual(found, []);
+});
+
+test('views put nothing in unescaped but the page inside the layout', () => {
+    const unescaped = [];
+    const walk = (node, file) => {
+        if (!node || typeof node !== 'object') return;
+        if (node.type === 'MustacheStatement' && node.escaped === false) unescaped.push(`${file}: {{{${node.path.original}}}}`);
+        for (const value of Object.values(node)) if (value && typeof value === 'object' && value !== node.loc) walk(value, file);
+    };
+    for (const { file, text } of sources(['server/views', 'admin', 'tools']).filter(f => f.file.endsWith('.hbs'))) walk(parseTemplate(text), file);
+    assert.deepEqual(unescaped, ['server/views/layout.hbs: {{{content}}}']);
+});
+
+test('what goes into <head> is escaped: title, description, structured data', () => {
+    const { render } = renderPages(loadTools());
+    const html = render({ title: EVIL, path: '/subway', description: EVIL, content: '', structuredData: { name: '</script><script>alert(1)</script>' }, styles: ['/admin/assets/admin.css'] });
+    const head = html.slice(0, html.indexOf('</head>'));
+    assert.doesNotMatch(head, /<img src=x|<\/script><script>alert/);
+    assert.match(head, /<meta property="og:title" content="&lt;img src&#x3D;x onerror&#x3D;&quot;alert\(1\)&quot;&gt; — Wayhop">/);
+    assert.match(head, /<script type="application\/ld\+json">\{"name":"\\u003c\/script>\\u003cscript>alert\(1\)\\u003c\/script>"\}<\/script>/);
+    // A page's own stylesheets (the admin pages')
+    assert.match(head, /<link rel="stylesheet" href="\/admin\/assets\/admin\.css">\n/);
 });

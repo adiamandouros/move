@@ -75,8 +75,12 @@ All in [server/pages/](server/pages/):
 Views are [Handlebars](https://handlebarsjs.com/) templates (`.hbs`),
 compiled once by [templates.js](server/pages/templates.js) and only on the
 server: browsers get finished HTML, and nothing is added to what they load.
-`{{value}}` is escaped; `{{{value}}}` is for HTML that's already built (the
-page's content inside the layout), and pieces built with ``html`` `` (a line
+HTML is written in two ways only, both escaping what goes in: views, and
+``html`` `` in JavaScript; never in plain strings (`test/escaping.test.js`
+checks). `{{value}}` is escaped; `{{{content}}}`, the page inside the
+layout, is the one value put in as it is. What goes into `<head>` is data
+too: `seo.js` gives the meta tags' values (`partials/meta.hbs` writes them),
+and structured data and the import map go in with `{{json}}`. Pieces built with ``html`` `` (a line
 badge, the train diagram, a stop's note) go in as `{{value}}`. The metro
 pieces both the subway page and the station pages show are built once, in
 `metro.js`, so they look the same on both. Five helpers:
