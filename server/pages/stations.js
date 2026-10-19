@@ -244,7 +244,8 @@ export function createStationPages({ railFile, render, tools }) {
 
     function page(id, lang) {
         const { rail, html } = current();
-        if (!rail || (id && !rail.stations[id])) return null;
+        // Object.hasOwn: "constructor" or "__proto__" in the address isn't a station
+        if (!rail || (id && !Object.hasOwn(rail.stations, id))) return null;
         const cacheKey = `${lang} ${id ?? ''}`;
         if (!html.has(cacheKey)) html.set(cacheKey, renderStationPage(rail, id, lang, { render, tools }));
         return html.get(cacheKey);

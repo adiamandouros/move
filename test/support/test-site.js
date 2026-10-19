@@ -1,7 +1,7 @@
 // The site the browser tests and the server tests run against: the real app
 // (server/app.js) with the data in test/browser/data/, a fake OASA and fake
 // announcement sources, so nothing reaches the network.
-import { mkdtempSync, readFileSync } from 'fs';
+import { copyFileSync, mkdtempSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
@@ -61,6 +61,17 @@ export async function fakeNetwork(url) {
     return new Response(body, { status: 200 });
 }
 
+// The test data with one station that can't be drawn (Omonia has no
+// coordinates), so its page fails: for the error page
+export function brokenData() {
+    const dir = mkdtempSync(join(tmpdir(), 'wayhop-broken-'));
+    for (const name of ['bus-stops.json', 'meta.json']) copyFileSync(join(DATA, name), join(dir, name));
+    const rail = JSON.parse(readFileSync(join(DATA, 'rail.json'), 'utf8'));
+    delete rail.stations.omonia.coords;
+    writeFileSync(join(dir, 'rail.json'), JSON.stringify(rail));
+    return dir;
+}
+
 // ── The site, and copies of it where things go wrong ────────────────────────
 // site(overrides): the app with this data and these fakes; createApp's
 // options override them. Scenarios are each their own copy (with their own
@@ -100,4 +111,6 @@ export const scenarios = () => ({
     'announcements-down': site({ fetch: down }),
     // Before the first data build: no rail.json or bus-stops.json
     'no-data': site({ buildDir: mkdtempSync(join(tmpdir(), 'wayhop-nodata-')) }),
+    // Omonia's page can't be drawn: the error page (its failure isn't logged here)
+    'broken-data': site({ buildDir: brokenData(), logError: () => {} }),
 });

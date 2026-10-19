@@ -150,9 +150,11 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
         });
     });
 
+    // object[key] when it's the object's own (so "constructor" in the address finds nothing)
+    const own = (object, key) => object && Object.hasOwn(object, key) ? object[key] : undefined;
     const target = (req, res) => {
         const { line, dir, station } = req.params;
-        const served = loadRail()?.lines[line]?.directions[dir]?.stops.some(s => s.station === station);
+        const served = own(own(loadRail()?.lines, line)?.directions, dir)?.stops.some(s => s.station === station);
         if (!served) { res.status(404).json({ error: `${line}/${dir} does not serve ${station}` }); return null; }
         return { line, dir, station };
     };
