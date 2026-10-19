@@ -174,3 +174,23 @@ test('the admin pages exist only with a password, and only after logging in', as
         assert.equal(res.headers.get('location'), '/admin/login', path);
     }
 });
+
+test('the Content-Security-Policy comes with every answer, and reports are taken', async () => {
+    for (const path of ['/', '/el/subway/stations/omonia', '/nope', '/api/arrivals?stops=10157']) {
+        const res = await get(path);
+        assert.match(res.headers.get('content-security-policy') ?? '', /^default-src 'self'; script-src 'self' 'sha256-/, path);
+        assert.equal(res.headers.get('reporting-endpoints'), 'csp="/api/csp-report"', path);
+    }
+    const report = await get('/api/csp-report', {
+        method: 'POST', headers: { 'content-type': 'application/csp-report' },
+        body: JSON.stringify({ 'csp-report': { 'document-uri': 'https://wayhop.gr/', 'effective-directive': 'img-src', 'blocked-uri': 'https://x.example/a.gif' } }),
+    });
+    assert.equal(report.status, 204);
+});
+
+test('while it\'s tried out, the policy is only reported', async () => {
+    const trying = await serve({ cspMode: 'report-only' });
+    const res = await trying('/');
+    assert.equal(res.headers.get('content-security-policy'), null);
+    assert.match(res.headers.get('content-security-policy-report-only') ?? '', /^default-src 'self'/);
+});

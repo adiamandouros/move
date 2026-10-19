@@ -75,6 +75,8 @@ export const site = (overrides = {}) => createApp({
     // Every test comes from 127.0.0.1, so the per-visitor limit would be shared
     limiter: { take: () => 0 },
     adminPassword: '',
+    // Enforced, so a page that breaks the policy fails its browser tests
+    cspMode: 'enforce',
     ...overrides,
 });
 // The site with /api/arrivals answered by `handler` instead

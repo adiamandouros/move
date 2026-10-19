@@ -14,6 +14,9 @@ import { canonicalHost } from './canonical-host.js';
 import { createAnnouncements } from './info/announcements.js';
 import { createHealth } from './health.js';
 import { securityHeaders } from './security.js';
+import { contentSecurityPolicy, cspHeaders, REPORT_PATH } from './csp.js';
+import { createCspReports } from './csp-reports.js';
+import { adsenseClient } from './ads.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATA_DIR = path.join(ROOT, 'data');
@@ -25,6 +28,8 @@ const DATA_DIR = path.join(ROOT, 'data');
 //   cacheDir: OASA's routes, the route status and the announcements (data/cache)
 //   fetch:    how OASA, STASY and the relays are reached
 //   oasaClient, limiter: stand-ins for OASA and the per-visitor limit (oasa/index.js), for tests
+//   cspMode:  'report-only' (browsers report what the policy would block) or
+//             'enforce'; CSP_MODE in .env, report-only by default while it's tried out
 export function createApp({
     buildDir = BUILD_DIR,
     cacheDir = path.join(DATA_DIR, 'cache'),
@@ -33,13 +38,19 @@ export function createApp({
     adminPassword = process.env.ADMIN_PASSWORD,
     oasaClient = createOasaClient({ relays, fetch }),
     limiter = undefined,
+    cspMode = process.env.CSP_MODE === 'enforce' ? 'enforce' : 'report-only',
 } = {}) {
+    // Pages first: the Content-Security-Policy is built from their inline scripts
+    const pages = createPages(undefined, { railFile: path.join(buildDir, 'rail.json') });
+    const csp = contentSecurityPolicy({ scripts: pages.inlineScripts, ads: Boolean(adsenseClient()) });
+    const cspReports = createCspReports();
+
     const app = express();
     // Behind cPanel's Apache proxy: trust its X-Forwarded-* headers for req.ip and req.secure
     app.set('trust proxy', 'loopback');
     // Other addresses (the old move.sonovabitc.win) redirect to SITE_URL
     app.use(canonicalHost());
-    app.use(securityHeaders());
+    app.use(securityHeaders({ csp: cspHeaders(csp, cspMode) }));
     app.use(compression());
 
     // Live bus arrivals from OASA, cached and rate-limited (see oasa/).
@@ -62,10 +73,12 @@ export function createApp({
     app.use('/api/announcements', announcements);
     // Whether the live site works, for the scheduled check (.github/workflows/health.yml)
     app.use('/api/health', createHealth({ busStatus: busApi.status, announcementStatus: announcements.status, buildDir, relays, fetch }));
+    // What the Content-Security-Policy blocked, as browsers report it (server/csp-reports.js).
+    // Before the bus API, which answers 404 for any other /api address.
+    app.use(REPORT_PATH, cspReports.router);
     app.use('/api', busApi);
 
-    // Station pages are built from rail.json, so they follow its weekly rebuild
-    const pages = createPages(undefined, { railFile: path.join(buildDir, 'rail.json') });
+    // Pages, and station pages built from rail.json, so they follow its weekly rebuild
     app.use(pages.router);
 
     // Private station editor — only exists when ADMIN_PASSWORD is set
@@ -79,7 +92,7 @@ export function createApp({
         // Fetches the announcements first, so their checks show the current state
         diagnose: async () => {
             await announcements.refreshNow();
-            return runDiagnostics({ dataDir: DATA_DIR, appStatus: busApi.status(), announcements: announcements.status() });
+            return runDiagnostics({ dataDir: DATA_DIR, appStatus: busApi.status(), announcements: announcements.status(), csp: { mode: cspMode, ...cspReports.status() } });
         },
     });
     if (admin) app.use('/admin', admin);

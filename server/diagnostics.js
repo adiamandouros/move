@@ -294,6 +294,26 @@ export function announcementChecks(sources, now = Date.now) {
     });
 }
 
+// What the Content-Security-Policy blocked, or would block in report-only
+// mode, as browsers reported it since the app started (server/csp-reports.js)
+export function cspChecks(csp, now = Date.now) {
+    if (!csp) return [];
+    const GROUP = 'Content Security Policy';
+    const ago = t => `${Math.max(0, Math.round((now() - Date.parse(t)) / 60_000))} min ago`;
+    const mode = csp.mode === 'enforce'
+        ? check(GROUP, 'Mode', 'ok', 'Enforced: browsers block anything the policy doesn\'t allow')
+        : check(GROUP, 'Mode', 'info', 'Report-only: browsers report what the policy would block, but block nothing', 'Once a week goes by without reports that matter, set CSP_MODE=enforce in .env and restart.');
+    const kinds = csp.kinds ?? [];
+    if (!kinds.length) return [mode, check(GROUP, 'Reports', 'ok', 'Nothing reported since the app started')];
+    return [
+        mode,
+        ...kinds.slice(0, 10).map(k => check(GROUP, `${k.directive}: ${k.blocked}`, 'warn',
+            `${k.count}× since the app started, last ${ago(k.last)} on ${k.page || 'an unknown page'}${k.source ? ` (from ${k.source})` : ''}`,
+            k.blocked.startsWith('chrome-extension') || k.blocked.startsWith('moz-extension') ? 'A browser extension, not the site: nothing to fix.' : undefined)),
+        ...(kinds.length > 10 || csp.dropped ? [check(GROUP, 'More', 'info', `${Math.max(0, kinds.length - 10)} more kinds not shown${csp.dropped ? `, ${csp.dropped} reports not kept (over the limit)` : ''}`)] : []),
+    ];
+}
+
 function verdict({ internet, ip, loc, dns, oasa, relays, appStatus }) {
     const ipText = ip ? ` (this server's public IP is ${ip})` : '';
     const abroad = r => Boolean(r.location) && r.location.loc !== 'GR';
@@ -360,6 +380,7 @@ function expectBlockedRelays(relays) {
  * @param {{
  *   env?: Record<string, string | undefined>, dataDir?: string, appStatus?: any, announcements?: any,
  *   fetch?: typeof globalThis.fetch, dnsLookup?: typeof lookup, now?: () => number, nodeVersion?: string,
+ *   csp?: { mode: string, kinds?: any[], dropped?: number } | null,
  * }} [options]
  */
 export async function runDiagnostics({
@@ -371,6 +392,7 @@ export async function runDiagnostics({
     dnsLookup = lookup,
     now = Date.now,
     nodeVersion = process.version,
+    csp = null,
 } = {}) {
     const hosts = ['telematics.oasa.gr', 'catalog.growthfund.gr'];
     const relaySettings = relaysFromEnv(env);
@@ -396,6 +418,7 @@ export async function runDiagnostics({
         ...dataChecks(dataDir, now),
         ...appChecks(appStatus, now),
         ...announcementChecks(announcements, now),
+        ...cspChecks(csp, now),
     ];
     const summary = verdict({
         internet: internet.result,

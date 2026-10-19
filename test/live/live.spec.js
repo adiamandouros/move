@@ -4,6 +4,7 @@
 // what breaks is checked, not what changes: at 3 a.m. there may be no buses,
 // but there must be an answer.
 import { axe, expect, test } from '../browser/fixtures.js';
+import { hashOf, inlineScripts } from '../../server/csp.js';
 
 // The real time, not the browser tests' fixed one; the location stays Syntagma
 test.use({ now: null });
@@ -48,3 +49,12 @@ test('the bus page gets live times from OASA', async ({ page }) => {
     expect(unavailable, 'stops OASA gave no answer for').toEqual([]);
     await expect(page.locator('#bus-status')).not.toContainText('Live times are unavailable');
 });
+
+test('the Content-Security-Policy is sent and allows the page\'s own inline scripts', async ({ page }) => {
+    const response = await page.goto('/');
+    const headers = response.headers();
+    const policy = headers['content-security-policy'] ?? headers['content-security-policy-report-only'];
+    expect(policy, 'a policy, enforced or report-only').toBeTruthy();
+    for (const script of inlineScripts(await response.text())) expect(policy).toContain(hashOf(script));
+});
+
