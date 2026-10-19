@@ -1034,8 +1034,21 @@ body {
     margin-top: 8px;
 }
 
-#bus-actions .btn + .btn {
-    margin-left: 8px;
+/* The bus page's two buttons float over the list when it's longer than the
+   screen: solid, so they read over it, and clear of the stops' walking
+   directions column (.directions-btn, 52px wide), which stays tappable */
+#bus-actions {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding-left: 8px;
+    padding-right: 52px;
+}
+
+#bus-actions .btn {
+    --bs-btn-bg: var(--bs-secondary-bg);
+    min-width: 0;
+    white-space: nowrap;
 }
 
 /* Search: a stop by name or code, or a line */

@@ -91,3 +91,27 @@ test('between refreshes the minutes count down; opening a stop catches up at onc
     await run(1);
     expect((await asksFor()).length).toBe(asked + 1);
 });
+
+// They float over the list (it's longer than the screen): a stop under them
+// keeps its signpost clear of both, on narrow phones too, in either language
+for (const url of ['/buses', '/el/buses']) {
+    test(`${url}: the floating buttons are solid, fit, and leave the walking directions free to tap`, async ({ page }) => {
+        // The narrowest iPhones in use (SE)
+        await page.setViewportSize({ width: 375, height: 600 });
+        await page.goto(url);
+        await expect(page.locator('.stop-item').first()).toBeVisible();
+        const buttons = page.locator('#bus-actions .btn');
+        await expect(buttons).toHaveCount(2);
+        const boxes = await buttons.evaluateAll(els => els.map(e => ({ right: e.getBoundingClientRect().right, fits: e.scrollWidth <= e.clientWidth })));
+        const column = Math.min(...await page.locator('.directions-btn').evaluateAll(els => els.map(e => e.getBoundingClientRect().left)));
+        expect(Math.max(...boxes.map(b => b.right)), 'the buttons reach into the walking directions column').toBeLessThanOrEqual(column);
+        expect(boxes.map(b => b.fits), 'labels cut off').toEqual([true, true]);
+        for (const background of await buttons.evaluateAll(els => els.map(e => getComputedStyle(e).backgroundColor))) {
+            expect(background).not.toMatch(/transparent|rgba\(.*, 0\)/);
+        }
+        // "Show all" fits too
+        await page.locator('#toggle-empty-btn').click();
+        expect(await page.locator('#toggle-empty-btn').evaluate(e => e.scrollWidth <= e.clientWidth)).toBe(true);
+    });
+}
+
