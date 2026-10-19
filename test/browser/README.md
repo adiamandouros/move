@@ -26,8 +26,9 @@ the run's `playwright-report` artifact.
 
 `test/support/test-site.js` builds the real app (`server/app.js`) with:
 
-- **data/**: the real `rail.json`, and the bus stops around Syntagma and
-  Omonia from `bus-stops.json`. `node test/browser/data/update.js` refreshes
+- **data/**: the real `rail.json`, the bus stops around Syntagma and
+  Omonia from `bus-stops.json`, and two lines from `bus-lines.json` (the 040
+  and the Χ95, with all their stops). `node test/browser/data/update.js` refreshes
   them from `data/build/` when their format changes.
 - **a fake OASA**: every stop has three buses, the first 1–19 minutes away
   depending on its code (`arrivalsAt()`), named after the stop's own lines.

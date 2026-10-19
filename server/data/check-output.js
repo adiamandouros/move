@@ -21,15 +21,18 @@ const MAX_PROBLEMS = 10;
 
 /** @param {string} name @param {any} data @returns {string[]} */
 export function checkOutput(name, data) {
-    const problems = name === 'rail.json' ? checkRail(data) : name === 'bus-stops.json' ? checkBus(data) : [`${name}: no checks for this file`];
+    const check = { 'rail.json': checkRail, 'bus-stops.json': checkBus, 'bus-lines.json': checkBusLines }[name];
+    const problems = check ? check(data) : [`${name}: no checks for this file`];
     return problems.length > MAX_PROBLEMS ? [...problems.slice(0, MAX_PROBLEMS), `… and ${problems.length - MAX_PROBLEMS} more`] : problems;
 }
 
 /** @param {string} name @param {any} data @param {any} previous @returns {string[]} */
 export function shrinkage(name, data, previous) {
     if (!previous) return [];
-    const count = name === 'rail.json' ? d => Object.keys(d?.stations ?? {}).length : d => d?.stops?.length ?? 0;
-    const what = name === 'rail.json' ? 'stations' : 'stops';
+    const [count, what] = {
+        'rail.json': [d => Object.keys(d?.stations ?? {}).length, 'stations'],
+        'bus-lines.json': [d => d?.lines?.length ?? 0, 'lines'],
+    }[name] ?? [d => d?.stops?.length ?? 0, 'stops'];
     const [now, before] = [count(data), count(previous)];
     return now < before * MIN_SHARE
         ? [`${name} has ${now} ${what}, the last good build had ${before}; if that's right, rebuild with --force`]
@@ -118,6 +121,32 @@ function checkBus(bus) {
         if (typeof el !== 'string' || !el) problems.push(`${which}: no Greek name`);
         if (typeof en !== 'string') problems.push(`${which}: the English name must be text (it may be empty)`);
         if (!Array.isArray(lines) || !lines.length || lines.some(l => typeof l !== 'string' || !l)) problems.push(`${which}: needs its line numbers`);
+    }
+    return problems;
+}
+
+/** @param {any} bus @returns {string[]} */
+function checkBusLines(bus) {
+    const problems = [];
+    if (typeof bus?.schema !== 'number') return ['bus-lines.json: no schema number'];
+    checkFeed(bus.feed, problems);
+    const lines = Array.isArray(bus.lines) ? bus.lines : [];
+    if (!lines.length) problems.push('no lines');
+    const seen = new Set();
+    for (const entry of lines) {
+        const which = `line ${JSON.stringify(entry?.line)}`;
+        if (typeof entry?.line !== 'string' || !entry.line) problems.push(`${which}: needs its number`);
+        else if (seen.has(entry.line)) problems.push(`${which}: listed twice`);
+        seen.add(entry?.line);
+        if (typeof entry?.name !== 'string') problems.push(`${which}: the name must be text (it may be empty)`);
+        const directions = Array.isArray(entry?.directions) ? entry.directions : [];
+        if (directions.length < 1 || directions.length > 2) problems.push(`${which}: needs one or two directions`);
+        directions.forEach((d, i) => {
+            if (typeof d?.to !== 'string' || !d.to) problems.push(`${which}, direction ${i}: needs where it goes`);
+            const stops = Array.isArray(d?.stops) ? d.stops : [];
+            if (stops.length < 2) problems.push(`${which}, direction ${i}: fewer than two stops`);
+            if (stops.some(code => typeof code !== 'string' || !STOP_CODE.test(code))) problems.push(`${which}, direction ${i}: stop codes must be numeric`);
+        });
     }
     return problems;
 }

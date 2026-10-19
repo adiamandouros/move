@@ -120,7 +120,7 @@ test('a request the server refuses (a login form that\'s too big) keeps its stat
 });
 
 test('data files are revalidated every time, and unchanged ones cost a 304', async () => {
-    for (const name of ['rail.json', 'bus-stops.json', 'meta.json']) {
+    for (const name of ['rail.json', 'bus-stops.json', 'bus-lines.json', 'meta.json']) {
         const res = await get(`/data/${name}`);
         assert.equal(res.status, 200, name);
         assert.equal(res.headers.get('content-type'), 'application/json; charset=utf-8');

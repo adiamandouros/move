@@ -8,7 +8,7 @@ import dotenv from 'dotenv';
 import { loadConfig, userAgentFor } from '../config.js';
 import { readJson } from '../files.js';
 import { athensToday } from './calendar.js';
-import { buildBus } from './build-bus.js';
+import { buildBus, buildBusLines, readBusFeed } from './build-bus.js';
 import { buildRail } from './build-rail.js';
 import { checkOutput, shrinkage } from './check-output.js';
 import { applyOverlay, pruneOverlay, readOverlay, writeOverlay } from './overlay.js';
@@ -44,6 +44,9 @@ const LOCK_STALE_MS = 30 * 60_000;
 // Exit code of the CLI (below) when another build holds the lock
 const BUSY_EXIT_CODE = 3;
 
+// `run` is shared by one build's outputs: both bus files read the bus feed
+// once (run.bus), as it's 220 MB
+const busFeed = (src, run) => (run.bus ??= readBusFeed(src.bus.dir));
 const OUTPUTS = {
     'rail.json': {
         sources: ['rail'],
@@ -51,7 +54,11 @@ const OUTPUTS = {
     },
     'bus-stops.json': {
         sources: ['bus'],
-        build: (src, curated, today) => buildBus({ dir: src.bus.dir, stopTablePath: src.stopTable.files?.['stops_all.csv'], today }),
+        build: async (src, curated, today, run) => buildBus({ dir: src.bus.dir, stopTablePath: src.stopTable.files?.['stops_all.csv'], today, feed: await busFeed(src, run) }),
+    },
+    'bus-lines.json': {
+        sources: ['bus'],
+        build: async (src, curated, today, run) => buildBusLines({ dir: src.bus.dir, today, feed: await busFeed(src, run) }),
     },
 };
 
@@ -104,13 +111,14 @@ export async function runBuild({
         rmSync(dirs.next, { recursive: true, force: true });
         mkdirSync(dirs.next, { recursive: true });
         const meta = { generated: new Date().toISOString(), fingerprint, warnings: check.warnings, outputs: {} };
+        const run = {};
 
         for (const [name, output] of Object.entries(OUTPUTS)) {
             const started = Date.now();
             try {
                 const missing = output.sources.filter(s => sources[s].error);
                 if (missing.length) throw new Error(`source unavailable: ${missing.map(s => `${s} (${sources[s].error})`).join(', ')}`);
-                const { data, warnings } = await output.build(sources, curated.data, today);
+                const { data, warnings } = await output.build(sources, curated.data, today, run);
                 // Never replace a good file with a broken or much smaller one (--force accepts a smaller one)
                 const problems = [...checkOutput(name, data), ...(force ? [] : shrinkage(name, data, readJson(join(dirs.build, name))))];
                 if (problems.length) throw new Error(`failed its checks: ${problems.join('; ')}`);

@@ -10,10 +10,13 @@ import { checkOutput, shrinkage } from '../server/data/check-output.js';
 const real = name => JSON.parse(readFileSync(new URL(`./browser/data/${name}`, import.meta.url), 'utf8'));
 const rail = () => real('rail.json');
 const bus = () => real('bus-stops.json');
+const lines = () => real('bus-lines.json');
+const reference = { 'rail.json': rail, 'bus-stops.json': bus, 'bus-lines.json': lines };
 
-test('the real rail.json and bus-stops.json pass', () => {
+test('the real rail.json, bus-stops.json and bus-lines.json pass', () => {
     assert.deepEqual(checkOutput('rail.json', rail()), []);
     assert.deepEqual(checkOutput('bus-stops.json', bus()), []);
+    assert.deepEqual(checkOutput('bus-lines.json', lines()), []);
 });
 
 const broken = {
@@ -43,11 +46,23 @@ const broken = {
         ['a stop without its Greek name', b => { b.stops[0][3] = ''; }, /no Greek name/],
         ['a stop without lines', b => { b.stops[0][5] = []; }, /needs its line numbers/],
     ],
+    'bus-lines.json': [
+        ['no schema', l => { delete l.schema; }, /no schema number/],
+        ['no lines', l => { l.lines = []; }, /no lines/],
+        ['a line without its number', l => { l.lines[0].line = ''; }, /needs its number/],
+        ['a line listed twice', l => { l.lines.push(l.lines[0]); }, /line "040": listed twice/],
+        ['a name that isn\'t text', l => { l.lines[0].name = null; }, /the name must be text/],
+        ['no directions', l => { l.lines[0].directions = []; }, /needs one or two directions/],
+        ['three directions', l => { l.lines[0].directions.push(l.lines[0].directions[0]); }, /needs one or two directions/],
+        ['a direction going nowhere', l => { l.lines[0].directions[0].to = ''; }, /direction 0: needs where it goes/],
+        ['a direction with one stop', l => { l.lines[0].directions[1].stops = ['10341']; }, /direction 1: fewer than two stops/],
+        ['a code the live times can\'t use', l => { l.lines[0].directions[0].stops[0] = '-2'; }, /stop codes must be numeric/],
+    ],
 };
 for (const [name, cases] of Object.entries(broken)) {
     for (const [what, breakIt, expected] of cases) {
         test(`${name} fails with ${what}`, () => {
-            const data = name === 'rail.json' ? rail() : bus();
+            const data = reference[name]();
             breakIt(data);
             const problems = checkOutput(name, data);
             assert.ok(problems.some(p => expected.test(p)), `${expected} in ${JSON.stringify(problems)}`);
@@ -82,4 +97,8 @@ test('a file with under 80% of the last good one\'s stations or stops is held ba
     assert.match(shrinkage('rail.json', smaller, rail())[0], /has 46 stations, the last good build had 66/);
     // No previous build: nothing to compare with
     assert.deepEqual(shrinkage('rail.json', smaller, null), []);
+
+    const fewer = lines();
+    fewer.lines = fewer.lines.slice(0, 1);
+    assert.match(shrinkage('bus-lines.json', fewer, lines())[0], /bus-lines\.json has 1 lines, the last good build had 2/);
 });

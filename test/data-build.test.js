@@ -30,12 +30,14 @@ function republishBus(portal, feedDir, name, version = '2026-09-01T00:00:00') {
     portal.publishFile(SOURCES.bus.dataset, name, readFileSync(join(feedDir, name), 'utf8'), version);
 }
 
-test('a first build publishes both files, which pass their checks', async () => {
+test('a first build publishes every file, which pass their checks', async () => {
     const { build, served, dataDir } = setup();
     const meta = await build();
-    assert.deepEqual(Object.fromEntries(Object.entries(meta.outputs).map(([k, o]) => [k, o.ok])), { 'rail.json': true, 'bus-stops.json': true });
+    assert.deepEqual(Object.fromEntries(Object.entries(meta.outputs).map(([k, o]) => [k, o.ok])), { 'rail.json': true, 'bus-stops.json': true, 'bus-lines.json': true });
     assert.deepEqual(checkOutput('rail.json', served('rail.json')), []);
     assert.deepEqual(checkOutput('bus-stops.json', served('bus-stops.json')), []);
+    assert.deepEqual(checkOutput('bus-lines.json', served('bus-lines.json')), []);
+    assert.deepEqual(served('bus-lines.json').lines.map(l => l.line), ['040']);
     assert.equal(served('bus-stops.json').stops.length, 1500);
     assert.deepEqual(served('meta.json').fingerprint.today, '20260805');
     for (const leftover of ['build.next', '.build.lock']) assert.ok(!existsSync(join(dataDir, leftover)), `${leftover} is cleaned up`);
@@ -102,6 +104,10 @@ test('a broken new feed keeps the files the site serves', async () => {
     assert.equal(meta.outputs['bus-stops.json'].keptPrevious, true);
     assert.match(meta.outputs['bus-stops.json'].error, /stop_lat/);
     assert.deepEqual(served('bus-stops.json'), before);
+    // The lines come from the same feed: kept too
+    assert.equal(meta.outputs['bus-lines.json'].ok, false);
+    assert.equal(meta.outputs['bus-lines.json'].keptPrevious, true);
+    assert.deepEqual(served('bus-lines.json').lines.map(l => l.line), ['040']);
     assert.equal(meta.outputs['rail.json'].ok, true, 'the other file is unaffected');
 });
 
