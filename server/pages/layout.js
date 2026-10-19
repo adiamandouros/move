@@ -100,8 +100,8 @@ function navLinks(tools, active, variant) {
 
 // ── Site menu ───────────────────────────────────────────────────────────────
 
-// The pages about the site: on phones in the menu, on wider screens at the
-// bottom of the sidebar
+// The pages about the site: on phones in the menu, on wider screens near the
+// bottom of the sidebar, above the language button
 const SITE_PAGES = [['about', 'About', 'info-circle'], ['privacy', 'Privacy', 'lock'], ['contact', 'Contact', 'envelope']];
 
 function siteLinks(variant) {
