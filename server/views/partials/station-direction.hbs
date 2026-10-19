@@ -1,0 +1,44 @@
+{{!-- One direction of a line at a station (stations/station.hbs, a direction
+of stationView): its neighbours, where to ride when arriving here and the
+first and last trains from here --}}
+<div class="card result-card station-direction" role="group" aria-labelledby="{{headingId}}"><div class="card-body">
+    <h3 class="leg-title" id="{{headingId}}"><span aria-hidden="true">→ </span>{{t "stations.toward" name=toward}}</h3>
+    <ul class="list-unstyled small station-neighbours">
+{{#if previous}}
+        <li>{{t "stations.previous"}}: <a href="{{previous.href}}">{{previous.name}}</a></li>
+{{/if}}
+{{#if next}}
+        <li>{{t "stations.next"}}: <a href="{{next.href}}">{{next.name}}</a></li>
+{{else}}
+        <li>{{t "stations.terminus"}}</li>
+{{/if}}
+    </ul>
+{{#if arriving}}
+    {{!-- Arriving here: where to ride for the exit and for each connection --}}
+    <h4 class="station-subheading">{{t "stations.exit-heading"}}</h4>
+{{#if arriving.exitsKnown}}
+    <p class="small mb-2">{{t "stations.exit-text"}}</p>
+{{/if}}
+    {{arriving.diagram}}
+{{#if arriving.centralPlatform}}
+    <p class="mt-2">{{arriving.centralPlatform}}</p>
+{{/if}}
+{{#each arriving.transfers}}
+    <p class="small mt-2 mb-0">{{icon "arrow-left-right" "me-1"}}{{t "stations.transfer" line=line name=toward where=where}}</p>
+{{/each}}
+    {{arriving.note}}
+{{/if}}
+{{#if times.length}}
+    {{!-- Leaving from here: first and last trains --}}
+    <h4 class="station-subheading">{{t "stations.times-heading"}}</h4>
+    <table class="table table-sm station-times mb-0">
+        <caption class="sr-only">{{t "stations.times-caption" name=@root.name toward=toward}}</caption>
+        <thead><tr><th scope="col">{{t "stations.days"}}</th><th scope="col">{{t "stations.first"}}</th><th scope="col">{{t "stations.last"}}</th></tr></thead>
+        <tbody>
+{{#each times}}
+            <tr><th scope="row">{{days}}</th><td>{{first}}</td><td>{{last}}</td></tr>
+{{/each}}
+        </tbody>
+    </table>
+{{/if}}
+</div></div>

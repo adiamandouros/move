@@ -93,8 +93,14 @@ They're compiled strictly: a value the view names but isn't given, a helper
 that doesn't exist or a missing string throws, and every page is rendered
 at startup, so a typo fails `npm test` rather than showing on the site.
 `test/templates.test.js` checks that every string the views use exists in
-both languages and that every `{{#ifLang}}` has its Greek. Partials, shared
-by views as `{{> name}}`, are in `server/views/partials/`. A tool's
+both languages and that every `{{#ifLang}}` has its Greek. Partials are in
+`server/views/partials/`: a piece of a page as `{{> name}}` (a station's
+direction card, `station-direction`), or around what's inside it as
+`{{#> section id="map" iconName="map" title="info.map"}}…{{/section}}` (a
+section of the info page's accordion). What the browser draws (bus stops and
+their arrivals, trip results) isn't Handlebars, so browsers load nothing
+more: those components are functions built with ``html`` `` in the tool's
+`client/`, or in `/js/core/metro.js` when the server draws them too. A tool's
 `data.json` gives its `page.hbs` its values. The service
 workers aren't HTML: `fill()` puts their version and file lists in.
 

@@ -24,6 +24,8 @@ const used = new Set([
     ...sources.flatMap(text => [...text.matchAll(/\{\{icon "([a-z0-9-]+)"/g)].map(m => m[1])),
     // and icons passed to a view as data ({{icon iconName}}: the tiles, the site links)
     ...sources.flatMap(text => [...text.matchAll(/\biconName: '([a-z0-9-]+)'/g)].map(m => m[1])),
+    // and to a partial ({{#> section iconName="map"}}: the info page's sections)
+    ...sources.flatMap(text => [...text.matchAll(/\biconName="([a-z0-9-]+)"/g)].map(m => m[1])),
     ...loadTools().map(tool => tool.icon),
     ...sources.flatMap(text => [...text.matchAll(/showMessage\('([a-z0-9-]+)/g)].map(m => m[1])),
     ...sources.flatMap(text => [...text.matchAll(/\btoast\([^;]*?, '([a-z0-9-]+)'\)/g)].map(m => m[1])),
