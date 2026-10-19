@@ -58,16 +58,22 @@ lists them all and says where the rest are:
 
 All in [server/pages/](server/pages/):
 
-1. `index.js` takes each page in the registry, in each language, and
-   renders its view (below) with the page's strings.
+1. `index.js` (`renderPage`) takes each page in the registry, in each
+   language, and renders its view (below) with the page's strings. Every
+   page has the same shape (listed in `registry.js`), the station pages too
+   (`stationPage` in `stations.js`): a title and description by strings
+   key, filled with its `values` where they have `{name}`s, its content,
+   scripts and structured data. A page's own strings go to the browser
+   only when it has scripts of its own. Views are loaded one way,
+   `view('server/views/home.hbs')`, by their path from the repository's root.
 2. `layout.js` puts the result into `server/views/layout.hbs`: the head
    (search tags from `seo.js`), the navigation, the language link, the
    menu, the page's strings and its scripts. Links to the pages point at
    the page's language (`localiseLinks` in `i18n.js`), and links to
    stylesheets, scripts and icons carry this deploy's version.
 3. The HTML is kept in memory and sent as it is. Station pages are
-   rendered from `rail.json` when first asked for, and kept until it
-   changes: `stations.js` works out what each one shows as plain data
+   rendered from `rail.json` when first asked for (by the same
+   `renderPage`), and kept until it changes: `stations.js` works out what each one shows as plain data
    (`stationView`, `indexView`, tested without HTML) and its views draw it.
 
 ### Views

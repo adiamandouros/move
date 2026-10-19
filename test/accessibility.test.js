@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { loadConfig } from '../server/config.js';
 import { renderPages } from '../server/pages/index.js';
-import { loadTools } from '../server/pages/registry.js';
-import { renderStationPage } from '../server/pages/stations.js';
+import { mergeStrings } from '../server/pages/i18n.js';
+import { loadTools, stringTables } from '../server/pages/registry.js';
+import { stationPage } from '../server/pages/stations.js';
 import { rail } from './fixtures/rail.js';
 import { formProblems, headingProblems, iconProblems, idProblems, nameProblems, newTabProblems, untranslatedProblems } from './support/markup.js';
 
@@ -13,36 +14,24 @@ import { formProblems, headingProblems, iconProblems, idProblems, nameProblems, 
 // scripts (announcements, routes, arrivals) is checked in real browsers by
 // test/browser/ (axe-core and a keyboard walk on every page).
 
-const { pages, notFound, errorPage, render } = renderPages();
+const { pages, notFound, errorPage, renderPage } = renderPages();
 const tools = loadTools();
 // The station pages, from a small network (the real rail.json isn't in the repository)
 const stationPages = Object.fromEntries(['en', 'el'].flatMap(lang => [null, 'x', 'a', 'b', 'c'].map(id =>
-    [`(station ${id ?? 'index'}, ${lang})`, renderStationPage(rail, id, lang, { render, tools })])));
+    [`(station ${id ?? 'index'}, ${lang})`, renderPage(stationPage(rail, id, { tools }), lang)])));
 // And the pages that have ads, with every ad setting on
 const adPages = (() => {
     const withAds = renderPages(tools, loadConfig({ ADSENSE_CLIENT: 'ca-pub-1234567890123456', ADSENSE_SLOT_HOME: '1111111111', ADSENSE_SLOT_INFO: '2222222222', ADSENSE_SLOT_STATION: '3333333333' }));
     return {
         '/ (with ads)': withAds.pages['/'], '/el/info (with ads)': withAds.pages['/el/info'],
         '/privacy (with ads)': withAds.pages['/privacy'], '/el/privacy (with ads)': withAds.pages['/el/privacy'],
-        '(station x, with ads)': renderStationPage(rail, 'x', 'el', { render: withAds.render, tools }),
+        '(station x, with ads)': withAds.renderPage(stationPage(rail, 'x', { tools }), 'el'),
     };
 })();
 const all = { ...pages, '(404)': notFound('/nope'), '(404, Greek)': notFound('/el/nope'), '(error)': errorPage('/subway/stations/x'), '(error, Greek)': errorPage('/el/subway/stations/x'), ...stationPages, ...adPages };
 
 // Every string in each language: the shell's, the station pages', each tool's and the tools' names
-const STRINGS = { en: {}, el: {} };
-{
-    const read = file => JSON.parse(readFileSync(new URL(file, import.meta.url), 'utf8'));
-    const tables = [read('../server/views/strings.json'), read('../server/views/stations.json'), ...tools.map(t => t.strings)];
-    for (const lang of ['en', 'el']) {
-        for (const table of tables) Object.assign(STRINGS[lang], table[lang]);
-        for (const tool of tools) {
-            STRINGS[lang][`tool.${tool.id}.title`] = tool.title[lang];
-            STRINGS[lang][`tool.${tool.id}.short`] = (tool.shortTitle ?? tool.title)[lang];
-            STRINGS[lang][`tool.${tool.id}.description`] = tool.description?.[lang];
-        }
-    }
-}
+const STRINGS = mergeStrings(...stringTables(tools));
 
 const main = html => html.match(/<main[^>]*>([\s\S]*)<\/main>/)[1];
 

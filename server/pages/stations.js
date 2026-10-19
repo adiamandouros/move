@@ -5,10 +5,10 @@ import { readFileSync, statSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
-import { format, formatDate, localName, walkingUrl } from '../../public/js/core/html.js';
+import { formatDate, localName, walkingUrl } from '../../public/js/core/html.js';
 import { centralPlatformBadge, clockTime, exitDiagram, lineBadge, stopNote } from '../../public/js/core/metro.js';
 import { athensDate } from '../../tools/subway/client/network.js';
-import { LANGS, localPath, pageStrings } from './i18n.js';
+import { LANGS, localPath, mergeStrings, stringGetter } from './i18n.js';
 import { view } from './templates.js';
 
 // A page for every metro station, and an index of them, in English and Greek:
@@ -18,7 +18,8 @@ import { view } from './templates.js';
 // registry.js, and follow its weekly rebuild without a restart.
 //   /subway/stations, /subway/stations/<station id>, and the same under /el
 
-const STRINGS = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'views', 'stations.json'), 'utf8'));
+// The station pages' own strings; they use the subway page's too
+export const STATION_STRINGS = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'views', 'stations.json'), 'utf8'));
 export const STATIONS_PATH = '/subway/stations';
 const DAY = 86_400;
 // Monday first, for grouping days like "Mon–Fri"
@@ -58,14 +59,6 @@ export function firstAndLast(timetable, index) {
         else groups.push({ days: [weekday], first, last });
     }
     return groups;
-}
-
-// The station pages' strings in one language: the shell's (with English for
-// any not translated), the station pages' own and the subway page's
-/** @param {Lang} lang @param {import('../../types/pages.js').Tool[]} tools */
-function stationStrings(lang, tools) {
-    const own = Object.fromEntries(LANGS.map(l => [l, { ...STRINGS[l], ...tools.find(t => t.id === 'subway')?.strings[l] }]));
-    return pageStrings(tools)(lang, own);
 }
 
 // "Mon–Fri", or "Sat, Sun", for a run of days (0 = Sunday)
@@ -166,37 +159,40 @@ function stationData(rail, id, lang, s, origin) {
     return { '@context': 'https://schema.org', '@graph': graph };
 }
 
-// One station's page (or the index, for id null) with the site's layout.
-// origin: the public address (SITE_URL), for the structured data.
+// One station's page, or the index for id null, as a page of the site
+// (registry.js lists the fields). origin: the public address (SITE_URL), for
+// the structured data.
 /**
- * @param {Rail} rail @param {string | null} id @param {Lang} lang
- * @param {{ render: (page: import('../../types/pages.js').RenderOptions) => string, tools: import('../../types/pages.js').Tool[], origin?: string }} options
+ * @param {Rail} rail @param {string | null} id
+ * @param {{ tools: import('../../types/pages.js').Tool[], origin?: string }} options
+ * @returns {import('../../types/pages.js').Page}
  */
-export function renderStationPage(rail, id, lang, { render, tools, origin = '' }) {
-    const strings = stationStrings(lang, tools);
-    const s = key => strings[key] ?? key;
-    const common = { lang, active: 'subway', ad: 'station' };
+export function stationPage(rail, id, { tools, origin = '' }) {
+    const common = { active: 'subway', ad: 'station', strings: mergeStrings(STATION_STRINGS, tools.find(t => t.id === 'subway')?.strings ?? {}) };
     if (!id) {
-        return render({
-            ...common, title: s('stations.title'), path: STATIONS_PATH, description: s('stations.index-description'),
-            content: view('stations/index')(indexView(rail, lang), { lang, strings }),
-        });
+        return {
+            ...common, path: STATIONS_PATH, title: 'stations.title', description: 'stations.index-description',
+            content: (lang, strings) => view('server/views/stations/index.hbs')(indexView(rail, lang), { lang, strings }),
+        };
     }
-    const name = localName(rail.stations[id].name, lang);
-    return render({
+    return {
         ...common,
-        title: format(s('stations.station-title'), { name }),
         path: `${STATIONS_PATH}/${id}`,
-        description: format(s('stations.description'), { name, lines: rail.stations[id].lines.map(l => rail.lines[l].name).join(', ') }),
-        structuredData: stationData(rail, id, lang, s, origin),
-        content: view('stations/station')(stationView(rail, id, lang, s), { lang, strings }),
-    });
+        title: 'stations.station-title',
+        description: 'stations.description',
+        values: lang => ({ name: localName(rail.stations[id].name, lang), lines: rail.stations[id].lines.map(l => rail.lines[l].name).join(', ') }),
+        structuredData: (lang, s) => stationData(rail, id, lang, s, origin),
+        content: (lang, strings) => view('server/views/stations/station.hbs')(stationView(rail, id, lang, stringGetter(strings, lang)), { lang, strings }),
+    };
 }
 
-// → { router, paths() }. render is the layout's (layout.js createRenderer);
-// paths() lists the English paths for the sitemap.
-/** @param {{ railFile: string, render: (page: import('../../types/pages.js').RenderOptions) => string, tools: import('../../types/pages.js').Tool[], origin?: string }} options */
-export function createStationPages({ railFile, render, tools, origin = '' }) {
+// → { router, paths() }. renderPage puts a page in its language and the
+// layout (index.js, renderPages); paths() lists the English paths for the sitemap.
+/**
+ * @param {{ railFile: string, renderPage: (page: import('../../types/pages.js').Page, lang: Lang) => string,
+ *   tools: import('../../types/pages.js').Tool[], origin?: string }} options
+ */
+export function createStationPages({ railFile, renderPage, tools, origin = '' }) {
     let loaded = { mtime: null, rail: null, html: new Map() };
 
     // rail.json as it is now; rendered pages are kept until it changes (or the day does,
@@ -215,7 +211,7 @@ export function createStationPages({ railFile, render, tools, origin = '' }) {
         // Object.hasOwn: "constructor" or "__proto__" in the address isn't a station
         if (!rail || (id && !Object.hasOwn(rail.stations, id))) return null;
         const cacheKey = `${lang} ${id ?? ''}`;
-        if (!html.has(cacheKey)) html.set(cacheKey, renderStationPage(rail, id, lang, { render, tools, origin }));
+        if (!html.has(cacheKey)) html.set(cacheKey, renderPage(stationPage(rail, id, { tools, origin }), lang));
         return html.get(cacheKey);
     }
 

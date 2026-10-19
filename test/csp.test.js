@@ -6,7 +6,7 @@ import { loadConfig } from '../server/config.js';
 import { cspChecks } from '../server/diagnostics.js';
 import { createPages, renderPages } from '../server/pages/index.js';
 import { loadTools } from '../server/pages/registry.js';
-import { renderStationPage } from '../server/pages/stations.js';
+import { stationPage } from '../server/pages/stations.js';
 import { readFileSync } from 'fs';
 import { athensNow, planTrip } from '../tools/subway/client/network.js';
 import { rail } from './fixtures/rail.js';
@@ -23,9 +23,9 @@ const directive = (policy, name) => policy.split('; ').find(d => d.startsWith(`$
 // a page rendered for the admin, and the pages with every ad setting on
 function everyPage() {
     const tools = loadTools();
-    const { pages, notFound, errorPage, render } = renderPages(tools);
+    const { pages, notFound, errorPage, render, renderPage } = renderPages(tools);
     const all = { ...pages, '(404)': notFound('/nope'), '(404, Greek)': notFound('/el/nope'), '(error)': errorPage('/x'), '(error, Greek)': errorPage('/el/x'), '(admin)': render({ title: 'Admin', content: '<p>x</p>' }) };
-    for (const lang of ['en', 'el']) for (const id of [null, 'x', 'a']) all[`(station ${id ?? 'index'}, ${lang})`] = renderStationPage(rail, id, lang, { render, tools });
+    for (const lang of ['en', 'el']) for (const id of [null, 'x', 'a']) all[`(station ${id ?? 'index'}, ${lang})`] = renderPage(stationPage(rail, id, { tools }), lang);
     const withAds = renderPages(tools, loadConfig({ ADSENSE_CLIENT: 'ca-pub-1234567890123456', ADSENSE_SLOT_HOME: '1111111111', ADSENSE_SLOT_INFO: '2222222222', ADSENSE_SLOT_STATION: '3333333333' }));
     all['/ (with ads)'] = withAds.pages['/'];
     all['/el/privacy (with ads)'] = withAds.pages['/el/privacy'];

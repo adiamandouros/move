@@ -4,7 +4,7 @@ import { readFileSync } from 'fs';
 import { listFiles } from '../server/pages/assets.js';
 import { renderPages } from '../server/pages/index.js';
 import { loadTools } from '../server/pages/registry.js';
-import { renderStationPage } from '../server/pages/stations.js';
+import { stationPage } from '../server/pages/stations.js';
 import { parseTemplate } from '../server/pages/templates.js';
 import { athensNow, planTrip } from '../tools/subway/client/network.js';
 import { rail as smallRail } from './fixtures/rail.js';
@@ -38,11 +38,11 @@ function hostile(rail) {
 
 test('station pages', () => {
     const tools = loadTools();
-    const { render } = renderPages(tools);
+    const { renderPage } = renderPages(tools);
     const rail = hostile(smallRail);
     for (const lang of ['en', 'el']) {
-        safe(renderStationPage(rail, 'x', lang, { render, tools }), `station x, ${lang}`);
-        safe(renderStationPage(rail, null, lang, { render, tools }), `station index, ${lang}`);
+        safe(renderPage(stationPage(rail, 'x', { tools }), lang), `station x, ${lang}`);
+        safe(renderPage(stationPage(rail, null, { tools }), lang), `station index, ${lang}`);
     }
 });
 

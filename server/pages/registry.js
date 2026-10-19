@@ -2,9 +2,10 @@ import { existsSync, readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { loadConfig } from '../config.js';
+import { SHELL_STRINGS, toolNames } from './i18n.js';
 import { appData } from './seo.js';
-import { STATIONS_PATH } from './stations.js';
-import { compileView, view } from './templates.js';
+import { STATION_STRINGS, STATIONS_PATH } from './stations.js';
+import { view } from './templates.js';
 
 // Every page of the site. Each one is at its path in English and under /el
 // in Greek, and is rendered in both languages at startup (index.js), in the
@@ -12,17 +13,18 @@ import { compileView, view } from './templates.js';
 //   path          the English address
 //   title         strings key of its title
 //   description   strings key of its description in search results
+//   values        lang → the values for {name} placeholders in both
 //   index         false keeps it out of search results and the sitemap
 //   content       (lang, strings) → the HTML inside <main>, from its view;
 //                 strings: the page's, for {{t}}
-//   strings       its own strings ({ en, el }), for data-i18n and its scripts
+//   strings       its own strings ({ en, el }), for its view and its scripts
 //   scripts       browser modules to load
 //   structuredData  (lang, s) → its schema.org data, for <head> (seo.js)
 //   active        the tool whose navigation entry is highlighted
 //   ad            where it has an ad slot (server/ads.js)
 //
-// Pages that aren't in this list:
-//   - the station pages (STATION_PATHS), built on request from rail.json by stations.js
+// Pages that aren't in this list, of the same shape:
+//   - the station pages (STATION_PATHS), built on request from rail.json (stations.js, stationPage)
 //   - the 404 page (NOT_FOUND), rendered for the address that wasn't found
 //   - the error page (SERVER_ERROR), for an address whose answer failed
 //   - the admin pages (server/admin/), private and in English only
@@ -44,7 +46,7 @@ export function sitePages(tools, config = loadConfig({})) {
             path: '/',
             title: 'home.page-title',
             description: 'home.description',
-            content: (lang, strings) => view('home')({ tiles: [...tools.map(toolTile), STATIONS_TILE] }, { lang, strings }),
+            content: (lang, strings) => view('server/views/home.hbs')({ tiles: [...tools.map(toolTile), STATIONS_TILE] }, { lang, strings }),
             structuredData: (lang, s) => appData(s('home.description'), lang, config.siteUrl),
             scripts: ['/js/core/announcements.js', '/js/core/install.js'],
             active: 'home',
@@ -54,11 +56,11 @@ export function sitePages(tools, config = loadConfig({})) {
             path: '/offline',
             title: 'offline.title',
             index: false,
-            content: (lang, strings) => view('offline')({ tiles: tools.filter(t => t.offline).map(toolTile) }, { lang, strings }),
+            content: (lang, strings) => view('server/views/offline.hbs')({ tiles: tools.filter(t => t.offline).map(toolTile) }, { lang, strings }),
         },
         // The tools: tools/<id>/ (see tools/README.md)
         ...tools.map(tool => {
-            const page = compileView(tool.page, `tools/${tool.id}/page.hbs`);
+            const page = view(tool.view);
             return {
                 path: tool.path,
                 title: `tool.${tool.id}.title`,
@@ -78,7 +80,7 @@ export function sitePages(tools, config = loadConfig({})) {
             description: `${name}.description${name === 'privacy' && ads ? '-ads' : ''}`,
             // The privacy page has parts for with and without ads, and the
             // contact page shows CONTACT_EMAIL (the address OASA also sees) when it's set
-            content: (lang, strings) => view(`pages/${name}.${lang}`)({
+            content: (lang, strings) => view(`server/views/pages/${name}.${lang}.hbs`)({
                 updated: PRIVACY_UPDATED[lang], email: config.contactEmail, ads, adClient: config.adsense.client ?? '',
             }, { lang, strings }),
         })),
@@ -86,11 +88,11 @@ export function sitePages(tools, config = loadConfig({})) {
 }
 
 /** @type {Page} */
-export const NOT_FOUND = { title: 'notfound.title', index: false, content: (lang, strings) => view('notfound')({}, { lang, strings }) };
+export const NOT_FOUND = { title: 'notfound.title', index: false, content: (lang, strings) => view('server/views/notfound.hbs')({}, { lang, strings }) };
 
 // When answering failed (server/errors.js)
 /** @type {Page} */
-export const SERVER_ERROR = { title: 'error.title', index: false, content: (lang, strings) => view('error')({}, { lang, strings }) };
+export const SERVER_ERROR = { title: 'error.title', index: false, content: (lang, strings) => view('server/views/error.hbs')({}, { lang, strings }) };
 
 export const STATION_PATHS = [STATIONS_PATH, `${STATIONS_PATH}/*`];
 
@@ -114,7 +116,7 @@ export function loadTools(dir = TOOLS_DIR) {
                 scripts: [],
                 precache: [],
                 ...config,
-                page: readFileSync(join(toolDir, 'page.hbs'), 'utf8'),
+                view: join(toolDir, 'page.hbs'),
                 strings: existsSync(join(toolDir, 'strings.json')) ? JSON.parse(readFileSync(join(toolDir, 'strings.json'), 'utf8')) : {},
                 data: existsSync(join(toolDir, 'data.json')) ? JSON.parse(readFileSync(join(toolDir, 'data.json'), 'utf8')) : {},
                 clientDir: join(toolDir, 'client'),
@@ -136,6 +138,13 @@ const STATIONS_TILE = { href: STATIONS_PATH, iconName: 'list-ul', titleKey: 'hom
 const TEXT_PAGES = ['about', 'privacy', 'contact'];
 // When privacy.<lang>.hbs last changed in substance (shown on the page)
 const PRIVACY_UPDATED = { en: '18 October 2026', el: '18 Οκτωβρίου 2026' };
+
+// ── Strings ─────────────────────────────────────────────────────────────────
+
+// Every table of strings ({ en, el }) as it's written, for checks: the
+// shell's, the tools' names, each tool's own and the station pages'
+/** @param {Tool[]} tools */
+export const stringTables = tools => [SHELL_STRINGS, toolNames(tools), ...tools.map(t => t.strings), STATION_STRINGS];
 
 // ── Facts checked by hand ───────────────────────────────────────────────────
 

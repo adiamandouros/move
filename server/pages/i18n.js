@@ -9,9 +9,11 @@ import { fileURLToPath } from 'url';
 
 const VIEWS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'views');
 // server/views/strings.json: the navigation's, the home page's, the menu's…
-const SHELL_STRINGS = JSON.parse(readFileSync(join(VIEWS_DIR, 'strings.json'), 'utf8'));
+export const SHELL_STRINGS = JSON.parse(readFileSync(join(VIEWS_DIR, 'strings.json'), 'utf8'));
 
+/** @type {import('../../types/pages.js').Lang[]} */
 export const LANGS = ['en', 'el'];
+/** @param {string} path @returns {import('../../types/pages.js').Lang} */
 export const langOf = path => /^\/el(\/|$)/.test(path) ? 'el' : 'en';
 export const otherLang = lang => lang === 'el' ? 'en' : 'el';
 export const basePath = path => path.replace(/^\/el(?=\/|$)/, '') || '/';
@@ -27,19 +29,36 @@ export const localPath = (path, lang) => lang === 'el' ? (path === '/' ? '/el' :
  * @returns {(lang: string, own?: import('../../types/pages.js').Strings) => Record<string, string>}
  */
 export function pageStrings(tools) {
-    const shell = SHELL_STRINGS;
-    const table = (lang, own) => {
-        const out = { ...shell[lang], ...own[lang] };
-        for (const tool of tools) {
-            out[`tool.${tool.id}.title`] = tool.title[lang];
-            out[`tool.${tool.id}.short`] = (tool.shortTitle ?? tool.title)[lang];
-            if (tool.description) out[`tool.${tool.id}.description`] = tool.description[lang];
-        }
-        return out;
-    };
+    const names = toolNames(tools);
+    const table = (lang, own) => ({ ...SHELL_STRINGS[lang], ...own[lang], ...names[lang] });
     return (lang, own = {}) => {
         const translated = Object.entries(table(lang, own)).filter(([, text]) => text !== undefined);
         return { ...table('en', own), ...Object.fromEntries(translated) };
+    };
+}
+
+// Every tool's name, short name and description, as strings ({ en, el }):
+// tool.<id>.title, tool.<id>.short, tool.<id>.description
+/** @param {import('../../types/pages.js').Tool[]} tools @returns {import('../../types/pages.js').Strings} */
+export function toolNames(tools) {
+    return Object.fromEntries(LANGS.map(lang => [lang, Object.fromEntries(tools.flatMap(tool => [
+        [`tool.${tool.id}.title`, tool.title[lang]],
+        [`tool.${tool.id}.short`, (tool.shortTitle ?? tool.title)[lang]],
+        ...(tool.description ? [[`tool.${tool.id}.description`, tool.description[lang]]] : []),
+    ]))]));
+}
+
+// Tables of strings ({ en, el }) as one, the later ones winning
+/** @param {...import('../../types/pages.js').Strings} tables @returns {import('../../types/pages.js').Strings} */
+export const mergeStrings = (...tables) => Object.fromEntries(LANGS.map(lang => [lang, Object.assign({}, ...tables.map(t => t[lang]))]));
+
+// s(key): a string of the page's (strings, in lang); a missing one fails, as {{t}} does in views
+/** @param {Record<string, string>} strings @param {string} lang @returns {(key: string) => string} */
+export function stringGetter(strings, lang) {
+    return key => {
+        const text = strings[key];
+        if (text === undefined) throw new Error(`There's no string "${key}" (${lang})`);
+        return text;
     };
 }
 

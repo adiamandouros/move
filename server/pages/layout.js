@@ -38,7 +38,7 @@ const LANGUAGE_LABELS = { en: 'EN', el: 'ΕΛ' };
  * @returns {(page: import('../../types/pages.js').RenderOptions) => string}
  */
 export function createRenderer(tools, pagePaths, config) {
-    const layout = view('layout');
+    const layout = view('server/views/layout.hbs');
     const imports = importMap(tools);
     const stringsFor = pageStrings(tools);
 

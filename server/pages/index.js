@@ -3,7 +3,8 @@ import express from 'express';
 import { inlineScripts } from '../csp.js';
 import { adsTxt } from '../ads.js';
 import { loadConfig } from '../config.js';
-import { basePath, langOf, LANGS, localPath, pageStrings } from './i18n.js';
+import { format } from '../../public/js/core/html.js';
+import { basePath, langOf, LANGS, localPath, pageStrings, stringGetter } from './i18n.js';
 import { iconSprite } from './icons.js';
 import { createRenderer } from './layout.js';
 import { loadTools, NOT_FOUND, SERVER_ERROR, sitePages, STATION_PATHS } from './registry.js';
@@ -23,8 +24,9 @@ import { createStationPages } from './stations.js';
 //   stations.js         the station pages, built from rail.json
 
 // Every page in sitePages (registry.js), rendered in each language, by path;
-// render, for the pages that aren't in the list; notFound(path), the 404 page;
-// errorPage(path), the page for when answering failed. config: the settings
+// renderPage(page, lang), for pages of the same shape built later (the
+// station pages); render, for any other (the admin pages); notFound(path),
+// the 404 page; errorPage(path), the page for when answering failed. config: the settings
 // (server/config.js); without them, no public address and no ads.
 /** @param {import('../../types/pages.js').Tool[]} [tools] @param {import('../../types/config.js').Config} [config] */
 export function renderPages(tools = loadTools(), config = loadConfig({})) {
@@ -33,18 +35,21 @@ export function renderPages(tools = loadTools(), config = loadConfig({})) {
     const render = createRenderer(tools, pagePaths, config);
     const stringsFor = pageStrings(tools);
 
-    // A page from the registry in one language, at `path`
-    const renderPage = (page, lang, path) => {
+    // A page (registry.js) in one language, at its path or at `path`
+    /** @param {import('../../types/pages.js').Page} page @param {import('../../types/pages.js').Lang} lang */
+    const renderPage = (page, lang, path = page.path) => {
         const strings = stringsFor(lang, page.strings);
-        const s = key => strings[key];
+        const s = stringGetter(strings, lang);
+        const values = page.values?.(lang) ?? {};
         return render({
             lang,
             path,
             index: page.index ?? true,
-            title: s(page.title),
-            description: page.description ? s(page.description) : '',
+            title: format(s(page.title), values),
+            description: page.description ? format(s(page.description), values) : '',
             content: page.content(lang, strings),
-            strings: page.strings,
+            // Its own strings go to the browser only for its own scripts
+            strings: page.scripts?.length ? page.strings : undefined,
             scripts: page.scripts,
             structuredData: page.structuredData?.(lang, s) ?? null,
             active: page.active,
@@ -54,7 +59,7 @@ export function renderPages(tools = loadTools(), config = loadConfig({})) {
 
     const pages = {};
     for (const lang of LANGS) {
-        for (const page of list) pages[localPath(page.path, lang)] = renderPage(page, lang, page.path);
+        for (const page of list) pages[localPath(page.path, lang)] = renderPage(page, lang);
     }
     // The 404 page for a path, in its language, with the language link to the same path
     const notFound = path => renderPage(NOT_FOUND, langOf(path), basePath(path));
@@ -62,7 +67,7 @@ export function renderPages(tools = loadTools(), config = loadConfig({})) {
     const errorPage = path => renderPage(SERVER_ERROR, langOf(path), basePath(path));
     // The pages search engines should find (English paths), for the sitemap
     const indexed = list.filter(page => page.index !== false).map(page => page.path);
-    return { pages, indexed, notFound, errorPage, render };
+    return { pages, indexed, notFound, errorPage, render, renderPage };
 }
 
 // The app manifest in one language (public/icon/site.webmanifest is the
@@ -83,11 +88,11 @@ export function appManifest(lang, description) {
  * @param {{ railFile?: string, config?: import('../../types/config.js').Config }} [options]
  */
 export function createPages(tools = loadTools(), { railFile, config = loadConfig({}) } = {}) {
-    const { pages, indexed, notFound, errorPage, render } = renderPages(tools, config);
+    const { pages, indexed, notFound, errorPage, render, renderPage } = renderPages(tools, config);
     const serviceWorker = renderServiceWorker(tools, pages);
     const router = express.Router();
     // The station pages, built from rail.json (when there is one)
-    const stations = railFile ? createStationPages({ railFile, render, tools, origin: config.siteUrl }) : null;
+    const stations = railFile ? createStationPages({ railFile, renderPage, tools, origin: config.siteUrl }) : null;
     // SITE_URL if set, so search engines only ever see the public address
     const origin = req => config.siteUrl || `${req.protocol}://${req.get('host')}`;
 

@@ -1,8 +1,9 @@
 import { readdirSync, readFileSync } from 'fs';
-import { dirname, join } from 'path';
+import { dirname, join, relative, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import Handlebars from 'handlebars';
 import { externalLink, format, formatDate, icon, raw } from '../../public/js/core/html.js';
+import { stringGetter } from './i18n.js';
 
 // The server's views are Handlebars templates (.hbs): the layout
 // (server/views/layout.hbs), the pages' views (server/views/, the tools'
@@ -39,8 +40,7 @@ const OPTIONS = {
 };
 
 hb.registerHelper('t', (key, options) => {
-    const text = options.data.strings?.[key];
-    if (text === undefined) throw new Error(`There's no string "${key}" (${options.data.lang})`);
+    const text = stringGetter(options.data.strings ?? {}, options.data.lang)(key);
     return Object.keys(options.hash).length ? format(text, options.hash) : text;
 });
 
@@ -57,8 +57,7 @@ hb.registerHelper('ifLang', function (code, options) {
 
 // Its content is the view's own output, so already escaped
 hb.registerHelper('external', function (options) {
-    const newTab = options.data.strings?.['shell.new-tab'];
-    if (newTab === undefined) throw new Error(`There's no string "shell.new-tab" (${options.data.lang})`);
+    const newTab = stringGetter(options.data.strings ?? {}, options.data.lang)('shell.new-tab');
     return new hb.SafeString(String(externalLink(options.hash, raw(options.fn(this)), newTab)));
 });
 
@@ -87,20 +86,22 @@ export function registerPartial(name, source) {
     hb.registerPartial(name, hb.compile(source, OPTIONS));
 }
 
-// ── The server's views ──────────────────────────────────────────────────────
+// ── The views ───────────────────────────────────────────────────────────────
 
-const VIEWS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'views');
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-// A view in server/views/ by name ('home', 'pages/about.en', 'stations/station'), compiled once
+// A view by its file, from the repository's root ('server/views/home.hbs',
+// 'tools/subway/page.hbs', 'admin/login.hbs') or as a full path; compiled once
 const views = new Map();
-/** @param {string} name @returns {View} */
-export function view(name) {
-    if (!views.has(name)) views.set(name, compileView(readFileSync(join(VIEWS_DIR, `${name}.hbs`), 'utf8'), `server/views/${name}.hbs`));
-    return views.get(name);
+/** @param {string} file @returns {View} */
+export function view(file) {
+    const path = resolve(ROOT, file);
+    if (!views.has(path)) views.set(path, compileView(readFileSync(path, 'utf8'), relative(ROOT, path)));
+    return views.get(path);
 }
 
 // The partials they share: server/views/partials/<name>.hbs, as {{> name}}
-const PARTIALS_DIR = join(VIEWS_DIR, 'partials');
+const PARTIALS_DIR = join(ROOT, 'server', 'views', 'partials');
 for (const file of readdirSync(PARTIALS_DIR).filter(f => f.endsWith('.hbs'))) {
     registerPartial(file.slice(0, -'.hbs'.length), readFileSync(join(PARTIALS_DIR, file), 'utf8'));
 }
