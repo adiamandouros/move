@@ -30,8 +30,8 @@
     <p>Google and its partners use cookies and similar technologies to show ads, measure them and prevent fraud, and, if you agree, to personalise them. In the European Union, Google asks for your choice before using cookies for ads. If you don't agree, you may still see ads that aren't personalised.</p>
     <p><button type="button" id="ad-choices" class="btn btn-sm btn-outline-primary rounded-pill" data-ad-client="{{adClient}}" hidden>Change your ad choices</button></p>
     <ul>
-        <li><a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener">How Google uses information from sites that use its services <span class="sr-only">{{t "shell.new-tab"}}</span></a></li>
-        <li><a href="https://myadcenter.google.com/" target="_blank" rel="noopener">Google's ad settings <span class="sr-only">{{t "shell.new-tab"}}</span></a>, to turn off personalised ads</li>
+        <li>{{#external href="https://policies.google.com/technologies/partner-sites"}}How Google uses information from sites that use its services{{/external}}</li>
+        <li>{{#external href="https://myadcenter.google.com/"}}Google's ad settings{{/external}}, to turn off personalised ads</li>
     </ul>
 
 {{/if}}
@@ -39,7 +39,7 @@
     <p>Walking directions open Google Maps, and announcements link to the OASA and STASY websites. Their own privacy policies apply there.</p>
 
     <h2>Your rights</h2>
-    <p>Under the GDPR you can ask what we hold about you and ask us to delete it. Wayhop keeps almost nothing that identifies you, but <a href="/contact">contact us</a> with any question. You can also complain to the <a href="https://www.dpa.gr/" target="_blank" rel="noopener">Hellenic Data Protection Authority <span class="sr-only">{{t "shell.new-tab"}}</span></a>.</p>
+    <p>Under the GDPR you can ask what we hold about you and ask us to delete it. Wayhop keeps almost nothing that identifies you, but <a href="/contact">contact us</a> with any question. You can also complain to the {{#external href="https://www.dpa.gr/"}}Hellenic Data Protection Authority{{/external}}.</p>
 
     <h2>Changes</h2>
 {{#unless ads}}

@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import Handlebars from 'handlebars';
-import { format, formatDate, icon } from '../../public/js/core/html.js';
+import { externalLink, format, formatDate, icon, raw } from '../../public/js/core/html.js';
 
 // The server's views are Handlebars templates (.hbs): the layout
 // (server/views/layout.hbs), the pages' views (server/views/, the tools'
@@ -17,6 +17,9 @@ import { format, formatDate, icon } from '../../public/js/core/html.js';
 //   {{formatDate "2026-10-14"}}     a date as people write it: 14/10/2026
 //   {{#ifLang "en"}}…{{else}}…{{/ifLang}}  text written in both languages:
 //                                   the first part on English pages, the rest on Greek ones
+//   {{#external href="https://…"}}…{{/external}}  a link that opens in a new tab and
+//                                   says so (externalLink in /js/core/html.js); other
+//                                   attributes as given: class="…" lang="en" hidden=true
 // Templates are compiled strictly: a value the template names but isn't
 // given, a helper that doesn't exist or a string that's missing throws. Every
 // page is rendered at startup, so such a mistake fails `npm test` (and the
@@ -28,7 +31,7 @@ import { format, formatDate, icon } from '../../public/js/core/html.js';
 const hb = Handlebars.create();
 
 // (A value can't have a helper's name: {{lang}} is the page's language)
-export const HELPERS = ['t', 'icon', 'json', 'ifLang', 'formatDate'];
+export const HELPERS = ['t', 'icon', 'json', 'ifLang', 'formatDate', 'external'];
 const OPTIONS = {
     strict: true,
     knownHelpersOnly: true,
@@ -50,6 +53,13 @@ hb.registerHelper('formatDate', date => formatDate(date));
 
 hb.registerHelper('ifLang', function (code, options) {
     return options.data.lang === code ? options.fn(this) : options.inverse(this);
+});
+
+// Its content is the view's own output, so already escaped
+hb.registerHelper('external', function (options) {
+    const newTab = options.data.strings?.['shell.new-tab'];
+    if (newTab === undefined) throw new Error(`There's no string "shell.new-tab" (${options.data.lang})`);
+    return new hb.SafeString(String(externalLink(options.hash, raw(options.fn(this)), newTab)));
 });
 
 /**

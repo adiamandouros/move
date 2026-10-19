@@ -12,7 +12,7 @@
     <div class="station-actions d-flex flex-wrap gap-2 mb-4">
         <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?from={{id}}">{{icon "signpost-split" "me-1"}}{{t "stations.plan-from"}}</a>
         <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?to={{id}}">{{icon "geo-alt" "me-1"}}{{t "stations.plan-to"}}</a>
-        <a class="btn btn-sm btn-outline-secondary rounded-pill" href="{{walking}}" target="_blank" rel="noopener">{{icon "person-walking" "me-1"}}{{t "stations.walk"}} <span class="sr-only">{{t "shell.new-tab"}}</span></a>
+        {{#external href=walking class="btn btn-sm btn-outline-secondary rounded-pill"}}{{icon "person-walking" "me-1"}}{{t "stations.walk"}}{{/external}}
     </div>
 {{#each lines}}
     <section class="station-section" aria-labelledby="line-{{key}}">

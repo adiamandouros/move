@@ -126,3 +126,12 @@ test('what goes into <head> is escaped: title, description, structured data', ()
     // A page's own stylesheets (the admin pages')
     assert.match(head, /<link rel="stylesheet" href="\/admin\/assets\/admin\.css">\n/);
 });
+
+// Links that open a new tab are written one way: externalLink() (in views,
+// {{#external}}), which tells screen readers so after the link's text
+test('every link that opens a new tab is written with externalLink()', () => {
+    const found = sources(['server', 'public/js', 'tools', 'admin'])
+        .filter(({ file }) => /\.(js|hbs)$/.test(file) && file !== 'public/js/core/html.js')
+        .filter(({ text }) => /target="_blank"/.test(text)).map(({ file }) => file);
+    assert.deepEqual(found, []);
+});

@@ -42,7 +42,9 @@ test('the stop row: name, distance, directions in a new tab, lines', async () =>
     assert.match(html, /data-stop="10361"/);
     assert.match(html, /aria-controls="stop-3"/);
     assert.match(spoken(html), /SYNTAGMA\s*,\s*1\.5 km/);
-    assert.match(html, /aria-label="Walking directions to SYNTAGMA \(opens in a new tab\)"/);
+    // The signpost: named by its hidden text, which says it opens a new tab
+    assert.equal(spoken(html.match(/<a [^>]*class="directions-btn[^]*?<\/a>/)[0]), 'Walking directions to SYNTAGMA (opens in a new tab)');
+    assert.match(html, /<a href="[^"]+" class="directions-btn [^"]*" target="_blank" rel="noopener">/);
     assert.match(html, /destination=37\.97491,23\.73488&amp;travelmode=walking/);
     assert.match(html, /Lines: 040, Χ95/);
     assert.match(String((await browserModule('tools/buses/client/render.js', 'el')).stopItem(stop, 0)), /ΣΥΝΤΑΓΜΑ/);

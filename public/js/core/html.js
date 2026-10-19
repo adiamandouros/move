@@ -90,6 +90,23 @@ export function formatDate(date) {
     return `${d}/${m}/${y}`;
 }
 
+// A link that opens in a new tab, and says so to screen readers after its
+// content (newTab: "(opens in a new tab)" in the page's language). attrs: its
+// attributes, written href first and the rest by name; true writes one
+// without a value, null, undefined and false leave it out. The one way pages write such a link: in
+// views as {{#external href="…"}}…{{/external}} (server/pages/templates.js).
+/**
+ * @param {Record<string, unknown>} attrs @param {unknown} content @param {string} newTab
+ * @returns {Html}
+ */
+export function externalLink(attrs, content, newTab) {
+    const written = Object.entries(attrs)
+        .sort(([a], [b]) => a === 'href' ? -1 : b === 'href' ? 1 : a.localeCompare(b))
+        .filter(([, value]) => value !== null && value !== undefined && value !== false)
+        .map(([name, value]) => value === true ? html` ${name}` : html` ${name}="${value}"`);
+    return html`<a${written} target="_blank" rel="noopener">${content}<span class="sr-only"> ${newTab}</span></a>`;
+}
+
 // Google Maps walking directions to a place
 /** @param {number} lat @param {number} lng */
 export const walkingUrl = (lat, lng) => `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`;

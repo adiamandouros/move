@@ -5,7 +5,7 @@ import { readFileSync, statSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
-import { format, formatDate, html, localName, walkingUrl } from '../../public/js/core/html.js';
+import { format, formatDate, localName, walkingUrl } from '../../public/js/core/html.js';
 import { centralPlatformBadge, clockTime, exitDiagram, lineBadge, stopNote } from '../../public/js/core/metro.js';
 import { athensDate } from '../../tools/subway/client/network.js';
 import { LANGS, localPath, pageStrings } from './i18n.js';
@@ -128,8 +128,7 @@ export function stationView(rail, id, lang, s) {
         id,
         name: name(id),
         lines,
-        // Escaped by html``, so Handlebars keeps its = as they are (it writes &#x3D;)
-        walking: html`${walkingUrl(lat, lng)}`,
+        walking: walkingUrl(lat, lng),
         timetable: { old: athensDate() > rail.feed.validTo, date: formatDate(rail.feed.validTo) },
     };
 }

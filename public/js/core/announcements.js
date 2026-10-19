@@ -1,4 +1,4 @@
-import { html, icon, safeUrl, setHtml } from './html.js';
+import { externalLink, html, icon, safeUrl, setHtml } from './html.js';
 import { language, t } from './i18n.js';
 
 // Service announcements from /api/announcements (server/info/announcements.js),
@@ -22,14 +22,12 @@ let failed = false;
 
 const formatDate = iso => new Date(iso).toLocaleDateString(language === 'el' ? 'el-GR' : 'en-GB', { day: 'numeric', month: 'short' });
 
-const newTab = () => html`<span class="sr-only"> ${t('shell.new-tab')}</span>`;
-
 // One announcement; exported for the tests
 export function item({ title, link, date }, greek) {
     const text = html`<span${greek && html` lang="el"`}>${title}</span>`;
     const url = safeUrl(link);
     return html`<li class="announcement">
-        ${url ? html`<a href="${url}" target="_blank" rel="noopener">${text}${newTab()}</a>` : text}
+        ${url ? externalLink({ href: url }, text, t('shell.new-tab')) : text}
         <span class="announcement-meta">${formatDate(date)}${greek && ` · ${t('announcements.in-greek')}`}</span>
     </li>`;
 }
@@ -41,7 +39,7 @@ function group(titleKey, items, more, greek) {
         ${rest.length
             ? html`<ul class="announcements">${rest.slice(0, SHOWN).map(i => item(i, greek))}</ul>`
             : html`<p class="text-body-secondary">${t(items.length ? 'announcements.none-other' : 'announcements.none')}</p>`}
-        <p class="info-source"><a href="${more}" target="_blank" rel="noopener">${t('announcements.more')}${newTab()}</a></p>`;
+        <p class="info-source">${externalLink({ href: more }, t('announcements.more'), t('shell.new-tab'))}</p>`;
 }
 
 function render() {
