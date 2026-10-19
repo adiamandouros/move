@@ -1487,16 +1487,21 @@ body {
     font-size: 1.05rem;
 }
 
-/* The about, privacy and contact links at the bottom of the sidebar */
+/* The about, privacy and contact links near the bottom of the sidebar, one
+   under the other, above the language button (which stays last) */
 .side-links {
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px 12px;
-    padding: 12px 12px 0;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0 16px 12px;
     font-size: 0.8rem;
 }
 
+/* Each at least 24px tall, so they're big enough to click (WCAG 2.5.8) */
 .side-links a {
+    display: flex;
+    align-items: center;
+    min-height: 24px;
     color: var(--bs-secondary-color);
 }
 
