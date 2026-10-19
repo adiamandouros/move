@@ -12,7 +12,7 @@ const storage = {
     set: (key, value) => { try { localStorage.setItem(key, value); } catch { /* storage blocked: just this page */ } },
 };
 
-// The language links (sidebar, footer, suggestion: the links with hreflang)
+// The language links (sidebar, menu, suggestion: the links with hreflang)
 // open this page in the other language. Remember the choice, so pages open in
 // it from now on (see languageRedirect in server/pages/layout.js), and keep
 // this page's state, like the stations chosen on the subway page, which lives
@@ -25,7 +25,7 @@ const storage = {
 });
 
 // Offer the other language once, to someone whose browser prefers it and who
-// hasn't chosen a language (on phones the language link is down in the footer)
+// hasn't chosen a language (on phones the language link is in the menu)
 const suggestion = /** @type {HTMLElement | null} */ (document.querySelector('.lang-suggest'));
 if (suggestion && !storage.get('language') && !storage.get('language-suggested')) {
     const preferred = (navigator.languages ?? [navigator.language])

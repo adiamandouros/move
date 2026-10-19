@@ -168,11 +168,11 @@ body {
     border-color: var(--wh-divider) !important;
 }
 
-/* The Wayhop logo as the Home button, the size of the icons next to it */
+/* The Wayhop logo as the Home button, the height of the icons next to it
+   (fs-4, like them, and 1em like .bi) so the labels line up */
 .nav-logo {
-    height: 24px;
+    height: 1em;
     width: auto;
-    margin: 4px 0;
 }
 
 /* ── Nav buttons (shared) ── */
@@ -1452,7 +1452,7 @@ body {
     margin-top: 24px;
 }
 
-/* ── Pages of text (about, privacy, contact) and the footer ── */
+/* ── Pages of text (about, privacy, contact) ── */
 
 .prose-view {
     max-width: 640px;
@@ -1481,21 +1481,73 @@ body {
     font-size: 1.05rem;
 }
 
-.site-footer {
+/* The about, privacy and contact links at the bottom of the sidebar */
+.side-links {
     display: flex;
-    justify-content: center;
     flex-wrap: wrap;
-    gap: 4px 20px;
-    padding: 24px 16px 16px;
-    font-size: 0.85rem;
+    gap: 4px 12px;
+    padding: 12px 12px 0;
+    font-size: 0.8rem;
 }
 
-.site-footer a {
+.side-links a {
     color: var(--bs-secondary-color);
 }
 
-/* The language link, on phones (shell.js and layout.js) */
-.footer-language {
+/* ── Menu (phones) ── */
+
+/* The button that opens it, last in the bottom bar: three lines in the
+   logo's yellow */
+.menu-btn .bi {
+    color: var(--wh-brand-yellow);
+}
+
+/* A popover (layout.js): closed until the button opens it, then above the
+   bottom bar, by the button */
+.site-menu {
+    inset: auto 8px calc(var(--bottom-nav-height) + 8px) auto;
+    margin: 0;
+    min-width: 200px;
+    padding: 6px;
+    color: var(--bs-body-color);
+    background-color: var(--bs-tertiary-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.site-menu:popover-open {
+    display: flex;
+    flex-direction: column;
+}
+
+.site-menu-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    padding: 8px 12px;
+    color: var(--bs-body-color);
+    text-decoration: none;
+    border-radius: 8px;
+}
+
+.site-menu-link .bi {
+    font-size: 1.15rem;
+    color: var(--bs-secondary-color);
+}
+
+.site-menu-link:hover {
+    background-color: var(--bs-secondary-bg);
+}
+
+.site-menu-link:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+/* The other language, first and in its own language */
+.menu-language {
     font-weight: 600;
 }
 

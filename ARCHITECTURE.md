@@ -44,7 +44,7 @@ All in [server/pages/](server/pages/):
 1. `index.js` takes each page in the registry, in each language.
 2. `layout.js` puts its content into `server/views/layout.html`: the head
    (search tags from `seo.js`), the navigation, the language link, the
-   footer, the page's strings and its scripts.
+   menu, the page's strings and its scripts.
 3. `i18n.js` puts the result into the page's language (below).
 4. The HTML is kept in memory and sent as it is. Station pages are rendered
    when first asked for and kept until `rail.json` changes.
@@ -76,7 +76,7 @@ pages use.
   `data-i18n-placeholder`, `-aria-label` and `-title` set those attributes.
   The English text in the markup is only a placeholder; the strings files
   decide. Strings live in `server/views/strings.json` (shared: navigation,
-  home, footer, announcements), `tools/<id>/strings.json` (a tool's) and
+  home, menu, announcements), `tools/<id>/strings.json` (a tool's) and
   `server/views/stations.json` (station pages), each with `en` and `el`.
 - **Longer text** (paragraphs with links, lists): written twice, side by
   side, as `data-lang="en"` and `data-lang="el"` elements. The server keeps
