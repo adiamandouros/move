@@ -5,8 +5,9 @@ import { join, relative } from 'path';
 import { fileURLToPath } from 'url';
 import { listFiles } from '../server/pages/assets.js';
 import { renderPages } from '../server/pages/index.js';
-import { loadTools } from '../server/pages/registry.js';
-import { compileView, fill, HELPERS, parseTemplate } from '../server/pages/templates.js';
+import { mergeStrings, stringGetter, toolNames } from '../server/pages/i18n.js';
+import { loadTools, stringTables } from '../server/pages/registry.js';
+import { compileView, fill, HELPERS, parseTemplate, view } from '../server/pages/templates.js';
 
 // The Handlebars views (server/pages/templates.js): what they may use, how
 // strictly they're checked, and the views themselves: every string they use
@@ -19,19 +20,8 @@ const VIEWS = ['server/views', 'admin', ...tools.map(t => `tools/${t.id}`)]
     .filter(file => file.endsWith('.hbs'))
     .map(file => ({ name: relative(ROOT, file), source: readFileSync(file, 'utf8') }));
 
-// Every string in each language: the shell's, the station pages', each tool's and the tools' names
-const STRINGS = { en: {}, el: {} };
-{
-    const read = file => JSON.parse(readFileSync(join(ROOT, file), 'utf8'));
-    for (const lang of ['en', 'el']) {
-        for (const table of [read('server/views/strings.json'), read('server/views/stations.json'), ...tools.map(t => t.strings)]) Object.assign(STRINGS[lang], table[lang]);
-        for (const tool of tools) {
-            STRINGS[lang][`tool.${tool.id}.title`] = tool.title[lang];
-            STRINGS[lang][`tool.${tool.id}.short`] = (tool.shortTitle ?? tool.title)[lang];
-            STRINGS[lang][`tool.${tool.id}.description`] = tool.description?.[lang];
-        }
-    }
-}
+// Every string in each language, as written (without English standing in for Greek)
+const STRINGS = mergeStrings(...stringTables(tools));
 
 // Every node of a parsed template
 function* nodes(node) {
@@ -167,4 +157,19 @@ test('{{#> section}}: an accordion section around its content, closed unless ope
 test('fill() fills a script\'s slots as they are, and fails on a missing one', () => {
     assert.equal(fill('const A = {{a}};', { a: '["x"]' }), 'const A = ["x"];');
     assert.throws(() => fill('{{a}} {{b}}', { a: '1' }), /No value for \{\{b\}\}/);
+});
+
+test('view(): one loader for every view, by its path from the repository\'s root or in full, compiled once', () => {
+    assert.equal(view('admin/login.hbs'), view(join(ROOT, 'admin', 'login.hbs')));
+    assert.match(view('tools/subway/page.hbs')({}, { lang: 'en', strings: STRINGS.en }), /<h1 class="sr-only">Subway<\/h1>/);
+    // A mistake names the view
+    assert.throws(() => view('server/views/notfound.hbs')({}, { lang: 'en', strings: {} }), /^Error: server\/views\/notfound\.hbs: There's no string/);
+});
+
+test('strings: a missing one fails; tables merge, later ones winning; the tools\' names', () => {
+    assert.equal(stringGetter({ a: 'A' }, 'el')('a'), 'A');
+    assert.throws(() => stringGetter({}, 'el')('b'), /There's no string "b" \(el\)/);
+    assert.deepEqual(mergeStrings({ en: { a: '1', b: '1' } }, { en: { b: '2' }, el: { a: 'α' } }), { en: { a: '1', b: '2' }, el: { a: 'α' } });
+    const names = toolNames([{ id: 'x', title: { en: 'X', el: 'Χ' }, shortTitle: { en: 'x', el: 'χ' } }]);
+    assert.deepEqual(names.el, { 'tool.x.title': 'Χ', 'tool.x.short': 'χ' });
 });

@@ -4,7 +4,7 @@ import express from 'express';
 import { loadConfig } from '../server/config.js';
 import { createPages, renderPages } from '../server/pages/index.js';
 import { loadTools } from '../server/pages/registry.js';
-import { renderStationPage } from '../server/pages/stations.js';
+import { stationPage } from '../server/pages/stations.js';
 import { rail } from './fixtures/rail.js';
 
 // AdSense is off until ADSENSE_CLIENT is set; each ADSENSE_SLOT_* adds one ad
@@ -15,7 +15,7 @@ const tools = loadTools();
 
 function withEnv(env) {
     const rendered = renderPages(tools, loadConfig(env));
-    const station = renderStationPage(rail, 'x', 'en', { render: rendered.render, tools });
+    const station = rendered.renderPage(stationPage(rail, 'x', { tools }), 'en');
     return { ...rendered, station };
 }
 

@@ -9,7 +9,7 @@ import { applyOverlay, removeEntry, sameEntry, setEntry, tidyEntry, writeOverlay
 import { POSITIONS, validateCurated } from '../data/validate.js';
 import { formatReport } from '../diagnostics.js';
 import { listFiles, shellFiles, shellUrls, urlPath } from '../pages/assets.js';
-import { compileView, fill } from '../pages/templates.js';
+import { fill, view } from '../pages/templates.js';
 import { createAuth, createLimiter, readCookie } from './auth.js';
 
 const ADMIN_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'admin');
@@ -31,8 +31,7 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
     const limiter = createLimiter();
     const router = express.Router();
     // The admin pages' views (admin/<name>.hbs), in English only
-    const view = name => compileView(readFileSync(join(ADMIN_DIR, `${name}.hbs`), 'utf8'), `admin/${name}.hbs`);
-    const views = { login: view('login'), stations: view('stations'), diagnostics: view('diagnostics') };
+    const views = { login: view('admin/login.hbs'), stations: view('admin/stations.hbs'), diagnostics: view('admin/diagnostics.hbs') };
     const english = { lang: 'en', strings: {} };
     const styles = ['/admin/assets/admin.css'];
     const serviceWorker = renderServiceWorker();

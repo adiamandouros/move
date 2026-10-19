@@ -7,7 +7,8 @@ import express from 'express';
 import { loadConfig } from '../server/config.js';
 import { createPages } from '../server/pages/index.js';
 import { loadTools } from '../server/pages/registry.js';
-import { firstAndLast, indexView, stationView } from '../server/pages/stations.js';
+import { renderPages } from '../server/pages/index.js';
+import { firstAndLast, indexView, stationPage, stationView } from '../server/pages/stations.js';
 import { rail } from './fixtures/rail.js';
 
 // The station pages (/subway/stations/<id>), built from rail.json
@@ -186,4 +187,31 @@ test('the pages follow a rebuilt rail.json without a restart', async () => {
 
 test('the subway page links to the station index', async () => {
     assert.match((await get('/subway')).html, /href="\/subway\/stations">All metro stations</);
+});
+
+test('a station page is a page like the others: title and description with its values, structured data, strings', () => {
+    const page = stationPage(rail, 'x', { tools, origin: 'https://wayhop.example' });
+    assert.deepEqual([page.path, page.title, page.description, page.active, page.ad], ['/subway/stations/x', 'stations.station-title', 'stations.description', 'subway', 'station']);
+    assert.deepEqual(page.values('el'), { name: 'Κόμβος', lines: 'L1, L2' });
+    assert.equal(page.structuredData('en', key => key)['@graph'][0].name, 'Cross');
+    // Its strings: its own and the subway page's
+    assert.ok(page.strings.en['stations.toward'] && page.strings.el['subway.exit-left']);
+    const index = stationPage(rail, null, { tools });
+    assert.deepEqual([index.path, index.title, index.values], ['/subway/stations', 'stations.title', undefined]);
+});
+
+test('a string a station page needs but doesn\'t have fails, as in every other view', () => {
+    const { renderPage } = renderPages(tools);
+    // Without the subway page's strings (its train positions, among others)
+    const withoutSubway = tools.map(t => t.id === 'subway' ? { ...t, strings: {} } : t);
+    assert.throws(() => renderPage(stationPage(rail, 'x', { tools: withoutSubway }), 'el'), /There's no string "subway\.[\w.-]+" \(el\)/);
+});
+
+test('a page\'s own strings go to the browser only when it has scripts of its own', () => {
+    const { pages, renderPage } = renderPages(tools);
+    const sent = html => JSON.parse(html.match(/<script type="application\/json" id="strings">(.*?)<\/script>/)[1]);
+    const station = sent(renderPage(stationPage(rail, 'x', { tools }), 'en'));
+    assert.equal(station['stations.toward'], undefined);
+    assert.equal(station['shell.new-tab'], '(opens in a new tab)');
+    assert.equal(sent(pages['/subway'])['subway.exit-left'], tools.find(t => t.id === 'subway').strings.en['subway.exit-left']);
 });

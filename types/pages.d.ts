@@ -28,8 +28,8 @@ export interface Tool {
     scripts: string[];
     precache: string[];
     ad?: string;
-    /** page.hbs: the page's view (server/pages/templates.js) */
-    page: string;
+    /** Full path of page.hbs, its view (server/pages/templates.js) */
+    view: string;
     /** strings.json */
     strings: Strings;
     /** data.json: the values its page.hbs gets ({} without one) */
@@ -46,6 +46,8 @@ export interface Page {
     title: string;
     /** Strings key of the description in search results */
     description?: string;
+    /** The values for {name} placeholders in its title and description */
+    values?: (lang: Lang) => Record<string, string>;
     /** false keeps it out of search results and the sitemap */
     index?: boolean;
     /** The HTML inside <main>, from its view; strings: the page's, for {{t}} */
