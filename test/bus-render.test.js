@@ -72,6 +72,14 @@ test('the minutes badge: colour by how soon, short on screen, in full for screen
     assert.equal(String(en.headerBadge({ arrivals: [] })), '');
 });
 
+test('one arrival: line, destination and minutes, as a screen reader hears it', async () => {
+    const el = await browserModule('tools/buses/client/render.js', 'el');
+    const row = String(el.arrivalRow(arrivals[1]));
+    assert.match(row, /^\s*<li class="arrival-row /);
+    assert.match(row, /arrival-close/);
+    assert.equal(spoken(row).replace(/\s+/g, ' '), 'Γραμμή 040 , ΠΕΙΡΑΙΑΣ, 7 λεπτά');
+});
+
 test('every arrival is listed; an unknown line or destination says so', async () => {
     const { arrivalRows } = await browserModule('tools/buses/client/render.js', 'en');
     const html = String(arrivalRows({ arrivals }));
