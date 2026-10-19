@@ -1,11 +1,6 @@
 {{!-- Every metro station by line (server/pages/stations.js, indexView) --}}
 <div class="station-view">
-    <nav aria-label="{{t "stations.breadcrumb"}}">
-        <ol class="breadcrumb small mb-2">
-            <li class="breadcrumb-item"><a href="/subway">{{t "stations.subway"}}</a></li>
-            <li class="breadcrumb-item active" aria-current="page">{{t "stations.title"}}</li>
-        </ol>
-    </nav>
+{{> breadcrumb crumbs}}
     <h1 class="fs-3 fw-semibold mb-2">{{t "stations.title"}}</h1>
     <p class="text-body-secondary">{{t "stations.index-intro"}}</p>
 {{#each lines}}

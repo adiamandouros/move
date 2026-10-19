@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import express from 'express';
 import { inlineScripts } from '../csp.js';
 import { adsTxt } from '../ads.js';
+import { sendFresh } from '../http.js';
 import { loadConfig } from '../config.js';
 import { format } from '../../public/js/core/html.js';
 import { basePath, langOf, LANGS, localPath, pageStrings, stringGetter } from './i18n.js';
@@ -97,7 +98,7 @@ export function createPages(tools = loadTools(), { railFile, config = loadConfig
     const origin = req => config.siteUrl || `${req.protocol}://${req.get('host')}`;
 
     router.get('/sw.js', (_req, res) => {
-        res.set('Cache-Control', 'no-cache').type('js').send(serviceWorker);
+        sendFresh(res, 'js', serviceWorker);
     });
 
     // The icons (icons.js). Pages link it with the asset version, so that
@@ -110,24 +111,24 @@ export function createPages(tools = loadTools(), { railFile, config = loadConfig
     for (const lang of LANGS) {
         const manifest = JSON.stringify(appManifest(lang, stringsFor(lang)['app.description']), null, 2);
         router.get(localPath('/manifest.webmanifest', lang), (_req, res) => {
-            res.set('Cache-Control', 'no-cache').type('application/manifest+json').send(manifest);
+            sendFresh(res, 'application/manifest+json', manifest);
         });
     }
 
     router.get('/robots.txt', (req, res) => {
-        res.set('Cache-Control', 'no-cache').type('text').send(robotsTxt(origin(req)));
+        sendFresh(res, 'text', robotsTxt(origin(req)));
     });
 
     // Which ad networks may sell this site's ad space (only once AdSense is set up)
     const ads = adsTxt(config.adsense);
-    router.get('/ads.txt', (_req, res, next) => ads ? res.set('Cache-Control', 'no-cache').type('text').send(ads) : next());
+    router.get('/ads.txt', (_req, res, next) => ads ? sendFresh(res, 'text', ads) : next());
 
     router.get('/sitemap.xml', (req, res) => {
-        res.set('Cache-Control', 'no-cache').type('xml').send(sitemapXml(origin(req), [...indexed, ...(stations?.paths() ?? [])]));
+        sendFresh(res, 'xml', sitemapXml(origin(req), [...indexed, ...(stations?.paths() ?? [])]));
     });
 
     for (const [path, html] of Object.entries(pages)) {
-        router.get(path, (_req, res) => res.set('Cache-Control', 'no-cache').type('html').send(html));
+        router.get(path, (_req, res) => sendFresh(res, 'html', html));
     }
 
     if (stations) router.use(stations.router);

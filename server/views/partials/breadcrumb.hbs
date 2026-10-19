@@ -1,0 +1,13 @@
+{{!-- Where a page sits in the site, the last one being the page itself:
+{{> breadcrumb crumbs}} with [{ name, path }] (stations.js, breadcrumb) --}}
+    <nav aria-label="{{t "stations.breadcrumb"}}">
+        <ol class="breadcrumb small mb-2">
+{{#each this}}
+{{#if @last}}
+            <li class="breadcrumb-item active" aria-current="page">{{name}}</li>
+{{else}}
+            <li class="breadcrumb-item"><a href="{{path}}">{{name}}</a></li>
+{{/if}}
+{{/each}}
+        </ol>
+    </nav>

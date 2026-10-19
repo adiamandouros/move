@@ -1,12 +1,6 @@
 {{!-- A metro station's page (server/pages/stations.js, stationView) --}}
 <div class="station-view">
-    <nav aria-label="{{t "stations.breadcrumb"}}">
-        <ol class="breadcrumb small mb-2">
-            <li class="breadcrumb-item"><a href="/subway">{{t "stations.subway"}}</a></li>
-            <li class="breadcrumb-item"><a href="/subway/stations">{{t "stations.title"}}</a></li>
-            <li class="breadcrumb-item active" aria-current="page">{{name}}</li>
-        </ol>
-    </nav>
+{{> breadcrumb crumbs}}
     <h1 class="fs-3 fw-semibold mb-1">{{name}}</h1>
     <p class="text-body-secondary mb-3">{{t "stations.lines-here"}}{{#each lines}} {{badge}}{{/each}}</p>
     <div class="station-actions d-flex flex-wrap gap-2 mb-4">
