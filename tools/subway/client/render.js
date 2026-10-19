@@ -1,6 +1,6 @@
 import { language, t } from '/js/core/i18n.js';
 import { format, formatDate, html, icon, localName, walkingUrl as walkingTo } from '/js/core/html.js';
-import { clockTime, lineBadge, trainDiagram } from '/js/core/metro.js';
+import { centralPlatformBadge, clockTime, exitDiagram, lineBadge, stopNote } from '/js/core/metro.js';
 import { legPositions } from './network.js';
 
 // What the subway page draws, with html`` (every value escaped)
@@ -59,12 +59,10 @@ function legCard(rail, leg, next, now, level, tomorrow) {
             </div>
             <div class="leg-action mb-3">
                 ${action}${ride}
-                ${stop.centralPlatform && html`<span class="central-platform-badge ms-2">${icon('symmetry-horizontal', 'me-1')}${t('subway.exit-left')}</span>`}
+                ${stop.centralPlatform && centralPlatformBadge(t, 'ms-2')}
             </div>
-            ${exits.length
-                ? trainDiagram(rail.positions, exits, elevators, t)
-                : html`<p class="text-body-secondary fst-italic small">${t('subway.no-position-data')}</p>`}
-            ${stop.note && html`<div class="stop-note mt-3">${icon('info-circle', 'me-1')}${stop.note}</div>`}
+            ${exitDiagram(rail.positions, exits, elevators, t)}
+            ${stopNote(stop.note)}
         </div></div>`;
 }
 

@@ -77,7 +77,9 @@ compiled once by [templates.js](server/pages/templates.js) and only on the
 server: browsers get finished HTML, and nothing is added to what they load.
 `{{value}}` is escaped; `{{{value}}}` is for HTML that's already built (the
 page's content inside the layout), and pieces built with ``html`` `` (a line
-badge, the train diagram) go in as `{{value}}`. Five helpers:
+badge, the train diagram, a stop's note) go in as `{{value}}`. The metro
+pieces both the subway page and the station pages show are built once, in
+`metro.js`, so they look the same on both. Five helpers:
 
 - `{{t "key"}}`: the page's string; `{{t "stations.toward" name=toward}}`
   fills its `{name}`.
@@ -143,7 +145,8 @@ pages use.
 - `public/js/core/`: modules any page can import. `shell.js` runs on every
   page (location, language link, service worker). `i18n.js`, `html.js`
   (`html`, `setHtml`, `safeUrl`, `format`, `localName`, `walkingUrl`,
-  `icon`), `metro.js` (train diagram, line badge, times and dates),
+  `icon`), `metro.js` (what the subway page and the station pages share:
+  train diagram, line badge, central platform badge, stop notes, times),
   `location.js`, `announcements.js`, `ads.js`.
 - `tools/<id>/client/`: a tool's own scripts, served at `/tools/<id>/`.
 - **Building HTML**: with ``html`…` `` from `/js/core/html.js`, which escapes

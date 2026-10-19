@@ -33,21 +33,17 @@
 {{#if arriving}}
             {{!-- Arriving here: where to ride for the exit and for each connection --}}
             <h4 class="station-subheading">{{t "stations.exit-heading"}}</h4>
-{{#if arriving.diagram}}
+{{#if arriving.exitsKnown}}
             <p class="small mb-2">{{t "stations.exit-text"}}</p>
-            {{arriving.diagram}}
-{{else}}
-            <p class="text-body-secondary fst-italic small">{{t "subway.no-position-data"}}</p>
 {{/if}}
+            {{arriving.diagram}}
 {{#if arriving.centralPlatform}}
-            <p class="central-platform-badge d-inline-block mt-2">{{icon "symmetry-horizontal" "me-1"}}{{t "subway.exit-left"}}</p>
+            <p class="mt-2">{{arriving.centralPlatform}}</p>
 {{/if}}
 {{#each arriving.transfers}}
             <p class="small mt-2 mb-0">{{icon "arrow-left-right" "me-1"}}{{t "stations.transfer" line=line name=toward where=where}}</p>
 {{/each}}
-{{#if arriving.note}}
-            <div class="stop-note mt-3">{{icon "info-circle" "me-1"}}{{arriving.note}}</div>
-{{/if}}
+            {{arriving.note}}
 {{/if}}
 {{#if times.length}}
             {{!-- Leaving from here: first and last trains --}}
