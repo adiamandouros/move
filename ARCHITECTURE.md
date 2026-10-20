@@ -241,7 +241,9 @@ from STASY's own timetable pages instead (`stasy.js`), as the GTFS has depot
 runs STASY doesn't publish and misses some late airport trains: the pages are
 fetched at most every 14 days (directly or through the relays, like STASY's
 announcements, `server/stasy.js`), and a copy of their tables is kept in
-`data/raw/stasy/`; a line whose pages can't be read keeps the GTFS's times. The buses come from OASA's live API instead, as its
+`data/raw/stasy/`; a line whose pages can't be read keeps the GTFS's times.
+The timetable's trains outside STASY's first and last trains are taken off
+(`trimToHours` in `build-rail.js`), so the planner never offers a depot run. The buses come from OASA's live API instead, as its
 open-data bus timetable falls behind (diversions, new routes):
 `oasa-network.js` fetches today's lines, their routes and each route's stops,
 and `build-bus.js` makes `data/build/bus-stops.json` (every stop on a route

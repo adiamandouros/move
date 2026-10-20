@@ -133,6 +133,8 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
     // ── Assemble lines ──────────────────────────────────────────────────────
     const out = {};
     const stationLines = new Map();
+    // Each direction's trips, timetabled once STASY's hours are on its stops
+    const pending = [];
     for (const [lineId, line] of Object.entries(lines)) {
         const directions = {};
         for (const [dirKey, dir] of Object.entries(line.directions)) {
@@ -147,18 +149,22 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
             }
 
             dropCopies(dirTrips, `${lineId}/${dirKey}`, warnings);
-            const timetable = buildTimetable(dirTrips, indexOf, `${lineId}/${dirKey}`);
-
             directions[dirKey] = {
                 toward: dir.toward,
                 stops: order.map(station => stopPositions(positions, lineId, dirKey, station, warnings)),
-                timetable: dedupeDays(timetable),
             };
+            pending.push({ direction: directions[dirKey], dirTrips, indexOf, label: `${lineId}/${dirKey}` });
 
             const extra = Object.keys(positions[lineId]?.[dirKey] ?? {}).filter(s => !indexOf.has(s));
             if (extra.length) throw new Error(`positions.json: ${lineId}/${dirKey} lists stations the line doesn't serve: ${extra.join(', ')}`);
         }
         out[lineId] = { name: line.name, color: line.color, directions };
+    }
+
+    const hoursFetched = applyHours(out, stasy, stations.stations, warnings);
+    for (const { direction, dirTrips, indexOf, label } of pending) {
+        trimToHours(dirTrips, direction.stops, label, warnings);
+        direction.timetable = dedupeDays(buildTimetable(dirTrips, indexOf, label));
     }
 
     const stationsOut = {};
@@ -171,8 +177,6 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
             lines: [...stationLines.get(id)].sort(),
         };
     }
-
-    const hoursFetched = applyHours(out, stasy, stations.stations, warnings);
 
     const allDates = [...dateServices.keys()].sort();
     const validTo = allDates.at(-1);
@@ -257,6 +261,70 @@ function dropCopies(dirTrips, label, warnings) {
         if (n) dropped.push(`${DAY_NAMES[wd]}: ${n}`);
     }
     if (dropped.length) warnings.push(`${label}: the feed lists some trains twice; kept one of each (${dropped.join(', ')})`);
+}
+
+// Trains STASY doesn't publish (depot runs): a train is in service from its
+// first call that isn't before the first train at its stop, up to its first
+// call after the last train (STASY's hours there, with HOURS_LEEWAY: the
+// timetable times the same trains up to 3 minutes off STASY's, depot runs
+// leave 6 minutes or more outside them); a train left without two calls goes. The window at a call is the hours to the furthest destination
+// the train reaches, or all of the stop's together when it reaches none of
+// them (a train turning back early, like Kifisia → Eirini). Stops without
+// STASY's hours set no limits. So the timetable's first and last trains are
+// STASY's, and the planner offers no train that doesn't carry passengers:
+// Dimotiko Theatro → Elaionas at 00:51 goes, and M1's 00:30 from Piraeus
+// "only as far as Omonia" ends at Omonia.
+const HOURS_LEEWAY = 300;
+
+function trimToHours(dirTrips, stops, label, warnings) {
+    const at = new Map(stops.map((s, i) => [s.station, i]));
+    // Leaving `station` on weekday wd on a train that ends at stop index `end`: { first, last } (null: no limit)
+    const window = (station, end, wd) => {
+        const hours = stops[at.get(station)].hours;
+        if (!hours) return { first: null, last: null };
+        const reached = hours.filter(h => at.get(h.to) <= end);
+        const use = reached.length ? [reached.at(-1)] : hours;
+        const limit = (kind, pick) => {
+            const values = use.map(h => h[kind][wd]);
+            return values.includes(null) ? null : pick(...values);
+        };
+        return { first: limit('first', Math.min), last: limit('last', Math.max) };
+    };
+    let left = 0;
+    let shortened = 0;
+    const variants = [];
+    for (const trip of dirTrips) {
+        const kept = new Map();   // "from,to" (call indexes) → days
+        for (const wd of trip.days) {
+            let a = 0;
+            let b = trip.stations.length - 1;
+            const end = () => at.get(trip.stations[b]);
+            while (a < b) {
+                const { first } = window(trip.stations[a], end(), wd);
+                if (first === null || trip.times[a] >= first - HOURS_LEEWAY) break;
+                a++;
+            }
+            // It leaves service at its first call after the last train (a depot run
+            // catching up near the end of the line still goes from its start)
+            for (let k = a; k < b; k++) {
+                const { last } = window(trip.stations[k], end(), wd);
+                if (last !== null && trip.times[k] > last + HOURS_LEEWAY) b = k;
+            }
+            const key = a < b ? `${a},${b}` : null;
+            if (!key) left++;
+            else if (key !== `0,${trip.stations.length - 1}`) shortened++;
+            if (key) kept.set(key, [...(kept.get(key) ?? []), wd]);
+        }
+        const whole = `0,${trip.stations.length - 1}`;
+        for (const [key, days] of kept) {
+            if (key === whole) continue;
+            const [a, b] = key.split(',').map(Number);
+            variants.push({ stations: trip.stations.slice(a, b + 1), times: trip.times.slice(a, b + 1), days });
+        }
+        trip.days = kept.get(whole) ?? [];
+    }
+    dirTrips.push(...variants);
+    if (left || shortened) warnings.push(`${label}: ${left + shortened} trains run outside STASY's first and last trains: ${left} left out, ${shortened} shortened`);
 }
 
 // Store each distinct day once; `days` maps weekday → pattern.

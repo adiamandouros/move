@@ -19,6 +19,20 @@ export const TRANSFER_SECONDS = 180;
 // OASA's feed sometimes has near-duplicate trips a few seconds apart
 const DUPLICATE_SECONDS = 60;
 const MAX_OPTIONS = 3;
+// How far the timetable's last train may be from STASY's and still be it
+// (the timetable times some trains up to 3 minutes off STASY's)
+const LAST_TRAIN_LEEWAY = 300;
+
+// STASY's last train for a leg on one weekday's service, when its stop has
+// STASY's hours (rail.json): to the nearest destination at least as far as
+// the leg goes. Seconds, null when the trains run all night, or undefined
+// when there are no STASY times there.
+/** @param {Rail} rail @param {Leg} leg @param {number} weekday */
+function stasyLast(rail, leg, weekday) {
+    const { stops } = rail.lines[leg.line].directions[leg.dir];
+    const to = stops[leg.fromIndex].hours?.find(h => stops.findIndex(s => s.station === h.to) >= leg.toIndex);
+    return to ? to.last[weekday] : undefined;
+}
 
 // Current weekday (0 = Sunday) and seconds since midnight in Athens, wherever
 // the device's clock is set.
@@ -72,7 +86,10 @@ export function findRoutes(rail, from, to) {
 // Upcoming departures for one leg at or after `after` seconds (relative to
 // today's midnight). Includes yesterday's trips that run past midnight,
 // unless ownDay (only the day's own service).
-// Each result: { departs, arrives, isLast, isSecondLast }.
+// Each result: { departs, arrives, isLast, isSecondLast }. The last ones are
+// only flagged when STASY's last train agrees (the timetable misses the late
+// airport trains, and there's no last one when the trains run all night), or
+// when there are no STASY times.
 /**
  * @param {Rail} rail @param {Leg} leg
  * @param {{ weekday: number, after: number, count?: number, ownDay?: boolean }} when
@@ -82,20 +99,24 @@ export function departures(rail, leg, { weekday, after, count = 2, ownDay = fals
     const { timetable } = rail.lines[leg.line].directions[leg.dir];
     const found = [];
     for (const dayOffset of ownDay ? [0] : [-1, 0]) {
-        const pattern = timetable.patterns[timetable.days[(weekday + dayOffset + 7) % 7]];
-        const serviceDay = [];
+        const serviceDay = (weekday + dayOffset + 7) % 7;
+        const pattern = timetable.patterns[timetable.days[serviceDay]];
+        const trains = [];
         for (const [start, p] of pattern) {
             const { stops, offsets } = timetable.profiles[p];
             const i = stops.indexOf(leg.fromIndex);
             const j = stops.indexOf(leg.toIndex);
             if (i === -1 || j <= i) continue;
-            serviceDay.push({ departs: start + offsets[i] + dayOffset * DAY, arrives: start + offsets[j] + dayOffset * DAY });
+            trains.push({ departs: start + offsets[i] + dayOffset * DAY, arrives: start + offsets[j] + dayOffset * DAY });
         }
-        serviceDay.sort((a, b) => a.departs - b.departs);
-        const unique = serviceDay.filter((d, k) => k === 0 || d.departs - serviceDay[k - 1].departs >= DUPLICATE_SECONDS);
+        trains.sort((a, b) => a.departs - b.departs);
+        const unique = trains.filter((d, k) => k === 0 || d.departs - trains[k - 1].departs >= DUPLICATE_SECONDS);
+        const last = stasyLast(rail, leg, serviceDay);
+        const lastKnown = last === undefined
+            || (last !== null && unique.length > 0 && Math.abs(unique.at(-1).departs - dayOffset * DAY - last) <= LAST_TRAIN_LEEWAY);
         unique.forEach((d, k) => {
-            d.isLast = k === unique.length - 1;
-            d.isSecondLast = k === unique.length - 2;
+            d.isLast = lastKnown && k === unique.length - 1;
+            d.isSecondLast = lastKnown && k === unique.length - 2;
         });
         found.push(...unique.filter(d => d.departs >= after));
     }

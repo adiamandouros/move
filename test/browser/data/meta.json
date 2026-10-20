@@ -1,7 +1,7 @@
 {
-  "generated": "2026-10-20T12:17:02.489Z",
+  "generated": "2026-10-20T13:04:01.708Z",
   "fingerprint": {
-    "builder": "1c987b652e70",
+    "builder": "11603510fb3a",
     "curated": "a569c376bdd6b1e35c3df426edda9a3fc002e1f51e7c711f246e92ffbe991de0",
     "today": "20261020",
     "sources": {
@@ -22,7 +22,13 @@
         "M2/elliniko: the feed lists some trains twice; kept one of each (sun: 6)",
         "positions.json: no exits for M2/elliniko/anthoupoli",
         "M3/dimotiko: the feed lists some trains twice; kept one of each (sun: 9)",
-        "M3/doukissis: the feed lists some trains twice; kept one of each (sun: 7)"
+        "M3/doukissis: the feed lists some trains twice; kept one of each (sun: 7)",
+        "M1/kifisia: 40 trains run outside STASY's first and last trains: 26 left out, 14 shortened",
+        "M1/piraeus: 28 trains run outside STASY's first and last trains: 21 left out, 7 shortened",
+        "M2/anthoupoli: 16 trains run outside STASY's first and last trains: 16 left out, 0 shortened",
+        "M2/elliniko: 22 trains run outside STASY's first and last trains: 12 left out, 10 shortened",
+        "M3/dimotiko: 18 trains run outside STASY's first and last trains: 18 left out, 0 shortened",
+        "M3/doukissis: 19 trains run outside STASY's first and last trains: 19 left out, 0 shortened"
       ]
     },
     "bus-stops.json": {
