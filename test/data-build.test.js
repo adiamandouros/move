@@ -62,6 +62,8 @@ test('a first build publishes every file, which pass their checks', async () => 
     const meta = await build();
     assert.deepEqual(Object.fromEntries(Object.entries(meta.outputs).map(([k, o]) => [k, o.ok])), { 'rail.json': true, 'bus-stops.json': true, 'bus-lines.json': true });
     assert.deepEqual(checkOutput('rail.json', served('rail.json')), []);
+    // rail.json's nightly checks (rail-checks.js): without STASY's copy, nothing to compare
+    assert.deepEqual(meta.outputs['rail.json'].checks, { problems: [], notes: [] });
     assert.deepEqual(checkOutput('bus-stops.json', served('bus-stops.json')), []);
     assert.deepEqual(checkOutput('bus-lines.json', served('bus-lines.json')), []);
     assert.deepEqual(served('bus-lines.json').lines.map(l => l.line), ['040', '830', 'Α10']);

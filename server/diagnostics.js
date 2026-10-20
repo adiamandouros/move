@@ -221,6 +221,7 @@ function dataChecks(dataDir, now) {
     out.push(...networkCheck(dataDir));
     out.push(stasyCheck(dataDir, meta));
     out.push(...airportCheck(dataDir, meta));
+    out.push(...railChecks(meta));
     const lock = join(dataDir, '.build.lock');
     if (existsSync(lock)) out.push(check('Data', 'Build lock', 'info', `A build is running or was interrupted (process ${readFileSync(lock, 'utf8').trim()})`));
     return out;
@@ -295,6 +296,21 @@ function airportCheck(dataDir, meta) {
         out.push(check('Data', title, 'ok', `Unchanged, checked ${when(last.checked)} (${last.route}). Next check from ${next}.`));
     }
     if (built.length) out.push(check('Data', 'Airport trains in the timetable', 'info', built.join(' · ')));
+    return out;
+}
+
+// The nightly checks of the metro timetable against STASY's tables
+// (server/data/rail-checks.js): problems fail /api/health; notes are where the
+// GTFS and STASY disagree, worth a look (or a trip to the platform)
+function railChecks(meta) {
+    const checks = meta?.outputs?.['rail.json']?.checks;
+    if (!checks) return [];
+    const out = [];
+    if (checks.problems.length) {
+        out.push(check('Data', 'Rail data checks', 'fail', checks.problems.join(' · '),
+            'The timetable code relies on these. Check data/curated (stations.json\'s "stasy" names) and STASY\'s pages, or the reading rules in server/data/stasy.js.'));
+    } else out.push(check('Data', 'Rail data checks', 'ok', 'Every stop has STASY\'s first and last trains, so depot runs are left out'));
+    if (checks.notes.length) out.push(check('Data', 'Where the GTFS and STASY differ', 'info', checks.notes.join(' · ')));
     return out;
 }
 

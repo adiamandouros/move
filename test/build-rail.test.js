@@ -60,6 +60,12 @@ test('a date whose trains aren\'t its weekday\'s has them, from yesterday to the
     assert.deepEqual(after.data.lines.M9.directions.north.timetable.dates, {});
 });
 
+test('a date the feed lays two timetables over keeps its weekday\'s trains, with a note', async () => {
+    const { data, notes } = await buildRail({ dir: feed({ crowded: '20260813' }), curated: curated(), today: '20260805' });
+    assert.deepEqual(data.lines.M9.directions.north.timetable.dates, {});
+    assert.deepEqual(notes, ['2026-08-13: the GTFS lists far more trains than usual for a line (two timetables laid over each other?); the typical thu is used']);
+});
+
 test('the copies the feed lists are dropped on its dates too, so they match their weekdays', async () => {
     // Sunday 9 Aug's copy n8 is Saturday 8 Aug's n7, the night before
     const { data } = await buildRail({ dir: feed({ copies: true }), curated: curated(), today: '20260803' });

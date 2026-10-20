@@ -11,11 +11,13 @@ import { crc32 } from 'zlib';
 // copies: trains listed twice, as the real feed sometimes has them (n1 again
 // on weekdays, Saturday night's n7 again as Sunday's n8, 80 s off at b), and
 // real trains close behind n1: n10 stops short, n11 is two minutes behind.
-export function railFeed({ extraStop = '', copies = false, holiday = '' } = {}) {
+export function railFeed({ extraStop = '', copies = false, holiday = '', crowded = '' } = {}) {
     const dir = mkdtempSync(join(tmpdir(), 'move-rail-'));
     const write = (name, rows) => writeFileSync(join(dir, name), rows.join('\n') + '\n');
-    // With a holiday ('YYYYMMDD', in the second week), the feed runs two weeks and that date has Saturday's trains
-    const end = holiday ? '20260816' : '20260809';
+    // With a holiday ('YYYYMMDD', in the second week), the feed runs two weeks and that date has Saturday's trains;
+    // with a crowded date, it runs three weeks (so the usual is clear) and that date has its own trains and
+    // Saturday's and Sunday's too (timetables laid over each other)
+    const end = crowded ? '20260823' : holiday ? '20260816' : '20260809';
     write('routes.txt', ['route_id,route_short_name', '1,M9', '2,T1']);
     write('calendar.txt', [
         'service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date',
@@ -24,6 +26,7 @@ export function railFeed({ extraStop = '', copies = false, holiday = '' } = {}) 
         `sun,0,0,0,0,0,0,1,20260803,${end}`,
     ]);
     if (holiday) write('calendar_dates.txt', ['service_id,date,exception_type', `wk,${holiday},2`, `sat,${holiday},1`]);
+    if (crowded) write('calendar_dates.txt', ['service_id,date,exception_type', `sat,${crowded},1`, `sun,${crowded},1`]);
     write('stops.txt', [
         'stop_id,stop_code,stop_lat,stop_lon',
         '1,A1,37.0,23.0', '2,A2,37.2,23.2', '3,B1,37.5,23.5', '4,B2,37.5,23.5',

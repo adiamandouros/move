@@ -253,7 +253,14 @@ The GTFS also misses some airport trains (the last ones) or ends them early:
 STASY's airport timetable, copied by hand from its PDFs into
 `data/curated/airport.json`, adds them (`addTimetabled`), and once a week the
 build checks the PDFs haven't changed (`airport-check.js`: STASY's line 3 page
-and the two PDFs, through the relays). The buses come from OASA's live API instead, as its
+and the two PDFs, through the relays).
+Since the GTFS can't be trusted to stay as it was, each build also checks the
+timetable it made against STASY's tables (`rail-checks.js`): a stop without
+STASY's first and last trains is a problem (depot runs could get through
+there), and fails `/api/health`; first or last trains off STASY's (missing
+trains), how often trains run against STASY's frequency tables, the dates
+with trains of their own and dates the GTFS lays two timetables over (those
+keep the typical week) are notes, on `/admin/diagnostics`. The buses come from OASA's live API instead, as its
 open-data bus timetable falls behind (diversions, new routes):
 `oasa-network.js` fetches today's lines, their routes and each route's stops,
 and `build-bus.js` makes `data/build/bus-stops.json` (every stop on a route
@@ -278,7 +285,8 @@ and can be edited from a phone at `/admin/stations`.
 `/api/health` (`server/health.js`) says whether the live site works:
 - live arrivals have come in recently;
 - every announcement source loaded;
-- last night's data build worked;
+- last night's data build worked, and its checks of the metro timetable
+  found no problems;
 - the metro timetable doesn't end within a week;
 - STASY's timetable pages could be read, and its airport timetable hasn't
   changed since `airport.json` (checked weekly);

@@ -61,7 +61,7 @@ function dataDir({ hoursAgo = 2, failed = null, lastFetch = null, stasy = STASY_
     writeFileSync(join(dir, 'build', 'rail.json'), JSON.stringify(stasy.fetched ? { hours: { fetched: stasy.fetched } } : {}));
     writeFileSync(join(dir, 'build', 'meta.json'), JSON.stringify({
         generated: new Date(NOW - hoursAgo * 3_600_000).toISOString(),
-        outputs: { 'rail.json': failed ? { ok: false, error: failed, keptPrevious: true } : { ok: true, warnings: stasy.warnings ?? [] } },
+        outputs: { 'rail.json': failed ? { ok: false, error: failed, keptPrevious: true } : { ok: true, warnings: stasy.warnings ?? [], checks: stasy.checks } },
     }));
     return dir;
 }
@@ -334,5 +334,17 @@ test('STASY\'s airport timetable: the weekly check, and the airport trains the b
     ]);
     assert.deepEqual(await rows({ at: '2026-10-21T02:30:00.000Z', checked, changes: [], error: 'home relay: HTTP 400' }), [
         { title: 'STASY airport timetable', status: 'warn', detail: 'The check at 2026-10-21 02:30 UTC failed: home relay: HTTP 400. Last checked 2026-10-14 02:30 UTC: unchanged' },
+    ]);
+});
+
+test('the rail data\'s nightly checks: problems fail, notes are shown for a look', async () => {
+    const rows = async checks => (await run(world(), { dataDir: dataDir({ stasy: { ...STASY_OK, checks } }) })).checks
+        .filter(c => ['Rail data checks', 'Where the GTFS and STASY differ'].includes(c.title)).map(c => [c.title, c.status, c.detail]);
+    // From before the checks: nothing to show
+    assert.deepEqual(await rows(undefined), []);
+    assert.deepEqual(await rows({ problems: [], notes: [] }), [['Rail data checks', 'ok', 'Every stop has STASY\'s first and last trains, so depot runs are left out']]);
+    assert.deepEqual(await rows({ problems: ['p1', 'p2'], notes: ['n1', 'n2'] }), [
+        ['Rail data checks', 'fail', 'p1 · p2'],
+        ['Where the GTFS and STASY differ', 'info', 'n1 · n2'],
     ]);
 });

@@ -20,7 +20,8 @@ import { decode } from '../info/announcements.js';
 // rawDir/stasy/last-fetch.json (shown by /admin/diagnostics and /api/health).
 //
 // The kept copy, rawDir/stasy/tables.json, is just the tables, as text:
-// { fetched: ISO time, lines: { M1: [{ header: [...], rows: [[...], ...], notes: [...] }, ...] } }
+// { fetched: ISO time, lines: { M1: [{ header: [...], rows: [[...], ...], notes: [...] }, ...] },
+//   frequencies: { M1: [[period, hours, every, ...], ...] } }   ← how often trains run (rail-checks.js; copies from before 2026-10-21 have none)
 // They're read at every build, so a change to the reading rules needs no new fetch.
 
 export const STASY_MAX_AGE_MS = 14 * 86_400_000;
@@ -62,6 +63,17 @@ export function extractTables(html) {
     });
 }
 
+// The rows of a timetable page's frequency table (ΣΥΧΝΟΤΗΤΑ), every cell as
+// plain text: the period ("ΔΕΥΤΕΡΑ - ΠΑΡΑΣΚΕΥΗ", only on its first row), the
+// hours ("05:30 - 07:00") and how often ("7' 30\""), with the heading rows;
+// read by rail-checks.js
+/** @param {string} html @returns {string[][]} */
+export function extractFrequencies(html) {
+    const cells = row => [...row.matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/g)].map(m => decode(m[1]));
+    const table = [...html.matchAll(/<table\b[\s\S]*?<\/table>/g)].map(([t]) => t).find(t => /ΣΥΧΝΟΤΗΤΑ/.test(upper(decode(t))));
+    return table ? [...table.matchAll(/<tr\b[\s\S]*?<\/tr>/g)].map(([row]) => cells(row)).filter(r => r.some(Boolean)) : [];
+}
+
 // stations.json's stations → Map(name key → station id), from each one's
 // Greek name and its "stasy" names (how STASY writes it, if that differs)
 export function stationNames(stations) {
@@ -74,7 +86,7 @@ const DAY_NAMES = { ΚΥΡ: 0, ΔΕΥ: 1, ΤΡΙ: 2, ΤΕΤ: 3, ΠΕΜ: 4, ΠΑ�
 
 // "ΔΕΥ-ΠΑΡ" → [1, 2, 3, 4, 5], "ΔΕΥ - ΠΕΜ & ΚΥΡ" → [0, 1, 2, 3, 4], "Σ/Κ" → [0, 6];
 // null when it isn't days
-function readDays(text) {
+export function readDays(text) {
     const days = [];
     for (const part of upper(text).replace(/\s/g, '').split(/[&,]/)) {
         if (part === 'Σ/Κ') { days.push(6, 0); continue; }
@@ -256,16 +268,19 @@ export async function stasyTables({ rawDir, client = null, stations, offline = f
     let unreadable = false;
     try {
         const lines = {};
+        const frequencies = {};
         for (const [lineId, page] of Object.entries(STASY_LINES)) {
             if (Object.keys(lines).length) await sleep(PACE_MS);
-            const tables = extractTables(await client.timetable(page));
+            const html = await client.timetable(page);
+            const tables = extractTables(html);
+            frequencies[lineId] = extractFrequencies(html);
             try { readLine(lineId, tables, names); } catch (err) {
                 unreadable = true;
                 throw new Error(`${lineId}: ${err.message}`, { cause: err });
             }
             lines[lineId] = tables;
         }
-        const copy = { fetched: at, lines };
+        const copy = { fetched: at, lines, frequencies };
         writeFileAtomic(tablesFile(rawDir), JSON.stringify(copy));
         record({ ok: true, route: client.route });
         log(`[data] Fetched STASY's timetables (${client.route})`);

@@ -1,7 +1,7 @@
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { readCsv, readCsvAll } from './csv.js';
-import { DAY_NAMES, addDays, isoDate, pickWeek, serviceDates, toSeconds, weekday } from './calendar.js';
+import { DAY_NAMES, addDays, crowdedDates, isoDate, pickWeek, serviceDates, toSeconds, weekday } from './calendar.js';
 import { applyHours } from './stasy.js';
 import { POSITIONS } from './validate.js';
 
@@ -41,7 +41,7 @@ const DAY = 86_400;
 /**
  * stasy: the copy of STASY's timetables (stasy.js, stasyTables), or null
  * @param {{ dir: string, curated: any, today: string, stasy?: any }} options
- * @returns {Promise<{ data: import('../../types/data.js').Rail, warnings: string[] }>}
+ * @returns {Promise<{ data: import('../../types/data.js').Rail, warnings: string[], notes: string[] }>}
  */
 export async function buildRail({ dir, curated, today, stasy = null }) {
     const { stations, lines, positions, airport = null } = curated;
@@ -85,7 +85,11 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
     // midnight) on, and the day before them, for its trains the next day
     // repeats (dropCopies)
     const dates = [...dateServices.keys()].filter(d => d >= addDays(today, -2)).sort();
-    const ownDates = dates.filter(d => d >= addDays(today, -1));
+    // A date the feed lays two timetables over keeps the typical week's trains
+    const crowded = crowdedDates(dateServices, tripsPerService);
+    const ownDates = dates.filter(d => d >= addDays(today, -1) && !crowded.has(d));
+    const notes = dates.filter(d => d >= addDays(today, -1) && crowded.has(d))
+        .map(d => `${isoDate(d)}: the GTFS lists far more trains than usual for a line (two timetables laid over each other?); the typical ${DAY_NAMES[weekday(d)]} is used`);
     const neededServices = new Set([...weekServices, ...dates.map(d => dateServices.get(d))].flatMap(s => [...s]));
     // Each day trains run on: the typical week's weekdays (0 = Sunday) and the dates ('YYYYMMDD')
     const serviceDays = [
@@ -216,6 +220,8 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
             lines: out,
         },
         warnings,
+        // For the nightly checks (rail-checks.js)
+        notes,
     };
 }
 
@@ -373,7 +379,7 @@ const clock = seconds => `${String(Math.floor(seconds / 3600)).padStart(2, '0')}
 // STASY's, and the planner offers no train that doesn't carry passengers:
 // Dimotiko Theatro → Elaionas at 00:51 goes, and M1's 00:30 from Piraeus
 // "only as far as Omonia" ends at Omonia.
-const HOURS_LEEWAY = 300;
+export const HOURS_LEEWAY = 300;
 
 function trimToHours(dirTrips, stops, label, warnings) {
     const at = new Map(stops.map((s, i) => [s.station, i]));
