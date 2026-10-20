@@ -5,8 +5,8 @@
     "buses.no-stops": "No stops found nearby",
     "buses.no-arrivals": "No upcoming arrivals.",
     "buses.no-arrivals-short": "No arrivals",
-    "buses.hide-empty": "Hide empty",
-    "buses.show-all": "Show all",
+    "buses.hide-empty": "Hide empty stops",
+    "buses.show-all": "Show all stops",
     "buses.walking-directions-to": "Walking directions to",
     "buses.all-arrivals-for": "All arrivals for",
     "buses.next-bus-line": "Next bus: line",
@@ -40,8 +40,7 @@
     "buses.line-not-found": "There's no line {line}.",
     "buses.loading-lines": "Loading the lines…",
     "buses.lines-error": "Couldn't load the lines. Check your connection and try again.",
-    "buses.open-for-times": "Open for live times",
-    "buses.more-stops": "More stops"
+    "buses.open-for-times": "Open for live times"
   },
   "el": {
     "buses.getting-location": "Λήψη τοποθεσίας…",
@@ -49,8 +48,8 @@
     "buses.no-stops": "Δεν βρέθηκαν κοντινές στάσεις",
     "buses.no-arrivals": "Δεν υπάρχουν επερχόμενες αφίξεις.",
     "buses.no-arrivals-short": "Χωρίς αφίξεις",
-    "buses.hide-empty": "Χωρίς άδειες",
-    "buses.show-all": "Όλες",
+    "buses.hide-empty": "Απόκρυψη άδειων στάσεων",
+    "buses.show-all": "Εμφάνιση όλων των στάσεων",
     "buses.walking-directions-to": "Οδηγίες πεζή για",
     "buses.all-arrivals-for": "Όλες οι αφίξεις για",
     "buses.next-bus-line": "Επόμενο λεωφορείο: γραμμή",
@@ -84,7 +83,6 @@
     "buses.line-not-found": "Δεν υπάρχει η γραμμή {line}.",
     "buses.loading-lines": "Φόρτωση γραμμών…",
     "buses.lines-error": "Δεν ήταν δυνατή η φόρτωση των γραμμών. Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά.",
-    "buses.open-for-times": "Ανοίξτε για τις ώρες",
-    "buses.more-stops": "Περισσότερες"
+    "buses.open-for-times": "Ανοίξτε για τις ώρες"
   }
 }
