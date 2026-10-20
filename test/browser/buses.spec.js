@@ -108,3 +108,28 @@ test('the floating buttons are solid, and a stop\'s walking directions fill its 
     for (const { row, link } of sizes) expect(link).toBeCloseTo(row, 0);
 });
 
+// After 10 minutes nobody touched the page, it stops asking for times and
+// says so, between the search and the stops, as much space above as below;
+// a tap brings the times back
+for (const url of ['/el/buses', '/el/buses?line=040']) {
+    test(`${url}: the pause notice, evenly spaced, and a tap to resume`, async ({ page }) => {
+        await page.goto(url);
+        await expect(page.locator('.stop-item').first()).toBeVisible();
+        await page.clock.runFor(11 * 60_000);
+        const notice = page.locator('#bus-status');
+        await expect(notice).toContainText('Σε παύση για εξοικονόμηση δεδομένων.');
+        const gaps = await page.evaluate(() => {
+            const status = document.getElementById('bus-status').getBoundingClientRect();
+            const header = document.getElementById('view-header');
+            const above = (header.hidden ? document.getElementById('bus-search-hint') : header.lastElementChild).getBoundingClientRect();
+            return { above: Math.round(status.top - above.bottom), below: Math.round(document.getElementById('stops-accordion').getBoundingClientRect().top - status.bottom) };
+        });
+        expect(gaps.above, `space above and below: ${JSON.stringify(gaps)}`).toBeGreaterThanOrEqual(gaps.below - 1);
+        expect(gaps.above).toBeLessThanOrEqual(gaps.below + 1);
+        expect(gaps.below).toBeGreaterThanOrEqual(8);
+
+        await notice.getByRole('button', { name: 'Πατήστε για ανανέωση' }).click();
+        await expect(notice).toBeHidden();
+    });
+}
+
