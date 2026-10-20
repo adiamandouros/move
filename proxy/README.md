@@ -193,9 +193,10 @@ show as *INFO* ("expected… the home relay carries the traffic").
 sudo git -C /opt/move pull && sudo systemctl restart move-relay
 ```
 
-Do this after any change to `proxy/` (e.g. October 2026: STASY pages). If
-`/admin/diagnostics` says "The relay doesn't know STASY pages yet", the relay
-hasn't been updated.
+Do this after any change to `proxy/` (e.g. October 2026: STASY pages; then
+version 3, the calls the nightly data build makes for the bus network:
+webGetLines, webGetRoutes, webGetStops). If `/admin/diagnostics` says "The
+relay doesn't know STASY pages yet", the relay hasn't been updated.
 
 Every change a deployed relay needs also raises `RELAY_VERSION` in
 `worker.js`. The server's health check (`/api/health`, checked every 30
