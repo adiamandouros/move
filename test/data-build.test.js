@@ -125,7 +125,7 @@ test('when OASA can\'t be asked at night, the bus files stay as they were', asyn
     const meta = await nextNight();
     assert.ok(meta.outputs['bus-stops.json'].ok && meta.outputs['bus-lines.json'].ok);
     assert.deepEqual([served('bus-stops.json'), served('bus-lines.json')], before);
-    assert.ok(logs.some(l => /Couldn't fetch the bus network from OASA \(fake OASA: down\) — using the one from/.test(l)));
+    assert.ok(logs.some(l => /Couldn't fetch the bus network from OASA \(the lines: fake OASA: down \(4 tries\)\) after \d+ s; 0 route\(s\) saved for the next try — using the network from/.test(l)));
 });
 
 test('without any network yet (OASA can\'t be asked), the bus files aren\'t published', async () => {
@@ -133,7 +133,7 @@ test('without any network yet (OASA can\'t be asked), the bus files aren\'t publ
     oasa.down();
     const meta = await build();
     for (const name of ['bus-stops.json', 'bus-lines.json']) {
-        assert.deepEqual(meta.outputs[name], { ok: false, error: 'source unavailable: network (fake OASA: down)', keptPrevious: false });
+        assert.deepEqual(meta.outputs[name], { ok: false, error: 'source unavailable: network (the lines: fake OASA: down (4 tries))', keptPrevious: false });
         assert.ok(!existsSync(join(dataDir, 'build', name)));
     }
     assert.equal(meta.outputs['rail.json'].ok, true);

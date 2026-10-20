@@ -55,6 +55,20 @@ test('after 5 failures in a row the client stops calling for a minute', async ()
     assert.equal(calls, 6);
 });
 
+test('a failed answer says what the relay said went wrong, if anything', async () => {
+    const c = clock();
+    const answers = [
+        { ok: false, status: 502, text: async () => 'Upstream error: The operation was aborted due to timeout\n' },
+        { ok: false, status: 502, text: async () => '<html><body>Bad gateway</body></html>' },
+        { ok: false, status: 503, text: async () => '' },
+    ];
+    const client = createOasaClient({ fetch: async () => answers.shift(), now: c.now, sleep: c.sleep, log: quiet });
+    await assert.rejects(client.request('webGetStops', '3922'), { message: 'HTTP 502: Upstream error: The operation was aborted due to timeout' });
+    await assert.rejects(client.request('webGetStops', '3922'), { message: 'HTTP 502' });
+    await assert.rejects(client.request('webGetStops', '3922'), { message: 'HTTP 503' });
+    assert.equal(client.status().routes[0].lastError.message, 'HTTP 503');
+});
+
 function setup(handlers) {
     const c = clock();
     const oasa = fakeOasa(handlers);

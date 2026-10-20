@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { appendFileSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { NETWORK_MAX_AGE_MS, PACE_MS, ROUTE_STOPS_MAX_AGE_MS, fetchNetwork, liveNetwork } from '../server/data/oasa-network.js';
+import { NETWORK_MAX_AGE_MS, PACE_MS, RETRY_WAITS_MS, ROUTE_STOPS_MAX_AGE_MS, fetchNetwork, liveNetwork } from '../server/data/oasa-network.js';
 import { fakeOasa } from './fixtures/network.js';
 import { tempDir } from './fixtures/gtfs.js';
 
@@ -17,12 +17,13 @@ test('the agreed numbers', () => {
     assert.equal(PACE_MS, 1000);
     assert.equal(NETWORK_MAX_AGE_MS, 20 * 3_600_000);
     assert.equal(ROUTE_STOPS_MAX_AGE_MS, 7 * DAY);
+    assert.deepEqual(RETRY_WAITS_MS, [10_000, 30_000, 60_000]);
 });
 
 test('the lines, each line\'s routes, each route\'s stops, one at a time and a second apart', async () => {
     const oasa = fakeOasa({ stops: 10 });
     const pauses = [];
-    const { network, requests } = await fetchNetwork({ request: oasa.request, now: () => T0, sleep: async ms => { pauses.push(ms); } });
+    const { network, requests } = await fetchNetwork({ request: oasa.request, now: () => T0, sleep: async ms => { pauses.push(ms); }, log: () => assert.fail('nothing to log') });
     // 1 for the lines, 5 for their routes, 7 for the routes' stops
     assert.equal(requests, 13);
     assert.deepEqual(oasa.calls.slice(0, 6), [['webGetLines', ''], ['webGetRoutes', '938'], ['webGetRoutes', '1020'], ['webGetRoutes', '1446'], ['webGetRoutes', '1648'], ['webGetRoutes', '999']]);
@@ -60,13 +61,43 @@ test('a route\'s stops are asked for when the route is new, then about once a we
     assert.deepEqual(nightAfter.stops, ['6038']);
 });
 
-test('a failure or an answer that isn\'t a list stops the fetch', async () => {
+test('a failed request is tried again after 10 s, then 30 s, and each failure is logged', async () => {
     const oasa = fakeOasa({ stops: 10 });
-    oasa.down();
-    await assert.rejects(fetchNetwork({ request: oasa.request, sleep: noWait }), /fake OASA: down/);
-    oasa.down(false);
+    oasa.fail('webGetStops', '3923', { times: 2 });
+    const pauses = [];
+    const logs = [];
+    const { network, requests } = await fetchNetwork({ request: oasa.request, sleep: async ms => { pauses.push(ms); }, log: m => logs.push(m) });
+    assert.equal(network.stops['3923'].stops.length, 10);
+    assert.equal(requests, 15);
+    assert.equal(oasa.calls.filter(([act, p1]) => act === 'webGetStops' && p1 === '3923').length, 3);
+    // Each try a second after the request before it, as always, plus the wait
+    assert.deepEqual(pauses.filter(ms => ms !== PACE_MS), [10_000, 30_000]);
+    assert.deepEqual(logs, [
+        '[data] OASA webGetStops 3923 (route 3923) failed: HTTP 502 — trying again in 10 s',
+        '[data] OASA webGetStops 3923 (route 3923) failed: HTTP 502 — trying again in 30 s',
+    ]);
+});
+
+test('a request failing 4 times, or answering what isn\'t a list 4 times, stops the fetch; a request we got wrong isn\'t tried again', async () => {
+    const oasa = fakeOasa({ stops: 10 });
+    const pauses = [];
+    const logs = [];
+    const fetch = () => fetchNetwork({ request: oasa.request, sleep: async ms => { pauses.push(ms); }, log: m => logs.push(m) });
+    oasa.fail('webGetRoutes', '1020', { message: 'HTTP 502: Upstream error: The operation was aborted due to timeout' });
+    await assert.rejects(fetch(), { message: 'line Α10: HTTP 502: Upstream error: The operation was aborted due to timeout (4 tries)' });
+    assert.deepEqual(pauses.filter(ms => ms !== PACE_MS), [10_000, 30_000, 60_000]);
+    assert.equal(logs.length, 4);
+    assert.match(logs[3], /^\[data\] OASA webGetRoutes 1020 \(line Α10\) failed: HTTP 502: Upstream error: The operation was aborted due to timeout$/);
+
+    oasa.fail('webGetRoutes', '1020', { times: 0 });
     oasa.broken();
-    await assert.rejects(fetchNetwork({ request: oasa.request, sleep: noWait }), /OASA answered \{"error":"Something went wrong"\} for route 3922/);
+    await assert.rejects(fetch(), { message: 'route 3922: OASA answered {"error":"Something went wrong"} for route 3922 (4 tries)' });
+
+    oasa.broken(false);
+    oasa.fail('webGetLines', '', { message: 'HTTP 400' });
+    oasa.calls.length = 0;
+    await assert.rejects(fetch(), { message: 'the lines: HTTP 400' });
+    assert.equal(oasa.calls.length, 1);
 });
 
 test('fetched at most once a day: a build at startup reuses the kept network; offline, or without a way to ask, too', async () => {
@@ -97,7 +128,7 @@ test('when OASA can\'t be asked, the kept network is used, or none before the fi
     oasa.down();
     const logs = [];
     const none = await liveNetwork({ rawDir, request: oasa.request, sleep: noWait, log: m => logs.push(m) });
-    assert.deepEqual(none, { network: null, error: 'fake OASA: down' });
+    assert.deepEqual(none, { network: null, error: 'the lines: fake OASA: down (4 tries)' });
     assert.deepEqual(await liveNetwork({ rawDir, request: null }), { network: null, error: 'not fetched yet' });
 
     const kept = { fetched: new Date(T0).toISOString(), lines: [], routes: {}, stops: {} };
@@ -105,5 +136,33 @@ test('when OASA can\'t be asked, the kept network is used, or none before the fi
     writeFileSync(join(rawDir, 'oasa', 'network.json'), JSON.stringify(kept));
     const fallback = await liveNetwork({ rawDir, request: oasa.request, now: () => T0 + DAY, sleep: noWait, log: m => logs.push(m) });
     assert.deepEqual(fallback, { network: kept });
-    assert.match(logs.at(-1), /Couldn't fetch the bus network from OASA \(fake OASA: down\) — using the one from 2026-10-20T01:30:00\.000Z/);
+    assert.match(logs.at(-1), /Couldn't fetch the bus network from OASA \(the lines: fake OASA: down \(4 tries\)\) after \d+ s; 0 route\(s\) saved for the next try — using the network from 2026-10-20T01:30:00\.000Z/);
+});
+
+test('each route\'s stops are saved as they arrive: after a failed fetch, the next one asks only for the routes still missing', async () => {
+    const rawDir = tempDir();
+    const oasa = fakeOasa({ stops: 10 });
+    const logs = [];
+    const live = time => liveNetwork({ rawDir, request: oasa.request, now: () => time, sleep: noWait, log: m => logs.push(m) });
+    const progress = join(rawDir, 'oasa', 'progress.jsonl');
+
+    // Routes 3922 and 3923 arrive, 3924 doesn't
+    oasa.fail('webGetStops', '3924');
+    assert.deepEqual(await live(T0), { network: null, error: 'route 3924: HTTP 502 (4 tries)' });
+    assert.ok(!existsSync(join(rawDir, 'oasa', 'network.json')));
+    assert.match(logs.at(-1), /Couldn't fetch the bus network from OASA \(route 3924: HTTP 502 \(4 tries\)\) after \d+ s; 2 route\(s\) saved for the next try$/);
+    // The process stopped while saving a third
+    appendFileSync(progress, '{"code":"6051","at":"2026');
+
+    oasa.fail('webGetStops', '3924', { times: 0 });
+    oasa.calls.length = 0;
+    const { network } = await live(T0 + 3_600_000);
+    assert.match(logs.find(l => /saved by the last try/.test(l)), /with 2 route\(s\) saved by the last try/);
+    // The lines and routes again (6), then only the 5 routes' stops still missing
+    assert.deepEqual(oasa.calls.filter(([act]) => act === 'webGetStops').map(([, code]) => code), ['3924', '6051', '6052', '3690', '6038']);
+    assert.equal(network.stops['3922'].at, new Date(T0).toISOString());
+    assert.equal(network.stops['3924'].at, new Date(T0 + 3_600_000).toISOString());
+    assert.deepEqual(JSON.parse(readFileSync(join(rawDir, 'oasa', 'network.json'), 'utf8')), network);
+    // Kept in network.json now: the saved stops are done with
+    assert.ok(!existsSync(progress));
 });
