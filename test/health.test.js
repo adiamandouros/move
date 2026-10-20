@@ -16,8 +16,8 @@ const NOW = Date.parse('2026-10-18T12:00:00Z');
 const MINUTE = 60_000;
 
 // A data folder's build/ (its raw/ beside it, as data/ has them). hours: the
-// date of STASY's copy rail.json uses; stasyFetch: STASY's last fetch
-function buildDir({ generated = '2026-10-18T01:30:00Z', ok = true, validTo = '2026-10-31', hours = '2026-10-10', stasyFetch = null } = {}) {
+// date of STASY's copy rail.json uses; stasyFetch: STASY's last fetch; airportCheck: the last airport timetable check
+function buildDir({ generated = '2026-10-18T01:30:00Z', ok = true, validTo = '2026-10-31', hours = '2026-10-10', stasyFetch = null, airportCheck = null } = {}) {
     const dir = join(mkdtempSync(join(tmpdir(), 'health-')), 'build');
     mkdirSync(dir);
     writeFileSync(join(dir, 'meta.json'), JSON.stringify({ generated, outputs: { 'rail.json': { ok: true }, 'bus-stops.json': { ok } } }));
@@ -25,6 +25,10 @@ function buildDir({ generated = '2026-10-18T01:30:00Z', ok = true, validTo = '20
     if (stasyFetch) {
         mkdirSync(join(dirname(dir), 'raw', 'stasy'), { recursive: true });
         writeFileSync(join(dirname(dir), 'raw', 'stasy', 'last-fetch.json'), JSON.stringify(stasyFetch));
+    }
+    if (airportCheck) {
+        mkdirSync(join(dirname(dir), 'raw', 'stasy'), { recursive: true });
+        writeFileSync(join(dirname(dir), 'raw', 'stasy', 'airport-check.json'), JSON.stringify(airportCheck));
     }
     return dir;
 }
@@ -191,4 +195,19 @@ test('the check collects every problem, its own and the health page\'s', async (
     const text = report('https://wayhop.example', result, new Date(NOW));
     assert.match(text, /^## https:\/\/wayhop\.example: 3 problems\n\n- Page \/el: HTTP timeout\n/);
     assert.match(report('https://wayhop.example', { problems: [], health: null }), /: healthy/);
+});
+
+test('STASY\'s airport timetable: a change since airport.json, or no check for over 21 days, is a problem', async () => {
+    const at = days => new Date(NOW - days * 86_400_000).toISOString();
+    // Not checked yet (no airport.json, or before the first build)
+    assert.deepEqual((await health().check()).airport, { ok: true, checked: null, daysOld: null, changed: false });
+    assert.equal((await health({ dir: buildDir({ airportCheck: { checked: at(3), changes: [] } }) }).check()).ok, true);
+    // Unreachable for a while: fine for three weeks
+    assert.equal((await health({ dir: buildDir({ airportCheck: { checked: at(21), changes: [], at: at(0), error: 'home relay: HTTP 502' } }) }).check()).ok, true);
+    const stale = await health({ dir: buildDir({ airportCheck: { checked: at(22), changes: [], at: at(0), error: 'home relay: HTTP 502' } }) }).check();
+    assert.deepEqual(stale.problems, ['Airport timetable: STASY\'s was last checked on 2026-09-26, over 21 days ago']);
+
+    const changed = await health({ dir: buildDir({ airportCheck: { checked: at(1), changes: ['M3/doukissis\'s PDF changed: x.pdf'] } }) }).check();
+    assert.equal(changed.ok, false);
+    assert.deepEqual(changed.problems, ['Airport timetable: STASY\'s has changed since data/curated/airport.json was written (details on /admin/diagnostics); its trains are still added']);
 });

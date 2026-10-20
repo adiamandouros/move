@@ -87,3 +87,24 @@ test('relays STASY\'s Greek timetable page for metro lines 1 to 3, and nothing e
     assert.equal((await call('?act=stasyTimetable&line=1', {})).status, 401);
     assert.equal(upstream.length, 3);
 });
+
+test('relays PDFs STASY has uploaded (the airport timetable), as they are, and nothing else', async () => {
+    const pdf = 'wp-content/uploads/2024/06/%CE%94%CE%99%CE%95%CE%9B%CE%95%CE%A5%CE%A3%CE%95%CE%99%CE%A3-%CE%A3%CE%A5%CE%A1%CE%9C%CE%A9%CE%9D.pdf';
+    const bytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0xff, 0x00, 0xe2]);
+    globalThis.fetch = async (url, init) => {
+        upstream.push({ url, accept: init.headers.Accept });
+        return new Response(bytes, { headers: { 'Content-Type': 'application/pdf' } });
+    };
+    const res = await call(`?act=stasyFile&path=${encodeURIComponent(pdf)}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('Content-Type'), 'application/pdf');
+    assert.deepEqual(new Uint8Array(await res.arrayBuffer()), bytes);
+    assert.deepEqual(upstream, [{ url: `https://www.stasy.gr/${pdf}`, accept: 'application/pdf' }]);
+
+    for (const path of ['', 'x.pdf', 'wp-content/uploads/2024/06/a.html', 'wp-content/uploads/2024/06/../../wp-config.pdf', 'wp-content/uploads/2024/06/a%2F..%2Fb.pdf',
+        'wp-content/uploads/2024/6/a.pdf', 'wp-content/uploads/2024/06/sub/a.pdf', 'wp-admin/uploads/2024/06/a.pdf', 'wp-content/uploads/2024/06/a.pdf?x=1', '//evil.example/a.pdf']) {
+        assert.equal((await call(`?act=stasyFile&path=${encodeURIComponent(path)}`)).status, 400, JSON.stringify(path));
+    }
+    assert.equal((await call(`?act=stasyFile&path=${encodeURIComponent(pdf)}`, {})).status, 401);
+    assert.equal(upstream.length, 1);
+});

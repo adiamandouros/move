@@ -41,7 +41,9 @@ function world(overrides = {}) {
 // stasy: STASY's last fetch (server/data/stasy.js) and the date of the copy rail.json uses
 const STASY_OK = { last: { at: '2026-10-01T02:30:00.000Z', ok: true, route: 'home relay' }, fetched: '2026-10-01', warnings: [] };
 
-function dataDir({ hoursAgo = 2, failed = null, lastFetch = null, stasy = STASY_OK } = {}) {
+// airportCheck: the last check of STASY's airport timetable (null: none yet)
+const AIRPORT_OK = { at: '2026-10-14T02:30:00.000Z', checked: '2026-10-14T02:30:00.000Z', changes: [], route: 'home relay' };
+function dataDir({ hoursAgo = 2, failed = null, lastFetch = null, stasy = STASY_OK, airportCheck = AIRPORT_OK } = {}) {
     const dir = mkdtempSync(join(tmpdir(), 'move-diag-'));
     mkdirSync(join(dir, 'build'));
     if (lastFetch) {
@@ -51,6 +53,10 @@ function dataDir({ hoursAgo = 2, failed = null, lastFetch = null, stasy = STASY_
     if (stasy.last) {
         mkdirSync(join(dir, 'raw', 'stasy'), { recursive: true });
         writeFileSync(join(dir, 'raw', 'stasy', 'last-fetch.json'), JSON.stringify(stasy.last));
+    }
+    if (airportCheck) {
+        mkdirSync(join(dir, 'raw', 'stasy'), { recursive: true });
+        writeFileSync(join(dir, 'raw', 'stasy', 'airport-check.json'), JSON.stringify(airportCheck));
     }
     writeFileSync(join(dir, 'build', 'rail.json'), JSON.stringify(stasy.fetched ? { hours: { fetched: stasy.fetched } } : {}));
     writeFileSync(join(dir, 'build', 'meta.json'), JSON.stringify({
@@ -311,4 +317,22 @@ test('a home relay without its key is reported, and the Worker still works', asy
     assert.equal(r.checks.find(c => c.title === 'Home relay fallback').status, 'fail');
     assert.match(r.checks.find(c => c.title === 'Home relay fallback').detail, /Only OASA_HOME_RELAY_URL is set/);
     assert.equal(r.checks.find(c => c.title === 'Relay fallback').status, 'ok');
+});
+
+test('STASY\'s airport timetable: the weekly check, and the airport trains the build added or wants checked', async () => {
+    const rows = async (airportCheck, warnings = []) => (await run(world(), { dataDir: dataDir({ airportCheck, stasy: { ...STASY_OK, warnings } }) })).checks
+        .filter(c => /airport/i.test(c.title)).map(c => ({ title: c.title, status: c.status, detail: c.detail }));
+    const checked = '2026-10-14T02:30:00.000Z';
+
+    assert.deepEqual(await rows(null), [{ title: 'STASY airport timetable', status: 'info', detail: 'Not checked yet: the nightly build checks it once a week' }]);
+    assert.deepEqual(await rows({ at: checked, checked, changes: [], route: 'home relay' }, ['M3/doukissis: STASY\'s airport timetable adds trains the GTFS doesn\'t have, or has only part of: 22:18 (every day)']), [
+        { title: 'STASY airport timetable', status: 'ok', detail: 'Unchanged, checked 2026-10-14 02:30 UTC (home relay). Next check from 2026-10-21.' },
+        { title: 'Airport trains in the timetable', status: 'info', detail: 'M3/doukissis: STASY\'s airport timetable adds trains the GTFS doesn\'t have, or has only part of: 22:18 (every day)' },
+    ]);
+    assert.deepEqual(await rows({ at: checked, checked, changes: ['M3/doukissis\'s PDF changed: x.pdf', 'a new one'] }), [
+        { title: 'STASY airport timetable', status: 'fail', detail: 'Changed since airport.json, checked 2026-10-14 02:30 UTC: M3/doukissis\'s PDF changed: x.pdf · a new one' },
+    ]);
+    assert.deepEqual(await rows({ at: '2026-10-21T02:30:00.000Z', checked, changes: [], error: 'home relay: HTTP 400' }), [
+        { title: 'STASY airport timetable', status: 'warn', detail: 'The check at 2026-10-21 02:30 UTC failed: home relay: HTTP 400. Last checked 2026-10-14 02:30 UTC: unchanged' },
+    ]);
 });

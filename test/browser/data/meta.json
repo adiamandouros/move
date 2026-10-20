@@ -1,8 +1,8 @@
 {
-  "generated": "2026-10-20T14:27:16.818Z",
+  "generated": "2026-10-20T14:53:29.093Z",
   "fingerprint": {
-    "builder": "78909b2318c7",
-    "curated": "a569c376bdd6b1e35c3df426edda9a3fc002e1f51e7c711f246e92ffbe991de0",
+    "builder": "d2913b1981d3",
+    "curated": "40a9e8ef99c65af9658cddc7c3b2f9731f2bb90969e385766c184637799ed5f5",
     "today": "20261020",
     "sources": {
       "rail": "2026-10-06T04:46:54.184974",
@@ -28,7 +28,10 @@
         "M2/anthoupoli: 16 trains run outside STASY's first and last trains: 16 left out, 0 shortened",
         "M2/elliniko: 22 trains run outside STASY's first and last trains: 12 left out, 10 shortened",
         "M3/dimotiko: 18 trains run outside STASY's first and last trains: 18 left out, 0 shortened",
-        "M3/doukissis: 19 trains run outside STASY's first and last trains: 19 left out, 0 shortened"
+        "M3/dimotiko: STASY's airport timetable adds trains the GTFS doesn't have, or has only part of: 23:34 (every day)",
+        "M3/dimotiko: the GTFS times airport trains differently from STASY's airport timetable (the GTFS's are kept; check them on the platform): 07:19 (up to 3 min), 16:19 (up to 3 min), 16:58 (up to 2 min)",
+        "M3/doukissis: 19 trains run outside STASY's first and last trains: 19 left out, 0 shortened",
+        "M3/doukissis: STASY's airport timetable adds trains the GTFS doesn't have, or has only part of: 22:18 (every day), 22:54 (every day)"
       ]
     },
     "bus-stops.json": {

@@ -44,7 +44,7 @@ const DAY = 86_400;
  * @returns {Promise<{ data: import('../../types/data.js').Rail, warnings: string[] }>}
  */
 export async function buildRail({ dir, curated, today, stasy = null }) {
-    const { stations, lines, positions } = curated;
+    const { stations, lines, positions, airport = null } = curated;
     const file = name => join(dir, name);
     const warnings = [];
 
@@ -171,7 +171,7 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
                 toward: dir.toward,
                 stops: order.map(station => stopPositions(positions, lineId, dirKey, station, warnings)),
             };
-            pending.push({ direction: directions[dirKey], dirTrips, indexOf, label: `${lineId}/${dirKey}` });
+            pending.push({ direction: directions[dirKey], dirTrips, order, indexOf, label: `${lineId}/${dirKey}`, timetabled: airport?.lines?.[lineId]?.[dirKey] });
 
             const extra = Object.keys(positions[lineId]?.[dirKey] ?? {}).filter(s => !indexOf.has(s));
             if (extra.length) throw new Error(`positions.json: ${lineId}/${dirKey} lists stations the line doesn't serve: ${extra.join(', ')}`);
@@ -180,8 +180,9 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
     }
 
     const hoursFetched = applyHours(out, stasy, stations.stations, warnings);
-    for (const { direction, dirTrips, indexOf, label } of pending) {
+    for (const { direction, dirTrips, order, indexOf, label, timetabled } of pending) {
         trimToHours(dirTrips, direction.stops, label, warnings);
+        if (timetabled) addTimetabled(dirTrips, timetabled, order, serviceDays.map(d => d.key), label, warnings);
         direction.timetable = buildTimetable(dirTrips, indexOf, ownDates, label);
     }
 
@@ -303,6 +304,63 @@ function dropCopies(dirTrips, serviceDays, label, warnings) {
     }
     if (dropped.length) warnings.push(`${label}: the feed lists some trains twice; kept one of each (${dropped.join(', ')})`);
 }
+
+// STASY's own timetable for some trains, every day (data/curated/airport.json:
+// the airport trains, from its PDFs), which the GTFS misses (the last ones) or
+// ends early (at Doukissis). A GTFS train through `serves` (the airport)
+// within COPY_SECONDS of a timetable train there is that train, and keeps the
+// GTFS's times (they fit the line's other trains; the PDFs are from 2024 and
+// put a few up to 3 minutes off along the way: listed in a warning). On a day
+// the GTFS has none, the timetable's runs, with STASY's times at every
+// station, in place of a GTFS train calling only at its stations, each within
+// COPY_SECONDS (ending early; only then: a train as close but going on is
+// another one). GTFS trains through `serves` that are none of them are kept,
+// and listed in a warning too, to check on the platform.
+function addTimetabled(dirTrips, timetabled, order, days, label, warnings) {
+    if (timetabled.stations.join() !== order.join()) {
+        warnings.push(`airport.json: ${label} lists other stations than the line has; its trains weren't added`);
+        return;
+    }
+    const at = new Map(order.map((s, i) => [s, i]));
+    const served = timetabled.serves;
+    const inService = dirTrips.filter(t => t.days.length);
+    const matched = new Set();
+    const added = [];
+    const differ = [];
+    for (const train of timetabled.trains) {
+        const times = train.times.map(toSeconds);
+        const off = (trip, i) => Math.abs(trip.times[i] - times[at.get(trip.stations[i])]);
+        const same = inService.filter(t => t.stations.includes(served) && off(t, t.stations.indexOf(served)) <= COPY_SECONDS);
+        const short = inService.filter(t => !t.stations.includes(served) && t.stations.every((_, i) => off(t, i) <= COPY_SECONDS));
+        for (const t of same) matched.add(t);
+        const missing = [];
+        for (const day of days) {
+            if (same.some(t => t.days.includes(day))) continue;
+            missing.push(day);
+            for (const t of short) t.days = t.days.filter(d => d !== day);
+        }
+        const worst = Math.max(0, ...same.flatMap(t => t.stations.map((_, i) => off(t, i))));
+        if (worst > COPY_SECONDS) differ.push(`${train.times[0]} (up to ${Math.round(worst / 60)} min)`);
+        if (!missing.length) continue;
+        dirTrips.push({ stations: [...order], times, days: missing });
+        if (missing.some(d => typeof d === 'number')) added.push(`${train.times[0]} (${weekDays(missing)})`);
+    }
+    if (added.length) warnings.push(`${label}: STASY's airport timetable adds trains the GTFS doesn't have, or has only part of: ${added.join(', ')}`);
+    if (differ.length) warnings.push(`${label}: the GTFS times airport trains differently from STASY's airport timetable (the GTFS's are kept; check them on the platform): ${differ.join(', ')}`);
+    const others = inService.filter(t => t.days.length && !matched.has(t) && t.stations.includes(served));
+    if (others.length) {
+        const list = others.sort((a, b) => a.times[0] - b.times[0]).map(t => `${t.stations[0]} ${clock(t.times[0])} (${weekDays(t.days)})`);
+        warnings.push(`${label}: the GTFS has airport trains STASY's airport timetable doesn't (kept; check them on the platform): ${list.join(', ')}`);
+    }
+}
+
+// The typical week's days among a train's: "every day", "mon, tue", or "dates only"
+function weekDays(days) {
+    const week = DAY_NAMES.filter((_, wd) => days.includes(wd));
+    return week.length === 7 ? 'every day' : week.length ? week.join(', ') : 'dates only';
+}
+
+const clock = seconds => `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds % 3600 / 60)).padStart(2, '0')}`;
 
 // Trains STASY doesn't publish (depot runs): a train is in service from its
 // first call that isn't before the first train at its stop, up to its first

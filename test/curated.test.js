@@ -4,7 +4,7 @@ import { readFileSync } from 'fs';
 import { validateCurated } from '../server/data/validate.js';
 
 const load = name => JSON.parse(readFileSync(new URL(`../data/curated/${name}.json`, import.meta.url), 'utf8'));
-const real = () => ({ stations: load('stations'), lines: load('lines'), positions: load('positions') });
+const real = () => ({ stations: load('stations'), lines: load('lines'), positions: load('positions'), airport: load('airport') });
 
 test('the committed curated files are valid', () => {
     const { errors } = validateCurated(real());
@@ -31,4 +31,24 @@ test('how STASY writes a name: a list of names, each leading to one station', ()
     const { errors } = validateCurated(c);
     assert.ok(errors.includes('stations.json: omonia.stasy must be a list of names'), errors.join('\n'));
     assert.ok(errors.includes('stations.json: the name "Σύνταγμα" is used by both kat and syntagma'), errors.join('\n'));
+});
+
+test('airport.json: STASY\'s airport trains, one time per station, in order, and where they came from', () => {
+    const c = real();
+    const toAirport = c.airport.lines.M3.doukissis;
+    toAirport.sha256 = 'abc';
+    toAirport.serves = 'kifisia';
+    toAirport.trains[0].times.pop();
+    toAirport.trains[1].times[3] = '5:35';
+    toAirport.trains[2].times.reverse();
+    c.airport.lines.M3.nowhere = { ...toAirport };
+    const { errors } = validateCurated(c);
+    for (const e of [
+        'airport.json: M3/doukissis: "sha256" must be the PDF\'s SHA-256, in hex',
+        'airport.json: M3/doukissis: "serves" must be one of its stations',
+        'airport.json: M3/doukissis: train 1 (332) needs one time per station',
+        'airport.json: M3/doukissis: train 2 (333): times must be HH:MM (after midnight 24:05)',
+        'airport.json: M3/doukissis: train 3 (334) goes back in time',
+        'airport.json: M3/nowhere: unknown direction',
+    ]) assert.ok(errors.includes(e), `${e}\n${errors.join('\n')}`);
 });

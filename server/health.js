@@ -1,6 +1,7 @@
 import { dirname, join } from 'path';
 import express from 'express';
 import { RELAY_VERSION } from '../proxy/worker.js';
+import { airportCheckFile } from './data/airport-check.js';
 import { stasyFetchFile } from './data/stasy.js';
 import { readJson } from './files.js';
 import { athensDate } from '../tools/subway/client/network.js';
@@ -16,6 +17,8 @@ import { athensDate } from '../tools/subway/client/network.js';
 //     within TIMETABLE_WARN_DAYS
 //   - stasy: STASY's timetable pages could be read on the last try, and the
 //     copy of them in use is at most STASY_STALE_DAYS old (server/data/stasy.js)
+//   - airport: STASY's airport timetable is still as data/curated/airport.json
+//     has it, checked within AIRPORT_STALE_DAYS (server/data/airport-check.js)
 //   - relays: each one runs the current RELAY_VERSION (proxy/worker.js)
 // It's public, so it says what's wrong in plain words but leaves out
 // addresses, keys and error details (those are on /admin/diagnostics).
@@ -26,6 +29,8 @@ const BUILD_MAX_AGE_MS = 36 * 3_600_000;
 const TIMETABLE_WARN_DAYS = 7;
 // Three fetches missed (one every 14 days)
 const STASY_STALE_DAYS = 45;
+// Three weekly checks missed
+const AIRPORT_STALE_DAYS = 21;
 const RELAY_TIMEOUT_MS = 5_000;
 // Answers are kept this long, so the page can't be used to load the relays
 const CACHE_MS = 60_000;
@@ -82,6 +87,15 @@ export function createHealth({ busStatus, announcementStatus, buildDir, rawDir =
         return { ok: !unreadable && !(daysOld > STASY_STALE_DAYS), fetched, daysOld, unreadable };
     }
 
+    // Not checked yet (no airport.json, or before the first try) counts as fine
+    function airport() {
+        const last = readJson(airportCheckFile(rawDir));
+        const checked = last?.checked ?? null;
+        const daysOld = checked ? Math.floor((now() - Date.parse(checked)) / DAY_MS) : null;
+        const changed = Boolean(last?.changes?.length);
+        return { ok: !changed && !(daysOld > AIRPORT_STALE_DAYS), checked, daysOld, changed };
+    }
+
     async function relayVersions() {
         return Object.fromEntries(await Promise.all(relays.map(async relay => {
             let version = null;
@@ -94,7 +108,7 @@ export function createHealth({ busStatus, announcementStatus, buildDir, rawDir =
     }
 
     async function check() {
-        const result = { arrivals: arrivals(), announcements: announcements(), data: data(), stasy: stasy(), relays: await relayVersions() };
+        const result = { arrivals: arrivals(), announcements: announcements(), data: data(), stasy: stasy(), airport: airport(), relays: await relayVersions() };
         const problems = [];
         if (!result.arrivals.ok) problems.push(`Live arrivals: no route to OASA has answered in the past ${ARRIVALS_FRESH_MS / 60_000} minutes`);
         for (const [name, ok] of Object.entries(result.announcements.sources)) {
@@ -107,6 +121,8 @@ export function createHealth({ busStatus, announcementStatus, buildDir, rawDir =
         }
         if (result.stasy.unreadable) problems.push('STASY timetables: STASY\'s pages changed and couldn\'t be read on the last try; the last copy is used');
         else if (!result.stasy.ok) problems.push(`STASY timetables: the copy in use is from ${result.stasy.fetched}, over ${STASY_STALE_DAYS} days old`);
+        if (result.airport.changed) problems.push('Airport timetable: STASY\'s has changed since data/curated/airport.json was written (details on /admin/diagnostics); its trains are still added');
+        else if (!result.airport.ok) problems.push(`Airport timetable: STASY's was last checked on ${result.airport.checked.slice(0, 10)}, over ${AIRPORT_STALE_DAYS} days ago`);
         for (const [name, r] of Object.entries(result.relays)) {
             if (!r.ok) problems.push(`Relay: the ${name} runs ${r.version === null ? 'an older version or is unreachable' : `version ${r.version}`}, not ${RELAY_VERSION}; update it (proxy/README.md)`);
         }

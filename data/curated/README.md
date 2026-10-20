@@ -66,3 +66,30 @@ know, the line's first and last trains come from the GTFS and the build warns
 
 Colours, names and direction names. `gtfsDirection` is the feed's
 `direction_id` for that direction.
+
+## airport.json — STASY's airport trains
+
+STASY's timetable for the metro's airport trains (line 3, Dimotiko Theatro ↔
+Airport), copied from its two PDFs (linked from its
+[line 3 page](https://www.stasy.gr/δρομολόγια/γραμμή-3/), "from 24 June 2024").
+The GTFS misses some of these trains (the last ones) or ends them early, at
+Doukissis Plakentias, so the build adds them (`addTimetabled` in
+`server/data/build-rail.js`): a GTFS train within 90 s of one at the airport
+is that train and keeps the GTFS's times; the others run with these times,
+every day.
+
+Per line and direction (as in lines.json): `pdf` (the PDF's address) and
+`sha256` (its fingerprint, `sha256sum file.pdf`), `serves` (the station only
+these trains reach), `stations` (in travel order, exactly the line's) and
+`trains`, each `{ "train": "332", "times": [...] }` with a time per station,
+`HH:MM`, after midnight `24:05`. `checked` is when it was copied, `page` the
+page that links the PDFs.
+
+Once a week the nightly build checks that the page still links these PDFs
+and that they're unchanged (`server/data/airport-check.js`). If not,
+`/api/health` reports it (the health issue emails it) and `/admin/diagnostics`
+says what changed; the trains here are still added. To update: download the
+new PDFs, copy their times here (`pdftotext -layout file.pdf -` reads them),
+set `pdf`, `sha256` and `checked`, and run `npm test`. The check runs again
+on the next build.
+
