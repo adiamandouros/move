@@ -17,10 +17,11 @@ const MINUTE = 60_000;
 
 // A data folder's build/ (its raw/ beside it, as data/ has them). hours: the
 // date of STASY's copy rail.json uses; stasyFetch: STASY's last fetch; airportCheck: the last airport timetable check
-function buildDir({ generated = '2026-10-18T01:30:00Z', ok = true, validTo = '2026-10-31', hours = '2026-10-10', stasyFetch = null, airportCheck = null } = {}) {
+// checks: rail.json's nightly checks (rail-checks.js)
+function buildDir({ generated = '2026-10-18T01:30:00Z', ok = true, validTo = '2026-10-31', hours = '2026-10-10', stasyFetch = null, airportCheck = null, checks = undefined } = {}) {
     const dir = join(mkdtempSync(join(tmpdir(), 'health-')), 'build');
     mkdirSync(dir);
-    writeFileSync(join(dir, 'meta.json'), JSON.stringify({ generated, outputs: { 'rail.json': { ok: true }, 'bus-stops.json': { ok } } }));
+    writeFileSync(join(dir, 'meta.json'), JSON.stringify({ generated, outputs: { 'rail.json': { ok: true, checks }, 'bus-stops.json': { ok } } }));
     writeFileSync(join(dir, 'rail.json'), JSON.stringify({ feed: { validTo }, ...(hours && { hours: { fetched: hours } }) }));
     if (stasyFetch) {
         mkdirSync(join(dirname(dir), 'raw', 'stasy'), { recursive: true });
@@ -210,4 +211,12 @@ test('STASY\'s airport timetable: a change since airport.json, or no check for o
     const changed = await health({ dir: buildDir({ airportCheck: { checked: at(1), changes: ['M3/doukissis\'s PDF changed: x.pdf'] } }) }).check();
     assert.equal(changed.ok, false);
     assert.deepEqual(changed.problems, ['Airport timetable: STASY\'s has changed since data/curated/airport.json was written (details on /admin/diagnostics); its trains are still added']);
+});
+
+test('the rail data\'s nightly checks: problems fail it, notes don\'t', async () => {
+    assert.equal((await health({ dir: buildDir({ checks: { problems: [], notes: ['M1 toward Kifisia: a train every 6\'00" in the GTFS, 7\'30" in STASY\'s table'] } }) }).check()).ok, true);
+    const one = await health({ dir: buildDir({ checks: { problems: ['M4: no first and last trains from STASY at any stop'], notes: [] } }) }).check();
+    assert.deepEqual(one.problems, ['Rail data: 1 thing the timetable code relies on no longer holds (details on /admin/diagnostics)']);
+    const two = await health({ dir: buildDir({ checks: { problems: ['a', 'b'], notes: [] } }) }).check();
+    assert.deepEqual(two.problems, ['Rail data: 2 things the timetable code relies on no longer hold (details on /admin/diagnostics)']);
 });

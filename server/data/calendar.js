@@ -66,6 +66,25 @@ export function serviceDates(calendar = [], calendarDates = []) {
 // timetables over each other). Among the rest, the next date on or after
 // `today` wins; if the feed has expired, the latest one does.
 export function pickWeek(dateServices, tripsPerService, today) {
+    return weekdayDates(dateServices, tripsPerService).map(({ candidates, usual, crowded }, wd) => {
+        if (!candidates.length) throw new Error(`Feed has no service on ${DAY_NAMES[wd]}`);
+        const normal = candidates.filter(c => c.trips >= usual * 0.85 && !crowded(c));
+        const dates = (normal.length ? normal : candidates).map(c => c.date).sort();
+        return dates.find(d => d >= today) ?? dates.at(-1);
+    });
+}
+
+// The dates on which a line has far more trips than it usually has that
+// weekday: the feed laid two timetables over each other there (as pickWeek)
+/** @returns {Set<string>} */
+export function crowdedDates(dateServices, tripsPerService) {
+    return new Set(weekdayDates(dateServices, tripsPerService).flatMap(({ candidates, crowded }) => candidates.filter(crowded).map(c => c.date)));
+}
+
+// For each weekday (0 = Sunday): its dates with trips, each { date, trips,
+// lines: Map<line, trips> }; the usual number of trips (the median), and
+// whether a date is crowded (a line with over 1.5 times its median)
+function weekdayDates(dateServices, tripsPerService) {
     const byWeekday = Array.from({ length: 7 }, () => []);
     for (const [date, services] of dateServices) {
         const lines = new Map();
@@ -75,15 +94,14 @@ export function pickWeek(dateServices, tripsPerService, today) {
         const trips = [...lines.values()].reduce((sum, n) => sum + n, 0);
         if (trips > 0) byWeekday[weekday(date)].push({ date, trips, lines });
     }
-
     const median = values => values.sort((a, b) => a - b)[Math.floor(values.length / 2)];
-    return byWeekday.map((candidates, wd) => {
-        if (!candidates.length) throw new Error(`Feed has no service on ${DAY_NAMES[wd]}`);
-        const usual = median(candidates.map(c => c.trips));
+    return byWeekday.map(candidates => {
         const usualFor = new Map([...new Set(candidates.flatMap(c => [...c.lines.keys()]))]
             .map(line => [line, median(candidates.map(c => c.lines.get(line) ?? 0))]));
-        const normal = candidates.filter(c => c.trips >= usual * 0.85 && [...c.lines].every(([line, n]) => n <= usualFor.get(line) * 1.5));
-        const dates = (normal.length ? normal : candidates).map(c => c.date).sort();
-        return dates.find(d => d >= today) ?? dates.at(-1);
+        return {
+            candidates,
+            usual: candidates.length ? median(candidates.map(c => c.trips)) : 0,
+            crowded: c => [...c.lines].some(([line, n]) => n > usualFor.get(line) * 1.5),
+        };
     });
 }

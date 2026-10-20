@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addDays, athensToday, pickWeek, serviceDates, toSeconds, weekday } from '../server/data/calendar.js';
+import { addDays, athensToday, crowdedDates, pickWeek, serviceDates, toSeconds, weekday } from '../server/data/calendar.js';
 
 test('toSeconds keeps times past midnight', () => {
     assert.equal(toSeconds('07:44:29'), 27869);
@@ -67,4 +67,10 @@ test('pickWeek still picks a date when none looks usual', () => {
     // Each Thursday has one line far above the others' count for it
     const thursdays = { '20260806': { M1: 300, M2: 100, M3: 100 }, '20260813': { M1: 100, M2: 300, M3: 100 }, '20260820': { M1: 100, M2: 100, M3: 300 } };
     assert.equal(pickWeek(...feedDays(3, thursdays), '20260817')[4], '20260820');
+});
+
+test('crowdedDates: the dates on which a line has over 1.5 times its usual trips that weekday', () => {
+    // Thursday the 20th: M1 twice over (two timetables); Friday the 21st: M2 a little more (1.3 times)
+    const crowded = crowdedDates(...feedDays(3, { '20260820': { M1: 200, M2: 100 }, '20260821': { M1: 100, M2: 130 } }));
+    assert.deepEqual([...crowded], ['20260820']);
 });

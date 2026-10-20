@@ -13,8 +13,9 @@ import { athensDate } from '../tools/subway/client/network.js';
 //     (the scheduled check asks for a stop first, so this is current)
 //   - announcements: every source loaded on its last try (or, not tried yet
 //     since the server started, has announcements kept from before)
-//   - data: last night's build worked, and the metro timetable doesn't end
-//     within TIMETABLE_WARN_DAYS
+//   - data: last night's build worked, the metro timetable doesn't end
+//     within TIMETABLE_WARN_DAYS, and its checks found no problems
+//     (server/data/rail-checks.js; their notes are only on /admin/diagnostics)
 //   - stasy: STASY's timetable pages could be read on the last try, and the
 //     copy of them in use is at most STASY_STALE_DAYS old (server/data/stasy.js)
 //   - airport: STASY's airport timetable is still as data/curated/airport.json
@@ -77,6 +78,8 @@ export function createHealth({ busStatus, announcementStatus, buildDir, rawDir =
             outputs,
             timetableEnds: validTo,
             timetableDaysLeft: daysLeft,
+            // What the timetable code relies on that no longer holds (server/data/rail-checks.js)
+            problems: meta?.outputs?.['rail.json']?.checks?.problems?.length ?? 0,
         };
     }
 
@@ -119,6 +122,7 @@ export function createHealth({ busStatus, announcementStatus, buildDir, rawDir =
         if (result.data.timetableDaysLeft !== null && result.data.timetableDaysLeft < TIMETABLE_WARN_DAYS) {
             problems.push(`Timetable: the metro timetable ends on ${result.data.timetableEnds} (in ${result.data.timetableDaysLeft} days) and no newer one has been published yet`);
         }
+        if (result.data.problems) problems.push(`Rail data: ${result.data.problems} thing${result.data.problems === 1 ? '' : 's'} the timetable code relies on no longer hold${result.data.problems === 1 ? 's' : ''} (details on /admin/diagnostics)`);
         if (result.stasy.unreadable) problems.push('STASY timetables: STASY\'s pages changed and couldn\'t be read on the last try; the last copy is used');
         else if (!result.stasy.ok) problems.push(`STASY timetables: the copy in use is from ${result.stasy.fetched}, over ${STASY_STALE_DAYS} days old`);
         if (result.airport.changed) problems.push('Airport timetable: STASY\'s has changed since data/curated/airport.json was written (details on /admin/diagnostics); its trains are still added');

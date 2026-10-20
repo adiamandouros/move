@@ -119,6 +119,8 @@ test('fetches the three pages, a second apart, then keeps the copy for 14 days',
     assert.equal(copy.fetched, new Date(NOW).toISOString());
     assert.deepEqual(Object.keys(copy.lines), ['M1', 'M2', 'M3']);
     assert.deepEqual(copy.lines.M3[0].rows[0].slice(0, 2), ['ΑΛΦΑ', '05:30']);
+    // How often trains run, for the nightly checks (rail-checks.js)
+    assert.deepEqual(copy.frequencies.M3, [['ΗΜΕΡΑ', 'ΩΡΑ', 'ΣΥΧΝΟΤΗΤΑ'], ['Δευτέρα', '05:30 - 06:00', '10′']]);
     assert.deepEqual(JSON.parse(readFileSync(stasyFetchFile(rawDir), 'utf8')), { at: copy.fetched, ok: true, route: 'home relay' });
 
     // Less than 14 days later: the copy, without asking

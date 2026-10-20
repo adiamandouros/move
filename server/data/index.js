@@ -16,6 +16,7 @@ import { applyOverlay, pruneOverlay, readOverlay, writeOverlay } from './overlay
 import { liveNetwork } from './oasa-network.js';
 import { fetchSources } from './sources.js';
 import { checkAirport } from './airport-check.js';
+import { checkRail } from './rail-checks.js';
 import { stasyTables } from './stasy.js';
 import { createStasyClient } from '../stasy.js';
 import { validateCurated } from './validate.js';
@@ -53,7 +54,11 @@ const OUTPUTS = {
     'rail.json': {
         sources: ['rail'],
         // STASY's first and last trains when there's a copy (stasy.js); without one, the GTFS's
-        build: (src, curated, today) => buildRail({ dir: src.rail.dir, curated, today, stasy: src.stasy.data }),
+        // and the nightly checks of what it built against STASY's tables (rail-checks.js)
+        build: async (src, curated, today) => {
+            const { data, warnings, notes } = await buildRail({ dir: src.rail.dir, curated, today, stasy: src.stasy.data });
+            return { data, warnings, checks: checkRail(data, { frequencies: src.stasy.data?.frequencies ?? null, notes }) };
+        },
     },
     // From OASA's live API (oasa-network.js), not its open-data timetable, which falls behind
     'bus-stops.json': {
@@ -135,14 +140,19 @@ export async function runBuild({
             try {
                 const missing = output.sources.filter(s => sources[s].error);
                 if (missing.length) throw new Error(`source unavailable: ${missing.map(s => `${s} (${sources[s].error})`).join(', ')}`);
-                const { data, warnings } = await output.build(sources, curated.data, today);
+                const built = await output.build(sources, curated.data, today);
+                const { data, warnings } = built;
+                // Only rail.json has checks of its own
+                const checks = 'checks' in built ? built.checks : undefined;
                 // Never replace a good file with a broken or much smaller one (--force accepts a smaller one)
                 const problems = [...checkOutput(name, data), ...(force ? [] : shrinkage(name, data, readJson(join(dirs.build, name))))];
                 if (problems.length) throw new Error(`failed its checks: ${problems.join('; ')}`);
                 writeFileSync(join(dirs.next, name), JSON.stringify(data));
-                meta.outputs[name] = { ok: true, warnings };
+                meta.outputs[name] = { ok: true, warnings, ...(checks && { checks }) };
                 log(`[data] Built ${name} in ${Date.now() - started} ms${warnings.length ? ` with ${warnings.length} warning(s)` : ''}`);
                 for (const w of warnings) log(`[data]   ${w}`);
+                for (const p of checks?.problems ?? []) log(`[data]   PROBLEM: ${p}`);
+                for (const n of checks?.notes ?? []) log(`[data]   note: ${n}`);
             } catch (err) {
                 const kept = existsSync(join(dirs.build, name));
                 if (kept) copyFileSync(join(dirs.build, name), join(dirs.next, name));
