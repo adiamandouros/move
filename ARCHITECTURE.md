@@ -4,7 +4,9 @@ A map of the code, for whoever works on it next. The [README](README.md)
 covers setting it up and running it.
 
 Wayhop has no build step and no front-end framework. The server renders
-every page's HTML at startup and keeps it in memory; each page then loads a
+every page's HTML at startup and keeps it in memory (pages drawn from
+`rail.json`, the station pages and the Info page's last trains, are drawn
+again when it changes); each page then loads a
 few plain JavaScript modules for its live parts (routes, bus arrivals,
 announcements, the map).
 

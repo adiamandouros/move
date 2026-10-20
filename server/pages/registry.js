@@ -2,7 +2,8 @@ import { existsSync, readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { loadConfig } from '../config.js';
-import { SHELL_STRINGS, toolNames } from './i18n.js';
+import { SHELL_STRINGS, stringGetter, toolNames } from './i18n.js';
+import { lastTrains } from './last-trains.js';
 import { appData } from './seo.js';
 import { STATION_STRINGS, STATIONS_PATH } from './stations.js';
 import { view } from './templates.js';
@@ -22,6 +23,8 @@ import { view } from './templates.js';
 //   structuredData  (lang, s) → its schema.org data, for <head> (seo.js)
 //   active        the tool whose navigation entry is highlighted
 //   ad            where it has an ad slot (server/ads.js)
+//   rail          true when it's drawn from rail.json, so it's drawn again
+//                 when that changes (index.js)
 //
 // Pages that aren't in this list, of the same shape:
 //   - the station pages (STATION_PATHS), built on request from rail.json (stations.js, stationPage)
@@ -37,9 +40,14 @@ const TOOLS_DIR = join(ROOT, 'tools');
 /** @typedef {import('../../types/pages.js').Tool} Tool */
 
 // config: the settings (server/config.js), for the ads and the contact
-// address; without them (e.g. to list the paths), none
-/** @param {Tool[]} tools @param {import('../../types/config.js').Config} [config] @returns {Page[]} */
-export function sitePages(tools, config = loadConfig({})) {
+// address; without them (e.g. to list the paths), none. rail: rail.json as
+// it is now, for the tools that use it (tool.json "rail")
+/**
+ * @param {Tool[]} tools @param {import('../../types/config.js').Config} [config]
+ * @param {() => import('../../types/data.js').Rail | null} [rail]
+ * @returns {Page[]}
+ */
+export function sitePages(tools, config = loadConfig({}), rail = () => null) {
     const ads = Boolean(config.adsense.client);
     return [
         {
@@ -65,12 +73,16 @@ export function sitePages(tools, config = loadConfig({})) {
                 path: tool.path,
                 title: `tool.${tool.id}.title`,
                 description: `tool.${tool.id}.description`,
-                // Its data.json gives the view its values
-                content: (lang, strings) => page(tool.data, { lang, strings }),
+                // Its data.json gives the view its values; with "rail", also its
+                // data.json "lastTrains" rows' times, as `metro` (last-trains.js)
+                content: (lang, strings) => page(tool.rail
+                    ? { ...tool.data, metro: lastTrains(rail(), tool.data.lastTrains, lang, stringGetter(strings, lang)) }
+                    : tool.data, { lang, strings }),
                 strings: tool.strings,
                 scripts: tool.scripts.map(s => `/tools/${tool.id}/${s}`),
                 active: tool.id,
                 ad: tool.ad,
+                rail: tool.rail,
             };
         }),
         ...TEXT_PAGES.map(name => ({

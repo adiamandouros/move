@@ -23,6 +23,7 @@ tools/<id>/
 | `offline` | `true` to cache the page and its `client/` files for offline use |
 | `scripts` | Files in `client/` to load as modules, e.g. `["main.js"]` |
 | `precache` | Data URLs to cache for offline use, e.g. `["/data/rail.json"]` (best-effort: a missing file doesn't break the cache) |
+| `rail` | `true` to draw the page from rail.json too: its `data.json` `lastTrains` rows (`{ line, from, to }`) get their times as `metro` (`server/pages/last-trains.js`), and the page is drawn again when rail.json changes |
 
 Longer text that doesn't suit single strings (paragraphs with links, lists)
 can be written twice in `page.hbs`, as `{{#ifLang "en"}}…{{else}}…{{/ifLang}}`

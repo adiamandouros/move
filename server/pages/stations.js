@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from 'fs';
+import { readFileSync } from 'fs';
 
 /** @typedef {import('../../types/data.js').Rail} Rail */
 /** @typedef {import('../../types/pages.js').Lang} Lang */
@@ -10,6 +10,7 @@ import { centralPlatformBadge, clockTime, exitDiagram, lineBadge, stopNote } fro
 import { athensDate } from '../../tools/subway/client/network.js';
 import { sendFresh } from '../http.js';
 import { LANGS, localPath, mergeStrings, stringGetter } from './i18n.js';
+import { railReader } from './rail-file.js';
 import { view } from './templates.js';
 
 // A page for every metro station, and an index of them, in English and Greek:
@@ -276,17 +277,13 @@ export function stationPage(rail, id, { tools, origin = '' }) {
  *   tools: import('../../types/pages.js').Tool[], origin?: string }} options
  */
 export function createStationPages({ railFile, renderPage, tools, origin = '' }) {
-    let loaded = { mtime: null, rail: null, html: new Map() };
-
-    // rail.json as it is now; rendered pages are kept until it changes (or the day does,
-    // since the timetable notice depends on the date)
+    const read = railReader(railFile);
+    // Rendered pages are kept until rail.json changes (or the day does)
+    let drawn = { key: null, html: new Map() };
     function current() {
-        try {
-            const mtime = statSync(railFile).mtimeMs;
-            const key = `${mtime} ${athensDate()}`;
-            if (key !== loaded.mtime) loaded = { mtime: key, rail: JSON.parse(readFileSync(railFile, 'utf8')), html: new Map() };
-        } catch { /* keep what we had; null until the first build */ }
-        return loaded;
+        const { key, rail } = read();
+        if (key !== drawn.key) drawn = { key, html: new Map() };
+        return { rail, html: drawn.html };
     }
 
     function page(id, lang) {
