@@ -127,7 +127,7 @@ export function stopTable({ named = 10, dir = mkdtempSync(join(tmpdir(), 'wayhop
 // The curated files of railCurated(), written as data/curated/ has them
 export function curatedDir(curated = railCurated()) {
     const dir = mkdtempSync(join(tmpdir(), 'wayhop-curated-'));
-    for (const name of ['stations', 'lines', 'positions']) writeFileSync(join(dir, `${name}.json`), JSON.stringify(curated[name]));
+    for (const name of ['stations', 'lines', 'positions', 'airport']) if (curated[name]) writeFileSync(join(dir, `${name}.json`), JSON.stringify(curated[name]));
     return dir;
 }
 

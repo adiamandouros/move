@@ -25,14 +25,15 @@ export function createStasyClient({ fetch = globalThis.fetch, now = Date.now, re
     let directRestUntil = 0;
     let route = /** @type {string | null} */ (null);
 
-    // A page: directly, or through each relay with `relayQuery` (none: the relays can't fetch it)
-    async function get(url, relayQuery) {
+    // A page (or with `read`, a file): directly, or through each relay with
+    // `relayQuery` (none: the relays can't fetch it)
+    async function get(url, relayQuery, read = res => res.text()) {
         const errors = [];
         if (now() >= directRestUntil) {
             try {
                 const res = await fetch(url, { headers: { 'User-Agent': userAgent }, signal: AbortSignal.timeout(TIMEOUT_MS) });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const body = await res.text();
+                const body = await read(res);
                 route = 'direct';
                 return body;
             } catch (err) {
@@ -47,8 +48,9 @@ export function createStasyClient({ fetch = globalThis.fetch, now = Date.now, re
                     signal: AbortSignal.timeout(RELAY_TIMEOUT_MS),
                 });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const body = await read(res);
                 route = relay.name;
-                return await res.text();
+                return body;
             } catch (err) {
                 errors.push(`${relay.name}: ${err.message}`);
             }
@@ -67,6 +69,12 @@ export function createStasyClient({ fetch = globalThis.fetch, now = Date.now, re
         /** @param {1 | 2 | 3} line @returns {Promise<string>} */
         timetable(line) {
             return get(`${STASY_SITE}${stasyTimetablePath(line)}`, `act=stasyTimetable&line=${line}`);
+        },
+        // A PDF STASY has uploaded (its airport timetable), as bytes
+        /** @param {string} url @returns {Promise<Buffer>} */
+        file(url) {
+            const path = new URL(url).pathname.replace(/^\//, '');
+            return get(url, `act=stasyFile&path=${encodeURIComponent(path)}`, async res => Buffer.from(await res.arrayBuffer()));
         },
         // How the last page came: 'direct' or a relay's name
         get route() { return route; },

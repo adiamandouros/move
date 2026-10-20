@@ -24,6 +24,19 @@ test.describe('23:55 on a Wednesday, after the airport branch has stopped', () =
 
 });
 
+test.describe('22:50 on a Wednesday, before the last airport train', () => {
+    test.use({ now: '2026-10-21T22:50:00+03:00' });
+
+    test('STASY\'s late airport trains the GTFS doesn\'t have are offered, the last one marked', async ({ page }) => {
+        await page.goto('/subway?from=syntagma&to=airport');
+        // The 22:54 from Dimotiko Theatro reaches Syntagma at 23:18, in 28 minutes (the GTFS's last left at 22:06)
+        const card = page.locator('.result-card').first();
+        await expect(card).toContainText('28 minutes');
+        await expect(card).toContainText('Last train');
+        await expect(content(page)).not.toContainText('No more trains today');
+    });
+});
+
 test.describe('00:05 on a Wednesday, after the last train from Dimotiko Theatro', () => {
     test.use({ now: '2026-10-21T00:05:00+03:00' });
 

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'child_process';
+import { createHash } from 'crypto';
 import { cpSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { builderFingerprint, runBuild } from '../server/data/index.js';
@@ -16,7 +17,7 @@ import { stasyPage, stasyTable } from './fixtures/stasy.js';
 
 const DAY = 86_400_000;
 
-function setup({ busStops = 1500 } = {}) {
+function setup({ busStops = 1500, curated = undefined } = {}) {
     const portal = fakePortal();
     portal.publish(SOURCES.rail.dataset, railFeed());
     portal.publish(SOURCES.bus.dataset, busFeed());
@@ -27,7 +28,7 @@ function setup({ busStops = 1500 } = {}) {
     const dataDir = tempDir();
     const logs = [];
     const options = {
-        dataDir, curatedDir: curatedDir(), overlayFile: join(dataDir, 'local', 'positions.json'), fetch: portal.fetch, today: '20260805', log: m => logs.push(m),
+        dataDir, curatedDir: curatedDir(curated), overlayFile: join(dataDir, 'local', 'positions.json'), fetch: portal.fetch, today: '20260805', log: m => logs.push(m),
         oasa: oasa.request, now: () => clock.now, sleep: async () => {},
     };
     const build = (more = {}) => runBuild({ ...options, ...more });
@@ -48,6 +49,10 @@ function fakeStasy() {
             this.asked.push(line);
             if (this.down) throw new Error('home relay: HTTP 502');
             return page;
+        },
+        async file(url) {
+            this.asked.push(url);
+            return Buffer.from('a PDF');
         },
     };
 }
@@ -231,4 +236,24 @@ test('mistakes in the curated files stop the build before anything is downloaded
     await assert.rejects(build({ curatedDir: curatedDir(broken) }), /Curated data has errors:[\s\S]*a needs name\.el and name\.en/);
     assert.equal(portal.calls.length, 0);
     assert.equal(oasa.calls.length, 0);
+});
+
+test('with airport.json, the build checks STASY\'s airport timetable weekly, and adds its trains', async () => {
+    const pdf = 'https://www.stasy.gr/wp-content/uploads/2024/06/a.pdf';
+    const airport = {
+        checked: '2026-10-20', page: 'https://www.stasy.gr/x/',
+        lines: { M9: { north: { pdf, sha256: createHash('sha256').update('a PDF').digest('hex'), serves: 'c', stations: ['a', 'b', 'c'], trains: [{ train: '1', times: ['12:00', '12:02', '12:05'] }] } } },
+    };
+    const stasy = fakeStasy();
+    const { build, dataDir, nextNight } = setup({ curated: railCurated({ airport }) });
+    const meta = await build({ stasy });
+    assert.ok(meta.outputs['rail.json'].warnings.includes('M9/north: STASY\'s airport timetable adds trains the GTFS doesn\'t have, or has only part of: 12:00 (every day)'));
+    const check = JSON.parse(readFileSync(join(dataDir, 'raw', 'stasy', 'airport-check.json'), 'utf8'));
+    // The fixture's page links no airport PDF; the PDF itself is unchanged
+    assert.deepEqual(check.changes, ['STASY\'s M9 page no longer links M9/north\'s PDF: a.pdf']);
+    assert.ok(stasy.asked.includes(pdf));
+    // Not again the next night
+    const asked = stasy.asked.length;
+    await nextNight({ stasy });
+    assert.equal(stasy.asked.length, asked);
 });

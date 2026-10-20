@@ -15,6 +15,7 @@ import { createOasaClient } from '../oasa/client.js';
 import { applyOverlay, pruneOverlay, readOverlay, writeOverlay } from './overlay.js';
 import { liveNetwork } from './oasa-network.js';
 import { fetchSources } from './sources.js';
+import { checkAirport } from './airport-check.js';
 import { stasyTables } from './stasy.js';
 import { createStasyClient } from '../stasy.js';
 import { validateCurated } from './validate.js';
@@ -72,7 +73,8 @@ const OUTPUTS = {
 // `userAgent` is what the portal sees us as (config.userAgent). `oasa` asks
 // OASA's live API for the bus network (request(act, p1), server/oasa/client.js;
 // without it the kept network is used), and `stasy` STASY's site for its
-// timetables (server/stasy.js; without it, the kept copy). The other options are for tests:
+// timetables and the weekly check of its airport timetable (server/stasy.js;
+// without it, the kept copy and no check). The other options are for tests:
 // their own data folder and curated files, a fake portal (`fetch`), a fixed
 // day (`today`, 'YYYYMMDD'), the clock and pause between OASA requests
 // (`now`, `sleep`) and the builder's fingerprint.
@@ -108,6 +110,8 @@ export async function runBuild({
         sources.network = { data: network.network, modified: network.network?.fetched ?? null, error: network.error };
         const timetables = await stasyTables({ rawDir: dirs.raw, client: stasy, stations: curated.data.stations.stations, offline, now, sleep, log });
         sources.stasy = { data: timetables.copy, modified: timetables.copy?.fetched ?? null, error: timetables.error };
+        // Weekly: has STASY's airport timetable changed since airport.json? (only reported)
+        await checkAirport({ rawDir: dirs.raw, client: stasy, airport: curated.data.airport, offline, now, sleep, log });
         const fingerprint = {
             builder,
             curated: curated.hash,
@@ -218,8 +222,10 @@ function publish(dirs) {
 // Overlay entries that the committed positions.json now matches are pruned.
 export function loadCurated({ curatedDir = CURATED_DIR, overlayFile = OVERLAY_FILE, log = console.log } = {}) {
     const hash = createHash('sha256');
-    const data = /** @type {{ stations: any, lines: any, positions: any }} */ ({});
-    for (const name of ['stations', 'lines', 'positions']) {
+    const data = /** @type {{ stations: any, lines: any, positions: any, airport?: any }} */ ({});
+    // airport.json (STASY's airport trains) is optional
+    for (const name of ['stations', 'lines', 'positions', 'airport']) {
+        if (name === 'airport' && !existsSync(join(curatedDir, `${name}.json`))) continue;
         const raw = readFileSync(join(curatedDir, `${name}.json`), 'utf8');
         hash.update(raw);
         try { data[name] = JSON.parse(raw); }

@@ -160,3 +160,45 @@ test('a night STASY says runs all night keeps its late trains; the next morning\
     assert.deepEqual(starts(6), [9 * 3600]);
     assert.deepEqual(starts(0), []);
 });
+
+// STASY's airport timetable for M9 north (a → b → c), every day, through c
+const airportFile = trains => ({
+    checked: '2026-10-20', page: 'https://www.stasy.gr/x/',
+    lines: { M9: { north: { pdf: 'https://www.stasy.gr/wp-content/uploads/2024/06/a.pdf', sha256: '0'.repeat(64), serves: 'c', stations: ['a', 'b', 'c'], trains: trains.map((times, i) => ({ train: String(i + 1), times })) } } },
+});
+
+test('STASY\'s airport trains: the GTFS\'s are kept, the ones it lacks or ends early are added, every day', async () => {
+    const airport = airportFile([
+        ['08:01', '08:03', '08:06'],   // n1 on weekdays (c within 90 s): kept; added at the weekend
+        ['08:10', '08:15', '08:15'],   // n2 on weekdays, though 3 minutes off at b: kept, and said
+        ['24:30', '24:32', '24:35'],   // n3 ends early at b on weekdays: replaced, and added every day
+    ]);
+    const { data, warnings } = await buildRail({ dir: feed(), curated: curated({ airport }), today: '20261003' });
+    const { profiles, patterns, days } = data.lines.M9.directions.north.timetable;
+    const day = wd => patterns[days[wd]].map(([start, p]) => [start, profiles[p].stops, profiles[p].offsets]);
+    const H = 3600;
+    assert.deepEqual(day(1), [[8 * H, [0, 1, 2], [0, 120, 300]], [8 * H + 600, [0, 1, 2], [0, 120, 300]], [24.5 * H, [0, 1, 2], [0, 120, 300]]]);
+    assert.deepEqual(day(6), [
+        [8 * H + 60, [0, 1, 2], [0, 120, 300]], [8 * H + 600, [0, 1, 2], [0, 300, 300]], [9 * H, [0, 1, 2], [0, 120, 300]], [24.5 * H, [0, 1, 2], [0, 120, 300]],
+    ]);
+    assert.ok(warnings.includes('M9/north: STASY\'s airport timetable adds trains the GTFS doesn\'t have, or has only part of: 08:01 (sun, sat), 08:10 (sun, sat), 24:30 (every day)'), warnings.join('\n'));
+    assert.ok(warnings.includes('M9/north: the GTFS times airport trains differently from STASY\'s airport timetable (the GTFS\'s are kept; check them on the platform): 08:10 (up to 3 min)'), warnings.join('\n'));
+    // Saturday's 09:00 and Sunday's 10:00 aren't in STASY's: kept, to check
+    assert.ok(warnings.includes('M9/north: the GTFS has airport trains STASY\'s airport timetable doesn\'t (kept; check them on the platform): a 09:00 (sat), a 10:00 (sun)'), warnings.join('\n'));
+});
+
+test('a train as close as an airport train but going its own way isn\'t taken for it', async () => {
+    // n1 runs all the way on weekdays, so n10 (20 s behind, to b only) is another train
+    const airport = airportFile([['08:00', '08:02', '08:05']]);
+    const { data } = await buildRail({ dir: feed({ copies: true }), curated: curated({ airport }), today: '20261003' });
+    const { patterns, days } = data.lines.M9.directions.north.timetable;
+    assert.ok(patterns[days[1]].some(([start]) => start === 8 * 3600 + 20));
+});
+
+test('STASY\'s airport trains on stations other than the line\'s are left out, with a warning', async () => {
+    const airport = airportFile([['12:00', '12:02', '12:05']]);
+    airport.lines.M9.north.stations = ['a', 'c', 'b'];
+    const { data, warnings } = await buildRail({ dir: feed(), curated: curated({ airport }), today: '20261003' });
+    assert.ok(warnings.includes('airport.json: M9/north lists other stations than the line has; its trains weren\'t added'));
+    assert.ok(!data.lines.M9.directions.north.timetable.patterns.flat().some(([start]) => start === 12 * 3600));
+});

@@ -248,7 +248,12 @@ fetched at most every 14 days (directly or through the relays, like STASY's
 announcements, `server/stasy.js`), and a copy of their tables is kept in
 `data/raw/stasy/`; a line whose pages can't be read keeps the GTFS's times.
 The timetable's trains outside STASY's first and last trains are taken off
-(`trimToHours` in `build-rail.js`), so the planner never offers a depot run. The buses come from OASA's live API instead, as its
+(`trimToHours` in `build-rail.js`), so the planner never offers a depot run.
+The GTFS also misses some airport trains (the last ones) or ends them early:
+STASY's airport timetable, copied by hand from its PDFs into
+`data/curated/airport.json`, adds them (`addTimetabled`), and once a week the
+build checks the PDFs haven't changed (`airport-check.js`: STASY's line 3 page
+and the two PDFs, through the relays). The buses come from OASA's live API instead, as its
 open-data bus timetable falls behind (diversions, new routes):
 `oasa-network.js` fetches today's lines, their routes and each route's stops,
 and `build-bus.js` makes `data/build/bus-stops.json` (every stop on a route
@@ -275,6 +280,8 @@ and can be edited from a phone at `/admin/stations`.
 - every announcement source loaded;
 - last night's data build worked;
 - the metro timetable doesn't end within a week;
+- STASY's timetable pages could be read, and its airport timetable hasn't
+  changed since `airport.json` (checked weekly);
 - each relay runs the current `RELAY_VERSION`.
 
 It answers 503 with the problems in plain words, without addresses, keys or

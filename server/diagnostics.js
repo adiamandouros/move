@@ -4,6 +4,7 @@ import { join } from 'path';
 import { loadConfig } from './config.js';
 import { lastFetchFile } from './data/oasa-network.js';
 import { CKAN_API, SOURCES } from './data/sources.js';
+import { AIRPORT_CHECK_MAX_AGE_MS, airportCheckFile } from './data/airport-check.js';
 import { STASY_MAX_AGE_MS, stasyFetchFile } from './data/stasy.js';
 import { readJson } from './files.js';
 import { OASA_API, REQUESTS_PER_SECOND, TEST_STOP } from './oasa/client.js';
@@ -219,6 +220,7 @@ function dataChecks(dataDir, now) {
     }
     out.push(...networkCheck(dataDir));
     out.push(stasyCheck(dataDir, meta));
+    out.push(...airportCheck(dataDir, meta));
     const lock = join(dataDir, '.build.lock');
     if (existsSync(lock)) out.push(check('Data', 'Build lock', 'info', `A build is running or was interrupted (process ${readFileSync(lock, 'utf8').trim()})`));
     return out;
@@ -271,6 +273,29 @@ function stasyCheck(dataDir, meta) {
     if (lines.length) return check('Data', title, 'warn', `${using}, except: ${lines.join(' · ')}`);
     const next = fetched && new Date(Date.parse(fetched) + STASY_MAX_AGE_MS).toISOString().slice(0, 10);
     return check('Data', title, 'ok', `${using}${last ? `, fetched ${when} (${last.route})` : ''}. Next fetch from ${next}.`);
+}
+
+// STASY's airport timetable (server/data/airport-check.js): the weekly check
+// that it's still as data/curated/airport.json has it, and what the build did
+// with it (rail.json's warnings: trains added, and ones to check on the platform)
+function airportCheck(dataDir, meta) {
+    const title = 'STASY airport timetable';
+    const last = readJson(airportCheckFile(join(dataDir, 'raw')));
+    const built = (meta?.outputs?.['rail.json']?.warnings ?? []).filter(w => /airport/i.test(w));
+    const when = t => `${t.slice(0, 16).replace('T', ' ')} UTC`;
+    const update = 'Compare the PDFs on STASY\'s line 3 page with data/curated/airport.json and update its trains, "pdf" and "sha256" (data/curated/README.md). Until then, its trains are still added.';
+    const out = [];
+    if (!last) out.push(check('Data', title, 'info', 'Not checked yet: the nightly build checks it once a week'));
+    else if (last.changes?.length) out.push(check('Data', title, 'fail', `Changed since airport.json, checked ${when(last.checked)}: ${last.changes.join(' · ')}`, update));
+    else if (last.error) {
+        out.push(check('Data', title, 'warn', `The check at ${when(last.at)} failed: ${last.error}${last.checked ? `. Last checked ${when(last.checked)}: unchanged` : ''}`,
+            'The next build tries again. STASY refuses the server, so the PDFs come through the relays: check the relay rows above (relay version 5 is needed).'));
+    } else {
+        const next = new Date(Date.parse(last.checked) + AIRPORT_CHECK_MAX_AGE_MS).toISOString().slice(0, 10);
+        out.push(check('Data', title, 'ok', `Unchanged, checked ${when(last.checked)} (${last.route}). Next check from ${next}.`));
+    }
+    if (built.length) out.push(check('Data', 'Airport trains in the timetable', 'info', built.join(' · ')));
+    return out;
 }
 
 function appChecks(appStatus, now) {

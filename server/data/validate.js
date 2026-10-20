@@ -9,7 +9,8 @@ const POSITION_KEYS = new Set(['exits', 'elevators', 'centralPlatform', 'transfe
 // Check the hand-maintained files in data/curated for mistakes. Returns
 // { errors, warnings }; any error fails the build. Kept independent of the
 // GTFS feed so it can run in tests and before every build.
-export function validateCurated({ stations, lines, positions }) {
+/** @param {{ stations: any, lines: any, positions: any, airport?: any }} curated */
+export function validateCurated({ stations, lines, positions, airport }) {
     const errors = [];
     const warnings = [];
 
@@ -74,5 +75,33 @@ export function validateCurated({ stations, lines, positions }) {
         }
     }
 
+    if (airport !== undefined) checkAirport(airport, stationIds, lines, errors);
     return { errors, warnings };
+}
+
+// airport.json: STASY's airport trains (build-rail.js, addTimetabled), with
+// where they came from, to check they haven't changed (airport-check.js)
+function checkAirport(airport, stationIds, lines, errors) {
+    if (!/^\d{4}-\d\d-\d\d$/.test(airport?.checked ?? '')) errors.push('airport.json: "checked" must be a date, YYYY-MM-DD');
+    if (!/^https:\/\/www\.stasy\.gr\//.test(airport?.page ?? '')) errors.push('airport.json: "page" must be the STASY page that links the PDFs');
+    for (const [lineId, directions] of Object.entries(airport?.lines ?? {})) {
+        for (const [dirKey, d] of Object.entries(directions)) {
+            const where = `airport.json: ${lineId}/${dirKey}`;
+            if (!lines[lineId]?.directions?.[dirKey]) { errors.push(`${where}: unknown direction`); continue; }
+            if (!/^https:\/\/www\.stasy\.gr\/wp-content\/uploads\/.+\.pdf$/.test(d.pdf ?? '')) errors.push(`${where}: "pdf" must be the address of STASY's PDF`);
+            if (!/^[0-9a-f]{64}$/.test(d.sha256 ?? '')) errors.push(`${where}: "sha256" must be the PDF's SHA-256, in hex`);
+            const list = Array.isArray(d.stations) ? d.stations : [];
+            if (!list.length) errors.push(`${where}: "stations" must list the stations in travel order`);
+            for (const s of list.filter(s => !stationIds.has(s))) errors.push(`${where}: unknown station ${s}`);
+            if (!list.includes(d.serves)) errors.push(`${where}: "serves" must be one of its stations`);
+            for (const [i, train] of (Array.isArray(d.trains) ? d.trains : []).entries()) {
+                const times = Array.isArray(train?.times) ? train.times : [];
+                const name = `${where}: train ${i + 1}${train?.train ? ` (${train.train})` : ''}`;
+                if (times.length !== list.length) errors.push(`${name} needs one time per station`);
+                else if (times.some(t => !/^\d\d:[0-5]\d$/.test(t))) errors.push(`${name}: times must be HH:MM (after midnight 24:05)`);
+                else if (times.some((t, k) => k > 0 && t < times[k - 1])) errors.push(`${name} goes back in time`);
+            }
+            if (!Array.isArray(d.trains) || !d.trains.length) errors.push(`${where}: "trains" must list its trains`);
+        }
+    }
 }

@@ -169,3 +169,23 @@ test('the STASY client: a timetable page directly, or through the relays once ST
     await stasy.timetable(1);
     assert.deepEqual(asked.slice(2), ['https://pi.example/?act=stasyTimetable&line=1']);
 });
+
+test('the STASY client: an uploaded PDF as bytes, directly or through the relays', async () => {
+    const pdf = 'https://www.stasy.gr/wp-content/uploads/2024/06/ΔΙΕΛΕΥΣΕΙΣ-ΣΥΡΜΩΝ.pdf';
+    const bytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0xff, 0x00, 0xe2]);
+    const asked = [];
+    let refuse = false;
+    const fetch = async url => {
+        asked.push(decodeURIComponent(String(url)));
+        if (refuse && String(url).startsWith('https://www.stasy.gr/')) return new Response('Forbidden', { status: 403 });
+        return new Response(bytes);
+    };
+    const stasy = createStasyClient({ fetch, now: () => NOW, relays: [{ name: 'home relay', url: 'https://pi.example/', key: 'k' }] });
+    assert.deepEqual(new Uint8Array(await stasy.file(pdf)), bytes);
+    assert.equal(stasy.route, 'direct');
+    refuse = true;
+    assert.deepEqual(new Uint8Array(await stasy.file(pdf)), bytes);
+    assert.equal(stasy.route, 'home relay');
+    // The relay is sent the name percent-encoded, as its own rule allows only that
+    assert.deepEqual(asked, [pdf, pdf, `https://pi.example/?act=stasyFile&path=${new URL(pdf).pathname.slice(1)}`]);
+});

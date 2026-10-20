@@ -26,10 +26,14 @@
 // GET /?act=stasyTimetable&line=<1, 2 or 3> relays STASY's timetable page for
 // that metro line, in Greek (its first and last trains, for the nightly data
 // build). Only those three pages.
+//
+// GET /?act=stasyFile&path=wp-content/uploads/<YYYY>/<MM>/<name>.pdf relays a
+// PDF STASY has uploaded (its airport timetable, which the nightly data build
+// checks weekly for changes), as it is. Only PDFs in that one folder.
 
 // Bump with every change a deployed relay needs (proxy/README.md): the
 // server's health check reports relays that answer an older version
-export const RELAY_VERSION = 4;
+export const RELAY_VERSION = 5;
 
 const OASA_API = 'https://telematics.oasa.gr/api/';
 // Each action the relay passes on, and whether it takes a numeric code (p1)
@@ -41,6 +45,9 @@ const STASY = 'https://www.stasy.gr/';
 // One path segment, as STASY's links have it (percent-encoded Greek allowed)
 const STASY_PATH = /^[A-Za-z0-9%_-][A-Za-z0-9%_.-]{0,299}$/;
 // STASY's timetable page for metro line N: /δρομολόγια/γραμμή-N/
+// A PDF STASY has uploaded: its name as STASY's links have it (percent-encoded
+// Greek allowed), no encoded slashes or dots
+const STASY_FILE = /^wp-content\/uploads\/\d{4}\/\d{2}\/[A-Za-z0-9%_.-]{1,300}\.pdf$/;
 export const stasyTimetablePath = line => `%ce%b4%cf%81%ce%bf%ce%bc%ce%bf%ce%bb%cf%8c%ce%b3%ce%b9%ce%b1/%ce%b3%cf%81%ce%b1%ce%bc%ce%bc%ce%ae-${line}/`;
 // STASY's news page is large and slow; the server waits longer for it (25 s)
 const STASY_TIMEOUT_MS = 20_000;
@@ -64,6 +71,7 @@ export default {
         if (act === 'whereami') return whereAmI(request);
         if (act === 'stasyPage') return stasyPage(request, params.get('path') ?? '');
         if (act === 'stasyTimetable') return stasyTimetable(request, params.get('line') ?? '');
+        if (act === 'stasyFile') return stasyFile(request, params.get('path') ?? '');
         if (!ALLOWED_ACTIONS.has(act) || (ALLOWED_ACTIONS.get(act) ? !/^\d{1,8}$/.test(p1) : p1 !== '')) return text(400, 'Bad request');
 
         try {
@@ -94,10 +102,15 @@ async function stasyTimetable(request, line) {
     return stasyFetch(request, `${STASY}${stasyTimetablePath(line)}`);
 }
 
-async function stasyFetch(request, url) {
+async function stasyFile(request, path) {
+    if (!STASY_FILE.test(path) || path.includes('..') || /%(2f|5c|2e)/i.test(path)) return text(400, 'Bad request');
+    return stasyFetch(request, `${STASY}${path}`, 'application/pdf');
+}
+
+async function stasyFetch(request, url, accept = 'text/html') {
     try {
         const upstream = await fetch(url, {
-            headers: { 'User-Agent': request.headers.get('User-Agent') ?? 'Wayhop relay', Accept: 'text/html' },
+            headers: { 'User-Agent': request.headers.get('User-Agent') ?? 'Wayhop relay', Accept: accept },
             signal: AbortSignal.timeout(STASY_TIMEOUT_MS),
         });
         return new Response(upstream.body, {
