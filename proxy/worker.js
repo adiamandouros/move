@@ -2,7 +2,9 @@
 // The server only uses it when it can't reach OASA directly (e.g. its shared
 // hosting IP is blocked). It is deliberately narrow so it can't be used as an
 // open proxy: a shared secret is required, and only the API calls the app
-// needs, with numeric stop codes, are passed on.
+// needs, with numeric codes, are passed on: a stop's arrivals and routes for
+// the live times, and the lines, a line's routes and a route's stops for the
+// nightly data build (webGetLines takes no code).
 //
 // Request:  GET https://<worker>/?act=getStopArrivals&p1=10361
 //           X-Relay-Key: <RELAY_KEY>
@@ -23,10 +25,14 @@
 
 // Bump with every change a deployed relay needs (proxy/README.md): the
 // server's health check reports relays that answer an older version
-export const RELAY_VERSION = 2;
+export const RELAY_VERSION = 3;
 
 const OASA_API = 'https://telematics.oasa.gr/api/';
-const ALLOWED_ACTIONS = new Set(['getStopArrivals', 'webRoutesForStop']);
+// Each action the relay passes on, and whether it takes a numeric code (p1)
+const ALLOWED_ACTIONS = new Map([
+    ['getStopArrivals', true], ['webRoutesForStop', true],
+    ['webGetLines', false], ['webGetRoutes', true], ['webGetStops', true],
+]);
 const STASY = 'https://www.stasy.gr/';
 // One path segment, as STASY's links have it (percent-encoded Greek allowed)
 const STASY_PATH = /^[A-Za-z0-9%_-][A-Za-z0-9%_.-]{0,299}$/;
@@ -51,10 +57,10 @@ export default {
         }
         if (act === 'whereami') return whereAmI(request);
         if (act === 'stasyPage') return stasyPage(request, params.get('path') ?? '');
-        if (!ALLOWED_ACTIONS.has(act) || !/^\d{1,8}$/.test(p1)) return text(400, 'Bad request');
+        if (!ALLOWED_ACTIONS.has(act) || (ALLOWED_ACTIONS.get(act) ? !/^\d{1,8}$/.test(p1) : p1 !== '')) return text(400, 'Bad request');
 
         try {
-            const upstream = await fetch(`${OASA_API}?act=${act}&p1=${p1}`, {
+            const upstream = await fetch(`${OASA_API}?act=${act}${p1 ? `&p1=${p1}` : ''}`, {
                 headers: {
                     'User-Agent': request.headers.get('User-Agent') ?? 'Wayhop relay',
                     Accept: 'application/json',

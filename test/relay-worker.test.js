@@ -33,8 +33,20 @@ test('refuses missing or wrong keys', async () => {
     assert.equal(upstream.length, 0);
 });
 
+test('relays the data build\'s calls: the lines (no code), a line\'s routes, a route\'s stops', async () => {
+    for (const query of ['?act=webGetLines', '?act=webGetRoutes&p1=938', '?act=webGetStops&p1=3922', '?act=webRoutesForStop&p1=280054']) {
+        assert.equal((await call(query)).status, 200, query);
+    }
+    assert.deepEqual(upstream.map(u => u.url), [
+        'https://telematics.oasa.gr/api/?act=webGetLines',
+        'https://telematics.oasa.gr/api/?act=webGetRoutes&p1=938',
+        'https://telematics.oasa.gr/api/?act=webGetStops&p1=3922',
+        'https://telematics.oasa.gr/api/?act=webRoutesForStop&p1=280054',
+    ]);
+});
+
 test('refuses anything but the app\'s own API calls', async () => {
-    for (const query of ['?act=getBusLocation&p1=1', '?act=getStopArrivals&p1=1;rm', '?act=getStopArrivals', '?act=webGetLines&p1=1']) {
+    for (const query of ['?act=getBusLocation&p1=1', '?act=getStopArrivals&p1=1;rm', '?act=getStopArrivals', '?act=webGetLines&p1=1', '?act=webGetRoutes', '?act=webGetStops&p1=abc', '?act=webGetLinesWithMLInfo']) {
         assert.equal((await call(query)).status, 400, query);
     }
     assert.equal((await call('?act=getStopArrivals&p1=1', { 'X-Relay-Key': 'secret' }, 'POST')).status, 405);
