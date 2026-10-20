@@ -5,8 +5,9 @@ import { axe, expect, test } from './fixtures.js';
 for (const lang of ['', '/el']) {
     test(`${lang || '/'}info sections, map and station list`, async ({ page }, { project }) => {
         await page.goto(`${lang}/info`);
-        await expect(page.locator('#toggle-announcements')).toHaveAttribute('aria-expanded', 'true');
-        await expect(page.locator('#sec-announcements')).toBeVisible();
+        // Every section starts closed, the announcements too
+        await expect(page.locator('#toggle-announcements')).toHaveAttribute('aria-expanded', 'false');
+        await expect(page.locator('#sec-announcements')).toBeHidden();
         await expect(page.locator('#toggle-map')).toHaveAttribute('aria-expanded', 'false');
         await expect(page.locator('#sec-map')).toBeHidden();
 
@@ -30,7 +31,7 @@ for (const lang of ['', '/el']) {
         await expect(page.locator('#toggle-map')).toHaveAttribute('aria-expanded', 'true');
 
         await page.locator('#toggle-announcements').click();
-        await expect(page.locator('#sec-announcements')).toBeHidden();
+        await expect(page.locator('#sec-announcements')).toBeVisible();
 
         // Every section open
         const closed = page.locator('.accordion-button.collapsed');

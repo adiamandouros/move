@@ -4,7 +4,7 @@
     <div id="disruptions" aria-live="polite"></div>
 
     <div class="accordion info-accordion">
-        {{#> section id="announcements" iconName="megaphone" title="announcements.title" open=true}}
+        {{#> section id="announcements" iconName="megaphone" title="announcements.title"}}
             <div id="announcements">
                 <p class="text-body-secondary">{{t "announcements.loading"}}</p>
             </div>
@@ -54,18 +54,18 @@
                 </table>
             </div>
             {{#ifLang "en"}}
-            <p>On line 1, one more train leaves each end at 00:30 but only goes as far as Omonia. Temporary changes, such as closures for works, appear under Announcements.</p>
+            <p>On line 3, the last train to the airport leaves Dimotiko Theatro at 22:54; later trains go only as far as Douk. Plakentias. On line 1, one more train leaves each end at 00:30 but only goes as far as Omonia. Temporary changes, such as closures for works, appear under Announcements.</p>
             {{else}}
-            <p>Στη γραμμή 1, ένας ακόμη συρμός ξεκινά από κάθε άκρο στις 00:30 αλλά φτάνει μόνο ως την Ομόνοια. Προσωρινές αλλαγές, όπως κλεισίματα λόγω έργων, εμφανίζονται στις Ανακοινώσεις.</p>
+            <p>Στη γραμμή 3, ο τελευταίος συρμός προς το αεροδρόμιο ξεκινά από το Δημοτικό Θέατρο στις 22:54· οι επόμενοι φτάνουν μόνο ως τη Δουκ. Πλακεντίας. Στη γραμμή 1, ένας ακόμη συρμός ξεκινά από κάθε άκρο στις 00:30 αλλά φτάνει μόνο ως την Ομόνοια. Προσωρινές αλλαγές, όπως κλεισίματα λόγω έργων, εμφανίζονται στις Ανακοινώσεις.</p>
             {{/ifLang}}
 {{> checked checked.hours}}
         {{/section}}
 
         {{#> section id="tickets" iconName="ticket-perforated" title="info.tickets"}}
             {{#ifLang "en"}}
-            <p>One ticket covers the metro, tram, buses, trolleys and the suburban railway within the city. It doesn't cover the airport (beyond Koropi) or the airport express buses.</p>
+            <p>One 90-minute ticket takes you on all city transport for 90 minutes from when you first validate it: metro, tram, buses, trolleys and the suburban railway within the city, changing as often as you like. It doesn't cover the airport (beyond Koropi) or the airport express buses.</p>
             {{else}}
-            <p>Ένα εισιτήριο ισχύει σε μετρό, τραμ, λεωφορεία, τρόλεϊ και προαστιακό εντός της πόλης. Δεν ισχύει για το αεροδρόμιο (μετά το Κορωπί) ούτε για τα λεωφορεία express του αεροδρομίου.</p>
+            <p>Ένα εισιτήριο 90 λεπτών ισχύει σε όλα τα μέσα της πόλης για 90 λεπτά από την πρώτη επικύρωση: μετρό, τραμ, λεωφορεία, τρόλεϊ και προαστιακό εντός της πόλης, με όσες αλλαγές μέσου θέλετε. Δεν ισχύει για το αεροδρόμιο (μετά το Κορωπί) ούτε για τα λεωφορεία express του αεροδρομίου.</p>
             {{/ifLang}}
             <div class="table-responsive" tabindex="0" role="region" aria-label="{{t "info.tickets-caption"}}">
                 <table class="table table-sm info-table">

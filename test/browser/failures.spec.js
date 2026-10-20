@@ -110,7 +110,7 @@ test.describe('before the first data build', () => {
         await page.goto('/info');
         await page.locator('#toggle-map').click();
         await expect(page.locator('#metro-map')).toContainText('Couldn\'t load the map.');
-        await expect(page.locator('#announcements li').first()).toBeVisible();
+        await expect(page.locator('#announcements li').first()).toBeAttached();
         expect(await axe(page)).toEqual([]);
     });
 
