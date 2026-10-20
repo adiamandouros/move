@@ -85,8 +85,10 @@ export interface Timetable {
     profiles: { stops: number[]; offsets: number[] }[];
     /** One list of trips per distinct day: [start, profile index] */
     patterns: [number, number][][];
-    /** Pattern index for each weekday, 0 = Sunday */
+    /** Pattern index for each weekday, 0 = Sunday: one typical week, for any date */
     days: number[];
+    /** Pattern index for the dates ('YYYY-MM-DD') whose trains aren't their weekday's (a holiday), from the feed */
+    dates?: Record<string, number>;
 }
 
 /** data/build/bus-stops.json, built by server/data/build-bus.js from OASA's live API: one compact row per stop */

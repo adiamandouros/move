@@ -14,6 +14,11 @@ function fromUtc(ms) {
     return new Date(ms).toISOString().slice(0, 10).replaceAll('-', '');
 }
 
+// The date `days` days after (or before, when negative) a 'YYYYMMDD' date
+export function addDays(yyyymmdd, days) {
+    return fromUtc(toUtc(yyyymmdd) + days * MS_PER_DAY);
+}
+
 export function weekday(yyyymmdd) {
     return new Date(toUtc(yyyymmdd)).getUTCDay();
 }

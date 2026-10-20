@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { athensToday, pickWeek, serviceDates, toSeconds, weekday } from '../server/data/calendar.js';
+import { addDays, athensToday, pickWeek, serviceDates, toSeconds, weekday } from '../server/data/calendar.js';
 
 test('toSeconds keeps times past midnight', () => {
     assert.equal(toSeconds('07:44:29'), 27869);
@@ -11,6 +11,13 @@ test('toSeconds keeps times past midnight', () => {
 test('weekday and athensToday', () => {
     assert.equal(weekday('20261003'), 6); // Saturday
     assert.equal(athensToday(new Date('2026-10-03T22:30:00Z')), '20261004'); // already Sunday in Athens
+});
+
+test('addDays goes forward and back over months, years and the clock change', () => {
+    assert.equal(addDays('20261031', 1), '20261101');
+    assert.equal(addDays('20261025', -1), '20261024'); // clocks go back that night
+    assert.equal(addDays('20270101', -2), '20261230');
+    assert.equal(addDays('20280228', 1), '20280229');
 });
 
 test('serviceDates combines calendar.txt with calendar_dates.txt exceptions', () => {

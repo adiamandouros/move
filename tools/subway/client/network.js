@@ -83,24 +83,34 @@ export function findRoutes(rail, from, to) {
     return routes;
 }
 
+// The ISO date `days` days after `date`
+/** @param {string} date @param {number} days */
+function addDays(date, days) {
+    const [y, m, d] = date.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
 // Upcoming departures for one leg at or after `after` seconds (relative to
 // today's midnight). Includes yesterday's trips that run past midnight,
-// unless ownDay (only the day's own service).
+// unless ownDay (only the day's own service). With `date` (today's, ISO), a
+// day the timetable has its own trains for (a holiday) uses them; otherwise
+// its weekday's.
 // Each result: { departs, arrives, isLast, isSecondLast }. The last ones are
 // only flagged when STASY's last train agrees (the timetable misses the late
 // airport trains, and there's no last one when the trains run all night), or
 // when there are no STASY times.
 /**
  * @param {Rail} rail @param {Leg} leg
- * @param {{ weekday: number, after: number, count?: number, ownDay?: boolean }} when
+ * @param {{ weekday: number, after: number, count?: number, ownDay?: boolean, date?: string }} when
  * @returns {Departure[]}
  */
-export function departures(rail, leg, { weekday, after, count = 2, ownDay = false }) {
+export function departures(rail, leg, { weekday, after, count = 2, ownDay = false, date }) {
     const { timetable } = rail.lines[leg.line].directions[leg.dir];
     const found = [];
     for (const dayOffset of ownDay ? [0] : [-1, 0]) {
         const serviceDay = (weekday + dayOffset + 7) % 7;
-        const pattern = timetable.patterns[timetable.days[serviceDay]];
+        const own = date ? timetable.dates?.[addDays(date, dayOffset)] : undefined;
+        const pattern = timetable.patterns[own ?? timetable.days[serviceDay]];
         const trains = [];
         for (const [start, p] of pattern) {
             const { stops, offsets } = timetable.profiles[p];
@@ -133,7 +143,7 @@ export function planRoute(rail, route, now, ownDay = false) {
     let after = now.seconds;
     let reachable = true;
     const legs = route.legs.map(leg => {
-        const next = reachable ? departures(rail, leg, { weekday: now.weekday, after, ownDay }) : [];
+        const next = reachable ? departures(rail, leg, { weekday: now.weekday, after, ownDay, date: now.date }) : [];
         if (next.length) after = next[0].arrives + TRANSFER_SECONDS;
         else reachable = false;
         return { ...leg, departures: next };
@@ -154,8 +164,7 @@ export function planJourney(rail, from, to, now, ownDay = false) {
 // The day after `now`, from midnight
 /** @param {AthensTime} now @returns {AthensTime} */
 export function nextDay(now) {
-    const [y, m, d] = now.date.split('-').map(Number);
-    return { weekday: (now.weekday + 1) % 7, seconds: 0, date: new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10) };
+    return { weekday: (now.weekday + 1) % 7, seconds: 0, date: addDays(now.date, 1) };
 }
 
 // planJourney, and after the last train of the day (no route gets there
