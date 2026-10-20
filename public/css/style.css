@@ -1057,12 +1057,6 @@ body {
     margin-bottom: 4px;
 }
 
-.bus-search-hint {
-    font-size: 0.8rem;
-    color: var(--bs-secondary-color);
-    margin: 4px 0 0;
-}
-
 .search-status {
     font-size: 0.8rem;
     color: var(--bs-secondary-color);
@@ -1107,6 +1101,11 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* Above the stops near you: what they are, as much space below as the way back has */
+.nearby-heading {
+    margin-bottom: 8px;
 }
 
 /* Above a stop or a line: the way back, the line and its directions */

@@ -98,6 +98,7 @@ test('a stop: opened, its live times asked for at once and every 30 s, and the w
     await page.getByRole('link', { name: 'Stops near you' }).click();
     await expect(page).toHaveURL(/\/buses$/);
     await expect(page.locator('.stop-item').nth(1)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Stops near you' })).toBeVisible();
 });
 
 test('a line: its stops in order, nearest marked, nothing asked until a stop is opened; the other direction', async ({ page }) => {

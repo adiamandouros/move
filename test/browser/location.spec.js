@@ -66,6 +66,7 @@ test.describe('no signal: the location never comes', () => {
         await page.clock.fastForward(21_000);
         await expect(page.locator('#bus-message')).toContainText(/Still looking|Couldn.t get your location/);
         await expect(page.locator('.message-action')).toBeVisible();
+        await expect(page.locator('#nearby-heading')).toBeHidden();
         expect(await axe(page)).toEqual([]);
     });
 });
@@ -76,6 +77,7 @@ test.describe('location blocked', () => {
     test('both pages say it\'s blocked', async ({ page }) => {
         await page.goto('/buses');
         await expect(page.locator('#bus-message')).toContainText('Location is blocked');
+        await expect(page.locator('#nearby-heading')).toBeHidden();
         await page.goto('/el/subway');
         await page.locator('#locate-btn').click();
         await expect(page.locator('#locate-status')).toContainText('αποκλεισμένη');
