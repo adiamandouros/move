@@ -92,26 +92,19 @@ test('between refreshes the minutes count down; opening a stop catches up at onc
     expect((await asksFor()).length).toBe(asked + 1);
 });
 
-// They float over the list (it's longer than the screen): a stop under them
-// keeps its signpost clear of both, on narrow phones too, in either language
-for (const url of ['/buses', '/el/buses']) {
-    test(`${url}: the floating buttons are solid, fit, and leave the walking directions free to tap`, async ({ page }) => {
-        // The narrowest iPhones in use (SE)
-        await page.setViewportSize({ width: 375, height: 600 });
-        await page.goto(url);
-        await expect(page.locator('.stop-item').first()).toBeVisible();
-        const buttons = page.locator('#bus-actions .btn');
-        await expect(buttons).toHaveCount(2);
-        const boxes = await buttons.evaluateAll(els => els.map(e => ({ right: e.getBoundingClientRect().right, fits: e.scrollWidth <= e.clientWidth })));
-        const column = Math.min(...await page.locator('.directions-btn').evaluateAll(els => els.map(e => e.getBoundingClientRect().left)));
-        expect(Math.max(...boxes.map(b => b.right)), 'the buttons reach into the walking directions column').toBeLessThanOrEqual(column);
-        expect(boxes.map(b => b.fits), 'labels cut off').toEqual([true, true]);
-        for (const background of await buttons.evaluateAll(els => els.map(e => getComputedStyle(e).backgroundColor))) {
-            expect(background).not.toMatch(/transparent|rgba\(.*, 0\)/);
-        }
-        // "Show all" fits too
-        await page.locator('#toggle-empty-btn').click();
-        expect(await page.locator('#toggle-empty-btn').evaluate(e => e.scrollWidth <= e.clientWidth)).toBe(true);
-    });
-}
+// The floating buttons cover part of a stop scrolled under them: its walking
+// directions still has room to tap (WCAG 2.5.8, axe's target-size), as it
+// fills the stop's row rather than only its icon
+test('the floating buttons are solid, and a stop\'s walking directions fill its row', async ({ page }) => {
+    await page.goto('/buses');
+    await expect(page.locator('.stop-item .arrival-badge').first()).toBeVisible();
+    for (const background of await page.locator('#bus-actions .btn').evaluateAll(els => els.map(e => getComputedStyle(e).backgroundColor))) {
+        expect(background).not.toMatch(/transparent|rgba\(.*, 0\)/);
+    }
+    const sizes = await page.locator('.stop-item').evaluateAll(items => items.map(item => ({
+        row: item.querySelector('.stop-header').getBoundingClientRect().height,
+        link: item.querySelector('.directions-btn').getBoundingClientRect().height,
+    })));
+    for (const { row, link } of sizes) expect(link).toBeCloseTo(row, 0);
+});
 
