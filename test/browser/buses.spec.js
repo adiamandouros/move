@@ -108,6 +108,32 @@ test('the floating buttons are solid, and a stop\'s walking directions fill its 
     for (const { row, link } of sizes) expect(link).toBeCloseTo(row, 0);
 });
 
+// The search's example is its placeholder; the nearby stops have a heading
+// saying they're near you, and a stop or a line doesn't (its way back does)
+for (const [url, heading, example] of [
+    ['/buses', 'Stops near you', 'e.g. Syntagma, 10341, 040, X95'],
+    ['/el/buses', 'Στάσεις κοντά σας', 'π.χ. Σύνταγμα, 10341, 040, Χ95'],
+]) {
+    test(`${url}: the search's example in the box, a heading over the stops near you`, async ({ page }) => {
+        await page.goto(url);
+        await expect(page.getByRole('searchbox')).toHaveAttribute('placeholder', example);
+        await expect(page.locator('.stop-item').first()).toBeVisible();
+        const nearby = page.getByRole('heading', { name: heading });
+        await expect(nearby).toBeVisible();
+        const [bottom, first] = await Promise.all([
+            nearby.evaluate(e => e.getBoundingClientRect().bottom),
+            page.locator('.stop-item').first().evaluate(e => e.getBoundingClientRect().top),
+        ]);
+        expect(bottom).toBeLessThanOrEqual(first);
+
+        for (const view of ['?line=040', '?stop=10341']) {
+            await page.goto(url + view);
+            await expect(page.locator('.stop-item').first()).toBeVisible();
+            await expect(nearby).toBeHidden();
+        }
+    });
+}
+
 // After 10 minutes nobody touched the page, it stops asking for times and
 // says so, between the search and the stops, as much space above as below;
 // a tap brings the times back
@@ -121,7 +147,7 @@ for (const url of ['/el/buses', '/el/buses?line=040']) {
         const gaps = await page.evaluate(() => {
             const status = document.getElementById('bus-status').getBoundingClientRect();
             const header = document.getElementById('view-header');
-            const above = (header.hidden ? document.getElementById('bus-search-hint') : header.lastElementChild).getBoundingClientRect();
+            const above = (header.hidden ? document.getElementById('nearby-heading') : header.lastElementChild).getBoundingClientRect();
             return { above: Math.round(status.top - above.bottom), below: Math.round(document.getElementById('stops-accordion').getBoundingClientRect().top - status.bottom) };
         });
         expect(gaps.above, `space above and below: ${JSON.stringify(gaps)}`).toBeGreaterThanOrEqual(gaps.below - 1);

@@ -174,7 +174,7 @@ export function searchStatus(query, lines, stops) {
 
 // Above a stop or a line: the way back to the stops nearby
 export function backLink() {
-    return html`<a class="btn btn-sm btn-link px-0 back-link" href="${localHref('/buses')}" data-view>${icon('arrow-left', 'me-1')}${t('buses.back')}</a>`;
+    return html`<a class="btn btn-sm btn-link px-0 back-link" href="${localHref('/buses')}" data-view>${icon('arrow-left', 'me-1')}${t('buses.nearby')}</a>`;
 }
 
 // Above a line's stops: its number and name, and a switch between its two

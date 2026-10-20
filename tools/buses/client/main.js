@@ -79,6 +79,7 @@ function renderStops(stops, { open = false } = {}) {
     setHtml($('bus-message'), '');
     setHtml(accordion, html`${stops.map((stop, i) => stopItem(stop, i, { open }))}`);
     $('bus-actions').hidden = state.view.kind !== 'nearby';
+    $('nearby-heading').hidden = state.view.kind !== 'nearby';
     observer.disconnect();
     state.onScreen.clear();
     accordion.querySelectorAll('.stop-item').forEach(item => observer.observe(item));
@@ -92,6 +93,7 @@ function clearStops() {
     observer.disconnect();
     state.onScreen.clear();
     $('bus-actions').hidden = true;
+    $('nearby-heading').hidden = true;
     renderStatus();
 }
 
