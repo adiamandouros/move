@@ -93,6 +93,8 @@ const withArrivals = handler => express().get('/api/arrivals', handler).use(site
 const codesOf = req => String(req.query.stops ?? '').split(',');
 export const down = async () => { throw new Error('fake OASA: down'); };
 
+export const ADMIN_TEST_PASSWORD = 'test-password';
+
 export const scenarios = () => ({
     normal: site(),
     // OASA doesn't answer (and nothing is cached): every stop is unavailable
@@ -109,6 +111,8 @@ export const scenarios = () => ({
     'announcements-down': site({ fetch: down }),
     // Before the first data build: no rail.json or bus-stops.json
     'no-data': site({ buildDir: mkdtempSync(join(tmpdir(), 'wayhop-nodata-')) }),
+    // With the admin pages, behind this password (test/browser/admin.spec.js)
+    admin: site({ env: { ADMIN_PASSWORD: ADMIN_TEST_PASSWORD } }),
     // Omonia's page can't be drawn: the error page (its failure isn't logged here)
     'broken-data': site({ buildDir: brokenData(), logError: () => {} }),
 });

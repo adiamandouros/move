@@ -2,6 +2,7 @@ import { lookup } from 'dns/promises';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { loadConfig } from './config.js';
+import { lastFetchFile } from './data/oasa-network.js';
 import { CKAN_API, SOURCES } from './data/sources.js';
 import { readJson } from './files.js';
 import { OASA_API, REQUESTS_PER_SECOND, TEST_STOP } from './oasa/client.js';
@@ -74,7 +75,8 @@ const failureText = p => p.status === null ? p.reason
 
 // ── Checks ──────────────────────────────────────────────────────────────────
 
-const check = (group, title, status, detail, hint) => ({ group, title, status, detail, ...(hint ? { hint } : {}) });
+// progress: { done, total, label }, shown as a bar under the detail
+const check = (group, title, status, detail, hint, progress) => ({ group, title, status, detail, ...(hint ? { hint } : {}), ...(progress ? { progress } : {}) });
 
 // The settings (server/config.js): the ones that matter for reaching OASA,
 // and every setting that was given but can't be used
@@ -214,9 +216,36 @@ function dataChecks(dataDir, now) {
             for (const w of (o.warnings ?? []).filter(w => /expired/i.test(w))) out.push(check('Data', name, 'info', w));
         }
     }
+    out.push(...networkCheck(dataDir));
     const lock = join(dataDir, '.build.lock');
     if (existsSync(lock)) out.push(check('Data', 'Build lock', 'info', `A build is running or was interrupted (process ${readFileSync(lock, 'utf8').trim()})`));
     return out;
+}
+
+// The last fetch of the bus network from OASA (server/data/oasa-network.js):
+// when it stopped short, how far it got
+function networkCheck(dataDir) {
+    const last = readJson(lastFetchFile(join(dataDir, 'raw')));
+    if (!last) return [];
+    const when = `${last.at.slice(0, 16).replace('T', ' ')} UTC`;
+    const took = `${Math.max(1, Math.round(last.seconds / 60))} min`;
+    if (last.ok) {
+        return [check('Data', 'Bus network from OASA', 'ok', `Fetched ${when} in ${took}: ${last.lines.total} lines, ${last.stops.total} routes' stops asked for (the rest were less than a week old)`)];
+    }
+    const hint = 'Restart the app (cPanel → Setup Node.js App) to try again now, or wait for the 04:30 build. The app log\'s "[data] OASA" lines say which request failed and why.';
+    if (last.stops) {
+        const { done, total } = last.stops;
+        return [check('Data', 'Bus network from OASA', 'warn',
+            `The fetch at ${when} stopped after ${took}, with ${done} of ${total} routes' stops: ${last.error}. They're saved: the next build asks only for the other ${total - done}. Meanwhile the last network is used.`,
+            hint, { done, total, label: 'Routes\' stops fetched' })];
+    }
+    if (last.lines) {
+        const { done, total } = last.lines;
+        return [check('Data', 'Bus network from OASA', 'warn',
+            `The fetch at ${when} stopped after ${took}, with the routes of ${done} of ${total} lines, before any route's stops: ${last.error}. The next build starts again. Meanwhile the last network is used.`,
+            hint, { done, total, label: 'Lines\' routes fetched' })];
+    }
+    return [check('Data', 'Bus network from OASA', 'warn', `The fetch at ${when} stopped at the start: ${last.error}. Meanwhile the last network is used.`, hint)];
 }
 
 function appChecks(appStatus, now) {

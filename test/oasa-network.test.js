@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { appendFileSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { NETWORK_MAX_AGE_MS, PACE_MS, RETRY_WAITS_MS, ROUTE_STOPS_MAX_AGE_MS, fetchNetwork, liveNetwork } from '../server/data/oasa-network.js';
+import { NETWORK_MAX_AGE_MS, PACE_MS, RETRY_WAITS_MS, ROUTE_STOPS_MAX_AGE_MS, fetchNetwork, lastFetchFile, liveNetwork } from '../server/data/oasa-network.js';
+import { readJson } from '../server/files.js';
 import { fakeOasa } from './fixtures/network.js';
 import { tempDir } from './fixtures/gtfs.js';
 
@@ -151,6 +152,11 @@ test('each route\'s stops are saved as they arrive: after a failed fetch, the ne
     assert.deepEqual(await live(T0), { network: null, error: 'route 3924: HTTP 502 (4 tries)' });
     assert.ok(!existsSync(join(rawDir, 'oasa', 'network.json')));
     assert.match(logs.at(-1), /Couldn't fetch the bus network from OASA \(route 3924: HTTP 502 \(4 tries\)\) after \d+ s; 2 route\(s\) saved for the next try$/);
+    // How far it got, for the diagnostics
+    assert.deepEqual(readJson(lastFetchFile(rawDir)), {
+        at: new Date(T0).toISOString(), ok: false, seconds: 0, error: 'route 3924: HTTP 502 (4 tries)',
+        lines: { done: 5, total: 5 }, stops: { done: 2, total: 7 },
+    });
     // The process stopped while saving a third
     appendFileSync(progress, '{"code":"6051","at":"2026');
 
@@ -165,4 +171,8 @@ test('each route\'s stops are saved as they arrive: after a failed fetch, the ne
     assert.deepEqual(JSON.parse(readFileSync(join(rawDir, 'oasa', 'network.json'), 'utf8')), network);
     // Kept in network.json now: the saved stops are done with
     assert.ok(!existsSync(progress));
+    assert.deepEqual(readJson(lastFetchFile(rawDir)), {
+        at: new Date(T0 + 3_600_000).toISOString(), ok: true, seconds: 0,
+        lines: { done: 5, total: 5 }, stops: { done: 5, total: 5 },
+    });
 });
