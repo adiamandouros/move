@@ -1,14 +1,15 @@
 {
-  "generated": "2026-10-20T07:54:54.811Z",
+  "generated": "2026-10-20T12:17:02.489Z",
   "fingerprint": {
-    "builder": "eeda3b3acb4a",
-    "curated": "d5bd4d27b247776055f448d66723554a0a58d8f249fabd4afc20b657d01b785b",
+    "builder": "1c987b652e70",
+    "curated": "a569c376bdd6b1e35c3df426edda9a3fc002e1f51e7c711f246e92ffbe991de0",
     "today": "20261020",
     "sources": {
       "rail": "2026-10-06T04:46:54.184974",
       "bus": "2026-08-06T07:57:34.422340",
       "stopTable": "2026-08-13T13:26:21.326675",
-      "network": "2026-10-20T07:54:54.776Z"
+      "network": "2026-10-20T07:54:54.776Z",
+      "stasy": "2026-10-20T12:15:58.423Z"
     }
   },
   "warnings": [],
@@ -17,7 +18,11 @@
       "ok": true,
       "warnings": [
         "positions.json: no exits for M1/kifisia/moschato",
-        "positions.json: no exits for M2/elliniko/anthoupoli"
+        "M2/anthoupoli: the feed lists some trains twice; kept one of each (sun: 5)",
+        "M2/elliniko: the feed lists some trains twice; kept one of each (sun: 6)",
+        "positions.json: no exits for M2/elliniko/anthoupoli",
+        "M3/dimotiko: the feed lists some trains twice; kept one of each (sun: 9)",
+        "M3/doukissis: the feed lists some trains twice; kept one of each (sun: 7)"
       ]
     },
     "bus-stops.json": {

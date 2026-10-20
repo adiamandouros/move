@@ -8,7 +8,7 @@ import { loadConfig } from '../server/config.js';
 import { createPages } from '../server/pages/index.js';
 import { loadTools } from '../server/pages/registry.js';
 import { renderPages } from '../server/pages/index.js';
-import { breadcrumb, firstAndLast, indexView, stationPage, stationView } from '../server/pages/stations.js';
+import { breadcrumb, firstAndLast, indexView, mainDestination, stationPage, stationView } from '../server/pages/stations.js';
 import { rail } from './fixtures/rail.js';
 
 // The station pages (/subway/stations/<id>), built from rail.json
@@ -34,7 +34,8 @@ const get = async path => {
     return { status: res.status, html: await res.text() };
 };
 const main = html => html.match(/<main[^>]*>([\s\S]*)<\/main>/)[1];
-const text = html => main(html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+// The page's text, as a reader sees it (Handlebars writes ' as &#x27;)
+const text = html => main(html).replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/\s+/g, ' ');
 
 test('first and last trains are grouped by days that look the same', () => {
     const groups = firstAndLast(rail.lines.L1.directions.east.timetable, 1);
@@ -98,10 +99,102 @@ test('what a station\'s page shows, as data: lines, neighbours, where to ride, c
     assert.equal(l2.previous, null);
     assert.equal(l2.arriving, null);
     assert.deepEqual(l2.times.map(t => [t.first, t.last]), [['05:00', '00:00'], ['05:00', 'stations.all-night'], ['stations.all-night', '00:00']]);
-    // In Greek, and the timetable it comes from
+    assert.deepEqual([l2.fromStasy, l2.timesToward, l2.others], [true, 'Gamma', []]);
+    assert.deepEqual([east.fromStasy, east.timesToward], [false, 'Beta']);
+    // In Greek, and where the times come from: STASY for L2, the timetable for L1
     assert.equal(stationView(rail, 'x', 'el', key => key).lines[0].directions[0].toward, 'Βήτα');
-    assert.deepEqual(view.timetable, { old: false, date: '31/12/2099' });
+    assert.deepEqual(view.timetable, { stasy: '01/10/2026', gtfs: { old: false, date: '31/12/2099' } });
+    assert.deepEqual(stationView(rail, 'a', 'en', key => key).timetable, { stasy: null, gtfs: { old: false, date: '31/12/2099' } });
     assert.equal(view.walking, 'https://www.google.com/maps/dir/?api=1&destination=38,23.7&travelmode=walking');
+});
+
+// A line like M3 from Dimotiko Theatro: p → q → r, and on to s for some
+// trains (s like the airport); STASY's times from p to each of them
+function branching() {
+    const r = structuredClone(rail);
+    for (const [id, en] of [['p', 'Pi'], ['q', 'Qu'], ['r', 'Ro'], ['s', 'Sigma']]) r.stations[id] = { name: { en, el: en }, coords: [38, 23.7], lines: ['L3'] };
+    const week = (weekdays, friday, saturday, sunday) => [sunday, weekdays, weekdays, weekdays, weekdays, friday, saturday];
+    const H = 3600;
+    r.lines.L3 = {
+        name: 'L3', color: '#0057b8',
+        directions: {
+            out: {
+                toward: { en: 'Ro / Sigma', el: 'Ro / Sigma' },
+                stops: [
+                    {
+                        station: 'p', exits: [], hours: [
+                            // Only as far as q: one later train; to r: most trains; on to s: some
+                            { to: 'q', first: Array(7).fill(5.5 * H), last: week(24.5 * H, 25.5 * H, null, 24.5 * H) },
+                            { to: 'r', first: week(5.5 * H, 5.5 * H, 5.5 * H, null), last: week(23.95 * H, 25.5 * H, null, 23.95 * H) },
+                            { to: 's', first: Array(7).fill(5.5 * H), last: week(22.9 * H, 22.9 * H, 23.5 * H, 23.5 * H) },
+                        ],
+                    },
+                    { station: 'q', exits: [], hours: [{ to: 'r', first: Array(7).fill(5.6 * H), last: Array(7).fill(24.6 * H) }] },
+                    { station: 'r', exits: [] }, { station: 's', exits: [] },
+                ],
+                // Ten trains to r for each one on to s
+                timetable: {
+                    profiles: [{ stops: [0, 1, 2], offsets: [0, 120, 300] }, { stops: [0, 1, 2, 3], offsets: [0, 120, 300, 900] }],
+                    patterns: [[...Array.from({ length: 10 }, (_, i) => [6 * H + i * 600, 0]), [7 * H, 1]]],
+                    days: [0, 0, 0, 0, 0, 0, 0],
+                },
+            },
+        },
+    };
+    return r;
+}
+
+test('STASY\'s times: the table for where most trains go, a sentence for each other destination', () => {
+    const r = branching();
+    const [out] = stationView(r, 'p', 'en', key => key).lines.find(l => l.key === 'l3').directions;
+    assert.equal(out.timesToward, 'Ro');
+    assert.deepEqual(out.times, [
+        { days: 'stations.day.1–stations.day.4', first: '05:30', last: '23:57' },
+        { days: 'stations.day.5', first: '05:30', last: '01:30' },
+        { days: 'stations.day.6', first: '05:30', last: 'stations.all-night' },
+        { days: 'stations.day.0', first: 'stations.all-night', last: '23:57' },
+    ]);
+    // Nearer: only the last train, later than the table's; further on: first and last, by days when they differ
+    const [q, , s] = r.lines.L3.directions.out.stops[0].hours;
+    const strings = { 'stations.other-further': 'To {name}: {times}.', 'stations.other-shorter': 'Only as far as {name}: {times}.', 'stations.other-first-last': 'first {first}, last {last}',
+        'stations.other-last': 'last {last}', 'stations.other-every-day': '{times}, every day', 'stations.other-days': '{days}: {times}', 'stations.all-night': 'All night',
+        ...Object.fromEntries(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => [`stations.day.${i}`, d])) };
+    const english = stationView(r, 'p', 'en', key => strings[key] ?? key).lines.find(l => l.key === 'l3').directions[0];
+    assert.deepEqual(english.others, [
+        'Only as far as Qu: Mon–Thu: last 00:30; Fri: last 01:30; Sat: last All night; Sun: last 00:30.',
+        'To Sigma: Mon–Fri: first 05:30, last 22:54; Sat, Sun: first 05:30, last 23:30.',
+    ]);
+    // The same every day: "every day"; a nearer one never later than the table's: nothing
+    q.last = Array(7).fill(23 * 3600);
+    s.last = Array(7).fill(22.9 * 3600);
+    assert.deepEqual(stationView(r, 'p', 'en', key => strings[key] ?? key).lines.find(l => l.key === 'l3').directions[0].others, ['To Sigma: first 05:30, last 22:54, every day.']);
+});
+
+test('the table\'s destination is where most of the stop\'s trains go', () => {
+    const r = branching();
+    const direction = r.lines.L3.directions.out;
+    assert.equal(mainDestination(direction.stops[0].hours, direction, 0).to, 'r');
+    // Most trains on to s instead
+    direction.timetable.patterns = [[[6 * 3600, 0], [6.5 * 3600, 1], [7 * 3600, 1]]];
+    assert.equal(mainDestination(direction.stops[0].hours, direction, 0).to, 's');
+});
+
+test('a station with STASY\'s times shows its note, and the other destinations under the table, in both languages', () => {
+    const { renderPage } = renderPages(tools);
+    const english = text(renderPage(stationPage(branching(), 'p', { tools }), 'en'));
+    for (const expected of [
+        'Mon–Thu 05:30 23:57', 'Sat 05:30 All night', 'Sun All night 23:57',
+        'Only as far as Qu: Mon–Thu: last 00:30; Fri: last 01:30; Sat: last All night; Sun: last 00:30.',
+        'To Sigma: Mon–Fri: first 05:30, last 22:54; Sat, Sun: first 05:30, last 23:30.',
+        'First and last trains from Pi toward Ro',
+        'First and last trains from STASY\'s timetable, as of 01/10/2026.',
+    ]) assert.ok(english.includes(expected), `"${expected}" in: ${english}`);
+    assert.ok(!english.includes('OASA\'s timetable'));
+    const greek = text(renderPage(stationPage(branching(), 'p', { tools }), 'el'));
+    for (const expected of [
+        'Προς Sigma: Δευ–Παρ: πρώτο 05:30, τελευταίο 22:54; Σάβ, Κυρ: πρώτο 05:30, τελευταίο 23:30.',
+        'Πρώτα και τελευταία δρομολόγια από το πρόγραμμα της ΣΤΑΣΥ, όπως ήταν στις 01/10/2026.',
+    ]) assert.ok(greek.includes(expected), `"${expected}" in: ${greek}`);
 });
 
 test('the index, as data: every station by line, with the other lines there', () => {
@@ -127,6 +220,9 @@ test('a station page shows lines, neighbours, where to ride, connections and tim
         'Unreliable data',
         'Mon–Fri 05:32 00:32', 'Sat, Sun 06:02 01:02',
         'Toward Gamma', 'Sat 05:00 All night', 'Sun All night 00:00',
+        // L2's times are STASY's, L1's the timetable's
+        'First and last trains from STASY\'s timetable, as of 01/10/2026.',
+        'From OASA\'s timetable, valid until 31/12/2099. Times are approximate.',
     ]) assert.ok(t.includes(expected), `"${expected}" in: ${t}`);
     assert.match(html, /aria-label="Train diagram showing where to stand: Back, Center \(elevator\)"/);
     assert.match(html, /href="\/subway\/stations\/a">Alpha</);

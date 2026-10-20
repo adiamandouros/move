@@ -34,7 +34,14 @@
     "stations.timetable": "From OASA's timetable, valid until {date}. Times are approximate.",
     "stations.timetable-old": "From OASA's timetable that ended on {date}. Times may have changed since.",
     "stations.interchange": "Change to {lines}",
-    "stations.all-night": "All night"
+    "stations.all-night": "All night",
+    "stations.other-further": "To {name}: {times}.",
+    "stations.other-shorter": "Only as far as {name}: {times}.",
+    "stations.other-first-last": "first {first}, last {last}",
+    "stations.other-last": "last {last}",
+    "stations.other-every-day": "{times}, every day",
+    "stations.other-days": "{days}: {times}",
+    "stations.timetable-stasy": "First and last trains from STASY's timetable, as of {date}."
   },
   "el": {
     "stations.title": "Σταθμοί μετρό",
@@ -71,6 +78,13 @@
     "stations.timetable": "Από το δρομολόγιο του ΟΑΣΑ, σε ισχύ έως {date}. Οι ώρες είναι κατά προσέγγιση.",
     "stations.timetable-old": "Από το δρομολόγιο του ΟΑΣΑ που έληξε στις {date}. Οι ώρες μπορεί να έχουν αλλάξει.",
     "stations.interchange": "Αλλαγή σε {lines}",
-    "stations.all-night": "Όλη τη νύχτα"
+    "stations.all-night": "Όλη τη νύχτα",
+    "stations.other-further": "Προς {name}: {times}.",
+    "stations.other-shorter": "Μόνο έως {name}: {times}.",
+    "stations.other-first-last": "πρώτο {first}, τελευταίο {last}",
+    "stations.other-last": "τελευταίο {last}",
+    "stations.other-every-day": "{times}, κάθε μέρα",
+    "stations.other-days": "{days}: {times}",
+    "stations.timetable-stasy": "Πρώτα και τελευταία δρομολόγια από το πρόγραμμα της ΣΤΑΣΥ, όπως ήταν στις {date}."
   }
 }

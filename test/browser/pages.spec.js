@@ -19,6 +19,8 @@ const PAGES = [
     '/buses?line=040',
     '/subway/stations',
     '/subway/stations/omonia',
+    // STASY's first and last trains, with the airport ones under the table
+    '/subway/stations/dimotiko-theatro',
     '/nope',
 ];
 const greek = path => path === '/' ? '/el' : `/el${path}`;
