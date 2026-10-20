@@ -38,16 +38,24 @@ function world(overrides = {}) {
 }
 
 // lastFetch: data/raw/oasa/last-fetch.json (server/data/oasa-network.js)
-function dataDir({ hoursAgo = 2, failed = null, lastFetch = null } = {}) {
+// stasy: STASY's last fetch (server/data/stasy.js) and the date of the copy rail.json uses
+const STASY_OK = { last: { at: '2026-10-01T02:30:00.000Z', ok: true, route: 'home relay' }, fetched: '2026-10-01', warnings: [] };
+
+function dataDir({ hoursAgo = 2, failed = null, lastFetch = null, stasy = STASY_OK } = {}) {
     const dir = mkdtempSync(join(tmpdir(), 'move-diag-'));
     mkdirSync(join(dir, 'build'));
     if (lastFetch) {
         mkdirSync(join(dir, 'raw', 'oasa'), { recursive: true });
         writeFileSync(join(dir, 'raw', 'oasa', 'last-fetch.json'), JSON.stringify(lastFetch));
     }
+    if (stasy.last) {
+        mkdirSync(join(dir, 'raw', 'stasy'), { recursive: true });
+        writeFileSync(join(dir, 'raw', 'stasy', 'last-fetch.json'), JSON.stringify(stasy.last));
+    }
+    writeFileSync(join(dir, 'build', 'rail.json'), JSON.stringify(stasy.fetched ? { hours: { fetched: stasy.fetched } } : {}));
     writeFileSync(join(dir, 'build', 'meta.json'), JSON.stringify({
         generated: new Date(NOW - hoursAgo * 3_600_000).toISOString(),
-        outputs: { 'rail.json': failed ? { ok: false, error: failed, keptPrevious: true } : { ok: true, warnings: [] } },
+        outputs: { 'rail.json': failed ? { ok: false, error: failed, keptPrevious: true } : { ok: true, warnings: stasy.warnings ?? [] } },
     }));
     return dir;
 }
@@ -164,6 +172,31 @@ test('the bus network\'s last fetch: how far a stopped one got, as a bar; a fini
 
     // Never fetched: nothing to say (the bus files' own rows say if they're missing)
     assert.equal(await network(null), undefined);
+});
+
+test('STASY\'s timetables: the copy the pages use, and what went wrong with the last fetch', async () => {
+    const row = async stasy => (await run(world(), { dataDir: dataDir({ stasy }) })).checks.find(c => c.title === 'STASY timetables');
+    const at = '2026-10-15T02:30:00.000Z';
+
+    const fine = await row(STASY_OK);
+    assert.equal(fine.status, 'ok');
+    assert.equal(fine.detail, 'The station pages use STASY\'s first and last trains from 2026-10-01, fetched 2026-10-01 02:30 UTC (home relay). Next fetch from 2026-10-15.');
+
+    const changed = await row({ last: { at, ok: false, unreadable: true, error: 'M3: unknown column "ΤΕΛΕΥΤΑΙΟ (ΚΑΘΗΜΕΡΙΝΕΣ)"' }, fetched: '2026-10-01' });
+    assert.equal(changed.status, 'fail');
+    assert.match(changed.detail, /^STASY's pages changed: the fetch at 2026-10-15 02:30 UTC couldn't read them \(M3: unknown column .*\)\. The station pages use STASY's first and last trains from 2026-10-01\.$/);
+    assert.match(changed.hint, /server\/data\/stasy\.js.*"stasy" names/);
+
+    const failed = await row({ last: { at, ok: false, error: 'direct: HTTP 403; home relay: HTTP 400' }, fetched: null });
+    assert.equal(failed.status, 'warn');
+    assert.match(failed.detail, /^The fetch at 2026-10-15 02:30 UTC failed: direct: HTTP 403; home relay: HTTP 400\. The station pages use the GTFS's first and last trains/);
+    assert.match(failed.hint, /relay rows above/);
+
+    assert.match((await row({ fetched: null })).detail, /^Not fetched yet\./);
+
+    const partly = await row({ ...STASY_OK, warnings: ['positions.json: no exits for M1/kifisia/moschato', 'STASY M3: unknown station "ΝΕΟΣ ΣΤΑΘΜΟΣ"; its first and last trains come from the GTFS'] });
+    assert.equal(partly.status, 'warn');
+    assert.match(partly.detail, /from 2026-10-01, except: STASY M3: unknown station "ΝΕΟΣ ΣΤΑΘΜΟΣ"; its first and last trains come from the GTFS$/);
 });
 
 test('the diagnostics page draws a check\'s progress as a labelled bar with its numbers', async () => {

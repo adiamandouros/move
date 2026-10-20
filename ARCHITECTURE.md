@@ -236,7 +236,12 @@ portal) and builds `data/build/rail.json` (metro lines, stations, timetables
 and where to stand). Its timetable is one typical week: for each weekday the
 next date in the feed, skipping holidays and days on which a line has far
 more trains than usual (two timetables laid over each other), and a train the
-feed lists twice is kept once. The buses come from OASA's live API instead, as its
+feed lists twice is kept once. The first and last trains from each stop come
+from STASY's own timetable pages instead (`stasy.js`), as the GTFS has depot
+runs STASY doesn't publish and misses some late airport trains: the pages are
+fetched at most every 14 days (directly or through the relays, like STASY's
+announcements, `server/stasy.js`), and a copy of their tables is kept in
+`data/raw/stasy/`; a line whose pages can't be read keeps the GTFS's times. The buses come from OASA's live API instead, as its
 open-data bus timetable falls behind (diversions, new routes):
 `oasa-network.js` fetches today's lines, their routes and each route's stops,
 and `build-bus.js` makes `data/build/bus-stops.json` (every stop on a route

@@ -59,6 +59,7 @@ function checkRail(rail) {
     if (typeof rail?.schema !== 'number') return ['rail.json: no schema number'];
     checkFeed(rail.feed, problems);
     for (const day of WEEKDAYS) if (!DATE.test(rail.feed?.week?.[day])) problems.push(`feed.week.${day} must be YYYY-MM-DD`);
+    if (rail.hours !== undefined && !DATE.test(rail.hours?.fetched)) problems.push('hours.fetched must be YYYY-MM-DD');
     if (JSON.stringify(rail.positions) !== JSON.stringify(POSITIONS)) problems.push(`positions must be ${POSITIONS.join(', ')}`);
 
     const stations = rail.stations ?? {};
@@ -83,14 +84,31 @@ function checkRail(rail) {
             if (!dir.toward?.en || !dir.toward?.el) problems.push(`${where}: needs "toward" in English and Greek`);
             const stops = dir.stops ?? [];
             if (stops.length < 2) problems.push(`${where}: fewer than two stops`);
-            for (const stop of stops) {
+            stops.forEach((stop, i) => {
                 if (!stations[stop.station]) problems.push(`${where}: unknown station ${stop.station}`);
                 for (const p of [...(stop.exits ?? []), ...(stop.elevators ?? [])]) if (!POSITIONS.includes(p)) problems.push(`${where}: ${stop.station} has an unknown position ${p}`);
-            }
+                if (stop.hours !== undefined) checkHours(`${where}/${stop.station}`, stop.hours, stops.slice(i + 1).map(s => s.station), problems);
+            });
             checkTimetable(where, dir.timetable, stops.length, problems);
         }
     }
     return problems;
+}
+
+// A stop's first and last trains (stasy.js): [{ to, first, last }], to a stop
+// further on, a time (or null: all night) for each day
+/** @param {string} where @param {any} hours @param {string[]} ahead @param {string[]} problems */
+function checkHours(where, hours, ahead, problems) {
+    if (!Array.isArray(hours) || !hours.length) return problems.push(`${where}: hours must be a list of destinations`);
+    for (const h of hours) {
+        if (!ahead.includes(h?.to)) problems.push(`${where}: hours to ${h?.to}, which isn't further on`);
+        for (const kind of ['first', 'last']) {
+            const values = h?.[kind];
+            if (!Array.isArray(values) || values.length !== 7 || values.some(v => v !== null && !(Number.isInteger(v) && v >= 0 && v < 2 * 86_400))) {
+                problems.push(`${where}: hours to ${h?.to} need a ${kind} time or null for each of the 7 days`);
+            }
+        }
+    }
 }
 
 /** @param {string} where @param {any} t @param {number} stopCount @param {string[]} problems */

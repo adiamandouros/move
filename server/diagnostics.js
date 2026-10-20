@@ -4,6 +4,7 @@ import { join } from 'path';
 import { loadConfig } from './config.js';
 import { lastFetchFile } from './data/oasa-network.js';
 import { CKAN_API, SOURCES } from './data/sources.js';
+import { STASY_MAX_AGE_MS, stasyFetchFile } from './data/stasy.js';
 import { readJson } from './files.js';
 import { OASA_API, REQUESTS_PER_SECOND, TEST_STOP } from './oasa/client.js';
 import { NEW_STOPS_PER_MINUTE } from './oasa/limits.js';
@@ -217,6 +218,7 @@ function dataChecks(dataDir, now) {
         }
     }
     out.push(...networkCheck(dataDir));
+    out.push(stasyCheck(dataDir, meta));
     const lock = join(dataDir, '.build.lock');
     if (existsSync(lock)) out.push(check('Data', 'Build lock', 'info', `A build is running or was interrupted (process ${readFileSync(lock, 'utf8').trim()})`));
     return out;
@@ -246,6 +248,29 @@ function networkCheck(dataDir) {
             hint, { done, total, label: 'Lines\' routes fetched' })];
     }
     return [check('Data', 'Bus network from OASA', 'warn', `The fetch at ${when} stopped at the start: ${last.error}. Meanwhile the last network is used.`, hint)];
+}
+
+// STASY's first and last trains (server/data/stasy.js): which copy the pages
+// use, how the last fetch went, and lines the copy couldn't give times for
+function stasyCheck(dataDir, meta) {
+    const title = 'STASY timetables';
+    const last = readJson(stasyFetchFile(join(dataDir, 'raw')));
+    const fetched = readJson(join(dataDir, 'build', 'rail.json'))?.hours?.fetched ?? null;
+    const lines = (meta?.outputs?.['rail.json']?.warnings ?? []).filter(w => w.startsWith('STASY'));
+    const using = fetched
+        ? `The station pages use STASY's first and last trains from ${fetched}`
+        : 'The station pages use the GTFS\'s first and last trains (approximate: they include depot runs)';
+    const when = last && `${last.at.slice(0, 16).replace('T', ' ')} UTC`;
+    const retry = 'The next build tries again (daily at 04:30, and on app start). STASY refuses the server, so the pages come through the relays: check the relay rows above.';
+    if (last?.unreadable) {
+        return check('Data', title, 'fail', `STASY's pages changed: the fetch at ${when} couldn't read them (${last.error}). ${using}.`,
+            'Change the reading rules in server/data/stasy.js to match, or add how STASY writes a station to its "stasy" names (data/curated/README.md). Until then, the last copy is used.');
+    }
+    if (last && !last.ok) return check('Data', title, 'warn', `The fetch at ${when} failed: ${last.error}. ${using}.`, retry);
+    if (!last && !fetched) return check('Data', title, 'warn', `Not fetched yet. ${using}.`, retry);
+    if (lines.length) return check('Data', title, 'warn', `${using}, except: ${lines.join(' · ')}`);
+    const next = fetched && new Date(Date.parse(fetched) + STASY_MAX_AGE_MS).toISOString().slice(0, 10);
+    return check('Data', title, 'ok', `${using}${last ? `, fetched ${when} (${last.route})` : ''}. Next fetch from ${next}.`);
 }
 
 function appChecks(appStatus, now) {

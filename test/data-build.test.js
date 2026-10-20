@@ -8,6 +8,7 @@ import { checkOutput } from '../server/data/check-output.js';
 import { SOURCES } from '../server/data/sources.js';
 import { busFeed, curatedDir, fakePortal, railCurated, railFeed, stopTable, tempDir } from './fixtures/gtfs.js';
 import { fakeOasa } from './fixtures/network.js';
+import { stasyPage, stasyTable } from './fixtures/stasy.js';
 
 // The whole data build (runBuild in server/data/index.js), in a folder of
 // its own against a fake portal and a fake OASA: what it publishes, when it
@@ -33,7 +34,22 @@ function setup({ busStops = 1500 } = {}) {
     const served = name => JSON.parse(readFileSync(join(dataDir, 'build', name), 'utf8'));
     // The next night: a day later, a new day for the timetable
     const nextNight = (more = {}) => { clock.now += DAY; return build({ today: '20260806', ...more }); };
-    return { portal, oasa, dataDir, logs, build, nextNight, served };
+    return { portal, oasa, dataDir, logs, build, nextNight, served, clock };
+}
+
+// STASY's site, as server/stasy.js's client, with pages the build can read
+// for the fixture's stations (Α, Β, Γ)
+function fakeStasy() {
+    const T = ['ΑΠΟ ΣΤΑΘΜΟ', 'ΠΡΩΤΟ', 'ΤΕΛΕΥΤΑΙΟ'];
+    const page = stasyPage([stasyTable(T, [['Α', '08:00', '00:30'], ['ΑΦΙΞΗ ΣΤΟ ΣΤΑΘΜΟ Γ', '08:05', '00:35']]), stasyTable(T, [['Γ', '08:00', '23:00'], ['Α', '08:05', '23:05']])]);
+    return {
+        asked: /** @type {number[]} */ ([]), down: false, route: 'home relay',
+        async timetable(line) {
+            this.asked.push(line);
+            if (this.down) throw new Error('home relay: HTTP 502');
+            return page;
+        },
+    };
 }
 
 test('a first build publishes every file, which pass their checks', async () => {
@@ -101,6 +117,27 @@ test('the next night\'s network is fetched and built, and the replaced files are
     assert.equal(served('bus-stops.json').stops.length, 1600);
     assert.equal(JSON.parse(readFileSync(join(dataDir, 'build.prev', 'bus-stops.json'), 'utf8')).stops.length, 1500);
     assert.equal(meta.fingerprint.sources.network, '2026-08-06T01:30:00.000Z');
+});
+
+test('STASY\'s timetables come with the build at most every 14 days, and one that can\'t be fetched doesn\'t stop it', async () => {
+    const stasy = fakeStasy();
+    const { build, nextNight, clock, logs } = setup();
+    const meta = await build({ stasy });
+    assert.deepEqual(stasy.asked, [1, 2, 3]);
+    assert.equal(meta.fingerprint.sources.stasy, '2026-08-05T01:30:00.000Z');
+    // The fixture's line isn't one of STASY's, so its first and last trains stay the GTFS's
+    assert.ok(meta.outputs['rail.json'].warnings.includes('STASY M9: not in the copy; its first and last trains come from the GTFS'));
+
+    await nextNight({ stasy });
+    assert.deepEqual(stasy.asked, [1, 2, 3]);
+    // 14 days on, STASY can't be reached: the build goes on with the copy
+    stasy.down = true;
+    clock.now += 13 * DAY;
+    const later = await nextNight({ stasy });
+    assert.deepEqual(stasy.asked, [1, 2, 3, 1]);
+    assert.equal(later.outputs['rail.json'].ok, true);
+    assert.equal(later.fingerprint.sources.stasy, '2026-08-05T01:30:00.000Z');
+    assert.ok(logs.includes('[data] Couldn\'t fetch STASY\'s timetables: home relay: HTTP 502 — using the copy from 2026-08-05'));
 });
 
 test('a broken new feed keeps the files the site serves', async () => {

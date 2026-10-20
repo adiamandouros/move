@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import express from 'express';
 import { RELAY_VERSION } from '../proxy/worker.js';
 import { createHealth } from '../server/health.js';
@@ -15,10 +15,17 @@ import { report, runChecks } from '../scripts/health-check.js';
 const NOW = Date.parse('2026-10-18T12:00:00Z');
 const MINUTE = 60_000;
 
-function buildDir({ generated = '2026-10-18T01:30:00Z', ok = true, validTo = '2026-10-31' } = {}) {
-    const dir = mkdtempSync(join(tmpdir(), 'health-'));
+// A data folder's build/ (its raw/ beside it, as data/ has them). hours: the
+// date of STASY's copy rail.json uses; stasyFetch: STASY's last fetch
+function buildDir({ generated = '2026-10-18T01:30:00Z', ok = true, validTo = '2026-10-31', hours = '2026-10-10', stasyFetch = null } = {}) {
+    const dir = join(mkdtempSync(join(tmpdir(), 'health-')), 'build');
+    mkdirSync(dir);
     writeFileSync(join(dir, 'meta.json'), JSON.stringify({ generated, outputs: { 'rail.json': { ok: true }, 'bus-stops.json': { ok } } }));
-    writeFileSync(join(dir, 'rail.json'), JSON.stringify({ feed: { validTo } }));
+    writeFileSync(join(dir, 'rail.json'), JSON.stringify({ feed: { validTo }, ...(hours && { hours: { fetched: hours } }) }));
+    if (stasyFetch) {
+        mkdirSync(join(dirname(dir), 'raw', 'stasy'), { recursive: true });
+        writeFileSync(join(dirname(dir), 'raw', 'stasy', 'last-fetch.json'), JSON.stringify(stasyFetch));
+    }
     return dir;
 }
 
@@ -66,6 +73,19 @@ test('each kind of trouble is named', async () => {
         /Relay: the home relay runs an older version or is unreachable/,
         /Relay: the relay runs an older version or is unreachable/,
     ]) assert.match(text, expected);
+});
+
+test('STASY\'s timetables: pages that couldn\'t be read on the last try, or a copy over 45 days old', async () => {
+    assert.deepEqual((await health().check()).stasy, { ok: true, fetched: '2026-10-10', daysOld: 8, unreadable: false });
+    // Not fetched yet (the relays' versions say why): the pages use the GTFS's times meanwhile
+    assert.equal((await health({ dir: buildDir({ hours: null }) }).check()).stasy.ok, true);
+    // Unreachable for a while: fine until the copy is over 45 days old
+    assert.equal((await health({ dir: buildDir({ hours: '2026-09-03', stasyFetch: { ok: false, error: 'HTTP 502' } }) }).check()).ok, true);
+    assert.match((await health({ dir: buildDir({ hours: '2026-09-02' }) }).check()).problems.join(), /STASY timetables: the copy in use is from 2026-09-02, over 45 days old/);
+
+    const changed = await health({ dir: buildDir({ stasyFetch: { ok: false, unreadable: true, error: 'M3: unknown column' } }) }).check();
+    assert.equal(changed.ok, false);
+    assert.deepEqual(changed.problems, ['STASY timetables: STASY\'s pages changed and couldn\'t be read on the last try; the last copy is used']);
 });
 
 test('announcements kept from before a restart count until the source is tried', async () => {

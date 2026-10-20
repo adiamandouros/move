@@ -23,3 +23,12 @@ test('catches typical editing mistakes', () => {
     assert.ok(errors.some(e => e.includes('unknown direction "M4/x"')));
     assert.ok(errors.some(e => e.includes('MON1 is used by both')));
 });
+
+test('how STASY writes a name: a list of names, each leading to one station', () => {
+    const c = real();
+    c.stations.stations.omonia.stasy = 'ΟΜΟΝΟΙΑ';
+    c.stations.stations.kat.stasy = ['Σύνταγμα'];
+    const { errors } = validateCurated(c);
+    assert.ok(errors.includes('stations.json: omonia.stasy must be a list of names'), errors.join('\n'));
+    assert.ok(errors.includes('stations.json: the name "Σύνταγμα" is used by both kat and syntagma'), errors.join('\n'));
+});
