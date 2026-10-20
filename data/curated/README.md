@@ -60,9 +60,3 @@ the right station, or to `ignoreGtfs` if it isn't a real station (e.g. the
 
 Colours, names and direction names. `gtfsDirection` is the feed's
 `direction_id` for that direction.
-
-## overrides.json — timetable fixes
-
-Replaces a line's trips on given days with trains every N minutes, for when the
-feed is known to be wrong. Each entry needs a `reason`. Periods are
-`["HH:MM", "HH:MM", minutes]`, with times after midnight written as 24:00+.

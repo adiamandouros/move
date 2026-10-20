@@ -233,7 +233,10 @@ only when someone asks, and kept on disk.
 
 [server/data/](server/data/) downloads OASA's open data (GTFS, from the CKAN
 portal) and builds `data/build/rail.json` (metro lines, stations, timetables
-and where to stand). The buses come from OASA's live API instead, as its
+and where to stand). Its timetable is one typical week: for each weekday the
+next date in the feed, skipping holidays and days on which a line has far
+more trains than usual (two timetables laid over each other), and a train the
+feed lists twice is kept once. The buses come from OASA's live API instead, as its
 open-data bus timetable falls behind (diversions, new routes):
 `oasa-network.js` fetches today's lines, their routes and each route's stops,
 and `build-bus.js` makes `data/build/bus-stops.json` (every stop on a route

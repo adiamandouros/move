@@ -8,7 +8,10 @@ import { crc32 } from 'zlib';
 
 // A tiny feed: line M9 with stations a–b–c, valid Mon 3 – Sun 9 Aug 2026.
 // X1 is a technical stop that stations.json tells the build to ignore.
-export function railFeed({ extraStop = '' } = {}) {
+// copies: trains listed twice, as the real feed sometimes has them (n1 again
+// on weekdays, Saturday night's n7 again as Sunday's n8, 80 s off at b), and
+// real trains close behind n1: n10 stops short, n11 is two minutes behind.
+export function railFeed({ extraStop = '', copies = false } = {}) {
     const dir = mkdtempSync(join(tmpdir(), 'move-rail-'));
     const write = (name, rows) => writeFileSync(join(dir, name), rows.join('\n') + '\n');
     write('routes.txt', ['route_id,route_short_name', '1,M9', '2,T1']);
@@ -28,6 +31,7 @@ export function railFeed({ extraStop = '' } = {}) {
         '1,wk,n1,0', '1,wk,n2,0', '1,wk,n3,0', '1,sat,n4,0', '1,sun,n5,0',
         '1,wk,s1,1', '1,sat,s2,1', '1,sun,s3,1',
         '2,wk,tram,0',
+        ...(copies ? ['1,wk,n9,0', '1,wk,n10,0', '1,wk,n11,0', '1,sat,n7,0', '1,sun,n8,0'] : []),
     ]);
     const trip = (id, stops) => stops.map(([stop, time], i) => `${id},${time},${time},${stop},${i + 1}`);
     write('stop_times.txt', [
@@ -41,6 +45,13 @@ export function railFeed({ extraStop = '' } = {}) {
         ...trip('s2', [[6, '09:00:00'], [4, '09:03:00'], [2, '09:05:00']]),
         ...trip('s3', [[6, '10:00:00'], [4, '10:03:00'], [2, '10:05:00']]),
         ...trip('tram', [[8, '08:00:00'], [8, '08:01:00']]),
+        ...(copies ? [
+            ...trip('n9', [[1, '08:00:30'], [3, '08:02:00'], [5, '08:05:40']]),
+            ...trip('n10', [[1, '08:00:20'], [3, '08:02:20']]),
+            ...trip('n11', [[1, '08:02:00'], [3, '08:04:00'], [5, '08:07:00']]),
+            ...trip('n7', [[1, '25:00:00'], [3, '25:02:00'], [5, '25:05:00']]),
+            ...trip('n8', [[1, '01:00:20'], [3, '01:03:20'], [5, '01:05:00']]),
+        ] : []),
         ...(extraStop ? trip('n6', [[1, '11:00:00'], [extraStop, '11:01:00']]).map(l => l.replace('n6', 'n1')) : []),
     ]);
     return dir;
@@ -71,7 +82,6 @@ export function railCurated(overrides = {}) {
                 south: { c: { exits: ['back'] }, b: { exits: ['center'] }, a: { exits: ['front'] } },
             },
         },
-        overrides: { headways: [] },
         ...overrides,
     };
 }
@@ -114,7 +124,7 @@ export function stopTable({ named = 10, dir = mkdtempSync(join(tmpdir(), 'wayhop
 // The curated files of railCurated(), written as data/curated/ has them
 export function curatedDir(curated = railCurated()) {
     const dir = mkdtempSync(join(tmpdir(), 'wayhop-curated-'));
-    for (const name of ['stations', 'lines', 'positions', 'overrides']) writeFileSync(join(dir, `${name}.json`), JSON.stringify(curated[name]));
+    for (const name of ['stations', 'lines', 'positions']) writeFileSync(join(dir, `${name}.json`), JSON.stringify(curated[name]));
     return dir;
 }
 

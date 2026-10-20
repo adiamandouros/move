@@ -53,6 +53,21 @@ test('service that runs into the next day is "all night" on both sides', () => {
     ]);
 });
 
+test('a break of under an hour before the next day\'s first train is still "all night"', () => {
+    // Saturday's night trains end at 05:15 on Sunday, Sunday's service starts at 05:30;
+    // other nights end at 00:30
+    const timetable = {
+        profiles: [{ stops: [0, 1], offsets: [0, 120] }],
+        patterns: [[[5.5 * 3600, 0], [24.5 * 3600, 0]], [[5.5 * 3600, 0], [29.25 * 3600, 0]]],
+        days: [0, 0, 0, 0, 0, 0, 1],
+    };
+    assert.deepEqual(firstAndLast(timetable, 0).map(g => [g.days, g.first, g.last]), [
+        [[1, 2, 3, 4, 5], 5.5 * 3600, 24.5 * 3600],
+        [[6], 5.5 * 3600, null],
+        [[0], null, 24.5 * 3600],
+    ]);
+});
+
 test('the last stop of a direction has no departures', () => {
     assert.deepEqual(firstAndLast(rail.lines.L1.directions.east.timetable, 2), []);
 });

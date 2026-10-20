@@ -1,16 +1,13 @@
-import { DAY_NAMES } from './calendar.js';
-
 // Car positions, ordered from the back of the train to the front.
 /** @type {import('../../types/data.js').Position[]} */
 export const POSITIONS = ['back', 'center-back', 'center', 'center-front', 'front'];
 
 const POSITION_KEYS = new Set(['exits', 'elevators', 'centralPlatform', 'transfers', 'note']);
-const HHMM = /^\d{1,2}:\d{2}$/;
 
 // Check the hand-maintained files in data/curated for mistakes. Returns
 // { errors, warnings }; any error fails the build. Kept independent of the
 // GTFS feed so it can run in tests and before every build.
-export function validateCurated({ stations, lines, positions, overrides }) {
+export function validateCurated({ stations, lines, positions }) {
     const errors = [];
     const warnings = [];
 
@@ -60,19 +57,6 @@ export function validateCurated({ stations, lines, positions, overrides }) {
                     checkPositions(`${where}.transfers.${ref}`, list);
                 }
             }
-        }
-    }
-
-    for (const [i, o] of (overrides.headways ?? []).entries()) {
-        const where = `overrides.json: headways[${i}]`;
-        if (!lines[o.line]) errors.push(`${where}: unknown line ${o.line}`);
-        if (!o.reason) warnings.push(`${where}: no reason given`);
-        for (const d of o.days ?? []) if (!DAY_NAMES.includes(d)) errors.push(`${where}: unknown day "${d}" (use ${DAY_NAMES.join(', ')})`);
-        if (!o.days?.length) errors.push(`${where}: no days`);
-        if (!o.periods?.length) errors.push(`${where}: no periods`);
-        for (const period of o.periods ?? []) {
-            const [from, to, minutes] = period;
-            if (!HHMM.test(from) || !HHMM.test(to) || !(minutes > 0)) errors.push(`${where}: bad period ${JSON.stringify(period)} (use ["HH:MM", "HH:MM", minutes])`);
         }
     }
 

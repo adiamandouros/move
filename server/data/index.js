@@ -211,8 +211,8 @@ function publish(dirs) {
 // Overlay entries that the committed positions.json now matches are pruned.
 export function loadCurated({ curatedDir = CURATED_DIR, overlayFile = OVERLAY_FILE, log = console.log } = {}) {
     const hash = createHash('sha256');
-    const data = /** @type {{ stations: any, lines: any, positions: any, overrides: any }} */ ({});
-    for (const name of ['stations', 'lines', 'positions', 'overrides']) {
+    const data = /** @type {{ stations: any, lines: any, positions: any }} */ ({});
+    for (const name of ['stations', 'lines', 'positions']) {
         const raw = readFileSync(join(curatedDir, `${name}.json`), 'utf8');
         hash.update(raw);
         try { data[name] = JSON.parse(raw); }
