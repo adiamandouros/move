@@ -22,11 +22,18 @@ test('builds stations, stops and a compressed weekly timetable', async () => {
     assert.ok(warnings.some(w => /expired on 2026-08-09/.test(w)));
 });
 
-test('headway overrides replace the chosen days using the main profile', async () => {
-    const overrides = { headways: [{ line: 'M9', days: ['sat'], reason: 'test', periods: [['06:00', '07:00', 30]] }] };
-    const { data } = await buildRail({ dir: feed(), curated: curated({ overrides }), today: '20261003' });
-    const { patterns, days } = data.lines.M9.directions.north.timetable;
-    assert.deepEqual(patterns[days[6]], [[21600, 0], [23400, 0]]);
+test('a train the feed lists twice is kept once, the night before\'s copy on the earlier day', async () => {
+    const { data, warnings } = await buildRail({ dir: feed({ copies: true }), curated: curated(), today: '20261003' });
+    const { profiles, patterns, days } = data.lines.M9.directions.north.timetable;
+    const day = wd => patterns[days[wd]].map(([start, p]) => [start, profiles[p].stops]);
+    // Weekdays: n1, n10 (20 s behind but stopping short), n11 (2 min behind), n2, n3; n9 was n1 again
+    assert.deepEqual(day(1), [[28800, [0, 1, 2]], [28820, [0, 1]], [28920, [0, 1, 2]], [29400, [0, 1, 2]], [88200, [0, 1]]]);
+    // Saturday keeps its night train n7 (01:00 on Sunday); Sunday drops n8, the same train
+    assert.deepEqual(day(6), [[32400, [0, 1, 2]], [90000, [0, 1, 2]]]);
+    assert.deepEqual(day(0), [[36000, [0, 1, 2]]]);
+    assert.ok(warnings.includes('M9/north: the feed lists some trains twice; kept one of each (sun: 1, mon: 1, tue: 1, wed: 1, thu: 1, fri: 1)'));
+    // No profile is left over from the copies
+    assert.equal(profiles.length, 2);
 });
 
 test('fails on stops that no station claims', async () => {

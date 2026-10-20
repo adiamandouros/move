@@ -23,13 +23,15 @@ import { view } from './templates.js';
 export const STATION_STRINGS = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'views', 'stations.json'), 'utf8'));
 export const STATIONS_PATH = '/subway/stations';
 const DAY = 86_400;
+const ALL_NIGHT_GAP = 3600;
 // Monday first, for grouping days like "Mon–Fri"
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
 
 // First and last train leaving stop `index` on one direction, for each run of
 // days that look the same: [{ days: [1, 2, 3, 4, 5], first, last }], times in
 // seconds since that day's midnight, or null when the trains run all night
-// (the day's service runs into the next day's, like line 3 on Saturdays).
+// (the next day's first train comes less than ALL_NIGHT_GAP after the day's
+// last, like line 3 from Saturday into Sunday).
 /**
  * @param {import('../../types/data.js').Timetable} timetable @param {number} index
  * @returns {{ days: number[], first: number | null, last: number | null }[]}
@@ -48,7 +50,7 @@ export function firstAndLast(timetable, index) {
     const intoNext = weekday => {
         const today = service[weekday];
         const tomorrow = service[(weekday + 1) % 7];
-        return Boolean(today && tomorrow && today.last >= DAY + tomorrow.first);
+        return Boolean(today && tomorrow && DAY + tomorrow.first - today.last < ALL_NIGHT_GAP);
     };
     const groups = [];
     for (const weekday of WEEK) {
