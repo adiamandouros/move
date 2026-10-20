@@ -10,10 +10,6 @@ function formatDistance(meters) {
     return meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${meters} m`;
 }
 
-// Text OASA has only in Greek (line names, where a line goes), marked as
-// Greek on the English page
-const greek = text => language === 'el' ? html`${text}` : html`<span lang="el">${text}</span>`;
-
 // The address of a view of the bus page: viewHref({ stop: '10341' }), viewHref({ line: '040' })
 export const viewHref = params => `${localHref('/buses')}?${new URLSearchParams(params)}`;
 
@@ -142,7 +138,7 @@ export function lineResult(line) {
     return html`
         <li class="list-group-item p-0">
             <a class="list-group-item-action d-flex align-items-center gap-2 px-3 py-2 search-result" href="${viewHref({ line: line.line })}" data-view>
-                ${linePill(line.line)}<span class="search-result-text">${line.name && html`<span class="sr-only">, </span>${greek(line.name)}`}</span>
+                ${linePill(line.line)}<span class="search-result-text"><span class="sr-only">, </span>${local(line.name)}</span>
             </a>
         </li>`;
 }
@@ -187,10 +183,10 @@ export function backLink() {
 export function lineHeader(line, direction) {
     const switcher = line.directions.length > 1 && html`
         <div class="btn-group w-100 direction-switch" role="group" aria-label="${t('buses.direction')}">
-            ${line.directions.map((d, i) => html`<button type="button" class="btn btn-sm btn-outline-secondary" data-direction="${i}" aria-pressed="${String(i === direction)}">${t('buses.toward')} ${greek(d.to)}</button>`)}
+            ${line.directions.map((d, i) => html`<button type="button" class="btn btn-sm btn-outline-secondary" data-direction="${i}" aria-pressed="${String(i === direction)}">${t('buses.toward')} ${local(d.to)}</button>`)}
         </div>`;
     return html`
         ${backLink()}
-        <h2 class="line-heading d-flex align-items-center gap-2" tabindex="-1">${linePill(line.line)}<span>${line.name && html`<span class="sr-only">, </span>${greek(line.name)}`}</span></h2>
-        ${switcher || html`<p class="line-toward">${t('buses.toward')} ${greek(line.directions[0].to)}</p>`}`;
+        <h2 class="line-heading d-flex align-items-center gap-2" tabindex="-1">${linePill(line.line)}<span><span class="sr-only">, </span>${local(line.name)}</span></h2>
+        ${switcher || html`<p class="line-toward">${t('buses.toward')} ${local(line.directions[0].to)}</p>`}`;
 }

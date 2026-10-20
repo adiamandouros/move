@@ -73,28 +73,27 @@ export interface Timetable {
     days: number[];
 }
 
-/** data/build/bus-stops.json, built by server/data/build-bus.js: one compact row per stop */
+/** data/build/bus-stops.json, built by server/data/build-bus.js from OASA's live API: one compact row per stop */
 export interface BusStops {
     schema: number;
-    generated: string;
-    feed: { validFrom: string; validTo: string };
+    /** When the network was fetched from OASA (ISO time) */
+    fetched: string;
     /** The order of each row's fields: ['code', 'lat', 'lng', 'el', 'en', 'lines'] */
     fields: string[];
     /** [code, lat, lng, Greek name, English name (may be empty), line numbers] */
     stops: [string, number, number, string, string, string[]][];
 }
 
-/** data/build/bus-lines.json, built by server/data/build-bus.js: each line's stops in order */
+/** data/build/bus-lines.json, built by server/data/build-bus.js from OASA's live API: each line's stops in order */
 export interface BusLines {
     schema: number;
-    generated: string;
-    feed: { validFrom: string; validTo: string };
+    /** When the network was fetched from OASA (ISO time) */
+    fetched: string;
     /** Sorted by line number. One or two directions (a circular line has one) */
     lines: {
         line: string;
-        /** OASA's Greek name, e.g. 'ΠΕΙΡΑΙΑΣ - ΣΥΝΤΑΓΜΑ' (may be empty) */
-        name: string;
-        /** `to`: where it goes, in Greek; `stops`: codes in bus-stops.json, in order */
-        directions: { to: string; stops: string[] }[];
+        name: Names;
+        /** `to`: where it goes; `stops`: codes in bus-stops.json, in order */
+        directions: { to: Names; stops: string[] }[];
     }[];
 }

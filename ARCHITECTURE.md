@@ -233,11 +233,16 @@ only when someone asks, and kept on disk.
 
 [server/data/](server/data/) downloads OASA's open data (GTFS, from the CKAN
 portal) and builds `data/build/rail.json` (metro lines, stations, timetables
-and where to stand), `data/build/bus-stops.json` (every stop, its names and
-lines) and `data/build/bus-lines.json` (each line's stops in order; OASA files
-every trip under one direction, so a line's directions are the stop sequences
-most of its trips follow, there and back). Both bus files come from one read
-of the 220 MB bus timetable. It runs when the server
+and where to stand). The buses come from OASA's live API instead, as its
+open-data bus timetable falls behind (diversions, new routes):
+`oasa-network.js` fetches today's lines, their routes and each route's stops,
+and `build-bus.js` makes `data/build/bus-stops.json` (every stop on a route
+today, its names and lines) and `data/build/bus-lines.json` (each line's
+stops in order, there and back). The network is fetched at most once a day,
+one request a second through the same routes as the live times (about 600
+requests a night: the lines and their routes every night, a route's stops
+when it's new or about weekly), and kept in `data/raw/oasa/`; if OASA can't be
+asked, the last one is used. The build runs when the server
 starts and daily at 04:30 Athens time, in a child process at low priority
 (`runBuildInChild`), so it doesn't slow the site or add to its memory. It
 downloads only what changed, and the site keeps serving the previous build

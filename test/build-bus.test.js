@@ -1,81 +1,61 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildBus, buildBusLines, readBusFeed, towardName } from '../server/data/build-bus.js';
+import { buildBusLines, buildBusStops, towardName } from '../server/data/build-bus.js';
 import { checkOutput } from '../server/data/check-output.js';
-import { busFeed, busLinesFeed, stopTable } from './fixtures/gtfs.js';
+import { fetchNetwork } from '../server/data/oasa-network.js';
+import { fakeOasa } from './fixtures/network.js';
 
-// bus-stops.json from OASA's bus feed (server/data/build-bus.js)
+// bus-stops.json and bus-lines.json from today's network, as OASA's live API
+// gives it (server/data/build-bus.js)
 
-test('one row per served stop, with its lines and English name', async () => {
-    const { data, warnings } = await buildBus({ dir: busFeed(), stopTablePath: stopTable(), today: '20260805' });
+const network = async (options) => (await fetchNetwork({ request: fakeOasa(options).request, sleep: async () => {} })).network;
+
+test('every stop on a route today, with every line that calls there', async () => {
+    const { data, warnings } = buildBusStops(await network());
     assert.equal(data.stops.length, 1000);
     assert.deepEqual(data.fields, ['code', 'lat', 'lng', 'el', 'en', 'lines']);
-    // Spaces collapsed, both lines, sorted the Greek way, English from the stop table
-    assert.deepEqual(data.stops[0], ['10000', 37.9, 23.7, 'ΣΤΑΣΗ 0', 'STOP 0', ['040', 'Χ95']]);
-    assert.deepEqual(data.stops[50], ['10050', 37.905, 23.7, 'ΣΤΑΣΗ 50', '', ['040']]);
-    assert.deepEqual(data.feed, { validFrom: '2026-08-03', validTo: '2026-08-09' });
-    assert.ok(warnings.includes('1 bus stops have no trips and were left out'));
-    assert.deepEqual(checkOutput('bus-stops.json', data), []);
-});
-
-test('stops with codes the live times can\'t use are left out, with a warning', async () => {
-    const { data, warnings } = await buildBus({ dir: busFeed({ extraStops: ['-2,ΓΡΑΜΜΑΤΙΚΟ,38.20277,23.96592'] }), stopTablePath: stopTable(), today: '20260805' });
+    // Spaces collapsed, both names; the 040 and the Α10 (its own route and its short working) and the 830
+    assert.deepEqual(data.stops[0], ['10000', 37.9, 23.7, 'ΣΤΑΣΗ 0', 'STOP 0', ['040']]);
+    assert.deepEqual(data.stops[7][5], ['040', 'Α10']);
+    assert.deepEqual(data.stops[8][5], ['040', '830', 'Α10']);
+    assert.match(data.fetched, /^\d{4}-\d\d-\d\dT/);
+    // The live times can't use "-2"
     assert.ok(!data.stops.some(s => s[0] === '-2'));
-    assert.ok(warnings.some(w => /1 bus stops have codes the live times can't use and were left out: -2/.test(w)));
+    assert.deepEqual(warnings, ['1 bus stops have codes the live times can\'t use and were left out: -2']);
     assert.deepEqual(checkOutput('bus-stops.json', data), []);
 });
 
-test('without the stop table, English names are empty and it says so', async () => {
-    const { data, warnings } = await buildBus({ dir: busFeed(), today: '20260805' });
-    assert.equal(data.stops[0][4], '');
-    assert.ok(warnings.includes('No OASA stop table; English stop names will be empty'));
+test('a network with too few stops, or none yet, fails (the build keeps the last files)', async () => {
+    assert.throws(() => buildBusStops(null), /no bus network from OASA yet/);
+    assert.throws(() => buildBusLines(null), /no bus network from OASA yet/);
+    assert.throws(() => buildBusStops({ lines: [], routes: {}, stops: {}, fetched: '2026-10-20T01:00:00Z' }), /only 0 stops \(expected at least 1000\)/);
 });
 
-test('an expired feed still builds, with a warning', async () => {
-    const { warnings } = await buildBus({ dir: busFeed(), today: '20261003' });
-    assert.ok(warnings.includes('Bus feed expired on 2026-08-09'));
-});
-
-test('a feed with too few served stops fails', async () => {
-    await assert.rejects(buildBus({ dir: busFeed({ stops: 999 }), today: '20260805' }), /only 999 served stops \(expected at least 1000\)/);
-});
-
-// bus-lines.json from the same feed (buildBusLines)
-
-test('each line\'s stops in order: the busiest sequence and the busiest one back', async () => {
-    const { data, warnings } = await buildBusLines({ dir: busLinesFeed(), today: '20260805' });
-    assert.deepEqual(data.lines, [
-        { line: '040', name: 'ΠΕΙΡΑΙΑΣ - ΣΥΝΤΑΓΜΑ', directions: [
-            { to: 'ΠΕΙΡΑΙΑΣ', stops: ['1', '2', '3', '4'] },
-            { to: 'ΣΥΝΤΑΓΜΑ', stops: ['4', '3', '2', '1'] },
-        ] },
-        // Circular: one direction; the stop the live times can't use is left out
-        { line: 'Κ1', name: 'ΚΥΚΛΟΣ (ΚΥΚΛΙΚΗ)', directions: [{ to: 'ΚΥΚΛΟΣ', stops: ['5', '6', '5'] }] },
+test('each line\'s stops in order, there and back: its own code, the plain route of each way', async () => {
+    const { data } = buildBusLines(await network({ stops: 1000 }));
+    const byLine = Object.fromEntries(data.lines.map(l => [l.line, l]));
+    assert.deepEqual(data.lines.map(l => l.line), ['040', '830', 'Α10']);
+    const the040 = byLine['040'];
+    assert.deepEqual(the040.name, { el: 'ΠΕΙΡΑΙΑΣ - ΣΥΝΤΑΓΜΑ', en: 'PEIRAIAS - SYNTAGMA' });
+    // Not the night variant; in the order OASA numbers them, not the order it answers in
+    assert.deepEqual(the040.directions.map(d => [d.to, d.stops.length, d.stops[0]]), [
+        [{ el: 'ΣΥΝΤΑΓΜΑ', en: 'SYNTAGMA' }, 1000, '10000'],
+        [{ el: 'ΠΕΙΡΑΙΑΣ', en: 'PEIRAIAS' }, 1000, '10999'],
     ]);
-    assert.deepEqual(data.feed, { validFrom: '2026-08-03', validTo: '2026-08-09' });
-    assert.deepEqual(warnings, []);
+    // The Α10's own code (two routes), not its short working; only variants there, so those, without the note
+    assert.deepEqual(byLine['Α10'].directions, [
+        { to: { el: 'ΑΧΑΡΝΑΙ', en: 'ACHARNAI' }, stops: ['10007', '10006', '10005'] },
+        { to: { el: 'ΣΤ. ΛΑΡΙΣΗΣ', en: 'ST. LARISIS' }, stops: ['10005', '10006', '10007'] },
+    ]);
+    // Circular: one direction; no English route name, so the Greek; no "-2"
+    assert.deepEqual(byLine['830'].directions, [{ to: { el: 'ΣΤ. ΚΟΡΥΔΑΛΛΟΣ', en: 'ΣΤ. ΚΟΡΥΔΑΛΛΟΣ' }, stops: ['10008', '10009', '10008'] }]);
     assert.deepEqual(checkOutput('bus-lines.json', data), []);
 });
 
-test('where a direction goes: the headsign\'s last part without notes about works or hours, or the last stop', () => {
-    assert.equal(towardName('ΣΥΝΤΑΓΜΑ - ΠΕΙΡΑΙΑΣ(ΠΡΟΣΩΡΙΝΗ ΛΟΓΩ ΕΡΓΩΝ)', 'X'), 'ΠΕΙΡΑΙΑΣ');
-    assert.equal(towardName('ΠΕΙΡΑΙΑΣ - ΣΥΝΤΑΓΜΑ (22:00-06:00) (ΠΡΟΣΩΡΙΝΗ ΛΟΓΩ ΕΡΓΩΝ)', 'X'), 'ΣΥΝΤΑΓΜΑ');
-    assert.equal(towardName('ΚΑΙΣΑΡΙΑΝΗ - ΕΛ. ΒΕΝΙΖΕΛΟΥ (Προσωρινή λόγω έργων)', 'X'), 'ΕΛ. ΒΕΝΙΖΕΛΟΥ');
-    assert.equal(towardName('ΣΥΝΤΑΓΜΑ - ΑΕΡΟΛ. ΑΘΗΝΩΝ (EXPRESS)', 'X'), 'ΑΕΡΟΛ. ΑΘΗΝΩΝ (EXPRESS)');
-    assert.equal(towardName('', 'ΤΕΡΜΑ'), 'ΤΕΡΜΑ');
-});
-
-test('one read of the feed gives both files', async () => {
-    const dir = busFeed();
-    const feed = await readBusFeed(dir);
-    const stops = await buildBus({ dir: '/nowhere', today: '20260805', feed });
-    const lines = await buildBusLines({ dir: '/nowhere', today: '20260805', feed });
-    assert.equal(stops.data.stops.length, 1000);
-    assert.equal(lines.data.lines[0].directions[0].stops.length, 1000);
-});
-
-test('a feed whose trips\' stops are mixed up fails the lines, not the stops', async () => {
-    const feed = await readBusFeed(busLinesFeed({ ungrouped: true }));
-    await assert.rejects(buildBusLines({ dir: '', today: '20260805', feed }), /stop_times\.txt doesn't list each trip's stops together \(trip up1\)/);
-    assert.ok(feed.stopLines.get('4').has('040'));
+test('where a route goes: the last part of its name, without notes in brackets', () => {
+    assert.equal(towardName('ΣΥΝΤΑΓΜΑ - ΠΕΙΡΑΙΑΣ'), 'ΠΕΙΡΑΙΑΣ');
+    assert.equal(towardName('ΑΓ.ΒΑΡΒΑΡΑ - ΣΤ.ΚΟΡΥΔΑΛΛΟΣ [ΠΡΟΣΩΡΙΝΗ ΛΟΓΩ ΕΡΓΩΝ]  '), 'ΣΤ.ΚΟΡΥΔΑΛΛΟΣ');
+    assert.equal(towardName('PEIRAIAS - SYNTAGMA [22:00-06:00]'), 'SYNTAGMA');
+    assert.equal(towardName('ΚΥΚΛΟΣ'), 'ΚΥΚΛΟΣ');
+    assert.equal(towardName(''), '');
 });
