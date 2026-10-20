@@ -1,6 +1,7 @@
 // /admin/diagnostics: runs the server checks (server/diagnostics.js) and shows them
 
 import { icon, setHtml } from '/js/core/html.js';
+import { progressBar } from './progress.js';
 
 const $ = id => document.getElementById(id);
 const ICONS = { ok: 'check-circle-fill', warn: 'exclamation-triangle-fill', fail: 'x-octagon-fill', info: 'info-circle' };
@@ -13,11 +14,14 @@ function el(tag, className, text) {
     return node;
 }
 
-function statusIcon(status) {
+// The element an html`` view makes
+function node(view) {
     const box = document.createElement('template');
-    setHtml(box, icon(ICONS[status], `diag-icon diag-${status}`));
+    setHtml(box, view);
     return box.content.firstChild;
 }
+
+const statusIcon = status => node(icon(ICONS[status], `diag-icon diag-${status}`));
 
 function render({ summary, checks }) {
     const box = $('diag-summary');
@@ -37,6 +41,7 @@ function render({ summary, checks }) {
         const row = el('div', 'diag-row');
         const body = el('div', 'diag-body');
         body.append(el('div', 'diag-title', c.title), el('div', 'diag-detail', c.detail));
+        if (c.progress) body.append(node(progressBar(c.progress)));
         if (c.hint) body.append(el('div', 'diag-hint', `→ ${c.hint}`));
         const label = el('span', 'sr-only', `${c.status}: `);
         row.append(statusIcon(c.status), label, body);

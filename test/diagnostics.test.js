@@ -5,6 +5,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { loadConfig } from '../server/config.js';
 import { classifyError, formatReport, runDiagnostics } from '../server/diagnostics.js';
+import { browserModule } from './support/browser-modules.js';
 
 const NOW = Date.parse('2026-10-03T12:00:00Z');
 const RELAY = 'https://relay.example/';
@@ -36,9 +37,14 @@ function world(overrides = {}) {
     return fetch;
 }
 
-function dataDir({ hoursAgo = 2, failed = null } = {}) {
+// lastFetch: data/raw/oasa/last-fetch.json (server/data/oasa-network.js)
+function dataDir({ hoursAgo = 2, failed = null, lastFetch = null } = {}) {
     const dir = mkdtempSync(join(tmpdir(), 'move-diag-'));
     mkdirSync(join(dir, 'build'));
+    if (lastFetch) {
+        mkdirSync(join(dir, 'raw', 'oasa'), { recursive: true });
+        writeFileSync(join(dir, 'raw', 'oasa', 'last-fetch.json'), JSON.stringify(lastFetch));
+    }
     writeFileSync(join(dir, 'build', 'meta.json'), JSON.stringify({
         generated: new Date(NOW - hoursAgo * 3_600_000).toISOString(),
         outputs: { 'rail.json': failed ? { ok: false, error: failed, keptPrevious: true } : { ok: true, warnings: [] } },
@@ -130,6 +136,40 @@ test('requests over the OASA budget or over a visitor\'s limit are reported', as
     assert.match(find(busy, 'Request budget').detail, /^4 requests .* 2\/s budget/);
     assert.equal(find(busy, 'Request budget').status, 'warn');
     assert.match(find(busy, 'Visitor limit').detail, /^2 requests .* more than 30 new stops/);
+});
+
+test('the bus network\'s last fetch: how far a stopped one got, as a bar; a finished one, in a line', async () => {
+    const network = async lastFetch => (await run(world(), { dataDir: dataDir({ lastFetch }) })).checks.find(c => c.title === 'Bus network from OASA');
+    const at = '2026-10-20T08:20:00.000Z';
+    const error = 'route 3923: HTTP 502: Upstream error: The operation was aborted due to timeout (4 tries)';
+
+    const stopped = await network({ at, ok: false, seconds: 1580, error, lines: { done: 470, total: 470 }, stops: { done: 812, total: 1203 } });
+    assert.equal(stopped.status, 'warn');
+    assert.equal(stopped.detail, `The fetch at 2026-10-20 08:20 UTC stopped after 26 min, with 812 of 1203 routes' stops: ${error}. They're saved: the next build asks only for the other 391. Meanwhile the last network is used.`);
+    assert.deepEqual(stopped.progress, { done: 812, total: 1203, label: 'Routes\' stops fetched' });
+    assert.match(stopped.hint, /Restart the app.*"\[data\] OASA" lines/);
+
+    const early = await network({ at, ok: false, seconds: 130, error: 'line Α10: HTTP 502 (4 tries)', lines: { done: 120, total: 470 } });
+    assert.match(early.detail, /with the routes of 120 of 470 lines, before any route's stops: line Α10: HTTP 502 \(4 tries\)\. The next build starts again/);
+    assert.deepEqual(early.progress, { done: 120, total: 470, label: 'Lines\' routes fetched' });
+
+    const start = await network({ at, ok: false, seconds: 100, error: 'the lines: HTTP 502 (4 tries)' });
+    assert.equal(start.detail, 'The fetch at 2026-10-20 08:20 UTC stopped at the start: the lines: HTTP 502 (4 tries). Meanwhile the last network is used.');
+    assert.equal(start.progress, undefined);
+
+    const done = await network({ at, ok: true, seconds: 700, lines: { done: 470, total: 470 }, stops: { done: 170, total: 170 } });
+    assert.equal(done.status, 'ok');
+    assert.equal(done.detail, 'Fetched 2026-10-20 08:20 UTC in 12 min: 470 lines, 170 routes\' stops asked for (the rest were less than a week old)');
+    assert.equal(done.progress, undefined);
+
+    // Never fetched: nothing to say (the bus files' own rows say if they're missing)
+    assert.equal(await network(null), undefined);
+});
+
+test('the diagnostics page draws a check\'s progress as a labelled bar with its numbers', async () => {
+    const { progressBar } = await browserModule('admin/client/progress.js');
+    assert.equal(String(progressBar({ done: 812, total: 1203, label: 'Routes\' stops fetched' })),
+        '<div class="diag-progress"><progress max="1203" value="812" aria-label="Routes&#39; stops fetched"></progress><span>812 / 1203</span></div>');
 });
 
 test('formatReport lists the summary, every check and its hint', async () => {

@@ -50,6 +50,17 @@ const realSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const INTERVAL_MS = 1000 / REQUESTS_PER_SECOND;
 
+// What a relay says went wrong (proxy/worker.js: "Upstream error: …"), for
+// the logs and the diagnostics; nothing for a page of HTML or an empty answer
+async function reason(res) {
+    try {
+        const said = (await res.text()).replace(/\s+/g, ' ').trim().slice(0, 120);
+        return said && !said.startsWith('<') ? `: ${said}` : '';
+    } catch {
+        return '';
+    }
+}
+
 // relays: config.relays; userAgent: config.userAgent (server/config.js)
 export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sleep = realSleep, log = console.warn, relays = [], userAgent = userAgentFor(null) } = {}) {
     let nextSlot = 0;
@@ -126,7 +137,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
                 headers: { 'User-Agent': userAgent, Accept: 'application/json', ...r.headers },
                 signal: AbortSignal.timeout(r.timeoutMs),
             });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}${await reason(res)}`);
             const body = JSON.parse(await res.text());
             r.lastOk = now();
             return body;

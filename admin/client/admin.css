@@ -6,6 +6,11 @@
     padding: 24px 16px;
 }
 
+/* Outline buttons: Bootstrap's grey and blue text are too faint on the dark
+   background (4.0:1 and 4.2:1); these meet WCAG AA */
+.btn-outline-secondary { --bs-btn-color: var(--bs-secondary-color); }
+.btn-outline-primary { --bs-btn-color: var(--bs-primary-text-emphasis); }
+
 .admin-login {
     max-width: 360px;
     padding-top: 15dvh;
@@ -134,6 +139,10 @@
 .diag-title { font-weight: 600; font-size: 0.9rem; }
 .diag-detail { font-size: 0.85rem; color: var(--wh-text-strong); overflow-wrap: anywhere; }
 .diag-hint { font-size: 0.85rem; color: var(--bs-warning); margin-top: 2px; }
+
+/* How far something got (a stopped fetch): a bar and its numbers */
+.diag-progress { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.diag-progress progress { flex: 1; height: 8px; accent-color: var(--bs-warning); }
 
 .diag-icon { flex-shrink: 0; margin-top: 2px; }
 .diag-ok { color: #3fb950; }

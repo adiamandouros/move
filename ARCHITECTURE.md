@@ -241,8 +241,11 @@ today, its names and lines) and `data/build/bus-lines.json` (each line's
 stops in order, there and back). The network is fetched at most once a day,
 one request a second through the same routes as the live times (about 600
 requests a night: the lines and their routes every night, a route's stops
-when it's new or about weekly), and kept in `data/raw/oasa/`; if OASA can't be
-asked, the last one is used. The build runs when the server
+when it's new or about weekly), and kept in `data/raw/oasa/`. A failed
+request is tried again up to 3 times (after 10, 30 and 60 s), and each failure
+is logged; each route's stops are saved as they arrive, so a fetch that still
+fails is picked up where it stopped by the next build, and meanwhile the last
+network is used. The build runs when the server
 starts and daily at 04:30 Athens time, in a child process at low priority
 (`runBuildInChild`), so it doesn't slow the site or add to its memory. It
 downloads only what changed, and the site keeps serving the previous build

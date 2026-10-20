@@ -13,10 +13,13 @@
 //   oasa.divert(n): the 040 is diverted, as OASA does it: new routes (6100
 //     there, 6101 back) with n stops each, and no night variant
 //   oasa.down(true|false), oasa.broken(true|false) (an error message instead of a list)
+//   oasa.fail(act, p1, { times, message }): that request fails `times` times
+//     (every time by default) with `message`, as the client reports it
 export function fakeOasa({ stops = 1000 } = {}) {
     const size = stops;
     let isDown = false;
     let isBroken = false;
+    const failing = new Map();
     const calls = [];
     const stop = (i, order) => ({
         StopCode: String(10000 + i), StopID: String(10000 + i), StopDescr: `ΣΤΑΣΗ  ${i}`, StopDescrEng: `STOP ${i}`,
@@ -67,9 +70,15 @@ export function fakeOasa({ stops = 1000 } = {}) {
         },
         down: (value = true) => { isDown = value; },
         broken: (value = true) => { isBroken = value; },
+        fail: (act, p1, { times = Infinity, message = 'HTTP 502' } = {}) => { failing.set(`${act} ${p1}`, { times, message }); },
         async request(act, p1) {
             calls.push([act, p1]);
             if (isDown) throw new Error('fake OASA: down');
+            const failure = failing.get(`${act} ${p1}`);
+            if (failure?.times > 0) {
+                failure.times--;
+                throw new Error(failure.message);
+            }
             if (isBroken && act === 'webGetStops') return { error: 'Something went wrong' };
             if (act === 'webGetLines') return lines;
             if (act === 'webGetRoutes') return routes[p1] === undefined ? null : routes[p1];
