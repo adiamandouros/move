@@ -1015,8 +1015,10 @@ body {
 
 /* ── Nearby Buses: status banner and served lines ── */
 
+/* As much space above as below: 8px from the search (its own 4px of padding
+   and these 4px), or from a stop's or line's header (its padding alone) */
 .bus-status {
-    margin: 12px 16px 0;
+    margin: 4px 16px 8px;
     padding: 8px 12px;
     font-size: 0.85rem;
     color: var(--bs-warning);
@@ -1110,6 +1112,10 @@ body {
 /* Above a stop or a line: the way back, the line and its directions */
 .view-header {
     padding: 4px 16px 8px;
+}
+
+.view-header:not([hidden]) + .bus-status {
+    margin-top: 0;
 }
 
 .back-link {
