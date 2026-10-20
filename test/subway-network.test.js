@@ -65,6 +65,30 @@ test('departures skip near-duplicates, short trips and past trains, and flag the
     assert.equal(deps[2].isLast, true);
 });
 
+test('the last trains are flagged only when STASY\'s last train agrees with the timetable\'s', () => {
+    const withHours = (toX, toB) => {
+        const r = structuredClone(rail);
+        r.lines.L1.directions.east.stops[0].hours = [
+            { to: 'x', first: Array(7).fill(8 * H), last: toX },
+            { to: 'b', first: Array(7).fill(8 * H), last: toB },
+        ];
+        return r;
+    };
+    const flags = (r, from, to, weekday) => {
+        const [leg] = findRoutes(r, from, to)[0].legs;
+        return departures(r, leg, { weekday, after: 8 * H, count: 5 }).map(d => [d.isSecondLast, d.isLast]);
+    };
+    // STASY's last train to b is the timetable's (00:30, within 5 minutes): flagged
+    assert.deepEqual(flags(withHours(Array(7).fill(24.5 * H), Array(7).fill(24.5 * H + 240)), 'a', 'b', 3), [[false, false], [true, false], [false, true]]);
+    // STASY knows a later one (the timetable misses it, like the late airport trains): not flagged
+    assert.deepEqual(flags(withHours(Array(7).fill(24.5 * H), Array(7).fill(25.5 * H)), 'a', 'b', 3), [[false, false], [false, false], [false, false]]);
+    // All night on Wednesdays: no last train
+    const allNight = [24.5 * H, 24.5 * H, 24.5 * H, null, 24.5 * H, 24.5 * H, 24.5 * H];
+    assert.deepEqual(flags(withHours(Array(7).fill(24.5 * H), allNight), 'a', 'b', 3), [[false, false], [false, false], [false, false]]);
+    // As far as x: STASY's hours to x, the nearest destination at least that far
+    assert.deepEqual(flags(withHours(Array(7).fill(24.5 * H), Array(7).fill(25.5 * H)), 'a', 'x', 3).at(-1), [false, true]);
+});
+
 test("departures include yesterday's trains that run past midnight", () => {
     const [leg] = findRoutes(rail, 'a', 'b')[0].legs;
     const [first] = departures(rail, leg, { weekday: 4, after: 0 });

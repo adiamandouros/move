@@ -20,6 +20,17 @@ test.describe('23:55 on a Wednesday, after the airport branch has stopped', () =
 
 });
 
+test.describe('00:05 on a Wednesday, after the last train from Dimotiko Theatro', () => {
+    test.use({ now: '2026-10-21T00:05:00+03:00' });
+
+    test('the timetable\'s later trains that STASY doesn\'t publish (depot runs) aren\'t offered', async ({ page }) => {
+        await page.goto('/subway?from=dimotiko-theatro&to=syntagma');
+        await expect(page.locator('.result-card').first()).toBeVisible();
+        // The timetable had one at 00:14 (to the depot at Doukissis, in 9 minutes); the next train is the morning's
+        await expect(content(page)).toContainText(/At\s*05:3\d/);
+    });
+});
+
 test('a change of line', async ({ page }) => {
     await page.goto('/subway?from=kifisia&to=aigaleo');
     await expect(page.locator('.result-card').first()).toBeVisible();

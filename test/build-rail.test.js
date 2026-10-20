@@ -88,3 +88,35 @@ test('without STASY\'s times for a line, its first and last trains come from the
     const partly = await build(stasy({ out: [OUT[0], OUT[2]] }));
     assert.deepEqual(partly, { hours: { fetched: '2026-10-01' }, stops: 1, warnings: ['STASY M9/north: no first and last trains for b; their GTFS times are used'] });
 });
+
+test('trains outside STASY\'s first and last trains are left out, or start where they\'re in service', async () => {
+    // At a, the first train is 08:10 (n1's 08:00 there is too early) and the last 00:15 (n3's 00:30 is too late);
+    // at b, n1's 08:02 is fine, so n1 runs from b
+    const copy = stasy({ out: [['Α', '08:10', '00:15'], ['Β', '08:00', '00:17'], ['ΑΦΙΞΗ ΣΤΟ ΣΤΑΘΜΟ Γ', '08:05', '00:20']] });
+    const { data, warnings } = await buildRail({ dir: feed(), curated: curated(), today: '20261003', stasy: copy });
+    const { profiles, patterns, days } = data.lines.M9.directions.north.timetable;
+    const day = wd => patterns[days[wd]].map(([start, p]) => [start, profiles[p].stops]);
+    assert.deepEqual(day(1), [[8 * 3600 + 120, [1, 2]], [8 * 3600 + 600, [0, 1, 2]]]);
+    assert.deepEqual(day(6), [[9 * 3600, [0, 1, 2]]]);
+    assert.ok(warnings.includes('M9/north: 10 trains run outside STASY\'s first and last trains: 5 left out, 5 shortened'), warnings.join('; '));
+    // The other way, every train is inside: nothing changes
+    assert.deepEqual(data.lines.M9.directions.south.timetable.patterns.flat().length, 3);
+});
+
+test('a night STASY says runs all night keeps its late trains; the next morning\'s too', async () => {
+    // The last train is 08:30, except on Saturdays (all night) and Fridays
+    const T = ['ΑΠΟ ΣΤΑΘΜΟ', 'ΠΡΩΤΟ', 'ΤΕΛΕΥΤΑΙΟ (ΔΕΥ - ΠΕΜ & ΚΥΡ)', 'ΤΕΛΕΥΤΑΙΟ (ΠΑΡ)'];
+    const note = 'Σημείωση: Κάθε Σάββατο υπάρχει 24ωρη λειτουργία στις Γραμμές 9 του Μετρό.';
+    const out = stasyTable(T, [['Α', '08:00', '08:30', '01:00'], ['Β', '08:02', '08:32', '01:02'], ['ΑΦΙΞΗ ΣΤΟ ΣΤΑΘΜΟ Γ', '08:05', '08:35', '01:05']], [note]);
+    const back = stasyTable(T, [['Γ', '08:00', '23:00', '23:00'], ['Β', '08:03', '23:03', '23:03'], ['Α', '08:05', '23:05', '23:05']], [note]);
+    const copy = { fetched: '2026-10-01T02:30:00.000Z', lines: { M9: extractTables(stasyPage([out, back])) } };
+    const { data } = await buildRail({ dir: feed(), curated: curated(), today: '20261003', stasy: copy });
+    const { patterns, days } = data.lines.M9.directions.north.timetable;
+    const starts = wd => patterns[days[wd]].map(([start]) => start);
+    // Weekdays: n1 and n2 (n3 at 00:30 is after 08:30, but Friday's 01:00 lets it run on Fridays)
+    assert.deepEqual(starts(1), [8 * 3600, 8 * 3600 + 600]);
+    assert.deepEqual(starts(5), [8 * 3600, 8 * 3600 + 600, 24.5 * 3600]);
+    // Saturday's 09:00 runs (no last train), Sunday's 10:00 doesn't (after 08:30)
+    assert.deepEqual(starts(6), [9 * 3600]);
+    assert.deepEqual(starts(0), []);
+});
