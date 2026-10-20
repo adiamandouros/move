@@ -1,7 +1,7 @@
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { readCsv, readCsvAll } from './csv.js';
-import { DAY_NAMES, isoDate, pickWeek, serviceDates, toSeconds } from './calendar.js';
+import { DAY_NAMES, addDays, isoDate, pickWeek, serviceDates, toSeconds, weekday } from './calendar.js';
 import { applyHours } from './stasy.js';
 import { POSITIONS } from './validate.js';
 
@@ -19,12 +19,17 @@ import { POSITIONS } from './validate.js';
 //       timetable: {
 //         profiles: [{ stops: [stopIndex, …], offsets: [seconds from first stop, …] }, …],
 //         patterns: [[[startSeconds, profileIndex], …], …],                              ← one list of trips per distinct day
-//         days:     [patternIndex × 7]                                                    ← index 0 = Sunday
+//         days:     [patternIndex × 7],                                                   ← index 0 = Sunday
+//         dates:    { 'YYYY-MM-DD': patternIndex }                                        ← dates whose trains aren't their weekday's
 //       } } } } }
 // }
 //
 // A trip departs its first stop at `startSeconds` (may exceed 86400 after
 // midnight) and reaches stops[profile.stops[i]] at startSeconds + offsets[i].
+// `days` is one typical week, for any date; `dates` has the feed's own trains
+// for the days from yesterday to its end that differ from that week (a
+// holiday, a new timetable), so the planner shows a date's real trains while
+// the feed has them.
 // Branches (e.g. M3 trains that end at Doukissis instead of the airport) are
 // simply trips whose profile covers fewer stops. Trains the feed lists twice
 // are kept once (see dropCopies). A stop's `hours` are STASY's first and last
@@ -76,7 +81,17 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
 
     const week = pickWeek(dateServices, tripsPerService, today);
     const weekServices = week.map(date => dateServices.get(date));
-    const neededServices = new Set(weekServices.flatMap(s => [...s]));
+    // The dates the planner may ask for, from yesterday (its trains after
+    // midnight) on, and the day before them, for its trains the next day
+    // repeats (dropCopies)
+    const dates = [...dateServices.keys()].filter(d => d >= addDays(today, -2)).sort();
+    const ownDates = dates.filter(d => d >= addDays(today, -1));
+    const neededServices = new Set([...weekServices, ...dates.map(d => dateServices.get(d))].flatMap(s => [...s]));
+    // Each day trains run on: the typical week's weekdays (0 = Sunday) and the dates ('YYYYMMDD')
+    const serviceDays = [
+        ...DAY_NAMES.map((_, wd) => ({ key: wd, before: (wd + 6) % 7 })),
+        ...dates.map(d => ({ key: d, before: addDays(d, -1) })),
+    ];
 
     // ── Stops → curated stations ────────────────────────────────────────────
     const stationOfCode = new Map();
@@ -122,7 +137,10 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
     for (const [tripId, stopList] of tripStops) {
         const { line, dirKey, service } = trips.get(tripId);
         stopList.sort((a, b) => a[0] - b[0]);
-        const days = weekServices.flatMap((s, wd) => s.has(service) ? [wd] : []);
+        const days = [
+            ...weekServices.flatMap((s, wd) => s.has(service) ? [wd] : []),
+            ...dates.filter(d => dateServices.get(d).has(service)),
+        ];
         ((byDirection[line] ??= {})[dirKey] ??= []).push({
             stations: stopList.map(s => s[1]),
             times: stopList.map(s => s[2]),
@@ -148,7 +166,7 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
                 stationLines.get(s).add(lineId);
             }
 
-            dropCopies(dirTrips, `${lineId}/${dirKey}`, warnings);
+            dropCopies(dirTrips, serviceDays, `${lineId}/${dirKey}`, warnings);
             directions[dirKey] = {
                 toward: dir.toward,
                 stops: order.map(station => stopPositions(positions, lineId, dirKey, station, warnings)),
@@ -164,7 +182,7 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
     const hoursFetched = applyHours(out, stasy, stations.stations, warnings);
     for (const { direction, dirTrips, indexOf, label } of pending) {
         trimToHours(dirTrips, direction.stops, label, warnings);
-        direction.timetable = dedupeDays(buildTimetable(dirTrips, indexOf, label));
+        direction.timetable = buildTimetable(dirTrips, indexOf, ownDates, label);
     }
 
     const stationsOut = {};
@@ -207,11 +225,15 @@ function stopPositions(positions, lineId, dirKey, station, warnings) {
     return { station, exits: [], ...p };
 }
 
-// Turn raw trips into shared run-time profiles plus [start, profile] pairs per weekday.
-function buildTimetable(dirTrips, indexOf, label) {
-    const profiles = [];
-    const profileIndex = new Map();
-    const days = Array.from({ length: 7 }, () => []);
+// Turn raw trips into shared run-time profiles plus [start, profile] pairs per
+// day: each weekday of the typical week, and the dates (`ownDates`,
+// 'YYYYMMDD') whose trains differ from their weekday's. Each distinct day is
+// stored once; `days` maps weekday → pattern, `dates` ISO date → pattern.
+function buildTimetable(dirTrips, indexOf, ownDates, label) {
+    // Run-time profiles by key, in the order trips first use them
+    const shapes = new Map();
+    const week = Array.from({ length: 7 }, () => []);
+    const onDate = new Map(ownDates.map(d => [d, []]));
 
     for (const trip of dirTrips) {
         if (!trip.days.length) continue;
@@ -222,14 +244,31 @@ function buildTimetable(dirTrips, indexOf, label) {
         const start = trip.times[0];
         const offsets = trip.times.map(t => t - start);
         const key = `${stops.join(',')}|${offsets.join(',')}`;
-        if (!profileIndex.has(key)) {
-            profileIndex.set(key, profiles.length);
-            profiles.push({ stops, offsets });
-        }
-        for (const wd of trip.days) days[wd].push([start, profileIndex.get(key)]);
+        if (!shapes.has(key)) shapes.set(key, { stops, offsets, order: shapes.size });
+        for (const day of trip.days) (typeof day === 'number' ? week[day] : onDate.get(day))?.push([start, key]);
     }
-    for (const list of days) list.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-    return { profiles, days };
+    const lists = [...week, ...onDate.values()];
+    for (const list of lists) list.sort((a, b) => a[0] - b[0] || shapes.get(a[1]).order - shapes.get(b[1]).order);
+
+    const same = (a, b) => a.length === b.length && a.every(([start, key], i) => start === b[i][0] && key === b[i][1]);
+    const own = [...onDate].filter(([date, list]) => !same(list, week[weekday(date)]));
+
+    // Only the profiles the days kept use
+    const used = new Set([...week, ...own.map(([, list]) => list)].flatMap(list => list.map(([, key]) => key)));
+    const profileIndex = new Map([...shapes.keys()].filter(key => used.has(key)).map((key, i) => [key, i]));
+    const profiles = [...profileIndex.keys()].map(key => ({ stops: shapes.get(key).stops, offsets: shapes.get(key).offsets }));
+
+    const patterns = [];
+    const seen = new Map();
+    const patternOf = list => {
+        const trips = list.map(([start, key]) => [start, profileIndex.get(key)]);
+        const id = JSON.stringify(trips);
+        if (!seen.has(id)) { seen.set(id, patterns.length); patterns.push(trips); }
+        return seen.get(id);
+    };
+    const days = week.map(patternOf);
+    const dates = Object.fromEntries(own.map(([date, list]) => [isoDate(date), patternOf(list)]));
+    return { profiles, patterns, days, dates };
 }
 
 // The feed sometimes lists a train twice: two timetables laid over each other
@@ -243,22 +282,24 @@ function buildTimetable(dirTrips, indexOf, label) {
 // right behind a Doukissis one), so they stay.
 const COPY_SECONDS = 90;
 
-function dropCopies(dirTrips, label, warnings) {
+// serviceDays: [{ key, before }], each day (a weekday or a date) and the one before it.
+// The warning counts the typical week's.
+function dropCopies(dirTrips, serviceDays, label, warnings) {
     const isCopy = (trip, of, shift) => trip.stations.length === of.stations.length
         && trip.stations.every((s, i) => s === of.stations[i] && Math.abs(trip.times[i] - (of.times[i] - shift)) <= COPY_SECONDS);
     const dropped = [];
-    for (let wd = 0; wd < 7; wd++) {
-        const day = dirTrips.filter(t => t.days.includes(wd)).sort((a, b) => a.times[0] - b.times[0]);
-        const night = dirTrips.filter(t => t.days.includes((wd + 6) % 7) && t.times[0] >= DAY - COPY_SECONDS);
+    for (const { key, before } of serviceDays) {
+        const day = dirTrips.filter(t => t.days.includes(key)).sort((a, b) => a.times[0] - b.times[0]);
+        const night = dirTrips.filter(t => t.days.includes(before) && t.times[0] >= DAY - COPY_SECONDS);
         let n = 0;
         day.forEach((trip, i) => {
-            const earlier = day.slice(0, i).filter(t => t.days.includes(wd));
+            const earlier = day.slice(0, i).filter(t => t.days.includes(key));
             if (earlier.some(t => isCopy(trip, t, 0)) || night.some(t => isCopy(trip, t, DAY))) {
-                trip.days = trip.days.filter(d => d !== wd);
+                trip.days = trip.days.filter(d => d !== key);
                 n++;
             }
         });
-        if (n) dropped.push(`${DAY_NAMES[wd]}: ${n}`);
+        if (n && typeof key === 'number') dropped.push(`${DAY_NAMES[key]}: ${n}`);
     }
     if (dropped.length) warnings.push(`${label}: the feed lists some trains twice; kept one of each (${dropped.join(', ')})`);
 }
@@ -295,7 +336,9 @@ function trimToHours(dirTrips, stops, label, warnings) {
     const variants = [];
     for (const trip of dirTrips) {
         const kept = new Map();   // "from,to" (call indexes) → days
-        for (const wd of trip.days) {
+        for (const day of trip.days) {
+            // A date has its own weekday's hours (STASY's tables have no holidays)
+            const wd = typeof day === 'number' ? day : weekday(day);
             let a = 0;
             let b = trip.stations.length - 1;
             const end = () => at.get(trip.stations[b]);
@@ -311,9 +354,12 @@ function trimToHours(dirTrips, stops, label, warnings) {
                 if (last !== null && trip.times[k] > last + HOURS_LEEWAY) b = k;
             }
             const key = a < b ? `${a},${b}` : null;
-            if (!key) left++;
-            else if (key !== `0,${trip.stations.length - 1}`) shortened++;
-            if (key) kept.set(key, [...(kept.get(key) ?? []), wd]);
+            // Counted on the typical week
+            if (typeof day === 'number') {
+                if (!key) left++;
+                else if (key !== `0,${trip.stations.length - 1}`) shortened++;
+            }
+            if (key) kept.set(key, [...(kept.get(key) ?? []), day]);
         }
         const whole = `0,${trip.stations.length - 1}`;
         for (const [key, days] of kept) {
@@ -325,18 +371,6 @@ function trimToHours(dirTrips, stops, label, warnings) {
     }
     dirTrips.push(...variants);
     if (left || shortened) warnings.push(`${label}: ${left + shortened} trains run outside STASY's first and last trains: ${left} left out, ${shortened} shortened`);
-}
-
-// Store each distinct day once; `days` maps weekday → pattern.
-function dedupeDays({ profiles, days }) {
-    const patterns = [];
-    const seen = new Map();
-    const dayIndex = days.map(list => {
-        const key = JSON.stringify(list);
-        if (!seen.has(key)) { seen.set(key, patterns.length); patterns.push(list); }
-        return seen.get(key);
-    });
-    return { profiles, patterns, days: dayIndex };
 }
 
 function round(n, digits) {

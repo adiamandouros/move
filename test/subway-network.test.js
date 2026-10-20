@@ -96,6 +96,24 @@ test("departures include yesterday's trains that run past midnight", () => {
     assert.equal(first.isLast, true);
 });
 
+test('a date with trains of its own (a holiday) uses them, today and after midnight', () => {
+    const r = structuredClone(rail);
+    const { timetable } = r.lines.L1.directions.east;
+    timetable.patterns.push([[10 * H, 0]]);
+    timetable.dates = { '2026-10-28': 1 };
+    const [leg] = findRoutes(r, 'a', 'b')[0].legs;
+    const starts = when => departures(r, leg, { count: 5, ...when }).map(d => d.departs);
+    assert.deepEqual(starts({ weekday: 3, after: 8 * H, date: '2026-10-28' }), [10 * H]);
+    // Other dates, and no date, have their weekday's trains
+    assert.deepEqual(starts({ weekday: 3, after: 8 * H, date: '2026-10-21' }), [8 * H, 9 * H, 24.5 * H]);
+    assert.deepEqual(starts({ weekday: 3, after: 8 * H }), [8 * H, 9 * H, 24.5 * H]);
+    // Just after midnight, the holiday's trains are yesterday's: no 00:30 tonight
+    assert.deepEqual(starts({ weekday: 4, after: 0, date: '2026-10-29' }), [8 * H, 9 * H, 24.5 * H]);
+    assert.deepEqual(starts({ weekday: 3, after: 0, date: '2026-10-28' }), [0.5 * H, 10 * H]);
+    // planTrip gives the date it plans for
+    assert.equal(planTrip(r, 'a', 'b', { weekday: 3, seconds: 8 * H, date: '2026-10-28' }).plans[0].legs[0].departures[0].departs, 10 * H);
+});
+
 test('planJourney times the second leg from the first arrival plus a change', () => {
     const [plan] = planJourney(rail, 'a', 'c', { weekday: 3, seconds: 8 * H });
     // Arrive at x 08:05, change takes 3 min, so 08:06:40 is missed and 08:10 is the first train

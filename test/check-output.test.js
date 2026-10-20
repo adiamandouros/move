@@ -46,6 +46,8 @@ const broken = {
         ['a week of six days', r => { Object.values(r.lines.M3.directions)[0].timetable.days.pop(); }, /a pattern for each of the 7 days/],
         ['a profile pointing past the last stop', r => { Object.values(r.lines.M1.directions)[0].timetable.profiles[0].stops[0] = 999; }, /points at a stop that doesn't exist/],
         ['a profile going back in time', r => { Object.values(r.lines.M1.directions)[0].timetable.profiles[0].offsets.reverse(); }, /goes back in time/],
+        ['a date that isn\'t one', r => { Object.values(r.lines.M1.directions)[0].timetable.dates = { '28/10/2026': 0 }; }, /dates need to be YYYY-MM-DD/],
+        ['a date pointing at no pattern', r => { Object.values(r.lines.M1.directions)[0].timetable.dates = { '2026-10-28': 99 }; }, /a date points at a pattern that doesn't exist/],
         ['no trips at all', r => { const t = Object.values(r.lines.M1.directions)[0].timetable; t.patterns = t.patterns.map(() => []); }, /no trips on any day/],
         ['STASY\'s copy without its date', r => { r.hours = { fetched: 'recently' }; }, /hours\.fetched must be YYYY-MM-DD/],
         ['first and last trains to a stop behind', r => { const stops = Object.values(r.lines.M2.directions)[0].stops; stops[1].hours = [{ to: stops[0].station, first: WEEK, last: WEEK }]; }, /hours to .*, which isn't further on/],

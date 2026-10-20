@@ -238,7 +238,10 @@ portal) and builds `data/build/rail.json` (metro lines, stations, timetables
 and where to stand). Its timetable is one typical week: for each weekday the
 next date in the feed, skipping holidays and days on which a line has far
 more trains than usual (two timetables laid over each other), and a train the
-feed lists twice is kept once. The first and last trains from each stop come
+feed lists twice is kept once. The dates from yesterday to the feed's end
+whose trains differ from their weekday's (a holiday, a new timetable) also
+get their own, which the planner uses on that date; the typical week is for
+every other date, and for all of them once the feed has expired. The first and last trains from each stop come
 from STASY's own timetable pages instead (`stasy.js`), as the GTFS has depot
 runs STASY doesn't publish and misses some late airport trains: the pages are
 fetched at most every 14 days (directly or through the relays, like STASY's

@@ -117,6 +117,11 @@ function checkTimetable(where, t, stopCount, problems) {
     const patterns = t?.patterns ?? [];
     if (!Array.isArray(t?.days) || t.days.length !== 7) return problems.push(`${where}: the timetable needs a pattern for each of the 7 days`);
     if (t.days.some(d => !Number.isInteger(d) || !patterns[d])) problems.push(`${where}: a day points at a pattern that doesn't exist`);
+    if (t.dates !== undefined) {
+        const dates = Object.entries(t.dates ?? {});
+        if (!t.dates || typeof t.dates !== 'object' || dates.some(([date]) => !/^\d{4}-\d\d-\d\d$/.test(date))) problems.push(`${where}: dates need to be YYYY-MM-DD`);
+        if (dates.some(([, d]) => !Number.isInteger(d) || !patterns[d])) problems.push(`${where}: a date points at a pattern that doesn't exist`);
+    }
     profiles.forEach((p, i) => {
         if (!p.stops?.length || p.stops.length !== p.offsets?.length) problems.push(`${where}: profile ${i} needs as many offsets as stops`);
         if (p.stops?.some(s => !Number.isInteger(s) || s < 0 || s >= stopCount)) problems.push(`${where}: profile ${i} points at a stop that doesn't exist`);

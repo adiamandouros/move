@@ -2,7 +2,11 @@
 // works out and draws at each time of day is tested in Node
 // (subway-network.test.js, subway-render.test.js); here, that the page puts
 // it together, on one phone.
+import { readFileSync } from 'fs';
+import { planTrip } from '../../tools/subway/client/network.js';
 import { axe, expect, onlyOn, test } from './fixtures.js';
+
+const rail = JSON.parse(readFileSync(new URL('data/rail.json', import.meta.url), 'utf8'));
 
 test.beforeEach(onlyOn('phone'));
 
@@ -28,6 +32,23 @@ test.describe('00:05 on a Wednesday, after the last train from Dimotiko Theatro'
         await expect(page.locator('.result-card').first()).toBeVisible();
         // The timetable had one at 00:14 (to the depot at Doukissis, in 9 minutes); the next train is the morning's
         await expect(content(page)).toContainText(/At\s*05:3\d/);
+    });
+});
+
+test.describe('noon on Wednesday 28 October, a holiday', () => {
+    // Winter time since 25 October
+    test.use({ now: '2026-10-28T12:00:00+02:00' });
+
+    test('the planner shows the holiday\'s trains, not a normal Wednesday\'s', async ({ page }) => {
+        // The test data's feed gives M2 its own trains that day (fewer: about every 8 minutes)
+        const toElliniko = rail.lines.M2.directions.elliniko.timetable;
+        expect(toElliniko.dates?.['2026-10-28'], 'refreshed test data still needs 28 October as a holiday').toBeDefined();
+        const next = date => planTrip(rail, 'syntagma', 'elliniko', { weekday: 3, seconds: 12 * 3600, date }).plans[0].legs[0].departures[0].departs;
+        const minutes = Math.floor((next('2026-10-28') - 12 * 3600) / 60);
+        expect(minutes).not.toBe(Math.floor((next('2026-10-21') - 12 * 3600) / 60));
+
+        await page.goto('/subway?from=syntagma&to=elliniko');
+        await expect(page.locator('.result-card').first()).toContainText(`${minutes} minutes`);
     });
 });
 

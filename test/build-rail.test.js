@@ -20,6 +20,8 @@ test('builds stations, stops and a compressed weekly timetable', async () => {
     assert.deepEqual(patterns[1], [[28800, 0], [29400, 0], [88200, 1]]);
 
     assert.deepEqual(data.feed.week, { sun: '2026-08-09', mon: '2026-08-03', tue: '2026-08-04', wed: '2026-08-05', thu: '2026-08-06', fri: '2026-08-07', sat: '2026-08-08' });
+    // The feed has expired: no dates of its own, only the typical week
+    assert.deepEqual(north.timetable.dates, {});
     assert.ok(warnings.some(w => /no exits for M9\/north\/a/.test(w)));
     assert.ok(warnings.some(w => /expired on 2026-08-09/.test(w)));
 });
@@ -36,6 +38,32 @@ test('a train the feed lists twice is kept once, the night before\'s copy on the
     assert.ok(warnings.includes('M9/north: the feed lists some trains twice; kept one of each (sun: 1, mon: 1, tue: 1, wed: 1, thu: 1, fri: 1)'));
     // No profile is left over from the copies
     assert.equal(profiles.length, 2);
+});
+
+test('a date whose trains aren\'t its weekday\'s has them, from yesterday to the feed\'s end', async () => {
+    // Thursday 13 Aug is a holiday with Saturday's trains; today is Wednesday 5 Aug
+    const { data } = await buildRail({ dir: feed({ holiday: '20260813' }), curated: curated(), today: '20260805' });
+    const { profiles, patterns, days, dates } = data.lines.M9.directions.north.timetable;
+    const day = p => patterns[p].map(([start, k]) => [start, profiles[k].stops]);
+    // The typical Thursday is the 6th; the 13th runs n4, at 09:00
+    assert.equal(data.feed.week.thu, '2026-08-06');
+    assert.deepEqual(days, [0, 1, 1, 1, 1, 1, 2]);
+    assert.deepEqual(Object.keys(dates), ['2026-08-13']);
+    assert.deepEqual(day(dates['2026-08-13']), [[9 * 3600, [0, 1, 2]]]);
+    assert.equal(dates['2026-08-13'], days[6], 'the same trains as Saturday, stored once');
+    assert.deepEqual(data.lines.M9.directions.south.timetable.dates, { '2026-08-13': 2 });
+
+    // Yesterday is the earliest date kept (its trains after midnight); a holiday before it is left out
+    const later = await buildRail({ dir: feed({ holiday: '20260813' }), curated: curated(), today: '20260814' });
+    assert.deepEqual(Object.keys(later.data.lines.M9.directions.north.timetable.dates), ['2026-08-13']);
+    const after = await buildRail({ dir: feed({ holiday: '20260813' }), curated: curated(), today: '20260815' });
+    assert.deepEqual(after.data.lines.M9.directions.north.timetable.dates, {});
+});
+
+test('the copies the feed lists are dropped on its dates too, so they match their weekdays', async () => {
+    // Sunday 9 Aug's copy n8 is Saturday 8 Aug's n7, the night before
+    const { data } = await buildRail({ dir: feed({ copies: true }), curated: curated(), today: '20260803' });
+    assert.deepEqual(data.lines.M9.directions.north.timetable.dates, {});
 });
 
 test('fails on stops that no station claims', async () => {
@@ -103,14 +131,26 @@ test('trains outside STASY\'s first and last trains are left out, or start where
     assert.deepEqual(data.lines.M9.directions.south.timetable.patterns.flat().length, 3);
 });
 
-test('a night STASY says runs all night keeps its late trains; the next morning\'s too', async () => {
-    // The last train is 08:30, except on Saturdays (all night) and Fridays
+// STASY's tables for M9 where the last train north is 08:30, except on
+// Saturdays (all night) and Fridays (01:00)
+function allNightStasy() {
     const T = ['ΑΠΟ ΣΤΑΘΜΟ', 'ΠΡΩΤΟ', 'ΤΕΛΕΥΤΑΙΟ (ΔΕΥ - ΠΕΜ & ΚΥΡ)', 'ΤΕΛΕΥΤΑΙΟ (ΠΑΡ)'];
     const note = 'Σημείωση: Κάθε Σάββατο υπάρχει 24ωρη λειτουργία στις Γραμμές 9 του Μετρό.';
     const out = stasyTable(T, [['Α', '08:00', '08:30', '01:00'], ['Β', '08:02', '08:32', '01:02'], ['ΑΦΙΞΗ ΣΤΟ ΣΤΑΘΜΟ Γ', '08:05', '08:35', '01:05']], [note]);
     const back = stasyTable(T, [['Γ', '08:00', '23:00', '23:00'], ['Β', '08:03', '23:03', '23:03'], ['Α', '08:05', '23:05', '23:05']], [note]);
-    const copy = { fetched: '2026-10-01T02:30:00.000Z', lines: { M9: extractTables(stasyPage([out, back])) } };
-    const { data } = await buildRail({ dir: feed(), curated: curated(), today: '20261003', stasy: copy });
+    return { fetched: '2026-10-01T02:30:00.000Z', lines: { M9: extractTables(stasyPage([out, back])) } };
+}
+
+test('a holiday keeps to its own weekday\'s first and last trains, as STASY\'s tables have no holidays', async () => {
+    // Thursday 13 Aug runs Saturday's n4 at 09:00, but a Thursday's last train is 08:30: it doesn't run
+    const { data } = await buildRail({ dir: feed({ holiday: '20260813' }), curated: curated(), today: '20260805', stasy: allNightStasy() });
+    const { patterns, days, dates } = data.lines.M9.directions.north.timetable;
+    assert.deepEqual(patterns[days[6]].map(([start]) => start), [9 * 3600]);
+    assert.deepEqual(patterns[dates['2026-08-13']], []);
+});
+
+test('a night STASY says runs all night keeps its late trains; the next morning\'s too', async () => {
+    const { data } = await buildRail({ dir: feed(), curated: curated(), today: '20261003', stasy: allNightStasy() });
     const { patterns, days } = data.lines.M9.directions.north.timetable;
     const starts = wd => patterns[days[wd]].map(([start]) => start);
     // Weekdays: n1 and n2 (n3 at 00:30 is after 08:30, but Friday's 01:00 lets it run on Fridays)
