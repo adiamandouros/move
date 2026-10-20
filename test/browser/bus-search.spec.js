@@ -47,7 +47,7 @@ test.describe('searching', () => {
         const lines = results(page).locator('a[href*="?line="]');
         await expect(lines).toHaveCount(1);
         await expect(lines).toContainText('Χ95');
-        await expect(lines).toContainText('ΣΥΝΤΑΓΜΑ - ΑΕΡΟΛ. ΑΘΗΝΩΝ');
+        await expect(lines).toContainText('SYNTAGMA - AEROL. ATHINON');
         await expect(page.locator('#search-status')).toHaveText(/Lines: 1/);
     });
 
@@ -105,10 +105,10 @@ test('a line: its stops in order, nearest marked, nothing asked until a stop is 
     await page.goto('/buses?line=040');
     await expect(page.getByRole('heading', { name: /040/ })).toBeVisible();
     const items = page.locator('.stop-item');
-    await expect(items).toHaveCount(35);
-    // It starts at Syntagma (10341), near where the test stands; the stop
-    // nearest is marked and on screen
-    await expect(items.first()).toHaveAttribute('data-stop', '10341');
+    // OASA's first way, to Syntagma: it ends at 10341, near where the test
+    // stands; the stop nearest is marked and on screen
+    await expect(items).toHaveCount(38);
+    await expect(items.last()).toHaveAttribute('data-stop', '10341');
     const nearest = page.locator('.stop-nearest');
     await expect(nearest).toHaveCount(1);
     await expect(nearest).toContainText('Nearest to you');
@@ -125,17 +125,18 @@ test('a line: its stops in order, nearest marked, nothing asked until a stop is 
     expect(new Set(asked.map(a => a.code))).toEqual(new Set([code]));
     expect(asked.length).toBeGreaterThanOrEqual(3);
 
-    const back = page.getByRole('button', { name: /To ΣΥΝΤΑΓΜΑ/ });
-    await expect(page.getByRole('button', { name: /To ΠΕΙΡΑΙΑΣ/ })).toHaveAttribute('aria-pressed', 'true');
+    // The other way, named in the page's language
+    const back = page.getByRole('button', { name: 'To PEIRAIAS' });
+    await expect(page.getByRole('button', { name: 'To SYNTAGMA' })).toHaveAttribute('aria-pressed', 'true');
     await back.click();
     await expect(page).toHaveURL(/\/buses\?line=040&dir=1$/);
-    await expect(page.getByRole('button', { name: /To ΣΥΝΤΑΓΜΑ/ })).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByRole('button', { name: /To ΣΥΝΤΑΓΜΑ/ })).toBeFocused();
-    await expect(items).toHaveCount(36);
-    await expect(items.last()).toHaveAttribute('data-stop', '10341');
-    // A stop's line links to the line; a line's stop opens its times
-    await items.last().locator('.stop-toggle').click();
-    await expect(items.last().locator('.arrival-row').first()).toBeVisible();
+    await expect(back).toHaveAttribute('aria-pressed', 'true');
+    await expect(back).toBeFocused();
+    await expect(items).toHaveCount(38);
+    await expect(items.first()).toHaveAttribute('data-stop', '10341');
+    // A line's stop opens its times
+    await items.first().locator('.stop-toggle').click();
+    await expect(items.first().locator('.arrival-row').first()).toBeVisible();
 });
 
 test('Back and Forward move between the views; a shared address opens the same view', async ({ page }) => {

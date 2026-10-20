@@ -45,6 +45,14 @@ function checkFeed(feed, problems) {
     else if (feed.validFrom > feed.validTo) problems.push(`feed: validFrom ${feed.validFrom} is after validTo ${feed.validTo}`);
 }
 
+/** @param {any} fetched @param {string[]} problems */
+function checkFetched(fetched, problems) {
+    if (typeof fetched !== 'string' || Number.isNaN(Date.parse(fetched))) problems.push('fetched must be when the network was fetched (an ISO time)');
+}
+
+// Text in both languages
+const names = value => typeof value?.el === 'string' && value.el !== '' && typeof value?.en === 'string' && value.en !== '';
+
 /** @param {any} rail @returns {string[]} */
 function checkRail(rail) {
     const problems = [];
@@ -106,7 +114,7 @@ function checkTimetable(where, t, stopCount, problems) {
 function checkBus(bus) {
     const problems = [];
     if (typeof bus?.schema !== 'number') return ['bus-stops.json: no schema number'];
-    checkFeed(bus.feed, problems);
+    checkFetched(bus.fetched, problems);
     if (JSON.stringify(bus.fields) !== JSON.stringify(['code', 'lat', 'lng', 'el', 'en', 'lines'])) problems.push('fields must be code, lat, lng, el, en, lines');
     const stops = Array.isArray(bus.stops) ? bus.stops : [];
     if (!stops.length) problems.push('no stops');
@@ -129,7 +137,7 @@ function checkBus(bus) {
 function checkBusLines(bus) {
     const problems = [];
     if (typeof bus?.schema !== 'number') return ['bus-lines.json: no schema number'];
-    checkFeed(bus.feed, problems);
+    checkFetched(bus.fetched, problems);
     const lines = Array.isArray(bus.lines) ? bus.lines : [];
     if (!lines.length) problems.push('no lines');
     const seen = new Set();
@@ -138,11 +146,11 @@ function checkBusLines(bus) {
         if (typeof entry?.line !== 'string' || !entry.line) problems.push(`${which}: needs its number`);
         else if (seen.has(entry.line)) problems.push(`${which}: listed twice`);
         seen.add(entry?.line);
-        if (typeof entry?.name !== 'string') problems.push(`${which}: the name must be text (it may be empty)`);
+        if (!names(entry?.name)) problems.push(`${which}: needs its name in Greek and English`);
         const directions = Array.isArray(entry?.directions) ? entry.directions : [];
         if (directions.length < 1 || directions.length > 2) problems.push(`${which}: needs one or two directions`);
         directions.forEach((d, i) => {
-            if (typeof d?.to !== 'string' || !d.to) problems.push(`${which}, direction ${i}: needs where it goes`);
+            if (!names(d?.to)) problems.push(`${which}, direction ${i}: needs where it goes, in Greek and English`);
             const stops = Array.isArray(d?.stops) ? d.stops : [];
             if (stops.length < 2) problems.push(`${which}, direction ${i}: fewer than two stops`);
             if (stops.some(code => typeof code !== 'string' || !STOP_CODE.test(code))) problems.push(`${which}, direction ${i}: stop codes must be numeric`);

@@ -101,7 +101,7 @@ test('every arrival is listed; an unknown line or destination says so', async ()
 
 test('names from OASA and what was typed are escaped', async () => {
     const { arrivalRows, lineHeader, searchResults, searchStatus, stopItem } = await browserModule('tools/buses/client/render.js', 'en');
-    const evil = { line: '<b>', name: '<img src=x onerror=alert(1)>', directions: [{ to: '<b>', stops: [] }, { to: '<img src=x>', stops: [] }] };
+    const evil = { line: '<b>', name: { el: '<img src=x onerror=alert(1)>', en: '<img src=x onerror=alert(1)>' }, directions: [{ to: { el: '<b>', en: '<b>' }, stops: [] }, { to: { el: '<img src=x>', en: '<img src=x>' }, stops: [] }] };
     const html = String(arrivalRows({ arrivals: [{ line: '<b>', to: { en: '<img src=x onerror=alert(1)>' }, minutes: 1 }] }))
         + String(stopItem({ ...stop, name: { en: 'A & <B>' }, lines: ['<b>'] }, 0))
         + String(searchResults([evil], [{ ...stop, name: { en: 'A & <B>' }, lines: ['<b>'] }], 20))
@@ -129,8 +129,11 @@ test('a stop row without a location has no distance; opened and nearest when ask
     assert.match(spoken(opened.match(/<button[^]*?<\/button>/)[0]), /stop code 10361\s*,\s*Nearest to you/);
 });
 
-const line = { line: '040', name: 'ΠΕΙΡΑΙΑΣ - ΣΥΝΤΑΓΜΑ', directions: [{ to: 'ΠΕΙΡΑΙΑΣ', stops: ['10341', '1'] }, { to: 'ΣΥΝΤΑΓΜΑ', stops: ['1', '10341'] }] };
-const circular = { line: 'Κ1', name: '', directions: [{ to: 'ΚΥΚΛΟΣ', stops: ['5', '6'] }] };
+const line = {
+    line: '040', name: { el: 'ΠΕΙΡΑΙΑΣ - ΣΥΝΤΑΓΜΑ', en: 'PEIRAIAS - SYNTAGMA' },
+    directions: [{ to: { el: 'ΠΕΙΡΑΙΑΣ', en: 'PEIRAIAS' }, stops: ['10341', '1'] }, { to: { el: 'ΣΥΝΤΑΓΜΑ', en: 'SYNTAGMA' }, stops: ['1', '10341'] }],
+};
+const circular = { line: 'Κ1', name: { el: 'ΚΥΚΛΟΣ', en: 'KYKLOS' }, directions: [{ to: { el: 'ΚΥΚΛΟΣ', en: 'KYKLOS' }, stops: ['5', '6'] }] };
 
 for (const lang of ['en', 'el']) {
     test(`${lang}: search results, the line header and the way back are accessible and fully translated`, async () => {
@@ -154,14 +157,13 @@ test('a found stop says its name, code, distance and lines, all in its link', as
     assert.equal(spoken(String(stopResult(somewhere))).replace(/\s+/g, ' ').trim(), 'SYNTAGMA , stop code 10361 , Lines: 040, Χ95');
 });
 
-test('a found line: its number and its Greek name, marked as Greek on the English page', async () => {
+test('a found line: its number and its name in the page\'s language', async () => {
     const en = await browserModule('tools/buses/client/render.js', 'en');
     const el = await browserModule('tools/buses/client/render.js', 'el');
     const html = String(en.lineResult(line));
     assert.match(html, /href="\/buses\?line=040"/);
-    assert.match(html, /<span lang="el">ΠΕΙΡΑΙΑΣ - ΣΥΝΤΑΓΜΑ<\/span>/);
-    assert.equal(spoken(html).replace(/\s+/g, ' ').trim(), 'Line 040, ΠΕΙΡΑΙΑΣ - ΣΥΝΤΑΓΜΑ');
-    assert.doesNotMatch(String(el.lineResult(line)), /lang="el"/);
+    assert.equal(spoken(html).replace(/\s+/g, ' ').trim(), 'Line 040, PEIRAIAS - SYNTAGMA');
+    assert.equal(spoken(String(el.lineResult(line))).replace(/\s+/g, ' ').trim(), 'Γραμμή 040, ΠΕΙΡΑΙΑΣ - ΣΥΝΤΑΓΜΑ');
     assert.match(String(el.lineResult(line)), /href="\/el\/buses\?line=040"/);
 });
 
@@ -189,10 +191,10 @@ test('the line header: back, the line, and a switch between its two directions',
     assert.match(html, /<a class="[^"]*back-link" href="\/buses" data-view>/);
     assert.match(html, /<h2 class="line-heading[^"]*" tabindex="-1">/);
     assert.match(html, /role="group" aria-label="Direction"/);
-    assert.deepEqual([...html.matchAll(/data-direction="(\d)" aria-pressed="(\w+)">([^]*?)<\/button>/g)].map(m => [m[1], m[2], spoken(m[3])]), [['0', 'false', 'To ΠΕΙΡΑΙΑΣ'], ['1', 'true', 'To ΣΥΝΤΑΓΜΑ']]);
+    assert.deepEqual([...html.matchAll(/data-direction="(\d)" aria-pressed="(\w+)">([^]*?)<\/button>/g)].map(m => [m[1], m[2], spoken(m[3])]), [['0', 'false', 'To PEIRAIAS'], ['1', 'true', 'To SYNTAGMA']]);
     // A circular line has one direction: no switch
     const one = String(lineHeader(circular, 0));
     assert.doesNotMatch(one, /data-direction/);
-    assert.match(spoken(one), /To ΚΥΚΛΟΣ/);
+    assert.match(spoken(one), /To KYKLOS/);
 });
 

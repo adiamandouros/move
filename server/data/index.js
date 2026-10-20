@@ -8,10 +8,12 @@ import dotenv from 'dotenv';
 import { loadConfig, userAgentFor } from '../config.js';
 import { readJson } from '../files.js';
 import { athensToday } from './calendar.js';
-import { buildBus, buildBusLines, readBusFeed } from './build-bus.js';
+import { buildBusLines, buildBusStops } from './build-bus.js';
 import { buildRail } from './build-rail.js';
 import { checkOutput, shrinkage } from './check-output.js';
+import { createOasaClient } from '../oasa/client.js';
 import { applyOverlay, pruneOverlay, readOverlay, writeOverlay } from './overlay.js';
+import { liveNetwork } from './oasa-network.js';
 import { fetchSources } from './sources.js';
 import { validateCurated } from './validate.js';
 
@@ -44,21 +46,19 @@ const LOCK_STALE_MS = 30 * 60_000;
 // Exit code of the CLI (below) when another build holds the lock
 const BUSY_EXIT_CODE = 3;
 
-// `run` is shared by one build's outputs: both bus files read the bus feed
-// once (run.bus), as it's 220 MB
-const busFeed = (src, run) => (run.bus ??= readBusFeed(src.bus.dir));
 const OUTPUTS = {
     'rail.json': {
         sources: ['rail'],
         build: (src, curated, today) => buildRail({ dir: src.rail.dir, curated, today }),
     },
+    // From OASA's live API (oasa-network.js), not its open-data timetable, which falls behind
     'bus-stops.json': {
-        sources: ['bus'],
-        build: async (src, curated, today, run) => buildBus({ dir: src.bus.dir, stopTablePath: src.stopTable.files?.['stops_all.csv'], today, feed: await busFeed(src, run) }),
+        sources: ['network'],
+        build: src => buildBusStops(src.network.data),
     },
     'bus-lines.json': {
-        sources: ['bus'],
-        build: async (src, curated, today, run) => buildBusLines({ dir: src.bus.dir, today, feed: await busFeed(src, run) }),
+        sources: ['network'],
+        build: src => buildBusLines(src.network.data),
     },
 };
 
@@ -66,10 +66,12 @@ const OUTPUTS = {
 // feed or a curated file changed, the builder changed, or the day changed
 // (the weekly timetable is chosen relative to today). An output that fails to
 // build keeps its previous version; the failure is recorded in meta.json.
-// `userAgent` is what the portal sees us as (config.userAgent). The other
-// options are for tests: their own data folder and curated files, a fake
-// portal (`fetch`), a fixed day (`today`, 'YYYYMMDD') and the builder's
-// fingerprint.
+// `userAgent` is what the portal sees us as (config.userAgent). `oasa` asks
+// OASA's live API for the bus network (request(act, p1), server/oasa/client.js;
+// without it the kept network is used). The other options are for tests:
+// their own data folder and curated files, a fake portal (`fetch`), a fixed
+// day (`today`, 'YYYYMMDD'), the clock and pause between OASA requests
+// (`now`, `sleep`) and the builder's fingerprint.
 export async function runBuild({
     force = false,
     offline = false,
@@ -78,7 +80,10 @@ export async function runBuild({
     overlayFile = OVERLAY_FILE,
     fetch = globalThis.fetch,
     userAgent = userAgentFor(null),
+    oasa = null,
     today = athensToday(),
+    now = Date.now,
+    sleep = undefined,
     log = console.log,
     builder = builderFingerprint(),
 } = {}) {
@@ -94,6 +99,8 @@ export async function runBuild({
         if (check.errors.length) throw new Error(`Curated data has errors:\n  ${check.errors.join('\n  ')}`);
 
         const sources = await fetchSources({ rawDir: dirs.raw, offline, log, fetch, userAgent });
+        const network = await liveNetwork({ rawDir: dirs.raw, request: oasa, offline, now, sleep, log });
+        sources.network = { data: network.network, modified: network.network?.fetched ?? null, error: network.error };
         const fingerprint = {
             builder,
             curated: curated.hash,
@@ -111,14 +118,13 @@ export async function runBuild({
         rmSync(dirs.next, { recursive: true, force: true });
         mkdirSync(dirs.next, { recursive: true });
         const meta = { generated: new Date().toISOString(), fingerprint, warnings: check.warnings, outputs: {} };
-        const run = {};
 
         for (const [name, output] of Object.entries(OUTPUTS)) {
             const started = Date.now();
             try {
                 const missing = output.sources.filter(s => sources[s].error);
                 if (missing.length) throw new Error(`source unavailable: ${missing.map(s => `${s} (${sources[s].error})`).join(', ')}`);
-                const { data, warnings } = await output.build(sources, curated.data, today, run);
+                const { data, warnings } = await output.build(sources, curated.data, today);
                 // Never replace a good file with a broken or much smaller one (--force accepts a smaller one)
                 const problems = [...checkOutput(name, data), ...(force ? [] : shrinkage(name, data, readJson(join(dirs.build, name))))];
                 if (problems.length) throw new Error(`failed its checks: ${problems.join('; ')}`);
@@ -260,7 +266,11 @@ function isRunning(pid) {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
     dotenv.config();
     const args = new Set(process.argv.slice(2));
-    runBuild({ force: args.has('--force'), offline: args.has('--offline'), userAgent: loadConfig().userAgent })
+    const config = loadConfig();
+    const offline = args.has('--offline');
+    // The bus network comes the way live times do: directly, or through the relays
+    const oasa = offline ? null : createOasaClient({ relays: config.relays, userAgent: config.userAgent }).request;
+    runBuild({ force: args.has('--force'), offline, userAgent: config.userAgent, oasa })
         .then(meta => {
             const failed = meta && Object.values(meta.outputs).some(o => !o.ok);
             process.exitCode = meta === null ? BUSY_EXIT_CODE : failed ? 1 : 0;
