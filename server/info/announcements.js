@@ -2,6 +2,7 @@ import express from 'express';
 import { safeUrl } from '../../public/js/core/html.js';
 import { userAgentFor } from '../config.js';
 import { readJson, writeFileAtomic } from '../files.js';
+import { createStasyClient } from '../stasy.js';
 
 // Service announcements for the info page, from the operators' own websites:
 //   - OASA (buses, trolleys and general notices): its RSS feeds, in Greek and English
@@ -10,19 +11,13 @@ import { readJson, writeFileAtomic } from '../files.js';
 // Fetched only when someone asks and the copy is older than REFRESH_MS, so an
 // idle app sends nothing; a failing source keeps serving its last good copy.
 // The copy is kept in `cacheFile`, so a restart doesn't start from nothing.
-//
-// STASY refuses the live server's data-centre address (403), so its pages can
-// also come through the relays (proxy/worker.js, act=stasyPage), like OASA's
-// live API. After a refusal, direct access rests for a day.
+// STASY's pages come directly or through the relays (server/stasy.js).
 
 const REFRESH_MS = 15 * 60_000;
 const TIMEOUT_MS = 15_000;
 const MAX_AGE_MS = 30 * 86_400_000;   // older announcements are dropped
 const MAX_ITEMS = 8;                  // per source and language
 const DISRUPTION_AGE_MS = 7 * 86_400_000;
-const DIRECT_REST_MS = 24 * 3_600_000;
-// Longer than the relay's own 20 s limit for STASY, so it reports a failure first
-const RELAY_TIMEOUT_MS = 25_000;
 
 const SOURCES = {
     oasaEl: 'https://www.oasa.gr/feed/',
@@ -105,8 +100,7 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
     let refreshing = null;
     // Per source, for the diagnostics: { ok, at, error, route }
     const health = {};
-    let stasyDirectRestUntil = 0;
-    let stasyRoute = null;
+    const stasy = createStasyClient({ fetch, now, relays, userAgent });
 
     async function get(url) {
         const res = await fetch(url, { headers: { 'User-Agent': userAgent }, signal: AbortSignal.timeout(TIMEOUT_MS) });
@@ -114,42 +108,12 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
         return res.text();
     }
 
-    // A STASY page: directly, or through the relays (which take one path segment)
-    async function getStasy(url) {
-        const errors = [];
-        if (now() >= stasyDirectRestUntil) {
-            try {
-                const body = await get(url);
-                stasyRoute = 'direct';
-                return body;
-            } catch (err) {
-                errors.push(`direct: ${err.message}`);
-                if (relays.length) stasyDirectRestUntil = now() + DIRECT_REST_MS;
-            }
-        }
-        const path = new URL(url).pathname.replace(/^\/|\/$/g, '');
-        for (const relay of path && !path.includes('/') ? relays : []) {
-            try {
-                const res = await fetch(`${relay.url}?act=stasyPage&path=${encodeURIComponent(path)}`, {
-                    headers: { 'X-Relay-Key': relay.key, 'User-Agent': userAgent },
-                    signal: AbortSignal.timeout(RELAY_TIMEOUT_MS),
-                });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                stasyRoute = relay.name;
-                return await res.text();
-            } catch (err) {
-                errors.push(`${relay.name}: ${err.message}`);
-            }
-        }
-        throw new Error(errors.join('; ') || 'direct access is resting and there are no relays');
-    }
-
     async function loadStasy() {
-        const posts = parseStasyList(await getStasy(SOURCES.stasy));
+        const posts = parseStasyList(await stasy.page(SOURCES.stasy));
         // Only the newest few are shown, so only they need a date
         const recent = posts.slice(0, MAX_ITEMS);
         for (const post of recent) {
-            if (!(post.link in state.dates)) state.dates[post.link] = parseStasyDate(await getStasy(post.link));
+            if (!(post.link in state.dates)) state.dates[post.link] = parseStasyDate(await stasy.page(post.link));
         }
         // Forget dates of posts that have left the list
         state.dates = Object.fromEntries(recent.map(p => [p.link, state.dates[p.link]]));
@@ -166,7 +130,7 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
         await Promise.all(Object.entries(loaders).map(async ([name, load]) => {
             try {
                 state[name] = { items: await load(), updated: new Date(now()).toISOString() };
-                health[name] = { ok: true, at: now(), route: name === 'stasy' ? stasyRoute : 'direct' };
+                health[name] = { ok: true, at: now(), route: name === 'stasy' ? stasy.route : 'direct' };
             } catch (err) {
                 health[name] = { ok: false, at: now(), error: err.message };
                 log(`[announcements] ${name}: ${err.message}`);

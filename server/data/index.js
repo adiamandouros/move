@@ -15,6 +15,8 @@ import { createOasaClient } from '../oasa/client.js';
 import { applyOverlay, pruneOverlay, readOverlay, writeOverlay } from './overlay.js';
 import { liveNetwork } from './oasa-network.js';
 import { fetchSources } from './sources.js';
+import { stasyTables } from './stasy.js';
+import { createStasyClient } from '../stasy.js';
 import { validateCurated } from './validate.js';
 
 const DATA_DIR    = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'data');
@@ -49,7 +51,8 @@ const BUSY_EXIT_CODE = 3;
 const OUTPUTS = {
     'rail.json': {
         sources: ['rail'],
-        build: (src, curated, today) => buildRail({ dir: src.rail.dir, curated, today }),
+        // STASY's first and last trains when there's a copy (stasy.js); without one, the GTFS's
+        build: (src, curated, today) => buildRail({ dir: src.rail.dir, curated, today, stasy: src.stasy.data }),
     },
     // From OASA's live API (oasa-network.js), not its open-data timetable, which falls behind
     'bus-stops.json': {
@@ -68,7 +71,8 @@ const OUTPUTS = {
 // build keeps its previous version; the failure is recorded in meta.json.
 // `userAgent` is what the portal sees us as (config.userAgent). `oasa` asks
 // OASA's live API for the bus network (request(act, p1), server/oasa/client.js;
-// without it the kept network is used). The other options are for tests:
+// without it the kept network is used), and `stasy` STASY's site for its
+// timetables (server/stasy.js; without it, the kept copy). The other options are for tests:
 // their own data folder and curated files, a fake portal (`fetch`), a fixed
 // day (`today`, 'YYYYMMDD'), the clock and pause between OASA requests
 // (`now`, `sleep`) and the builder's fingerprint.
@@ -81,6 +85,7 @@ export async function runBuild({
     fetch = globalThis.fetch,
     userAgent = userAgentFor(null),
     oasa = null,
+    stasy = null,
     today = athensToday(),
     now = Date.now,
     sleep = undefined,
@@ -101,6 +106,8 @@ export async function runBuild({
         const sources = await fetchSources({ rawDir: dirs.raw, offline, log, fetch, userAgent });
         const network = await liveNetwork({ rawDir: dirs.raw, request: oasa, offline, now, sleep, log });
         sources.network = { data: network.network, modified: network.network?.fetched ?? null, error: network.error };
+        const timetables = await stasyTables({ rawDir: dirs.raw, client: stasy, stations: curated.data.stations.stations, offline, now, sleep, log });
+        sources.stasy = { data: timetables.copy, modified: timetables.copy?.fetched ?? null, error: timetables.error };
         const fingerprint = {
             builder,
             curated: curated.hash,
@@ -268,9 +275,11 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const args = new Set(process.argv.slice(2));
     const config = loadConfig();
     const offline = args.has('--offline');
-    // The bus network comes the way live times do: directly, or through the relays
+    // The bus network comes the way live times do, and STASY's timetables the way
+    // its announcements do: directly, or through the relays
     const oasa = offline ? null : createOasaClient({ relays: config.relays, userAgent: config.userAgent }).request;
-    runBuild({ force: args.has('--force'), offline, userAgent: config.userAgent, oasa })
+    const stasy = offline ? null : createStasyClient({ relays: config.relays, userAgent: config.userAgent });
+    runBuild({ force: args.has('--force'), offline, userAgent: config.userAgent, oasa, stasy })
         .then(meta => {
             const failed = meta && Object.values(meta.outputs).some(o => !o.ok);
             process.exitCode = meta === null ? BUSY_EXIT_CODE : failed ? 1 : 0;

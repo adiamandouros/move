@@ -19,9 +19,11 @@ There are two relays, and the server tries the routes in this order:
    Raspberry Pi. Its requests come from a Greek connection, so it works.
 
 The relays also carry **STASY's pages** (its news page and posts, for the
-metro and tram announcements on the home and info pages): STASY answers the
+metro and tram announcements on the home and info pages, and its timetable
+pages for metro lines 1–3, for the first and last trains): STASY answers the
 server with 403, as it refuses data-centre addresses. Only single-segment
-paths on www.stasy.gr are relayed (`?act=stasyPage&path=…`). The app tries
+paths on www.stasy.gr (`?act=stasyPage&path=…`) and the three Greek
+timetable pages (`?act=stasyTimetable&line=1|2|3`) are relayed. The app tries
 STASY directly first; after a refusal it uses the relays for a day. The
 home relay gzips large answers (STASY's news page: 1.1 MB → about 110 KB).
 **STASY** on `/admin/diagnostics` shows the route it came through.
@@ -195,7 +197,8 @@ sudo git -C /opt/move pull && sudo systemctl restart move-relay
 
 Do this after any change to `proxy/` (e.g. October 2026: STASY pages; then
 version 3, the calls the nightly data build makes for the bus network:
-webGetLines, webGetRoutes, webGetStops). If `/admin/diagnostics` says "The
+webGetLines, webGetRoutes, webGetStops; then version 4, STASY's timetable
+pages). If `/admin/diagnostics` says "The
 relay doesn't know STASY pages yet", the relay hasn't been updated.
 
 Every change a deployed relay needs also raises `RELAY_VERSION` in

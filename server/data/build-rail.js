@@ -2,6 +2,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { readCsv, readCsvAll } from './csv.js';
 import { DAY_NAMES, isoDate, pickWeek, serviceDates, toSeconds } from './calendar.js';
+import { applyHours } from './stasy.js';
 import { POSITIONS } from './validate.js';
 
 // Build rail.json — everything the subway page needs, offline:
@@ -9,11 +10,12 @@ import { POSITIONS } from './validate.js';
 // {
 //   schema, generated,
 //   feed:      { validFrom, validTo, week: { sun: 'YYYY-MM-DD', … } }   ← dates the weekly timetable was taken from
+//   hours?:    { fetched: 'YYYY-MM-DD' }                                ← the copy of STASY's first and last trains
 //   positions: ['back', …, 'front'],
 //   stations:  { id: { name: { el, en }, coords: [lat, lng], lines: ['M1', …] } },
 //   lines: { M1: { name, color, directions: { kifisia: {
 //       toward: { el, en },
-//       stops:  [{ station, exits, elevators?, centralPlatform?, transfers?, note? }, …],   ← in travel order
+//       stops:  [{ station, exits, elevators?, centralPlatform?, transfers?, note?, hours? }, …],   ← in travel order
 //       timetable: {
 //         profiles: [{ stops: [stopIndex, …], offsets: [seconds from first stop, …] }, …],
 //         patterns: [[[startSeconds, profileIndex], …], …],                              ← one list of trips per distinct day
@@ -25,16 +27,18 @@ import { POSITIONS } from './validate.js';
 // midnight) and reaches stops[profile.stops[i]] at startSeconds + offsets[i].
 // Branches (e.g. M3 trains that end at Doukissis instead of the airport) are
 // simply trips whose profile covers fewer stops. Trains the feed lists twice
-// are kept once (see dropCopies).
+// are kept once (see dropCopies). A stop's `hours` are STASY's first and last
+// trains from there, [{ to, first, last }] (stasy.js, readLine).
 
 export const RAIL_SCHEMA = 1;
 const DAY = 86_400;
 
 /**
- * @param {{ dir: string, curated: any, today: string }} options
+ * stasy: the copy of STASY's timetables (stasy.js, stasyTables), or null
+ * @param {{ dir: string, curated: any, today: string, stasy?: any }} options
  * @returns {Promise<{ data: import('../../types/data.js').Rail, warnings: string[] }>}
  */
-export async function buildRail({ dir, curated, today }) {
+export async function buildRail({ dir, curated, today, stasy = null }) {
     const { stations, lines, positions } = curated;
     const file = name => join(dir, name);
     const warnings = [];
@@ -168,6 +172,8 @@ export async function buildRail({ dir, curated, today }) {
         };
     }
 
+    const hoursFetched = applyHours(out, stasy, stations.stations, warnings);
+
     const allDates = [...dateServices.keys()].sort();
     const validTo = allDates.at(-1);
     if (validTo < today) warnings.push(`Rail feed expired on ${isoDate(validTo)}; using the timetable of its last full week`);
@@ -181,6 +187,7 @@ export async function buildRail({ dir, curated, today }) {
                 validTo: isoDate(validTo),
                 week: Object.fromEntries(week.map((d, wd) => [DAY_NAMES[wd], isoDate(d)])),
             },
+            ...(hoursFetched && { hours: { fetched: hoursFetched } }),
             positions: POSITIONS,
             stations: stationsOut,
             lines: out,

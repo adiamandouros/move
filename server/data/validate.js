@@ -1,3 +1,5 @@
+import { stasyNameKey } from './stasy.js';
+
 // Car positions, ordered from the back of the train to the front.
 /** @type {import('../../types/data.js').Position[]} */
 export const POSITIONS = ['back', 'center-back', 'center', 'center-front', 'front'];
@@ -19,6 +21,18 @@ export function validateCurated({ stations, lines, positions }) {
         for (const code of s.gtfs ?? []) {
             if (seenCodes.has(code)) errors.push(`stations.json: gtfs code ${code} is used by both ${seenCodes.get(code)} and ${id}`);
             seenCodes.set(code, id);
+        }
+        if (s.stasy !== undefined && (!Array.isArray(s.stasy) || s.stasy.some(name => typeof name !== 'string' || !name.trim()))) {
+            errors.push(`stations.json: ${id}.stasy must be a list of names`);
+        }
+    }
+    // How STASY writes a name must lead to one station
+    const named = new Map();
+    for (const [id, s] of Object.entries(stations.stations ?? {})) {
+        for (const name of [s.name?.el, ...(Array.isArray(s.stasy) ? s.stasy : [])].filter(n => typeof n === 'string')) {
+            const key = stasyNameKey(name);
+            if (named.has(key) && named.get(key) !== id) errors.push(`stations.json: the name "${name}" is used by both ${named.get(key)} and ${id}`);
+            named.set(key, id);
         }
     }
 

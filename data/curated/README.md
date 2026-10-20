@@ -56,6 +56,12 @@ fails with "Rail stops not mapped to any station" and names the code: add it to
 the right station, or to `ignoreGtfs` if it isn't a real station (e.g. the
 `CT_PLK` link track at Doukissis Plakentias).
 
+`stasy` (optional) lists how STASY's timetable pages write the station's name,
+when that isn't its Greek name: case, accents, dots and spaces don't matter,
+nor Latin letters that look Greek. If STASY writes a name the build doesn't
+know, the line's first and last trains come from the GTFS and the build warns
+'unknown station "…"': add the name here.
+
 ## lines.json — lines and directions
 
 Colours, names and direction names. `gtfsDirection` is the feed's

@@ -77,3 +77,13 @@ test('refuses STASY paths that could reach anything else', async () => {
     }
     assert.equal(upstream.length, 0);
 });
+
+test('relays STASY\'s Greek timetable page for metro lines 1 to 3, and nothing else', async () => {
+    for (const line of ['1', '2', '3']) assert.equal((await call(`?act=stasyTimetable&line=${line}`)).status, 200, line);
+    assert.deepEqual(upstream.map(u => decodeURI(u.url)), [1, 2, 3].map(n => `https://www.stasy.gr/δρομολόγια/γραμμή-${n}/`));
+    for (const line of ['', '0', '4', '12', '1/..', 'a']) {
+        assert.equal((await call(`?act=stasyTimetable&line=${encodeURIComponent(line)}`)).status, 400, JSON.stringify(line));
+    }
+    assert.equal((await call('?act=stasyTimetable&line=1', {})).status, 401);
+    assert.equal(upstream.length, 3);
+});

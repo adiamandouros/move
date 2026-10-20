@@ -18,6 +18,8 @@ export interface Rail {
     generated: string;
     /** The dates the weekly timetable was taken from, as YYYY-MM-DD */
     feed: { validFrom: string; validTo: string; week: Record<string, string> };
+    /** The copy of STASY's first and last trains the stops' `hours` come from (YYYY-MM-DD); absent when none do */
+    hours?: { fetched: string };
     positions: Position[];
     /** By station id, e.g. "syntagma" */
     stations: Record<string, Station>;
@@ -58,6 +60,20 @@ export interface Stop {
     /** "<line>/<direction>" → where to ride for that connection */
     transfers?: Record<string, Position[]>;
     note?: string;
+    /** STASY's first and last trains from here, by where they go (server/data/stasy.js); absent: use the timetable's */
+    hours?: Hours[];
+}
+
+/**
+ * First and last trains from a stop to `to` (a station further on), counting
+ * every train that goes at least that far. A value for each weekday (0 =
+ * Sunday): seconds since that day's midnight (more than 86400 after
+ * midnight), or null when the trains run all night.
+ */
+export interface Hours {
+    to: string;
+    first: (number | null)[];
+    last: (number | null)[];
 }
 
 /**

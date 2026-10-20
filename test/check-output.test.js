@@ -19,6 +19,17 @@ test('the real rail.json, bus-stops.json and bus-lines.json pass', () => {
     assert.deepEqual(checkOutput('bus-lines.json', lines()), []);
 });
 
+// A time for each day, all night on Saturday
+const WEEK = [19_800, 19_800, 19_800, 19_800, 19_800, 19_800, null];
+
+test('STASY\'s first and last trains on the stops pass when they\'re right', () => {
+    const r = rail();
+    r.hours = { fetched: '2026-10-01' };
+    const stops = Object.values(r.lines.M2.directions)[0].stops;
+    stops[0].hours = [{ to: stops[1].station, first: WEEK, last: WEEK }, { to: stops.at(-1).station, first: WEEK, last: WEEK }];
+    assert.deepEqual(checkOutput('rail.json', r), []);
+});
+
 const broken = {
     'rail.json': [
         ['no schema', r => { delete r.schema; }, /no schema number/],
@@ -36,6 +47,10 @@ const broken = {
         ['a profile pointing past the last stop', r => { Object.values(r.lines.M1.directions)[0].timetable.profiles[0].stops[0] = 999; }, /points at a stop that doesn't exist/],
         ['a profile going back in time', r => { Object.values(r.lines.M1.directions)[0].timetable.profiles[0].offsets.reverse(); }, /goes back in time/],
         ['no trips at all', r => { const t = Object.values(r.lines.M1.directions)[0].timetable; t.patterns = t.patterns.map(() => []); }, /no trips on any day/],
+        ['STASY\'s copy without its date', r => { r.hours = { fetched: 'recently' }; }, /hours\.fetched must be YYYY-MM-DD/],
+        ['first and last trains to a stop behind', r => { const stops = Object.values(r.lines.M2.directions)[0].stops; stops[1].hours = [{ to: stops[0].station, first: WEEK, last: WEEK }]; }, /hours to .*, which isn't further on/],
+        ['first and last trains for six days', r => { const stops = Object.values(r.lines.M2.directions)[0].stops; stops[0].hours = [{ to: stops[1].station, first: WEEK.slice(1), last: WEEK }]; }, /need a first time or null for each of the 7 days/],
+        ['first and last trains as text', r => { const stops = Object.values(r.lines.M2.directions)[0].stops; stops[0].hours = [{ to: stops[1].station, first: WEEK, last: Array(7).fill('00:30') }]; }, /need a last time or null for each of the 7 days/],
     ],
     'bus-stops.json': [
         ['other fields', b => { b.fields = ['code', 'lat', 'lng']; }, /fields must be/],

@@ -18,7 +18,8 @@ only for what needs one.
 
 Shared pieces:
 - `fixtures/`: small feeds and data (`gtfs.js` also writes RAR archives and
-  fakes the open-data portal; `rail.js` is a tiny metro network).
+  fakes the open-data portal; `rail.js` is a tiny metro network; `stasy.js`
+  writes STASY's timetable pages).
 - `support/test-site.js`: the real app with test data, a fake OASA and fake
   announcement sources, plus copies of it where things go wrong
   (`scenarios()`). The browser tests and `server.test.js` both use it.

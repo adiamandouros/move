@@ -1,6 +1,7 @@
-import { join } from 'path';
+import { dirname, join } from 'path';
 import express from 'express';
 import { RELAY_VERSION } from '../proxy/worker.js';
+import { stasyFetchFile } from './data/stasy.js';
 import { readJson } from './files.js';
 import { athensDate } from '../tools/subway/client/network.js';
 
@@ -13,6 +14,8 @@ import { athensDate } from '../tools/subway/client/network.js';
 //     since the server started, has announcements kept from before)
 //   - data: last night's build worked, and the metro timetable doesn't end
 //     within TIMETABLE_WARN_DAYS
+//   - stasy: STASY's timetable pages could be read on the last try, and the
+//     copy of them in use is at most STASY_STALE_DAYS old (server/data/stasy.js)
 //   - relays: each one runs the current RELAY_VERSION (proxy/worker.js)
 // It's public, so it says what's wrong in plain words but leaves out
 // addresses, keys and error details (those are on /admin/diagnostics).
@@ -21,6 +24,8 @@ import { athensDate } from '../tools/subway/client/network.js';
 const ARRIVALS_FRESH_MS = 10 * 60_000;
 const BUILD_MAX_AGE_MS = 36 * 3_600_000;
 const TIMETABLE_WARN_DAYS = 7;
+// Three fetches missed (one every 14 days)
+const STASY_STALE_DAYS = 45;
 const RELAY_TIMEOUT_MS = 5_000;
 // Answers are kept this long, so the page can't be used to load the relays
 const CACHE_MS = 60_000;
@@ -30,13 +35,13 @@ const DAY_MS = 86_400_000;
  * @param {{
  *   busStatus: () => { routes: { name: string, lastOk: number | null }[] },
  *   announcementStatus: () => Record<string, { ok?: boolean, items?: number }>,
- *   buildDir: string,
+ *   buildDir: string, rawDir?: string,
  *   relays?: { name: string, url: string, key: string }[],
  *   fetch?: typeof globalThis.fetch,
  *   now?: () => number,
  * }} options
  */
-export function createHealth({ busStatus, announcementStatus, buildDir, relays = [], fetch = globalThis.fetch, now = Date.now }) {
+export function createHealth({ busStatus, announcementStatus, buildDir, rawDir = join(dirname(buildDir), 'raw'), relays = [], fetch = globalThis.fetch, now = Date.now }) {
     const buildFile = name => readJson(join(buildDir, name));
 
     function arrivals() {
@@ -70,6 +75,13 @@ export function createHealth({ busStatus, announcementStatus, buildDir, relays =
         };
     }
 
+    function stasy() {
+        const unreadable = Boolean(readJson(stasyFetchFile(rawDir))?.unreadable);
+        const fetched = buildFile('rail.json')?.hours?.fetched ?? null;
+        const daysOld = fetched ? Math.round((Date.parse(athensDate(new Date(now()))) - Date.parse(fetched)) / DAY_MS) : null;
+        return { ok: !unreadable && !(daysOld > STASY_STALE_DAYS), fetched, daysOld, unreadable };
+    }
+
     async function relayVersions() {
         return Object.fromEntries(await Promise.all(relays.map(async relay => {
             let version = null;
@@ -82,7 +94,7 @@ export function createHealth({ busStatus, announcementStatus, buildDir, relays =
     }
 
     async function check() {
-        const result = { arrivals: arrivals(), announcements: announcements(), data: data(), relays: await relayVersions() };
+        const result = { arrivals: arrivals(), announcements: announcements(), data: data(), stasy: stasy(), relays: await relayVersions() };
         const problems = [];
         if (!result.arrivals.ok) problems.push(`Live arrivals: no route to OASA has answered in the past ${ARRIVALS_FRESH_MS / 60_000} minutes`);
         for (const [name, ok] of Object.entries(result.announcements.sources)) {
@@ -93,6 +105,8 @@ export function createHealth({ busStatus, announcementStatus, buildDir, relays =
         if (result.data.timetableDaysLeft !== null && result.data.timetableDaysLeft < TIMETABLE_WARN_DAYS) {
             problems.push(`Timetable: the metro timetable ends on ${result.data.timetableEnds} (in ${result.data.timetableDaysLeft} days) and no newer one has been published yet`);
         }
+        if (result.stasy.unreadable) problems.push('STASY timetables: STASY\'s pages changed and couldn\'t be read on the last try; the last copy is used');
+        else if (!result.stasy.ok) problems.push(`STASY timetables: the copy in use is from ${result.stasy.fetched}, over ${STASY_STALE_DAYS} days old`);
         for (const [name, r] of Object.entries(result.relays)) {
             if (!r.ok) problems.push(`Relay: the ${name} runs ${r.version === null ? 'an older version or is unreachable' : `version ${r.version}`}, not ${RELAY_VERSION}; update it (proxy/README.md)`);
         }
