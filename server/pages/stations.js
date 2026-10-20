@@ -5,7 +5,7 @@ import { readFileSync, statSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
-import { formatDate, localName, walkingUrl } from '../../public/js/core/html.js';
+import { format, formatDate, localName, walkingUrl } from '../../public/js/core/html.js';
 import { centralPlatformBadge, clockTime, exitDiagram, lineBadge, stopNote } from '../../public/js/core/metro.js';
 import { athensDate } from '../../tools/subway/client/network.js';
 import { sendFresh } from '../http.js';
@@ -24,6 +24,7 @@ export const STATION_STRINGS = JSON.parse(readFileSync(join(dirname(fileURLToPat
 export const STATIONS_PATH = '/subway/stations';
 const DAY = 86_400;
 const ALL_NIGHT_GAP = 3600;
+const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
 // Monday first, for grouping days like "Mon–Fri"
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
 
@@ -46,28 +47,79 @@ export function firstAndLast(timetable, index) {
         });
         return times.length ? { first: Math.min(...times), last: Math.max(...times) } : null;
     };
-    const service = [0, 1, 2, 3, 4, 5, 6].map(day);
+    const service = EVERY_DAY.map(day);
     const intoNext = weekday => {
         const today = service[weekday];
         const tomorrow = service[(weekday + 1) % 7];
         return Boolean(today && tomorrow && DAY + tomorrow.first - today.last < ALL_NIGHT_GAP);
     };
+    return groupDays(service.map((times, weekday) => times && {
+        first: intoNext((weekday + 6) % 7) ? null : times.first,
+        last: intoNext(weekday) ? null : times.last,
+    }));
+}
+
+// Each weekday's { first, last } (null: no trains that day), as runs of days
+// that look the same, Monday first: [{ days: [1, 2, 3, 4, 5], first, last }]
+/** @param {({ first: number | null, last: number | null } | null)[]} service */
+export function groupDays(service) {
     const groups = [];
     for (const weekday of WEEK) {
-        if (!service[weekday]) continue;
-        const first = intoNext((weekday + 6) % 7) ? null : service[weekday].first;
-        const last = intoNext(weekday) ? null : service[weekday].last;
+        const times = service[weekday];
+        if (!times) continue;
         const group = groups.at(-1);
-        if (group && group.first === first && group.last === last && group.days.at(-1) === WEEK[WEEK.indexOf(weekday) - 1]) group.days.push(weekday);
-        else groups.push({ days: [weekday], first, last });
+        if (group && group.first === times.first && group.last === times.last && group.days.at(-1) === WEEK[WEEK.indexOf(weekday) - 1]) group.days.push(weekday);
+        else groups.push({ days: [weekday], first: times.first, last: times.last });
     }
     return groups;
+}
+
+// Of STASY's destinations from stop `index` (its `hours`), the one most of
+// its trains go to: each train counts for the furthest of them it reaches.
+// Doukissis at Dimotiko Theatro (the airport trains are fewer), Kifisia at
+// Piraeus (fewer go only as far as Omonia).
+/**
+ * @param {import('../../types/data.js').Hours[]} hours @param {import('../../types/data.js').Direction} direction @param {number} index
+ * @returns {import('../../types/data.js').Hours}
+ */
+export function mainDestination(hours, direction, index) {
+    const order = direction.stops.map(stop => stop.station);
+    const ends = hours.map(h => order.indexOf(h.to));
+    const trains = hours.map(() => 0);
+    const { profiles, patterns, days } = direction.timetable;
+    for (const day of days) {
+        for (const [, p] of patterns[day]) {
+            const { stops } = profiles[p];
+            if (!stops.includes(index) || stops.at(-1) === index) continue;
+            const reached = ends.reduce((found, end, k) => end <= stops.at(-1) ? k : found, -1);
+            if (reached !== -1) trains[reached]++;
+        }
+    }
+    return hours[trains.indexOf(Math.max(...trains))];
 }
 
 // "Mon–Fri", or "Sat, Sun", for a run of days (0 = Sunday)
 const daysText = (list, s) => list.length > 2
     ? `${s(`stations.day.${list[0]}`)}–${s(`stations.day.${list.at(-1)}`)}`
     : list.map(d => s(`stations.day.${d}`)).join(', ');
+
+// Trains from a stop to another destination than the table's, as a sentence:
+// "To Airport: first 05:30, last 22:54, every day." for one further on, or
+// "Only as far as Omonia: last 00:30, every day." for one before it (their
+// first train is the table's). None for one that adds nothing: a nearer
+// destination whose last train is never later than the table's (or the
+// table's trains run all night).
+function otherDestination(hours, main, further, name, time, s) {
+    if (!further && hours.last.every((last, wd) => main.last[wd] === null || (last !== null && last <= main.last[wd]))) return null;
+    const groups = groupDays(EVERY_DAY.map(wd => ({ first: further ? hours.first[wd] : 0, last: hours.last[wd] })));
+    const timesText = g => further
+        ? format(s('stations.other-first-last'), { first: time(g.first), last: time(g.last) })
+        : format(s('stations.other-last'), { last: time(g.last) });
+    const times = groups.length === 1
+        ? format(s('stations.other-every-day'), { times: timesText(groups[0]) })
+        : groups.map(g => format(s('stations.other-days'), { days: daysText(g.days, s), times: timesText(g) })).join('; ');
+    return format(s(further ? 'stations.other-further' : 'stations.other-shorter'), { name: name(hours.to), times });
+}
 
 const lineNumber = lineId => lineId.replace(/^\D+/, '');
 
@@ -107,6 +159,10 @@ export function stationView(rail, id, lang, s) {
                 const stop = direction.stops[index];
                 const previous = direction.stops[index - 1]?.station;
                 const next = direction.stops[index + 1]?.station;
+                // Leaving from here (not at the last stop): STASY's first and last trains, or the timetable's
+                const main = next && stop.hours ? mainDestination(stop.hours, direction, index) : null;
+                const order = direction.stops.map(s => s.station);
+                const row = t => ({ days: daysText(t.days, s), first: time(t.first), last: time(t.last) });
                 return {
                     headingId: `${lineId}-${dirId}-${n++}`.toLowerCase(),
                     toward: localName(direction.toward, lang),
@@ -125,20 +181,31 @@ export function stationView(rail, id, lang, s) {
                         }),
                         note: stopNote(stop.note),
                     } : null,
-                    // Leaving from here (not at the last stop): first and last trains
-                    times: (next ? firstAndLast(direction.timetable, index) : [])
-                        .map(t => ({ days: daysText(t.days, s), first: time(t.first), last: time(t.last) })),
+                    times: main
+                        ? groupDays(EVERY_DAY.map(wd => ({ first: main.first[wd], last: main.last[wd] }))).map(row)
+                        : (next ? firstAndLast(direction.timetable, index) : []).map(row),
+                    // Where the table's trains go, for its caption
+                    timesToward: main ? name(main.to) : localName(direction.toward, lang),
+                    others: main ? stop.hours.filter(h => h !== main)
+                        .map(h => otherDestination(h, main, order.indexOf(h.to) > order.indexOf(main.to), name, time, s))
+                        .filter(Boolean) : [],
+                    fromStasy: Boolean(main),
                 };
             }),
     }));
     const [lat, lng] = station.coords;
+    const directions = lines.flatMap(line => line.directions).filter(d => d.times.length);
     return {
         id,
         name: name(id),
         crumbs: breadcrumb(rail, id, lang, s),
         lines,
         walking: walkingUrl(lat, lng),
-        timetable: { old: athensDate() > rail.feed.validTo, date: formatDate(rail.feed.validTo) },
+        // Where the first and last trains come from: STASY's copy, the timetable, or both
+        timetable: {
+            stasy: rail.hours && directions.some(d => d.fromStasy) ? formatDate(rail.hours.fetched) : null,
+            gtfs: directions.some(d => !d.fromStasy) ? { old: athensDate() > rail.feed.validTo, date: formatDate(rail.feed.validTo) } : null,
+        },
     };
 }
 

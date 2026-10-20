@@ -1,6 +1,8 @@
 // A small metro network in rail.json's format (server/data/build-rail.js), for
 // the station page tests: L1 runs a → x → b and back, L2 runs x → c, with a
-// change at x. L2 runs all night from Saturday into Sunday.
+// change at x. L2 runs all night from Saturday into Sunday. L2's first and
+// last trains are STASY's (stops' `hours`, the same as its timetable's); L1's
+// come from its timetable.
 
 const H = 3600;
 const trips = (from, to, every) => Array.from({ length: Math.floor((to - from) / every) + 1 }, (_, i) => [from + i * every, 0]);
@@ -9,6 +11,7 @@ const twoStops = { profiles: [{ stops: [0, 1], offsets: [0, 120] }] };
 export const rail = {
     schema: 1,
     feed: { validFrom: '2026-09-01', validTo: '2099-12-31' },
+    hours: { fetched: '2026-10-01' },
     positions: ['back', 'center-back', 'center', 'center-front', 'front'],
     stations: {
         a: { name: { en: 'Alpha', el: 'Άλφα' }, coords: [37.9, 23.6], lines: ['L1'] },
@@ -46,7 +49,10 @@ export const rail = {
             directions: {
                 east: {
                     toward: { en: 'Gamma', el: 'Γάμμα' },
-                    stops: [{ station: 'x', exits: [] }, { station: 'c', exits: ['back'] }],
+                    stops: [
+                        { station: 'x', exits: [], hours: [{ to: 'c', first: [null, 5 * H, 5 * H, 5 * H, 5 * H, 5 * H, 5 * H], last: [24 * H, 24 * H, 24 * H, 24 * H, 24 * H, 24 * H, null] }] },
+                        { station: 'c', exits: ['back'] },
+                    ],
                     timetable: {
                         ...twoStops,
                         // Sun–Fri 05:00–00:00; Saturday from 05:00 through to Sunday 05:00

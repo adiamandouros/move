@@ -32,7 +32,7 @@ first and last trains from here --}}
     {{!-- Leaving from here: first and last trains --}}
     <h4 class="station-subheading">{{t "stations.times-heading"}}</h4>
     <table class="table table-sm station-times mb-0">
-        <caption class="sr-only">{{t "stations.times-caption" name=@root.name toward=toward}}</caption>
+        <caption class="sr-only">{{t "stations.times-caption" name=@root.name toward=timesToward}}</caption>
         <thead><tr><th scope="col">{{t "stations.days"}}</th><th scope="col">{{t "stations.first"}}</th><th scope="col">{{t "stations.last"}}</th></tr></thead>
         <tbody>
 {{#each times}}
@@ -40,5 +40,8 @@ first and last trains from here --}}
 {{/each}}
         </tbody>
     </table>
+{{#each others}}
+    <p class="small mt-2 mb-0">{{this}}</p>
+{{/each}}
 {{/if}}
 </div></div>

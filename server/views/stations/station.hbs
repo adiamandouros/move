@@ -16,5 +16,10 @@
 {{/each}}
     </section>
 {{/each}}
-    <p class="schedule-disclaimer">{{icon "info-circle" "me-1"}}{{#if timetable.old}}{{t "stations.timetable-old" date=timetable.date}}{{else}}{{t "stations.timetable" date=timetable.date}}{{/if}}</p>
+{{#if timetable.stasy}}
+    <p class="schedule-disclaimer">{{icon "info-circle" "me-1"}}{{t "stations.timetable-stasy" date=timetable.stasy}}</p>
+{{/if}}
+{{#if timetable.gtfs}}
+    <p class="schedule-disclaimer">{{icon "info-circle" "me-1"}}{{#if timetable.gtfs.old}}{{t "stations.timetable-old" date=timetable.gtfs.date}}{{else}}{{t "stations.timetable" date=timetable.gtfs.date}}{{/if}}</p>
+{{/if}}
 </div>
