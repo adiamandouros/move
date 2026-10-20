@@ -29,7 +29,8 @@
     "info.sat-full": "Saturday",
     "info.stations-by-line": "Stations by line",
     "info.change-to": "change to",
-    "info.map-label": "Metro map"
+    "info.map-label": "Metro map",
+    "info.hours-stasy": "Metro times from STASY's timetable, as of {date}."
   },
   "el": {
     "info.title": "Πληροφορίες",
@@ -61,6 +62,7 @@
     "info.sat-full": "Σάββατο",
     "info.stations-by-line": "Σταθμοί ανά γραμμή",
     "info.change-to": "αλλαγή για",
-    "info.map-label": "Χάρτης μετρό"
+    "info.map-label": "Χάρτης μετρό",
+    "info.hours-stasy": "Ώρες μετρό από το πρόγραμμα της ΣΤΑΣΥ, όπως ήταν στις {date}."
   }
 }

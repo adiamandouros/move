@@ -28,6 +28,8 @@ export interface Tool {
     scripts: string[];
     precache: string[];
     ad?: string;
+    /** Drawn from rail.json too: its data.json "lastTrains" rows get their times (server/pages/last-trains.js) */
+    rail?: boolean;
     /** Full path of page.hbs, its view (server/pages/templates.js) */
     view: string;
     /** strings.json */
@@ -60,6 +62,8 @@ export interface Page {
     active?: string;
     /** Where it has an ad slot (server/ads.js) */
     ad?: string;
+    /** Drawn from rail.json, so drawn again when that changes */
+    rail?: boolean;
 }
 
 /** What render() (server/pages/layout.js) takes */

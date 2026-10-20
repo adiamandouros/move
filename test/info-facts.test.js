@@ -30,7 +30,7 @@ test('the dates on the page come from data.json, in both languages', () => {
     assert.match(pages['/el/info'], /Ελέγχθηκε στις 14\/10\/2026 στο <a href/);
     assert.equal((pages['/info'].match(/<p class="info-source">Checked on/g) ?? []).length, 4);
     // A new date shows where its section is
-    const changed = tools.map(t => t.id === 'info' ? { ...t, data: { checked: { ...t.data.checked, night: { ...t.data.checked.night, date: '2027-01-05' } } } } : t);
+    const changed = tools.map(t => t.id === 'info' ? { ...t, data: { ...t.data, checked: { ...t.data.checked, night: { ...t.data.checked.night, date: '2027-01-05' } } } } : t);
     assert.match(renderPages(changed).pages['/info'], /Checked on 05\/01\/2027 at <a href="https:\/\/www\.osy\.gr\/"/);
 });
 

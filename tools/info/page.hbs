@@ -38,14 +38,9 @@
                         <tr><th scope="col">{{t "info.line"}}</th><th scope="col">{{t "info.from"}}</th><th scope="col"><span aria-hidden="true">{{t "info.sun-thu"}}</span><span class="sr-only">{{t "info.sun-thu-full"}}</span></th><th scope="col"><span aria-hidden="true">{{t "info.fri"}}</span><span class="sr-only">{{t "info.fri-full"}}</span></th><th scope="col"><span aria-hidden="true">{{t "info.sat"}}</span><span class="sr-only">{{t "info.sat-full"}}</span></th></tr>
                     </thead>
                     <tbody>
-                        <tr><th scope="rowgroup" rowspan="2"><span class="line-badge line-m1">M1</span></th><th scope="row">{{#ifLang "en"}}Piraeus{{else}}Πειραιάς{{/ifLang}}</th><td colspan="3">00:15</td></tr>
-                        <tr><th scope="row">{{#ifLang "en"}}Kifisia{{else}}Κηφισιά{{/ifLang}}</th><td colspan="3">00:15</td></tr>
-                        <tr><th scope="rowgroup" rowspan="2"><span class="line-badge line-m2">M2</span></th><th scope="row">{{#ifLang "en"}}Anthoupoli{{else}}Ανθούπολη{{/ifLang}}</th><td>00:06</td><td>01:43</td><td rowspan="2">{{t "info.all-night"}}</td></tr>
-                        <tr><th scope="row">{{#ifLang "en"}}Elliniko{{else}}Ελληνικό{{/ifLang}}</th><td>00:03</td><td>01:40</td></tr>
-                        <tr><th scope="rowgroup" rowspan="4"><span class="line-badge line-m3">M3</span></th><th scope="row">{{#ifLang "en"}}Dimotiko Theatro{{else}}Δημοτικό Θέατρο{{/ifLang}}</th><td>23:57</td><td>01:34</td><td rowspan="2">{{t "info.all-night"}}</td></tr>
-                        <tr><th scope="row">{{#ifLang "en"}}Douk. Plakentias{{else}}Δουκ. Πλακεντίας{{/ifLang}}</th><td>00:01</td><td>01:38</td></tr>
-                        <tr><th scope="row">{{#ifLang "en"}}Dim. Theatro → Airport{{else}}Δημ. Θέατρο → Αεροδρόμιο{{/ifLang}}</th><td colspan="3">22:54</td></tr>
-                        <tr><th scope="row">{{#ifLang "en"}}Airport{{else}}Αεροδρόμιο{{/ifLang}}</th><td colspan="3">23:34</td></tr>
+{{#each metro.rows}}
+                        <tr>{{#if badge}}<th scope="rowgroup" rowspan="{{badge.rows}}"><span class="line-badge line-{{badge.key}}">{{badge.name}}</span></th>{{/if}}<th scope="row">{{name}}</th>{{#each times}}<td{{#if colspan}} colspan="{{colspan}}"{{/if}}>{{text}}</td>{{/each}}</tr>
+{{/each}}
                         <tr><th scope="rowgroup" rowspan="2"><span class="line-badge line-t6">T6</span></th><th scope="row">{{#ifLang "en"}}Syntagma{{else}}Σύνταγμα{{/ifLang}}</th><td>00:50</td><td>01:40</td><td rowspan="4">{{t "info.all-night"}}</td></tr>
                         <tr><th scope="row">{{#ifLang "en"}}Pikrodafni{{else}}Πικροδάφνη{{/ifLang}}</th><td>00:10</td><td>00:57</td></tr>
                         <tr><th scope="rowgroup" rowspan="2"><span class="line-badge line-t7">T7</span></th><th scope="row">{{#ifLang "en"}}Akti Posidonos{{else}}Ακτή Ποσειδώνος{{/ifLang}}</th><td>00:40</td><td>01:50</td></tr>
@@ -54,10 +49,13 @@
                 </table>
             </div>
             {{#ifLang "en"}}
-            <p>On line 3, the last train to the airport leaves Dimotiko Theatro at 22:54; later trains go only as far as Douk. Plakentias. On line 1, one more train leaves each end at 00:30 but only goes as far as Omonia. Temporary changes, such as closures for works, appear under Announcements.</p>
+            <p>On line 3, the last train to the airport leaves Dimotiko Theatro at {{metro.facts.toAirport}}; later trains go only as far as Douk. Plakentias. On line 1, one more train leaves each end at {{metro.facts.toOmonia}} but only goes as far as Omonia. Temporary changes, such as closures for works, appear under Announcements.</p>
             {{else}}
-            <p>Στη γραμμή 3, ο τελευταίος συρμός προς το αεροδρόμιο ξεκινά από το Δημοτικό Θέατρο στις 22:54· οι επόμενοι φτάνουν μόνο ως τη Δουκ. Πλακεντίας. Στη γραμμή 1, ένας ακόμη συρμός ξεκινά από κάθε άκρο στις 00:30 αλλά φτάνει μόνο ως την Ομόνοια. Προσωρινές αλλαγές, όπως κλεισίματα λόγω έργων, εμφανίζονται στις Ανακοινώσεις.</p>
+            <p>Στη γραμμή 3, ο τελευταίος συρμός προς το αεροδρόμιο ξεκινά από το Δημοτικό Θέατρο στις {{metro.facts.toAirport}}· οι επόμενοι φτάνουν μόνο ως τη Δουκ. Πλακεντίας. Στη γραμμή 1, ένας ακόμη συρμός ξεκινά από κάθε άκρο στις {{metro.facts.toOmonia}} αλλά φτάνει μόνο ως την Ομόνοια. Προσωρινές αλλαγές, όπως κλεισίματα λόγω έργων, εμφανίζονται στις Ανακοινώσεις.</p>
             {{/ifLang}}
+{{#if metro.stasy}}
+            <p class="small text-body-secondary">{{t "info.hours-stasy" date=metro.stasy}}</p>
+{{/if}}
 {{> checked checked.hours}}
         {{/section}}
 
@@ -103,12 +101,12 @@
         {{#> section id="airport" iconName="airplane" title="info.airport"}}
             {{#ifLang "en"}}
             <ul>
-                <li><strong>Metro <span class="line-badge line-m3">M3</span>:</strong> every 36 minutes, about 40 minutes from Syntagma. €9, or €16 return (valid 30 days). First train from the airport 06:10, last 23:34; last to the airport from Dimotiko Theatro 22:54. The same ticket works on the suburban railway.</li>
+                <li><strong>Metro <span class="line-badge line-m3">M3</span>:</strong> every 36 minutes, about 40 minutes from Syntagma. €9, or €16 return (valid 30 days). First train from the airport {{metro.facts.firstFromAirport}}, last {{metro.facts.fromAirport}}; last to the airport from Dimotiko Theatro {{metro.facts.toAirport}}. The same ticket works on the suburban railway.</li>
                 <li><strong>Express buses:</strong> €5.50, every day around the clock. <span class="line-pill">X95</span> Syntagma, <span class="line-pill">X96</span> Piraeus, <span class="line-pill">X97</span> Elliniko metro, <span class="line-pill">X93</span> Kifisos intercity bus station.</li>
             </ul>
             {{else}}
             <ul>
-                <li><strong>Μετρό <span class="line-badge line-m3">M3</span>:</strong> κάθε 36 λεπτά, περίπου 40 λεπτά από το Σύνταγμα. €9, ή €16 μετ' επιστροφής (ισχύει 30 ημέρες). Πρώτος συρμός από το αεροδρόμιο 06:10, τελευταίος 23:34· τελευταίος προς το αεροδρόμιο από το Δημοτικό Θέατρο 22:54. Το ίδιο εισιτήριο ισχύει και στον προαστιακό.</li>
+                <li><strong>Μετρό <span class="line-badge line-m3">M3</span>:</strong> κάθε 36 λεπτά, περίπου 40 λεπτά από το Σύνταγμα. €9, ή €16 μετ' επιστροφής (ισχύει 30 ημέρες). Πρώτος συρμός από το αεροδρόμιο {{metro.facts.firstFromAirport}}, τελευταίος {{metro.facts.fromAirport}}· τελευταίος προς το αεροδρόμιο από το Δημοτικό Θέατρο {{metro.facts.toAirport}}. Το ίδιο εισιτήριο ισχύει και στον προαστιακό.</li>
                 <li><strong>Λεωφορεία express:</strong> €5,50, κάθε μέρα όλο το 24ωρο. <span class="line-pill">X95</span> Σύνταγμα, <span class="line-pill">X96</span> Πειραιάς, <span class="line-pill">X97</span> Στ. Ελληνικό, <span class="line-pill">X93</span> ΚΤΕΛ Κηφισού.</li>
             </ul>
             {{/ifLang}}

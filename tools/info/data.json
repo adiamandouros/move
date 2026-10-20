@@ -1,4 +1,22 @@
 {
+  "lastTrains": {
+    "table": [
+      { "line": "M1", "from": "piraeus", "to": "kifisia" },
+      { "line": "M1", "from": "kifisia", "to": "piraeus" },
+      { "line": "M2", "from": "anthoupoli", "to": "elliniko" },
+      { "line": "M2", "from": "elliniko", "to": "anthoupoli" },
+      { "line": "M3", "from": "dimotiko-theatro", "to": "doukissis-plakentias" },
+      { "line": "M3", "from": "doukissis-plakentias", "to": "dimotiko-theatro" },
+      { "line": "M3", "from": "dimotiko-theatro", "to": "airport", "showTo": true },
+      { "line": "M3", "from": "airport", "to": "dimotiko-theatro" }
+    ],
+    "facts": {
+      "toAirport": { "line": "M3", "from": "dimotiko-theatro", "to": "airport" },
+      "fromAirport": { "line": "M3", "from": "airport", "to": "dimotiko-theatro" },
+      "firstFromAirport": { "line": "M3", "from": "airport", "to": "dimotiko-theatro", "first": true },
+      "toOmonia": { "line": "M1", "from": "piraeus", "to": "omonia" }
+    }
+  },
   "checked": {
     "hours": {
       "date": "2026-10-14",

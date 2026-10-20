@@ -181,8 +181,9 @@ test('a saved choice of the other language opens the page in it before it shows'
 });
 
 test('text written in both languages keeps only the page\'s language', () => {
-    assert.match(pages['/info'], /<th scope="row">Piraeus<\/th>/);
-    assert.match(pages['/el/info'], /<th scope="row">Πειραιάς<\/th>/);
+    // The tram rows of the closing times
+    assert.match(pages['/info'], /<th scope="row">Syntagma<\/th>/);
+    assert.match(pages['/el/info'], /<th scope="row">Σύνταγμα<\/th>/);
     assert.doesNotMatch(pages['/info'], /Πειραιάς|data-lang=/);
     assert.doesNotMatch(pages['/el/info'], /Piraeus|data-lang=/);
 });

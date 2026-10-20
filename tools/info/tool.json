@@ -7,5 +7,6 @@
   "offline": true,
   "ad": "info",
   "scripts": ["main.js"],
-  "precache": ["/data/rail.json"]
+  "precache": ["/data/rail.json"],
+  "rail": true
 }

@@ -11,6 +11,7 @@ import { createRenderer } from './layout.js';
 import { loadTools, NOT_FOUND, SERVER_ERROR, sitePages, STATION_PATHS } from './registry.js';
 import { renderServiceWorker } from './service-worker.js';
 import { robotsTxt, sitemapXml } from './seo.js';
+import { railReader } from './rail-file.js';
 import { createStationPages } from './stations.js';
 
 // The public pages, and what goes with them: the service worker, robots.txt,
@@ -29,9 +30,13 @@ import { createStationPages } from './stations.js';
 // station pages); render, for any other (the admin pages); notFound(path),
 // the 404 page; errorPage(path), the page for when answering failed. config: the settings
 // (server/config.js); without them, no public address and no ads.
-/** @param {import('../../types/pages.js').Tool[]} [tools] @param {import('../../types/config.js').Config} [config] */
-export function renderPages(tools = loadTools(), config = loadConfig({})) {
-    const list = sitePages(tools, config);
+// rail: rail.json as it is now, for the pages drawn from it (registry.js, `rail`)
+/**
+ * @param {import('../../types/pages.js').Tool[]} [tools] @param {import('../../types/config.js').Config} [config]
+ * @param {() => import('../../types/data.js').Rail | null} [rail]
+ */
+export function renderPages(tools = loadTools(), config = loadConfig({}), rail = () => null) {
+    const list = sitePages(tools, config, rail);
     const pagePaths = [...list.map(page => page.path), ...STATION_PATHS];
     const render = createRenderer(tools, pagePaths, config);
     const stringsFor = pageStrings(tools);
@@ -59,8 +64,14 @@ export function renderPages(tools = loadTools(), config = loadConfig({})) {
     };
 
     const pages = {};
+    // The pages drawn from rail.json, to draw again when it changes: path → () => HTML
+    const railPages = {};
     for (const lang of LANGS) {
-        for (const page of list) pages[localPath(page.path, lang)] = renderPage(page, lang);
+        for (const page of list) {
+            const path = localPath(page.path, lang);
+            pages[path] = renderPage(page, lang);
+            if (page.rail) railPages[path] = () => renderPage(page, lang);
+        }
     }
     // The 404 page for a path, in its language, with the language link to the same path
     const notFound = path => renderPage(NOT_FOUND, langOf(path), basePath(path));
@@ -68,7 +79,7 @@ export function renderPages(tools = loadTools(), config = loadConfig({})) {
     const errorPage = path => renderPage(SERVER_ERROR, langOf(path), basePath(path));
     // The pages search engines should find (English paths), for the sitemap
     const indexed = list.filter(page => page.index !== false).map(page => page.path);
-    return { pages, indexed, notFound, errorPage, render, renderPage };
+    return { pages, railPages, indexed, notFound, errorPage, render, renderPage };
 }
 
 // The app manifest in one language (public/icon/site.webmanifest is the
@@ -89,11 +100,20 @@ export function appManifest(lang, description) {
  * @param {{ railFile?: string, config?: import('../../types/config.js').Config }} [options]
  */
 export function createPages(tools = loadTools(), { railFile, config = loadConfig({}) } = {}) {
-    const { pages, indexed, notFound, errorPage, render, renderPage } = renderPages(tools, config);
+    const rail = railFile ? railReader(railFile) : () => ({ key: null, rail: null });
+    const { pages, railPages, indexed, notFound, errorPage, render, renderPage } = renderPages(tools, config, () => rail().rail);
     const serviceWorker = renderServiceWorker(tools, pages);
     const router = express.Router();
     // The station pages, built from rail.json (when there is one)
     const stations = railFile ? createStationPages({ railFile, renderPage, tools, origin: config.siteUrl }) : null;
+    // A page drawn from rail.json, drawn again once it changes (the others are drawn once, above)
+    let drawn = { key: rail().key, html: {} };
+    const pageAt = path => {
+        if (!railPages[path]) return pages[path];
+        const { key } = rail();
+        if (key !== drawn.key) drawn = { key, html: {} };
+        return (drawn.html[path] ??= railPages[path]());
+    };
     // SITE_URL if set, so search engines only ever see the public address
     const origin = req => config.siteUrl || `${req.protocol}://${req.get('host')}`;
 
@@ -127,8 +147,8 @@ export function createPages(tools = loadTools(), { railFile, config = loadConfig
         sendFresh(res, 'xml', sitemapXml(origin(req), [...indexed, ...(stations?.paths() ?? [])]));
     });
 
-    for (const [path, html] of Object.entries(pages)) {
-        router.get(path, (_req, res) => sendFresh(res, 'html', html));
+    for (const path of Object.keys(pages)) {
+        router.get(path, (_req, res) => sendFresh(res, 'html', pageAt(path)));
     }
 
     if (stations) router.use(stations.router);
