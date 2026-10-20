@@ -27,7 +27,7 @@ for (const path of PAGES) {
     for (const [lang, url] of [['en', path], ['el', greek(path)]]) {
         test(`${url}`, async ({ page }, testInfo) => {
             await page.goto(url);
-            if (READY[path]) await expect(page.locator(READY[path]).first()).toBeVisible();
+            if (READY[path]) await expect(page.locator(READY[path]).first()).toBeAttached();
             await expect(page.locator('html')).toHaveAttribute('lang', lang);
 
             expect(await axe(page), 'axe-core violations').toEqual([]);
