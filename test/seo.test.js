@@ -62,6 +62,12 @@ test('the about, privacy and contact pages are written in each language and link
     assert.doesNotMatch(pages['/about'] + pages['/el/about'], /prose-links/);
 });
 
+test('the about pages credit the author with a link to their GitHub profile', () => {
+    const { pages } = renderPages(tools, loadConfig({}));
+    assert.match(pages['/about'], /Created by <a [^>]*href="https:\/\/github\.com\/adiamandouros"[^>]*>adiamandouros/);
+    assert.match(pages['/el/about'], /Δημιουργός: <a [^>]*href="https:\/\/github\.com\/adiamandouros"[^>]*>adiamandouros/);
+});
+
 test('the contact page shows CONTACT_EMAIL, and leaves it out when unset', () => {
     assert.match(renderPages(tools, loadConfig({ CONTACT_EMAIL: 'hello@wayhop.example' })).pages['/contact'], /Email: <a href="mailto:hello@wayhop\.example">hello@wayhop\.example<\/a>/);
     const html = renderPages(tools, loadConfig({})).pages['/el/contact'];
