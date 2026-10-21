@@ -107,3 +107,20 @@ test('home: intro and shortcuts, and no footer (the links are in the menu and th
     await page.goto('/el');
     await expect(content(page)).toContainText('Σταθμοί μετρό');
 });
+
+test('what is typed before the page\'s script has loaded is kept, and searched', async ({ page }) => {
+    let release;
+    const held = new Promise(resolve => { release = resolve; });
+    await page.route('**/data/rail.json', async route => { await held; await route.continue(); });
+    await page.goto('/subway');
+    await page.locator('#stop-search-from').fill('synta');
+    await page.locator('#stop-search-to').fill('Airport');
+    release();
+    await expect(page.locator('#stop-search-from')).toHaveValue('synta');
+    await expect(page.locator('#stop-suggestions-from')).toBeVisible();
+    await expect(page.locator('#stop-suggestions-from .suggestion-item').first()).toContainText('Syntagma');
+    // A full name counts as chosen, as when leaving the field
+    await expect(page.locator('#stop-search-to')).toHaveValue('Airport');
+    await expect(page).toHaveURL(/to=airport/);
+    expect(await axe(page)).toEqual([]);
+});

@@ -74,22 +74,33 @@ function start(rail) {
     // user's location until they pick one themselves
     let followLocation = !params.has('from');
 
+    const fromInput = /** @type {HTMLInputElement} */ (document.getElementById('stop-search-from'));
+    const toInput = /** @type {HTMLInputElement} */ (document.getElementById('stop-search-to'));
     const from = stationSearch({
-        input: document.getElementById('stop-search-from'),
+        input: fromInput,
         list: document.getElementById('stop-suggestions-from'),
         rail,
         onChange: () => { followLocation = false; changed(); },
     });
-    document.getElementById('stop-search-from').addEventListener('input', () => { followLocation = false; });
+    fromInput.addEventListener('input', () => { followLocation = false; });
     const to = stationSearch({
-        input: document.getElementById('stop-search-to'),
+        input: toInput,
         list: document.getElementById('stop-suggestions-to'),
         rail,
         onChange: changed,
     });
 
+    // What was typed before this script had loaded stays, unless the address
+    // names a station: it is replayed as typing, so the suggestions show
+    const typed = [fromInput, toInput].map(input => input.value);
     from.set(params.get('from'), { notify: false });
     to.set(params.get('to'), { notify: false });
+    [fromInput, toInput].forEach((input, i) => {
+        if (!typed[i] || input.value) return;
+        input.value = typed[i];
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
     changed();
 
     document.getElementById('subway-form').addEventListener('submit', e => e.preventDefault());
