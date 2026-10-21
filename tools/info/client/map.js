@@ -109,9 +109,9 @@ function arrow(points) {
  * The map's SVG content (exported for the tests)
  * @param {{ lines: Record<string, any>, stations: Record<string, any> }} network
  * @param {Layout} layout
- * @param {{ id: string, colors: Record<string, any>, link: (id: string) => string | null }} options
+ * @param {{ id: string, colors: Record<string, any>, link: (id: string) => string | null, changes: (id: string) => string[] }} options
  */
-export function drawMap(network, layout, { id: mapId, colors, link }) {
+export function drawMap(network, layout, { id: mapId, colors, link, changes }) {
     const { point, linePoints } = geometry(layout);
     const lines = Object.entries(network.lines);
     const placed = id => !!layout.STATIONS[id];
@@ -125,14 +125,14 @@ export function drawMap(network, layout, { id: mapId, colors, link }) {
         return html`<path class="map-line" d="${pathData(linePoints(ids))}" stroke="${stroke}"/>${extra.map(run => html`<path class="map-line" d="${pathData(linePoints(run.filter(placed)))}" stroke="${stroke}"/>`)}${dashed && html`<path class="map-line-dash" d="${pathData(linePoints(ids.slice(a, b + 1)))}"/>`}${oneWay.filter(hop => hop.every(placed)).map(hop => arrow(linePoints(hop)))}`;
     });
 
-    // Short strokes, fading out, in the colours of the lines of another
-    // network a stop changes to (tram stops to the metro), each ending in its
+    // Short strokes, fading out, in the colours of the lines of the other
+    // network a stop changes to (metro ↔ tram), each ending in its
     // line's badge, so the change doesn't rest on colour alone. The badges
     // sit side by side across a stub going up or down, else one above another.
-    const stubs = Object.entries(layout.STUBS ?? {}).filter(([id]) => network.stations[id]?.metro).map(([id, side]) => {
+    const stubs = Object.entries(layout.STUBS ?? {}).filter(([id]) => network.stations[id] && changes(id).length).map(([id, side]) => {
         const [x, y] = point(id);
         const [dx, dy] = COMPASS[side];
-        const others = network.stations[id].metro.lines;
+        const others = changes(id);
         const middle = i => i - (others.length - 1) / 2;
         const strokes = others.map((lineId, i) => {
             const shift = middle(i) * STUB_GAP;
@@ -161,7 +161,7 @@ export function drawMap(network, layout, { id: mapId, colors, link }) {
         const side = layout.STATIONS[id][2];
         const [dx, dy] = labelStep(side);
         const [anchor, baseline] = SIDES[side];
-        const interchange = station.lines.length > 1 || !!station.metro;
+        const interchange = station.lines.length > 1 || changes(id).length > 0;
         const name = localName(station.name, language);
         const classes = `map-station${interchange ? ' map-interchange' : ''}${ends.has(id) ? ' map-terminal' : ''}${link(id) ? ' map-link' : ''}`;
         return html`<g class="${classes}" data-station="${id}">
@@ -179,9 +179,9 @@ export function drawMap(network, layout, { id: mapId, colors, link }) {
  * @param {any} container
  * @param {{ lines: Record<string, any>, stations: Record<string, any> }} network
  * @param {Layout} layout
- * @param {{ label: string, describedBy: string, colors?: Record<string, any>, link?: (id: string) => string | null }} options
+ * @param {{ label: string, describedBy: string, colors?: Record<string, any>, link?: (id: string) => string | null, changes?: (id: string) => string[] }} options
  */
-export function createRailMap(container, network, layout, { label, describedBy, colors = network.lines, link = () => null }) {
+export function createRailMap(container, network, layout, { label, describedBy, colors = network.lines, link = () => null, changes = () => [] }) {
     const button = (zoom, key, symbol) => html`<button type="button" class="btn map-btn" data-zoom="${zoom}"
         aria-label="${t(key)}" title="${t(key)}">${icon(symbol)}</button>`;
     setHtml(container, html`
@@ -197,7 +197,7 @@ export function createRailMap(container, network, layout, { label, describedBy, 
     let view;   // the visible part
 
     function draw() {
-        setHtml(svg, drawMap(network, layout, { id: container.id, colors, link }));
+        setHtml(svg, drawMap(network, layout, { id: container.id, colors, link, changes }));
         const box = svg.querySelector('.map-content').getBBox();
         const pad = UNIT / 2;
         base = { x: box.x - pad, y: box.y - pad, w: box.width + 2 * pad, h: box.height + 2 * pad };
@@ -325,29 +325,45 @@ export function createRailMap(container, network, layout, { label, describedBy, 
 // The metro's stations open the directions to them
 export const subwayLink = id => id ? localHref(`/subway?to=${encodeURIComponent(id)}`) : null;
 
+// The tram lines a metro station changes to (from the tram stops'
+// `metro`), and the metro lines a tram stop changes to
+/** @param {import('../../../types/data.js').Rail} rail @returns {(id: string) => string[]} */
+export function tramChanges(rail) {
+    const byStation = new Map();
+    for (const stop of Object.values(rail.tram?.stations ?? {})) {
+        if (stop.metro) byStation.set(stop.metro.station, [...new Set([...byStation.get(stop.metro.station) ?? [], ...stop.lines])].sort());
+    }
+    return id => byStation.get(id) ?? [];
+}
+/** @param {import('../../../types/data.js').Rail} rail @returns {(id: string) => string[]} */
+export const metroChanges = rail => id => rail.tram?.stations[id]?.metro?.lines ?? [];
+
+const allColors = rail => ({ ...rail.lines, ...rail.tram?.lines });
+
 /** @param {any} container @param {import('../../../types/data.js').Rail} rail @param {Layout} layout */
 export function createMetroMap(container, rail, layout) {
-    createRailMap(container, rail, layout, { label: t('info.map-label'), describedBy: 'map-help subway-map-help', link: subwayLink });
+    createRailMap(container, rail, layout, { label: t('info.map-label'), describedBy: 'map-help subway-map-help', colors: allColors(rail), link: subwayLink, changes: tramChanges(rail) });
 }
 
 /** @param {any} container @param {import('../../../types/data.js').Rail} rail @param {Layout} layout */
 export function createTramMap(container, rail, layout) {
     if (!rail.tram) throw new Error('No tram in rail.json');
-    createRailMap(container, rail.tram, layout, { label: t('info.tram-map-label'), describedBy: 'map-help tram-map-help', colors: { ...rail.lines, ...rail.tram.lines } });
+    createRailMap(container, rail.tram, layout, { label: t('info.tram-map-label'), describedBy: 'map-help tram-map-help', colors: allColors(rail), changes: metroChanges(rail) });
 }
 
-// The stations of each line in order, with the changes to other lines: the
+// The stations of each line in order, with the changes to other lines (of
+// its own network, and `changes` to the other one): the
 // accessible counterpart of a map. Metro stations are links to the
 // directions to them. Where a line's other direction goes another way (T7's
 // Piraeus loop), a sentence says which way.
-/** @param {{ lines: Record<string, any>, stations: Record<string, any> }} network @param {{ link?: (id: string) => string | null }} [options] */
-export function stationList(network, { link = () => null } = {}) {
+/** @param {{ lines: Record<string, any>, stations: Record<string, any> }} network @param {{ link?: (id: string) => string | null, changes?: (id: string) => string[] }} [options] */
+export function stationList(network, { link = () => null, changes = () => [] } = {}) {
     const name = id => localName(network.stations[id].name, language);
     return html`${Object.entries(network.lines).map(([lineId, line]) => {
         const ids = lineStations(line);
         const items = ids.map(id => {
             const station = network.stations[id];
-            const others = [...station.lines.filter(l => l !== lineId), ...station.metro?.lines ?? []];
+            const others = [...station.lines.filter(l => l !== lineId), ...changes(id)];
             const change = others.length > 0 && html` <span class="station-change">· ${t('info.change-to')} ${others.join(', ')}</span>`;
             const href = link(id);
             return html`<li>${href ? html`<a href="${href}">${name(id)}</a>` : name(id)}${change}</li>`;

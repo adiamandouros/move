@@ -164,14 +164,8 @@ test('the tram lines\' badges have dark text', () => {
     for (const id of Object.keys(curatedLines('tram').lines)) assert.equal(LINE_COLOURS[id.toLowerCase()].color, 'var(--wh-ink)', `.line-${id.toLowerCase()}`);
 });
 
-// Lines below 3:1 on the maps, and why
-const MAP_EXCEPTIONS = {
-    M3: 'known since before the tram map (2.70:1); its colour is kept until the user decides (2026-10-21)',
-};
-
 test('every line stands out on the maps\' background (3:1, as for graphics)', () => {
     for (const [id, line] of Object.entries(ALL_LINES())) {
-        if (MAP_EXCEPTIONS[id]) continue;
         const ratio = contrast(line.color.toLowerCase(), resolve('var(--wh-map-bg)'));
         assert.ok(ratio >= 3, `${id}: ${line.color} on the map is ${ratio.toFixed(2)}:1`);
     }

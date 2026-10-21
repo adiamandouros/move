@@ -82,10 +82,11 @@ for (const [name, { layout, lines }] of Object.entries(MAPS)) {
         }
     });
 
-    test(`${name} map: stubs to the metro only at stops that change to it`, () => {
-        const changes = Object.entries(json('../data/curated/tram.json').stops).filter(([, s]) => s.metro).map(([id]) => id);
-        if (name === 'metro') return assert.deepEqual(STUBS, {});
-        assert.deepEqual(Object.keys(STUBS).sort(), changes.sort());
+    test(`${name} map: stubs to the other network at every stop that changes to it, and nowhere else`, () => {
+        // tram.json's tram stops with a metro station, and those metro stations
+        const pairs = Object.entries(json('../data/curated/tram.json').stops).filter(([, s]) => s.metro);
+        const changes = name === 'metro' ? pairs.map(([, s]) => s.metro) : pairs.map(([id]) => id);
+        assert.deepEqual(Object.keys(STUBS).sort(), [...new Set(changes)].sort());
         for (const side of Object.values(STUBS)) assert.ok(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'].includes(side), side);
     });
 }

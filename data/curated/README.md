@@ -75,8 +75,9 @@ the Info page's tram map (`server/data/build-tram.js`, laid out in
 STASY's tram green, with dark text on badges, see style.css). `stops` are as
 in stations.json: each stop's names (English as on STASY's English tram
 timetable page) and `gtfs` codes (one per direction, sometimes one for both),
-plus `metro`, the metro station it changes to (drawn as short stubs in the
-metro lines' colours, each ending in the line's badge, `STUBS` in the layout). A code the feed's trams use that
+plus `metro`, the metro station it changes to. Both maps draw the change as
+short stubs in the other network's colours, each ending in its line's badge
+(`STUBS` in `tram-layout.js` and `map-layout.js`). A code the feed's trams use that
 isn't here is a warning on `/admin/diagnostics`, and the stop isn't drawn: add
 it to its stop, and a new stop to the layout too.
 

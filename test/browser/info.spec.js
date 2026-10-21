@@ -24,6 +24,9 @@ for (const lang of ['', '/el']) {
         await expect(page.locator('#toggle-tram')).toHaveAttribute('aria-expanded', 'false');
         await press('#toggle-metro', 'Enter');
         await expect(page.locator('#metro-map > .map-svg .map-station').first()).toBeAttached();
+        // Stubs to the tram, each ending in its line's badge
+        await expect(page.locator('#metro-map .map-stub')).toHaveCount(6);
+        await expect(page.locator('#metro-map .map-badge.line-t6')).toHaveCount(3);
         // The zoom buttons hold only their icons
         const button = page.locator('.map-btn').first();
         await expect(button).toHaveText('');

@@ -93,6 +93,17 @@ export const BENDS = {
     'victoria>attiki': [[-2, -4]],
 };
 
+// Where the tram stubs point from a station that changes to the tram
+// (tram.json's `metro`)
+export const STUBS = {
+    'syntagma': 'ne',
+    'syggrou-fix': 'w',
+    'neos-kosmos': 'e',
+    'faliro': 'e',
+    'piraeus': 'sw',
+    'dimotiko-theatro': 's',
+};
+
 // Parts of a line drawn dashed: the airport branch runs every 36 minutes
 export const DASHED = {
     M3: ['doukissis-plakentias', 'airport'],

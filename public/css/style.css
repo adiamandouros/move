@@ -23,7 +23,7 @@
     --bs-secondary-bg-rgb: 30, 37, 56;
     --wh-tertiary-bg-hover: #1a2133;
     --wh-secondary-bg-hover: #313c5b;
-    --wh-map-bg: #0f131c;
+    --wh-map-bg: #000;
 
     /* Text, strongest first */
     --bs-emphasis-color: #fff;

@@ -1,7 +1,7 @@
 import '/js/core/announcements.js';
 import { html, setHtml } from '/js/core/html.js';
 import { t } from '/js/core/i18n.js';
-import { createMetroMap, createTramMap, stationList, subwayLink } from './map.js';
+import { createMetroMap, createTramMap, metroChanges, stationList, subwayLink, tramChanges } from './map.js';
 import * as metroLayout from './map-layout.js';
 import * as tramLayout from './tram-layout.js';
 
@@ -15,8 +15,8 @@ import * as tramLayout from './tram-layout.js';
 // ── Maps ─────────────────────────────────────────────────────────────────────
 
 const MAPS = [
-    { part: 'metro', map: 'metro-map', list: 'station-list', draw: (el, rail) => createMetroMap(el, rail, metroLayout), stations: rail => stationList(rail, { link: subwayLink }) },
-    { part: 'tram', map: 'tram-map', list: 'tram-stop-list', draw: (el, rail) => createTramMap(el, rail, tramLayout), stations: rail => stationList(rail.tram) },
+    { part: 'metro', map: 'metro-map', list: 'station-list', draw: (el, rail) => createMetroMap(el, rail, metroLayout), stations: rail => stationList(rail, { link: subwayLink, changes: tramChanges(rail) }) },
+    { part: 'tram', map: 'tram-map', list: 'tram-stop-list', draw: (el, rail) => createTramMap(el, rail, tramLayout), stations: rail => stationList(rail.tram, { changes: metroChanges(rail) }) },
 ];
 
 let railFile = null;
