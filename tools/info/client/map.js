@@ -1,80 +1,160 @@
 import { html, icon, localName, setHtml } from '/js/core/html.js';
 import { language, localHref, t } from '/js/core/i18n.js';
 import { lineBadge } from '/js/core/metro.js';
-import { BENDS, DASHED, STATIONS } from './map-layout.js';
 
-// The schematic metro map: drawn as SVG from map-layout.js (positions) and
-// rail.json (names, colours and station order). Each station opens the
-// subway page with it as the destination. Pinch, drag, double-click,
-// Ctrl+wheel (trackpad pinch), the +/− buttons and the keyboard all zoom.
+// The schematic maps of the metro and the tram: drawn as SVG from a layout
+// (map-layout.js, tram-layout.js: positions) and a network from rail.json
+// (names, colours and stop order: its metro part, or its `tram`). Pinch,
+// drag, double-click, Ctrl+wheel (trackpad pinch), the +/− buttons and the
+// keyboard all zoom. A metro station opens the subway page with it as the
+// destination; tram stops open nothing yet.
 //
-// For screen readers and keyboards the map is one labelled image (focusable,
+// For screen readers and keyboards a map is one labelled image (focusable,
 // for zooming). Its stations open on a tap or click; the same destinations
 // are offered as real links in the list of stations by line (stationList).
 
 const UNIT = 44;          // px per grid unit
 const MAX_ZOOM = 6;
 const LABEL_GAP = 13;
+const STUB_LENGTH = 1.1 * UNIT;
+const STUB_GAP = 9;       // between two lines' stubs at one stop
 const NS = 'http://www.w3.org/2000/svg';
 
-const point = id => [STATIONS[id][0] * UNIT, STATIONS[id][1] * UNIT];
+/** @typedef {{ STATIONS: Record<string, any[]>, BENDS?: Record<string, number[][]>, DASHED?: Record<string, string[]>, STUBS?: Record<string, string>, BADGES?: Record<string, number[][]> }} Layout */
 
+// A direction's station ids, in travel order
+const directionStations = direction => direction.stops.map(s => s.station);
 // Station ids in line order, from the line's first direction in rail.json
-const lineStations = line => Object.values(line.directions)[0].stops.map(s => s.station);
+const lineStations = line => directionStations(Object.values(line.directions)[0]);
 
-// Points of a line: its stations, with the corners from BENDS in between
-function linePoints(ids) {
-    return ids.flatMap((id, i) => {
-        if (i === 0) return [point(id)];
-        const prev = ids[i - 1];
-        const bends = BENDS[`${prev}>${id}`] ?? [...(BENDS[`${id}>${prev}`] ?? [])].reverse();
-        return [...bends.map(([x, y]) => [x * UNIT, y * UNIT]), point(id)];
-    });
-}
+// A line's colour for the map: rail.json's, if it's a #rrggbb colour
+const lineColor = line => /^#[0-9a-f]{6}$/i.test(line?.color) ? line.color : '#6c757d';
 
 const pathData = points => points.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join('');
 
-// A line's colour for the map: rail.json's, if it's a #rrggbb colour
-const lineColor = line => /^#[0-9a-f]{6}$/i.test(line.color) ? line.color : '#6c757d';
-
-// Text placement for each label side: offset direction, anchor and baseline
-const SIDES = {
-    n:  [0, -1, 'middle', 'auto'],
-    s:  [0, 1, 'middle', 'hanging'],
-    e:  [1, 0, 'start', 'central'],
-    w:  [-1, 0, 'end', 'central'],
-    ne: [0.7, -0.7, 'start', 'auto'],
-    nw: [-0.7, -0.7, 'end', 'auto'],
-    se: [0.7, 0.7, 'start', 'hanging'],
-    sw: [-0.7, 0.7, 'end', 'hanging'],
+// Compass directions, as unit steps on the grid
+const COMPASS = {
+    n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0],
+    ne: [Math.SQRT1_2, -Math.SQRT1_2], nw: [-Math.SQRT1_2, -Math.SQRT1_2],
+    se: [Math.SQRT1_2, Math.SQRT1_2], sw: [-Math.SQRT1_2, Math.SQRT1_2],
 };
 
-function drawMap(rail) {
-    const lines = Object.entries(rail.lines);
+// Text placement for each label side: anchor and baseline (the offset is the
+// side's compass step, a little shorter on the diagonals)
+const SIDES = {
+    n: ['middle', 'auto'], s: ['middle', 'hanging'], e: ['start', 'central'], w: ['end', 'central'],
+    ne: ['start', 'auto'], nw: ['end', 'auto'], se: ['start', 'hanging'], sw: ['end', 'hanging'],
+};
+const labelStep = side => COMPASS[side].map(v => Math.abs(v) < 1 ? Math.sign(v) * 0.7 : v);
+
+/** @param {Layout} layout */
+function geometry(layout) {
+    const point = id => [layout.STATIONS[id][0] * UNIT, layout.STATIONS[id][1] * UNIT];
+    // Points of a run of stations: the stations, with the corners from BENDS in between
+    const linePoints = ids => ids.flatMap((id, i) => {
+        if (i === 0) return [point(id)];
+        const prev = ids[i - 1];
+        const bends = layout.BENDS?.[`${prev}>${id}`] ?? [...(layout.BENDS?.[`${id}>${prev}`] ?? [])].reverse();
+        return [...bends.map(([x, y]) => [x * UNIT, y * UNIT]), point(id)];
+    });
+    return { point, linePoints };
+}
+
+// The runs of a line its first direction doesn't cover (T7 goes back round
+// its Piraeus loop the other way), and the hops trains only make one way
+function lineParts(line) {
+    const dirs = Object.values(line.directions).map(directionStations);
+    const hops = dirs.flatMap(ids => ids.slice(1).map((id, i) => [ids[i], id]));
+    const has = (a, b) => hops.some(([x, y]) => x === a && y === b);
+    const firstHas = (a, b) => dirs[0].some((id, i) => i > 0 && ((dirs[0][i - 1] === a && id === b) || (dirs[0][i - 1] === b && id === a)));
+    const extra = [];
+    for (const ids of dirs.slice(1)) {
+        let run = null;
+        ids.slice(1).forEach((id, i) => {
+            if (firstHas(ids[i], id)) { run = null; return; }
+            if (!run) extra.push(run = [ids[i]]);
+            run.push(id);
+        });
+    }
+    const oneWay = hops.filter(([a, b], i) => !has(b, a) && hops.findIndex(([x, y]) => x === a && y === b) === i);
+    return { extra, oneWay };
+}
+
+// A small arrowhead halfway along the longest straight piece of a hop
+function arrow(points) {
+    const pieces = points.slice(1).map((p, i) => [points[i], p]);
+    const [[x1, y1], [x2, y2]] = pieces.reduce((a, b) => Math.hypot(b[1][0] - b[0][0], b[1][1] - b[0][1]) > Math.hypot(a[1][0] - a[0][0], a[1][1] - a[0][1]) ? b : a);
+    const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+    return html`<path class="map-arrow" d="M-3 -3.5L1.5 0L-3 3.5" transform="translate(${(x1 + x2) / 2} ${(y1 + y2) / 2}) rotate(${Math.round(angle)})"/>`;
+}
+
+/**
+ * The map's SVG content (exported for the tests)
+ * @param {{ lines: Record<string, any>, stations: Record<string, any> }} network
+ * @param {Layout} layout
+ * @param {{ id: string, colors: Record<string, any>, link: (id: string) => string | null }} options
+ */
+export function drawMap(network, layout, { id: mapId, colors, link }) {
+    const { point, linePoints } = geometry(layout);
+    const lines = Object.entries(network.lines);
+    const placed = id => !!layout.STATIONS[id];
 
     const tracks = lines.map(([id, line]) => {
-        const ids = lineStations(line);
-        const dashed = DASHED[id];
+        const ids = lineStations(line).filter(placed);
+        const dashed = layout.DASHED?.[id];
         const [a, b] = dashed ? dashed.map(s => ids.indexOf(s)).sort((x, y) => x - y) : [];
-        return html`<path class="map-line" d="${pathData(linePoints(ids))}" stroke="${lineColor(line)}"/>${dashed && html`<path class="map-line-dash" d="${pathData(linePoints(ids.slice(a, b + 1)))}"/>`}`;
+        const { extra, oneWay } = lineParts(line);
+        const stroke = lineColor(line);
+        return html`<path class="map-line" d="${pathData(linePoints(ids))}" stroke="${stroke}"/>${extra.map(run => html`<path class="map-line" d="${pathData(linePoints(run.filter(placed)))}" stroke="${stroke}"/>`)}${dashed && html`<path class="map-line-dash" d="${pathData(linePoints(ids.slice(a, b + 1)))}"/>`}${oneWay.filter(hop => hop.every(placed)).map(hop => arrow(linePoints(hop)))}`;
     });
 
-    const stations = Object.entries(rail.stations).filter(([id]) => STATIONS[id]).map(([id, station]) => {
+    // Short strokes, fading out, in the colours of the lines of another
+    // network a stop changes to (tram stops to the metro)
+    const stubs = Object.entries(layout.STUBS ?? {}).filter(([id]) => network.stations[id]?.metro).map(([id, side]) => {
         const [x, y] = point(id);
-        const [dx, dy, anchor, baseline] = SIDES[STATIONS[id][2]];
-        const interchange = station.lines.length > 1;
+        const [dx, dy] = COMPASS[side];
+        const others = network.stations[id].metro.lines;
+        return others.map((lineId, i) => {
+            const shift = (i - (others.length - 1) / 2) * STUB_GAP;
+            const [x1, y1] = [x - dy * shift, y + dx * shift];
+            const [x2, y2] = [x1 + dx * STUB_LENGTH, y1 + dy * STUB_LENGTH];
+            const gradient = `${mapId}-stub-${id}-${lineId}`;
+            return html`<linearGradient id="${gradient}" gradientUnits="userSpaceOnUse" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">
+                <stop offset="0.5" stop-color="${lineColor(colors[lineId])}"/><stop offset="1" stop-color="${lineColor(colors[lineId])}" stop-opacity="0"/>
+            </linearGradient><path class="map-stub" d="M${x1} ${y1}L${x2} ${y2}" stroke="url(#${gradient})"/>`;
+        });
+    });
+
+    // Line badges at the ends of the lines, where the lines share a colour
+    const badges = Object.entries(layout.BADGES ?? {}).filter(([id]) => network.lines[id]).flatMap(([id, spots]) => spots.map(([x, y]) =>
+        html`<g class="map-badge"><rect x="${x * UNIT - 15}" y="${y * UNIT - 10}" width="30" height="20" rx="4" fill="${lineColor(network.lines[id])}"/><text x="${x * UNIT}" y="${y * UNIT}" text-anchor="middle" dominant-baseline="central">${network.lines[id].name}</text></g>`));
+
+    const stations = Object.entries(network.stations).filter(([id]) => placed(id)).map(([id, station]) => {
+        const [x, y] = point(id);
+        const side = layout.STATIONS[id][2];
+        const [dx, dy] = labelStep(side);
+        const [anchor, baseline] = SIDES[side];
+        const interchange = station.lines.length > 1 || !!station.metro;
         const name = localName(station.name, language);
-        return html`<g class="map-station${interchange ? ' map-interchange' : ''}" data-station="${id}">
+        const classes = `map-station${interchange ? ' map-interchange' : ''}${link(id) ? ' map-link' : ''}`;
+        return html`<g class="${classes}" data-station="${id}">
             <title>${name}</title>
-            <circle cx="${x}" cy="${y}" r="${interchange ? 9 : 6}"${!interchange && html` stroke="${lineColor(rail.lines[station.lines[0]])}"`}/>
+            <circle cx="${x}" cy="${y}" r="${interchange ? 9 : 6}"${!interchange && html` stroke="${lineColor(network.lines[station.lines[0]])}"`}/>
             <text x="${x + dx * LABEL_GAP}" y="${y + dy * LABEL_GAP}" text-anchor="${anchor}" dominant-baseline="${baseline}">${name}</text>
         </g>`;
     });
 
-    return html`<g class="map-content">${tracks}${stations}</g>`;
+    return html`<g class="map-content">${stubs}${tracks}${badges}${stations}</g>`;
 }
 
-export function createMetroMap(container, rail) {
+/**
+ * A zoomable map in `container`
+ * @param {any} container
+ * @param {{ lines: Record<string, any>, stations: Record<string, any> }} network
+ * @param {Layout} layout
+ * @param {{ label: string, describedBy: string, colors?: Record<string, any>, link?: (id: string) => string | null }} options
+ */
+export function createRailMap(container, network, layout, { label, describedBy, colors = network.lines, link = () => null }) {
     const button = (zoom, key, symbol) => html`<button type="button" class="btn map-btn" data-zoom="${zoom}"
         aria-label="${t(key)}" title="${t(key)}">${icon(symbol)}</button>`;
     setHtml(container, html`
@@ -83,14 +163,14 @@ export function createMetroMap(container, rail) {
             ${button('out', 'info.zoom-out', 'dash-lg')}
             ${button('reset', 'info.zoom-reset', 'arrows-angle-contract')}
         </div>
-        <svg xmlns="${NS}" class="map-svg" role="img" aria-label="${t('info.map-label')}" aria-describedby="map-help" tabindex="0"></svg>`);
+        <svg xmlns="${NS}" class="map-svg" role="img" aria-label="${label}" aria-describedby="${describedBy}" tabindex="0"></svg>`);
     const svg = container.querySelector('.map-svg');
 
     let base;   // the whole map, as a viewBox
     let view;   // the visible part
 
     function draw() {
-        setHtml(svg, drawMap(rail));
+        setHtml(svg, drawMap(network, layout, { id: container.id, colors, link }));
         const box = svg.querySelector('.map-content').getBBox();
         const pad = UNIT / 2;
         base = { x: box.x - pad, y: box.y - pad, w: box.width + 2 * pad, h: box.height + 2 * pad };
@@ -206,27 +286,50 @@ export function createMetroMap(container, rail) {
     window.addEventListener('pointerup', release);
     window.addEventListener('pointercancel', release);
 
-    // A tap on a station opens the directions to it, unless it ended a drag
+    // A tap on a station opens its link (the directions to it), unless it ended a drag
     svg.addEventListener('click', e => {
-        const station = e.target.closest('.map-station');
-        if (station && moved <= 6) location.href = localHref(`/subway?to=${encodeURIComponent(station.dataset.station)}`);
+        const href = link(e.target.closest('.map-station')?.dataset.station);
+        if (href && moved <= 6) location.href = href;
     });
 
     draw();
 }
 
-// The stations of each line in order, as lists of links, with the changes
-// to other lines. The accessible counterpart of the map.
-export function stationList(rail) {
-    const name = id => localName(rail.stations[id].name, language);
-    return html`${Object.entries(rail.lines).map(([lineId, line]) => {
+// The metro's stations open the directions to them
+export const subwayLink = id => id ? localHref(`/subway?to=${encodeURIComponent(id)}`) : null;
+
+/** @param {any} container @param {import('../../../types/data.js').Rail} rail @param {Layout} layout */
+export function createMetroMap(container, rail, layout) {
+    createRailMap(container, rail, layout, { label: t('info.map-label'), describedBy: 'map-help subway-map-help', link: subwayLink });
+}
+
+/** @param {any} container @param {import('../../../types/data.js').Rail} rail @param {Layout} layout */
+export function createTramMap(container, rail, layout) {
+    if (!rail.tram) throw new Error('No tram in rail.json');
+    createRailMap(container, rail.tram, layout, { label: t('info.tram-map-label'), describedBy: 'map-help tram-map-help', colors: { ...rail.lines, ...rail.tram.lines } });
+}
+
+// The stations of each line in order, with the changes to other lines: the
+// accessible counterpart of a map. Metro stations are links to the
+// directions to them. Where a line's other direction goes another way (T7's
+// Piraeus loop), a sentence says which way.
+/** @param {{ lines: Record<string, any>, stations: Record<string, any> }} network @param {{ link?: (id: string) => string | null }} [options] */
+export function stationList(network, { link = () => null } = {}) {
+    const name = id => localName(network.stations[id].name, language);
+    return html`${Object.entries(network.lines).map(([lineId, line]) => {
         const ids = lineStations(line);
         const items = ids.map(id => {
-            const others = rail.stations[id].lines.filter(l => l !== lineId);
+            const station = network.stations[id];
+            const others = [...station.lines.filter(l => l !== lineId), ...station.metro?.lines ?? []];
             const change = others.length > 0 && html` <span class="station-change">· ${t('info.change-to')} ${others.join(', ')}</span>`;
-            return html`<li><a href="${localHref(`/subway?to=${encodeURIComponent(id)}`)}">${name(id)}</a>${change}</li>`;
+            const href = link(id);
+            return html`<li>${href ? html`<a href="${href}">${name(id)}</a>` : name(id)}${change}</li>`;
         });
-        return html`<h4 class="station-line">${lineBadge(lineId, line.name)} ${name(ids[0])} – ${name(ids.at(-1))}</h4>
-            <ol class="station-stops">${items}</ol>`;
+        const { extra } = lineParts(line);
+        const ways = Object.values(line.directions).slice(1).filter(d => extra.some(run => directionStations(d).includes(run[1])))
+            .map(d => html`<p class="station-way">${t('info.other-way').replace('{toward}', localName(d.toward, language))} ${extra.map(run => run.map(name).join(' – ')).join('; ')}.</p>`);
+        return html`<h5 class="station-line">${lineBadge(lineId, line.name)} ${name(ids[0])} – ${name(ids.at(-1))}</h5>
+            <ol class="station-stops">${items}</ol>${ways}`;
     })}`;
 }
+

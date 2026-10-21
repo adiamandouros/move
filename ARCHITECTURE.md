@@ -260,7 +260,13 @@ STASY's first and last trains is a problem (depot runs could get through
 there), and fails `/api/health`; first or last trains off STASY's (missing
 trains), how often trains run against STASY's frequency tables, the dates
 with trains of their own and dates the GTFS lays two timetables over (those
-keep the typical week) are notes, on `/admin/diagnostics`. The buses come from OASA's live API instead, as its
+keep the typical week) are notes, on `/admin/diagnostics`. The same feed has
+the tram: `build-tram.js` adds its lines and stops to `rail.json` (`tram`, the
+shape of the metro part without timetables) for the Info page's tram map,
+with names and changes to the metro from `data/curated/tram.json`; a problem
+there is a warning and leaves the tram out, never the metro. The Info page
+draws both maps with one drawer (`tools/info/client/map.js`), each from its
+own layout (`map-layout.js`, `tram-layout.js`). The buses come from OASA's live API instead, as its
 open-data bus timetable falls behind (diversions, new routes):
 `oasa-network.js` fetches today's lines, their routes and each route's stops,
 and `build-bus.js` makes `data/build/bus-stops.json` (every stop on a route

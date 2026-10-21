@@ -1,6 +1,6 @@
 // Where each station sits on the schematic metro map, in grid units (x to the
 // right, y down; Syntagma is 0,0). Lines run horizontally, vertically or at
-// 45°, and only meet at interchanges; test/subway-map.test.js checks both.
+// 45°, and only meet at interchanges; test/map-layouts.test.js checks both.
 // The layout loosely follows STASY's official map.
 //
 // Each entry is [x, y, label side]. The side is a compass direction from the

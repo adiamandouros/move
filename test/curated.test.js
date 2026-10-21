@@ -4,7 +4,7 @@ import { readFileSync } from 'fs';
 import { validateCurated } from '../server/data/validate.js';
 
 const load = name => JSON.parse(readFileSync(new URL(`../data/curated/${name}.json`, import.meta.url), 'utf8'));
-const real = () => ({ stations: load('stations'), lines: load('lines'), positions: load('positions'), airport: load('airport') });
+const real = () => ({ stations: load('stations'), lines: load('lines'), positions: load('positions'), airport: load('airport'), tram: load('tram') });
 
 test('the committed curated files are valid', () => {
     const { errors } = validateCurated(real());
@@ -52,3 +52,22 @@ test('airport.json: STASY\'s airport trains, one time per station, in order, and
         'airport.json: M3/nowhere: unknown direction',
     ]) assert.ok(errors.includes(e), `${e}\n${errors.join('\n')}`);
 });
+
+test('tram.json: lines with a colour and directions, stops with names and their own codes, metro stations that exist', () => {
+    const c = real();
+    c.tram.lines.T6.color = 'green';
+    c.tram.lines.T7.directions.voula.gtfsDirection = '0';
+    delete c.tram.stops.edem.name.en;
+    c.tram.stops.batis.gtfs.push('SYNPF', 'MON1');
+    c.tram.stops.fix.metro = 'fix';
+    const { errors } = validateCurated(c);
+    assert.deepEqual(errors.sort(), [
+        'tram.json: T6 needs a name and a #rrggbb color',
+        'tram.json: T7 has two directions with gtfsDirection 0',
+        'tram.json: edem needs name.el and name.en',
+        'tram.json: fix changes to an unknown metro station "fix"',
+        'tram.json: gtfs code MON1 is used by both monastiraki and batis',
+        'tram.json: gtfs code SYNPF is used by both batis and syntagma',
+    ].sort());
+});
+

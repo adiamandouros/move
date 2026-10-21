@@ -1,7 +1,7 @@
 {
   "en": {
     "info.title": "Info",
-    "info.map": "Metro map",
+    "info.map": "Maps",
     "info.hours": "Closing times",
     "info.tickets": "Tickets",
     "info.airport": "Getting to the airport",
@@ -30,11 +30,16 @@
     "info.stations-by-line": "Stations by line",
     "info.change-to": "change to",
     "info.map-label": "Metro map",
-    "info.hours-stasy": "Metro times from STASY's timetable, as of {date}."
+    "info.hours-stasy": "Metro times from STASY's timetable, as of {date}.",
+    "info.metro": "Metro",
+    "info.tram": "Tram",
+    "info.tram-map-label": "Tram map",
+    "info.stops-by-line": "Stops by line",
+    "info.other-way": "Toward {toward}, trams go back another way:"
   },
   "el": {
     "info.title": "Πληροφορίες",
-    "info.map": "Χάρτης μετρό",
+    "info.map": "Χάρτες",
     "info.hours": "Ώρες λειτουργίας",
     "info.tickets": "Εισιτήρια",
     "info.airport": "Μετάβαση στο αεροδρόμιο",
@@ -63,6 +68,11 @@
     "info.stations-by-line": "Σταθμοί ανά γραμμή",
     "info.change-to": "αλλαγή για",
     "info.map-label": "Χάρτης μετρό",
-    "info.hours-stasy": "Ώρες μετρό από το πρόγραμμα της ΣΤΑΣΥ, όπως ήταν στις {date}."
+    "info.hours-stasy": "Ώρες μετρό από το πρόγραμμα της ΣΤΑΣΥ, όπως ήταν στις {date}.",
+    "info.metro": "Μετρό",
+    "info.tram": "Τραμ",
+    "info.tram-map-label": "Χάρτης τραμ",
+    "info.stops-by-line": "Στάσεις ανά γραμμή",
+    "info.other-way": "Προς {toward}, το τραμ επιστρέφει από άλλη διαδρομή:"
   }
 }

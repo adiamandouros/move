@@ -148,12 +148,33 @@ const LINE_COLOURS = (() => {
     return rules;
 })();
 
-test('every metro line\'s colour in style.css is its colour in lines.json', () => {
-    const lines = JSON.parse(readFileSync(new URL('../data/curated/lines.json', import.meta.url), 'utf8'));
+const curatedLines = name => JSON.parse(readFileSync(new URL(`../data/curated/${name}.json`, import.meta.url), 'utf8'));
+// Every line: the metro's (lines.json) and the tram's (tram.json)
+const ALL_LINES = () => ({ ...curatedLines('lines'), ...curatedLines('tram').lines });
+
+test('every line\'s colour in style.css is its colour in lines.json or tram.json', () => {
+    const lines = ALL_LINES();
     for (const [id, line] of Object.entries(lines)) {
         assert.equal(LINE_COLOURS[id.toLowerCase()]?.background?.toLowerCase(), line.color.toLowerCase(), `.line-${id.toLowerCase()} in style.css`);
     }
-    assert.ok(LINE_COLOURS.t6 && LINE_COLOURS.t7, 'and the tram');
+    assert.ok(lines.T6 && lines.T7, 'and the tram');
+});
+
+test('the tram lines\' badges have dark text', () => {
+    for (const id of Object.keys(curatedLines('tram').lines)) assert.equal(LINE_COLOURS[id.toLowerCase()].color, 'var(--wh-ink)', `.line-${id.toLowerCase()}`);
+});
+
+// Lines below 3:1 on the maps, and why
+const MAP_EXCEPTIONS = {
+    M3: 'known since before the tram map (2.70:1); its colour is kept until the user decides (2026-10-21)',
+};
+
+test('every line stands out on the maps\' background (3:1, as for graphics)', () => {
+    for (const [id, line] of Object.entries(ALL_LINES())) {
+        if (MAP_EXCEPTIONS[id]) continue;
+        const ratio = contrast(line.color.toLowerCase(), resolve('var(--wh-map-bg)'));
+        assert.ok(ratio >= 3, `${id}: ${line.color} on the map is ${ratio.toFixed(2)}:1`);
+    }
 });
 
 test('the metro lines\' badges have white text', () => {

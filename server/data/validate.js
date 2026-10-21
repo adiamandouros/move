@@ -9,8 +9,8 @@ const POSITION_KEYS = new Set(['exits', 'elevators', 'centralPlatform', 'transfe
 // Check the hand-maintained files in data/curated for mistakes. Returns
 // { errors, warnings }; any error fails the build. Kept independent of the
 // GTFS feed so it can run in tests and before every build.
-/** @param {{ stations: any, lines: any, positions: any, airport?: any }} curated */
-export function validateCurated({ stations, lines, positions, airport }) {
+/** @param {{ stations: any, lines: any, positions: any, airport?: any, tram?: any }} curated */
+export function validateCurated({ stations, lines, positions, airport, tram }) {
     const errors = [];
     const warnings = [];
 
@@ -76,6 +76,7 @@ export function validateCurated({ stations, lines, positions, airport }) {
     }
 
     if (airport !== undefined) checkAirport(airport, stationIds, lines, errors);
+    if (tram !== undefined) checkTram(tram, stationIds, seenCodes, errors);
     return { errors, warnings };
 }
 
@@ -103,5 +104,31 @@ function checkAirport(airport, stationIds, lines, errors) {
             }
             if (!Array.isArray(d.trains) || !d.trains.length) errors.push(`${where}: "trains" must list its trains`);
         }
+    }
+}
+
+// tram.json: the tram map's lines and stops (build-tram.js), in the style of
+// lines.json and stations.json; `metro` is the metro station a stop changes to
+function checkTram(tram, stationIds, metroCodes, errors) {
+    for (const [lineId, line] of Object.entries(tram?.lines ?? {})) {
+        if (!line.name || !/^#[0-9a-f]{6}$/i.test(line.color ?? '')) errors.push(`tram.json: ${lineId} needs a name and a #rrggbb color`);
+        const gtfsDirs = new Set();
+        for (const [dirKey, dir] of Object.entries(line.directions ?? {})) {
+            if (!dir.toward?.el || !dir.toward?.en) errors.push(`tram.json: ${lineId}/${dirKey} needs toward.el and toward.en`);
+            if (gtfsDirs.has(dir.gtfsDirection)) errors.push(`tram.json: ${lineId} has two directions with gtfsDirection ${dir.gtfsDirection}`);
+            gtfsDirs.add(dir.gtfsDirection);
+        }
+        if (!gtfsDirs.size) errors.push(`tram.json: ${lineId} has no directions`);
+    }
+    const seen = new Map();
+    for (const [id, s] of Object.entries(tram?.stops ?? {})) {
+        if (!s.name?.el || !s.name?.en) errors.push(`tram.json: ${id} needs name.el and name.en`);
+        if (!Array.isArray(s.gtfs) || !s.gtfs.length) errors.push(`tram.json: ${id} has no gtfs codes`);
+        for (const code of s.gtfs ?? []) {
+            const user = seen.get(code) ?? metroCodes.get(code);
+            if (user) errors.push(`tram.json: gtfs code ${code} is used by both ${user} and ${id}`);
+            seen.set(code, id);
+        }
+        if (s.metro !== undefined && !stationIds.has(s.metro)) errors.push(`tram.json: ${id} changes to an unknown metro station "${s.metro}"`);
     }
 }
