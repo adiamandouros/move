@@ -1255,6 +1255,14 @@ body {
     margin-top: 0;
 }
 
+/* A line between a section's parts (the Maps section's Metro and Tram),
+   above each part after the first */
+.info-body > .collapse + .info-subhead {
+    border-top: 1px solid var(--bs-border-color);
+    margin-top: 20px;
+    padding-top: 12px;
+}
+
 .info-body ul.info-lines {
     list-style: none;
     padding-left: 0;

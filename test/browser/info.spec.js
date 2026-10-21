@@ -19,9 +19,11 @@ for (const lang of ['', '/el']) {
         };
         await press('#toggle-map', 'Enter');
         await expect(page.locator('#toggle-map')).toHaveAttribute('aria-expanded', 'true');
-        // Both maps start closed
+        // Both maps start closed, with a line between them
         await expect(page.locator('#toggle-metro')).toHaveAttribute('aria-expanded', 'false');
         await expect(page.locator('#toggle-tram')).toHaveAttribute('aria-expanded', 'false');
+        await expect(page.locator('h3:has(#toggle-tram)')).toHaveCSS('border-top-width', '1px');
+        await expect(page.locator('h3:has(#toggle-metro)')).toHaveCSS('border-top-width', '0px');
         await press('#toggle-metro', 'Enter');
         await expect(page.locator('#metro-map > .map-svg .map-station').first()).toBeAttached();
         // Stubs to the tram, each ending in its line's badge
