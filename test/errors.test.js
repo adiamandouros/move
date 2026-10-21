@@ -16,6 +16,7 @@ async function serve(options) {
     app.get('/api/thing', boom);
     app.get('/admin/api/thing', boom);
     app.get('/too-big', () => { throw Object.assign(new Error('request entity too large'), { status: 413 }); });
+    app.get('/not-yet', () => { throw Object.assign(new Error('not built yet'), { status: 503, retryAfter: 300 }); });
     app.get('/half', (_req, res) => { res.write('half'); throw new Error('mid-answer'); });
     app.use(errorHandler(options));
     const server = await new Promise(resolve => { const s = app.listen(0, () => resolve(s)); });
@@ -55,6 +56,16 @@ test('an error with a 4xx status keeps it, and isn\'t logged', async () => {
     const res = await get('/too-big');
     assert.equal(res.status, 413);
     assert.equal(await res.text(), '<p>error page for /too-big</p>');
+    assert.deepEqual(logged, []);
+});
+
+test('a 503: says when to come back, isn\'t logged', async () => {
+    logged.length = 0;
+    const res = await get('/not-yet');
+    assert.equal(res.status, 503);
+    assert.equal(res.headers.get('retry-after'), '300');
+    assert.equal(res.headers.get('cache-control'), 'no-store');
+    assert.equal(await res.text(), '<p>error page for /not-yet</p>');
     assert.deepEqual(logged, []);
 });
 

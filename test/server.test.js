@@ -1,6 +1,8 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'fs';
+import { mkdtempSync, readFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import http from 'http';
 import { loadTools, sitePages } from '../server/pages/registry.js';
 import { brokenData, down, site } from './support/test-site.js';
@@ -79,6 +81,21 @@ test('names every object has aren\'t stations: the not-found page, not a crash',
             assert.doesNotMatch(html, /TypeError|node_modules/, path);
         }
     }
+});
+
+test('before the first data build, station pages say "try again" (503), not "not found"', async () => {
+    const empty = await serve({ buildDir: mkdtempSync(join(tmpdir(), 'wayhop-nodata-')) });
+    for (const [lang, path, title] of [['en', '/subway/stations', 'Something went wrong'], ['en', '/subway/stations/syntagma', 'Something went wrong'], ['el', '/el/subway/stations/syntagma', 'Κάτι πήγε στραβά']]) {
+        const res = await empty(path);
+        assert.equal(res.status, 503, path);
+        assert.equal(res.headers.get('retry-after'), '300', path);
+        assert.equal(res.headers.get('cache-control'), 'no-store', path);
+        const html = await res.text();
+        assert.match(html, new RegExp(`<html lang="${lang}"`), path);
+        assert.match(html, new RegExp(`<h1[^>]*>[^<]*${title}`), path);
+    }
+    // Other addresses are still just not found
+    assert.equal((await empty('/nope')).status, 404);
 });
 
 test('a page that can\'t be drawn: the error page in its language, the details only in the log', async () => {
