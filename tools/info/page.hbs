@@ -11,18 +11,39 @@
         {{/section}}
 
         {{#> section id="map" iconName="map" title="info.map"}}
-            <div id="metro-map" class="metro-map"></div>
             <div id="map-help">
                 {{#ifLang "en"}}
-                <p class="info-source">Pinch, double-tap or use the buttons to zoom; with a keyboard, focus the map and use + and − to zoom and the arrow keys to move. Tap a station for directions to it, or pick one from the list of stations below. See also the {{#external href="https://www.stasy.gr/en/timetables/map/"}}official map with the tram{{/external}}.</p>
+                <p class="info-source">Pinch, double-tap or use the buttons to zoom; with a keyboard, focus a map and use + and − to zoom and the arrow keys to move.</p>
                 {{else}}
-                <p class="info-source">Τσιμπήστε, πατήστε δύο φορές ή χρησιμοποιήστε τα κουμπιά για μεγέθυνση· με πληκτρολόγιο, εστιάστε στον χάρτη και χρησιμοποιήστε τα + και − για μεγέθυνση και τα βέλη για μετακίνηση. Πατήστε έναν σταθμό για οδηγίες προς αυτόν ή επιλέξτε τον από τη λίστα σταθμών παρακάτω. Δείτε και τον {{#external href="https://www.stasy.gr/%ce%b4%cf%81%ce%bf%ce%bc%ce%bf%ce%bb%cf%8c%ce%b3%ce%b9%ce%b1/%cf%87%ce%ac%cf%81%cf%84%ce%b7%cf%82/"}}επίσημο χάρτη με το τραμ{{/external}}.</p>
+                <p class="info-source">Τσιμπήστε, πατήστε δύο φορές ή χρησιμοποιήστε τα κουμπιά για μεγέθυνση· με πληκτρολόγιο, εστιάστε σε έναν χάρτη και χρησιμοποιήστε τα + και − για μεγέθυνση και τα βέλη για μετακίνηση.</p>
+                {{/ifLang}}
+            </div>
+            {{#> subsection id="metro" level=3 title="info.metro"}}
+            <div id="metro-map" class="metro-map"></div>
+            <div id="subway-map-help">
+                {{#ifLang "en"}}
+                <p class="info-source">Tap a station for directions to it, or pick one from the list of stations below. See also STASY's {{#external href="https://www.stasy.gr/en/timetables/map/"}}official map{{/external}}.</p>
+                {{else}}
+                <p class="info-source">Πατήστε έναν σταθμό για οδηγίες προς αυτόν ή επιλέξτε τον από τη λίστα σταθμών παρακάτω. Δείτε και τον {{#external href="https://www.stasy.gr/%ce%b4%cf%81%ce%bf%ce%bc%ce%bf%ce%bb%cf%8c%ce%b3%ce%b9%ce%b1/%cf%87%ce%ac%cf%81%cf%84%ce%b7%cf%82/"}}επίσημο χάρτη{{/external}} της ΣΤΑΣΥ.</p>
                 {{/ifLang}}
             </div>
             <div class="station-index">
-                <h3 class="info-subhead"><button type="button" class="accordion-button collapsed info-subtoggle" data-bs-toggle="collapse" data-bs-target="#station-list" aria-expanded="false" aria-controls="station-list" id="toggle-station-list"><span>{{t "info.stations-by-line"}}</span></button></h3>
-                <div id="station-list" class="collapse"></div>
+                {{#> subsection id="station-list" level=4 title="info.stations-by-line"}}{{/subsection}}
             </div>
+            {{/subsection}}
+            {{#> subsection id="tram" level=3 title="info.tram"}}
+            <div id="tram-map" class="metro-map"></div>
+            <div id="tram-map-help">
+                {{#ifLang "en"}}
+                <p class="info-source">The short coloured lines mark where you can change to the metro. In Piraeus, T7 trams go one way round the loop, as the arrows show. The stops of each line are listed below.</p>
+                {{else}}
+                <p class="info-source">Οι μικρές χρωματιστές γραμμές δείχνουν πού μπορείτε να αλλάξετε για το μετρό. Στον Πειραιά, το Τ7 κάνει τον κύκλο προς μία κατεύθυνση, όπως δείχνουν τα βέλη. Οι στάσεις κάθε γραμμής είναι στη λίστα παρακάτω.</p>
+                {{/ifLang}}
+            </div>
+            <div class="station-index">
+                {{#> subsection id="tram-stop-list" level=4 title="info.stops-by-line"}}{{/subsection}}
+            </div>
+            {{/subsection}}
         {{/section}}
 
         {{#> section id="hours" iconName="clock" title="info.hours"}}

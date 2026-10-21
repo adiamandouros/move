@@ -48,8 +48,8 @@ test('every string a view uses exists in English and Greek', () => {
             assert.ok(STRINGS.en[key.value], `${name}: "${key.value}" is missing in English`);
             assert.ok(STRINGS.el[key.value], `${name}: "${key.value}" is missing in Greek`);
         }
-        // And the titles of accordion sections: {{#> section title="info.map"}}
-        for (const block of [...nodes(parseTemplate(source))].filter(n => n.type === 'PartialBlockStatement' && n.name.original === 'section')) {
+        // And the titles of accordion sections and their parts: {{#> section title="info.map"}}, {{#> subsection title="info.tram"}}
+        for (const block of [...nodes(parseTemplate(source))].filter(n => n.type === 'PartialBlockStatement' && ['section', 'subsection'].includes(n.name.original))) {
             const title = block.hash.pairs.find(pair => pair.key === 'title').value.value;
             assert.ok(STRINGS.en[title] && STRINGS.el[title], `${name}: section title "${title}" is missing in a language`);
         }
@@ -152,6 +152,12 @@ test('{{#> section}}: an accordion section around its content, closed unless ope
     const open = html('{{#> section id="map" iconName="map" title="info.map" open=true}}{{/section}}');
     assert.match(open, /class="accordion-button" [^>]*aria-expanded="true"/);
     assert.match(open, /class="accordion-collapse collapse show"/);
+});
+
+test('{{#> subsection}}: a closed toggle at a heading level, around its content', () => {
+    const html = source => render(source, { inside: 'x' }, { lang: 'en', strings: { 'info.tram': 'Tram' } }).replace(/\s+</g, '<');
+    const part = html('{{#> subsection id="tram" level=3 title="info.tram"}}<p>{{inside}}</p>{{/subsection}}');
+    assert.equal(part, '<h3 class="info-subhead"><button type="button" class="accordion-button collapsed info-subtoggle" data-bs-toggle="collapse" data-bs-target="#tram" aria-expanded="false" aria-controls="tram" id="toggle-tram"><span>Tram</span></button></h3><div id="tram" class="collapse"><p>x</p></div>\n');
 });
 
 test('fill() fills a script\'s slots as they are, and fails on a missing one', () => {

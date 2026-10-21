@@ -1,6 +1,6 @@
 // Where each station sits on the schematic metro map, in grid units (x to the
 // right, y down; Syntagma is 0,0). Lines run horizontally, vertically or at
-// 45°, and only meet at interchanges; test/subway-map.test.js checks both.
+// 45°, and only meet at interchanges; test/map-layouts.test.js checks both.
 // The layout loosely follows STASY's official map.
 //
 // Each entry is [x, y, label side]. The side is a compass direction from the
@@ -91,6 +91,17 @@ export const STATIONS = {
 // Corners between two neighbouring stations, keyed "a>b" in either order
 export const BENDS = {
     'victoria>attiki': [[-2, -4]],
+};
+
+// Where the tram stubs point from a station that changes to the tram
+// (tram.json's `metro`)
+export const STUBS = {
+    'syntagma': 'ne',
+    'syggrou-fix': 'w',
+    'neos-kosmos': 'e',
+    'faliro': 'e',
+    'piraeus': 'sw',
+    'dimotiko-theatro': 's',
 };
 
 // Parts of a line drawn dashed: the airport branch runs every 36 minutes

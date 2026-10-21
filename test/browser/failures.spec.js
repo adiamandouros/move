@@ -79,6 +79,7 @@ test.describe('the announcement sources down', () => {
         await page.goto('/info');
         await expect(page.locator('#announcements')).toHaveText('Couldn\'t load the announcements. Check your connection and try again later.');
         await page.locator('#toggle-map').click();
+        await page.locator('#toggle-metro').click();
         await expect(page.locator('#metro-map .map-station').first()).toBeAttached();
         expect(await axe(page)).toEqual([]);
     });
@@ -106,10 +107,13 @@ test.describe('before the first data build', () => {
         expect(await axe(page)).toEqual([]);
     });
 
-    test('the Info map says it couldn\'t load; announcements still come', async ({ page }) => {
+    test('the Info maps say they couldn\'t load; announcements still come', async ({ page }) => {
         await page.goto('/info');
         await page.locator('#toggle-map').click();
+        await page.locator('#toggle-metro').click();
         await expect(page.locator('#metro-map')).toContainText('Couldn\'t load the map.');
+        await page.locator('#toggle-tram').click();
+        await expect(page.locator('#tram-map')).toContainText('Couldn\'t load the map.');
         await expect(page.locator('#announcements li').first()).toBeAttached();
         expect(await axe(page)).toEqual([]);
     });

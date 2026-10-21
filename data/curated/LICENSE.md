@@ -1,7 +1,7 @@
 # License of the curated data
 
-The data files in this folder (`lines.json`, `positions.json` and
-`stations.json`) are © 2026 adiamandouros and licensed under the
+The data files in this folder (`airport.json`, `lines.json`,
+`positions.json`, `stations.json` and `tram.json`) are © 2026 adiamandouros and licensed under the
 [Creative Commons Attribution-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-sa/4.0/)
 ([legal code](https://creativecommons.org/licenses/by-sa/4.0/legalcode)).
 

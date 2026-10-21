@@ -1,9 +1,9 @@
 {
-  "generated": "2026-10-20T15:11:14.459Z",
+  "generated": "2026-10-21T07:11:55.022Z",
   "fingerprint": {
-    "builder": "6461fad22db9",
-    "curated": "40a9e8ef99c65af9658cddc7c3b2f9731f2bb90969e385766c184637799ed5f5",
-    "today": "20261020",
+    "builder": "86eb056d031b",
+    "curated": "5955ccb0d5224244f1a0a080da6f2e5a383e8625f7e9c0079d24a52748475c97",
+    "today": "20261021",
     "sources": {
       "rail": "2026-10-06T04:46:54.184974",
       "bus": "2026-08-06T07:57:34.422340",

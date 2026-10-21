@@ -56,6 +56,7 @@ test.describe('on one phone (the same everywhere)', () => {
     test('the Greek map\'s station list links to Greek pages', async ({ page }) => {
         await page.goto('/el/info');
         await page.locator('#toggle-map').click();
+        await page.locator('#toggle-metro').click();
         await page.locator('#toggle-station-list').click();
         await expect(page.locator('#station-list a').first()).toHaveAttribute('href', /^\/el\/subway\?to=/);
         await expect(page.locator('.map-btn').first()).toHaveAttribute('aria-label', 'Μεγέθυνση');

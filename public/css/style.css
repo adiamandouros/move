@@ -23,7 +23,7 @@
     --bs-secondary-bg-rgb: 30, 37, 56;
     --wh-tertiary-bg-hover: #1a2133;
     --wh-secondary-bg-hover: #313c5b;
-    --wh-map-bg: #0f131c;
+    --wh-map-bg: #000;
 
     /* Text, strongest first */
     --bs-emphasis-color: #fff;
@@ -1255,6 +1255,14 @@ body {
     margin-top: 0;
 }
 
+/* A line between a section's parts (the Maps section's Metro and Tram),
+   above each part after the first */
+.info-body > .collapse + .info-subhead {
+    border-top: 1px solid var(--bs-border-color);
+    margin-top: 20px;
+    padding-top: 12px;
+}
+
 .info-body ul.info-lines {
     list-style: none;
     padding-left: 0;
@@ -1267,15 +1275,15 @@ body {
 }
 
 /* Line colours, for badges (lineBadge in /js/core/metro.js). The metro's are
-   data/curated/lines.json's, with white text (M1's green is a little darker
-   than OASA's for it): test/accessibility.test.js checks they're the same,
-   and that the text on each meets WCAG AA. The tram isn't in the planner, so
-   it's only here, with dark text. */
+   data/curated/lines.json's, with white text (M1's green is darker than
+   STASY's for it, and to tell it from the tram's): the tram's are
+   tram.json's, STASY's light green with dark text. test/accessibility.test.js
+   checks they're the same, and that the text on each meets WCAG AA. */
 .line-m1 { background-color: #3a833c; color: #fff; }
-.line-m2 { background-color: #cc0000; color: #fff; }
+.line-m2 { background-color: #d43333; color: #fff; }
 .line-m3 { background-color: #0057b8; color: #fff; }
 .line-t6,
-.line-t7 { background-color: #e07b00; color: var(--wh-ink); }
+.line-t7 { background-color: #b6d433; color: var(--wh-ink); }
 
 .info-body ul.announcements,
 .disruption-banner ul {
@@ -1315,7 +1323,7 @@ body {
     margin-top: 6px;
 }
 
-/* Metro map (tools/info/client/map.js) */
+/* Metro and tram maps (tools/info/client/map.js) */
 
 .metro-map {
     position: relative;
@@ -1407,17 +1415,41 @@ body {
     stroke-linejoin: round;
 }
 
-.map-interchange text {
+/* Interchanges and the ends of the lines (what directions are called by) */
+.map-interchange text,
+.map-terminal text {
     font-weight: 700;
     font-size: 15px;
 }
 
-.map-station {
+.map-link {
     cursor: pointer;
 }
 
-.map-station:hover text {
+.map-link:hover text {
     fill: var(--bs-primary);
+}
+
+/* One-way hops (T7's Piraeus loop) */
+.map-arrow {
+    fill: none;
+    stroke: var(--wh-map-bg);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Changes to the other network, fading out */
+.map-stub {
+    fill: none;
+    stroke-width: 7;
+}
+
+/* Line badges on the maps: the text colour is .line-m1's etc. */
+.map-badge text {
+    fill: currentColor;
+    font-size: 12px;
+    font-weight: 700;
 }
 
 /* ── Toast (core/shell.js) ── */
@@ -1558,6 +1590,11 @@ body {
     margin-top: 0;
     padding: 3px 0;
     break-inside: avoid;
+}
+
+.station-way {
+    font-size: 0.9rem;
+    color: var(--bs-secondary-color);
 }
 
 .station-change {

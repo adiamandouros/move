@@ -1,0 +1,8 @@
+{{!-- A smaller toggle inside a section, styled like its sub-headings, around
+what it shows: {{#> subsection id="tram-map" level=3 title="info.tram"}}…{{/subsection}}.
+Closed at first. Its button is #toggle-<id>, its content #<id>; `level` is
+the heading's (3 inside a section). --}}
+<h{{level}} class="info-subhead"><button type="button" class="accordion-button collapsed info-subtoggle" data-bs-toggle="collapse" data-bs-target="#{{id}}" aria-expanded="false" aria-controls="{{id}}" id="toggle-{{id}}"><span>{{t title}}</span></button></h{{level}}>
+<div id="{{id}}" class="collapse">
+{{> @partial-block}}
+</div>

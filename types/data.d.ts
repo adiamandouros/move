@@ -25,6 +25,29 @@ export interface Rail {
     stations: Record<string, Station>;
     /** By line id, e.g. "M1" */
     lines: Record<string, Line>;
+    /** The tram network, for its map (server/data/build-tram.js); absent when it couldn't be built */
+    tram?: Tram;
+}
+
+/** rail.json's `tram`: the shape of its metro part, without timetables or car positions */
+export interface Tram {
+    /** By stop id, e.g. "neo-faliro" */
+    stations: Record<string, TramStop>;
+    /** By line id, e.g. "T7" */
+    lines: Record<string, TramLine>;
+}
+
+export interface TramStop extends Station {
+    /** The metro station this stop changes to, and its lines */
+    metro?: { station: string; lines: string[] };
+}
+
+export interface TramLine {
+    name: string;
+    /** #rrggbb */
+    color: string;
+    /** By direction id, e.g. "voula"; the directions may call at different stops (T7's Piraeus loop) */
+    directions: Record<string, { toward: Names; stops: { station: string }[] }>;
 }
 
 export interface Station {

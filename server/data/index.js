@@ -10,6 +10,7 @@ import { readJson } from '../files.js';
 import { athensToday } from './calendar.js';
 import { buildBusLines, buildBusStops } from './build-bus.js';
 import { buildRail } from './build-rail.js';
+import { buildTram } from './build-tram.js';
 import { checkOutput, shrinkage } from './check-output.js';
 import { createOasaClient } from '../oasa/client.js';
 import { applyOverlay, pruneOverlay, readOverlay, writeOverlay } from './overlay.js';
@@ -57,6 +58,16 @@ const OUTPUTS = {
         // and the nightly checks of what it built against STASY's tables (rail-checks.js)
         build: async (src, curated, today) => {
             const { data, warnings, notes } = await buildRail({ dir: src.rail.dir, curated, today, stasy: src.stasy.data });
+            // The tram, for its map on the Info page, from the same feed (build-tram.js)
+            if (curated.tram) {
+                try {
+                    const tram = await buildTram({ dir: src.rail.dir, tram: curated.tram, metroStations: data.stations });
+                    data.tram = tram.data;
+                    warnings.push(...tram.warnings);
+                } catch (err) {
+                    warnings.push(`Tram map left out: ${err.message}`);
+                }
+            }
             return { data, warnings, checks: checkRail(data, { frequencies: src.stasy.data?.frequencies ?? null, notes }) };
         },
     },
@@ -228,14 +239,16 @@ function publish(dirs) {
     rmSync(dirs.next, { recursive: true, force: true });
 }
 
+// airport.json (STASY's airport trains) and tram.json (the tram map's stops) can be missing
+const OPTIONAL_CURATED = ['airport', 'tram'];
+
 // Read the curated files and apply the editor's overlay on top of positions.
 // Overlay entries that the committed positions.json now matches are pruned.
 export function loadCurated({ curatedDir = CURATED_DIR, overlayFile = OVERLAY_FILE, log = console.log } = {}) {
     const hash = createHash('sha256');
-    const data = /** @type {{ stations: any, lines: any, positions: any, airport?: any }} */ ({});
-    // airport.json (STASY's airport trains) is optional
-    for (const name of ['stations', 'lines', 'positions', 'airport']) {
-        if (name === 'airport' && !existsSync(join(curatedDir, `${name}.json`))) continue;
+    const data = /** @type {{ stations: any, lines: any, positions: any, airport?: any, tram?: any }} */ ({});
+    for (const name of ['stations', 'lines', 'positions', 'airport', 'tram']) {
+        if (OPTIONAL_CURATED.includes(name) && !existsSync(join(curatedDir, `${name}.json`))) continue;
         const raw = readFileSync(join(curatedDir, `${name}.json`), 'utf8');
         hash.update(raw);
         try { data[name] = JSON.parse(raw); }

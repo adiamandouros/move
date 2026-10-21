@@ -9,7 +9,7 @@
   },
   "M2": {
     "name": "M2",
-    "color": "#cc0000",
+    "color": "#d43333",
     "directions": {
       "anthoupoli": { "gtfsDirection": "1", "toward": { "el": "Ανθούπολη", "en": "Anthoupoli" } },
       "elliniko": { "gtfsDirection": "0", "toward": { "el": "Ελληνικό", "en": "Elliniko" } }

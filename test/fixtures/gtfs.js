@@ -92,6 +92,56 @@ export function railCurated(overrides = {}) {
     };
 }
 
+// A tram feed, for build-tram.js: T1 runs P → A → N → C → E out, and back
+// E → C → N → B → P the other way round a loop (A out, B back), as T7 does
+// in Piraeus; T2 runs Q ↔ E, sharing E with T1. Other runs: a T1 tram that
+// turns back at C, one from E that ends at A (on the line, the other way),
+// a T2 tram to C (not on T2) and one to X9, a stop tramCurated() doesn't
+// know. M9 is a metro line, left alone.
+export function tramFeed() {
+    const dir = mkdtempSync(join(tmpdir(), 'wayhop-tram-'));
+    const write = (name, rows) => writeFileSync(join(dir, name), rows.join('\n') + '\n');
+    write('routes.txt', ['route_id,route_short_name', '1,T1', '2,T2', '3,M9']);
+    write('stops.txt', [
+        'stop_id,stop_code,stop_lat,stop_lon',
+        '1,P,37.0,23.0', '2,A,37.1,23.1', '3,B,37.1,23.0', '4,N,37.2,23.1',
+        '5,C1,37.3,23.2', '6,C2,37.5,23.4', '7,E1,37.6,23.5', '8,E2,37.6,23.5',
+        '9,Q,37.9,23.9', '10,X9,38.0,24.0', '11,M,37.0,23.0',
+    ]);
+    const trips = {
+        out1: [1, 1, [1, 2, 4, 5, 7]], out2: [1, 1, [1, 2, 4, 5, 7]],
+        back1: [1, 0, [8, 6, 4, 3, 1]], back2: [1, 0, [8, 6, 4, 3, 1]], short: [1, 0, [8, 6]], toA: [1, 0, [8, 6, 4, 2]],
+        up1: [2, 0, [9, 7]], up2: [2, 0, [9, 7]], down1: [2, 1, [8, 9]], toC: [2, 1, [8, 6]], toX: [2, 1, [8, 10]],
+        metro: [3, 0, [11, 11]],
+    };
+    write('trips.txt', ['route_id,service_id,trip_id,direction_id', ...Object.entries(trips).map(([id, [route, d]]) => `${route},wk,${id},${d}`)]);
+    write('stop_times.txt', [
+        'trip_id,arrival_time,departure_time,stop_id,stop_sequence',
+        ...Object.entries(trips).flatMap(([id, [, , stops]]) => stops.map((stop, i) => `${id},08:0${i}:00,08:0${i}:00,${stop},${i + 1}`)),
+    ]);
+    return dir;
+}
+
+export function tramCurated() {
+    const toward = (el, en) => ({ el, en });
+    return {
+        lines: {
+            T1: { name: 'T1', color: '#b6d433', directions: { out: { gtfsDirection: '1', toward: toward('Ε', 'E') }, back: { gtfsDirection: '0', toward: toward('Π', 'P') } } },
+            T2: { name: 'T2', color: '#b6d433', directions: { up: { gtfsDirection: '0', toward: toward('Ε', 'E') }, down: { gtfsDirection: '1', toward: toward('Κ', 'Q') } } },
+        },
+        stops: {
+            p: { name: toward('Π', 'P'), gtfs: ['P'] },
+            a: { name: toward('Α', 'A'), gtfs: ['A'] },
+            b: { name: toward('Β', 'B'), gtfs: ['B'] },
+            n: { name: toward('Ν', 'N'), gtfs: ['N'], metro: 'b' },
+            c: { name: toward('Γ', 'C'), gtfs: ['C1', 'C2'] },
+            e: { name: toward('Ε', 'E'), gtfs: ['E1', 'E2'] },
+            q: { name: toward('Κ', 'Q'), gtfs: ['Q'], metro: 'nowhere' },
+            lonely: { name: toward('Λ', 'L'), gtfs: ['L'] },
+        },
+    };
+}
+
 // A bus feed with `stops` stops (the build needs at least 1000), one line
 // through all of them, valid Mon 3 – Sun 9 Aug 2026. `extraStops` adds rows
 // to stops.txt as they are, e.g. a stop with a bad code.
@@ -130,7 +180,7 @@ export function stopTable({ named = 10, dir = mkdtempSync(join(tmpdir(), 'wayhop
 // The curated files of railCurated(), written as data/curated/ has them
 export function curatedDir(curated = railCurated()) {
     const dir = mkdtempSync(join(tmpdir(), 'wayhop-curated-'));
-    for (const name of ['stations', 'lines', 'positions', 'airport']) if (curated[name]) writeFileSync(join(dir, `${name}.json`), JSON.stringify(curated[name]));
+    for (const name of ['stations', 'lines', 'positions', 'airport', 'tram']) if (curated[name]) writeFileSync(join(dir, `${name}.json`), JSON.stringify(curated[name]));
     return dir;
 }
 
