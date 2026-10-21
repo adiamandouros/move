@@ -15,7 +15,8 @@ self.addEventListener('install', e => {
         cache.addAll(PRECACHE),
         ...PRECACHE_DATA.map(url => cache.add(url).catch(() => {})),
     ])));
-    self.skipWaiting();
+    // No skipWaiting(): a new version waits until the open pages are closed,
+    // so a page never loses its cached files (or gets reloaded) mid-use
 });
 
 self.addEventListener('activate', e => {
