@@ -33,7 +33,7 @@
 
 // Bump with every change a deployed relay needs (proxy/README.md): the
 // server's health check reports relays that answer an older version
-export const RELAY_VERSION = 5;
+export const RELAY_VERSION = 6;
 
 const OASA_API = 'https://telematics.oasa.gr/api/';
 // Each action the relay passes on, and whether it takes a numeric code (p1)
@@ -46,8 +46,9 @@ const STASY = 'https://www.stasy.gr/';
 const STASY_PATH = /^[A-Za-z0-9%_-][A-Za-z0-9%_.-]{0,299}$/;
 // STASY's timetable page for metro line N: /δρομολόγια/γραμμή-N/
 // A PDF STASY has uploaded: its name as STASY's links have it (percent-encoded
-// Greek allowed), no encoded slashes or dots
-const STASY_FILE = /^wp-content\/uploads\/\d{4}\/\d{2}\/[A-Za-z0-9%_.-]{1,300}\.pdf$/;
+// Greek allowed: the airport PDFs' names are 359 characters), no encoded
+// slashes or dots
+const STASY_FILE = /^wp-content\/uploads\/\d{4}\/\d{2}\/[A-Za-z0-9%_.-]{1,600}\.pdf$/;
 export const stasyTimetablePath = line => `%ce%b4%cf%81%ce%bf%ce%bc%ce%bf%ce%bb%cf%8c%ce%b3%ce%b9%ce%b1/%ce%b3%cf%81%ce%b1%ce%bc%ce%bc%ce%ae-${line}/`;
 // STASY's news page is large and slow; the server waits longer for it (25 s)
 const STASY_TIMEOUT_MS = 20_000;

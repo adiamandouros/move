@@ -7,6 +7,7 @@ import { CKAN_API, SOURCES } from './data/sources.js';
 import { AIRPORT_CHECK_MAX_AGE_MS, airportCheckFile } from './data/airport-check.js';
 import { STASY_MAX_AGE_MS, stasyFetchFile } from './data/stasy.js';
 import { readJson } from './files.js';
+import { RELAY_VERSION } from '../proxy/worker.js';
 import { OASA_API, REQUESTS_PER_SECOND, TEST_STOP } from './oasa/client.js';
 import { NEW_STOPS_PER_MINUTE } from './oasa/limits.js';
 
@@ -290,7 +291,7 @@ function airportCheck(dataDir, meta) {
     else if (last.changes?.length) out.push(check('Data', title, 'fail', `Changed since airport.json, checked ${when(last.checked)}: ${last.changes.join(' · ')}`, update));
     else if (last.error) {
         out.push(check('Data', title, 'warn', `The check at ${when(last.at)} failed: ${last.error}${last.checked ? `. Last checked ${when(last.checked)}: unchanged` : ''}`,
-            'The next build tries again. STASY refuses the server, so the PDFs come through the relays: check the relay rows above (relay version 5 is needed).'));
+            `The next build tries again. STASY refuses the server, so the PDFs come through the relays: check the relay rows above (relay version ${RELAY_VERSION} is needed).`));
     } else {
         const next = new Date(Date.parse(last.checked) + AIRPORT_CHECK_MAX_AGE_MS).toISOString().slice(0, 10);
         out.push(check('Data', title, 'ok', `Unchanged, checked ${when(last.checked)} (${last.route}). Next check from ${next}.`));

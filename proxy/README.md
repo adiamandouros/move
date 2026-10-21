@@ -200,7 +200,8 @@ sudo git -C /opt/move pull && sudo systemctl restart move-relay
 Do this after any change to `proxy/` (e.g. October 2026: STASY pages; then
 version 3, the calls the nightly data build makes for the bus network:
 webGetLines, webGetRoutes, webGetStops; then version 4, STASY's timetable
-pages; then version 5, STASY's uploaded PDFs). If `/admin/diagnostics` says "The
+pages; then version 5, STASY's uploaded PDFs; then version 6, which
+accepts the airport PDFs' long names). If `/admin/diagnostics` says "The
 relay doesn't know STASY pages yet", the relay hasn't been updated.
 
 Every change a deployed relay needs also raises `RELAY_VERSION` in
