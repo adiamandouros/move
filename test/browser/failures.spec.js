@@ -93,7 +93,7 @@ test.describe('the announcement sources down', () => {
 });
 
 test.describe('before the first data build', () => {
-    test.use({ scenario: 'no-data', allowErrors: [/status of 404/] });
+    test.use({ scenario: 'no-data', allowErrors: [/status of (404|503)/] });
 
     test('the subway page says the data couldn\'t load', async ({ page }) => {
         await page.goto('/subway?from=syntagma&to=airport');
@@ -118,10 +118,12 @@ test.describe('before the first data build', () => {
         expect(await axe(page)).toEqual([]);
     });
 
-    test('station pages answer "not found" until there\'s a timetable', async ({ page }) => {
+    test('station pages say "try again" (503) until there\'s a timetable', async ({ page }) => {
         const response = await page.goto('/subway/stations/syntagma');
-        expect(response.status()).toBe(404);
-        await expect(page.locator('h1')).toHaveText('Page not found');
+        expect(response.status()).toBe(503);
+        expect(response.headers()['retry-after']).toBe('300');
+        await expect(page.locator('h1')).toHaveText('Something went wrong');
+        expect(await axe(page)).toEqual([]);
     });
 });
 

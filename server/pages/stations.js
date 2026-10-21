@@ -23,6 +23,9 @@ import { view } from './templates.js';
 // The station pages' own strings; they use the subway page's too
 export const STATION_STRINGS = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'views', 'stations.json'), 'utf8'));
 export const STATIONS_PATH = '/subway/stations';
+// Before the first data build there's no rail.json: the pages can't be drawn
+// yet, which isn't the same as there being no such page (errors.js: 503)
+const NOT_BUILT_YET = Object.assign(new Error('rail.json is not built yet'), { status: 503, retryAfter: 300 });
 const DAY = 86_400;
 const ALL_NIGHT_GAP = 3600;
 const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
@@ -288,8 +291,9 @@ export function createStationPages({ railFile, renderPage, tools, origin = '' })
 
     function page(id, lang) {
         const { rail, html } = current();
+        if (!rail) throw NOT_BUILT_YET;
         // Object.hasOwn: "constructor" or "__proto__" in the address isn't a station
-        if (!rail || (id && !Object.hasOwn(rail.stations, id))) return null;
+        if (id && !Object.hasOwn(rail.stations, id)) return null;
         const cacheKey = `${lang} ${id ?? ''}`;
         if (!html.has(cacheKey)) html.set(cacheKey, renderPage(stationPage(rail, id, { tools, origin }), lang));
         return html.get(cacheKey);
