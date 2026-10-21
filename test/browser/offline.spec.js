@@ -33,3 +33,24 @@ test('offline: the planner works, other pages show the offline page', async ({ p
     await expect(page.locator('h1')).toHaveText('Είστε εκτός σύνδεσης');
     expect(await axe(page)).toEqual([]);
 });
+
+test('a new version installs in the background: the open page is not reloaded', async ({ page }) => {
+    await installed(page);
+    await page.evaluate(() => { window.untouched = true; });
+
+    // A worker from another address stands in for the one a deploy brings
+    const state = await page.evaluate(async () => {
+        const registration = await navigator.serviceWorker.register('/sw.js?next');
+        const worker = registration.installing ?? registration.waiting;
+        await new Promise(resolve => {
+            if (worker.state === 'installed') resolve();
+            worker.addEventListener('statechange', () => worker.state === 'installed' && resolve());
+        });
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return { waiting: registration.waiting?.state, active: registration.active?.scriptURL };
+    });
+
+    expect(state.waiting).toBe('installed');
+    expect(state.active).toMatch(/\/sw\.js$/);
+    expect(await page.evaluate(() => window.untouched)).toBe(true);
+});

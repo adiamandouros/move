@@ -202,7 +202,9 @@ every page needs, and the tools with `"offline": true` in `tool.json`
 (Subway and Info) with their data (`rail.json`). Pages come from the network
 first, except those tools, which open from the cache at once and update in
 the background. `/api` and `/admin` are never cached. Each deploy changes
-the version, which replaces the whole cache.
+the version, which replaces the whole cache. A new version installs in the
+background and waits (no `skipWaiting`, no reload): open pages keep the
+version they started with, and it takes over once they're closed.
 
 ## Live bus times and the load on OASA
 

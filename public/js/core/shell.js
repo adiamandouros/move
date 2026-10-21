@@ -44,11 +44,10 @@ if (suggestion && !storage.get('language') && !storage.get('language-suggested')
 // ── Service worker ───────────────────────────────────────────────────────────
 
 if ('serviceWorker' in navigator) {
-    // Reload once a new version takes over, but not on the very first install
+    // A new version installs in the background and waits: this page keeps the
+    // version it started with (nobody loses what they were doing), and the
+    // next visit after the pages are closed gets the new one
     const hadController = Boolean(navigator.serviceWorker.controller);
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (hadController) window.location.reload();
-    });
     navigator.serviceWorker.register('/sw.js').then(registration => {
         // First install: say so once everything is saved for offline use.
         // (Installed iPhone apps get their own storage, so their first launch counts too.)
