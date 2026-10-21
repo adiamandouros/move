@@ -1,5 +1,6 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import worker from '../proxy/worker.js';
 
 const env = { RELAY_KEY: 'secret' };
@@ -107,4 +108,15 @@ test('relays PDFs STASY has uploaded (the airport timetable), as they are, and n
     }
     assert.equal((await call(`?act=stasyFile&path=${encodeURIComponent(pdf)}`, {})).status, 401);
     assert.equal(upstream.length, 1);
+});
+
+test('relays every airport PDF airport.json names (their encoded names are about 360 characters)', async () => {
+    const airport = JSON.parse(readFileSync(new URL('../data/curated/airport.json', import.meta.url), 'utf8'));
+    globalThis.fetch = async () => new Response('%PDF', { headers: { 'Content-Type': 'application/pdf' } });
+    const pdfs = Object.values(airport.lines).flatMap(dirs => Object.values(dirs).map(d => d.pdf));
+    assert.ok(pdfs.length >= 2);
+    for (const url of pdfs) {
+        const path = new URL(url).pathname.slice(1);
+        assert.equal((await call(`?act=stasyFile&path=${encodeURIComponent(path)}`)).status, 200, path);
+    }
 });

@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh pr *)",
+      "Bash(git fetch *)",
+      "Bash(git checkout *)",
+      "Bash(git pull *)",
+      "Bash(node -e ' *)",
+      "Bash(xargs git branch -d)",
+      "Bash(git apply *)",
+      "Bash(git branch *)",
+      "Bash(python3 -)",
+      "Bash(sed -i \"2a import { readFileSync } from 'node:fs';\" test/relay-worker.test.js)",
+      "Bash(git stash *)",
+      "Bash(node --test test/relay-worker.test.js)",
+      "Bash(node --test test/relay-worker.test.js test/health.test.js test/diagnostics.test.js)",
+      "Bash(git add *)",
+      "Bash(git commit -q -m 'Relay: accept the airport PDFs'\\\\'' long names \\(version 6\\) *)"
+    ]
+  }
+}
