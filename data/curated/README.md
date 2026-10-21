@@ -76,7 +76,7 @@ STASY's tram green, with dark text on badges, see style.css). `stops` are as
 in stations.json: each stop's names (English as on STASY's English tram
 timetable page) and `gtfs` codes (one per direction, sometimes one for both),
 plus `metro`, the metro station it changes to (drawn as short stubs in the
-metro lines' colours, `STUBS` in the layout). A code the feed's trams use that
+metro lines' colours, each ending in the line's badge, `STUBS` in the layout). A code the feed's trams use that
 isn't here is a warning on `/admin/diagnostics`, and the stop isn't drawn: add
 it to its stop, and a new stop to the layout too.
 

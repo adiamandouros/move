@@ -1407,7 +1407,9 @@ body {
     stroke-linejoin: round;
 }
 
-.map-interchange text {
+/* Interchanges and the ends of the lines (what directions are called by) */
+.map-interchange text,
+.map-terminal text {
     font-weight: 700;
     font-size: 15px;
 }
@@ -1435,9 +1437,10 @@ body {
     stroke-width: 7;
 }
 
+/* Line badges on the maps: the text colour is .line-m1's etc. */
 .map-badge text {
-    fill: var(--wh-ink);
-    font-size: 13px;
+    fill: currentColor;
+    font-size: 12px;
     font-weight: 700;
 }
 

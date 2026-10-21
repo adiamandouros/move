@@ -40,6 +40,12 @@ for (const lang of ['', '/el']) {
         await expect(tram.locator('.map-station')).toHaveCount(60);
         await expect(tram.locator('.map-arrow')).toHaveCount(14);
         await expect(tram.locator('.map-stub')).toHaveCount(8);
+        // Each stub ends in its line's badge (white text on the metro's colours), besides the tram lines' 4
+        await expect(tram.locator('.map-badge')).toHaveCount(12);
+        await expect(tram.locator('.map-badge.line-m2 text').first()).toHaveCSS('fill', 'rgb(255, 255, 255)');
+        // The ends of the lines are bold, like the changes
+        await expect(tram.locator('[data-station="asklipieio-voulas"] text')).toHaveCSS('font-weight', '700');
+        await expect(tram.locator('[data-station="kolymvitirio"] text')).toHaveCSS('font-weight', '400');
         await expect(tram.locator('.map-svg')).toHaveAttribute('aria-label', lang ? 'Χάρτης τραμ' : 'Tram map');
         await press('#toggle-tram-stop-list', ' ');
         await expect(page.locator('#tram-stop-list h5')).toHaveCount(2);

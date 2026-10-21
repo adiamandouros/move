@@ -20,7 +20,11 @@ test('the metro map: stations that open the directions to them, no arrows or stu
     assert.equal(count(svg, /class="map-stub"/g), 0);
     assert.equal(subwayLink('omonia'), '/el/subway?to=omonia');
     assert.match(svg, /<title>Σύνταγμα<\/title>/);
+    // The ends of the lines are bold, as interchanges are: what directions are called by
+    assert.deepEqual(terminalsOf(svg), ['airport', 'anthoupoli', 'dimotiko-theatro', 'doukissis-plakentias', 'elliniko', 'kifisia', 'piraeus']);
 });
+
+const terminalsOf = svg => [...`${svg}`.matchAll(/class="map-station[^"]* map-terminal[^"]*" data-station="([^"]+)"/g)].map(m => m[1]).sort();
 
 test('the tram map: one-way arrows round the loop, stubs in the metro\'s colours, badges, nothing to open', async () => {
     const { drawMap } = await browserModule('tools/info/client/map.js', 'en');
@@ -31,12 +35,38 @@ test('the tram map: one-way arrows round the loop, stubs in the metro\'s colours
     assert.equal(count(svg, /class="map-stub"/g), 8);
     assert.match(svg, /id="tram-map-stub-akti-poseidonos-M1"[^>]*>\s*<stop offset="0.5" stop-color="#3a833c"/);
     assert.match(svg, /id="tram-map-stub-neos-kosmos-M2"[^>]*>\s*<stop offset="0.5" stop-color="#d43333"/);
-    assert.equal(count(svg, /class="map-badge"/g), 4);
+    // The lines' badges at their ends, and one at the end of each stub, in the line's colours
+    assert.equal(count(svg, /class="map-badge line-t[67]"/g), 4);
+    assert.equal(count(svg, /class="map-badge line-m1"/g), 2);
+    assert.equal(count(svg, /class="map-badge line-m2"/g), 3);
+    assert.equal(count(svg, /class="map-badge line-m3"/g), 3);
+    assert.match(svg, /<g class="map-badge line-m2"><rect [^>]*fill="#d43333"\/><text [^>]*>M2<\/text><\/g>/);
+    assert.deepEqual(terminalsOf(svg), ['akti-poseidonos', 'asklipieio-voulas', 'pikrodafni', 'syntagma']);
     assert.equal(count(svg, /map-link/g), 0);
     // Stops that change to another line are drawn as interchanges: the metro changes, Edem and Pikrodafni
-    assert.equal(count(svg, /class="map-station map-interchange"/g), 8);
+    assert.equal(count(svg, /class="map-station map-interchange[ "]/g), 8);
     // The loop's other side is a path of its own
     assert.equal(count(svg, /class="map-line"/g), 3);
+});
+
+const STEPS = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0], ne: [1, -1], nw: [-1, -1], se: [1, 1], sw: [-1, 1] };
+
+test('two stubs at a stop end in their badges in the same order, without crossing', async () => {
+    const { drawMap } = await browserModule('tools/info/client/map.js', 'en');
+    // Any side a stub may point to
+    for (const side of ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']) {
+        const layout = { ...tramLayout, STUBS: { syntagma: side } };
+        const svg = `${drawMap(rail.tram, layout, { id: 'tram-map', colors: { ...rail.lines, ...rail.tram.lines }, link: () => null })}`;
+        const stubs = [...svg.matchAll(/id="tram-map-stub-syntagma-(M\d)"[^>]* x2="([-\d.e]+)" y2="([-\d.e]+)"/g)].map(m => ({ line: m[1], x: +m[2], y: +m[3] }));
+        const pills = [...svg.matchAll(/<g class="map-badge line-(m\d)"><rect x="([-\d.e]+)" y="([-\d.e]+)"/g)].map(m => ({ line: m[1].toUpperCase(), x: +m[2], y: +m[3] }));
+        assert.deepEqual(stubs.map(s => s.line), ['M2', 'M3']);
+        assert.deepEqual(pills.map(p => p.line), ['M2', 'M3']);
+        // Across the stubs (perpendicular to them), M2's comes first for both, or second for both
+        const [dx, dy] = STEPS[side];
+        const across = (a, b) => Math.sign(Math.round(((b.x - a.x) * -dy + (b.y - a.y) * dx) * 100));
+        assert.notEqual(across(stubs[0], stubs[1]), 0, side);
+        assert.equal(across(pills[0], pills[1]), across(stubs[0], stubs[1]), side);
+    }
 });
 
 test('lists of stops: metro stations are links; tram stops aren\'t, with their changes and the loop\'s other way', async () => {

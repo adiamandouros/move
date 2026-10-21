@@ -18,6 +18,7 @@ const MAX_ZOOM = 6;
 const LABEL_GAP = 13;
 const STUB_LENGTH = 1.1 * UNIT;
 const STUB_GAP = 9;       // between two lines' stubs at one stop
+const BADGE = { w: 28, h: 18 };
 const NS = 'http://www.w3.org/2000/svg';
 
 /** @typedef {{ STATIONS: Record<string, any[]>, BENDS?: Record<string, number[][]>, DASHED?: Record<string, string[]>, STUBS?: Record<string, string>, BADGES?: Record<string, number[][]> }} Layout */
@@ -80,6 +81,22 @@ function lineParts(line) {
     return { extra, oneWay };
 }
 
+// A line's name in its colours, as lineBadge in metro.js draws it: the
+// box's colour from rail.json, the text's from style.css's .line-m1 etc.
+function badge(x, y, lineId, line) {
+    return html`<g class="map-badge line-${lineId.toLowerCase()}"><rect x="${x - BADGE.w / 2}" y="${y - BADGE.h / 2}" width="${BADGE.w}" height="${BADGE.h}" rx="${BADGE.h / 2}" fill="${lineColor(line)}"/><text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central">${line?.name ?? lineId}</text></g>`;
+}
+
+// The stations where each line's directions start and end, and where its
+// dashed branch starts (trains toward the airport may end at Doukissis):
+// what a direction is called by
+function terminals(network, layout) {
+    return new Set([
+        ...Object.values(network.lines).flatMap(line => Object.values(line.directions).flatMap(d => [d.stops[0].station, d.stops.at(-1).station])),
+        ...Object.values(layout.DASHED ?? {}).flat(),
+    ]);
+}
+
 // A small arrowhead halfway along the longest straight piece of a hop
 function arrow(points) {
     const pieces = points.slice(1).map((p, i) => [points[i], p]);
@@ -109,13 +126,16 @@ export function drawMap(network, layout, { id: mapId, colors, link }) {
     });
 
     // Short strokes, fading out, in the colours of the lines of another
-    // network a stop changes to (tram stops to the metro)
+    // network a stop changes to (tram stops to the metro), each ending in its
+    // line's badge, so the change doesn't rest on colour alone. The badges
+    // sit side by side across a stub going up or down, else one above another.
     const stubs = Object.entries(layout.STUBS ?? {}).filter(([id]) => network.stations[id]?.metro).map(([id, side]) => {
         const [x, y] = point(id);
         const [dx, dy] = COMPASS[side];
         const others = network.stations[id].metro.lines;
-        return others.map((lineId, i) => {
-            const shift = (i - (others.length - 1) / 2) * STUB_GAP;
+        const middle = i => i - (others.length - 1) / 2;
+        const strokes = others.map((lineId, i) => {
+            const shift = middle(i) * STUB_GAP;
             const [x1, y1] = [x - dy * shift, y + dx * shift];
             const [x2, y2] = [x1 + dx * STUB_LENGTH, y1 + dy * STUB_LENGTH];
             const gradient = `${mapId}-stub-${id}-${lineId}`;
@@ -123,11 +143,18 @@ export function drawMap(network, layout, { id: mapId, colors, link }) {
                 <stop offset="0.5" stop-color="${lineColor(colors[lineId])}"/><stop offset="1" stop-color="${lineColor(colors[lineId])}" stop-opacity="0"/>
             </linearGradient><path class="map-stub" d="M${x1} ${y1}L${x2} ${y2}" stroke="url(#${gradient})"/>`;
         });
+        const [ex, ey] = [x + dx * STUB_LENGTH, y + dy * STUB_LENGTH];
+        // In the stubs' order (they're shifted across by -dy, dx)
+        const pills = others.map((lineId, i) => dx === 0
+            ? badge(ex - Math.sign(dy) * middle(i) * (BADGE.w + 4), ey, lineId, colors[lineId])
+            : badge(ex, ey + Math.sign(dx) * middle(i) * (BADGE.h + 3), lineId, colors[lineId]));
+        return { strokes, pills };
     });
 
     // Line badges at the ends of the lines, where the lines share a colour
-    const badges = Object.entries(layout.BADGES ?? {}).filter(([id]) => network.lines[id]).flatMap(([id, spots]) => spots.map(([x, y]) =>
-        html`<g class="map-badge"><rect x="${x * UNIT - 15}" y="${y * UNIT - 10}" width="30" height="20" rx="4" fill="${lineColor(network.lines[id])}"/><text x="${x * UNIT}" y="${y * UNIT}" text-anchor="middle" dominant-baseline="central">${network.lines[id].name}</text></g>`));
+    const badges = Object.entries(layout.BADGES ?? {}).filter(([id]) => network.lines[id])
+        .flatMap(([id, spots]) => spots.map(([x, y]) => badge(x * UNIT, y * UNIT, id, network.lines[id])));
+    const ends = terminals(network, layout);
 
     const stations = Object.entries(network.stations).filter(([id]) => placed(id)).map(([id, station]) => {
         const [x, y] = point(id);
@@ -136,7 +163,7 @@ export function drawMap(network, layout, { id: mapId, colors, link }) {
         const [anchor, baseline] = SIDES[side];
         const interchange = station.lines.length > 1 || !!station.metro;
         const name = localName(station.name, language);
-        const classes = `map-station${interchange ? ' map-interchange' : ''}${link(id) ? ' map-link' : ''}`;
+        const classes = `map-station${interchange ? ' map-interchange' : ''}${ends.has(id) ? ' map-terminal' : ''}${link(id) ? ' map-link' : ''}`;
         return html`<g class="${classes}" data-station="${id}">
             <title>${name}</title>
             <circle cx="${x}" cy="${y}" r="${interchange ? 9 : 6}"${!interchange && html` stroke="${lineColor(network.lines[station.lines[0]])}"`}/>
@@ -144,7 +171,7 @@ export function drawMap(network, layout, { id: mapId, colors, link }) {
         </g>`;
     });
 
-    return html`<g class="map-content">${stubs}${tracks}${badges}${stations}</g>`;
+    return html`<g class="map-content">${stubs.map(s => s.strokes)}${tracks}${badges}${stations}${stubs.map(s => s.pills)}</g>`;
 }
 
 /**

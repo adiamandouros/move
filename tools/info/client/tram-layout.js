@@ -92,5 +92,5 @@ export const STUBS = {
 // Line badges near the ends of each line (both lines are the same green)
 export const BADGES = {
     T6: [[3, -8], [1, 11]],
-    T7: [[-6, -7.3], [11, 30.2]],
+    T7: [[-5, -7], [11, 30.2]],
 };
