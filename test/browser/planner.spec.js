@@ -79,6 +79,14 @@ test('a change of line, with the whole trip\'s arrival and length at the top', a
     expect(await axe(page)).toEqual([]);
 });
 
+test('one route: its arrival on the right too', async ({ page }) => {
+    await page.goto('/subway?from=syntagma&to=airport');
+    const line = page.locator('p.route-option-label');
+    await expect(line.locator('.route-total')).toContainText(/Arrive ~[^·]*\d\d:\d\d · \d+'/);
+    const [box, arrival] = await Promise.all([line.boundingBox(), line.locator('.route-total').boundingBox()]);
+    expect(Math.abs(arrival.x + arrival.width - (box.x + box.width))).toBeLessThan(1);
+});
+
 test('each option\'s line stays one line on a small phone, in Greek too (the longest)', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });
     // Four options, one via Monastiraki (the longest name)

@@ -129,7 +129,7 @@ test('each option\'s line: where to change, when it arrives and how long the who
     // One route: no option heading, but still the total
     const direct = draw(render, TRIPS['a direct trip']);
     const [{ departures: [train] }] = direct.trip.plans[0].legs;
-    assert.match(direct.html, new RegExp(`<p class="route-option-label">Arrive [^]*?${Math.round((train.arrives - train.departs) / 60)}'`));
+    assert.match(direct.html, new RegExp(`<p class="route-option-label"><span class="route-total">Arrive [^]*?${Math.round((train.arrives - train.departs) / 60)}'`));
     assert.doesNotMatch(direct.html, /<h2 class="route-option-label"/);
 
     const greek = await browserModule('tools/subway/client/render.js', 'el');

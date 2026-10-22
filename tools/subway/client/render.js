@@ -92,12 +92,13 @@ function routeBlock(rail, route, index, total, now, tomorrow) {
     // Headings: one per option when there are several, then one per leg.
     // The option's line has to fit a phone in one line in both languages:
     // "Via Monastiraki" on the left, "Arrive ~06:14 · 33'" on the right
-    // ("Option 1" for screen readers only). With only one route: the total alone.
+    // ("Option 1" for screen readers only). With only one route: the arrival alone,
+    // on the right too.
     const trip = tripTotal(rail, route, now);
     const via = route.via && html`${t('subway.via')} ${stationName(rail, route.via)}`;
     const header = total > 1
         ? html`<h2 class="route-option-label"><span class="sr-only">${t('subway.option')} ${index + 1}, </span>${via && html`<span>${via}</span>`}${via && trip && html`<span class="sr-only">, </span>`}${trip && html`<span class="route-total">${trip}</span>`}</h2>`
-        : trip && html`<p class="route-option-label">${trip}</p>`;
+        : trip && html`<p class="route-option-label"><span class="route-total">${trip}</span></p>`;
     const level = total > 1 ? 3 : 2;
     return html`${header}${route.legs.map((leg, i) => {
         const next = route.legs[i + 1] ?? null;
