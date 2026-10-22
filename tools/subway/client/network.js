@@ -170,13 +170,15 @@ export function nextDay(now) {
 // When a planned route gets there, and how long it takes from boarding the
 // first train to getting off the last (rides, changes, waits for the next
 // train): on the first trains that make the whole trip, tomorrow's first
-// ones when none does today. null when none does tomorrow either.
+// ones when none does today (`arrives` then counts from today's midnight, so
+// it compares with today's). null when none does tomorrow either.
 /** @param {Rail} rail @param {PlannedRoute} route @param {AthensTime} now @returns {{ arrives: number, minutes: number } | null} */
 export function tripTime(rail, route, now) {
-    const plan = route.arrives === null ? planRoute(rail, route, nextDay(now), true) : route;
+    const tomorrow = route.arrives === null;
+    const plan = tomorrow ? planRoute(rail, route, nextDay(now), true) : route;
     const first = plan.legs[0].departures[0];
     if (plan.arrives === null || !first) return null;
-    return { arrives: plan.arrives, minutes: Math.round((plan.arrives - first.departs) / 60) };
+    return { arrives: plan.arrives + (tomorrow ? DAY : 0), minutes: Math.round((plan.arrives - first.departs) / 60) };
 }
 
 // planJourney, and after the last train of the day (no route gets there

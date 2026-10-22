@@ -979,6 +979,45 @@ body {
     margin-left: auto;
 }
 
+/* A slower option, closed: a button-like "Show route · 9 min slower" */
+.route-slower {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    min-height: 32px;
+    padding: 0.2em 0.85em 0.2em 0.6em;
+    margin-bottom: 10px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    font-size: 0.85rem;
+    color: var(--bs-secondary-color);
+    cursor: pointer;
+    list-style: none;
+}
+
+.route-slower::-webkit-details-marker {
+    display: none;
+}
+
+.route-chevron {
+    transition: transform 0.15s;
+}
+
+.route-details[open] .route-chevron {
+    transform: rotate(90deg);
+}
+
+.route-details[open] .route-show,
+.route-details:not([open]) .route-hide {
+    display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .route-chevron {
+        transition: none;
+    }
+}
+
 .schedule-section{
     white-space: nowrap;
 }

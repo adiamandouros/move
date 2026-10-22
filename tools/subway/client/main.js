@@ -34,6 +34,12 @@ function start(rail) {
 
     // `speak`: also tell screen readers, when the user changed the stations
     // (not on the 30-second refresh)
+    // Slower options the user opened or closed themselves (routeKey → open),
+    // kept through the refresh, forgotten when the stations change
+    let opened = {};
+    // Which one had the keyboard focus, to give it back after a refresh
+    const focused = () => document.activeElement?.closest('#subway-result details')?.getAttribute('data-route');
+
     const render = ({ speak = false } = {}) => {
         const origin = from.get();
         const destination = to.get();
@@ -46,7 +52,9 @@ function start(rail) {
         const today = athensNow();
         // After the last train, tomorrow's first ones
         const { plans, now, tomorrow } = planTrip(rail, origin, destination, today);
-        setHtml(result, renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow }));
+        const focus = focused();
+        setHtml(result, renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow, open: opened }));
+        if (focus) /** @type {HTMLElement | null} */ (result.querySelector(`details[data-route="${CSS.escape(focus)}"] > summary`))?.focus();
         if (speak) announce(routeSummary(rail, plans, now, tomorrow));
     };
 
@@ -68,7 +76,13 @@ function start(rail) {
         document.getElementById('walk-station').textContent = localName(rail.stations[from.get()].name, language);
     };
 
-    const changed = () => { syncUrl(); syncWalk(); render({ speak: true }); };
+    const changed = () => { opened = {}; syncUrl(); syncWalk(); render({ speak: true }); };
+
+    // A click on a summary (also Enter or Space) comes before the toggle
+    result.addEventListener('click', e => {
+        const details = /** @type {Element} */ (e.target).closest?.('details[data-route]');
+        if (details && /** @type {Element} */ (e.target).closest('summary')) opened[details.getAttribute('data-route')] = !details.hasAttribute('open');
+    });
 
     // Without a station in the address, the boarding station follows the
     // user's location until they pick one themselves

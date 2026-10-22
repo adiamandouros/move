@@ -21,6 +21,8 @@ const TRIPS = {
     'a change of line': ['kifisia', 'aigaleo', NOON],
     'tomorrow\'s first trains': ['syntagma', 'airport', LATE],
     'an old timetable': ['omonia', 'piraeus', NOON, { expired: true }],
+    // Three options, 4 and 6 minutes after the first
+    'a slower option': ['kifisia', 'syntagma', NOON],
 };
 const draw = (render, [from, to, now, options = {}]) => {
     const trip = planTrip(rail, from, to, now);
@@ -150,6 +152,39 @@ test('an option no train makes tonight is timed on tomorrow\'s first trains', as
     assert.notEqual(stranded, -1, 'refreshed test data still needs an option with no connection at 23:30');
     const heading = [...html.matchAll(/<h2 class="route-option-label">[^]*?<\/h2>/g)][stranded][0];
     assert.match(spoken(heading), /Arrive about 0[5-7]:\d\d · \d+ minutes$/);
+});
+
+test('an option more than 5 minutes slower starts closed, saying by how much', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    const { trip, html } = draw(render, TRIPS['a slower option']);
+    const later = trip.plans.map(plan => Math.floor(plan.arrives / 60) - Math.floor(trip.plans[0].arrives / 60));
+    assert.deepEqual(later, [0, 4, 6], 'refreshed test data still needs options 4 and 6 minutes later');
+    assert.equal(render.SLOWER_MINUTES, 5);
+    // Only the third: closed, its heading (where to change, when it arrives) outside
+    const details = [...html.matchAll(/<details class="route-details" data-route="([^"]+)">([^]*?)<\/details>/g)];
+    assert.equal(details.length, 1);
+    assert.equal(details[0][1], render.routeKey(trip.plans[2]));
+    // "Show route" while closed, "Hide route" while open (CSS hides the other)
+    const summary = details[0][2].match(/<summary[^]*?<\/summary>/)[0];
+    assert.match(summary, /<span class="route-show">Show route<\/span><span class="route-hide">Hide route<\/span> · 6 min slower<\/summary>$/);
+    assert.equal((details[0][2].match(/class="card result-card"/g) ?? []).length, trip.plans[2].legs.length);
+    assert.match(html, /<\/h2><details class="route-details"/);
+    // The user opened it: open on the next refresh too
+    const opened = String(render.renderResult(rail, trip.plans, trip.now, { expired: false, open: { [render.routeKey(trip.plans[2])]: true } }));
+    assert.match(opened, /<details class="route-details" data-route="[^"]+" open>/);
+
+    const greek = await browserModule('tools/subway/client/render.js', 'el');
+    assert.match(spoken(draw(greek, TRIPS['a slower option']).html), /Εμφάνιση διαδρομής\s*Απόκρυψη διαδρομής · 6 λεπτά πιο αργή/);
+});
+
+test('an option that misses its connection tonight starts closed, saying so', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    const { trip, html } = draw(render, ['kifisia', 'aigaleo', athensNow(new Date('2026-10-21T20:30:00Z'))]);
+    const stranded = trip.plans.findIndex(plan => plan.arrives === null);
+    assert.notEqual(stranded, -1, 'refreshed test data still needs an option with no connection at 23:30');
+    const details = [...html.matchAll(/<details class="route-details" data-route="([^"]+)">[^]*?<summary[^]*?<\/summary>/g)];
+    assert.deepEqual(details.map(([, key]) => key), [render.routeKey(trip.plans[stranded])]);
+    assert.match(spoken(details[0][0]), /· No connection tonight$/);
 });
 
 test('the signpost beside the boarding station: walking directions to it', async () => {

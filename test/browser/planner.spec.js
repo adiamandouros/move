@@ -103,6 +103,36 @@ test('each option\'s line stays one line on a small phone, in Greek too (the lon
     }
 });
 
+test('a slower option starts closed; opened, it stays open through the refresh, until the stations change', async ({ page }) => {
+    // Noon: three options, the third 6 minutes after the first
+    await page.goto('/subway?from=kifisia&to=syntagma');
+    const slower = page.locator('details.route-details');
+    const summary = slower.locator('summary');
+    await expect(slower).toHaveCount(1);
+    await expect(summary).toHaveAccessibleName('Show route · 6 min slower');
+    await expect(slower.locator('.result-card').first()).toBeHidden();
+    expect(await axe(page)).toEqual([]);
+
+    // With the keyboard
+    await summary.focus();
+    await page.keyboard.press('Enter');
+    await expect(slower.locator('.result-card').first()).toBeVisible();
+    await expect(summary).toHaveAccessibleName('Hide route · 6 min slower');
+
+    // The 30-second refresh draws it again: still open, still focused
+    await slower.evaluate(el => el.setAttribute('data-before-refresh', ''));
+    await page.clock.runFor(30_000);
+    await expect(page.locator('[data-before-refresh]')).toHaveCount(0);
+    await expect(slower).toHaveAttribute('open', '');
+    await expect(summary).toBeFocused();
+
+    // Other stations and back: closed again
+    await page.locator('#swap-stations').click();
+    await page.locator('#swap-stations').click();
+    await expect(slower).not.toHaveAttribute('open');
+    await expect(slower.locator('.result-card').first()).toBeHidden();
+});
+
 test('the signpost walks you to the boarding station, and goes when there is none', async ({ page }) => {
     await page.goto('/subway?from=syntagma&to=airport');
     const walk = page.locator('#walk-btn');
