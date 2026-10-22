@@ -111,3 +111,30 @@ test('the signpost beside the boarding station: walking directions to it', async
     const [lat, lng] = rail.stations.syntagma.coords;
     assert.equal(render.walkingUrl(rail, 'syntagma'), `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`);
 });
+
+test('each leg says where to board, and station names link to their pages', async () => {
+    const en = await browserModule('tools/subway/client/render.js', 'en');
+    const { trip, html } = draw(en, TRIPS['a change of line']);
+    const [first, second] = trip.plans[0].legs;
+    const name = id => rail.stations[id].name.en;
+    const text = spoken(html).replace(/\s+/g, ' ');
+    assert.ok(text.includes(`At ${name(first.from)}:`), text);
+    assert.ok(text.includes(`At ${name(second.from)}:`), text);
+    assert.match(html, new RegExp(`<p class="leg-boarding">At <a href="/subway/stations/${first.from}">`));
+    assert.match(html, new RegExp(`Transfer at <strong><a href="/subway/stations/${first.to}">`));
+    assert.match(html, new RegExp(`Exit at <strong><a href="/subway/stations/${second.to}">`));
+    // Only the names are links, never a whole card
+    assert.equal((html.match(/<a\b/g) ?? []).length, (html.match(/<a href="\/subway\/stations\/[^"]+">[^<]+<\/a>/g) ?? []).length);
+
+    const el = await browserModule('tools/subway/client/render.js', 'el');
+    const greek = draw(el, TRIPS['a direct trip']).html;
+    assert.match(greek, /<p class="leg-boarding">Στον σταθμό <a href="\/el\/subway\/stations\/syntagma">Σύνταγμα<\/a>:<\/p>/);
+});
+
+test('same station and no route: shown in the warnings\' yellow, not light grey', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    for (const html of [String(render.renderMessage('subway.same-station')), String(render.renderResult(rail, [], NOON, {}))]) {
+        assert.match(html, /^<p class="subway-message mt-3"><svg [^]*<\/svg>/);
+        assert.doesNotMatch(html, /text-body-secondary/);
+    }
+});

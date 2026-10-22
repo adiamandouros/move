@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { createAnnouncements, decode, isDisruption, parseOasaFeed, parseStasyDate, parseStasyList } from '../server/info/announcements.js';
+import { browserModule } from './support/browser-modules.js';
 import { announcementChecks } from '../server/diagnostics.js';
 
 // Trimmed copies of the real OASA feed and STASY pages
@@ -269,4 +270,12 @@ test('only links to web addresses are kept: a javascript: link would run in the 
         + stasyArticle(2, 'l1', 'Κλειστός ο σταθμός Ομόνοια'),
     );
     assert.deepEqual(posts, [{ title: 'Κλειστός ο σταθμός Ομόνοια', link: 'https://www.stasy.gr/l1/' }]);
+});
+
+test('on the English pages, a STASY announcement carries an "Only available in Greek" badge', async () => {
+    const { item } = await browserModule('public/js/core/announcements.js', 'en');
+    const date = '2026-10-20T10:00:00.000Z';
+    const greek = String(item({ title: 'Κλειστός σταθμός', link: 'https://www.stasy.gr/a/', date }, true));
+    assert.match(greek, /<span class="in-greek-badge"><svg [^]*<\/svg>Only available in Greek<\/span>/);
+    assert.doesNotMatch(String(item({ title: 'Closed', link: 'https://www.oasa.gr/a/', date }, false)), /in-greek-badge/);
 });

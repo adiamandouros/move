@@ -699,6 +699,12 @@ body {
 }
 
 /* After the last train: the plan is for tomorrow's first trains */
+/* Why there's no trip: pick two stations, no route */
+.subway-message {
+    font-size: 0.9rem;
+    color: var(--bs-warning);
+}
+
 .tomorrow-notice {
     font-size: 0.85rem;
     color: var(--bs-secondary-color);
@@ -910,6 +916,13 @@ body {
     border-radius: 20px;
     padding: 1px 8px;
     vertical-align: middle;
+}
+
+/* "At Syntagma:", where the leg starts */
+.leg-boarding {
+    font-size: 0.85rem;
+    color: var(--wh-text-soft);
+    margin-bottom: 6px;
 }
 
 .leg-action {
@@ -1305,6 +1318,17 @@ body {
     display: block;
     font-size: 0.8rem;
     color: var(--bs-secondary-color);
+}
+
+/* Announcements only in Greek, on the English pages */
+.in-greek-badge {
+    display: inline-flex;
+    align-items: center;
+    color: var(--bs-body-color);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 20px;
+    padding: 0 8px;
+    margin-left: 6px;
 }
 
 .disruption-banner {
