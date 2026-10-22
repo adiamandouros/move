@@ -61,7 +61,7 @@ test('a change of line: two legs, where to change, and a heading per option', as
     const { trip, html } = draw(render, TRIPS['a change of line']);
     const text = spoken(html).replace(/\s+/g, ' ');
     assert.ok(trip.plans.every(p => p.legs.length === 2));
-    assert.match(text, /Option 1, Via \w+ · Arrive about/);
+    assert.match(text, /Option 1, Via \w+, Arrive about/);
     assert.match(html, /transfer-connector/);
     if (trip.plans.length > 1) {
         assert.equal((html.match(/<h2 class="route-option-label"/g) ?? []).length, trip.plans.length);
@@ -120,9 +120,10 @@ test('each option\'s line: where to change, when it arrives and how long the who
         assert.ok(second.departs >= first.arrives + 180, 'time to change');
         const via = rail.stations[plan.via].name.en;
         // Short on screen (it has to fit one line), in full for screen readers
-        assert.equal(spoken(headings[i]), `Option ${i + 1}, Via ${via} · Arrive about ${clockTime(plan.arrives)} · ${minutes} minutes`);
-        assert.equal(spoken(headings[i].replace(/<span class="sr-only">[^<]*<\/span>/g, '').replace(/aria-hidden="true"/g, '')),
-            `Via ${via} · Arrive ~${clockTime(plan.arrives)} · ${minutes}'`);
+        assert.equal(spoken(headings[i]), `Option ${i + 1}, Via ${via}, Arrive about ${clockTime(plan.arrives)} · ${minutes} minutes`);
+        // On screen: where to change, then (on the right) the arrival
+        const visible = headings[i].replace(/<span class="sr-only">[^<]*<\/span>/g, '').replace(/ aria-hidden="true"/g, '');
+        assert.match(visible, new RegExp(`<span>Via ${via}</span><span class="route-total">Arrive <span>~</span>${clockTime(plan.arrives)} · <span>${minutes}'</span></span></h2>$`));
     });
 
     // One route: no option heading, but still the total
@@ -132,7 +133,7 @@ test('each option\'s line: where to change, when it arrives and how long the who
     assert.doesNotMatch(direct.html, /<h2 class="route-option-label"/);
 
     const greek = await browserModule('tools/subway/client/render.js', 'el');
-    assert.match(spoken(draw(greek, TRIPS['a change of line']).html), /Επιλογή 1, Μέσω \S+ · Άφιξη περίπου \d\d:\d\d · \d+ λεπτά/);
+    assert.match(spoken(draw(greek, TRIPS['a change of line']).html), /Επιλογή 1, Μέσω \S+, Άφιξη περίπου \d\d:\d\d · \d+ λεπτά/);
 });
 
 test('an option no train makes tonight is timed on tomorrow\'s first trains', async () => {

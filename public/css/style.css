@@ -969,6 +969,16 @@ body {
     white-space: nowrap;
 }
 
+/* Several options: where to change on the left, the arrival on the right */
+h2.route-option-label {
+    display: flex;
+    gap: 0.75em;
+}
+
+h2.route-option-label .route-total {
+    margin-left: auto;
+}
+
 .schedule-section{
     white-space: nowrap;
 }

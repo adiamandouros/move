@@ -69,7 +69,13 @@ test('a change of line, with the whole trip\'s arrival and length at the top', a
     await page.goto('/subway?from=kifisia&to=aigaleo');
     await expect(page.locator('.result-card').first()).toBeVisible();
     // (text for screen readers in between: "about", "47 minutes")
-    await expect(page.locator('.route-option-label').first()).toContainText(/Via \w+ · Arrive ~[^·]*\d\d:\d\d · \d+'/);
+    const label = page.locator('h2.route-option-label').first();
+    await expect(label).toContainText(/Via \w+/);
+    await expect(label.locator('.route-total')).toContainText(/Arrive ~[^·]*\d\d:\d\d · \d+'/);
+    // Where to change on the left, the arrival on the right
+    const [line, via, arrival] = await Promise.all([label, label.locator('span:not(.sr-only)').first(), label.locator('.route-total')].map(l => l.boundingBox()));
+    expect(Math.abs(via.x - line.x)).toBeLessThan(1);
+    expect(Math.abs(arrival.x + arrival.width - (line.x + line.width))).toBeLessThan(1);
     expect(await axe(page)).toEqual([]);
 });
 
