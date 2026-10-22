@@ -965,9 +965,8 @@ body {
     margin-bottom: 10px;
 }
 
-.route-total {
-    font-weight: 600;
-    margin-bottom: 10px;
+.route-option-label {
+    white-space: nowrap;
 }
 
 .schedule-section{
