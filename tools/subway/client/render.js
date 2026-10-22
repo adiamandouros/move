@@ -48,13 +48,15 @@ function departureChips(departures, now, tomorrow) {
     return html`<span class="schedule-label">${t(clock ? 'subway.schedule-at' : 'subway.schedule-in')}</span><span class="schedule-chips">${chips}</span>`;
 }
 
-function legCard(rail, leg, next, now, level, tomorrow) {
+// changes: whether the route has more than one leg. Only then does each card
+// say how long its ride is (a direct trip's is the total on the route's line).
+function legCard(rail, leg, next, now, level, tomorrow, changes) {
     const line = rail.lines[leg.line];
     const direction = line.directions[leg.dir];
     const toward = localName(direction.toward, language);
     const { stop, exits, elevators } = legPositions(rail, leg, next);
     const first = leg.departures[0];
-    const ride = first && html` <span class="text-body-secondary">· ${format(t('subway.ride'), { min: Math.round((first.arrives - first.departs) / 60) })}</span>`;
+    const ride = changes && first && html` <span class="text-body-secondary">· ${format(t('subway.ride'), { min: Math.round((first.arrives - first.departs) / 60) })}</span>`;
     const action = next
         ? html`${icon('arrow-left-right', 'me-2')}${t('subway.transfer-at')} <strong>${stationLink(rail, leg.to)}</strong>`
         : html`${icon('door-open', 'me-2')}${t('subway.exit-at')} <strong>${stationLink(rail, leg.to)}</strong>`;
@@ -107,7 +109,7 @@ function routeBlock(rail, route, index, total, now, tomorrow) {
                 ${icon('arrow-down-circle-fill')}
                 <span>${t('subway.change-to')} ${rail.lines[next.line].name}</span>
             </div>`;
-        return html`${legCard(rail, leg, next, now, level, tomorrow)}${connector}`;
+        return html`${legCard(rail, leg, next, now, level, tomorrow, route.legs.length > 1)}${connector}`;
     })}`;
 }
 

@@ -131,6 +131,11 @@ test('each option\'s line: where to change, when it arrives and how long the who
     const [{ departures: [train] }] = direct.trip.plans[0].legs;
     assert.match(direct.html, new RegExp(`<p class="route-option-label"><span class="route-total">Arrive [^]*?${Math.round((train.arrives - train.departs) / 60)}'`));
     assert.doesNotMatch(direct.html, /<h2 class="route-option-label"/);
+    // Said once: not again on the leg's card
+    assert.equal(spoken(direct.html).match(/\d+ min\b/g), null);
+    // With a change, each card still says how long its own ride is
+    trip.plans.forEach(plan => plan.legs.forEach(({ departures: [train] }) =>
+        assert.ok(spoken(html).includes(`· ${Math.round((train.arrives - train.departs) / 60)} min`))));
 
     const greek = await browserModule('tools/subway/client/render.js', 'el');
     assert.match(spoken(draw(greek, TRIPS['a change of line']).html), /Επιλογή 1, Μέσω \S+, Άφιξη περίπου \d\d:\d\d · \d+ λεπτά/);
