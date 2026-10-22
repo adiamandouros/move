@@ -85,24 +85,33 @@ function legCard(rail, leg, next, now, level, tomorrow, changes) {
 // When the trip gets you there and how long it takes (tripTime in network.js):
 // "Arrive ~12:47 · 23'" on screen, "Arrive about 12:47 · 23 minutes" for
 // screen readers
-function tripTotal(rail, route, now) {
-    const time = tripTime(rail, route, now);
+function tripTotal(time) {
     return time && html`${t('subway.arrive')} <span aria-hidden="true">~</span><span class="sr-only">${t('subway.about')} </span>${clockTime(time.arrives)} · <span aria-hidden="true">${time.minutes}'</span><span class="sr-only">${time.minutes} ${t('subway.minutes')}</span>`;
 }
 
-function routeBlock(rail, route, index, total, now, tomorrow) {
+// An option arriving more than this many minutes after the first starts
+// closed, saying how much slower it is
+export const SLOWER_MINUTES = 5;
+
+// Names a route through the 30-second refresh, to keep it open or closed as
+// the user left it
+export const routeKey = route => route.legs.map(leg => `${leg.line}/${leg.dir}/${leg.from}/${leg.to}`).join('+');
+
+// time: tripTime's. closed: why the option starts closed ("9 min slower"),
+// or '' when it doesn't. open: the options the user opened or closed (routeKey).
+function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, open }) {
     // Headings: one per option when there are several, then one per leg.
     // The option's line has to fit a phone in one line in both languages:
     // "Via Monastiraki" on the left, "Arrive ~06:14 · 33'" on the right
     // ("Option 1" for screen readers only). With only one route: the arrival alone,
     // on the right too.
-    const trip = tripTotal(rail, route, now);
+    const trip = tripTotal(time);
     const via = route.via && html`${t('subway.via')} ${stationName(rail, route.via)}`;
     const header = total > 1
         ? html`<h2 class="route-option-label"><span class="sr-only">${t('subway.option')} ${index + 1}, </span>${via && html`<span>${via}</span>`}${via && trip && html`<span class="sr-only">, </span>`}${trip && html`<span class="route-total">${trip}</span>`}</h2>`
         : trip && html`<p class="route-option-label"><span class="route-total">${trip}</span></p>`;
     const level = total > 1 ? 3 : 2;
-    return html`${header}${route.legs.map((leg, i) => {
+    const cards = route.legs.map((leg, i) => {
         const next = route.legs[i + 1] ?? null;
         const connector = next && html`
             <div class="transfer-connector" aria-hidden="true">
@@ -110,15 +119,32 @@ function routeBlock(rail, route, index, total, now, tomorrow) {
                 <span>${t('subway.change-to')} ${rail.lines[next.line].name}</span>
             </div>`;
         return html`${legCard(rail, leg, next, now, level, tomorrow, route.legs.length > 1)}${connector}`;
-    })}`;
+    });
+    if (!closed) return html`${header}${cards}`;
+    // A native disclosure: a button for screen readers and the keyboard
+    const key = routeKey(route);
+    return html`${header}<details class="route-details" data-route="${key}"${open[key] && html` open`}>
+        <summary class="route-slower">${icon('chevron-right', 'route-chevron')}<span class="route-show">${t('subway.show-route')}</span><span class="route-hide">${t('subway.hide-route')}</span> · ${closed}</summary>
+        ${cards}
+    </details>`;
 }
 
 // tomorrow: the plans are for tomorrow's first trains (planTrip in network.js)
-export function renderResult(rail, plans, now, { expired, tomorrow = false }) {
+// open: { [routeKey]: true/false }, options the user opened or closed
+export function renderResult(rail, plans, now, { expired, tomorrow = false, open = {} }) {
     if (!plans.length) return renderMessage('subway.no-route');
     const notice = expired && html`<p class="timetable-notice">${icon('exclamation-triangle', 'me-1')}${format(t('subway.timetable-old'), { date: formatDate(rail.feed.validTo) })}</p>`;
     const tomorrowNotice = tomorrow && html`<p class="tomorrow-notice">${icon('moon-stars', 'me-1')}${t('subway.tomorrow')}</p>`;
-    const routes = plans.map((r, i) => html`${i > 0 && html`<hr class="route-divider">`}${routeBlock(rail, r, i, plans.length, now, tomorrow)}`);
+    const times = plans.map(r => tripTime(rail, r, now));
+    const first = Math.min(...times.map(time => time ? Math.floor(time.arrives / 60) : Infinity));
+    // Minutes after the first option, as the clock times shown differ. One
+    // that misses its connection tonight (timed on tomorrow's trains) says so.
+    const closed = (r, time) => {
+        const slower = time ? Math.floor(time.arrives / 60) - first : 0;
+        if (slower <= SLOWER_MINUTES) return '';
+        return r.arrives === null && plans[0].arrives !== null ? t('subway.no-connection') : format(t('subway.slower'), { min: slower });
+    };
+    const routes = plans.map((r, i) => html`${i > 0 && html`<hr class="route-divider">`}${routeBlock(rail, r, i, plans.length, now, tomorrow, { time: times[i], closed: closed(r, times[i]), open })}`);
     return html`${notice}${tomorrowNotice}
         <div class="routes-wrap">${routes}</div>
         <p class="schedule-disclaimer">${icon('info-circle', 'me-1')}${t('subway.schedule-disclaimer')}</p>`;

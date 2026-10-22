@@ -163,7 +163,8 @@ test('tripTime: a route no train makes today is timed on tomorrow\'s first train
     const [plan] = planJourney(rail, 'a', 'c', now);
     assert.equal(plan.arrives, null);
     assert.equal(plan.legs[0].departures.length > 0, true);
-    assert.deepEqual(tripTime(rail, plan, now), { arrives: 8 * H + 840, minutes: 14 });
+    // Tomorrow 08:14, counted from today's midnight so it compares with today's arrivals
+    assert.deepEqual(tripTime(rail, plan, now), { arrives: 24 * H + 8 * H + 840, minutes: 14 });
     // No trains at all on a line: no time
     const none = { ...rail, lines: { ...rail.lines, L2: { directions: { east: { ...rail.lines.L2.directions.east, timetable: { ...rail.lines.L2.directions.east.timetable, patterns: [[]] } } } } } };
     assert.equal(tripTime(none, planJourney(none, 'a', 'c', now)[0], now), null);
