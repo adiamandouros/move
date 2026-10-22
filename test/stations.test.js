@@ -89,7 +89,7 @@ test('what a station\'s page shows, as data: lines, neighbours, where to ride, c
     assert.match(String(east.arriving.note), /class="stop-note[^"]*">.*Unreliable data<\/div>$/);
     assert.equal(view.lines[0].directions[1].arriving.note, null);
     // Arriving at b on L1: a central platform
-    assert.match(String(stationView(rail, 'b', 'en', key => key).lines[0].directions[0].arriving.centralPlatform), /class="central-platform-badge">.*subway\.exit-left/);
+    assert.match(String(stationView(rail, 'b', 'en', key => key).lines[0].directions[0].arriving.centralPlatform), /class="central-platform-badge">.*subway\.doors-left/);
     assert.deepEqual(east.times, [
         { days: 'stations.day.1–stations.day.5', first: '05:32', last: '00:32' },
         { days: 'stations.day.6, stations.day.0', first: '06:02', last: '01:02' },
@@ -234,7 +234,7 @@ test('a station page shows lines, neighbours, where to ride, connections and tim
 test('arriving at a terminus shows the exit; leaving the first stop shows only times', async () => {
     const t = text((await get('/subway/stations/b')).html);
     assert.ok(t.includes('End of the line'));
-    assert.ok(t.includes('Exit left'));
+    assert.ok(t.includes('Doors open on the left'));
     // Alpha starts the eastbound direction and ends the westbound one: one exit, one timetable
     const first = (await get('/subway/stations/a')).html;
     assert.equal(first.split('>Getting off here</h4>').length - 1, 1);
@@ -306,7 +306,7 @@ test('a station page is a page like the others: title and description with its v
     assert.deepEqual(page.values('el'), { name: 'Κόμβος', lines: 'L1, L2' });
     assert.equal(page.structuredData('en', key => key)['@graph'][0].name, 'Cross');
     // Its strings: its own and the subway page's
-    assert.ok(page.strings.en['stations.toward'] && page.strings.el['subway.exit-left']);
+    assert.ok(page.strings.en['stations.toward'] && page.strings.el['subway.doors-left']);
     const index = stationPage(rail, null, { tools });
     assert.deepEqual([index.path, index.title, index.values], ['/subway/stations', 'stations.title', undefined]);
 });
@@ -324,7 +324,7 @@ test('a page\'s own strings go to the browser only when it has scripts of its ow
     const station = sent(renderPage(stationPage(rail, 'x', { tools }), 'en'));
     assert.equal(station['stations.toward'], undefined);
     assert.equal(station['shell.new-tab'], '(opens in a new tab)');
-    assert.equal(sent(pages['/subway'])['subway.exit-left'], tools.find(t => t.id === 'subway').strings.en['subway.exit-left']);
+    assert.equal(sent(pages['/subway'])['subway.doors-left'], tools.find(t => t.id === 'subway').strings.en['subway.doors-left']);
 });
 
 test('the breadcrumb: from the subway page to the page itself, in the views and the structured data alike', () => {

@@ -98,7 +98,7 @@ test('where to ride: the train diagram, or a note when the stop\'s exits aren\'t
 
 test('the central platform badge and a stop\'s note', () => {
     const s = key => key;
-    assert.match(String(centralPlatformBadge(s)), /^<span class="central-platform-badge"><svg [^]*<\/svg>subway\.exit-left<\/span>$/);
+    assert.match(String(centralPlatformBadge(s)), /^<span class="central-platform-badge"><svg [^]*<\/svg>subway\.doors-left<\/span>$/);
     assert.match(String(centralPlatformBadge(s, 'ms-2')), /^<span class="central-platform-badge ms-2">/);
     assert.match(String(stopNote('No data yet!')), /^<div class="stop-note mt-3"><svg [^]*<\/svg>No data yet!<\/div>$/);
     assert.match(String(stopNote('<b>x</b>')), /&lt;b&gt;x&lt;\/b&gt;/);

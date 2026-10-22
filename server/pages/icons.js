@@ -14,7 +14,7 @@ export const ICONS = [
     'door-open', 'download', 'envelope', 'exclamation-triangle', 'exclamation-triangle-fill', 'eye', 'eye-slash',
     'geo-alt', 'globe', 'heart-pulse', 'info-circle', 'list', 'list-ul', 'lock', 'map', 'megaphone', 'moon-stars', 'person-walking',
     'person-wheelchair', 'plus-lg', 'signpost-2-fill', 'signpost-split', 'symmetry-horizontal', 'telephone',
-    'ticket-perforated', 'train-front', 'wifi-off', 'x-lg', 'x-octagon-fill',
+    'ticket-perforated', 'train-front', 'translate', 'wifi-off', 'x-lg', 'x-octagon-fill',
 ];
 
 const require = createRequire(import.meta.url);

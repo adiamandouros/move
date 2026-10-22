@@ -1,4 +1,4 @@
-import { language, t } from '/js/core/i18n.js';
+import { language, localHref, t } from '/js/core/i18n.js';
 import { format, formatDate, html, icon, localName, walkingUrl as walkingTo } from '/js/core/html.js';
 import { centralPlatformBadge, clockTime, exitDiagram, lineBadge, stopNote } from '/js/core/metro.js';
 import { legPositions } from './network.js';
@@ -6,6 +6,15 @@ import { legPositions } from './network.js';
 // What the subway page draws, with html`` (every value escaped)
 
 const stationName = (rail, id) => localName(rail.stations[id].name, language);
+
+// A station's name, linked to its own page (server/pages/stations.js)
+const stationLink = (rail, id) => html`<a href="${localHref(`/subway/stations/${id}`)}">${stationName(rail, id)}</a>`;
+
+// "At Syntagma:", above each leg, with the station linked
+function boardAt(rail, id) {
+    const [before, after = ''] = t('subway.board-at').split('{station}');
+    return html`${before}${stationLink(rail, id)}${after}`;
+}
 
 // Google Maps walking directions to a station
 export function walkingUrl(rail, id) {
@@ -47,13 +56,14 @@ function legCard(rail, leg, next, now, level, tomorrow) {
     const first = leg.departures[0];
     const ride = first && html` <span class="text-body-secondary">· ${format(t('subway.ride'), { min: Math.round((first.arrives - first.departs) / 60) })}</span>`;
     const action = next
-        ? html`${icon('arrow-left-right', 'me-2')}${t('subway.transfer-at')} <strong>${stationName(rail, leg.to)}</strong>`
-        : html`${icon('door-open', 'me-2')}${t('subway.exit-at')} <strong>${stationName(rail, leg.to)}</strong>`;
+        ? html`${icon('arrow-left-right', 'me-2')}${t('subway.transfer-at')} <strong>${stationLink(rail, leg.to)}</strong>`
+        : html`${icon('door-open', 'me-2')}${t('subway.exit-at')} <strong>${stationLink(rail, leg.to)}</strong>`;
     // h2 or h3: a number, never data
     const heading = `h${Number(level)}`;
 
     return html`
         <div class="card result-card"><div class="card-body">
+            <p class="leg-boarding">${boardAt(rail, leg.from)}</p>
             <div class="result-header d-flex align-items-center gap-2 mb-2">
                 <${heading} class="leg-title">
                     ${lineBadge(leg.line, line.name)}
@@ -87,7 +97,7 @@ function routeBlock(rail, route, index, total, now, tomorrow) {
 
 // tomorrow: the plans are for tomorrow's first trains (planTrip in network.js)
 export function renderResult(rail, plans, now, { expired, tomorrow = false }) {
-    if (!plans.length) return html`<p class="text-body-secondary small mt-3">${t('subway.no-route')}</p>`;
+    if (!plans.length) return renderMessage('subway.no-route');
     const notice = expired && html`<p class="timetable-notice">${icon('exclamation-triangle', 'me-1')}${format(t('subway.timetable-old'), { date: formatDate(rail.feed.validTo) })}</p>`;
     const tomorrowNotice = tomorrow && html`<p class="tomorrow-notice">${icon('moon-stars', 'me-1')}${t('subway.tomorrow')}</p>`;
     const routes = plans.map((r, i) => html`${i > 0 && html`<hr class="route-divider">`}${routeBlock(rail, r, i, plans.length, now, tomorrow)}`);
@@ -96,8 +106,9 @@ export function renderResult(rail, plans, now, { expired, tomorrow = false }) {
         <p class="schedule-disclaimer">${icon('info-circle', 'me-1')}${t('subway.schedule-disclaimer')}</p>`;
 }
 
+// Why there's no trip to show, in the same yellow as the other warnings
 export function renderMessage(key) {
-    return html`<p class="text-body-secondary small mt-3">${t(key)}</p>`;
+    return html`<p class="subway-message mt-3">${icon('exclamation-triangle', 'me-1')}${t(key)}</p>`;
 }
 
 // A one-sentence version of the result for screen readers, announced when the
