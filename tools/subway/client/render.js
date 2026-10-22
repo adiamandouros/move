@@ -80,11 +80,22 @@ function legCard(rail, leg, next, now, level, tomorrow) {
         </div></div>`;
 }
 
+// The whole trip on the first trains: when you get there, and how long from
+// boarding to getting off (rides, changes and the waits for the next train).
+// Plain text, or '' when no train makes the whole trip.
+function tripTotal(route) {
+    const first = route.legs[0].departures[0];
+    if (route.arrives === null || !first) return '';
+    return format(t('subway.total'), { time: clockTime(route.arrives), min: Math.round((route.arrives - first.departs) / 60) });
+}
+
 function routeBlock(rail, route, index, total, now, tomorrow) {
     // Headings: one per option when there are several, then one per leg
     const header = total > 1 && html`<h2 class="route-option-label">${t('subway.option')} ${index + 1}${route.via && html` · ${t('subway.transfer-at')} ${stationName(rail, route.via)}`}</h2>`;
+    const summary = tripTotal(route);
+    const totalLine = summary && html`<p class="route-total">${icon('clock', 'me-1')}${summary}</p>`;
     const level = total > 1 ? 3 : 2;
-    return html`${header}${route.legs.map((leg, i) => {
+    return html`${header}${totalLine}${route.legs.map((leg, i) => {
         const next = route.legs[i + 1] ?? null;
         const connector = next && html`
             <div class="transfer-connector" aria-hidden="true">
@@ -124,5 +135,6 @@ export function routeSummary(rail, plans, now, tomorrow = false) {
         : asClock(leg.departures, now, tomorrow) ? `, ${t('subway.schedule-at').toLowerCase()} ${clockTime(first.departs)}`
         : `, ${t('subway.schedule-in').toLowerCase()} ${Math.max(0, Math.floor((first.departs - now.seconds) / 60))} ${t('subway.minutes')}`;
     const options = plans.length > 1 ? `${plans.length} ${t('subway.options')}. ${t('subway.option')} 1: ` : '';
-    return `${tomorrow ? `${t('subway.tomorrow')} ` : ''}${options}${line.name} ${t('subway.toward')} ${toward}${when}.`;
+    const total = tripTotal(plans[0]);
+    return `${tomorrow ? `${t('subway.tomorrow')} ` : ''}${options}${line.name} ${t('subway.toward')} ${toward}${when}.${total && ` ${total}.`}`;
 }

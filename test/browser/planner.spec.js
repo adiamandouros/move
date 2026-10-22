@@ -65,9 +65,10 @@ test.describe('noon on Wednesday 28 October, a holiday', () => {
     });
 });
 
-test('a change of line', async ({ page }) => {
+test('a change of line, with the whole trip\'s arrival and length at the top', async ({ page }) => {
     await page.goto('/subway?from=kifisia&to=aigaleo');
     await expect(page.locator('.result-card').first()).toBeVisible();
+    await expect(page.locator('.route-total').first()).toHaveText(/Arrive about \d\d:\d\d · \d+ min in total/);
     expect(await axe(page)).toEqual([]);
 });
 

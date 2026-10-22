@@ -4,6 +4,7 @@ import { readFileSync } from 'fs';
 import { athensNow, planTrip } from '../tools/subway/client/network.js';
 import { browserModule, strings } from './support/browser-modules.js';
 import { markupProblems, spoken } from './support/markup.js';
+import { clockTime } from '../public/js/core/metro.js';
 
 // What the subway page draws for a trip (tools/subway/client/render.js), in
 // the real network at different times: a direct trip, a change of line,
@@ -101,9 +102,44 @@ test('one train: minutes on screen and in full for screen readers, or a clock ti
 test('the one-sentence summary for screen readers', async () => {
     const render = await browserModule('tools/subway/client/render.js', 'en');
     const summary = trip => { const { plans, now, tomorrow } = draw(render, trip).trip; return render.routeSummary(rail, plans, now, tomorrow); };
-    assert.match(summary(TRIPS['a direct trip']), /^M3 toward Doukissis \/ Airport, in \d+ minutes\.$/);
-    assert.match(summary(TRIPS['tomorrow\'s first trains']), /^No more trains today\. These are tomorrow's first trains\. M3 toward Doukissis \/ Airport, at 0[5-7]:\d\d\.$/);
+    assert.match(summary(TRIPS['a direct trip']), /^M3 toward Doukissis \/ Airport, in \d+ minutes\. Arrive about \d\d:\d\d · \d+ min in total\.$/);
+    assert.match(summary(TRIPS['tomorrow\'s first trains']), /^No more trains today\. These are tomorrow's first trains\. M3 toward Doukissis \/ Airport, at 0[5-7]:\d\d\. Arrive about 0[6-8]:\d\d · \d+ min in total\.$/);
     assert.equal(render.routeSummary(rail, [], NOON), String(render.renderResult(rail, [], NOON, {})).replace(/<[^>]+>/g, ''));
+});
+
+test('each option starts with when it arrives and how long the whole trip takes', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    const { trip, html } = draw(render, TRIPS['a change of line']);
+    const totals = [...html.matchAll(/<p class="route-total">[^]*?<\/p>/g)].map(([p]) => spoken(p));
+    assert.equal(totals.length, trip.plans.length, 'one per option');
+    trip.plans.forEach((plan, i) => {
+        // Boarding the first train to getting off the last: both rides, the
+        // change and the wait for the second train
+        const [first, second] = plan.legs.map(leg => leg.departures[0]);
+        const minutes = (second.arrives - first.departs) / 60;
+        assert.ok(second.departs >= first.arrives + 180, 'time to change');
+        assert.equal(totals[i], `Arrive about ${clockTime(plan.arrives)} · ${Math.round(minutes)} min in total`);
+    });
+    // Right under the option's heading, before its first leg
+    assert.match(html, /<\/h2><p class="route-total">[^]*?<\/p>\s*<div class="card result-card">/);
+
+    // One route: no option heading, but still the total
+    const direct = draw(render, TRIPS['a direct trip']);
+    const [leg] = direct.trip.plans[0].legs;
+    assert.match(spoken(direct.html), new RegExp(`Arrive about \\d\\d:\\d\\d · ${Math.round((leg.departures[0].arrives - leg.departures[0].departs) / 60)} min in total`));
+
+    const greek = await browserModule('tools/subway/client/render.js', 'el');
+    assert.match(spoken(draw(greek, TRIPS['a direct trip']).html), /Άφιξη περίπου \d\d:\d\d · \d+ λεπτά συνολικά/);
+});
+
+test('no total when no train makes the whole trip', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    const { trip } = draw(render, TRIPS['a change of line']);
+    const plan = trip.plans[0];
+    const stranded = { ...plan, arrives: null, legs: [plan.legs[0], { ...plan.legs[1], departures: [] }] };
+    const html = String(render.renderResult(rail, [stranded], trip.now, { expired: false }));
+    assert.doesNotMatch(html, /route-total/);
+    assert.doesNotMatch(render.routeSummary(rail, [stranded], trip.now), /in total/);
 });
 
 test('the signpost beside the boarding station: walking directions to it', async () => {
