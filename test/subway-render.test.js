@@ -129,6 +129,9 @@ test('each leg says where to board, and station names link to their pages', asyn
     const el = await browserModule('tools/subway/client/render.js', 'el');
     const greek = draw(el, TRIPS['a direct trip']).html;
     assert.match(greek, /<p class="leg-boarding">Στον σταθμό <a href="\/el\/subway\/stations\/syntagma">Σύνταγμα<\/a>:<\/p>/);
+    // Short enough to stay on one line with the ride time on a phone
+    const change = draw(el, TRIPS['a change of line']).html;
+    assert.match(change, new RegExp(`Ανταπόκριση σε <strong><a href="/el/subway/stations/${trip.plans[0].legs[0].to}">`));
 });
 
 test('same station and no route: shown in the warnings\' yellow, not light grey', async () => {
