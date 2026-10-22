@@ -65,10 +65,42 @@ test.describe('noon on Wednesday 28 October, a holiday', () => {
     });
 });
 
-test('a change of line', async ({ page }) => {
+test('a change of line, with the whole trip\'s arrival and length at the top', async ({ page }) => {
     await page.goto('/subway?from=kifisia&to=aigaleo');
     await expect(page.locator('.result-card').first()).toBeVisible();
+    // (text for screen readers in between: "about", "47 minutes")
+    const label = page.locator('h2.route-option-label').first();
+    await expect(label).toContainText(/Via \w+/);
+    await expect(label.locator('.route-total')).toContainText(/Arrive ~[^·]*\d\d:\d\d · \d+'/);
+    // Where to change on the left, the arrival on the right
+    const [line, via, arrival] = await Promise.all([label, label.locator('span:not(.sr-only)').first(), label.locator('.route-total')].map(l => l.boundingBox()));
+    expect(Math.abs(via.x - line.x)).toBeLessThan(1);
+    expect(Math.abs(arrival.x + arrival.width - (line.x + line.width))).toBeLessThan(1);
     expect(await axe(page)).toEqual([]);
+});
+
+test('one route: its arrival on the right too', async ({ page }) => {
+    await page.goto('/subway?from=syntagma&to=airport');
+    const line = page.locator('p.route-option-label');
+    await expect(line.locator('.route-total')).toContainText(/Arrive ~[^·]*\d\d:\d\d · \d+'/);
+    const [box, arrival] = await Promise.all([line.boundingBox(), line.locator('.route-total').boundingBox()]);
+    expect(Math.abs(arrival.x + arrival.width - (box.x + box.width))).toBeLessThan(1);
+});
+
+test('each option\'s line stays one line on a small phone, in Greek too (the longest)', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    // Four options, one via Monastiraki (the longest name)
+    for (const path of ['/subway', '/el/subway']) {
+        await page.goto(`${path}?from=agios-eleftherios&to=syntagma`);
+        const labels = page.locator('h2.route-option-label');
+        await expect(labels.first()).toBeVisible();
+        const sizes = await labels.evaluateAll(els => els.map(e => ({
+            text: e.textContent, fits: e.scrollWidth <= e.clientWidth,
+            lines: Math.round(e.getBoundingClientRect().height / parseFloat(getComputedStyle(e).lineHeight)),
+        })));
+        expect(sizes.some(s => /Monastiraki|Μοναστηράκι/.test(s.text)), 'still a route via Monastiraki').toBe(true);
+        for (const size of sizes) expect(size, size.text).toMatchObject({ fits: true, lines: 1 });
+    }
 });
 
 test('the signpost walks you to the boarding station, and goes when there is none', async ({ page }) => {

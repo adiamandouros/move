@@ -1,7 +1,7 @@
 import { language, localHref, t } from '/js/core/i18n.js';
 import { format, formatDate, html, icon, localName, walkingUrl as walkingTo } from '/js/core/html.js';
 import { centralPlatformBadge, clockTime, exitDiagram, lineBadge, stopNote } from '/js/core/metro.js';
-import { legPositions } from './network.js';
+import { legPositions, tripTime } from './network.js';
 
 // What the subway page draws, with html`` (every value escaped)
 
@@ -48,13 +48,15 @@ function departureChips(departures, now, tomorrow) {
     return html`<span class="schedule-label">${t(clock ? 'subway.schedule-at' : 'subway.schedule-in')}</span><span class="schedule-chips">${chips}</span>`;
 }
 
-function legCard(rail, leg, next, now, level, tomorrow) {
+// changes: whether the route has more than one leg. Only then does each card
+// say how long its ride is (a direct trip's is the total on the route's line).
+function legCard(rail, leg, next, now, level, tomorrow, changes) {
     const line = rail.lines[leg.line];
     const direction = line.directions[leg.dir];
     const toward = localName(direction.toward, language);
     const { stop, exits, elevators } = legPositions(rail, leg, next);
     const first = leg.departures[0];
-    const ride = first && html` <span class="text-body-secondary">· ${format(t('subway.ride'), { min: Math.round((first.arrives - first.departs) / 60) })}</span>`;
+    const ride = changes && first && html` <span class="text-body-secondary">· ${format(t('subway.ride'), { min: Math.round((first.arrives - first.departs) / 60) })}</span>`;
     const action = next
         ? html`${icon('arrow-left-right', 'me-2')}${t('subway.transfer-at')} <strong>${stationLink(rail, leg.to)}</strong>`
         : html`${icon('door-open', 'me-2')}${t('subway.exit-at')} <strong>${stationLink(rail, leg.to)}</strong>`;
@@ -80,9 +82,25 @@ function legCard(rail, leg, next, now, level, tomorrow) {
         </div></div>`;
 }
 
+// When the trip gets you there and how long it takes (tripTime in network.js):
+// "Arrive ~12:47 · 23'" on screen, "Arrive about 12:47 · 23 minutes" for
+// screen readers
+function tripTotal(rail, route, now) {
+    const time = tripTime(rail, route, now);
+    return time && html`${t('subway.arrive')} <span aria-hidden="true">~</span><span class="sr-only">${t('subway.about')} </span>${clockTime(time.arrives)} · <span aria-hidden="true">${time.minutes}'</span><span class="sr-only">${time.minutes} ${t('subway.minutes')}</span>`;
+}
+
 function routeBlock(rail, route, index, total, now, tomorrow) {
-    // Headings: one per option when there are several, then one per leg
-    const header = total > 1 && html`<h2 class="route-option-label">${t('subway.option')} ${index + 1}${route.via && html` · ${t('subway.transfer-at')} ${stationName(rail, route.via)}`}</h2>`;
+    // Headings: one per option when there are several, then one per leg.
+    // The option's line has to fit a phone in one line in both languages:
+    // "Via Monastiraki" on the left, "Arrive ~06:14 · 33'" on the right
+    // ("Option 1" for screen readers only). With only one route: the arrival alone,
+    // on the right too.
+    const trip = tripTotal(rail, route, now);
+    const via = route.via && html`${t('subway.via')} ${stationName(rail, route.via)}`;
+    const header = total > 1
+        ? html`<h2 class="route-option-label"><span class="sr-only">${t('subway.option')} ${index + 1}, </span>${via && html`<span>${via}</span>`}${via && trip && html`<span class="sr-only">, </span>`}${trip && html`<span class="route-total">${trip}</span>`}</h2>`
+        : trip && html`<p class="route-option-label"><span class="route-total">${trip}</span></p>`;
     const level = total > 1 ? 3 : 2;
     return html`${header}${route.legs.map((leg, i) => {
         const next = route.legs[i + 1] ?? null;
@@ -91,7 +109,7 @@ function routeBlock(rail, route, index, total, now, tomorrow) {
                 ${icon('arrow-down-circle-fill')}
                 <span>${t('subway.change-to')} ${rail.lines[next.line].name}</span>
             </div>`;
-        return html`${legCard(rail, leg, next, now, level, tomorrow)}${connector}`;
+        return html`${legCard(rail, leg, next, now, level, tomorrow, route.legs.length > 1)}${connector}`;
     })}`;
 }
 
@@ -124,5 +142,7 @@ export function routeSummary(rail, plans, now, tomorrow = false) {
         : asClock(leg.departures, now, tomorrow) ? `, ${t('subway.schedule-at').toLowerCase()} ${clockTime(first.departs)}`
         : `, ${t('subway.schedule-in').toLowerCase()} ${Math.max(0, Math.floor((first.departs - now.seconds) / 60))} ${t('subway.minutes')}`;
     const options = plans.length > 1 ? `${plans.length} ${t('subway.options')}. ${t('subway.option')} 1: ` : '';
-    return `${tomorrow ? `${t('subway.tomorrow')} ` : ''}${options}${line.name} ${t('subway.toward')} ${toward}${when}.`;
+    const time = tripTime(rail, plans[0], now);
+    const total = time ? ` ${t('subway.arrive')} ${t('subway.about')} ${clockTime(time.arrives)}, ${time.minutes} ${t('subway.minutes')}.` : '';
+    return `${tomorrow ? `${t('subway.tomorrow')} ` : ''}${options}${line.name} ${t('subway.toward')} ${toward}${when}.${total}`;
 }

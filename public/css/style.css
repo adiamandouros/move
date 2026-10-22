@@ -965,6 +965,20 @@ body {
     margin-bottom: 10px;
 }
 
+.route-option-label {
+    white-space: nowrap;
+}
+
+/* Where to change on the left, the arrival on the right (alone, with one route) */
+.route-option-label {
+    display: flex;
+    gap: 0.75em;
+}
+
+.route-option-label .route-total {
+    margin-left: auto;
+}
+
 .schedule-section{
     white-space: nowrap;
 }

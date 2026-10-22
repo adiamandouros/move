@@ -167,6 +167,18 @@ export function nextDay(now) {
     return { weekday: (now.weekday + 1) % 7, seconds: 0, date: addDays(now.date, 1) };
 }
 
+// When a planned route gets there, and how long it takes from boarding the
+// first train to getting off the last (rides, changes, waits for the next
+// train): on the first trains that make the whole trip, tomorrow's first
+// ones when none does today. null when none does tomorrow either.
+/** @param {Rail} rail @param {PlannedRoute} route @param {AthensTime} now @returns {{ arrives: number, minutes: number } | null} */
+export function tripTime(rail, route, now) {
+    const plan = route.arrives === null ? planRoute(rail, route, nextDay(now), true) : route;
+    const first = plan.legs[0].departures[0];
+    if (plan.arrives === null || !first) return null;
+    return { arrives: plan.arrives, minutes: Math.round((plan.arrives - first.departs) / 60) };
+}
+
 // planJourney, and after the last train of the day (no route gets there
 // today) the same trip on tomorrow's first trains. Tomorrow's own: tonight's
 // trains after midnight can't make the trip, or today's plan would have.

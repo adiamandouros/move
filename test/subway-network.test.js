@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { athensNow, departures, findRoutes, isTimetableExpired, legPositions, nextDay, planJourney, planTrip } from '../tools/subway/client/network.js';
+import { athensNow, departures, findRoutes, isTimetableExpired, legPositions, nextDay, planJourney, planTrip, tripTime } from '../tools/subway/client/network.js';
 
 const H = 3600;
 const everyDay = patternIndex => [0, 0, 0, 0, 0, 0, 0].map(() => patternIndex);
@@ -145,6 +145,28 @@ test("after the last train, planTrip plans tomorrow's first trains of the day", 
     assert.equal(direct.plans[0].legs[0].departures[0].departs, 8 * H);
     // No route at all: nothing to plan for tomorrow either
     assert.deepEqual(planTrip(rail, 'b', 'a', { weekday: 3, seconds: 10 * H, date: '2026-10-14' }).plans, []);
+});
+
+test('tripTime: when the first trains get there, and the minutes from boarding to getting off', () => {
+    const now = { weekday: 3, seconds: 8 * H, date: '2026-10-14' };
+    // 08:00 from a, change at x, 08:10 to c, there 08:14: 14 minutes
+    const [plan] = planJourney(rail, 'a', 'c', now);
+    assert.deepEqual(tripTime(rail, plan, now), { arrives: 8 * H + 840, minutes: 14 });
+    // 07:50: the same trains, so the same 14 minutes (waiting for the first isn't counted)
+    const early = { ...now, seconds: 7 * H + 50 * 60 };
+    assert.deepEqual(tripTime(rail, planJourney(rail, 'a', 'c', early)[0], early), { arrives: 8 * H + 840, minutes: 14 });
+});
+
+test('tripTime: a route no train makes today is timed on tomorrow\'s first trains', () => {
+    // 08:30: line 1 still runs, line 2's last train left at 08:15
+    const now = { weekday: 3, seconds: 8.5 * H, date: '2026-10-14' };
+    const [plan] = planJourney(rail, 'a', 'c', now);
+    assert.equal(plan.arrives, null);
+    assert.equal(plan.legs[0].departures.length > 0, true);
+    assert.deepEqual(tripTime(rail, plan, now), { arrives: 8 * H + 840, minutes: 14 });
+    // No trains at all on a line: no time
+    const none = { ...rail, lines: { ...rail.lines, L2: { directions: { east: { ...rail.lines.L2.directions.east, timetable: { ...rail.lines.L2.directions.east.timetable, patterns: [[]] } } } } } };
+    assert.equal(tripTime(none, planJourney(none, 'a', 'c', now)[0], now), null);
 });
 
 test('nextDay moves to the next date and weekday, over months and years', () => {
