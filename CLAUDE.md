@@ -36,6 +36,8 @@ rules (no flaky tests, coverage only goes up).
 ## Other rules
 
 - Never commit to `main`: branch per topic, then a pull request.
+- When the user says they merged a pull request, delete its branch both
+  locally and on GitHub, then switch to `main` and pull.
 - Every screen must be fully accessible: axe-core clean and usable with the
   keyboard alone.
 - Anything that changes how often OASA is asked (polling, caching, limits):
