@@ -92,7 +92,10 @@ test('icon() is built with html``, so its classes are escaped', () => {
 test('where to ride: the train diagram, or a note when the stop\'s exits aren\'t known', () => {
     const s = key => key;
     const positions = ['back', 'center', 'front'];
-    assert.match(String(exitDiagram(positions, ['back'], [], s)), /class="train-diagram"/);
+    const diagram = String(exitDiagram(positions, ['back'], [], s));
+    assert.match(diagram, /class="train-diagram"/);
+    // No BACK / FRONT at the train's ends: the labels under the cars say it
+    assert.doesNotMatch(diagram, /train-label|subway\.train-/);
     assert.equal(String(exitDiagram(positions, [], [], s)), '<p class="text-body-secondary fst-italic small">subway.no-position-data</p>');
 });
 
