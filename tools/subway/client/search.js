@@ -111,10 +111,11 @@ export function stationSearch({ input, list, rail, onChange }) {
         list.querySelectorAll('[role="option"]').forEach(el => el.setAttribute('aria-selected', String(el === focused)));
     });
 
-    // mousedown rather than click, so the input doesn't lose focus and close the list first
+    // mousedown rather than click, so the input doesn't lose focus and close the list first.
+    // Then let go of the input, so a phone's keyboard closes and the route shows.
     list.addEventListener('mousedown', e => {
         const item = e.target.closest('[role="option"]');
-        if (item) { e.preventDefault(); set(item.dataset.id); }
+        if (item) { e.preventDefault(); set(item.dataset.id); input.blur(); }
     });
 
     input.closest('.subway-search-wrap').addEventListener('focusout', e => {
