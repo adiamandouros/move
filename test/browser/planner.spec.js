@@ -79,12 +79,48 @@ test('a change of line, with the whole trip\'s arrival and length at the top', a
     expect(await axe(page)).toEqual([]);
 });
 
-test('one route: its arrival on the right too', async ({ page }) => {
+test('one route: «No transfers» on the left, its arrival on the right', async ({ page }) => {
     await page.goto('/subway?from=syntagma&to=airport');
     const line = page.locator('p.route-option-label');
+    const noTransfers = line.locator('span:not(.sr-only)').first();
+    await expect(noTransfers).toHaveText('No transfers');
     await expect(line.locator('.route-total')).toContainText(/Arrive ~[^·]*\d\d:\d\d · \d+'/);
-    const [box, arrival] = await Promise.all([line.boundingBox(), line.locator('.route-total').boundingBox()]);
+    const [box, left, arrival] = await Promise.all([line.boundingBox(), noTransfers.boundingBox(), line.locator('.route-total').boundingBox()]);
+    expect(Math.abs(left.x - box.x)).toBeLessThan(1);
     expect(Math.abs(arrival.x + arrival.width - (box.x + box.width))).toBeLessThan(1);
+});
+
+test('each card: where to get off on the left, the stops (and with a change, minutes) on the right', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    for (const [path, ride] of [['/subway?from=syntagma&to=airport', /^15 stops$/], ['/subway?from=kifisia&to=aigaleo', /^\d+ min · \d+ stops$/], ['/el/subway?from=kifisia&to=aigaleo', /^\d+ λεπτά · \d+ σταθμοί$/]]) {
+        await page.goto(path);
+        const action = page.locator('.leg-action').first();
+        await expect(action.locator('.leg-ride')).toHaveText(ride);
+        const [box, where, stops] = await Promise.all([action, action.locator('span').first(), action.locator('.leg-ride')].map(l => l.boundingBox()));
+        expect(Math.abs(where.x - box.x)).toBeLessThan(1);
+        expect(Math.abs(stops.x + stops.width - (box.x + box.width))).toBeLessThan(1);
+    }
+});
+
+test('«Change to …» between the cards is centred on them', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.goto('/subway?from=kifisia&to=aigaleo');
+    const connector = page.locator('.transfer-connector').first();
+    await expect(connector).toContainText(/Change to M\d/);
+    const [card, icon, text] = await Promise.all([page.locator('.result-card').first(), connector.locator('.bi'), connector.locator('span')].map(l => l.boundingBox()));
+    // From the icon's left edge to the text's right edge
+    expect(Math.abs((icon.x + text.x + text.width) / 2 - (card.x + card.width / 2))).toBeLessThan(1);
+});
+
+test('a central platform\'s «Doors open on the left» sits on its own line, centred under where to get off', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.goto('/subway?from=syntagma&to=airport');
+    const card = page.locator('.result-card').first();
+    const badge = card.locator('.central-platform-badge');
+    await expect(badge).toHaveText('Doors open on the left');
+    const [action, doors] = await Promise.all([card.locator('.leg-action'), badge].map(l => l.boundingBox()));
+    expect(doors.y).toBeGreaterThanOrEqual(action.y + action.height);
+    expect(Math.abs(doors.x + doors.width / 2 - (action.x + action.width / 2))).toBeLessThan(1);
 });
 
 test('each option\'s line stays one line on a small phone, in Greek too (the longest)', async ({ page }) => {

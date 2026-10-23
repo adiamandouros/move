@@ -131,16 +131,42 @@ test('each option\'s line: where to change, when it arrives and how long the who
     // One route: no option heading, but still the total
     const direct = draw(render, TRIPS['a direct trip']);
     const [{ departures: [train] }] = direct.trip.plans[0].legs;
-    assert.match(direct.html, new RegExp(`<p class="route-option-label"><span class="route-total">Arrive [^]*?${Math.round((train.arrives - train.departs) / 60)}'`));
+    assert.match(direct.html, new RegExp(`<p class="route-option-label"><span>No transfers</span><span class="sr-only">, </span><span class="route-total">Arrive [^]*?${Math.round((train.arrives - train.departs) / 60)}'`));
     assert.doesNotMatch(direct.html, /<h2 class="route-option-label"/);
     // Said once: not again on the leg's card
     assert.equal(spoken(direct.html).match(/\d+ min\b/g), null);
     // With a change, each card still says how long its own ride is
     trip.plans.forEach(plan => plan.legs.forEach(({ departures: [train] }) =>
-        assert.ok(spoken(html).includes(`· ${Math.round((train.arrives - train.departs) / 60)} min`))));
+        assert.match(spoken(html).replace(/\s+/g, ' '), new RegExp(`, ${Math.round((train.arrives - train.departs) / 60)} min · \\d+ stops`))));
 
     const greek = await browserModule('tools/subway/client/render.js', 'el');
     assert.match(spoken(draw(greek, TRIPS['a change of line']).html), /Επιλογή 1, Μέσω \S+, Άφιξη περίπου \d\d:\d\d · \d+ λεπτά/);
+    assert.match(spoken(draw(greek, TRIPS['a direct trip']).html), /^\s*Χωρίς αλλαγή, Άφιξη περίπου/);
+});
+
+test('each card says how many stops the ride is, on the right, with or without a change', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    // Syntagma to the Airport: 15 stops on M3, said after where to get off
+    const direct = draw(render, TRIPS['a direct trip']);
+    const [leg] = direct.trip.plans[0].legs;
+    assert.equal(leg.toIndex - leg.fromIndex, 15);
+    assert.match(direct.html, /<span class="leg-ride">15 stops<\/span>/);
+    assert.match(spoken(direct.html).replace(/\s+/g, ' '), /Exit at Airport, 15 stops Doors open on the left/);
+    // The Airport's central platform: on a line of its own, under that one
+    assert.match(direct.html, /<span class="leg-ride">15 stops<\/span>\s*<\/div>\s*<p class="leg-doors text-center mb-3"><span class="central-platform-badge">/);
+    // One stop: singular, in both languages
+    const one = { fromIndex: 4, toIndex: 5 };
+    assert.equal(render.stopCount(one), '1 stop');
+    assert.equal(render.stopCount({ fromIndex: 4, toIndex: 7 }), '3 stops');
+    const greek = await browserModule('tools/subway/client/render.js', 'el');
+    assert.equal(greek.stopCount(one), '1 σταθμός');
+    assert.equal(greek.stopCount({ fromIndex: 4, toIndex: 7 }), '3 σταθμοί');
+    // With a change: each leg's own minutes, then its stops
+    const change = draw(render, TRIPS['a change of line']);
+    change.trip.plans.forEach(plan => plan.legs.forEach(leg => {
+        const minutes = Math.round((leg.departures[0].arrives - leg.departures[0].departs) / 60);
+        assert.ok(change.html.includes(`<span class="leg-ride">${minutes} min · ${leg.toIndex - leg.fromIndex} stops</span>`));
+    }));
 });
 
 test('an option no train makes tonight is timed on tomorrow\'s first trains', async () => {

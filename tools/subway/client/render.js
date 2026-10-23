@@ -48,15 +48,22 @@ function departureChips(departures, now, tomorrow) {
     return html`<span class="schedule-label">${t(clock ? 'subway.schedule-at' : 'subway.schedule-in')}</span><span class="schedule-chips">${chips}</span>`;
 }
 
+// How many stops the train makes until the leg's last: "3 stops"
+export function stopCount(leg) {
+    const count = leg.toIndex - leg.fromIndex;
+    return format(t(count === 1 ? 'subway.stop-count' : 'subway.stops-count'), { count });
+}
+
 // changes: whether the route has more than one leg. Only then does each card
 // say how long its ride is (a direct trip's is the total on the route's line).
+// The stops it always says, on the right: "12 min · 3 stops"
 function legCard(rail, leg, next, now, level, tomorrow, changes) {
     const line = rail.lines[leg.line];
     const direction = line.directions[leg.dir];
     const toward = localName(direction.toward, language);
     const { stop, exits, elevators } = legPositions(rail, leg, next);
     const first = leg.departures[0];
-    const ride = changes && first && html` <span class="text-body-secondary">· ${format(t('subway.ride'), { min: Math.round((first.arrives - first.departs) / 60) })}</span>`;
+    const ride = changes && first && html`${format(t('subway.ride'), { min: Math.round((first.arrives - first.departs) / 60) })} · `;
     const action = next
         ? html`${icon('arrow-left-right', 'me-2')}${t('subway.transfer-at')} <strong>${stationLink(rail, leg.to)}</strong>`
         : html`${icon('door-open', 'me-2')}${t('subway.exit-at')} <strong>${stationLink(rail, leg.to)}</strong>`;
@@ -73,10 +80,11 @@ function legCard(rail, leg, next, now, level, tomorrow, changes) {
                 </${heading}>
                 <div class="schedule-section ms-auto">${departureChips(leg.departures, now, tomorrow)}</div>
             </div>
-            <div class="leg-action mb-3">
-                ${action}${ride}
-                ${stop.centralPlatform && centralPlatformBadge(t, 'ms-2')}
+            <div class="leg-action ${stop.centralPlatform ? 'mb-2' : 'mb-3'}">
+                <span>${action}</span><span class="sr-only">, </span>
+                <span class="leg-ride">${ride}${stopCount(leg)}</span>
             </div>
+            ${stop.centralPlatform && html`<p class="leg-doors text-center mb-3">${centralPlatformBadge(t)}</p>`}
             ${exitDiagram(rail.positions, exits, elevators, t)}
             ${stopNote(stop.note)}
         </div></div>`;
@@ -102,14 +110,15 @@ export const routeKey = route => route.legs.map(leg => `${leg.line}/${leg.dir}/$
 function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, open }) {
     // Headings: one per option when there are several, then one per leg.
     // The option's line has to fit a phone in one line in both languages:
-    // "Via Monastiraki" on the left, "Arrive ~06:14 · 33'" on the right
-    // ("Option 1" for screen readers only). With only one route: the arrival alone,
-    // on the right too.
+    // "Via Monastiraki" (or "No transfers") on the left, "Arrive ~06:14 · 33'"
+    // on the right ("Option 1" for screen readers only). With only one route:
+    // the same line, but not a heading.
     const trip = tripTotal(time);
-    const via = route.via && html`${t('subway.via')} ${stationName(rail, route.via)}`;
+    const via = route.via ? html`${t('subway.via')} ${stationName(rail, route.via)}` : t('subway.no-transfers');
+    const line = html`<span>${via}</span>${trip && html`<span class="sr-only">, </span><span class="route-total">${trip}</span>`}`;
     const header = total > 1
-        ? html`<h2 class="route-option-label"><span class="sr-only">${t('subway.option')} ${index + 1}, </span>${via && html`<span>${via}</span>`}${via && trip && html`<span class="sr-only">, </span>`}${trip && html`<span class="route-total">${trip}</span>`}</h2>`
-        : trip && html`<p class="route-option-label"><span class="route-total">${trip}</span></p>`;
+        ? html`<h2 class="route-option-label"><span class="sr-only">${t('subway.option')} ${index + 1}, </span>${line}</h2>`
+        : html`<p class="route-option-label">${line}</p>`;
     const level = total > 1 ? 3 : 2;
     const cards = route.legs.map((leg, i) => {
         const next = route.legs[i + 1] ?? null;
