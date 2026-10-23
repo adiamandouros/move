@@ -198,3 +198,17 @@ test('the line header: back, the line, and a switch between its two directions',
     assert.match(spoken(one), /To KYKLOS/);
 });
 
+
+test('results look tappable: an arrow on each, and a hint that says what tapping does', async () => {
+    const { searchResults } = await browserModule('tools/buses/client/render.js', 'en');
+    const hint = html => html.match(/<p class="search-hint">([^<]+)<\/p>/)?.[1];
+    const both = String(searchResults([line], [stop, stop], 20));
+    assert.equal(hint(both), 'Tap a stop to see when its next buses come, or a line to see its stops.');
+    assert.equal(hint(String(searchResults([], [stop], 20))), 'Tap a stop to see when its next buses come.');
+    assert.equal(hint(String(searchResults([line], [], 20))), 'Tap a line to see its stops.');
+    assert.equal(String(searchResults([], [], 20)).trim(), '');
+    // One arrow inside every link, hidden from screen readers (the hint isn't in a link's name)
+    const links = both.match(/<a [^]*?<\/a>/g);
+    assert.equal(links.length, 3);
+    for (const link of links) assert.match(link, /<svg class="bi search-result-arrow" aria-hidden="true">/);
+});

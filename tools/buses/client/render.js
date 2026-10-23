@@ -133,12 +133,21 @@ export function message(symbol, title, subtitle = '', action = '') {
 
 // ── Search and lines ────────────────────────────────────────────────────────
 
+// At the end of every result, so it looks like something to tap
+const resultArrow = () => icon('chevron-right', 'search-result-arrow');
+
+// Above the results: what tapping one does
+export function searchHint(lines, stops) {
+    const key = lines.length && stops.length ? 'buses.pick-either' : lines.length ? 'buses.pick-line' : 'buses.pick-stop';
+    return html`<p class="search-hint">${t(key)}</p>`;
+}
+
 // A line found by its number: a link to its stops
 export function lineResult(line) {
     return html`
         <li class="list-group-item p-0">
             <a class="list-group-item-action d-flex align-items-center gap-2 px-3 py-2 search-result" href="${viewHref({ line: line.line })}" data-view>
-                ${linePill(line.line)}<span class="search-result-text"><span class="sr-only">, </span>${local(line.name)}</span>
+                ${linePill(line.line)}<span class="search-result-text flex-grow-1"><span class="sr-only">, </span>${local(line.name)}</span>${resultArrow()}
             </a>
         </li>`;
 }
@@ -148,10 +157,12 @@ export function lineResult(line) {
 export function stopResult(stop) {
     return html`
         <li class="list-group-item p-0">
-            <a class="list-group-item-action d-block px-3 py-2 search-result" href="${viewHref({ stop: stop.code })}" data-view>
-                <span class="fw-semibold">${local(stop.name)}</span>
-                <span class="search-result-meta"><span class="sr-only">, ${t('buses.code')}</span> ${stop.code}${stop.meters === undefined ? '' : html`<span aria-hidden="true"> ·</span> ${distance(stop.meters)}`}</span>
-                <span class="d-block search-result-lines"><span class="sr-only">, </span>${t('buses.lines')}: ${stop.lines.join(', ')}</span>
+            <a class="list-group-item-action d-flex align-items-center gap-2 px-3 py-2 search-result" href="${viewHref({ stop: stop.code })}" data-view>
+                <span class="search-result-text flex-grow-1">
+                    <span class="fw-semibold">${local(stop.name)}</span>
+                    <span class="search-result-meta"><span class="sr-only">, ${t('buses.code')}</span> ${stop.code}${stop.meters === undefined ? '' : html`<span aria-hidden="true"> ·</span> ${distance(stop.meters)}`}</span>
+                    <span class="d-block search-result-lines"><span class="sr-only">, </span>${t('buses.lines')}: ${stop.lines.join(', ')}</span>
+                </span>${resultArrow()}
             </a>
         </li>`;
 }
@@ -159,6 +170,7 @@ export function stopResult(stop) {
 // What was found: lines first (few), then stops (the first `shown` of them)
 export function searchResults(lines, stops, shown) {
     return html`
+        ${lines.length || stops.length ? searchHint(lines, stops) : ''}
         ${lines.length ? html`<h2 class="search-heading">${t('buses.lines')}</h2>
         <ul class="list-group list-group-flush search-list">${lines.map(lineResult)}</ul>` : ''}
         ${stops.length ? html`<h2 class="search-heading">${t('buses.stops')}</h2>

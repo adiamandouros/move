@@ -1216,6 +1216,22 @@ body {
     box-shadow: inset var(--focus-ring);
 }
 
+.search-result-text {
+    min-width: 0;
+}
+
+/* The arrow at the end of a result: there's more behind it */
+.search-result-arrow {
+    flex-shrink: 0;
+    color: var(--bs-secondary-color);
+}
+
+.search-hint {
+    font-size: 0.85rem;
+    color: var(--bs-secondary-color);
+    margin: 8px 16px 0;
+}
+
 .search-result-meta,
 .search-result-lines {
     font-size: 0.8rem;
