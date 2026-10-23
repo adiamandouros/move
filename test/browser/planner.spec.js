@@ -79,12 +79,27 @@ test('a change of line, with the whole trip\'s arrival and length at the top', a
     expect(await axe(page)).toEqual([]);
 });
 
-test('one route: its arrival on the right too', async ({ page }) => {
+test('one route: «No transfers» on the left, its arrival on the right', async ({ page }) => {
     await page.goto('/subway?from=syntagma&to=airport');
     const line = page.locator('p.route-option-label');
+    const noTransfers = line.locator('span:not(.sr-only)').first();
+    await expect(noTransfers).toHaveText('No transfers');
     await expect(line.locator('.route-total')).toContainText(/Arrive ~[^·]*\d\d:\d\d · \d+'/);
-    const [box, arrival] = await Promise.all([line.boundingBox(), line.locator('.route-total').boundingBox()]);
+    const [box, left, arrival] = await Promise.all([line.boundingBox(), noTransfers.boundingBox(), line.locator('.route-total').boundingBox()]);
+    expect(Math.abs(left.x - box.x)).toBeLessThan(1);
     expect(Math.abs(arrival.x + arrival.width - (box.x + box.width))).toBeLessThan(1);
+});
+
+test('each card: where to get off on the left, the stops (and with a change, minutes) on the right', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    for (const [path, ride] of [['/subway?from=syntagma&to=airport', /^15 stops$/], ['/subway?from=kifisia&to=aigaleo', /^\d+ min · \d+ stops$/], ['/el/subway?from=kifisia&to=aigaleo', /^\d+ λεπτά · \d+ σταθμοί$/]]) {
+        await page.goto(path);
+        const action = page.locator('.leg-action').first();
+        await expect(action.locator('.leg-ride')).toHaveText(ride);
+        const [box, where, stops] = await Promise.all([action, action.locator('span').first(), action.locator('.leg-ride')].map(l => l.boundingBox()));
+        expect(Math.abs(where.x - box.x)).toBeLessThan(1);
+        expect(Math.abs(stops.x + stops.width - (box.x + box.width))).toBeLessThan(1);
+    }
 });
 
 test('each option\'s line stays one line on a small phone, in Greek too (the longest)', async ({ page }) => {
