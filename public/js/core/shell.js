@@ -1,9 +1,16 @@
 import { html, icon as iconHtml, setHtml } from './html.js';
 import { t } from './i18n.js';
+import { restoreLinks } from './remember.js';
 
-// Shared by every page: the language link and the service worker. Each
+// Shared by every page: the links to the tools, the language link and the service worker. Each
 // tool's own script is loaded separately by its page, and only the pages
 // that use the location start it (/js/core/location.js).
+
+// ── Links to the tools ───────────────────────────────────────────────────────
+
+// Back to where each tool was left (/js/core/remember.js)
+restoreLinks();
+window.addEventListener('pageshow', restoreLinks);
 
 // ── Language ─────────────────────────────────────────────────────────────────
 

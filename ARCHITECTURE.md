@@ -186,6 +186,15 @@ pages use.
   asks once, where it's clear why. The last position is kept on the device
   for 10 minutes and shared by the pages, and nothing waits for it: pages
   show what they can and update as positions come.
+- **Coming back to a tool** (`/js/core/remember.js`): the tools open where
+  they were left, for this tab or app session (`sessionStorage`). What's kept
+  is the tool's address, where its choices already are: Subway's stations
+  (not a boarding station that follows the location) and the bus stop or
+  line shown. Only the links marked `data-tool` go back to it: the
+  navigation and the home tiles, set by `shell.js` on every page. The link to
+  the page you're on starts the tool over, and links that say where they
+  go (a station page's "Plan a trip from here", the bus page's way back to
+  the stops nearby) work as they always did.
 - Scripts import each other by absolute URL (`/js/core/i18n.js`). An import
   map in every page points those URLs at the current version (`?v=<hash>`),
   so a deploy never mixes old and new files.

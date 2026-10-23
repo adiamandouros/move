@@ -1,6 +1,7 @@
 import { lastPosition, locationPermission, onLocation, onLocationProblem, startLocation } from '/js/core/location.js';
 import { localName, setHtml } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
+import { remember } from '/js/core/remember.js';
 import { athensNow, closestStation, isTimetableExpired, planTrip } from './network.js';
 import { stationSearch } from './search.js';
 import { renderMessage, renderResult, routeSummary, walkingUrl } from './render.js';
@@ -58,13 +59,17 @@ function start(rail) {
         if (speak) announce(routeSummary(rail, plans, now, tomorrow));
     };
 
-    // The selection lives in the URL (?from=syntagma&to=airport) so routes can be bookmarked and shared
+    // The selection lives in the URL (?from=syntagma&to=airport) so routes can be bookmarked and shared.
+    // It's also kept for coming back to the page, but a boarding station that
+    // follows the location isn't: by then it may be another one.
     const syncUrl = () => {
         const query = new URLSearchParams();
         if (from.get()) query.set('from', from.get());
         if (to.get()) query.set('to', to.get());
         const search = query.toString();
         history.replaceState(null, '', search ? `${location.pathname}?${search}` : location.pathname);
+        if (followLocation) query.delete('from');
+        remember('subway', query.toString());
     };
 
     // The signpost beside the boarding station: walking directions to it
@@ -142,7 +147,9 @@ function start(rail) {
         const id = closestStation(rail, lat, lng);
         if (id !== from.get()) from.set(id);
         else if (!always) return;
+        // (from.set counts as choosing it, so it's kept until here)
         followLocation = true;
+        syncUrl();
         announce(`${t('subway.location-prefix')} ${localName(rail.stations[id].name, language)} ${t('subway.location-suffix')}`);
     };
 
