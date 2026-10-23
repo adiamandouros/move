@@ -878,6 +878,16 @@ body {
     transition: background-color 0.2s, border-color 0.2s;
 }
 
+/* The cars go back to front, left to right: a rounded tail, a sloped nose */
+.train-car:first-child {
+    border-radius: 18px 6px 6px 18px;
+}
+
+.train-car:last-child {
+    border-radius: 6px 28px 6px 6px / 6px 40px 6px 6px;
+    padding-right: 6px;
+}
+
 .train-car.highlighted {
     background-color: rgba(var(--wh-highlight-rgb), 0.2);
     border-color: var(--wh-highlight);
