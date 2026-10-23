@@ -112,6 +112,25 @@ test('«Change to …» between the cards is centred on them', async ({ page }) 
     expect(Math.abs((icon.x + text.x + text.width) / 2 - (card.x + card.width / 2))).toBeLessThan(1);
 });
 
+test('the train diagram is shaped like a train: a rounded tail on the left, a sloped nose on the right', async ({ page }) => {
+    await page.goto('/subway?from=kifisia&to=aigaleo');
+    const cars = page.locator('.train-diagram').first().locator('.train-car');
+    await expect(cars).toHaveCount(5);
+    const radii = await cars.evaluateAll(all => all.map(car => {
+        const style = getComputedStyle(car);
+        return { tail: parseFloat(style.borderTopLeftRadius), nose: parseFloat(style.borderTopRightRadius) };
+    }));
+    const middle = radii[2];
+    expect(radii[0].tail).toBeGreaterThan(middle.tail);
+    expect(radii[4].nose).toBeGreaterThan(middle.nose);
+    expect(radii[0].nose).toBe(middle.nose);
+    expect(radii[4].tail).toBe(middle.tail);
+    // A highlighted end car keeps its highlight border
+    const last = cars.last();
+    await last.evaluate(car => car.classList.add('highlighted'));
+    await expect(last).toHaveCSS('border-top-color', 'rgb(245, 158, 11)');
+});
+
 test('a central platform\'s «Doors open on the left» sits on its own line, centred under where to get off', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto('/subway?from=syntagma&to=airport');
