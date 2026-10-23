@@ -37,14 +37,12 @@ export function trainDiagram(positions, exits, elevators, s) {
     const cls = p => `${exits.includes(p) ? ' highlighted' : ''}${elevators.includes(p) ? ' has-elevator' : ''}`;
     return html`
             <div class="train-diagram" role="img" aria-label="${s('subway.diagram-label')} ${described}">
-                <div class="train-label" aria-hidden="true">${s('subway.train-back')}</div>
                 <div class="train-cars-wrap" aria-hidden="true">
                     <div class="train-cars">${positions.map(p => html`
                         <div class="train-car${cls(p)}">${exits.includes(p) && icon('person-walking')}${elevators.includes(p) && icon('arrow-up-square', 'car-elevator')}</div>`)}
                     </div>
                     <div class="position-labels">${positions.map(p => html`<div class="position-label${cls(p)}">${label(p)}</div>`)}</div>
                 </div>
-                <div class="train-label" aria-hidden="true">${s('subway.train-front')}</div>
             </div>`;
 }
 

@@ -850,16 +850,6 @@ body {
     margin-top: 16px;
 }
 
-.train-label {
-    font-size: 0.65rem;
-    font-weight: 700;
-    color: var(--bs-tertiary-color);
-    letter-spacing: 0.05em;
-    white-space: nowrap;
-    /* Align with the cars row, not the labels below */
-    margin-bottom: 20px;
-}
-
 .train-cars-wrap {
     display: flex;
     flex-direction: column;
