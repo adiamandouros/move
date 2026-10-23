@@ -215,6 +215,8 @@ test('with the keyboard alone: search, a result, the stop, and back', async ({ p
     await page.goto('/buses');
     await search(page).focus();
     await page.keyboard.type('10341');
+    // The stops load in the background: Tab before they're shown would go past them
+    await expect(stopLinks(page).first()).toBeVisible();
     await page.keyboard.press('Tab');
     await expect(stopLinks(page).first()).toBeFocused();
     await page.keyboard.press('Enter');
