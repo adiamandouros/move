@@ -2,6 +2,7 @@ import { html, localName, setHtml } from '/js/core/html.js';
 import { language } from '/js/core/i18n.js';
 import { lineBadge } from '/js/core/metro.js';
 import { normalise } from '/js/core/text.js';
+import { addRecentStation, recentStations } from './recent.js';
 
 const MAX_SUGGESTIONS = 8;
 
@@ -24,8 +25,21 @@ export function matchStations(stations, query) {
         .map(([, id]) => id);
 }
 
+// What a field offers before anything is typed, to show what it takes: the
+// stations picked lately (`recent`), then the interchanges, then the ends of
+// the lines, each A–Z
+export function startingStations(rail, recent) {
+    const byName = ids => [...ids].sort((a, b) => stationName(rail.stations[a]).localeCompare(stationName(rail.stations[b]), 'el'));
+    const interchanges = Object.keys(rail.stations).filter(id => rail.stations[id].lines.length > 1);
+    const ends = Object.values(rail.lines).flatMap(line => Object.values(line.directions)
+        .flatMap(({ stops }) => [stops[0].station, stops.at(-1).station]));
+    const known = recent.filter(id => Object.hasOwn(rail.stations, id)).slice(0, 3);
+    return [...new Set([...known, ...byName(interchanges), ...byName(new Set(ends))])];
+}
+
 // Wire an <input role="combobox"> and its <ul role="listbox"> (from page.html)
 // into a station picker. `onChange(id | null)` fires when the selection changes.
+// Tapping the field, or ArrowDown in it, lists stations to start from.
 export function stationSearch({ input, list, rail, onChange }) {
     let selected = null;
 
@@ -60,9 +74,27 @@ export function stationSearch({ input, list, rail, onChange }) {
         if (notify) onChange(selected);
     }
 
+    // A station the person chose themselves, so it's offered again later
+    function pick(id) {
+        set(id);
+        if (selected) addRecentStation(selected);
+    }
+
+    // What's typed, or with nothing typed (or a station chosen) the stations to start from
+    const suggestions = () => selected || !normalise(input.value)
+        ? startingStations(rail, recentStations())
+        : matchStations(rail.stations, input.value);
+
     input.addEventListener('input', () => {
-        render(matchStations(rail.stations, input.value));
         if (selected) { selected = null; onChange(null); }
+        render(suggestions());
+    });
+
+    // Opened on click rather than focus: the focus comes back here after a
+    // pick from the keyboard, and the list shouldn't open again then
+    input.addEventListener('click', () => {
+        if (selected) input.select();
+        if (list.hidden) render(suggestions());
     });
 
     // Typing a full station name and leaving the field counts as choosing it
@@ -71,17 +103,20 @@ export function stationSearch({ input, list, rail, onChange }) {
         const q = normalise(input.value);
         const exact = Object.keys(rail.stations).find(id =>
             [rail.stations[id].name.el, rail.stations[id].name.en].some(n => normalise(n) === q));
-        if (exact) set(exact);
+        if (exact) pick(exact);
     });
 
     input.addEventListener('keydown', e => {
-        if (e.key === 'ArrowDown' && !list.hidden) {
+        if (e.key === 'ArrowDown' && list.hidden) {
+            e.preventDefault();
+            render(suggestions());
+        } else if (e.key === 'ArrowDown') {
             e.preventDefault();
             list.querySelector('[role="option"]')?.focus();
         } else if (e.key === 'Enter' && !list.hidden) {
             e.preventDefault();
             const first = list.querySelector('[role="option"]');
-            if (first) set(first.dataset.id);
+            if (first) pick(first.dataset.id);
         } else if (e.key === 'Escape') {
             hide();
         }
@@ -98,7 +133,7 @@ export function stationSearch({ input, list, rail, onChange }) {
             (focused.previousElementSibling ?? input).focus();
         } else if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            set(focused.dataset.id);
+            pick(focused.dataset.id);
             input.focus();
         } else if (e.key === 'Escape') {
             hide();
@@ -115,7 +150,7 @@ export function stationSearch({ input, list, rail, onChange }) {
     // Then let go of the input, so a phone's keyboard closes and the route shows.
     list.addEventListener('mousedown', e => {
         const item = e.target.closest('[role="option"]');
-        if (item) { e.preventDefault(); set(item.dataset.id); input.blur(); }
+        if (item) { e.preventDefault(); pick(item.dataset.id); input.blur(); }
     });
 
     input.closest('.subway-search-wrap').addEventListener('focusout', e => {

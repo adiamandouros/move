@@ -149,7 +149,7 @@ const STATIONS_TILE = { href: STATIONS_PATH, tool: null, iconName: 'list-ul', ti
 // Written once per language: server/views/pages/<name>.<lang>.hbs
 const TEXT_PAGES = ['about', 'privacy', 'contact'];
 // When privacy.<lang>.hbs last changed in substance (shown on the page)
-const PRIVACY_UPDATED = { en: '18 October 2026', el: '18 Οκτωβρίου 2026' };
+const PRIVACY_UPDATED = { en: '23 October 2026', el: '23 Οκτωβρίου 2026' };
 
 // ── Strings ─────────────────────────────────────────────────────────────────
 

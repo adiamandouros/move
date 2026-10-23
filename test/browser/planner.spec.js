@@ -251,6 +251,61 @@ test('tapping a suggestion picks it and leaves the field, so the phone\'s keyboa
     await expect(page.locator('#stop-suggestions-to')).toBeHidden();
 });
 
+test('tapping an empty field lists stations to start from: the interchanges, then the ends of the lines', async ({ page }) => {
+    await page.goto('/subway?from=syntagma');
+    const list = page.locator('#stop-suggestions-to');
+    await page.locator('#stop-search-to').tap();
+    await expect(list.locator('.suggestion-name-en')).toHaveText([
+        'Attiki', 'Monastiraki', 'Omonia', 'Piraeus', 'Syntagma',
+        'Airport', 'Anthoupoli', 'Dimotiko Theatro', 'Elliniko', 'Kifisia',
+    ]);
+    await expect(page.locator('#stop-search-to')).toHaveAttribute('aria-expanded', 'true');
+    expect(await axe(page)).toEqual([]);
+    await list.getByText('Airport').tap();
+    await expect(page).toHaveURL(/to=airport/);
+    await expect(list).toBeHidden();
+});
+
+test('the stations picked lately come first, in either field, and are still there later', async ({ page }) => {
+    await page.goto('/subway?from=syntagma');
+    await page.locator('#stop-search-to').fill('Kerame');
+    await page.locator('#stop-suggestions-to .suggestion-item').first().tap();
+    await page.reload();
+    await page.locator('#stop-search-from').tap();
+    await expect(page.locator('#stop-suggestions-from .suggestion-name-en').first()).toHaveText('Kerameikos');
+    // A station from the address wasn't picked here, so it isn't offered
+    await expect(page.locator('#stop-suggestions-from .suggestion-name-en').nth(1)).toHaveText('Attiki');
+});
+
+test('tapping a field with a station selects its name, so typing replaces it, and lists the stations', async ({ page }) => {
+    await page.goto('/subway?from=syntagma&to=airport');
+    const to = page.locator('#stop-search-to');
+    await to.tap();
+    await expect(page.locator('#stop-suggestions-to')).toBeVisible();
+    expect(await to.evaluate(input => input.value.slice(input.selectionStart, input.selectionEnd))).toBe('Airport');
+    await page.keyboard.type('Omon');
+    await expect(to).toHaveValue('Omon');
+    await expect(page.locator('#stop-suggestions-to .suggestion-name-en')).toHaveText(['Omonia']);
+});
+
+test('with the keyboard: ArrowDown opens the list, Enter picks, and the list stays closed after', async ({ page }) => {
+    await page.goto('/subway?from=syntagma');
+    const to = page.locator('#stop-search-to');
+    const list = page.locator('#stop-suggestions-to');
+    await to.focus();
+    await expect(list).toBeHidden();
+    await page.keyboard.press('ArrowDown');
+    await expect(list).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(list).toBeHidden();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expect(to).toHaveValue('Attiki');
+    await expect(to).toBeFocused();
+    await expect(list).toBeHidden();
+});
+
 test('what is typed before the page\'s script has loaded is kept, and searched', async ({ page }) => {
     let release;
     const held = new Promise(resolve => { release = resolve; });

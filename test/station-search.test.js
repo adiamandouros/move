@@ -47,3 +47,21 @@ test('at most eight suggestions; nothing for an empty or unknown name', () => {
     assert.deepEqual(en.matchStations(rail.stations, '   '), []);
     assert.deepEqual(en.matchStations(rail.stations, 'zzz'), []);
 });
+
+test('before anything is typed: the stations picked lately, then the interchanges, then the ends of the lines', () => {
+    assert.deepEqual(names(en.startingStations(rail, [])), [
+        'Attiki', 'Monastiraki', 'Omonia', 'Piraeus', 'Syntagma',
+        'Airport', 'Anthoupoli', 'Dimotiko Theatro', 'Elliniko', 'Kifisia',
+    ]);
+    const greek = names(el.startingStations(rail, []), 'el');
+    assert.deepEqual(greek.slice(0, 5), [...greek.slice(0, 5)].sort((a, b) => a.localeCompare(b, 'el')), 'A–Z in Greek too');
+    assert.deepEqual(greek.slice(5), [...greek.slice(5)].sort((a, b) => a.localeCompare(b, 'el')));
+});
+
+test('the stations picked lately come first, three at most, once each, and only real ones', () => {
+    const ids = en.startingStations(rail, ['syntagma', 'nowhere', 'constructor', 'kerameikos', 'neos-kosmos', 'katechaki']);
+    assert.deepEqual(ids.slice(0, 3), ['syntagma', 'kerameikos', 'neos-kosmos']);
+    assert.equal(ids.filter(id => id === 'syntagma').length, 1);
+    assert.ok(!ids.includes('katechaki'), 'a fourth is too many');
+    assert.equal(ids.length, 12);
+});

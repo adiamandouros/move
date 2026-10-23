@@ -39,8 +39,10 @@ test('the about, privacy and contact pages are written in each language and link
         assert.match(pages[`/${name}`], /<html lang="en"/);
         assert.match(pages[`/el/${name}`], /<html lang="el"/);
     }
-    assert.match(pages['/privacy'], /<h1>Privacy<\/h1>[\s\S]*Last updated: 18 October 2026/);
-    assert.match(pages['/el/privacy'], /<h1>Απόρρητο<\/h1>[\s\S]*Τελευταία ενημέρωση: 18 Οκτωβρίου 2026/);
+    assert.match(pages['/privacy'], /<h1>Privacy<\/h1>[\s\S]*Last updated: 23 October 2026/);
+    assert.match(pages['/privacy'], /The last three metro stations you picked/);
+    assert.match(pages['/el/privacy'], /<h1>Απόρρητο<\/h1>[\s\S]*Τελευταία ενημέρωση: 23 Οκτωβρίου 2026/);
+    assert.match(pages['/el/privacy'], /Οι τρεις τελευταίοι σταθμοί μετρό που επιλέξατε/);
     // No hosting details: who hosts the site and where is nothing a visitor needs
     for (const name of ['about', 'privacy', 'contact']) {
         assert.doesNotMatch(pages[`/${name}`] + pages[`/el/${name}`], /Mediahost|cPanel/i);
