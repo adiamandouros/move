@@ -240,6 +240,17 @@ test('home: intro and shortcuts, and no footer (the links are in the menu and th
     await expect(content(page)).toContainText('Σταθμοί μετρό');
 });
 
+test('tapping a suggestion picks it and leaves the field, so the phone\'s keyboard closes', async ({ page }) => {
+    await page.goto('/subway?from=syntagma');
+    const to = page.locator('#stop-search-to');
+    await to.fill('Airp');
+    await page.locator('#stop-suggestions-to .suggestion-item').first().tap();
+    await expect(to).toHaveValue('Airport');
+    await expect(page).toHaveURL(/to=airport/);
+    await expect(to).not.toBeFocused();
+    await expect(page.locator('#stop-suggestions-to')).toBeHidden();
+});
+
 test('what is typed before the page\'s script has loaded is kept, and searched', async ({ page }) => {
     let release;
     const held = new Promise(resolve => { release = resolve; });
