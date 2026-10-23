@@ -50,17 +50,19 @@ const SOURCES = {
     'https://www.oasa.gr/feed/': rss([['Αλλαγές στη γραμμή 040', 1], ['Έργα στην οδό Πανεπιστημίου', 3]]),
     'https://www.oasa.gr/en/feed/': rss([['Changes to line 040', 1], ['Works on Panepistimiou street', 3]]),
 };
-export async function fakeNetwork(url) {
+// STASY's one post is a closure, so the disruption banner shows; `calm`
+// makes it an ordinary one
+const fakeNetwork = ({ calm = false } = {}) => async url => {
     const href = String(url);
     let body = SOURCES[href];
     if (!body && href.startsWith('https://www.stasy.gr/news-')) {
         body = `<meta property="article:published_time" content="${day(2).toISOString()}">`;
     } else if (!body && href.startsWith('https://www.stasy.gr/')) {
-        body = `<article id="post-1" class="clearfix">\n<a href="https://www.stasy.gr/news-1/"><h5><span class="light">Κλειστός ο σταθμός Πανεπιστήμιο</span></h5></a></article>`;
+        body = `<article id="post-1" class="clearfix">\n<a href="https://www.stasy.gr/news-1/"><h5><span class="light">${calm ? 'Νέα έξοδος στον σταθμό Πανεπιστήμιο' : 'Κλειστός ο σταθμός Πανεπιστήμιο'}</span></h5></a></article>`;
     }
     if (!body) throw new Error(`fake network: nothing at ${href}`);
     return new Response(body, { status: 200 });
-}
+};
 
 // The test data with one station that can't be drawn (Omonia has no
 // coordinates), so its page fails: for the error page
@@ -82,7 +84,7 @@ export const site = ({ env = {}, ...overrides } = {}) => createApp({
     config: loadConfig({ ...SETTINGS, ...env }),
     buildDir: DATA,
     cacheDir: mkdtempSync(join(tmpdir(), 'wayhop-browser-')),
-    fetch: fakeNetwork,
+    fetch: fakeNetwork(),
     oasaClient,
     // Every test comes from 127.0.0.1, so the per-visitor limit would be shared
     limiter: { take: () => 0 },
@@ -109,6 +111,8 @@ export const scenarios = () => ({
     'oasa-limited': withArrivals((_req, res) => res.status(429).set('Retry-After', '30').json({ error: 'Too many new stops; try again shortly' })),
     // Neither OASA's nor STASY's website answers
     'announcements-down': site({ fetch: down }),
+    // Announcements, but no strike or closure among them
+    'no-disruptions': site({ fetch: fakeNetwork({ calm: true }) }),
     // Before the first data build: no rail.json or bus-stops.json
     'no-data': site({ buildDir: mkdtempSync(join(tmpdir(), 'wayhop-nodata-')) }),
     // With the admin pages, behind this password (test/browser/admin.spec.js)
