@@ -168,6 +168,17 @@ test('every page links to itself in the other language: sidebar, menu and a sugg
     assert.doesNotMatch(render({ title: 'Admin', content: '' }), /hreflang=/);
 });
 
+test('the navigation and the home tiles mark their links to the tools, which go back to where each was left', () => {
+    // (public/js/core/remember.js points them at it; other links, like the
+    // station pages' "Plan from here", say where they go themselves)
+    const toolLinks = html => [...html.matchAll(/<a href="([^"]*)" data-tool="([^"]*)"/g)].map(([, href, tool]) => `${tool} ${href}`);
+    const nav = lang => tools.map(tool => `${tool.id} ${localPath(tool.path, lang)}`);
+    assert.deepEqual(toolLinks(pages['/el/info']), [...nav('el'), ...nav('el')], 'sidebar and bottom bar');
+    assert.deepEqual(toolLinks(pages['/']), [...nav('en'), ...nav('en'), ...nav('en')], 'and the home tiles');
+    assert.equal(pages['/'].match(/<a href="[^"]*" data-tool=/g).length, pages['/'].match(/data-tool=/g).length);
+    assert.doesNotMatch(pages['/'].match(/<a href="\/subway\/stations"[^>]*>/)[0], /data-tool/, 'the stations tile isn’t a tool');
+});
+
 test('a saved choice of the other language opens the page in it before it shows', () => {
     const redirect = html => html.match(/<head>\s*<meta charset="UTF-8">\s*<meta name="viewport"[^>]*>\s*<script>([\s\S]*?)<\/script>/)?.[1];
     const html = page => page.match(/<html[^>]*>/)[0];

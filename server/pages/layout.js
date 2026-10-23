@@ -72,7 +72,7 @@ export function createRenderer(tools, pagePaths, config) {
             importMap: imports,
             home: active === 'home',
             tools: tools.map(tool => ({
-                path: tool.path, iconName: tool.icon, active: tool.id === active,
+                id: tool.id, path: tool.path, iconName: tool.icon, active: tool.id === active,
                 titleKey: `tool.${tool.id}.title`, shortKey: `tool.${tool.id}.short`,
             })),
             siteLinks: SITE_PAGES.map(({ name, iconName }) => ({ href: `/${name}`, iconName, textKey: `menu.${name}` })),

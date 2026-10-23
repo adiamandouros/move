@@ -1,6 +1,7 @@
 import { lastPosition, locationPermission, onLocation, onLocationProblem, restartLocation, startLocation } from '/js/core/location.js';
 import { format, html, icon, setHtml } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
+import { remember } from '/js/core/remember.js';
 import { decodeStops, distanceMeters, nearestStops } from './stops.js';
 import { findLines, findStops, lineKey } from './search.js';
 import { backLink, distance, lineHeader, message, nearestNote, patchStop, searchResults, searchStatus, stopItem } from './render.js';
@@ -30,6 +31,13 @@ function readView() {
     if (params.get('stop')) return { kind: 'stop', code: params.get('stop') };
     if (params.get('line')) return { kind: 'line', line: params.get('line'), direction: params.get('dir') === '1' ? 1 : 0 };
     return { kind: 'nearby' };
+}
+
+// Show what the address now asks for, and keep it for coming back to the
+// page (the nearby stops forget the stop or line)
+function setView() {
+    state.view = readView();
+    remember('buses', location.search);
 }
 
 const state = {
@@ -336,7 +344,7 @@ function markNearest() {
 // Follow a link to another view without loading the page again
 function go(href) {
     history.pushState(null, '', href);
-    state.view = readView();
+    setView();
     input.value = '';
     search();
     showView({ focus: true });
@@ -347,7 +355,7 @@ function showDirection(direction) {
     const params = new URLSearchParams(location.search);
     params.set('dir', String(direction));
     history.replaceState(null, '', `${location.pathname}?${params}`);
-    state.view = readView();
+    setView();
     showView().then(() => /** @type {HTMLElement | null} */ (header.querySelector(`[data-direction="${direction}"]`))?.focus());
 }
 
@@ -454,6 +462,7 @@ function locationProblem(problem) {
 // one) is used at once, and new positions update the stops as they come. A
 // stop or a line needs none, so the browser isn't asked for one there.
 async function start() {
+    remember('buses', location.search);
     onLocation(located);
     onLocationProblem(locationProblem);
 
@@ -523,7 +532,7 @@ async function start() {
         go(link.getAttribute('href'));
     });
     window.addEventListener('popstate', () => {
-        state.view = readView();
+        setView();
         input.value = '';
         search();
         showView({ focus: true });

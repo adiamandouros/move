@@ -52,7 +52,7 @@
             </div>
             <div class="d-flex flex-column flex-grow-1 px-2">
 {{#each tools}}
-                <a href="{{path}}" class="nav-btn btn d-flex align-items-center gap-3 px-3 py-3 mb-1{{#if active}} active{{/if}}"{{#if active}} aria-current="page"{{/if}}>{{icon iconName "fs-5"}}<span>{{t titleKey}}</span></a>
+                <a href="{{path}}" data-tool="{{id}}" class="nav-btn btn d-flex align-items-center gap-3 px-3 py-3 mb-1{{#if active}} active{{/if}}"{{#if active}} aria-current="page"{{/if}}>{{icon iconName "fs-5"}}<span>{{t titleKey}}</span></a>
 {{/each}}
                 <div class="mt-auto pb-3">
                     {{!-- The pages about the site, stacked above the language link at the bottom --}}
@@ -98,7 +98,7 @@
     <nav id="bottom-nav" class="d-grid d-md-none fixed-bottom border-top" aria-label="{{t "nav.main"}}">
         <a href="/" class="nav-btn btn d-flex flex-column align-items-center py-2{{#if home}} active{{/if}}"{{#if home}} aria-current="page"{{/if}}><img src="/icon/logo.svg" alt="" width="33" height="24" class="nav-logo fs-4"><span class="nav-label">{{t "nav.home"}}</span></a>
 {{#each tools}}
-        <a href="{{path}}" class="nav-btn btn d-flex flex-column align-items-center py-2{{#if active}} active{{/if}}"{{#if active}} aria-current="page"{{/if}}>{{icon iconName "fs-4"}}<span class="nav-label">{{t shortKey}}</span></a>
+        <a href="{{path}}" data-tool="{{id}}" class="nav-btn btn d-flex flex-column align-items-center py-2{{#if active}} active{{/if}}"{{#if active}} aria-current="page"{{/if}}>{{icon iconName "fs-4"}}<span class="nav-label">{{t shortKey}}</span></a>
 {{/each}}
         {{!-- Opens the menu: a popover, so the browser opens and closes it (Esc,
         a tap outside) and moves the keyboard into it and back without a script.
