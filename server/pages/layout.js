@@ -1,6 +1,6 @@
 import { html } from '../../public/js/core/html.js';
 import { adUnit } from '../ads.js';
-import { importMap, versioned } from './assets.js';
+import { FONTS, importMap, versioned } from './assets.js';
 import { LANGS, localiseLinks, localPath, otherLang, pageStrings } from './i18n.js';
 import { pageMeta } from './seo.js';
 import { view } from './templates.js';
@@ -61,6 +61,8 @@ export function createRenderer(tools, pagePaths, config) {
             languages: LANGS.map(l => ({ label: LANGUAGE_LABELS[l], active: l === lang })),
             suggestion: other && { text: stringsFor(other)['language.suggest'], close: stringsFor(other)['language.close'] },
             title,
+            // Both alphabets: English pages have Greek too (the «ΕΛ» language link)
+            fonts: Object.values(FONTS),
             // The installed app opens in the language it was installed in
             manifest: localPath('/manifest.webmanifest', lang),
             seo: pageMeta({ path, index, lang, title: `${title} — Wayhop`, description, origin: config.siteUrl }),

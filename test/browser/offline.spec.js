@@ -26,6 +26,8 @@ test('offline: the planner works, other pages show the offline page', async ({ p
 
     await page.goto('/subway?from=syntagma&to=airport');
     await expect(page.locator('.result-card').first()).toBeVisible();
+    // Still in Roboto
+    expect(await page.evaluate(() => [...document.fonts].filter(f => f.family.replace(/"/g, '') === 'Roboto').map(f => f.status))).toEqual(['loaded', 'loaded']);
 
     await page.goto('/about');
     await expect(page.locator('h1')).toHaveText('You\'re offline');

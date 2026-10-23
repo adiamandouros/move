@@ -1,8 +1,9 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 import express from 'express';
-import { assetVersion, listFiles, VENDOR } from '../server/pages/assets.js';
+import { assetVersion, FONTS, listFiles, VENDOR, vendorStatic } from '../server/pages/assets.js';
 import { createPages, renderPages } from '../server/pages/index.js';
 
 // Stylesheets and scripts are linked with ?v=<version> so a deploy can't mix
@@ -18,7 +19,7 @@ before(async () => {
     // Served like server.js does
     const app = express();
     app.use(createPages().router);
-    for (const [url, dir] of Object.entries(VENDOR)) app.use(url, express.static(dir));
+    for (const [url, dir] of Object.entries(VENDOR)) app.use(url, vendorStatic(dir));
     app.use(express.static(join(ROOT, 'public'), { index: false }));
     await new Promise(resolve => { server = app.listen(0, resolve); });
     base = `http://localhost:${server.address().port}`;
@@ -78,3 +79,39 @@ test('the service worker precaches the versioned stylesheets and scripts', async
     // Every versioned file it lists is actually served
     for (const url of assets) assert.equal((await fetch(base + url)).status, 200, url);
 });
+
+test('Roboto: both files are served as fonts, kept for 30 days, and work offline', async () => {
+    const sw = await (await fetch(`${base}/sw.js`)).text();
+    const precache = JSON.parse(sw.match(/const PRECACHE = (\[[\s\S]*?\]);/)[1]);
+    for (const url of Object.values(FONTS)) {
+        assert.ok(precache.includes(url), `${url} is precached`);
+        const res = await fetch(base + url);
+        assert.equal(res.status, 200, url);
+        assert.equal(res.headers.get('content-type'), 'font/woff2');
+        assert.equal(res.headers.get('cache-control'), 'public, max-age=2592000');
+    }
+    // Only fonts: Bootstrap keeps revalidating
+    assert.equal((await fetch(`${base}/vendor/bootstrap/css/bootstrap.min.css`)).headers.get('cache-control'), 'public, max-age=0');
+});
+
+test('Roboto: style.css names the same files as the server, one per alphabet, shown at once', () => {
+    const css = readFileSync(join(ROOT, 'public', 'css', 'style.css'), 'utf8');
+    const faces = [...css.matchAll(/@font-face\s*{([^}]*)}/g)].map(([, body]) => body).filter(body => body.includes('"Roboto";'));
+    assert.deepEqual(faces.map(body => body.match(/url\("([^"]+)"\)/)[1]), [FONTS.latin, FONTS.greek]);
+    for (const body of faces) {
+        assert.match(body, /font-display: swap;/);
+        assert.match(body, /font-weight: 100 900;/);
+        assert.match(body, /unicode-range: U\+/);
+    }
+    assert.match(css, /--bs-font-sans-serif: "Roboto", "Roboto Fallback", system-ui,/);
+});
+
+for (const [path, html] of Object.entries(pages)) {
+    test(`${path}: preloads both Roboto files, before the stylesheets`, () => {
+        for (const url of Object.values(FONTS)) {
+            const at = html.indexOf(`<link rel="preload" href="${url}" as="font" type="font/woff2" crossorigin>`);
+            assert.ok(at !== -1, `${url} isn't preloaded`);
+            assert.ok(at < html.indexOf('rel="stylesheet"'));
+        }
+    });
+}

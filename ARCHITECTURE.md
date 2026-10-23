@@ -130,7 +130,10 @@ writes one, on the server or in the browser, and views write
 `{{icon "name"}}`. The server adds the version to every `/icons.svg` link.
 
 Styles are Bootstrap 5.3 (from `node_modules`, no build step) plus
-`public/css/style.css`. Wayhop's colours are Bootstrap's CSS variables, set
+`public/css/style.css`. The font is Roboto, everywhere: its Latin and Greek
+variable files come from `node_modules` too (`FONTS` in `assets.js`, named
+again by the `@font-face` rules at the top of `style.css`; a test keeps the
+two the same), preloaded by every page and kept by the service worker. Wayhop's colours are Bootstrap's CSS variables, set
 once per colour mode at the top of `style.css` (`--wh-` ones for Wayhop's
 own components); rules use the variable names, never colour values, and
 `test/accessibility.test.js` checks their contrast. Line colours are
