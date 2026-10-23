@@ -102,7 +102,7 @@ test('each card: where to get off on the left, the stops (and with a change, min
     }
 });
 
-test('a central platform\'s «Doors open on the left» sits on its own line, under where to get off', async ({ page }) => {
+test('a central platform\'s «Doors open on the left» sits on its own line, centred under where to get off', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto('/subway?from=syntagma&to=airport');
     const card = page.locator('.result-card').first();
@@ -110,7 +110,7 @@ test('a central platform\'s «Doors open on the left» sits on its own line, und
     await expect(badge).toHaveText('Doors open on the left');
     const [action, doors] = await Promise.all([card.locator('.leg-action'), badge].map(l => l.boundingBox()));
     expect(doors.y).toBeGreaterThanOrEqual(action.y + action.height);
-    expect(Math.abs(doors.x - action.x)).toBeLessThan(1);
+    expect(Math.abs(doors.x + doors.width / 2 - (action.x + action.width / 2))).toBeLessThan(1);
 });
 
 test('each option\'s line stays one line on a small phone, in Greek too (the longest)', async ({ page }) => {

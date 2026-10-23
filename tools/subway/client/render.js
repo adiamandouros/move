@@ -84,7 +84,7 @@ function legCard(rail, leg, next, now, level, tomorrow, changes) {
                 <span>${action}</span><span class="sr-only">, </span>
                 <span class="leg-ride">${ride}${stopCount(leg)}</span>
             </div>
-            ${stop.centralPlatform && html`<p class="leg-doors mb-3">${centralPlatformBadge(t)}</p>`}
+            ${stop.centralPlatform && html`<p class="leg-doors text-center mb-3">${centralPlatformBadge(t)}</p>`}
             ${exitDiagram(rail.positions, exits, elevators, t)}
             ${stopNote(stop.note)}
         </div></div>`;
