@@ -102,6 +102,16 @@ test('each card: where to get off on the left, the stops (and with a change, min
     }
 });
 
+test('«Change to …» between the cards is centred on them', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.goto('/subway?from=kifisia&to=aigaleo');
+    const connector = page.locator('.transfer-connector').first();
+    await expect(connector).toContainText(/Change to M\d/);
+    const [card, icon, text] = await Promise.all([page.locator('.result-card').first(), connector.locator('.bi'), connector.locator('span')].map(l => l.boundingBox()));
+    // From the icon's left edge to the text's right edge
+    expect(Math.abs((icon.x + text.x + text.width) / 2 - (card.x + card.width / 2))).toBeLessThan(1);
+});
+
 test('a central platform\'s «Doors open on the left» sits on its own line, centred under where to get off', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto('/subway?from=syntagma&to=airport');

@@ -944,10 +944,11 @@ body {
     color: var(--bs-body-color);
 }
 
-/* Connector between legs in a transfer route */
+/* Connector between legs in a transfer route, centred between the cards */
 .transfer-connector {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     padding: 6px 4px;
     color: var(--bs-primary);
