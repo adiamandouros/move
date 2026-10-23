@@ -151,7 +151,9 @@ test('each card says how many stops the ride is, on the right, with or without a
     const [leg] = direct.trip.plans[0].legs;
     assert.equal(leg.toIndex - leg.fromIndex, 15);
     assert.match(direct.html, /<span class="leg-ride">15 stops<\/span>/);
-    assert.match(spoken(direct.html).replace(/\s+/g, ' '), /Exit at Airport Doors open on the left, 15 stops/);
+    assert.match(spoken(direct.html).replace(/\s+/g, ' '), /Exit at Airport, 15 stops Doors open on the left/);
+    // The Airport's central platform: on a line of its own, under that one
+    assert.match(direct.html, /<span class="leg-ride">15 stops<\/span>\s*<\/div>\s*<p class="leg-doors mb-3"><span class="central-platform-badge">/);
     // One stop: singular, in both languages
     const one = { fromIndex: 4, toIndex: 5 };
     assert.equal(render.stopCount(one), '1 stop');

@@ -80,11 +80,11 @@ function legCard(rail, leg, next, now, level, tomorrow, changes) {
                 </${heading}>
                 <div class="schedule-section ms-auto">${departureChips(leg.departures, now, tomorrow)}</div>
             </div>
-            <div class="leg-action mb-3">
-                <span>${action}
-                    ${stop.centralPlatform && centralPlatformBadge(t, 'ms-2')}</span><span class="sr-only">, </span>
+            <div class="leg-action ${stop.centralPlatform ? 'mb-2' : 'mb-3'}">
+                <span>${action}</span><span class="sr-only">, </span>
                 <span class="leg-ride">${ride}${stopCount(leg)}</span>
             </div>
+            ${stop.centralPlatform && html`<p class="leg-doors mb-3">${centralPlatformBadge(t)}</p>`}
             ${exitDiagram(rail.positions, exits, elevators, t)}
             ${stopNote(stop.note)}
         </div></div>`;
