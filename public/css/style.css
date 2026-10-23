@@ -988,6 +988,14 @@ body {
 
 .route-option-label .route-total {
     margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* Too long for the line (a long name, a wide font): "Via Monastir…" */
+.route-option-label .route-via {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* A slower option, closed: a button-like "Show route · 9 min slower" */
