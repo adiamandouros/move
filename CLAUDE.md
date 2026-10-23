@@ -40,3 +40,10 @@ rules (no flaky tests, coverage only goes up).
   keyboard alone.
 - Anything that changes how often OASA is asked (polling, caching, limits):
   propose the numbers first.
+
+## Saving progress
+
+When the user says "save our progress", "store our progress", "note
+everything down" or the like, that means: update the roadmap (Claude's
+`roadmap` memory) **and** its roadmap artifact, so both say the same thing.
+Read the artifact first and build on what's there.
