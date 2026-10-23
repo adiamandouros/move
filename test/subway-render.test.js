@@ -125,13 +125,13 @@ test('each option\'s line: where to change, when it arrives and how long the who
         assert.equal(spoken(headings[i]), `Option ${i + 1}, Via ${via}, Arrive about ${clockTime(plan.arrives)} · ${minutes} minutes`);
         // On screen: where to change, then (on the right) the arrival
         const visible = headings[i].replace(/<span class="sr-only">[^<]*<\/span>/g, '').replace(/ aria-hidden="true"/g, '');
-        assert.match(visible, new RegExp(`<span>Via ${via}</span><span class="route-total">Arrive <span>~</span>${clockTime(plan.arrives)} · <span>${minutes}'</span></span></h2>$`));
+        assert.match(visible, new RegExp(`<span class="route-via">Via ${via}</span><span class="route-total">Arrive <span>~</span>${clockTime(plan.arrives)} · <span>${minutes}'</span></span></h2>$`));
     });
 
     // One route: no option heading, but still the total
     const direct = draw(render, TRIPS['a direct trip']);
     const [{ departures: [train] }] = direct.trip.plans[0].legs;
-    assert.match(direct.html, new RegExp(`<p class="route-option-label"><span>No transfers</span><span class="sr-only">, </span><span class="route-total">Arrive [^]*?${Math.round((train.arrives - train.departs) / 60)}'`));
+    assert.match(direct.html, new RegExp(`<p class="route-option-label"><span class="route-via">No transfers</span><span class="sr-only">, </span><span class="route-total">Arrive [^]*?${Math.round((train.arrives - train.departs) / 60)}'`));
     assert.doesNotMatch(direct.html, /<h2 class="route-option-label"/);
     // Said once: not again on the leg's card
     assert.equal(spoken(direct.html).match(/\d+ min\b/g), null);

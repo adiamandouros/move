@@ -139,6 +139,21 @@ test('each option\'s line stays one line on a small phone, in Greek too (the lon
     }
 });
 
+test('an option\'s line too long for the phone: «Via …» ends in «…», the arrival stays whole', async ({ page }) => {
+    // Narrower than any phone, so it can't fit whatever the font
+    await page.setViewportSize({ width: 240, height: 640 });
+    await page.goto('/subway?from=agios-eleftherios&to=syntagma');
+    const label = page.locator('h2.route-option-label').filter({ hasText: 'Monastiraki' });
+    await expect(label).toBeVisible();
+    const measure = loc => loc.evaluate(e => ({ cut: e.scrollWidth > e.clientWidth, lines: Math.round(e.getBoundingClientRect().height / parseFloat(getComputedStyle(e).lineHeight)) }));
+    expect(await measure(label)).toEqual({ cut: false, lines: 1 });
+    expect(await measure(label.locator('.route-via'))).toMatchObject({ cut: true });
+    expect(await label.locator('.route-via').evaluate(e => getComputedStyle(e).textOverflow)).toBe('ellipsis');
+    expect(await measure(label.locator('.route-total'))).toMatchObject({ cut: false });
+    // Screen readers still hear all of it
+    await expect(label).toContainText('Via Monastiraki');
+});
+
 test('a slower option starts closed; opened, it stays open through the refresh, until the stations change', async ({ page }) => {
     // Noon: three options, the third 6 minutes after the first
     await page.goto('/subway?from=kifisia&to=syntagma');

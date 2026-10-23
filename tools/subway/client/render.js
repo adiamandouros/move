@@ -112,10 +112,11 @@ function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, op
     // The option's line has to fit a phone in one line in both languages:
     // "Via Monastiraki" (or "No transfers") on the left, "Arrive ~06:14 · 33'"
     // on the right ("Option 1" for screen readers only). With only one route:
-    // the same line, but not a heading.
+    // the same line, but not a heading. What doesn't fit ends in "…" on the
+    // left (the card names the station too), never in the arrival.
     const trip = tripTotal(time);
     const via = route.via ? html`${t('subway.via')} ${stationName(rail, route.via)}` : t('subway.no-transfers');
-    const line = html`<span>${via}</span>${trip && html`<span class="sr-only">, </span><span class="route-total">${trip}</span>`}`;
+    const line = html`<span class="route-via">${via}</span>${trip && html`<span class="sr-only">, </span><span class="route-total">${trip}</span>`}`;
     const header = total > 1
         ? html`<h2 class="route-option-label"><span class="sr-only">${t('subway.option')} ${index + 1}, </span>${line}</h2>`
         : html`<p class="route-option-label">${line}</p>`;
