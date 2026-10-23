@@ -9,6 +9,14 @@ test.beforeEach(onlyOn('phone', 'desktop'));
 // The navigation that shows: the bottom bar on phones, the sidebar on wider screens
 const nav = (page, tool) => page.locator(`nav:visible a[data-tool="${tool}"]`);
 
+// The subway page once its script runs: it has set the boarding station from
+// the location (Syntagma, near where the tests stand). Typing earlier can land
+// after that name ("SyntagmaOmonia"), if the script starts mid-fill.
+async function openSubway(page) {
+    await page.goto('/subway');
+    await expect(page.locator('#stop-search-from')).toHaveValue('Syntagma');
+}
+
 async function choose(page, field, name) {
     await page.locator(`#stop-search-${field}`).fill(name);
     await page.locator(`#stop-search-${field}`).press('Enter');
@@ -16,7 +24,7 @@ async function choose(page, field, name) {
 
 test.describe('the subway', () => {
     test('a planned route is there again after another page, in either language', async ({ page }) => {
-        await page.goto('/subway');
+        await openSubway(page);
         await choose(page, 'from', 'Omonia');
         await choose(page, 'to', 'Airport');
         await expect(page.locator('.result-card').first()).toBeVisible();
@@ -35,8 +43,7 @@ test.describe('the subway', () => {
     });
 
     test('a boarding station that follows the location isn’t kept: by then it may be another one', async ({ page }) => {
-        await page.goto('/subway');
-        await expect(page.locator('#stop-search-from')).toHaveValue('Syntagma');
+        await openSubway(page);
         await choose(page, 'to', 'Airport');
         await expect(page.locator('.result-card').first()).toBeVisible();
         await nav(page, 'info').click();
@@ -44,7 +51,7 @@ test.describe('the subway', () => {
     });
 
     test('the subway tab, tapped on the subway, starts over; a station page’s link says where it goes', async ({ page }) => {
-        await page.goto('/subway');
+        await openSubway(page);
         await choose(page, 'from', 'Omonia');
         await choose(page, 'to', 'Airport');
         await expect(nav(page, 'subway')).toHaveAttribute('href', '/subway');
