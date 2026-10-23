@@ -21,6 +21,9 @@
 {{/if}}
     <meta name="theme-color" content="#161b27">
     <script type="importmap">{{json importMap}}</script>
+{{#each fonts}}
+    <link rel="preload" href="{{this}}" as="font" type="font/woff2" crossorigin>
+{{/each}}
     <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="/css/style.css">
     <link rel="icon" type="image/png" href="/icon/favicon-96x96.png" sizes="96x96">

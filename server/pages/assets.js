@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import express from 'express';
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { createRequire } from 'module';
 import { dirname, join, relative, sep } from 'path';
@@ -19,13 +20,31 @@ const packageDir = name => dirname(require.resolve(`${name}/package.json`));
 // Third-party files served from node_modules, so nothing loads from a CDN
 export const VENDOR = {
     '/vendor/bootstrap': join(packageDir('bootstrap'), 'dist'),
+    '/vendor/roboto': join(packageDir('@fontsource-variable/roboto'), 'files'),
 };
+
+// Roboto, every weight in one file per alphabet: the @font-face rules at the
+// top of style.css name the same files. Every page preloads both
+// (layout.js), so text rarely shows in the fallback font.
+export const FONTS = {
+    latin: '/vendor/roboto/roboto-latin-wght-normal.woff2',
+    greek: '/vendor/roboto/roboto-greek-wght-normal.woff2',
+};
+
+// Served as they are. Fonts are kept for 30 days: their names don't change
+// with the package's version, but an old copy of a font is harmless.
+const FONT_CACHE = 'public, max-age=2592000';
+export const vendorStatic = dir => express.static(dir, {
+    setHeaders: (res, file) => { if (file.endsWith('.woff2')) res.set('Cache-Control', FONT_CACHE); },
+});
 
 // Files every page needs, cached by the service worker on install
 const SHELL_FILES = [
     '/vendor/bootstrap/css/bootstrap.min.css',
     '/vendor/bootstrap/js/bootstrap.min.js',
     '/icons.svg',
+    FONTS.latin,
+    FONTS.greek,
 ];
 const SHELL_DIRS = ['css', 'icon', join('js', 'core')];
 

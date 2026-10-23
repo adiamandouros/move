@@ -10,6 +10,7 @@ of others.
 | What | License | Where it's used |
 |---|---|---|
 | [Bootstrap](https://getbootstrap.com/) 5, © 2011-2025 The Bootstrap Authors | [MIT](https://github.com/twbs/bootstrap/blob/main/LICENSE) | Every page's styles and scripts (`/vendor/bootstrap/`, unmodified) |
+| [Roboto](https://github.com/googlefonts/roboto-classic), © 2011 The Roboto Project Authors, packaged by [Fontsource](https://fontsource.org/) | [SIL Open Font License 1.1](https://openfontlicense.org/) | Every page's text, Latin and Greek (`/vendor/roboto/`, unmodified) |
 | [Bootstrap Icons](https://icons.getbootstrap.com/), © 2019-2024 The Bootstrap Authors | [MIT](https://github.com/twbs/icons/blob/main/LICENSE) | The icon sprite, `/icons.svg` (server/pages/icons.js) |
 | [axe-core](https://github.com/dequelabs/axe-core), © Deque Systems, Inc. | [MPL 2.0](https://github.com/dequelabs/axe-core/blob/develop/LICENSE) | The private admin pages' accessibility check, unmodified |
 

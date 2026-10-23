@@ -30,6 +30,7 @@
     "check": "npm run lint && npm run typecheck && npm test && npm run test:browser"
   },
   "dependencies": {
+    "@fontsource-variable/roboto": "^5.3.0",
     "axe-core": "^4.14.0",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
