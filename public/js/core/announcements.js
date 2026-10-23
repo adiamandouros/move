@@ -15,6 +15,9 @@ const SOURCE_PAGES = {
 // Newest announcements shown per group; the rest are a link away
 const SHOWN = 3;
 
+// The server's sources (server/info/announcements.js) each page reads
+const SOURCES = { el: ['stasy', 'oasaEl'], en: ['stasy', 'oasaEn'] };
+
 const list = document.getElementById('announcements');
 const banner = document.getElementById('disruptions');
 let data = null;
@@ -42,6 +45,22 @@ function group(titleKey, items, more, greek) {
         <p class="info-source">${externalLink({ href: more }, t('announcements.more'), t('shell.new-tab'))}</p>`;
 }
 
+// What goes in #disruptions: the banner, or a quiet box saying there are no
+// such announcements, so people learn where they'd be. Only when every source
+// the page reads answered: "none" can't be said of one we couldn't read.
+// Exported for the tests.
+export function disruptionView({ rail, bus, available }) {
+    const disruptions = [...rail.map(i => ({ ...i, greek: language !== 'el' })), ...bus[language]].filter(i => i.disruption);
+    if (disruptions.length) {
+        return html`<div class="disruption-banner">
+            <div class="fw-semibold">${icon('exclamation-triangle-fill')} ${t('announcements.disruption')}</div>
+            <ul>${disruptions.map(i => item(i, i.greek))}</ul>
+        </div>`;
+    }
+    if (!SOURCES[language].every(source => available.includes(source))) return '';
+    return html`<div class="no-disruptions">${icon('check-circle-fill')} ${t('announcements.no-disruptions')}</div>`;
+}
+
 function render() {
     if (failed) {
         setHtml(list, html`<p class="text-body-secondary">${t('announcements.error')}</p>`);
@@ -52,13 +71,7 @@ function render() {
     const bus = data.bus[language];
     setHtml(list, html`${group('announcements.rail', data.rail, SOURCE_PAGES.rail, language !== 'el')}${group('announcements.buses', bus, SOURCE_PAGES.bus[language], false)}`);
 
-    const disruptions = [...data.rail.map(i => ({ ...i, greek: language !== 'el' })), ...bus].filter(i => i.disruption);
-    setHtml(banner, disruptions.length
-        ? html`<div class="disruption-banner">
-            <div class="fw-semibold">${icon('exclamation-triangle-fill')} ${t('announcements.disruption')}</div>
-            <ul>${disruptions.map(i => item(i, i.greek))}</ul>
-        </div>`
-        : '');
+    setHtml(banner, disruptionView(data));
 }
 
 async function load() {

@@ -279,3 +279,24 @@ test('on the English pages, a STASY announcement carries an "Only available in G
     assert.match(greek, /<span class="in-greek-badge"><svg [^]*<\/svg>Only available in Greek<\/span>/);
     assert.doesNotMatch(String(item({ title: 'Closed', link: 'https://www.oasa.gr/a/', date }, false)), /in-greek-badge/);
 });
+
+test('the disruption box: the banner, "none" once every source the page reads answered, else nothing', async () => {
+    const date = '2026-10-20T10:00:00.000Z';
+    const plain = { title: 'Changes to line 040', link: 'https://www.oasa.gr/a/', date, disruption: false };
+    const strike = { title: 'Στάση εργασίας', link: 'https://www.oasa.gr/b/', date, disruption: true };
+    const all = ['stasy', 'oasaEl', 'oasaEn'];
+    const data = (bus, available = all) => ({ rail: [], bus: { el: bus, en: [plain] }, available });
+
+    const en = await browserModule('public/js/core/announcements.js', 'en');
+    assert.match(String(en.disruptionView({ ...data([]), rail: [{ ...strike, title: 'Κλειστός σταθμός' }] })), /class="disruption-banner"[^]*Service disruption[^]*<span lang="el">Κλειστός σταθμός/);
+    assert.match(String(en.disruptionView(data([]))), /<div class="no-disruptions"><svg [^]*<\/svg> No service disruption announcements\.<\/div>/);
+    // The English page doesn't read OASA's Greek feed
+    assert.match(String(en.disruptionView(data([], ['stasy', 'oasaEn']))), /no-disruptions/);
+    assert.equal(String(en.disruptionView(data([], ['oasaEl', 'oasaEn']))), '');
+    assert.equal(String(en.disruptionView(data([], ['stasy', 'oasaEl']))), '');
+
+    const el = await browserModule('public/js/core/announcements.js', 'el');
+    assert.match(String(el.disruptionView(data([strike]))), /Διακοπή λειτουργίας[^]*Στάση εργασίας/);
+    assert.match(String(el.disruptionView(data([plain]))), /Καμία ανακοίνωση διακοπής λειτουργίας\./);
+    assert.equal(String(el.disruptionView(data([], ['stasy', 'oasaEn']))), '');
+});
