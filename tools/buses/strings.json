@@ -40,7 +40,10 @@
     "buses.line-not-found": "There's no line {line}.",
     "buses.loading-lines": "Loading the lines…",
     "buses.lines-error": "Couldn't load the lines. Check your connection and try again.",
-    "buses.open-for-times": "Open for live times"
+    "buses.open-for-times": "Open for live times",
+    "buses.pick-stop": "Tap a stop to see when its next buses come.",
+    "buses.pick-line": "Tap a line to see its stops.",
+    "buses.pick-either": "Tap a stop to see when its next buses come, or a line to see its stops."
   },
   "el": {
     "buses.getting-location": "Λήψη τοποθεσίας…",
@@ -83,6 +86,9 @@
     "buses.line-not-found": "Δεν υπάρχει η γραμμή {line}.",
     "buses.loading-lines": "Φόρτωση γραμμών…",
     "buses.lines-error": "Δεν ήταν δυνατή η φόρτωση των γραμμών. Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά.",
-    "buses.open-for-times": "Ανοίξτε για τις ώρες"
+    "buses.open-for-times": "Ανοίξτε για τις ώρες",
+    "buses.pick-stop": "Πατήστε μια στάση για να δείτε πότε έρχονται τα επόμενα λεωφορεία.",
+    "buses.pick-line": "Πατήστε μια γραμμή για να δείτε τις στάσεις της.",
+    "buses.pick-either": "Πατήστε μια στάση για να δείτε πότε έρχονται τα επόμενα λεωφορεία ή μια γραμμή για να δείτε τις στάσεις της."
   }
 }

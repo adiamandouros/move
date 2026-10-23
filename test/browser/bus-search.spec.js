@@ -30,6 +30,8 @@ test.describe('searching', () => {
         await search(page).fill('10341');
         await expect(stopLinks(page).first()).toContainText('10341');
         await expect(page.locator('#search-status')).toContainText(/Stops: \d+/);
+        // Saying what a tap does
+        await expect(results(page).locator('.search-hint')).toHaveText('Tap a stop to see when its next buses come.');
         // Nearest first, with how far: the location is known
         await search(page).fill('syntagma');
         await expect(stopLinks(page).first()).toContainText(/\d+ m/);
