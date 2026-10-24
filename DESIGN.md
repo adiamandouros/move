@@ -55,7 +55,8 @@ width, so `style.css` sets it); the station page's name is 2xl.
   times, 800 only in the wordmark.
 - Tabular figures for every time, minute count, distance and stop code.
 - Small capitals: one style, xs, weight 700, 0.06em letter spacing, the
-  faint colour (`--bs-tertiary-color`). *(step 4)*
+  faint colour (`--bs-tertiary-color`). One rule in `style.css` for the
+  route heading, the search headings and the Info sub-headings.
 - Text pages stay under 70 characters a line.
 
 ### Units
@@ -237,7 +238,19 @@ eyes ("Last train 23:57", with the clock time, so it's clear which badge it
 means). The tints are 10% of their colour, which keeps the text on them at
 4.5:1 on every surface (`test/accessibility.test.js`).
 
-*(Still to come in step 4: tags, small capitals, list rows.)*
+### Tag
+
+A short fact about the thing beside it ("Doors open on the left", "Only
+available in Greek"): `.tag`, a pill with a 1px control edge, 14px text in
+the body colour, an icon in front when it helps. Quiet: a tag never takes
+a meaning colour, and it is not pressable (blue is for what you can press).
+
+### List rows
+
+A stop, an arrival and a search result each end in the same quiet line
+(`--wh-divider`), none under the last. A stop's row at large text (below
+18em wide) stacks: the stop's band runs the whole width, the next bus under
+it, the time and the walking directions on a line of their own under that.
 
 ## Tests
 

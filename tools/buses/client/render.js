@@ -103,7 +103,7 @@ export function headerBadge(result) {
 // One arrival: the line, where it goes and in how many minutes
 export function arrivalRow(a) {
     return html`
-            <li class="arrival-row d-flex align-items-center justify-content-between py-2 border-bottom border-secondary-subtle">
+            <li class="arrival-row d-flex align-items-center justify-content-between py-2">
                 <span class="d-flex align-items-center gap-2">
                     ${plate(lineLabel(a), 'm')}
                     <span class="arrival-dest"><span class="sr-only">, </span>${destination(a)}<span class="sr-only">, </span></span>

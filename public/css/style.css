@@ -458,14 +458,14 @@ body {
     margin: 0 auto;
 }
 
+/* Sized by its own width, which the rules at the end of this part check */
 .stop-item {
+    container-type: inline-size;
     background-color: transparent;
     border-bottom: 1px solid var(--wh-divider) !important;
 }
 
-/* Sized by its own width, which the rules at the end of this part check */
 .stop-header {
-    container-type: inline-size;
     min-height: 4rem;
 }
 
@@ -633,8 +633,18 @@ body {
         padding: var(--wh-space-2);
     }
 
+    /* The stop and the next bus take the row's whole width, so the stop's
+       band does too; the time and the directions follow under them */
+    .stop-header {
+        flex-wrap: wrap;
+    }
+
+    .stop-heading {
+        flex-basis: 100%;
+    }
+
     .stop-header-fixed {
-        align-self: flex-end;
+        margin-left: auto;
         min-height: 2.75rem;
     }
 
@@ -650,8 +660,14 @@ body {
     padding: var(--wh-space-2) var(--wh-space-4) var(--wh-space-3) var(--wh-space-4);
 }
 
+/* List rows (a stop, an arrival, a search result): the same quiet line
+   under each, none under the last */
+.arrival-row {
+    border-bottom: 1px solid var(--wh-divider);
+}
+
 .arrival-row:last-child {
-    border-bottom: none !important;
+    border-bottom: none;
 }
 
 /* The line and where it goes take what the time leaves; a name longer than
@@ -1277,15 +1293,16 @@ body {
     padding: var(--wh-space-2) 0.625rem;
 }
 
-.central-platform-badge {
+/* Tags: a short fact about the thing beside them (doors open on the left,
+   only in Greek) */
+.tag {
     display: inline-flex;
     align-items: center;
-    font-size: var(--wh-fs-xs);
-    color: var(--bs-secondary-color);
-    background-color: var(--bs-secondary-bg);
-    border: 1px solid var(--bs-border-color);
+    font-size: var(--wh-fs-sm);
+    color: var(--bs-body-color);
+    border: 1px solid var(--wh-control-edge);
     border-radius: var(--wh-radius-round);
-    padding: 1px var(--wh-space-2);
+    padding: 0.0625rem 0.625rem;
     vertical-align: middle;
 }
 
@@ -1336,17 +1353,20 @@ body {
     margin: 1.25rem 0;
 }
 
-.route-option-label {
+/* Small capitals: the one style for a label above a group of things */
+.route-option-label,
+.search-heading,
+.info-subhead {
     font-size: var(--wh-fs-xs);
     line-height: 1.5;
     font-weight: 700;
     color: var(--bs-tertiary-color);
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    margin-bottom: 0.625rem;
 }
 
 .route-option-label {
+    margin-bottom: 0.625rem;
     white-space: nowrap;
 }
 
@@ -1530,15 +1550,11 @@ body {
 }
 
 .search-heading {
-    font-size: var(--wh-fs-sm);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--bs-secondary-color);
     margin: var(--wh-space-3) var(--wh-space-4) var(--wh-space-1);
 }
 
 .search-list {
+    --bs-list-group-border-color: var(--wh-divider);
     background-color: transparent;
 }
 
@@ -1720,11 +1736,6 @@ body {
 }
 
 .info-subhead {
-    font-size: var(--wh-fs-sm);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--bs-secondary-color);
     margin: var(--wh-space-4) 0 var(--wh-space-2);
 }
 
@@ -1782,17 +1793,6 @@ body {
     display: block;
     font-size: var(--wh-fs-sm);
     color: var(--bs-secondary-color);
-}
-
-/* Announcements only in Greek, on the English pages */
-.in-greek-badge {
-    display: inline-flex;
-    align-items: center;
-    color: var(--bs-body-color);
-    border: 1px solid var(--bs-border-color);
-    border-radius: var(--wh-radius-round);
-    padding: 0 var(--wh-space-2);
-    margin-left: 0.375rem;
 }
 
 .disruption-banner li + li {
