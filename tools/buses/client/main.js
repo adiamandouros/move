@@ -1,5 +1,5 @@
 import { lastPosition, locationPermission, onLocation, onLocationProblem, restartLocation, startLocation } from '/js/core/location.js';
-import { format, html, icon, setHtml } from '/js/core/html.js';
+import { format, html, icon, notice, setHtml } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
 import { remember } from '/js/core/remember.js';
 import { decodeStops, distanceMeters, nearestStops } from './stops.js';
@@ -134,20 +134,18 @@ function applyFilter() {
 function renderStatus() {
     const el = $('bus-status');
     const results = state.stops.map(s => state.results[s.code]).filter(Boolean);
-    el.replaceChildren();
+    /** @type {import('/js/core/html.js').Html | ''} */
+    let shown = '';
     if (state.paused) {
-        const resume = document.createElement('button');
-        resume.type = 'button';
-        resume.className = 'btn btn-link btn-sm p-0 align-baseline';
-        resume.textContent = t('buses.resume');
-        resume.addEventListener('click', () => interact());
-        el.append(`${t('buses.paused')} `, resume);
+        shown = notice('warn', 'warning', html`${t('buses.paused')} <button type="button" class="btn btn-link btn-sm p-0 align-baseline">${t('buses.resume')}</button>`);
     } else if (results.length && results.every(r => r.unavailable)) {
-        el.append(t('buses.unavailable'));
+        shown = notice('danger', 'error', t('buses.unavailable'));
     } else if (results.some(r => r.stale)) {
-        el.append(t('buses.stale'));
+        shown = notice('warn', 'warning', t('buses.stale'));
     }
-    el.hidden = !el.childNodes.length;
+    setHtml(el, shown);
+    el.querySelector('button')?.addEventListener('click', () => interact());
+    el.hidden = !shown;
 }
 
 // ── Data ────────────────────────────────────────────────────────────────────

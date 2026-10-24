@@ -838,29 +838,54 @@ body {
     display: none;
 }
 
-/* After the last train: the plan is for tomorrow's first trains */
-/* Why there's no trip: pick two stations, no route */
-.subway-message {
-    font-size: var(--wh-fs-sm);
-    color: var(--bs-warning);
-}
+/* ── Notice: one boxed message with an icon, four tones (notice() in html.js) ── */
 
-.tomorrow-notice {
+.notice {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--wh-space-2);
+    padding: var(--wh-space-3);
     font-size: var(--wh-fs-sm);
-    color: var(--bs-secondary-color);
+    color: var(--bs-body-color);
     border: 1px solid var(--bs-border-color);
     border-radius: var(--wh-radius-lg);
-    padding: var(--wh-space-2) var(--wh-space-3);
-    margin-bottom: var(--wh-space-3);
 }
 
-.timetable-notice {
-    font-size: var(--wh-fs-sm);
+.notice-body {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* The icon's height is the first line's */
+.notice > .icon {
+    margin-top: 0.0625rem;
+}
+
+/* Something to watch for */
+.notice-warn {
     color: var(--bs-warning);
-    border: 1px solid rgba(var(--bs-warning-rgb), 0.35);
-    border-radius: var(--wh-radius-lg);
-    padding: var(--wh-space-2) var(--wh-space-3);
-    margin-bottom: var(--wh-space-3);
+    border-color: rgba(var(--bs-warning-rgb), 0.35);
+}
+
+/* How to read what's shown */
+.notice-info {
+    color: var(--bs-secondary-color);
+}
+
+/* All clear */
+.notice-ok > .icon {
+    color: var(--wh-close);
+}
+
+/* It isn't working */
+.notice-danger {
+    color: var(--wh-last);
+    border-color: var(--wh-last);
+}
+
+.notice-body > ul {
+    margin-top: var(--wh-space-2);
 }
 
 /* Suggestions dropdown */
@@ -1439,11 +1464,6 @@ body {
    and these 4px), or from a stop's or line's header (its padding alone) */
 .bus-status {
     margin: var(--wh-space-1) var(--wh-space-4) var(--wh-space-2);
-    padding: var(--wh-space-2) var(--wh-space-3);
-    font-size: var(--wh-fs-sm);
-    color: var(--bs-warning);
-    border: 1px solid rgba(var(--bs-warning-rgb), 0.35);
-    border-radius: var(--wh-radius-lg);
 }
 
 .bus-status button {
@@ -1751,29 +1771,6 @@ body {
     border-radius: var(--wh-radius-round);
     padding: 0 var(--wh-space-2);
     margin-left: 0.375rem;
-}
-
-.disruption-banner,
-.no-disruptions {
-    margin-bottom: var(--wh-space-3);
-    padding: var(--wh-space-3) var(--wh-space-4);
-    border: 1px solid rgba(var(--bs-warning-rgb), 0.35);
-    border-radius: var(--wh-radius-lg);
-    color: var(--bs-warning);
-}
-
-/* The same box when there's nothing to warn about (announcements.js) */
-.no-disruptions {
-    border-color: var(--bs-border-color);
-    color: var(--bs-body-color);
-}
-
-.no-disruptions .icon {
-    color: var(--wh-close);
-}
-
-.disruption-banner ul {
-    margin-top: var(--wh-space-2);
 }
 
 .disruption-banner li + li {

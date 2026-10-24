@@ -135,3 +135,11 @@ const sprite = globalThis.document?.documentElement.dataset.icons ?? '/icons.svg
 export function icon(name, cls = '', { filled = false } = {}) {
     return html`<svg class="icon${cls ? ` ${cls}` : ''}" aria-hidden="true"><use href="${sprite}#${name}${filled ? '-filled' : ''}"></use></svg>`;
 }
+
+// The one notice: a boxed message with an icon, in one of four tones (DESIGN.md).
+// warn: something to watch for (yellow); info: how to read what's shown;
+// ok: all clear; danger: it isn't working. attrs: more classes, or role="status".
+/** @param {'warn' | 'info' | 'ok' | 'danger'} tone @param {string} iconName @param {unknown} content @param {string} [cls] @returns {Html} */
+export function notice(tone, iconName, content, cls = '') {
+    return html`<div class="notice notice-${tone}${cls ? ` ${cls}` : ''}">${icon(iconName)}<div class="notice-body">${content}</div></div>`;
+}

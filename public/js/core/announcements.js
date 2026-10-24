@@ -1,4 +1,4 @@
-import { externalLink, html, icon, safeUrl, setHtml } from './html.js';
+import { externalLink, html, icon, notice, safeUrl, setHtml } from './html.js';
 import { language, t } from './i18n.js';
 
 // Service announcements from /api/announcements (server/info/announcements.js),
@@ -52,13 +52,11 @@ function group(titleKey, items, more, greek) {
 export function disruptionView({ rail, bus, available }) {
     const disruptions = [...rail.map(i => ({ ...i, greek: language !== 'el' })), ...bus[language]].filter(i => i.disruption);
     if (disruptions.length) {
-        return html`<div class="disruption-banner">
-            <div class="fw-semibold">${icon('warning')} ${t('announcements.disruption')}</div>
-            <ul>${disruptions.map(i => item(i, i.greek))}</ul>
-        </div>`;
+        return notice('warn', 'warning', html`<div class="fw-semibold">${t('announcements.disruption')}</div>
+            <ul>${disruptions.map(i => item(i, i.greek))}</ul>`, 'disruption-banner mb-3');
     }
     if (!SOURCES[language].every(source => available.includes(source))) return '';
-    return html`<div class="no-disruptions">${icon('ok')} ${t('announcements.no-disruptions')}</div>`;
+    return notice('ok', 'ok', t('announcements.no-disruptions'), 'no-disruptions mb-3');
 }
 
 function render() {
