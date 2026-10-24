@@ -36,8 +36,8 @@
 
 :root {
     --bs-font-sans-serif: "Roboto", "Roboto Fallback", system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-    --bottom-nav-height: 64px;
-    --side-nav-width: 220px;
+    --bottom-nav-height: 4rem;
+    --side-nav-width: 13.75rem;
     --focus-ring: 0 0 0 3px var(--bs-focus-ring-color);
 
     /* ── Sizes ──
@@ -133,13 +133,13 @@
 .skip-link {
     position: absolute;
     top: -100%;
-    left: 8px;
+    left: 0.5rem;
     z-index: 9999;
-    padding: 8px 16px;
+    padding: var(--wh-space-2) var(--wh-space-4);
     background: var(--bs-tertiary-bg);
     color: var(--bs-primary);
     font-weight: 600;
-    border-radius: 0 0 8px 8px;
+    border-radius: 0 0 var(--wh-radius-sm) var(--wh-radius-sm);
     text-decoration: none;
     transition: top 0.15s;
 }
@@ -162,6 +162,15 @@
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border: 0;
+}
+
+/* ── Text ── */
+
+/* Bootstrap sizes its headings by the screen's width; a page's title is on
+   the scale (DESIGN.md). Other headings have their own classes. */
+h1,
+.h1 {
+    font-size: var(--wh-fs-xl);
 }
 
 /* ── Layout ── */
@@ -194,10 +203,10 @@ body {
     align-items: center;
     gap: 0.5rem;
     color: var(--bs-body-color);
-    font-size: 1.5rem;
+    font-size: var(--wh-fs-xl);
     font-weight: 800;
     letter-spacing: -0.02em;
-    line-height: 1;
+    line-height: 1.2;
 }
 
 .brand-link:hover {
@@ -218,12 +227,12 @@ body {
     position: relative;
     padding-bottom: var(--bottom-nav-height);
     /* Whatever the keyboard moves to scrolls clear of the bottom nav (WCAG 2.4.11) */
-    scroll-padding-bottom: calc(var(--bottom-nav-height) + 8px);
+    scroll-padding-bottom: calc(var(--bottom-nav-height) + 0.5rem);
     /* Remove default outline — focus is only used programmatically */
     outline: none;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 48em) {
     #app-content {
         padding-bottom: 0;
         scroll-padding-bottom: 0;
@@ -258,7 +267,7 @@ body {
     /* var(--bs-secondary-color) meets WCAG AA against var(--bs-tertiary-bg) */
     color: var(--bs-secondary-color);
     text-decoration: none;
-    border-radius: 8px;
+    border-radius: var(--wh-radius-sm);
     transition: color 0.15s, background-color 0.15s;
 }
 
@@ -282,6 +291,13 @@ body {
 
 /* In the sidebar's column the links keep their own height (flex: 1 above is
    for the bottom bar, where they share the width) */
+/* In the bottom bar the whole fifth is the label's: Greek labels
+   («Πληροφορίες») need it all on narrow phones */
+#bottom-nav .nav-btn {
+    padding-left: 0;
+    padding-right: 0;
+}
+
 #side-nav .nav-btn {
     flex: none;
     justify-content: flex-start;
@@ -289,15 +305,21 @@ body {
 }
 
 .nav-label {
-    font-size: 0.75rem;
-    margin-top: 2px;
+    max-width: 100%;
+    font-size: var(--wh-fs-xs);
+    margin-top: 0.125rem;
+    /* Too long for its fifth of a phone (large text): "Λεωφο…" (the
+       link's name is still the whole word) */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* ── Home, offline and not-found pages ── */
 
 .home-view,
 .message-view {
-    max-width: 720px;
+    max-width: 45rem;
     margin: 0 auto;
     padding: 1.5rem 1rem;
 }
@@ -317,15 +339,15 @@ body {
 
 .tool-tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(min(12.5rem, 100%), 1fr));
+    gap: var(--wh-space-3);
     width: 100%;
     text-align: left;
 }
 
 .tool-tile {
-    gap: 4px;
-    padding: 16px;
+    gap: var(--wh-space-1);
+    padding: var(--wh-space-4);
     text-decoration: none;
     transition: border-color 0.15s, background-color 0.15s;
 }
@@ -341,7 +363,7 @@ body {
 }
 
 .tool-tile .bi {
-    font-size: 1.75rem;
+    font-size: var(--wh-fs-2xl);
     color: var(--bs-primary);
 }
 
@@ -351,7 +373,7 @@ body {
 
 /* The home page's shortcuts: two by two on phones, in a row on wider screens */
 .home-tiles {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(9.375rem, 100%), 1fr));
     margin-bottom: 1rem;
 }
 
@@ -361,7 +383,7 @@ body {
 }
 
 .tool-tile-desc {
-    font-size: 0.875rem;
+    font-size: var(--wh-fs-sm);
     color: var(--bs-secondary-color);
 }
 
@@ -371,8 +393,8 @@ body {
 .card {
     --bs-card-bg: var(--bs-tertiary-bg);
     --bs-card-border-color: var(--bs-border-color);
-    --bs-card-border-radius: 12px;
-    --bs-card-inner-border-radius: 11px;
+    --bs-card-border-radius: var(--wh-radius-lg);
+    --bs-card-inner-border-radius: calc(var(--wh-radius-lg) - 1px);
     --bs-card-color: var(--bs-body-color);
 }
 
@@ -408,7 +430,7 @@ body {
 /* ── Nearby Buses tool ── */
 
 .nearby-buses-view {
-    max-width: 720px;
+    max-width: 45rem;
     margin: 0 auto;
 }
 
@@ -417,15 +439,17 @@ body {
     border-bottom: 1px solid var(--wh-divider) !important;
 }
 
+/* Sized by its own width, which the rules at the end of this part check */
 .stop-header {
-    min-height: 64px;
+    container-type: inline-size;
+    min-height: 4rem;
 }
 
 /* The heading around each stop's button only adds structure */
 .stop-heading {
     min-width: 0;
     margin: 0;
-    font-size: 1rem;
+    font-size: var(--wh-fs-md);
     font-weight: inherit;
     line-height: inherit;
 }
@@ -448,24 +472,24 @@ body {
 .stop-toggle:focus-visible {
     box-shadow: var(--focus-ring) !important;
     outline: none;
-    border-radius: 4px;
+    border-radius: var(--wh-radius-sm);
 }
 
 /* Left block: stop name + distance */
 .stop-label {
-    width: 80px;
-    min-width: 80px;
+    width: 5rem;
+    min-width: 5rem;
     height: 100%;
-    min-height: 64px;
+    min-height: 4rem;
     background-color: var(--bs-secondary-bg);
-    padding: 6px 4px;
+    padding: 0.375rem var(--wh-space-1);
     border-right: 1px solid var(--bs-border-color);
     flex-shrink: 0;
 }
 
 .stop-name {
     /* 0.75rem (~12px) — minimum readable size */
-    font-size: 0.75rem;
+    font-size: var(--wh-fs-xs);
     font-weight: 600;
     /* var(--wh-text-strong) meets WCAG AA against var(--bs-secondary-bg) */
     color: var(--wh-text-strong);
@@ -474,17 +498,17 @@ body {
 }
 
 .stop-distance {
-    font-size: 0.7rem;
+    font-size: var(--wh-fs-xs);
     color: var(--bs-primary-text-emphasis);
-    margin-top: 3px;
+    margin-top: 0.1875rem;
 }
 
 /* A stop's code, as on its sign: what tells same-named stops apart */
 .stop-code {
-    font-size: 0.7rem;
+    font-size: var(--wh-fs-xs);
     color: var(--bs-secondary-color);
     font-variant-numeric: tabular-nums;
-    margin-top: 2px;
+    margin-top: 0.125rem;
 }
 
 /* On a line: the stop nearest to you */
@@ -493,10 +517,10 @@ body {
 }
 
 .stop-nearest-note {
-    font-size: 0.65rem;
+    font-size: var(--wh-fs-xs);
     font-weight: 600;
     color: var(--bs-primary-text-emphasis);
-    margin-top: 2px;
+    margin-top: 0.125rem;
 }
 
 .stop-nearest .stop-label {
@@ -505,13 +529,13 @@ body {
 
 /* Middle: next bus — shrinks and truncates */
 .stop-next-bus {
-    padding: 0 12px;
+    padding: 0 var(--wh-space-3);
     min-width: 0;
     overflow: hidden;
 }
 
 .next-bus-line {
-    font-size: 1.25rem;
+    font-size: var(--wh-fs-xl);
     font-weight: 700;
     color: var(--bs-body-color);
     white-space: nowrap;
@@ -519,7 +543,7 @@ body {
 }
 
 .next-bus-dest {
-    font-size: 1rem;
+    font-size: var(--wh-fs-md);
     color: var(--wh-text-soft);
     white-space: nowrap;
     overflow: hidden;
@@ -537,10 +561,10 @@ body {
    tap (and for axe's target-size) even when the floating buttons cover part of it */
 .directions-btn {
     align-self: stretch;
-    width: 52px;
-    min-width: 52px;
+    width: 3.25rem;
+    min-width: 3.25rem;
     color: var(--bs-secondary-color);
-    font-size: 1.2rem;
+    font-size: var(--wh-fs-lg);
     text-decoration: none;
     transition: color 0.15s, background-color 0.15s;
     flex-shrink: 0;
@@ -554,13 +578,56 @@ body {
 .directions-btn:focus-visible {
     outline: none;
     box-shadow: var(--focus-ring);
-    border-radius: 4px;
+    border-radius: var(--wh-radius-sm);
+}
+
+/* Too narrow for the stop's column beside the next bus (large text, about
+   18 letters wide): the stop on a line of its own on top, the next bus, its
+   time and the directions under it */
+@container (max-width: 18em) {
+    .stop-toggle {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 0 !important;
+    }
+
+    .stop-label {
+        flex-direction: row !important;
+        flex-wrap: wrap;
+        justify-content: flex-start !important;
+        column-gap: var(--wh-space-2);
+        width: auto;
+        min-width: 0;
+        height: auto;
+        min-height: 0;
+        padding: var(--wh-space-1) var(--wh-space-3);
+        text-align: left !important;
+        border-right: 0;
+    }
+
+    .stop-label > * {
+        margin-top: 0;
+    }
+
+    .stop-next-bus {
+        padding: var(--wh-space-2) var(--wh-space-3);
+    }
+
+    .stop-header-fixed {
+        align-self: flex-end;
+        min-height: 2.75rem;
+    }
+
+    .stop-nearest .stop-label {
+        border-left: 0;
+        border-top: 4px solid var(--bs-primary);
+    }
 }
 
 /* Expanded accordion body */
 .stop-body {
     background-color: var(--bs-body-bg);
-    padding: 8px 16px 12px 16px;
+    padding: var(--wh-space-2) var(--wh-space-4) var(--wh-space-3) var(--wh-space-4);
 }
 
 .arrival-row:last-child {
@@ -569,27 +636,34 @@ body {
 
 .line-pill {
     display: inline-block;
-    min-width: 38px;
-    padding: 2px 6px;
+    min-width: 2.375rem;
+    padding: 0.125rem 0.375rem;
     background-color: var(--bs-secondary-bg);
-    border-radius: 4px;
-    font-size: 0.8rem;
+    border-radius: var(--wh-radius-sm);
+    font-size: var(--wh-fs-sm);
     font-weight: 600;
     color: var(--bs-body-color);
     text-align: center;
 }
 
+/* The line and where it goes take what the time leaves; a name longer than
+   that (large text) breaks */
+.arrival-row > :first-child {
+    min-width: 0;
+}
+
 .arrival-dest {
-    font-size: 0.9rem;
+    font-size: var(--wh-fs-sm);
     color: var(--wh-text-soft);
+    overflow-wrap: anywhere;
 }
 
 /* Arrival time badges */
 .arrival-badge {
-    font-size: 0.75rem;
+    font-size: var(--wh-fs-xs);
     font-weight: 600;
-    border-radius: 6px;
-    padding: 3px 8px;
+    border-radius: var(--wh-radius-sm);
+    padding: 0.1875rem var(--wh-space-2);
     flex-shrink: 0;
     white-space: nowrap;
 }
@@ -613,32 +687,32 @@ body {
 /* ── Scheduled departures ── */
 
 .schedule-label {
-    font-size: 0.78rem;
+    font-size: var(--wh-fs-xs);
     color: var(--bs-tertiary-color);
-    margin-right: 6px;
+    margin-right: 0.375rem;
 }
 
 .schedule-chips {
     display: inline-flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 0.375rem;
 }
 
 .schedule-chip {
-    font-size: 0.82rem;
+    font-size: var(--wh-fs-sm);
     font-weight: 600;
     color: var(--bs-body-color);
     background-color: var(--bs-secondary-bg);
-    border-radius: 6px;
-    padding: 3px 8px;
+    border-radius: var(--wh-radius-sm);
+    padding: 0.1875rem var(--wh-space-2);
 }
 
 .schedule-disclaimer {
-    font-size: 0.72rem;
+    font-size: var(--wh-fs-xs);
     /* Bootstrap's warning yellow; about 11:1 contrast against the page background */
     color: var(--bs-warning);
     text-align: center;
-    margin-top: 16px;
+    margin-top: var(--wh-space-4);
     margin-bottom: 0;
 }
 
@@ -654,7 +728,7 @@ body {
 .filter-bar {
     position: sticky;
     bottom: 0;
-    padding: 12px 0 16px;
+    padding: var(--wh-space-3) 0 var(--wh-space-4);
     text-align: center;
     background: linear-gradient(transparent, var(--bs-body-bg) 60%);
     pointer-events: none;
@@ -667,16 +741,16 @@ body {
 /* ── Subway Position tool ── */
 
 .subway-view {
-    max-width: 520px;
+    max-width: 32.5rem;
     margin: 0 auto;
-    padding: 24px 16px;
+    padding: var(--wh-space-6) var(--wh-space-4);
 }
 
 .subway-search-input {
     background-color: var(--bs-tertiary-bg);
     border-color: var(--bs-border-color);
     color: var(--bs-body-color);
-    font-size: 1.05rem;
+    font-size: var(--wh-fs-md);
 }
 
 .subway-search-input:focus {
@@ -693,16 +767,16 @@ body {
 .swap-row {
     display: flex;
     justify-content: flex-end;
-    margin: -4px 0 -12px;
+    margin: -0.25rem 0 -0.75rem;
     /* Centres the 36px button under the 52px signpost above it */
-    padding-right: 8px;
+    padding-right: var(--wh-space-2);
 }
 
 .swap-btn {
     color: var(--bs-secondary-color);
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
+    border-radius: var(--wh-radius-round);
+    width: 2.25rem;
+    height: 2.25rem;
 }
 
 /* Bolder arrows: the icon is filled shapes, so an outline thickens them */
@@ -725,11 +799,10 @@ body {
 .locate-btn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    min-height: 44px;
-    margin-right: -8px;
-    padding: 0 8px;
-    font-size: 0.85rem;
+    gap: 0.375rem;
+    min-height: 2.75rem;
+    padding: 0 var(--wh-space-2);
+    font-size: var(--wh-fs-sm);
     color: var(--bs-primary);
 }
 
@@ -748,7 +821,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: var(--bs-border-radius);
+    border-radius: var(--wh-radius-sm);
 }
 
 .walk-btn[hidden] {
@@ -756,8 +829,8 @@ body {
 }
 
 .locate-status {
-    margin: 6px 0 0;
-    font-size: 0.8rem;
+    margin: 0.375rem 0 0;
+    font-size: var(--wh-fs-sm);
     color: var(--bs-secondary-color);
 }
 
@@ -768,26 +841,26 @@ body {
 /* After the last train: the plan is for tomorrow's first trains */
 /* Why there's no trip: pick two stations, no route */
 .subway-message {
-    font-size: 0.9rem;
+    font-size: var(--wh-fs-sm);
     color: var(--bs-warning);
 }
 
 .tomorrow-notice {
-    font-size: 0.85rem;
+    font-size: var(--wh-fs-sm);
     color: var(--bs-secondary-color);
     border: 1px solid var(--bs-border-color);
-    border-radius: 8px;
-    padding: 8px 12px;
-    margin-bottom: 12px;
+    border-radius: var(--wh-radius-lg);
+    padding: var(--wh-space-2) var(--wh-space-3);
+    margin-bottom: var(--wh-space-3);
 }
 
 .timetable-notice {
-    font-size: 0.8rem;
+    font-size: var(--wh-fs-sm);
     color: var(--bs-warning);
     border: 1px solid rgba(var(--bs-warning-rgb), 0.35);
-    border-radius: 8px;
-    padding: 8px 12px;
-    margin-bottom: 12px;
+    border-radius: var(--wh-radius-lg);
+    padding: var(--wh-space-2) var(--wh-space-3);
+    margin-bottom: var(--wh-space-3);
 }
 
 /* Suggestions dropdown */
@@ -800,7 +873,7 @@ body {
     background-color: var(--bs-tertiary-bg);
     border: 1px solid var(--bs-border-color);
     border-top: none;
-    border-radius: 0 0 8px 8px;
+    border-radius: 0 0 var(--wh-radius-lg) var(--wh-radius-lg);
     /* The stations to start from are longer than a screen with a keyboard */
     max-height: min(28rem, 60vh);
     overflow-y: auto;
@@ -808,7 +881,7 @@ body {
 }
 
 .suggestion-item {
-    padding: 8px 14px;
+    padding: var(--wh-space-2) 0.875rem;
     cursor: pointer;
     color: var(--bs-body-color);
     transition: background-color 0.1s;
@@ -816,7 +889,7 @@ body {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: var(--wh-space-2);
 }
 
 .suggestion-item:hover,
@@ -832,81 +905,82 @@ body {
 }
 
 .suggestion-name-gr {
-    font-size: 0.95rem;
+    font-size: var(--wh-fs-md);
 }
 
 .suggestion-name-en {
-    font-size: 0.75rem;
+    font-size: var(--wh-fs-xs);
     color: var(--bs-tertiary-color);
 }
 
 .suggestion-lines {
     display: flex;
-    gap: 4px;
+    gap: var(--wh-space-1);
     flex-shrink: 0;
 }
 
 .suggestion-line-badge {
     display: inline-block;
-    padding: 1px 6px;
-    border-radius: 20px;
-    font-size: 0.7rem;
+    padding: 1px 0.375rem;
+    border-radius: var(--wh-radius-round);
+    font-size: var(--wh-fs-xs);
     font-weight: 700;
     color: #fff;
 }
 
 /* Result card */
 .result-card {
-    --bs-card-spacer-x: 20px;
-    --bs-card-spacer-y: 20px;
+    --bs-card-spacer-x: 1.25rem;
+    --bs-card-spacer-y: 1.25rem;
 }
 
 .line-badge {
     display: inline-block;
-    padding: 3px 10px;
-    border-radius: 20px;
+    padding: 0.1875rem 0.625rem;
+    border-radius: var(--wh-radius-round);
     font-weight: 700;
-    font-size: 0.85rem;
+    font-size: var(--wh-fs-sm);
     color: #fff;
 }
 
 .direction-text {
-    font-size: 0.95rem;
+    font-size: var(--wh-fs-md);
     color: var(--wh-text-soft);
 }
 
-/* Train diagram */
+/* Train diagram: sized by its own width, which the labels below check */
 .train-diagram {
+    container-type: inline-size;
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-top: 16px;
+    gap: var(--wh-space-2);
+    margin-top: var(--wh-space-4);
 }
 
 .train-cars-wrap {
     display: flex;
     flex-direction: column;
     flex: 1;
-    gap: 4px;
+    gap: var(--wh-space-1);
 }
 
 .train-cars {
     display: flex;
-    gap: 4px;
+    gap: var(--wh-space-1);
 }
 
 .train-car {
     flex: 1;
-    height: 52px;
-    border-radius: 6px;
+    height: 3.25rem;
+    border-radius: var(--wh-radius-sm);
     background-color: var(--bs-secondary-bg);
     border: 2px solid var(--bs-border-color);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    font-size: 1.1rem;
+    gap: 0.125rem;
+    font-size: var(--wh-fs-lg);
     color: transparent;
     transition: background-color 0.2s, border-color 0.2s;
 }
@@ -947,7 +1021,7 @@ body {
 .position-label {
     flex: 1;
     text-align: center;
-    font-size: 0.7rem;
+    font-size: var(--wh-fs-xs);
     /* var(--bs-tertiary-color) meets WCAG AA (5.7:1) on the card */
     color: var(--bs-tertiary-color);
     transition: color 0.2s;
@@ -963,36 +1037,67 @@ body {
     font-weight: 600;
 }
 
+/* The same in words, for when the labels don't fit under the cars (large
+   text, narrow phones): about five short words wide, in the text's size */
+.position-words {
+    display: none;
+    margin: var(--wh-space-1) 0 0;
+    font-size: var(--wh-fs-sm);
+    font-weight: 600;
+}
+
+.position-words > span {
+    display: block;
+}
+
+.position-words .highlighted {
+    color: var(--wh-highlight);
+}
+
+.position-words .has-elevator {
+    color: var(--bs-primary);
+}
+
+@container (max-width: 17em) {
+    .position-labels {
+        display: none;
+    }
+
+    .position-words {
+        display: block;
+    }
+}
+
 .position-summary {
-    font-size: 1rem;
+    font-size: var(--wh-fs-md);
     color: var(--bs-body-color);
 }
 
 .stop-note {
-    font-size: 0.82rem;
+    font-size: var(--wh-fs-sm);
     color: var(--bs-tertiary-color);
     background-color: var(--bs-secondary-bg);
-    border-radius: 6px;
-    padding: 8px 10px;
+    border-radius: var(--wh-radius-sm);
+    padding: var(--wh-space-2) 0.625rem;
 }
 
 .central-platform-badge {
     display: inline-flex;
     align-items: center;
-    font-size: 0.75rem;
+    font-size: var(--wh-fs-xs);
     color: var(--bs-secondary-color);
     background-color: var(--bs-secondary-bg);
     border: 1px solid var(--bs-border-color);
-    border-radius: 20px;
-    padding: 1px 8px;
+    border-radius: var(--wh-radius-round);
+    padding: 1px var(--wh-space-2);
     vertical-align: middle;
 }
 
 /* "At Syntagma:", where the leg starts */
 .leg-boarding {
-    font-size: 0.85rem;
+    font-size: var(--wh-fs-sm);
     color: var(--wh-text-soft);
-    margin-bottom: 6px;
+    margin-bottom: 0.375rem;
 }
 
 /* Where to get off on the left, the ride's minutes and stops on the right */
@@ -1001,13 +1106,12 @@ body {
     flex-wrap: wrap;
     align-items: center;
     column-gap: 0.75em;
-    font-size: 0.9rem;
+    font-size: var(--wh-fs-sm);
     color: var(--wh-text-soft);
 }
 
 .leg-action .leg-ride {
     margin-left: auto;
-    white-space: nowrap;
 }
 
 .leg-action strong {
@@ -1019,31 +1123,31 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 6px 4px;
+    gap: var(--wh-space-2);
+    padding: 0.375rem var(--wh-space-1);
     color: var(--bs-primary);
-    font-size: 0.85rem;
+    font-size: var(--wh-fs-sm);
     font-weight: 600;
 }
 
 .transfer-connector .bi {
-    font-size: 1.1rem;
+    font-size: var(--wh-fs-lg);
 }
 
 /* Divider between alternative route options */
 .route-divider {
     border-color: var(--wh-divider);
-    margin: 20px 0;
+    margin: 1.25rem 0;
 }
 
 .route-option-label {
-    font-size: 0.78rem;
+    font-size: var(--wh-fs-xs);
     line-height: 1.5;
     font-weight: 700;
     color: var(--bs-tertiary-color);
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    margin-bottom: 10px;
+    margin-bottom: 0.625rem;
 }
 
 .route-option-label {
@@ -1073,12 +1177,12 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 0.4em;
-    min-height: 32px;
+    min-height: 2rem;
     padding: 0.2em 0.85em 0.2em 0.6em;
-    margin-bottom: 10px;
+    margin-bottom: 0.625rem;
     border: 1px solid var(--bs-border-color);
-    border-radius: 999px;
-    font-size: 0.85rem;
+    border-radius: var(--wh-radius-round);
+    font-size: var(--wh-fs-sm);
     color: var(--bs-secondary-color);
     cursor: pointer;
     list-style: none;
@@ -1107,8 +1211,16 @@ body {
     }
 }
 
-.schedule-section{
-    white-space: nowrap;
+/* The next trains: beside the line and direction, or under them when they
+   don't fit (narrow phones, large text) */
+.result-header {
+    flex-wrap: wrap;
+}
+
+.schedule-section {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
 }
 
 /* ── Language toggle ── */
@@ -1117,7 +1229,7 @@ body {
     color: var(--bs-secondary-color);
     background: none;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--wh-radius-sm);
     transition: color 0.15s, background-color 0.15s;
     text-align: left;
     flex: 0 0 auto !important;
@@ -1137,8 +1249,8 @@ body {
 .lang-options {
     display: flex;
     align-items: center;
-    gap: 4px;
-    font-size: 0.85rem;
+    gap: var(--wh-space-1);
+    font-size: var(--wh-fs-sm);
 }
 
 .lang-opt {
@@ -1154,7 +1266,7 @@ body {
 
 .lang-sep {
     color: var(--bs-border-color);
-    font-size: 0.75rem;
+    font-size: var(--wh-fs-xs);
 }
 
 
@@ -1168,17 +1280,21 @@ body {
     outline: none;
 }
 
+.bus-message-title {
+    font-size: var(--wh-fs-lg);
+}
+
 /* ── Nearby Buses: status banner and served lines ── */
 
 /* As much space above as below: 8px from the search (its own 4px of padding
    and these 4px), or from a stop's or line's header (its padding alone) */
 .bus-status {
-    margin: 4px 16px 8px;
-    padding: 8px 12px;
-    font-size: 0.85rem;
+    margin: var(--wh-space-1) var(--wh-space-4) var(--wh-space-2);
+    padding: var(--wh-space-2) var(--wh-space-3);
+    font-size: var(--wh-fs-sm);
     color: var(--bs-warning);
     border: 1px solid rgba(var(--bs-warning-rgb), 0.35);
-    border-radius: 8px;
+    border-radius: var(--wh-radius-lg);
 }
 
 .bus-status button {
@@ -1188,13 +1304,13 @@ body {
 }
 
 .stop-lines {
-    font-size: 0.8rem;
+    font-size: var(--wh-fs-sm);
     color: var(--bs-secondary-color);
-    margin-top: 8px;
+    margin-top: var(--wh-space-2);
 }
 
 #bus-actions .btn + .btn {
-    margin-left: 8px;
+    margin-left: var(--wh-space-2);
 }
 
 /* They float over the list when it's longer than the screen: solid, to read over it */
@@ -1204,18 +1320,18 @@ body {
 
 /* Search: a stop by name or code, or a line */
 .bus-search {
-    padding: 12px 16px 4px;
+    padding: var(--wh-space-3) var(--wh-space-4) var(--wh-space-1);
 }
 
 .bus-search-label {
     font-weight: 600;
-    margin-bottom: 4px;
+    margin-bottom: var(--wh-space-1);
 }
 
 .search-status {
-    font-size: 0.8rem;
+    font-size: var(--wh-fs-sm);
     color: var(--bs-secondary-color);
-    margin: 4px 0 0;
+    margin: var(--wh-space-1) 0 0;
 }
 
 .search-status:empty {
@@ -1223,12 +1339,12 @@ body {
 }
 
 .search-heading {
-    font-size: 0.8rem;
+    font-size: var(--wh-fs-sm);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--bs-secondary-color);
-    margin: 12px 16px 4px;
+    margin: var(--wh-space-3) var(--wh-space-4) var(--wh-space-1);
 }
 
 .search-list {
@@ -1238,7 +1354,7 @@ body {
 .search-result {
     color: var(--bs-body-color);
     text-decoration: none;
-    min-height: 44px;
+    min-height: 2.75rem;
 }
 
 .search-result:focus-visible {
@@ -1257,14 +1373,14 @@ body {
 }
 
 .search-hint {
-    font-size: 0.85rem;
+    font-size: var(--wh-fs-sm);
     color: var(--bs-secondary-color);
-    margin: 8px 16px 0;
+    margin: var(--wh-space-2) var(--wh-space-4) 0;
 }
 
 .search-result-meta,
 .search-result-lines {
-    font-size: 0.8rem;
+    font-size: var(--wh-fs-sm);
     color: var(--bs-secondary-color);
 }
 
@@ -1276,12 +1392,12 @@ body {
 
 /* Above the stops near you: what they are, as much space below as the way back has */
 .nearby-heading {
-    margin-bottom: 8px;
+    margin-bottom: var(--wh-space-2);
 }
 
 /* Above a stop or a line: the way back, the line and its directions */
 .view-header {
-    padding: 4px 16px 8px;
+    padding: var(--wh-space-1) var(--wh-space-4) var(--wh-space-2);
 }
 
 .view-header:not([hidden]) + .bus-status {
@@ -1289,31 +1405,33 @@ body {
 }
 
 .back-link {
-    min-height: 44px;
+    min-height: 2.75rem;
     display: inline-flex;
     align-items: center;
 }
 
 .line-heading {
-    font-size: 1.1rem;
+    font-size: var(--wh-fs-lg);
     font-weight: 600;
-    margin: 4px 0 8px;
+    margin: var(--wh-space-1) 0 var(--wh-space-2);
 }
 
 .line-heading:focus-visible {
     outline: none;
     box-shadow: var(--focus-ring);
-    border-radius: 4px;
+    border-radius: var(--wh-radius-sm);
 }
 
 .line-toward {
-    font-size: 0.9rem;
+    font-size: var(--wh-fs-sm);
     color: var(--bs-secondary-color);
     margin: 0;
 }
 
 .direction-switch .btn {
-    min-height: 44px;
+    min-height: 2.75rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 /* The direction shown: filled, as the others are when hovered */
@@ -1329,21 +1447,21 @@ body {
 /* ── Info tool ── */
 
 .info-view {
-    max-width: 720px;
+    max-width: 45rem;
     margin: 0 auto;
-    padding: 24px 16px;
+    padding: var(--wh-space-6) var(--wh-space-4);
 }
 
 /* The sections are Bootstrap's accordion, as separate cards */
 .info-accordion {
     --bs-accordion-bg: var(--bs-tertiary-bg);
-    --bs-accordion-border-radius: 12px;
-    --bs-accordion-inner-border-radius: 11px;
-    --bs-accordion-btn-padding-x: 16px;
-    --bs-accordion-btn-padding-y: 14px;
+    --bs-accordion-border-radius: var(--wh-radius-lg);
+    --bs-accordion-inner-border-radius: calc(var(--wh-radius-lg) - 1px);
+    --bs-accordion-btn-padding-x: var(--wh-space-4);
+    --bs-accordion-btn-padding-y: 0.875rem;
     --bs-accordion-btn-icon-width: 1rem;
-    --bs-accordion-body-padding-x: 16px;
-    --bs-accordion-body-padding-y: 16px;
+    --bs-accordion-body-padding-x: var(--wh-space-4);
+    --bs-accordion-body-padding-y: var(--wh-space-4);
     --bs-accordion-active-color: var(--bs-body-color);
     --bs-accordion-active-bg: transparent;
     /* Inside, so the card's rounded corners don't cut it off */
@@ -1351,37 +1469,38 @@ body {
 }
 
 .info-accordion > .accordion-item {
-    margin-bottom: 12px;
+    margin-bottom: var(--wh-space-3);
     border-top: var(--bs-accordion-border-width) solid var(--bs-accordion-border-color);
-    border-radius: var(--bs-accordion-border-radius);
+    border-radius: var(--wh-radius-lg);
     overflow: hidden;
 }
 
 .info-accordion .accordion-button {
-    gap: 12px;
+    gap: var(--wh-space-3);
     font-weight: 600;
+    overflow-wrap: anywhere;
 }
 
 .info-accordion .accordion-button > .bi {
     color: var(--bs-primary);
-    font-size: 1.2rem;
+    font-size: var(--wh-fs-lg);
 }
 
 /* A smaller toggle inside a section, styled like its sub-headings */
 .info-accordion .info-subtoggle {
     --bs-accordion-btn-padding-x: 0;
-    --bs-accordion-btn-padding-y: 8px;
+    --bs-accordion-btn-padding-y: var(--wh-space-2);
     font: inherit;
     letter-spacing: inherit;
     text-transform: inherit;
     color: inherit;
     background: none;
-    border-radius: 4px;
+    border-radius: var(--wh-radius-sm);
     box-shadow: none;
 }
 
 /* Tables that scroll sideways on narrow phones can be scrolled with the keyboard */
-.info-body .table-responsive:focus-visible {
+.table-responsive:focus-visible {
     outline: none;
     box-shadow: var(--focus-ring);
 }
@@ -1392,7 +1511,7 @@ body {
 
 /* Text in a section or card: the Info page's and the home page's */
 .info-body {
-    font-size: 0.95rem;
+    font-size: var(--wh-fs-md);
 }
 
 .info-body ul {
@@ -1400,7 +1519,7 @@ body {
 }
 
 .info-body li + li {
-    margin-top: 6px;
+    margin-top: 0.375rem;
 }
 
 .info-table {
@@ -1414,12 +1533,12 @@ body {
 }
 
 .info-subhead {
-    font-size: 0.85rem;
+    font-size: var(--wh-fs-sm);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--bs-secondary-color);
-    margin: 16px 0 8px;
+    margin: var(--wh-space-4) 0 var(--wh-space-2);
 }
 
 .info-subhead:first-child {
@@ -1430,8 +1549,8 @@ body {
    above each part after the first */
 .info-body > .collapse + .info-subhead {
     border-top: 1px solid var(--bs-border-color);
-    margin-top: 20px;
-    padding-top: 12px;
+    margin-top: 1.25rem;
+    padding-top: var(--wh-space-3);
 }
 
 .info-body ul.info-lines {
@@ -1440,9 +1559,9 @@ body {
 }
 
 .info-source {
-    font-size: 0.8rem;
+    font-size: var(--wh-fs-sm);
     color: var(--bs-secondary-color);
-    margin: 12px 0 0;
+    margin: var(--wh-space-3) 0 0;
 }
 
 /* Line colours, for badges (lineBadge in /js/core/metro.js). The metro's are
@@ -1474,7 +1593,7 @@ body {
 
 .announcement-meta {
     display: block;
-    font-size: 0.8rem;
+    font-size: var(--wh-fs-sm);
     color: var(--bs-secondary-color);
 }
 
@@ -1484,17 +1603,17 @@ body {
     align-items: center;
     color: var(--bs-body-color);
     border: 1px solid var(--bs-border-color);
-    border-radius: 20px;
-    padding: 0 8px;
-    margin-left: 6px;
+    border-radius: var(--wh-radius-round);
+    padding: 0 var(--wh-space-2);
+    margin-left: 0.375rem;
 }
 
 .disruption-banner,
 .no-disruptions {
-    margin-bottom: 12px;
-    padding: 12px 16px;
+    margin-bottom: var(--wh-space-3);
+    padding: var(--wh-space-3) var(--wh-space-4);
     border: 1px solid rgba(var(--bs-warning-rgb), 0.35);
-    border-radius: 12px;
+    border-radius: var(--wh-radius-lg);
     color: var(--bs-warning);
 }
 
@@ -1509,18 +1628,18 @@ body {
 }
 
 .disruption-banner ul {
-    margin-top: 8px;
+    margin-top: var(--wh-space-2);
 }
 
 .disruption-banner li + li {
-    margin-top: 6px;
+    margin-top: 0.375rem;
 }
 
 /* Metro and tram maps (tools/info/client/map.js) */
 
 .metro-map {
     position: relative;
-    border-radius: 8px;
+    border-radius: var(--wh-radius-lg);
     background-color: var(--wh-map-bg);
     overflow: hidden;
 }
@@ -1546,23 +1665,23 @@ body {
 
 .map-controls {
     position: absolute;
-    top: 8px;
-    right: 8px;
+    top: var(--wh-space-2);
+    right: var(--wh-space-2);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 0.375rem;
     z-index: 1;
 }
 
 .map-btn {
-    width: 44px;
-    height: 44px;
+    width: 2.75rem;
+    height: 2.75rem;
     padding: 0;
-    font-size: 1.2rem;
+    font-size: var(--wh-fs-lg);
     color: var(--bs-body-color);
     background-color: rgba(var(--bs-tertiary-bg-rgb), 0.9);
     border: 1px solid var(--bs-border-color);
-    border-radius: 8px;
+    border-radius: var(--wh-radius-sm);
 }
 
 .map-btn:hover {
@@ -1650,15 +1769,15 @@ body {
 .toast-message {
     --bs-toast-bg: var(--bs-secondary-bg);
     --bs-toast-border-color: var(--bs-border-color);
-    --bs-toast-border-radius: 24px;
-    --bs-toast-font-size: 0.9rem;
-    --bs-toast-padding-x: 16px;
-    --bs-toast-padding-y: 10px;
-    --bs-toast-max-width: calc(100% - 32px);
-    --bs-toast-box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --bs-toast-border-radius: var(--wh-radius-round);
+    --bs-toast-font-size: var(--wh-fs-sm);
+    --bs-toast-padding-x: var(--wh-space-4);
+    --bs-toast-padding-y: 0.625rem;
+    --bs-toast-max-width: calc(100% - 2rem);
+    --bs-toast-box-shadow: var(--wh-shadow);
     position: fixed;
     left: 50%;
-    bottom: calc(var(--bottom-nav-height) + 16px);
+    bottom: calc(var(--bottom-nav-height) + 1rem);
     z-index: 1050;
     width: auto;
     transform: translateX(-50%);
@@ -1668,18 +1787,18 @@ body {
 .toast-message .toast-body {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--wh-space-2);
 }
 
 .toast-message .bi {
     color: var(--bs-success-text-emphasis);
-    font-size: 1.1rem;
+    font-size: var(--wh-fs-lg);
 }
 
-@media (min-width: 768px) {
+@media (min-width: 48em) {
     .toast-message {
         left: calc(50% + var(--side-nav-width) / 2);
-        bottom: 24px;
+        bottom: 1.5rem;
     }
 }
 
@@ -1689,9 +1808,9 @@ body {
 .install-card {
     flex-direction: row;
     align-items: flex-start;
-    gap: 14px;
+    gap: 0.875rem;
     margin-bottom: 1rem;
-    padding: 14px 4px 14px 16px;
+    padding: 0.875rem var(--wh-space-1) 0.875rem var(--wh-space-4);
 }
 
 .install-card[hidden] {
@@ -1700,7 +1819,7 @@ body {
 
 .install-logo {
     flex: none;
-    margin-top: 4px;
+    margin-top: var(--wh-space-1);
 }
 
 .install-body {
@@ -1709,26 +1828,26 @@ body {
 }
 
 .install-title {
-    margin: 0 0 4px;
-    font-size: 1rem;
+    margin: 0 0 var(--wh-space-1);
+    font-size: var(--wh-fs-md);
     font-weight: 600;
 }
 
 .install-text {
-    margin: 0 0 10px;
-    font-size: 0.85rem;
+    margin: 0 0 0.625rem;
+    font-size: var(--wh-fs-sm);
     color: var(--bs-secondary-color);
 }
 
 .install-close {
     flex: none;
-    min-width: 44px;
-    min-height: 44px;
-    margin-top: -10px;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    margin-top: -0.625rem;
     color: var(--bs-secondary-color);
     background: none;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--wh-radius-sm);
 }
 
 .install-close:hover {
@@ -1743,64 +1862,64 @@ body {
 .home-section-title {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: var(--wh-space-3);
     margin: 0;
-    padding: 14px 16px;
-    font-size: 1rem;
+    padding: 0.875rem var(--wh-space-4);
+    font-size: var(--wh-fs-md);
     font-weight: 600;
 }
 
 .home-section-title .bi {
     color: var(--bs-primary);
-    font-size: 1.2rem;
+    font-size: var(--wh-fs-lg);
 }
 
 /* Stations by line, under the metro map */
 
 .station-index {
-    margin-top: 12px;
+    margin-top: var(--wh-space-3);
 }
 
 .station-line {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin: 12px 0 6px;
-    font-size: 0.95rem;
+    gap: var(--wh-space-2);
+    margin: var(--wh-space-3) 0 0.375rem;
+    font-size: var(--wh-fs-md);
     font-weight: 600;
 }
 
 .info-body ol.station-stops,
 .station-view ol.station-stops {
     columns: 2 12rem;
-    column-gap: 24px;
+    column-gap: var(--wh-space-6);
     padding-left: 1.6rem;
-    margin-bottom: 8px;
+    margin-bottom: var(--wh-space-2);
 }
 
 .info-body ol.station-stops li,
 .station-view ol.station-stops li {
     margin-top: 0;
-    padding: 3px 0;
+    padding: 0.1875rem 0;
     break-inside: avoid;
 }
 
 .station-way {
-    font-size: 0.9rem;
+    font-size: var(--wh-fs-sm);
     color: var(--bs-secondary-color);
 }
 
 .station-change {
-    font-size: 0.8rem;
+    font-size: var(--wh-fs-sm);
     color: var(--bs-secondary-color);
 }
 
 /* ── Station pages (/subway/stations) ── */
 
 .station-view {
-    max-width: 640px;
+    max-width: 40rem;
     margin: 0 auto;
-    padding: 24px 16px;
+    padding: var(--wh-space-6) var(--wh-space-4);
 }
 
 .station-view .breadcrumb-item + .breadcrumb-item::before,
@@ -1808,39 +1927,47 @@ body {
     color: var(--bs-secondary-color);
 }
 
+/* The station's name: the largest text there is */
+.station-name {
+    font-size: var(--wh-fs-2xl);
+}
+
 .station-section {
-    margin-bottom: 24px;
+    margin-bottom: var(--wh-space-6);
 }
 
 .station-line-title {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 1.15rem;
-    margin-bottom: 12px;
+    gap: var(--wh-space-2);
+    font-size: var(--wh-fs-lg);
+    margin-bottom: var(--wh-space-3);
 }
 
 .station-direction + .station-direction {
-    margin-top: 12px;
+    margin-top: var(--wh-space-3);
 }
 
 .station-direction .leg-title {
-    margin-bottom: 8px;
+    margin-bottom: var(--wh-space-2);
 }
 
 .station-neighbours li {
-    padding: 2px 0;
+    padding: 0.125rem 0;
 }
 
 .station-subheading {
-    font-size: 0.95rem;
+    font-size: var(--wh-fs-md);
     font-weight: 600;
-    margin: 16px 0 8px;
+    margin: var(--wh-space-4) 0 var(--wh-space-2);
+}
+
+.station-times-wrap {
+    max-width: 20rem;
 }
 
 .station-times {
     --bs-table-bg: transparent;
-    max-width: 320px;
 }
 
 /* Bootstrap's grey is too faint on the dark background: the lighter one, as
@@ -1858,36 +1985,36 @@ body {
 
 .station-index-link {
     text-align: center;
-    margin-top: 24px;
+    margin-top: var(--wh-space-6);
 }
 
 /* ── Pages of text (about, privacy, contact) ── */
 
 .prose-view {
-    max-width: 640px;
+    max-width: 40rem;
     margin: 0 auto;
-    padding: 24px 16px;
+    padding: var(--wh-space-6) var(--wh-space-4);
     line-height: 1.6;
 }
 
 .prose-view h1 {
-    font-size: 1.6rem;
     font-weight: 600;
-    margin-bottom: 16px;
+    margin-bottom: var(--wh-space-4);
 }
 
 .prose-view h2 {
-    font-size: 1.15rem;
+    font-size: var(--wh-fs-lg);
     font-weight: 600;
-    margin: 28px 0 8px;
+    margin: 1.75rem 0 var(--wh-space-2);
 }
 
 .prose-view li + li {
-    margin-top: 6px;
+    margin-top: 0.375rem;
 }
 
 .contact-email {
-    font-size: 1.05rem;
+    font-size: var(--wh-fs-md);
+    overflow-wrap: anywhere;
 }
 
 /* The about, privacy and contact links near the bottom of the sidebar, one
@@ -1896,15 +2023,15 @@ body {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    padding: 0 16px 12px;
-    font-size: 0.8rem;
+    padding: 0 var(--wh-space-4) var(--wh-space-3);
+    font-size: var(--wh-fs-sm);
 }
 
 /* Each at least 24px tall, so they're big enough to click (WCAG 2.5.8) */
 .side-links a {
     display: flex;
     align-items: center;
-    min-height: 24px;
+    min-height: 1.5rem;
     color: var(--bs-secondary-color);
 }
 
@@ -1923,15 +2050,15 @@ body {
 /* A popover (layout.js): closed until the button opens it, then above the
    bottom bar, by the button */
 .site-menu {
-    inset: auto 8px calc(var(--bottom-nav-height) + 8px) auto;
+    inset: auto 0.5rem calc(var(--bottom-nav-height) + 0.5rem) auto;
     margin: 0;
-    min-width: 200px;
-    padding: 6px;
+    min-width: 12.5rem;
+    padding: 0.375rem;
     color: var(--bs-body-color);
     background-color: var(--bs-tertiary-bg);
     border: 1px solid var(--bs-border-color);
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    border-radius: var(--wh-radius-lg);
+    box-shadow: var(--wh-shadow);
 }
 
 .site-menu:popover-open {
@@ -1942,16 +2069,16 @@ body {
 .site-menu-link {
     display: flex;
     align-items: center;
-    gap: 12px;
-    min-height: 44px;
-    padding: 8px 12px;
+    gap: var(--wh-space-3);
+    min-height: 2.75rem;
+    padding: var(--wh-space-2) var(--wh-space-3);
     color: var(--bs-body-color);
     text-decoration: none;
-    border-radius: 8px;
+    border-radius: var(--wh-radius-sm);
 }
 
 .site-menu-link .bi {
-    font-size: 1.15rem;
+    font-size: var(--wh-fs-lg);
     color: var(--bs-secondary-color);
 }
 
@@ -1974,19 +2101,19 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    max-width: 720px;
-    margin: 12px auto 0;
-    padding: 4px 4px 4px 16px;
-    font-size: 0.9rem;
+    gap: var(--wh-space-2);
+    max-width: 45rem;
+    margin: var(--wh-space-3) auto 0;
+    padding: var(--wh-space-1) var(--wh-space-1) var(--wh-space-1) var(--wh-space-4);
+    font-size: var(--wh-fs-sm);
     background-color: var(--bs-secondary-bg);
     border: 1px solid var(--bs-border-color);
-    border-radius: 12px;
+    border-radius: var(--wh-radius-lg);
 }
 
-@media (max-width: 767.98px) {
+@media (max-width: 47.9988em) {
     .lang-suggest {
-        margin: 12px 16px 0;
+        margin: var(--wh-space-3) var(--wh-space-4) 0;
     }
 }
 
@@ -1995,12 +2122,12 @@ body {
 }
 
 .lang-suggest-close {
-    min-width: 44px;
-    min-height: 44px;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
     color: var(--bs-secondary-color);
     background: none;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--wh-radius-sm);
 }
 
 .lang-suggest-close:hover {
@@ -2016,27 +2143,27 @@ body {
 
 /* A fixed size, so nothing moves when the ad arrives */
 .ad-slot {
-    max-width: 728px;
-    margin: 24px auto 0;
-    padding: 0 16px;
+    max-width: 45.5rem;
+    margin: var(--wh-space-6) auto 0;
+    padding: 0 var(--wh-space-4);
 }
 
 .ad-label {
-    font-size: 0.75rem;
+    font-size: var(--wh-fs-xs);
     color: var(--bs-secondary-color);
-    margin-bottom: 4px;
+    margin-bottom: var(--wh-space-1);
     text-align: center;
 }
 
 .ad-unit {
     display: block;
     width: 100%;
-    height: 100px;
+    height: 6.25rem;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 48em) {
     .ad-unit {
-        height: 90px;
+        height: 5.625rem;
     }
 }
 
@@ -2047,13 +2174,15 @@ body {
 
 /* ── Accessibility helpers ── */
 
-/* The heading around a subway leg's line and direction only adds structure */
+/* The heading around a subway leg's line and direction only adds structure;
+   the direction goes under the line when they don't fit side by side */
 .leg-title {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: var(--wh-space-2);
     margin: 0;
-    font-size: 1rem;
+    font-size: var(--wh-fs-md);
     font-weight: inherit;
     line-height: inherit;
 }

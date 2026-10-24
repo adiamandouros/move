@@ -26,7 +26,9 @@ export function clockTime(seconds) {
 
 // The train from back to front (positions: rail.json's), with the parts to
 // ride in for the exit highlighted and the ones next to an elevator marked.
-// One image for screen readers, described by its label.
+// One image for screen readers, described by its label. Under the cars, each
+// part's name; when they don't fit (large text), the same in a line of words
+// instead (style.css switches).
 /**
  * @param {Position[]} positions @param {Position[]} exits @param {Position[]} elevators
  * @param {(key: string) => string} s
@@ -42,6 +44,10 @@ export function trainDiagram(positions, exits, elevators, s) {
                         <div class="train-car${cls(p)}">${exits.includes(p) && icon('person-walking')}${elevators.includes(p) && icon('arrow-up-square', 'car-elevator')}</div>`)}
                     </div>
                     <div class="position-labels">${positions.map(p => html`<div class="position-label${cls(p)}">${label(p)}</div>`)}</div>
+                    <p class="position-words">
+                        <span class="highlighted">${s('subway.ride-in')} ${exits.map(label).join(', ')}</span>
+                        ${elevators.length > 0 && html`<span class="has-elevator">${s('subway.elevator-in')} ${elevators.map(label).join(', ')}</span>`}
+                    </p>
                 </div>
             </div>`;
 }

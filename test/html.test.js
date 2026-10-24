@@ -99,6 +99,16 @@ test('where to ride: the train diagram, or a note when the stop\'s exits aren\'t
     assert.equal(String(exitDiagram(positions, [], [], s)), '<p class="text-body-secondary fst-italic small">subway.no-position-data</p>');
 });
 
+// For when the labels don't fit under the cars (style.css shows one or the other)
+test('the train diagram says where to ride in words too', () => {
+    const s = key => key;
+    const positions = ['back', 'center', 'front'];
+    const words = diagram => String(diagram).match(/<p class="position-words">([^]*?)<\/p>/)[1].replace(/\s+/g, ' ').trim();
+    assert.equal(words(exitDiagram(positions, ['back', 'front'], ['center'], s)),
+        '<span class="highlighted">subway.ride-in subway.pos.back, subway.pos.front</span> <span class="has-elevator">subway.elevator-in subway.pos.center</span>');
+    assert.equal(words(exitDiagram(positions, ['center'], [], s)), '<span class="highlighted">subway.ride-in subway.pos.center</span>');
+});
+
 test('the central platform badge and a stop\'s note', () => {
     const s = key => key;
     assert.match(String(centralPlatformBadge(s)), /^<span class="central-platform-badge"><svg [^]*<\/svg>subway\.doors-left<\/span>$/);

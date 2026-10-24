@@ -2,7 +2,7 @@
 // bigger default text size in their browser: nothing scrolls sideways and no
 // text is cut off. Sizes in rem follow that setting (DESIGN.md), so this is
 // what keeps them in rem. Cut off on purpose, with an ellipsis, is allowed.
-import { expect, test } from './fixtures.js';
+import { expect, onlyOn, test } from './fixtures.js';
 import { EVERY_PAGE, READY } from './site-pages.js';
 
 // What doesn't fit at 200%: the window or the page scrolling sideways, text
@@ -29,51 +29,37 @@ function problems() {
         spilled.push(el);
         found.push(`${path(el)}: text doesn't fit`);
     }
-    // Words split over two lines, once per element
+    // Words split over two lines although the unbroken run they're in
+    // ("info@wayhop.gr") would have fit on a line of its own
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     const range = document.createRange();
+    const lines = (start, end, node) => {
+        range.setStart(node, start);
+        range.setEnd(node, end);
+        const rects = [...range.getClientRects()].filter(r => r.width);
+        return { count: new Set(rects.map(r => Math.round(r.top))).size, width: rects.reduce((sum, r) => sum + r.width, 0) };
+    };
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
         if (!node.parentElement || !shown(node.parentElement)) continue;
-        for (const word of node.textContent.matchAll(/[\p{L}\p{N}]{2,}/gu)) {
-            range.setStart(node, word.index);
-            range.setEnd(node, word.index + word[0].length);
-            const tops = new Set([...range.getClientRects()].filter(r => r.width).map(r => Math.round(r.top)));
-            if (tops.size > 1) found.push(`${path(node.parentElement)}: breaks words over two lines`);
+        let box = node.parentElement;
+        while (getComputedStyle(box).display === 'inline' && box.parentElement) box = box.parentElement;
+        const style = getComputedStyle(box);
+        const room = box.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+        for (const run of node.textContent.matchAll(/\S+/g)) {
+            const broken = [...run[0].matchAll(/[\p{L}\p{N}]{2,}/gu)]
+                .some(word => lines(run.index + word.index, run.index + word.index + word[0].length, node).count > 1);
+            if (broken && lines(run.index, run.index + run[0].length, node).width <= room) found.push(`${path(node.parentElement)}: breaks words over two lines`);
         }
     }
     return [...new Set(found)];
 }
 
-// What doesn't fit yet, while sizes are still in px (DESIGN.md, step 1 of the
-// visual overhaul). A problem not listed here fails the test; the list only
-// gets shorter, and goes once everything is in rem.
-const KNOWN = new Set([
-    // The navigation: fixed heights and widths around text in rem
-    '#bottom-nav: text doesn\'t fit',
-    '#bottom-nav a.nav-btn: text doesn\'t fit',
-    'div.d-flex a.nav-btn: text doesn\'t fit',
-    'div.mt-auto a.lang-toggle-btn: text doesn\'t fit',
-    'a.brand-link span: text doesn\'t fit',
-    // Home tiles
-    'a.card span.tool-tile-title: breaks words over two lines',
-    'a.card span.tool-tile-desc: breaks words over two lines',
-    // Buses: the narrow stop column
-    'span.stop-label span.stop-name: breaks words over two lines',
-    // Subway: the search row, the trip cards and the train diagram
-    'div.subway-search-wrap div.d-flex: text doesn\'t fit',
-    'div.result-header div.schedule-section: text doesn\'t fit',
-    'div.card-body div.train-diagram: text doesn\'t fit',
-    'div.card div.card-body: text doesn\'t fit',
-    'span.d-flex span.line-pill: text doesn\'t fit',
-    'h2.line-heading span.line-pill: text doesn\'t fit',
-    // Station pages: the train diagram and the timetable
-    'the page scrolls sideways',
-]);
-
+// (A word wider than its box may break: .long)
 test('the 200% check finds text that doesn\'t fit', async ({ page }) => {
     await page.setContent(`<main id="app-content" style="width: 200px; overflow: auto">
         <div class="short" style="height: 10px">Two<br>lines</div>
-        <div class="narrow" style="width: 30px; overflow-wrap: anywhere">Kallithea</div>
+        <div class="narrow" style="width: 80px; word-break: break-all">Two Kallithea</div>
+        <div class="long" style="width: 30px; overflow-wrap: anywhere">Kallithea</div>
         <div class="cut" style="width: 30px; overflow: hidden; white-space: nowrap">Kallithea</div>
         <div class="dots" style="width: 30px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis">Kallithea</div>
         <div style="width: 400px">wide</div>
@@ -92,6 +78,37 @@ for (const [path, , url] of EVERY_PAGE) {
         if (READY[path]) await expect(page.locator(READY[path]).first()).toBeAttached();
         // The browser's default text size, doubled
         await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
-        expect((await page.evaluate(problems)).filter(problem => !KNOWN.has(problem))).toEqual([]);
+        expect(await page.evaluate(problems)).toEqual([]);
     });
 }
+
+// What changes shape when it doesn't fit (style.css's container queries):
+// on a phone's width, where it doesn't
+test.describe('at large text', () => {
+    test.beforeEach(onlyOn('phone', 'iphone'));
+    const big = page => page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
+
+    test('the train diagram says where to ride in words instead of labels', async ({ page }) => {
+        await page.goto('/subway?from=kifisia&to=airport');
+        const diagram = page.locator('.train-diagram').first();
+        await expect(diagram.locator('.position-labels')).toBeVisible();
+        await expect(diagram.locator('.position-words')).toBeHidden();
+        await big(page);
+        await expect(diagram.locator('.position-labels')).toBeHidden();
+        await expect(diagram.locator('.position-words')).toBeVisible();
+        await expect(diagram.locator('.position-words .highlighted')).toHaveText(/^Ride in: \S/);
+    });
+
+    test('a bus stop\'s row puts the stop on a line of its own', async ({ page }) => {
+        await page.goto('/buses');
+        const header = page.locator('.stop-header').first();
+        await expect(header.locator('.arrival-badge')).toBeVisible();
+        const side = async () => {
+            const [label, next] = await Promise.all(['.stop-label', '.stop-next-bus'].map(s => header.locator(s).boundingBox()));
+            return next.x >= label.x + label.width - 1 ? 'beside' : next.y >= label.y + label.height - 1 ? 'under' : 'overlapping';
+        };
+        expect(await side()).toBe('beside');
+        await big(page);
+        await expect.poll(side).toBe('under');
+    });
+});
