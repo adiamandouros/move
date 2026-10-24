@@ -262,10 +262,10 @@ test('same station and no route: shown in the warnings\' yellow, not light grey'
     }
 });
 
-test('the last trains are also said in words under the times, with their clock times', async () => {
-    const { departureChips } = await browserModule('tools/subway/client/render.js', 'en');
+test('the last trains are also said in words on a line of their own, with their clock times', async () => {
+    const { lastTrainWords } = await browserModule('tools/subway/client/render.js', 'en');
     const now = { seconds: 23 * 3600 };
-    const both = String(departureChips([{ departs: now.seconds + 600, isSecondLast: true }, { departs: now.seconds + 1500, isLast: true }], now, false));
+    const both = String(lastTrainWords([{ departs: now.seconds + 600, isSecondLast: true }, { departs: now.seconds + 1500, isLast: true }]));
     assert.match(both, /aria-hidden="true"><span class="last-train last-train-second-last"><svg [^]*<\/svg>Second to last train 23:10<\/span><span class="last-train last-train-last"><svg [^]*<\/svg>Last train 23:25<\/span>/);
-    assert.doesNotMatch(String(departureChips([{ departs: now.seconds + 600 }], now, false)), /last-train/);
+    assert.doesNotMatch(String(lastTrainWords([{ departs: now.seconds + 600 }])), /last-train/);
 });

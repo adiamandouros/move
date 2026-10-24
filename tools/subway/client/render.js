@@ -43,19 +43,20 @@ export function departureChip(d, now, clock) {
     return timeBadge(tier, time, note);
 }
 
-export function departureChips(departures, now, tomorrow) {
+function departureChips(departures, now, tomorrow) {
     if (!departures.length) return html`<span class="schedule-label">${t('subway.no-trains')}</span>`;
     const clock = asClock(departures, now, tomorrow);
     const chips = departures.map(d => departureChip(d, now, clock));
-    return html`<span class="schedule-label">${t(clock ? 'subway.schedule-at' : 'subway.schedule-in')}</span><span class="schedule-chips">${chips}</span>${lastTrainWords(departures)}`;
+    return html`<span class="schedule-label">${t(clock ? 'subway.schedule-at' : 'subway.schedule-in')}</span><span class="schedule-chips">${chips}</span>`;
 }
 
-// The last trains in words, under the times: "Last train 23:57". The chips
-// say the same to screen readers, so this is for the eyes.
-function lastTrainWords(departures) {
+// The last trains in words, on a line of their own under the line and its
+// times: "Last train 23:57". The chips say the same to screen readers, so
+// this is for the eyes.
+export function lastTrainWords(departures) {
     const marked = departures.filter(d => d.isLast || d.isSecondLast);
     if (!marked.length) return '';
-    return html`<span class="last-trains" aria-hidden="true">${marked.map(d => html`<span class="last-train last-train-${d.isLast ? 'last' : 'second-last'}">${icon('warning')}${t(d.isLast ? 'subway.last-train' : 'subway.second-last-train')} ${clockTime(d.departs)}</span>`)}</span>`;
+    return html`<p class="last-trains" aria-hidden="true">${marked.map(d => html`<span class="last-train last-train-${d.isLast ? 'last' : 'second-last'}">${icon('warning')}${t(d.isLast ? 'subway.last-train' : 'subway.second-last-train')} ${clockTime(d.departs)}</span>`)}</p>`;
 }
 
 // How many stops the train makes until the leg's last: "3 stops"
@@ -91,6 +92,7 @@ function legCard(rail, leg, next, now, level, tomorrow, changes) {
                 </${heading}>
                 <div class="schedule-section ms-auto">${departureChips(leg.departures, now, tomorrow)}</div>
             </div>
+            ${lastTrainWords(leg.departures)}
             <div class="leg-action ${stop.centralPlatform ? 'mb-2' : 'mb-3'}">
                 <span>${action}</span><span class="sr-only">, </span>
                 <span class="leg-ride">${ride}${stopCount(leg)}</span>

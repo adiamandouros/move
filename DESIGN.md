@@ -232,7 +232,7 @@ tabular figures, 6px corners. Its colour is how soon:
 
 For trains, the **last** train is red and the **second to last** amber,
 overriding the green. Never colour alone: the badge's text for screen
-readers and its `title` say it, and a line under the times says it to the
+readers and its `title` say it, and a line of its own under the line and its times says it to the
 eyes ("Last train 23:57", with the clock time, so it's clear which badge it
 means). The tints are 10% of their colour, which keeps the text on them at
 4.5:1 on every surface (`test/accessibility.test.js`).

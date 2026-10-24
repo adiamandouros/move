@@ -728,14 +728,13 @@ body {
     margin-bottom: 0;
 }
 
-/* The last trains in words, under the times */
+/* The last trains in words, on a line under the line and its times */
 .last-trains {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
     gap: 0 var(--wh-space-3);
-    flex-basis: 100%;
-    margin-top: var(--wh-space-1);
+    margin: 0 0 var(--wh-space-2);
     font-size: var(--wh-fs-sm);
 }
 
