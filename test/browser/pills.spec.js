@@ -1,5 +1,5 @@
-// Lines' pills and buses' plates (/js/core/lines.js): their text sits dead
-// centre, measured from the pixels the browser draws. Browsers put text on
+// Lines' pills, buses' plates and stations' signs (/js/core/lines.js): their
+// text sits dead centre, measured from the pixels the browser draws. Browsers put text on
 // whole pixels, so "dead centre" is to within one pixel either way.
 import { expect, test } from './fixtures.js';
 
@@ -8,9 +8,13 @@ const PILLS = ['s', 'm', 'l'].flatMap(size => [
     `<span class="line-pill pill-${size} line-m3">M3</span>`,
     `<span class="line-pill pill-${size} line-t6">T6</span>`,
     `<span class="bus-plate pill-${size}">040</span>`,
-]);
+// Signs in capitals: letters that reach below the line would count as text
+]).concat(['m', 'l'].flatMap(size => [
+    `<span class="station-sign sign-${size} sign-top-m1">KIFISIA</span>`,
+    `<span class="station-sign sign-${size} sign-top-m2 sign-bottom-m3">SYNTAGMA</span>`,
+]));
 
-test('the text in every pill and plate is centred', async ({ page }) => {
+test('the text in every pill, plate and sign is centred', async ({ page }) => {
     await page.goto('/subway/stations/syntagma');
     await page.evaluate(async pills => {
         const row = document.createElement('div');
@@ -21,7 +25,7 @@ test('the text in every pill and plate is centred', async ({ page }) => {
         await document.fonts.ready;
     }, PILLS);
     const viewport = page.viewportSize();
-    const shot = (await page.screenshot({ clip: { x: 0, y: 0, width: viewport.width, height: 160 } })).toString('base64');
+    const shot = (await page.screenshot({ clip: { x: 0, y: 0, width: viewport.width, height: viewport.height } })).toString('base64');
 
     // Each pill's empty space around its text: [above, below, left, right] in CSS px
     const spaces = await page.evaluate(async png => {
@@ -53,6 +57,9 @@ test('the text in every pill and plate is centred', async ({ page }) => {
     expect(spaces).toHaveLength(PILLS.length);
     for (const { pill, space: [above, below, left, right] } of spaces) {
         expect(Math.abs(above - below), `${pill}: ${above.toFixed(2)} above, ${below.toFixed(2)} below`).toBeLessThanOrEqual(1);
+        // Side to side only for pills: a sign's name is a word, and its
+        // first and last letters have their own spaces (K more than A)
+        if (pill.includes('station-sign')) continue;
         expect(Math.abs(left - right), `${pill}: ${left.toFixed(2)} left, ${right.toFixed(2)} right`).toBeLessThanOrEqual(1);
     }
 });
