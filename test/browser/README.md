@@ -66,7 +66,8 @@ And two helpers:
   invisible, has no focus ring, ends up behind the navigation, or gets stuck.
 
 `pages.spec.js` already runs both on every page in the registry, in both
-languages, so a new page is covered by itself. Write a new spec for what a
+languages (the list is `site-pages.js`), and `text-size.spec.js` checks
+each one at 200% text, so a new page is covered by itself. Write a new spec for what a
 page *does*: wait for what a person would see (`await expect(locator)…`),
 never a fixed time.
 

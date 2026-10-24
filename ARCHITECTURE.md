@@ -136,7 +136,9 @@ again by the `@font-face` rules at the top of `style.css`; a test keeps the
 two the same), preloaded by every page and kept by the service worker. Wayhop's colours are Bootstrap's CSS variables, set
 once per colour mode at the top of `style.css` (`--wh-` ones for Wayhop's
 own components); rules use the variable names, never colour values, and
-`test/accessibility.test.js` checks their contrast. Line colours are
+`test/accessibility.test.js` checks their contrast. Sizes, corners,
+space and shadows are tokens too, in rem, with the rules in
+[DESIGN.md](DESIGN.md) (`test/design.test.js` checks). Line colours are
 classes too (`.line-m1`, for `lineBadge` in `/js/core/metro.js`), kept the
 same as `data/curated/lines.json`'s by that test, so pages have no inline
 styles (`csp.test.js` checks). Use Bootstrap's
@@ -355,14 +357,14 @@ and on `main` (`.github/workflows/checks.yml`), with Node 20 and 22.
 
 - `npm test` runs `test/*.test.js`: building the data, route finding,
   the OASA client and its limits, the relays, announcements, every page as
-  the server sends it (`seo.test.js`, `accessibility.test.js`,
+  the server sends it (`seo.test.js`, `accessibility.test.js`, `design.test.js`,
   `assets.test.js`, `stations.test.js`), the whole server over HTTP
   (`server.test.js`: headers, 404s, caching, the APIs' refusals), and the
   browser code's logic and drawing (loaded by `test/support/browser-modules.js`).
   The tests need no network.
 - `npm run test:browser`: the site in real browsers (phone, desktop and
   iPhone), with test data and a fake OASA: every page in both languages
-  through axe-core and a keyboard walk, plus location, language, the bus
+  through axe-core, a keyboard walk and 200% text, plus location, language, the bus
   page's requests, the planner at night and offline use. See
   [test/browser/README.md](test/browser/README.md). The app itself is
   `server/app.js`; `server.js` only starts it.
