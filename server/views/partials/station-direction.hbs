@@ -31,15 +31,18 @@ first and last trains from here --}}
 {{#if times.length}}
     {{!-- Leaving from here: first and last trains --}}
     <h4 class="station-subheading">{{t "stations.times-heading"}}</h4>
-    <table class="table table-sm station-times mb-0">
-        <caption class="sr-only">{{t "stations.times-caption" name=@root.name toward=timesToward}}</caption>
-        <thead><tr><th scope="col">{{t "stations.days"}}</th><th scope="col">{{t "stations.first"}}</th><th scope="col">{{t "stations.last"}}</th></tr></thead>
-        <tbody>
+    {{!-- Scrolls sideways when it doesn't fit (large text) --}}
+    <div class="table-responsive station-times-wrap" tabindex="0" role="region" aria-label="{{t "stations.times-caption" name=@root.name toward=timesToward}}">
+        <table class="table table-sm station-times mb-0">
+            <caption class="sr-only">{{t "stations.times-caption" name=@root.name toward=timesToward}}</caption>
+            <thead><tr><th scope="col">{{t "stations.days"}}</th><th scope="col">{{t "stations.first"}}</th><th scope="col">{{t "stations.last"}}</th></tr></thead>
+            <tbody>
 {{#each times}}
-            <tr><th scope="row">{{days}}</th><td>{{first}}</td><td>{{last}}</td></tr>
+                <tr><th scope="row">{{days}}</th><td>{{first}}</td><td>{{last}}</td></tr>
 {{/each}}
-        </tbody>
-    </table>
+            </tbody>
+        </table>
+    </div>
 {{#each others}}
     <p class="small mt-2 mb-0">{{this}}</p>
 {{/each}}

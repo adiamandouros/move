@@ -1,7 +1,7 @@
 {{!-- A metro station's page (server/pages/stations.js, stationView) --}}
 <div class="station-view">
 {{> breadcrumb crumbs}}
-    <h1 class="fs-3 fw-semibold mb-1">{{name}}</h1>
+    <h1 class="station-name fw-semibold mb-1">{{name}}</h1>
     <p class="text-body-secondary mb-3">{{t "stations.lines-here"}}{{#each lines}} {{badge}}{{/each}}</p>
     <div class="station-actions d-flex flex-wrap gap-2 mb-4">
         <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?from={{id}}">{{icon "signpost-split" "me-1"}}{{t "stations.plan-from"}}</a>

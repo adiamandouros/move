@@ -125,7 +125,7 @@ export function message(symbol, title, subtitle = '', action = '') {
     return html`
         <div class="bus-message-body d-flex flex-column align-items-center justify-content-center text-body-secondary" tabindex="-1">
             ${icon(name, ['fs-1 mb-3', ...extra].join(' '))}
-            <p class="fs-5 mb-1 text-center px-4">${title}</p>
+            <p class="bus-message-title mb-1 text-center px-4">${title}</p>
             ${subtitle && html`<p class="small text-body-secondary text-center px-4">${subtitle}</p>`}
             ${action && html`<button type="button" class="btn btn-primary rounded-pill px-4 mt-2 message-action">${action}</button>`}
         </div>`;

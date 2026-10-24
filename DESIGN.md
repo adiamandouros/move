@@ -48,8 +48,9 @@ Roboto everywhere. Six sizes, nothing smaller than 12 px:
 | `--wh-fs-xl` | 1.375rem (22) | Page titles, big bus plates |
 | `--wh-fs-2xl` | 1.75rem (28) | The station name on its page |
 
-Moving an old size onto the scale: 0.65–0.78rem → xs, 0.8–0.9 → sm,
-0.95–1.05 → md, 1.1–1.2 → lg, 1.25–1.5 → xl, above that 2xl.
+A page's `<h1>` is xl (Bootstrap's own heading sizes follow the screen's
+width, so `style.css` sets it); the station page's name is 2xl. Bootstrap's
+`fs-*` classes are for icons only, until the icons step.
 
 - Weights: 400 text, 600 labels and emphasis, 700 headings, pills and
   times, 800 only in the wordmark.
@@ -67,7 +68,25 @@ Moving an old size onto the scale: 0.65–0.78rem → xs, 0.8–0.9 → sm,
 - **em** inside components that grow with their own text: pill, sign and
   chip padding, icons at 1em.
 - **px** only for what must stay thin: 1px edges, the 3px focus ring,
-  shadows, the maps' lines and the train diagram's carriage edges.
+  shadows, the maps' lines and the train diagram's carriage edges. The
+  maps' labels are in the drawing's own units, and the shaped end
+  carriages keep their own corners.
+
+### Large text
+
+Everything has to work with the text at 200% (WCAG 1.4.4): nothing scrolls
+sideways, no text spills out of its box, no word breaks where it would have
+fit. What doesn't fit side by side wraps (`flex-wrap`), and a word longer
+than its whole box may break (`overflow-wrap: anywhere`). Where wrapping
+isn't enough, the part changes shape by its own width, with a container
+query measured in `em` (so it follows the text size, not the screen):
+
+- The train diagram: below 17em, the labels under the cars give way to a
+  line of words ("Ride in: Near Back").
+- A bus stop's row: below 18em, the stop's name, code and distance go on a
+  line of their own above the next bus.
+- The bottom bar's labels end in "…" when they don't fit (the link's name
+  is still the whole word).
 
 ### Corners
 
@@ -143,10 +162,8 @@ rows.
 ## Tests
 
 - `test/design.test.js`: the tokens are the scale; sizes, corners, shadows,
-  px and breakpoints in `style.css` use them. What isn't moved yet is
-  counted in `NOT_YET`, and the counts only go down.
+  px and breakpoints in `style.css` use them.
 - `test/accessibility.test.js`: every text colour on every surface, the line
   colours, the control edge.
-- `test/browser/text-size.spec.js`: every page at 200% text: nothing scrolls
-  sideways, no text spills out of its box, no word breaks in the middle.
-  What doesn't fit yet is listed in `KNOWN`, and the list only gets shorter.
+- `test/browser/text-size.spec.js`: every page at 200% text, as above, and
+  the two parts that change shape.
