@@ -17,7 +17,7 @@ export const PAGES = [
 
 // What to wait for before checking a page whose content comes from its scripts
 export const READY = {
-    '/buses': '.stop-item .arrival-badge',
+    '/buses': '.stop-item .time-badge',
     '/info': '#sec-announcements li',
     '/subway?from=kifisia&to=airport': '.result-card',
     '/buses?stop=10341': '.stop-item .arrival-row',

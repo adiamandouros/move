@@ -33,6 +33,15 @@ test.describe('22:50 on a Wednesday, before the last airport train', () => {
         const card = page.locator('.result-card').first();
         await expect(card).toContainText('28 minutes');
         await expect(card).toContainText('Last train');
+        // red on the badge, and in words under the times, with the clock time
+        await expect(card.locator('.time-badge.time-last')).toHaveCount(1);
+        await expect(card.locator('.last-train-last')).toHaveText('Last train 23:18');
+        // on its own line under the header, which keeps the times beside the line
+        const [header, times, words] = await Promise.all(['.result-header', '.schedule-section', '.last-trains'].map(sel => card.locator(sel).first().boundingBox()));
+        expect(words.y).toBeGreaterThanOrEqual(header.y + header.height - 1);
+        expect(times.y + times.height).toBeLessThanOrEqual(header.y + header.height + 1);
+        const title = await card.locator('.leg-title').first().boundingBox();
+        expect(times.y, 'the times stay beside the line').toBeLessThan(title.y + title.height);
         await expect(content(page)).not.toContainText('No more trains today');
     });
 });

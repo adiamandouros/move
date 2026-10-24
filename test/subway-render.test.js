@@ -100,12 +100,16 @@ test('one train: minutes on screen and in full for screen readers, or a clock ti
     const { departureChip } = await browserModule('tools/subway/client/render.js', 'en');
     const now = { seconds: 12 * 3600 };
     assert.equal(String(departureChip({ departs: now.seconds + 12 * 60 + 30 }, now, false)),
-        '<span class="schedule-chip"><span aria-hidden="true">12\'</span><span class="sr-only">12 minutes,</span></span>');
+        '<span class="time-badge time-later"><span aria-hidden="true">12\'</span><span class="sr-only">12 minutes,</span></span>');
     assert.equal(String(departureChip({ departs: 5.5 * 3600 + 120, isLast: true }, now, true)),
-        '<span class="schedule-chip schedule-chip--last" title="Last train">05:32<span class="sr-only"> (Last train),</span></span>');
+        '<span class="time-badge time-last" title="Last train">05:32<span class="sr-only"> (Last train),</span></span>');
     const secondLast = String(departureChip({ departs: now.seconds + 5 * 60, isSecondLast: true }, now, false));
-    assert.match(secondLast, /class="schedule-chip schedule-chip--second-last" title="Second to last train"/);
+    assert.match(secondLast, /class="time-badge time-second-last" title="Second to last train"/);
     assert.equal(spoken(secondLast), '5 minutes (Second to last train),');
+    // The same green scale as the buses: due, close, later; a clock time is neutral
+    const tier = (minutes, clock = false) => String(departureChip({ departs: now.seconds + minutes * 60 }, now, clock)).match(/time-(\S+?)"/)[1];
+    assert.deepEqual([0, 3, 4, 8, 9, 30].map(m => tier(m)), ['due', 'due', 'close', 'close', 'later', 'later']);
+    assert.equal(tier(2, true), 'later');
     // A train that's already due: 0, never less
     assert.match(String(departureChip({ departs: now.seconds - 30 }, now, false)), />0'</);
 });
@@ -256,4 +260,12 @@ test('same station and no route: shown in the warnings\' yellow, not light grey'
         assert.match(html, /^<div class="notice notice-warn subway-message mt-3"><svg [^]*<\/svg><div class="notice-body">/);
         assert.doesNotMatch(html, /text-body-secondary/);
     }
+});
+
+test('the last trains are also said in words on a line of their own, with their clock times', async () => {
+    const { lastTrainWords } = await browserModule('tools/subway/client/render.js', 'en');
+    const now = { seconds: 23 * 3600 };
+    const both = String(lastTrainWords([{ departs: now.seconds + 600, isSecondLast: true }, { departs: now.seconds + 1500, isLast: true }]));
+    assert.match(both, /aria-hidden="true"><span class="last-train last-train-second-last"><svg [^]*<\/svg>Second to last train 23:10<\/span><span class="last-train last-train-last"><svg [^]*<\/svg>Last train 23:25<\/span>/);
+    assert.doesNotMatch(String(lastTrainWords([{ departs: now.seconds + 600 }])), /last-train/);
 });

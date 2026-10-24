@@ -127,9 +127,9 @@ The palettes and every contrast number are in the guide.
 - **Yellow** = warnings only (and the brand: logo dot, menu button).
 - **Blue** = what can be pressed, and the current page.
 - **Green** = how soon a departure is, for buses and trains alike: solid
-  when due (≤ 3 min), a tint when close (4–8), neutral later (9+). *(step 4)*
-- Last trains: the last is red, the second-last amber, and late at night a
-  line of words says so too. *(step 4)*
+  when due (≤ 3 min), a tint when close (4–8), neutral later (9+).
+- Last trains: the last is red, the second-last amber, and a line of words
+  says so too.
 - Clock times (tomorrow, station timetables) are neutral chips.
 - The maps stay black in both themes.
 - Light theme: follows the phone, with Auto / Light / Dark in the menu; dark
@@ -218,8 +218,26 @@ by colour alone:
 Margins come from where it's put (`mb-3`), not from the notice. Yellow is
 for warnings only.
 
-*(Still to come in step 4: the time badge for buses and trains, tags, small
-capitals, list rows.)*
+### Time badge
+
+One badge for when something leaves, buses and trains alike:
+`timeBadge(tier, content)` in `/js/core/times.js`, text at `sm`, weight 700,
+tabular figures, 6px corners. Its colour is how soon:
+
+| Tier | When | Look |
+|---|---|---|
+| `due` | 3 minutes or less | solid green, dark text |
+| `close` | 4 to 8 | green tint |
+| `later` | 9 or more, and every clock time (tomorrow, the first trains of the morning) | neutral |
+
+For trains, the **last** train is red and the **second to last** amber,
+overriding the green. Never colour alone: the badge's text for screen
+readers and its `title` say it, and a line of its own under the line and its times says it to the
+eyes ("Last train 23:57", with the clock time, so it's clear which badge it
+means). The tints are 10% of their colour, which keeps the text on them at
+4.5:1 on every surface (`test/accessibility.test.js`).
+
+*(Still to come in step 4: tags, small capitals, list rows.)*
 
 ## Tests
 

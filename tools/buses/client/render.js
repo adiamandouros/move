@@ -1,6 +1,7 @@
 import { externalLink, format, html, icon, localName, setHtml, walkingUrl } from '/js/core/html.js';
 import { language, localHref, t } from '/js/core/i18n.js';
 import { busPlate, pillList } from '/js/core/lines.js';
+import { soonTier, timeBadge } from '/js/core/times.js';
 
 // What the bus page draws, with html`` (every value escaped: stop names,
 // lines and destinations come from OASA)
@@ -21,9 +22,9 @@ const plate = (line, size) => busPlate(line, size, t('buses.line'));
 export const distance = meters => meters === undefined ? html`` : html`<span class="sr-only">, </span>${formatDistance(meters)}`;
 
 function arrivalBadge(minutes) {
-    const cls = minutes <= 3 ? 'arrival-soon' : minutes <= 8 ? 'arrival-close' : 'arrival-later';
-    const label = minutes <= 3 ? `${minutes} ${t('buses.arriving-soon')}` : `${minutes} ${t('buses.minutes')}`;
-    return html`<span class="badge arrival-badge ${cls}"><span aria-hidden="true">${minutes} ${t('buses.min')}</span><span class="sr-only">${label}</span></span>`;
+    const tier = soonTier(minutes);
+    const label = tier === 'due' ? `${minutes} ${t('buses.arriving-soon')}` : `${minutes} ${t('buses.minutes')}`;
+    return timeBadge(tier, html`<span aria-hidden="true">${minutes} ${t('buses.min')}</span><span class="sr-only">${label}</span>`);
 }
 
 const lineLabel = a => a.line ?? '?';

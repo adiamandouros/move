@@ -25,7 +25,7 @@ test.describe('OASA down', () => {
         await page.goto('/buses');
         await expect(status(page)).toHaveText('Live times are unavailable right now.');
         await expect(page.locator('.stop-item').first()).toContainText('Live times are unavailable right now.');
-        await expect(page.locator('.stop-item .arrival-badge')).toHaveCount(0);
+        await expect(page.locator('.stop-item .time-badge')).toHaveCount(0);
         expect(await axe(page)).toEqual([]);
 
         // Not before its time…
@@ -35,7 +35,7 @@ test.describe('OASA down', () => {
         // …then again, and OASA is back
         await setScenario(page, 'normal');
         await page.clock.fastForward(13_000);
-        await expect(page.locator('.stop-item .arrival-badge').first()).toBeVisible();
+        await expect(page.locator('.stop-item .time-badge').first()).toBeVisible();
         await expect(status(page)).toBeHidden();
     });
 
@@ -50,7 +50,7 @@ test.describe('OASA answering late', () => {
 
     test('the last answers are shown, with a note that they may be old', async ({ page }) => {
         await page.goto('/buses');
-        await expect(page.locator('.stop-item .arrival-badge').first()).toBeVisible();
+        await expect(page.locator('.stop-item .time-badge').first()).toBeVisible();
         await expect(status(page)).toHaveText('Live times may be a few minutes old.');
         expect(await axe(page)).toEqual([]);
     });
@@ -68,7 +68,7 @@ test.describe('over the per-visitor limit', () => {
         expect(asked.length, 'no retries within 30 s').toBe(first);
         await setScenario(page, 'normal');
         await page.clock.fastForward(13_000);
-        await expect(page.locator('.stop-item .arrival-badge').first()).toBeVisible();
+        await expect(page.locator('.stop-item .time-badge').first()).toBeVisible();
     });
 });
 
@@ -139,7 +139,7 @@ test.describe('losing the connection on the bus page', () => {
 
         await context.setOffline(true);
         await page.clock.fastForward(61_000);
-        await expect(page.locator('.stop-item .arrival-badge').first()).toBeVisible();
+        await expect(page.locator('.stop-item .time-badge').first()).toBeVisible();
         // Counting down from when the answer came, not from the failed refresh
         await expect(badge).toHaveText(new RegExp(`^${before - 1}\\b`));
         await expect(status(page)).toHaveText('Live times may be a few minutes old.');

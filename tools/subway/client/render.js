@@ -1,6 +1,7 @@
 import { language, localHref, t } from '/js/core/i18n.js';
 import { format, formatDate, html, icon, localName, notice, walkingUrl as walkingTo } from '/js/core/html.js';
 import { linePill, stationSign } from '/js/core/lines.js';
+import { soonTier, timeBadge } from '/js/core/times.js';
 import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, lineEnd, stopNote } from '/js/core/metro.js';
 import { legPositions, tripTime } from './network.js';
 
@@ -34,12 +35,12 @@ const asClock = (departures, now, tomorrow) => tomorrow || departures[0].departs
 export function departureChip(d, now, clock) {
     const minutes = Math.max(0, Math.floor((d.departs - now.seconds) / 60));
     const note = d.isLast ? t('subway.last-train') : d.isSecondLast ? t('subway.second-last-train') : '';
-    const cls = d.isLast ? ' schedule-chip--last' : d.isSecondLast ? ' schedule-chip--second-last' : '';
+    const tier = d.isLast ? 'last' : d.isSecondLast ? 'second-last' : clock ? 'later' : soonTier(minutes);
     // "12'" on screen, "12 minutes" for screen readers; or "05:32" for both
     const time = clock
         ? html`${clockTime(d.departs)}<span class="sr-only">${note && ` (${note})`},</span>`
         : html`<span aria-hidden="true">${minutes}'</span><span class="sr-only">${minutes} ${t('subway.minutes')}${note && ` (${note})`},</span>`;
-    return html`<span class="schedule-chip${cls}"${note && html` title="${note}"`}>${time}</span>`;
+    return timeBadge(tier, time, note);
 }
 
 function departureChips(departures, now, tomorrow) {
@@ -47,6 +48,15 @@ function departureChips(departures, now, tomorrow) {
     const clock = asClock(departures, now, tomorrow);
     const chips = departures.map(d => departureChip(d, now, clock));
     return html`<span class="schedule-label">${t(clock ? 'subway.schedule-at' : 'subway.schedule-in')}</span><span class="schedule-chips">${chips}</span>`;
+}
+
+// The last trains in words, on a line of their own under the line and its
+// times: "Last train 23:57". The chips say the same to screen readers, so
+// this is for the eyes.
+export function lastTrainWords(departures) {
+    const marked = departures.filter(d => d.isLast || d.isSecondLast);
+    if (!marked.length) return '';
+    return html`<p class="last-trains" aria-hidden="true">${marked.map(d => html`<span class="last-train last-train-${d.isLast ? 'last' : 'second-last'}">${icon('warning')}${t(d.isLast ? 'subway.last-train' : 'subway.second-last-train')} ${clockTime(d.departs)}</span>`)}</p>`;
 }
 
 // How many stops the train makes until the leg's last: "3 stops"
@@ -82,6 +92,7 @@ function legCard(rail, leg, next, now, level, tomorrow, changes) {
                 </${heading}>
                 <div class="schedule-section ms-auto">${departureChips(leg.departures, now, tomorrow)}</div>
             </div>
+            ${lastTrainWords(leg.departures)}
             <div class="leg-action ${stop.centralPlatform ? 'mb-2' : 'mb-3'}">
                 <span>${action}</span><span class="sr-only">, </span>
                 <span class="leg-ride">${ride}${stopCount(leg)}</span>

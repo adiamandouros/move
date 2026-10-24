@@ -102,7 +102,7 @@ test.describe('at large text', () => {
     test('a bus stop\'s row puts the stop on a line of its own', async ({ page }) => {
         await page.goto('/buses');
         const header = page.locator('.stop-header').first();
-        await expect(header.locator('.arrival-badge')).toBeVisible();
+        await expect(header.locator('.time-badge')).toBeVisible();
         const side = async () => {
             const [label, next] = await Promise.all(['.stop-label', '.stop-next-bus'].map(s => header.locator(s).boundingBox()));
             return next.x >= label.x + label.width - 1 ? 'beside' : next.y >= label.y + label.height - 1 ? 'under' : 'overlapping';
