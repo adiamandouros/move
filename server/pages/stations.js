@@ -6,8 +6,8 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
 import { format, formatDate, localName, walkingUrl } from '../../public/js/core/html.js';
-import { linePill, pillList } from '../../public/js/core/lines.js';
-import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, stopNote } from '../../public/js/core/metro.js';
+import { linePill, pillList, stationSign } from '../../public/js/core/lines.js';
+import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, lineEnd, stopNote } from '../../public/js/core/metro.js';
 import { athensDate } from '../../tools/subway/client/network.js';
 import { sendFresh } from '../http.js';
 import { LANGS, localPath, mergeStrings, stringGetter } from './i18n.js';
@@ -172,7 +172,9 @@ export function stationView(rail, id, lang, s) {
                 const row = t => ({ days: daysText(t.days, s), first: time(t.first), last: time(t.last) });
                 return {
                     headingId: `${lineId}-${dirId}-${n++}`.toLowerCase(),
-                    toward: localName(direction.toward, lang),
+                    // The card's heading: the line, and the sign of where it goes
+                    lineBadge: linePill(lineId, rail.lines[lineId].name, 'l'),
+                    endSign: stationSign(name(lineEnd(rail, lineId, dirId)), [lineId]),
                     previous: link(previous),
                     next: link(next),
                     // Arriving here (not at the first stop): where to ride for the exit and for each connection
@@ -184,7 +186,7 @@ export function stationView(rail, id, lang, s) {
                             const [line, dir] = to.split('/');
                             const target = rail.lines[line]?.directions[dir];
                             if (!target || !where.length) return [];
-                            return [{ line: linePill(line, rail.lines[line].name), toward: localName(target.toward, lang), where: where.map(p => s(`subway.pos.${p}`)).join(', ') }];
+                            return [{ line: linePill(line, rail.lines[line].name), toward: name(lineEnd(rail, line, dir)), where: where.map(p => s(`subway.pos.${p}`)).join(', ') }];
                         }),
                         note: stopNote(stop.note),
                     } : null,
@@ -209,6 +211,8 @@ export function stationView(rail, id, lang, s) {
     return {
         id,
         name: name(id),
+        // The title: the station's sign, as at its entrances
+        sign: stationSign(name(id), station.lines, 'l'),
         crumbs: breadcrumb(rail, id, lang, s),
         lines,
         walking: walkingUrl(lat, lng),

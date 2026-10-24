@@ -51,7 +51,9 @@ test('a direct trip: the line, where it goes, when, where to get off and which p
     const { trip, html } = draw(render, TRIPS['a direct trip']);
     assert.equal(trip.tomorrow, false);
     const text = spoken(html).replace(/\s+/g, ' ');
-    assert.match(text, /M3 toward Doukissis \/ Airport/);
+    // Toward where the line ends, as its signs say (not "Doukissis / Airport"), on the line's sign
+    assert.match(text, /M3 toward Airport/);
+    assert.match(html, /<span class="line-pill pill-l line-m3">M3<\/span>\s*<span class="direction-text"><span aria-hidden="true">→ <\/span><span class="sr-only">toward <\/span><span class="station-sign sign-m sign-top-m3">Airport<\/span><\/span>/);
     assert.match(text, /In\s*\d+ minutes/);
     assert.match(text, /Exit at Airport/);
     assert.equal((html.match(/<h2\b/g) ?? []).length, 1, 'one heading for the one leg');
@@ -111,8 +113,8 @@ test('one train: minutes on screen and in full for screen readers, or a clock ti
 test('the one-sentence summary for screen readers', async () => {
     const render = await browserModule('tools/subway/client/render.js', 'en');
     const summary = trip => { const { plans, now, tomorrow } = draw(render, trip).trip; return render.routeSummary(rail, plans, now, tomorrow); };
-    assert.match(summary(TRIPS['a direct trip']), /^M3 toward Doukissis \/ Airport, in \d+ minutes\. Arrive about \d\d:\d\d, \d+ minutes\.$/);
-    assert.match(summary(TRIPS['tomorrow\'s first trains']), /^No more trains today\. These are tomorrow's first trains\. M3 toward Doukissis \/ Airport, at 0[5-7]:\d\d\. Arrive about 0[6-8]:\d\d, \d+ minutes\.$/);
+    assert.match(summary(TRIPS['a direct trip']), /^M3 toward Airport, in \d+ minutes\. Arrive about \d\d:\d\d, \d+ minutes\.$/);
+    assert.match(summary(TRIPS['tomorrow\'s first trains']), /^No more trains today\. These are tomorrow's first trains\. M3 toward Airport, at 0[5-7]:\d\d\. Arrive about 0[6-8]:\d\d, \d+ minutes\.$/);
     assert.equal(render.routeSummary(rail, [], NOON), String(render.renderResult(rail, [], NOON, {})).replace(/<[^>]+>/g, ''));
 });
 

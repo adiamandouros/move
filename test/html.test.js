@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Html, escapeHtml, externalLink, format, formatDate, formatHtml, html, icon, localName, raw, safeUrl, setHtml, walkingUrl } from '../public/js/core/html.js';
-import { busPlate, linePill, pillList } from '../public/js/core/lines.js';
-import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, exitKind, stopNote, trainDiagram } from '../public/js/core/metro.js';
+import { busPlate, linePill, pillList, stationSign } from '../public/js/core/lines.js';
+import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, exitKind, lineEnd, stopNote, trainDiagram } from '../public/js/core/metro.js';
 
 // Building HTML (public/js/core/html.js): html`` escapes every value put into
 // it, except pieces it built itself; and the small helpers around it
@@ -166,6 +166,20 @@ test('a bus line\'s plate, with words for screen readers when asked', () => {
     assert.equal(String(busPlate('040')), '<span class="bus-plate pill-m">040</span>');
     assert.equal(String(busPlate('X95', 'l', 'Line')), '<span class="bus-plate pill-l"><span class="sr-only">Line </span>X95</span>');
     assert.doesNotMatch(String(busPlate('<b>', 's', '<i>')), /<b>|<i>/);
+});
+
+test('a station\'s sign: its metro lines on its edges, the lower number on top', () => {
+    assert.equal(String(stationSign('Kifisia', ['M1'])), '<span class="station-sign sign-m sign-top-m1">Kifisia</span>');
+    assert.equal(String(stationSign('Σύνταγμα', ['M3', 'M2'], 'l')), '<span class="station-sign sign-l sign-top-m2 sign-bottom-m3">Σύνταγμα</span>');
+    // Tram lines aren't edges; a third line would have no edge left
+    assert.equal(String(stationSign('Syntagma', ['T6', 'M3', 'M2'])), '<span class="station-sign sign-m sign-top-m2 sign-bottom-m3">Syntagma</span>');
+    assert.equal(String(stationSign('Edem', ['T7'])), '<span class="station-sign sign-m">Edem</span>');
+    assert.doesNotMatch(String(stationSign('<b>', ['M1"><b>'])), /<b>/);
+});
+
+test('where a direction of a line ends: its last stop, as the signs say', () => {
+    const rail = { lines: { M3: { directions: { doukissis: { toward: { en: 'Doukissis / Airport' }, stops: [{ station: 'syntagma' }, { station: 'doukissis' }, { station: 'airport' }] } } } } };
+    assert.equal(lineEnd(/** @type {any} */ (rail), 'M3', 'doukissis'), 'airport');
 });
 
 test('several pills: a space between them, and a comma for screen readers', () => {

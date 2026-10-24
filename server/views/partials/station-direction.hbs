@@ -2,7 +2,7 @@
 of stationView): its neighbours, where to ride when arriving here and the
 first and last trains from here --}}
 <div class="card result-card station-direction" role="group" aria-labelledby="{{headingId}}"><div class="card-body">
-    <h3 class="leg-title" id="{{headingId}}"><span aria-hidden="true">→ </span>{{t "stations.toward" name=toward}}</h3>
+    <h3 class="leg-title" id="{{headingId}}">{{lineBadge}} <span class="direction-text"><span aria-hidden="true">→ </span><span class="sr-only">{{t "subway.toward"}} </span>{{endSign}}</span></h3>
     <ul class="list-unstyled small station-neighbours">
 {{#if previous}}
         <li>{{t "stations.previous"}}: <a href="{{previous.href}}">{{previous.name}}</a></li>

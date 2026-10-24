@@ -97,8 +97,18 @@
     --bs-secondary-color-rgb: 154, 163, 178;
     --bs-tertiary-color: #8b95a7;
     --bs-tertiary-color-rgb: 139, 149, 167;
-    /* Dark text, only on the light line colours */
+    /* Dark text, only on the light line colours and station signs */
     --wh-ink: #0f131c;
+
+    /* The lines' colours: their pills, and the edges of station signs
+       (data/curated/'s, which test/accessibility.test.js checks) */
+    --wh-line-m1: #3a833c;
+    --wh-line-m2: #d43333;
+    --wh-line-m3: #0057b8;
+    --wh-line-t6: #b6d433;
+    --wh-line-t7: #b6d433;
+    /* A station sign's panel: off-white, as in the stations, in every theme */
+    --wh-sign: #f4f5f7;
 
     /* Lines between things: borders, and quieter dividers */
     --bs-border-color: #2a3350;
@@ -978,6 +988,48 @@ body {
     font-size: var(--wh-fs-md);
 }
 
+/* Station signs (/js/core/lines.js), as in the stations: an off-white
+   panel, the same in every theme, with the lines' colours on its top and
+   bottom edges. One line where it fits; a name too long for the screen
+   (large text) wraps rather than spill out. The text is centred as in the
+   pills: trimmed to the capitals where browsers can. */
+.station-sign {
+    --sign-trimmed: 0em;
+    display: inline-block;
+    padding: calc(0.08em + var(--sign-trimmed)) 0.45em;
+    border-top: 0.22em solid var(--wh-sign);
+    border-bottom: 0.22em solid var(--wh-sign);
+    border-radius: 0;
+    background-color: var(--wh-sign);
+    color: var(--wh-ink);
+    font-weight: 700;
+    line-height: 1.2;
+    text-wrap: balance;
+    overflow-wrap: anywhere;
+}
+
+@supports (text-box: trim-both cap alphabetic) {
+    .station-sign {
+        --sign-trimmed: 0.2445em;
+        text-box: trim-both cap alphabetic;
+    }
+}
+
+.sign-m {
+    font-size: var(--wh-fs-md);
+}
+
+.sign-l {
+    font-size: var(--wh-fs-2xl);
+}
+
+.sign-top-m1 { border-top-color: var(--wh-line-m1); }
+.sign-top-m2 { border-top-color: var(--wh-line-m2); }
+.sign-top-m3 { border-top-color: var(--wh-line-m3); }
+.sign-bottom-m1 { border-bottom-color: var(--wh-line-m1); }
+.sign-bottom-m2 { border-bottom-color: var(--wh-line-m2); }
+.sign-bottom-m3 { border-bottom-color: var(--wh-line-m3); }
+
 /* Roboto draws a 1 left of the middle of its space: M1's pill moves its
    text right by as much, so it looks centred */
 .line-m1.line-pill {
@@ -1657,16 +1709,16 @@ body {
     margin: var(--wh-space-3) 0 0;
 }
 
-/* Line colours, for pills (linePill in /js/core/lines.js). The metro's are
-   data/curated/lines.json's, with white text (M1's green is darker than
+/* Line colours, for pills (linePill in /js/core/lines.js), from the
+   --wh-line- tokens. The metro's are data/curated/lines.json's, with white text (M1's green is darker than
    STASY's for it, and to tell it from the tram's): the tram's are
    tram.json's, STASY's light green with dark text. test/accessibility.test.js
    checks they're the same, and that the text on each meets WCAG AA. */
-.line-m1 { background-color: #3a833c; color: #fff; }
-.line-m2 { background-color: #d43333; color: #fff; }
-.line-m3 { background-color: #0057b8; color: #fff; }
-.line-t6,
-.line-t7 { background-color: #b6d433; color: var(--wh-ink); }
+.line-m1 { background-color: var(--wh-line-m1); color: #fff; }
+.line-m2 { background-color: var(--wh-line-m2); color: #fff; }
+.line-m3 { background-color: var(--wh-line-m3); color: #fff; }
+.line-t6 { background-color: var(--wh-line-t6); color: var(--wh-ink); }
+.line-t7 { background-color: var(--wh-line-t7); color: var(--wh-ink); }
 
 .info-body ul.announcements,
 .disruption-banner ul {

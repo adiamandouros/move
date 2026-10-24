@@ -153,11 +153,21 @@ The palettes and every contrast number are in the guide.
   that opens its line has blue text.
 - Several pills in a row have a space between them and a comma for screen
   readers (`pillList`).
-- **Station signs** *(step 2, second part)*, like the real ones (a white panel with the line
-  colours on its top and bottom edges), only for the direction of travel:
-  the leg card's header (`[M1] → [Kifisia]`), the station page's direction
-  cards and its heading. In the page's language only, tight, one line. A
-  label, not a link. Change and get-off stations stay plain links.
+- **Station signs** (`stationSign`), like the real ones: an off-white
+  panel, the same in both themes, with the line colours on its top and
+  bottom edges. Only metro lines are edges, the lower number on top
+  (Syntagma: M2 above, M3 below) until the field trip checks the other
+  interchanges. They show the direction of travel: the leg card's header
+  (`[M1] → [Kifisia]`) and the station page's direction cards, both with
+  the large pill; and the station page's title, in the large size.
+- **A direction's sign names where the line ends**, as the real ones do,
+  even when the next train turns back sooner: M3 toward the airport is
+  "Airport", not "Doukissis / Airport" (`lineEnd` in `/js/core/metro.js`).
+  So does "Changing to M3 toward …" and what screen readers hear.
+- In the page's language only, tight, one line where it fits (a name too
+  long for the screen at large text wraps). A label, not a link. Change and
+  get-off stations stay plain links. The name is centred top to bottom like
+  the pills' (side to side it's a word: its letters have their own spaces).
 
 ## Icons
 

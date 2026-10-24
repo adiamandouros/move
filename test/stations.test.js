@@ -80,7 +80,11 @@ test('what a station\'s page shows, as data: lines, neighbours, where to ride, c
     assert.equal(view.name, 'Cross');
     assert.deepEqual(view.lines.map(l => [l.key, l.number, l.directions.map(d => d.headingId)]), [['l1', '1', ['l1-east-0', 'l1-west-1']], ['l2', '2', ['l2-east-2']]]);
     const [east] = view.lines[0].directions;
-    assert.equal(east.toward, 'Beta');
+    // Its heading: the line's large pill, and the sign of where it ends
+    assert.equal(String(east.lineBadge), '<span class="line-pill pill-l line-l1">L1</span>');
+    assert.equal(String(east.endSign), '<span class="station-sign sign-m">Beta</span>');
+    // The page's title: the station's sign (the test network's lines aren't the metro's: no edges)
+    assert.equal(String(view.sign), '<span class="station-sign sign-l">Cross</span>');
     assert.deepEqual([east.previous, east.next], [{ href: '/subway/stations/a', name: 'Alpha' }, { href: '/subway/stations/b', name: 'Beta' }]);
     assert.equal(east.arriving.exitsKnown, true);
     assert.match(String(east.arriving.diagram), /class="train-diagram"/);
@@ -108,7 +112,7 @@ test('what a station\'s page shows, as data: lines, neighbours, where to ride, c
     assert.deepEqual([l2.fromStasy, l2.timesToward, l2.others], [true, 'Gamma', []]);
     assert.deepEqual([east.fromStasy, east.timesToward], [false, 'Beta']);
     // In Greek, and where the times come from: STASY for L2, the timetable for L1
-    assert.equal(stationView(rail, 'x', 'el', key => key).lines[0].directions[0].toward, 'Βήτα');
+    assert.equal(String(stationView(rail, 'x', 'el', key => key).lines[0].directions[0].endSign), '<span class="station-sign sign-m">Βήτα</span>');
     assert.deepEqual(view.timetable, { stasy: '01/10/2026', gtfs: { old: false, date: '31/12/2099' } });
     assert.deepEqual(stationView(rail, 'a', 'en', key => key).timetable, { stasy: null, gtfs: { old: false, date: '31/12/2099' } });
     assert.equal(view.walking, 'https://www.google.com/maps/dir/?api=1&destination=38,23.7&travelmode=walking');
@@ -221,11 +225,11 @@ test('a station page shows lines, neighbours, where to ride, connections and tim
     assert.match(html, /<a href="\/el\/subway\/stations\/x" hreflang="el"/);
     const t = text(html);
     for (const expected of [
-        'Toward Beta', 'Previous stop: Alpha', 'Next stop: Beta',
+        'L1 → toward Beta', 'Previous stop: Alpha', 'Next stop: Beta',
         'Changing to L2 toward Gamma: ride in the Near Front of the train.',
         'Unreliable data',
         'Mon–Fri 05:32 00:32', 'Sat, Sun 06:02 01:02',
-        'Toward Gamma', 'Sat 05:00 All night', 'Sun All night 00:00',
+        'L2 → toward Gamma', 'Sat 05:00 All night', 'Sun All night 00:00',
         // L2's times are STASY's, L1's the timetable's
         'First and last trains from STASY\'s timetable, as of 01/10/2026.',
         'From OASA\'s timetable, valid until 31/12/2099. Times are approximate.',
@@ -258,7 +262,7 @@ test('the Greek page is in Greek, with Greek links', async () => {
     assert.match(html, /<title>Σταθμός μετρό Κόμβος — Wayhop<\/title>/);
     assert.match(html, /<html lang="el"/);
     const t = text(html);
-    assert.ok(t.includes('Προς Βήτα') && t.includes('Δευ–Παρ') && t.includes('Όλη τη νύχτα'), t);
+    assert.ok(t.includes('L1 → προς Βήτα') && t.includes('Δευ–Παρ') && t.includes('Όλη τη νύχτα'), t);
     assert.match(html, /href="\/el\/subway\/stations\/a">Άλφα</);
     assert.match(html, /href="\/el\/subway\?from=x"/);
     assert.match(html, /href="\/el\/subway\/stations"/);
@@ -302,7 +306,7 @@ test('the pages follow a rebuilt rail.json without a restart', async () => {
     renamed.stations.x.name.en = 'Crossing';
     writeFileSync(railFile, JSON.stringify(renamed));
     utimesSync(railFile, new Date(), new Date(Date.now() + 5000));
-    assert.match((await get('/subway/stations/x')).html, /<h1[^>]*>Crossing<\/h1>/);
+    assert.match((await get('/subway/stations/x')).html, /<h1[^>]*><span class="station-sign sign-l">Crossing<\/span><\/h1>/);
     writeFileSync(railFile, JSON.stringify(rail));
     utimesSync(railFile, new Date(), new Date(Date.now() + 10_000));
 });
@@ -317,7 +321,7 @@ test('a station page is a page like the others: title and description with its v
     assert.deepEqual(page.values('el'), { name: 'Κόμβος', lines: 'L1, L2' });
     assert.equal(page.structuredData('en', key => key)['@graph'][0].name, 'Cross');
     // Its strings: its own and the subway page's
-    assert.ok(page.strings.en['stations.toward'] && page.strings.el['subway.doors-left']);
+    assert.ok(page.strings.en['stations.next'] && page.strings.el['subway.doors-left']);
     const index = stationPage(rail, null, { tools });
     assert.deepEqual([index.path, index.title, index.values], ['/subway/stations', 'stations.title', undefined]);
 });
@@ -333,7 +337,7 @@ test('a page\'s own strings go to the browser only when it has scripts of its ow
     const { pages, renderPage } = renderPages(tools);
     const sent = html => JSON.parse(html.match(/<script type="application\/json" id="strings">(.*?)<\/script>/)[1]);
     const station = sent(renderPage(stationPage(rail, 'x', { tools }), 'en'));
-    assert.equal(station['stations.toward'], undefined);
+    assert.equal(station['stations.next'], undefined);
     assert.equal(station['shell.new-tab'], '(opens in a new tab)');
     assert.equal(sent(pages['/subway'])['subway.doors-left'], tools.find(t => t.id === 'subway').strings.en['subway.doors-left']);
 });

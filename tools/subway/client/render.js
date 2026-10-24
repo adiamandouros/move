@@ -1,7 +1,7 @@
 import { language, localHref, t } from '/js/core/i18n.js';
 import { format, formatDate, html, icon, localName, walkingUrl as walkingTo } from '/js/core/html.js';
-import { linePill } from '/js/core/lines.js';
-import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, stopNote } from '/js/core/metro.js';
+import { linePill, stationSign } from '/js/core/lines.js';
+import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, lineEnd, stopNote } from '/js/core/metro.js';
 import { legPositions, tripTime } from './network.js';
 
 // What the subway page draws, with html`` (every value escaped)
@@ -60,8 +60,8 @@ export function stopCount(leg) {
 // The stops it always says, on the right: "12 min · 3 stops"
 function legCard(rail, leg, next, now, level, tomorrow, changes) {
     const line = rail.lines[leg.line];
-    const direction = line.directions[leg.dir];
-    const toward = localName(direction.toward, language);
+    // Where the line goes, as the station's signs say
+    const toward = stationName(rail, lineEnd(rail, leg.line, leg.dir));
     const where = legPositions(rail, leg, next);
     const { stop } = where;
     const first = leg.departures[0];
@@ -78,7 +78,7 @@ function legCard(rail, leg, next, now, level, tomorrow, changes) {
             <div class="result-header d-flex align-items-center gap-2 mb-2">
                 <${heading} class="leg-title">
                     ${linePill(leg.line, line.name, 'l')}
-                    <span class="direction-text"><span aria-hidden="true">→ </span><span class="sr-only">${t('subway.toward')} </span>${toward}</span>
+                    <span class="direction-text"><span aria-hidden="true">→ </span><span class="sr-only">${t('subway.toward')} </span>${stationSign(toward, [leg.line])}</span>
                 </${heading}>
                 <div class="schedule-section ms-auto">${departureChips(leg.departures, now, tomorrow)}</div>
             </div>
@@ -178,7 +178,7 @@ export function routeSummary(rail, plans, now, tomorrow = false) {
     if (!plans.length) return t('subway.no-route');
     const leg = plans[0].legs[0];
     const line = rail.lines[leg.line];
-    const toward = localName(line.directions[leg.dir].toward, language);
+    const toward = stationName(rail, lineEnd(rail, leg.line, leg.dir));
     const first = leg.departures[0];
     const when = !first ? ''
         : asClock(leg.departures, now, tomorrow) ? `, ${t('subway.schedule-at').toLowerCase()} ${clockTime(first.departs)}`

@@ -170,9 +170,18 @@ const ALL_LINES = () => ({ ...curatedLines('lines'), ...curatedLines('tram').lin
 test('every line\'s colour in style.css is its colour in lines.json or tram.json', () => {
     const lines = ALL_LINES();
     for (const [id, line] of Object.entries(lines)) {
-        assert.equal(LINE_COLOURS[id.toLowerCase()]?.background?.toLowerCase(), line.color.toLowerCase(), `.line-${id.toLowerCase()} in style.css`);
+        assert.equal(resolve(LINE_COLOURS[id.toLowerCase()]?.background ?? ''), line.color.toLowerCase(), `.line-${id.toLowerCase()} in style.css`);
     }
     assert.ok(lines.T6 && lines.T7, 'and the tram');
+});
+
+test('a station sign\'s name is readable on its panel, and the panel stands out on the page', () => {
+    const ratio = contrast(resolve('var(--wh-ink)'), resolve('var(--wh-sign)'));
+    assert.ok(ratio >= 4.5, `--wh-ink on --wh-sign is ${ratio.toFixed(2)}:1`);
+    for (const surface of ['--bs-body-bg', '--bs-tertiary-bg']) {
+        const edge = contrast(resolve('var(--wh-sign)'), resolve(`var(${surface})`));
+        assert.ok(edge >= 3, `--wh-sign on ${surface} is ${edge.toFixed(2)}:1`);
+    }
 });
 
 test('the tram lines\' badges have dark text', () => {
