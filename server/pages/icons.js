@@ -35,9 +35,12 @@ export const MEANINGS = {
     'get-off': { symbol: 'door_open' },
     'doors-left': { symbol: 'door_sliding' },
     night: { symbol: 'bedtime' },
-    // In the train diagram, alone in a carriage: the way out (its kind isn't
-    // recorded yet, so not stairs or a lift), and a lift
+    // In the train diagram, alone in a carriage: how it leads off the
+    // platform (an escalator up, stairs, or, not recorded yet, an arrow:
+    // the way out), and a lift
     exit: { symbol: 'arrow_upward', filled: true },
+    escalator: { symbol: 'escalator', filled: true },
+    stairs: { symbol: 'stairs', filled: true },
     lift: { symbol: 'elevator', filled: true },
     // Info's sections
     announcements: { symbol: 'campaign' },

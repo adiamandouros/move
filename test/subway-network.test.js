@@ -21,7 +21,7 @@ const rail = {
                 east: {
                     stops: [
                         { station: 'a', exits: ['front'] },
-                        { station: 'x', exits: ['back'], elevators: ['center'], transfers: { 'L2/east': ['center-front'] } },
+                        { station: 'x', exits: ['back'], elevators: ['center'], escalators: ['back'], transfers: { 'L2/east': ['center-front'] } },
                         { station: 'b', exits: ['center'] },
                     ],
                     timetable: {
@@ -180,6 +180,9 @@ test('legPositions uses transfer positions at interchanges', () => {
     assert.deepEqual(legPositions(rail, first, second).exits, ['center-front']);
     assert.deepEqual(legPositions(rail, first, null).exits, ['back']);
     assert.deepEqual(legPositions(rail, first, second).elevators, ['center']);
+    // The escalators are the exit's: not shown for the change
+    assert.deepEqual(legPositions(rail, first, null).escalators, ['back']);
+    assert.deepEqual(legPositions(rail, first, second).escalators, []);
 });
 
 test('athensNow converts to Athens time and the expiry check uses Athens dates', () => {

@@ -4,7 +4,7 @@ import { stasyNameKey } from './stasy.js';
 /** @type {import('../../types/data.js').Position[]} */
 export const POSITIONS = ['back', 'center-back', 'center', 'center-front', 'front'];
 
-const POSITION_KEYS = new Set(['exits', 'elevators', 'centralPlatform', 'transfers', 'note']);
+const POSITION_KEYS = new Set(['exits', 'elevators', 'escalators', 'stairs', 'centralPlatform', 'transfers', 'note']);
 
 // Check the hand-maintained files in data/curated for mistakes. Returns
 // { errors, warnings }; any error fails the build. Kept independent of the
@@ -63,7 +63,7 @@ export function validateCurated({ stations, lines, positions, airport, tram }) {
                 if (!stationIds.has(stationId)) { errors.push(`${where}: unknown station`); continue; }
                 for (const key of Object.keys(p)) if (!POSITION_KEYS.has(key)) errors.push(`${where}: unknown field "${key}"`);
                 checkPositions(`${where}.exits`, p.exits ?? []);
-                if (p.elevators) checkPositions(`${where}.elevators`, p.elevators);
+                for (const key of ['elevators', 'escalators', 'stairs']) if (p[key]) checkPositions(`${where}.${key}`, p[key]);
                 if (p.note !== undefined && typeof p.note !== 'string') errors.push(`${where}.note must be text`);
                 if (p.centralPlatform !== undefined && typeof p.centralPlatform !== 'boolean') errors.push(`${where}.centralPlatform must be true or false`);
                 for (const [ref, list] of Object.entries(p.transfers ?? {})) {

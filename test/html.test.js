@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Html, escapeHtml, externalLink, format, formatDate, formatHtml, html, icon, localName, raw, safeUrl, setHtml, walkingUrl } from '../public/js/core/html.js';
 import { busPlate, linePill, pillList } from '../public/js/core/lines.js';
-import { centralPlatformBadge, clockTime, exitDiagram, stopNote } from '../public/js/core/metro.js';
+import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, exitKind, stopNote, trainDiagram } from '../public/js/core/metro.js';
 
 // Building HTML (public/js/core/html.js): html`` escapes every value put into
 // it, except pieces it built itself; and the small helpers around it
@@ -101,11 +101,11 @@ test('icon() is built with html``, so its classes are escaped', () => {
 test('where to ride: the train diagram, or a note when the stop\'s exits aren\'t known', () => {
     const s = key => key;
     const positions = ['back', 'center', 'front'];
-    const diagram = String(exitDiagram(positions, ['back'], [], s));
+    const diagram = String(exitDiagram(positions, { exits: ['back'] }, s));
     assert.match(diagram, /class="train-diagram"/);
     // No BACK / FRONT at the train's ends: the labels under the cars say it
     assert.doesNotMatch(diagram, /train-label|subway\.train-/);
-    assert.equal(String(exitDiagram(positions, [], [], s)), '<p class="text-body-secondary fst-italic small">subway.no-position-data</p>');
+    assert.equal(String(exitDiagram(positions, { exits: [] }, s)), '<p class="text-body-secondary fst-italic small">subway.no-position-data</p>');
 });
 
 // For when the labels don't fit under the cars (style.css shows one or the other)
@@ -113,9 +113,37 @@ test('the train diagram says where to ride in words too', () => {
     const s = key => key;
     const positions = ['back', 'center', 'front'];
     const words = diagram => String(diagram).match(/<p class="position-words">([^]*?)<\/p>/)[1].replace(/\s+/g, ' ').trim();
-    assert.equal(words(exitDiagram(positions, ['back', 'front'], ['center'], s)),
+    assert.equal(words(exitDiagram(positions, { exits: ['back', 'front'], elevators: ['center'] }, s)),
         '<span class="highlighted">subway.ride-in subway.pos.back, subway.pos.front</span> <span class="has-elevator">subway.elevator-in subway.pos.center</span>');
-    assert.equal(words(exitDiagram(positions, ['center'], [], s)), '<span class="highlighted">subway.ride-in subway.pos.center</span>');
+    assert.equal(words(exitDiagram(positions, { exits: ['center'] }, s)), '<span class="highlighted">subway.ride-in subway.pos.center</span>');
+    // With how the exit is reached, when that's recorded
+    assert.equal(words(exitDiagram(positions, { exits: ['back', 'front'], escalators: ['back'], stairs: ['front'] }, s)),
+        '<span class="highlighted">subway.ride-in subway.pos.back (subway.escalator), subway.pos.front (subway.stairs)</span>');
+});
+
+test('each car to ride in shows how it leads off the platform: escalator, stairs, or (not recorded) an arrow', () => {
+    const s = key => key;
+    const positions = ['back', 'center', 'front'];
+    const where = { exits: ['back', 'center', 'front'], escalators: ['back', 'center'], stairs: ['center', 'front'], elevators: ['front'] };
+    assert.deepEqual(positions.map(p => exitKind(where, p)), ['escalator', 'escalator', 'stairs']);
+    assert.equal(exitKind({ exits: ['back'] }, 'back'), 'exit');
+    const diagram = String(trainDiagram(positions, where, s));
+    const cars = [...diagram.matchAll(/<div class="train-car[^"]*">([^]*?)<\/div>/g)].map(m => [...m[1].matchAll(/#([a-z-]+)"/g)].map(n => n[1]));
+    assert.deepEqual(cars, [['escalator'], ['escalator'], ['stairs', 'lift']]);
+    assert.match(diagram, /aria-label="subway\.diagram-label subway\.pos\.back \(subway\.escalator\), subway\.pos\.center \(subway\.escalator\), subway\.pos\.front \(subway\.stairs\), subway\.pos\.front \(subway\.elevator\)"/);
+    assert.deepEqual(diagramSymbols(where), ['escalator', 'stairs', 'lift']);
+    assert.deepEqual(diagramSymbols({ exits: ['back'] }), ['exit']);
+});
+
+test('the legend: what the trains show, in words, open, only for the symbols there', () => {
+    const s = key => key;
+    const legend = String(diagramLegend(['exit', 'lift'], s));
+    assert.match(legend, /^<details class="diagram-legend" open>\s*<summary>subway\.legend<\/summary>/);
+    const lines = [...legend.matchAll(/<li>([^]*?)<\/li>/g)].map(m => m[1]);
+    assert.deepEqual(lines.map(line => line.replace(/<[^>]+>/g, '')), ['subway.legend-ride', 'subway.legend-exit', 'subway.legend-lift']);
+    // The small cars are decoration: the words say it
+    for (const line of lines) assert.match(line, /^<span class="legend-car train-car[^"]*" aria-hidden="true">/);
+    assert.doesNotMatch(String(diagramLegend(['escalator'], s)), /legend-exit|legend-lift|legend-stairs/);
 });
 
 test('the central platform badge and a stop\'s note', () => {

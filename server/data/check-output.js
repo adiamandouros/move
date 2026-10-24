@@ -86,7 +86,7 @@ function checkRail(rail) {
             if (stops.length < 2) problems.push(`${where}: fewer than two stops`);
             stops.forEach((stop, i) => {
                 if (!stations[stop.station]) problems.push(`${where}: unknown station ${stop.station}`);
-                for (const p of [...(stop.exits ?? []), ...(stop.elevators ?? [])]) if (!POSITIONS.includes(p)) problems.push(`${where}: ${stop.station} has an unknown position ${p}`);
+                for (const p of [...(stop.exits ?? []), ...(stop.elevators ?? []), ...(stop.escalators ?? []), ...(stop.stairs ?? [])]) if (!POSITIONS.includes(p)) problems.push(`${where}: ${stop.station} has an unknown position ${p}`);
                 if (stop.hours !== undefined) checkHours(`${where}/${stop.station}`, stop.hours, stops.slice(i + 1).map(s => s.station), problems);
             });
             checkTimetable(where, dir.timetable, stops.length, problems);

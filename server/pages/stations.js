@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 import { format, formatDate, localName, walkingUrl } from '../../public/js/core/html.js';
 import { linePill, pillList } from '../../public/js/core/lines.js';
-import { centralPlatformBadge, clockTime, exitDiagram, stopNote } from '../../public/js/core/metro.js';
+import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, stopNote } from '../../public/js/core/metro.js';
 import { athensDate } from '../../tools/subway/client/network.js';
 import { sendFresh } from '../http.js';
 import { LANGS, localPath, mergeStrings, stringGetter } from './i18n.js';
@@ -178,7 +178,7 @@ export function stationView(rail, id, lang, s) {
                     // Arriving here (not at the first stop): where to ride for the exit and for each connection
                     arriving: previous ? {
                         exitsKnown: stop.exits.length > 0,
-                        diagram: exitDiagram(rail.positions, stop.exits, stop.elevators ?? [], s),
+                        diagram: exitDiagram(rail.positions, stop, s),
                         centralPlatform: stop.centralPlatform ? centralPlatformBadge(s) : null,
                         transfers: Object.entries(stop.transfers ?? {}).flatMap(([to, where]) => {
                             const [line, dir] = to.split('/');
@@ -202,12 +202,17 @@ export function stationView(rail, id, lang, s) {
     }));
     const [lat, lng] = station.coords;
     const directions = lines.flatMap(line => line.directions).filter(d => d.times.length);
+    // What the trains on the page show, in words, under them
+    const symbols = [...new Set(station.lines.flatMap(lineId => Object.values(rail.lines[lineId].directions))
+        .flatMap(direction => direction.stops.filter((stop, i) => i > 0 && stop.station === id && stop.exits.length))
+        .flatMap(diagramSymbols))];
     return {
         id,
         name: name(id),
         crumbs: breadcrumb(rail, id, lang, s),
         lines,
         walking: walkingUrl(lat, lng),
+        legend: symbols.length ? diagramLegend(symbols, s) : null,
         // Where the first and last trains come from: STASY's copy, the timetable, or both
         timetable: {
             stasy: rail.hours && directions.some(d => d.fromStasy) ? formatDate(rail.hours.fetched) : null,
