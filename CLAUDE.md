@@ -1,7 +1,8 @@
 # Working on Wayhop
 
 Start with [ARCHITECTURE.md](ARCHITECTURE.md) (how the code fits together)
-and [README.md](README.md) (running it).
+and [README.md](README.md) (running it). Anything visual follows
+[DESIGN.md](DESIGN.md).
 
 ## Tests come with every change
 

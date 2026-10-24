@@ -137,6 +137,16 @@ test('every text colour in style.css meets WCAG AA (4.5:1) on every surface', ()
     }
 });
 
+// Controls sit on the page and on cards, never on raised parts (chips, pills)
+test('the edge of a control stands out where controls sit (3:1, WCAG 1.4.11)', () => {
+    const edge = resolve('var(--wh-control-edge)');
+    assert.ok(edge, '--wh-control-edge is a colour');
+    for (const surface of ['--bs-body-bg', '--bs-tertiary-bg']) {
+        const ratio = contrast(edge, resolve(`var(${surface})`));
+        assert.ok(ratio >= 3, `--wh-control-edge on ${surface} is ${ratio.toFixed(2)}:1`);
+    }
+});
+
 // The line colours in style.css (.line-m1 { background-color; color }), by line
 const LINE_COLOURS = (() => {
     const rules = {};
