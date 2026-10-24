@@ -146,7 +146,7 @@ test('a central platform\'s «Doors open on the left» sits on its own line, cen
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto('/subway?from=syntagma&to=airport');
     const card = page.locator('.result-card').first();
-    const badge = card.locator('.central-platform-badge');
+    const badge = card.locator('.tag');
     await expect(badge).toHaveText('Doors open on the left');
     const [action, doors] = await Promise.all([card.locator('.leg-action'), badge].map(l => l.boundingBox()));
     expect(doors.y).toBeGreaterThanOrEqual(action.y + action.height);

@@ -99,7 +99,7 @@ test('what a station\'s page shows, as data: lines, neighbours, where to ride, c
     assert.match(String(east.arriving.note), /class="stop-note[^"]*">.*Unreliable data<\/div>$/);
     assert.equal(view.lines[0].directions[1].arriving.note, null);
     // Arriving at b on L1: a central platform
-    assert.match(String(stationView(rail, 'b', 'en', key => key).lines[0].directions[0].arriving.centralPlatform), /class="central-platform-badge">.*subway\.doors-left/);
+    assert.match(String(stationView(rail, 'b', 'en', key => key).lines[0].directions[0].arriving.centralPlatform), /class="tag">.*subway\.doors-left/);
     assert.deepEqual(east.times, [
         { days: 'stations.day.1–stations.day.5', first: '05:32', last: '00:32' },
         { days: 'stations.day.6, stations.day.0', first: '06:02', last: '01:02' },

@@ -110,5 +110,12 @@ test.describe('at large text', () => {
         expect(await side()).toBe('beside');
         await big(page);
         await expect.poll(side).toBe('under');
+        // the stop's band runs the row's whole width, and the time and directions sit inside the row
+        const [row, label, time, directions] = await Promise.all(['.stop-header', '.stop-label', '.time-badge', '.directions-btn'].map(s => header.locator(s === '.stop-header' ? ':scope' : s).first().boundingBox()));
+        expect(label.width).toBeGreaterThanOrEqual(row.width - 2);
+        for (const box of [time, directions]) {
+            expect(box.x + box.width).toBeLessThanOrEqual(row.x + row.width + 1);
+            expect(box.y).toBeGreaterThanOrEqual(label.y + label.height - 1);
+        }
     });
 });

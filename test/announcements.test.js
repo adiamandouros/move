@@ -276,8 +276,8 @@ test('on the English pages, a STASY announcement carries an "Only available in G
     const { item } = await browserModule('public/js/core/announcements.js', 'en');
     const date = '2026-10-20T10:00:00.000Z';
     const greek = String(item({ title: 'Κλειστός σταθμός', link: 'https://www.stasy.gr/a/', date }, true));
-    assert.match(greek, /<span class="in-greek-badge"><svg [^]*<\/svg>Only available in Greek<\/span>/);
-    assert.doesNotMatch(String(item({ title: 'Closed', link: 'https://www.oasa.gr/a/', date }, false)), /in-greek-badge/);
+    assert.match(greek, /<span class="tag ms-1"><svg [^]*<\/svg>Only available in Greek<\/span>/);
+    assert.doesNotMatch(String(item({ title: 'Closed', link: 'https://www.oasa.gr/a/', date }, false)), /class="tag/);
 });
 
 test('the disruption box: the banner, "none" once every source the page reads answered, else nothing', async () => {

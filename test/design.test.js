@@ -85,3 +85,27 @@ test('notices: four tones, and no other box of their own', () => {
     const old = DECLARATIONS.filter(d => /(^|[ ,.])(subway-message|tomorrow-notice|timetable-notice|disruption-banner|no-disruptions)\b/.test(d.selector) && /^(border|padding)(-radius)?$|^border/.test(d.property));
     assert.deepEqual(old.map(where), []);
 });
+
+// Small capitals: one style, in one rule
+test('small capitals: one rule, xs, 700, 0.06em', () => {
+    const caps = DECLARATIONS.filter(d => d.property === 'text-transform' && d.value === 'uppercase');
+    assert.equal(caps.length, 1, caps.map(where).join('; '));
+    const style = DECLARATIONS.filter(d => d.selector === caps[0].selector).map(d => `${d.property}: ${d.value}`);
+    assert.deepEqual(style.filter(s => /^(font-size|font-weight|letter-spacing)/.test(s)), ['font-size: var(--wh-fs-xs)', 'font-weight: 700', 'letter-spacing: 0.06em']);
+});
+
+// Tags: one component, a pill with a control edge, in place of the two badges it replaced
+test('tags: one component, and no badge of their own', () => {
+    const tag = DECLARATIONS.filter(d => d.selector === '.tag');
+    assert.equal(tag.find(d => d.property === 'border').value, '1px solid var(--wh-control-edge)');
+    assert.equal(tag.find(d => d.property === 'border-radius').value, 'var(--wh-radius-round)');
+    assert.deepEqual(DECLARATIONS.filter(d => /central-platform-badge|in-greek-badge/.test(d.selector)).map(where), []);
+});
+
+// List rows: every divider between rows is the divider colour
+test('list rows: one divider', () => {
+    const rows = DECLARATIONS.filter(d => /\.(stop-item|arrival-row)$/.test(d.selector) && d.property === 'border-bottom' && d.value !== 'none');
+    assert.equal(rows.length, 2);
+    for (const row of rows) assert.equal(row.value, '1px solid var(--wh-divider)', where(row));
+    assert.equal(DECLARATIONS.find(d => d.selector === '.search-list' && d.property === '--bs-list-group-border-color').value, 'var(--wh-divider)');
+});

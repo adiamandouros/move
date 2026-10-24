@@ -103,7 +103,7 @@ export function diagramLegend(symbols, s) {
 // The badge for a central platform (the doors open on the left). cls: where it sits.
 /** @param {(key: string) => string} s @param {string} [cls] */
 export function centralPlatformBadge(s, cls = '') {
-    return html`<span class="central-platform-badge${cls ? ` ${cls}` : ''}">${icon('doors-left', 'me-1')}${s('subway.doors-left')}</span>`;
+    return html`<span class="tag${cls ? ` ${cls}` : ''}">${icon('doors-left', 'me-1')}${s('subway.doors-left')}</span>`;
 }
 
 // A stop's note ("Unreliable data", "No data yet!"), or nothing

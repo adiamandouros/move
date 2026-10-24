@@ -31,7 +31,7 @@ export function item({ title, link, date }, greek) {
     const url = safeUrl(link);
     return html`<li class="announcement">
         ${url ? externalLink({ href: url }, text, t('shell.new-tab')) : text}
-        <span class="announcement-meta">${formatDate(date)}${greek && html` <span class="in-greek-badge">${icon('in-greek', 'me-1')}${t('announcements.in-greek')}</span>`}</span>
+        <span class="announcement-meta">${formatDate(date)}${greek && html` <span class="tag ms-1">${icon('in-greek', 'me-1')}${t('announcements.in-greek')}</span>`}</span>
     </li>`;
 }
 
