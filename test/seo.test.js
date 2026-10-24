@@ -39,9 +39,9 @@ test('the about, privacy and contact pages are written in each language and link
         assert.match(pages[`/${name}`], /<html lang="en"/);
         assert.match(pages[`/el/${name}`], /<html lang="el"/);
     }
-    assert.match(pages['/privacy'], /<h1>Privacy<\/h1>[\s\S]*Last updated: 23 October 2026/);
+    assert.match(pages['/privacy'], /<h1>Privacy<\/h1>[\s\S]*Last updated: 24 October 2026/);
     assert.match(pages['/privacy'], /The last three metro stations you picked/);
-    assert.match(pages['/el/privacy'], /<h1>Απόρρητο<\/h1>[\s\S]*Τελευταία ενημέρωση: 23 Οκτωβρίου 2026/);
+    assert.match(pages['/el/privacy'], /<h1>Απόρρητο<\/h1>[\s\S]*Τελευταία ενημέρωση: 24 Οκτωβρίου 2026/);
     assert.match(pages['/el/privacy'], /Οι τρεις τελευταίοι σταθμοί μετρό που επιλέξατε/);
     // No hosting details: who hosts the site and where is nothing a visitor needs
     for (const name of ['about', 'privacy', 'contact']) {
@@ -160,7 +160,7 @@ test('every page links to itself in the other language: sidebar, menu and a sugg
     // The bottom bar (phones) starts with the home page, highlighted there
     const bottom = html => html.match(/<nav id="bottom-nav"[\s\S]*?<\/nav>/)[0];
     assert.match(bottom(pages['/']), /^<nav[^>]*>\s*<a href="\/" class="nav-btn [^"]*active" aria-current="page"><img src="\/icon\/logo\.svg" alt=""/);
-    assert.match(bottom(pages['/el/subway']), /<a href="\/el" class="nav-btn [^"]*py-2"><img src="\/icon\/logo\.svg" alt="" width="33" height="24" class="nav-logo"><span class="nav-label">Αρχική</);
+    assert.match(bottom(pages['/el/subway']), /<a href="\/el" class="nav-btn [^"]*py-2"><img src="\/icon\/logo\.svg" alt="" width="33" height="24" class="logo-on-dark nav-logo"><img src="\/icon\/logo-light\.svg" alt="" width="33" height="24" class="logo-on-light nav-logo"><span class="nav-label">Αρχική</);
     assert.doesNotMatch(bottom(pages['/subway']), /hreflang/);
     // The current tab's icon is filled, the others outline (DESIGN.md)
     assert.match(bottom(pages['/subway']), /aria-current="page"><svg class="icon icon-nav"[^>]*><use href="[^"]*#metro-filled">/);

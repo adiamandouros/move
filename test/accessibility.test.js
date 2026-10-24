@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
+import { BAR_COLOURS } from '../public/js/core/theme.js';
 import { loadConfig } from '../server/config.js';
 import { renderPages } from '../server/pages/index.js';
 import { mergeStrings } from '../server/pages/i18n.js';
@@ -91,25 +92,28 @@ const contrast = (a, b) => {
     return (hi + 0.05) / (lo + 0.05);
 };
 
-// The colours of the dark mode: Bootstrap's own, then style.css's (which
-// sets Bootstrap's variables and adds Wayhop's --wh- ones)
+// The colours of each colour mode: Bootstrap's own, then style.css's (which
+// sets Bootstrap's variables and adds Wayhop's --wh- ones), as the page gets
+// them from <html data-bs-theme>
+const MODES = ['dark', 'light'];
 const STYLE = readFileSync(new URL('../public/css/style.css', import.meta.url), 'utf8');
-const TOKENS = (() => {
-    const bootstrap = readFileSync(new URL('../node_modules/bootstrap/dist/css/bootstrap.css', import.meta.url), 'utf8');
-    // The rules for :root and for the dark mode, in order
+const BOOTSTRAP = readFileSync(new URL('../node_modules/bootstrap/dist/css/bootstrap.css', import.meta.url), 'utf8');
+const tokensOf = mode => {
+    // The rules for :root and for the mode, in order
     const blocks = css => [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-        .filter(([, selector]) => selector.split(';').pop().split(',').some(sel => /^(:root|\[data-bs-theme="?dark"?\])$/.test(sel.trim())))
+        .filter(([, selector]) => selector.split(';').pop().split(',').some(sel => sel.trim() === ':root' || sel.trim().replace(/"/g, '') === `[data-bs-theme=${mode}]`))
         .map(m => m[2]);
     const tokens = {};
-    for (const block of [...blocks(bootstrap), ...blocks(STYLE)]) {
+    for (const block of [...blocks(BOOTSTRAP), ...blocks(STYLE)]) {
         for (const [, name, value] of block.matchAll(/(--[\w-]+):\s*([^;]+);/g)) tokens[name] = value.trim();
     }
     return tokens;
-})();
-// A colour as #rrggbb: written out, or a var(--name) of one
-function resolve(value) {
+};
+const TOKENS = Object.fromEntries(MODES.map(mode => [mode, tokensOf(mode)]));
+// A colour as #rrggbb: written out, or a var(--name) of one, in a colour mode
+function resolve(value, mode) {
     const name = value.match(/^var\((--[\w-]+)\)$/)?.[1];
-    const colour = name ? TOKENS[name] : value;
+    const colour = name ? TOKENS[mode][name] : value;
     return /^#[0-9a-f]{3,6}$/i.test(colour ?? '') ? colour.toLowerCase() : null;
 }
 
@@ -119,38 +123,112 @@ const SURFACES = ['--bs-body-bg', '--wh-map-bg', '--bs-tertiary-bg', '--bs-secon
 // Text colours that are allowed below 4.5:1 on those surfaces, and why
 const EXCEPTIONS = {
     'var(--wh-ink)': 'dark text, only used on the light line colours (checked below)',
+    '#fff': 'white text, only used on the metro lines\' colours (checked below) and the due time (checked below)',
+    'var(--wh-on-close)': 'the text on the due time\'s solid green (checked below)',
+    'var(--wh-brand-dot)': 'the dot in the wordmark, decoration hidden from screen readers',
     'var(--bs-border-color)': 'the decorative "/" between EN and ΕΛ, hidden from screen readers',
 };
 
-test('the dark mode\'s colours are all known', () => {
-    for (const name of SURFACES) assert.ok(resolve(`var(${name})`), `${name} isn't a colour`);
-});
+const hexOf = (name, mode) => resolve(`var(${name})`, mode);
+// The maps are black in both, but only the dark mode's own text colours ever meet them
+const surfacesOf = mode => mode === 'dark' ? SURFACES : SURFACES.filter(name => name !== '--wh-map-bg');
 
-test('every text colour in style.css meets WCAG AA (4.5:1) on every surface', () => {
-    const colours = new Set([...STYLE.matchAll(/(?<![-\w])color:\s*([^;!]+?)\s*(?:!important)?;/gi)].map(m => m[1]));
-    colours.delete('inherit');
-    colours.delete('transparent');
-    assert.ok(colours.size >= 10, 'found the text colours');
-    for (const colour of colours) {
-        if (EXCEPTIONS[colour]) continue;
-        const hex = resolve(colour);
-        assert.ok(hex, `${colour} isn't a colour or a variable of one`);
-        for (const surface of SURFACES) {
-            const ratio = contrast(hex, resolve(`var(${surface})`));
-            assert.ok(ratio >= 4.5, `${colour} (${hex}) on ${surface} is ${ratio.toFixed(2)}:1`);
+for (const mode of MODES) {
+    test(`${mode} mode: the colours are all known`, () => {
+        for (const name of SURFACES) assert.ok(hexOf(name, mode), `${name} isn't a colour`);
+    });
+
+    test(`${mode} mode: every text colour in style.css meets WCAG AA (4.5:1) on every surface`, () => {
+        const colours = new Set([...STYLE.matchAll(/(?<![-\w])color:\s*([^;!]+?)\s*(?:!important)?;/gi)].map(m => m[1]));
+        colours.delete('inherit');
+        colours.delete('transparent');
+        colours.delete('CanvasText');
+        assert.ok(colours.size >= 10, 'found the text colours');
+        for (const colour of colours) {
+            if (EXCEPTIONS[colour]) continue;
+            const hex = resolve(colour, mode);
+            assert.ok(hex, `${colour} isn't a colour or a variable of one`);
+            for (const surface of surfacesOf(mode)) {
+                const ratio = contrast(hex, hexOf(surface, mode));
+                assert.ok(ratio >= 4.5, `${colour} (${hex}) on ${surface} is ${ratio.toFixed(2)}:1`);
+            }
         }
-    }
-});
+    });
 
-// Controls sit on the page and on cards, never on raised parts (chips, pills)
-test('the edge of a control stands out where controls sit (3:1, WCAG 1.4.11)', () => {
-    const edge = resolve('var(--wh-control-edge)');
-    assert.ok(edge, '--wh-control-edge is a colour');
-    for (const surface of ['--bs-body-bg', '--bs-tertiary-bg']) {
-        const ratio = contrast(edge, resolve(`var(${surface})`));
-        assert.ok(ratio >= 3, `--wh-control-edge on ${surface} is ${ratio.toFixed(2)}:1`);
-    }
-});
+    // Controls sit on the page and on cards, never on raised parts (chips, pills)
+    test(`${mode} mode: the edge of a control stands out where controls sit (3:1, WCAG 1.4.11)`, () => {
+        const edge = hexOf('--wh-control-edge', mode);
+        assert.ok(edge, '--wh-control-edge is a colour');
+        for (const surface of ['--bs-body-bg', '--bs-tertiary-bg']) {
+            const ratio = contrast(edge, hexOf(surface, mode));
+            assert.ok(ratio >= 3, `--wh-control-edge on ${surface} is ${ratio.toFixed(2)}:1`);
+        }
+    });
+
+    test(`${mode} mode: a station sign's name is readable on its panel`, () => {
+        const ratio = contrast(hexOf('--wh-ink', mode), hexOf('--wh-sign', mode));
+        assert.ok(ratio >= 4.5, `--wh-ink on --wh-sign is ${ratio.toFixed(2)}:1`);
+    });
+
+    test(`${mode} mode: a station sign's panel stands out on the page`, () => {
+        // On a dark page by its brightness; on a light one it gets an edge (3:1 of the page is out of reach of an off-white panel)
+        const edge = hexOf('--wh-sign-edge', mode);
+        if (mode === 'light') {
+            assert.ok(edge, 'a light page gives the panel an edge');
+            assert.ok(contrast(edge, hexOf('--bs-body-bg', mode)) >= 1.3, 'an edge that can be seen');
+            return;
+        }
+        for (const surface of ['--bs-body-bg', '--bs-tertiary-bg']) {
+            const ratio = contrast(hexOf('--wh-sign', mode), hexOf(surface, mode));
+            assert.ok(ratio >= 3, `--wh-sign on ${surface} is ${ratio.toFixed(2)}:1`);
+        }
+    });
+
+    test(`${mode} mode: every line stands out on the maps' background (3:1, as for graphics)`, () => {
+        for (const [id, line] of Object.entries(ALL_LINES())) {
+            const ratio = contrast(line.color.toLowerCase(), hexOf('--wh-map-bg', mode));
+            assert.ok(ratio >= 3, `${id}: ${line.color} on the map is ${ratio.toFixed(2)}:1`);
+        }
+    });
+
+    test(`${mode} mode: the map's text and links are readable on its background`, () => {
+        for (const name of ['--wh-map-text', '--wh-map-link']) {
+            const ratio = contrast(hexOf(name, mode), hexOf('--wh-map-bg', mode));
+            assert.ok(ratio >= 4.5, `${name} on the map is ${ratio.toFixed(2)}:1`);
+        }
+    });
+
+    // The time badge's tiers (DESIGN.md): text on its own colour, on every
+    // surface it can sit on (a tint is 10% of its colour over the surface)
+    test(`${mode} mode: time badges are readable: solid green, tints over the page, cards and raised parts`, () => {
+        const rgb = hexColour => [1, 3, 5].map(i => parseInt(hexColour.slice(i, i + 2), 16));
+        const tint = (colour, surface) => `#${rgb(colour).map((c, i) => Math.round(c * 0.1 + rgb(surface)[i] * 0.9).toString(16).padStart(2, '0')).join('')}`;
+        assert.ok(contrast(hexOf('--wh-on-close', mode), hexOf('--wh-close', mode)) >= 4.5, 'the text on the solid green');
+        for (const name of ['--wh-close', '--wh-second-last', '--wh-last']) {
+            assert.equal(TOKENS[mode][`${name}-rgb`].replace(/\s/g, ''), rgb(hexOf(name, mode)).join(','), `${name}-rgb is ${name}`);
+            for (const surface of SURFACES.filter(s => s !== '--wh-map-bg')) {
+                const ratio = contrast(hexOf(name, mode), tint(hexOf(name, mode), hexOf(surface, mode)));
+                assert.ok(ratio >= 4.5, `${name} on its tint over ${surface} is ${ratio.toFixed(2)}:1`);
+            }
+        }
+    });
+
+    test(`${mode} mode: the car to ride in and the menu button's icon show on cards`, () => {
+        const rgb = hexColour => [1, 3, 5].map(i => parseInt(hexColour.slice(i, i + 2), 16));
+        const over = (colour, alpha, surface) => `#${rgb(colour).map((c, i) => Math.round(c * alpha + rgb(surface)[i] * (1 - alpha)).toString(16).padStart(2, '0')).join('')}`;
+        assert.equal(TOKENS[mode]['--wh-highlight-rgb'].replace(/\s/g, ''), rgb(hexOf('--wh-highlight', mode)).join(','));
+        const card = hexOf('--bs-tertiary-bg', mode);
+        const car = over(hexOf('--wh-highlight', mode), 0.2, card);
+        assert.ok(contrast(hexOf('--wh-highlight', mode), car) >= 3, 'its symbol on the car (graphics 3:1)');
+        // Brand yellow carries the menu button's icon (a graphic)
+        assert.ok(contrast(hexOf('--wh-brand-yellow', mode), card) >= 3, 'the menu button\'s icon');
+    });
+
+    test(`${mode} mode: the bar's colour is the navigation's`, () => {
+        const full = hex => hex.length === 4 ? `#${[...hex.slice(1)].map(c => c + c).join('')}` : hex;
+        assert.equal(BAR_COLOURS[mode], full(hexOf('--bs-tertiary-bg', mode)));
+    });
+}
 
 // The line colours in style.css (.line-m1 { background-color; color }), by line
 const LINE_COLOURS = (() => {
@@ -167,61 +245,30 @@ const curatedLines = name => JSON.parse(readFileSync(new URL(`../data/curated/${
 // Every line: the metro's (lines.json) and the tram's (tram.json)
 const ALL_LINES = () => ({ ...curatedLines('lines'), ...curatedLines('tram').lines });
 
+// The lines' colours are the same in every colour mode (they are the lines' own)
 test('every line\'s colour in style.css is its colour in lines.json or tram.json', () => {
     const lines = ALL_LINES();
     for (const [id, line] of Object.entries(lines)) {
-        assert.equal(resolve(LINE_COLOURS[id.toLowerCase()]?.background ?? ''), line.color.toLowerCase(), `.line-${id.toLowerCase()} in style.css`);
+        for (const mode of MODES) assert.equal(resolve(LINE_COLOURS[id.toLowerCase()]?.background ?? '', mode), line.color.toLowerCase(), `.line-${id.toLowerCase()} in style.css`);
     }
     assert.ok(lines.T6 && lines.T7, 'and the tram');
-});
-
-test('a station sign\'s name is readable on its panel, and the panel stands out on the page', () => {
-    const ratio = contrast(resolve('var(--wh-ink)'), resolve('var(--wh-sign)'));
-    assert.ok(ratio >= 4.5, `--wh-ink on --wh-sign is ${ratio.toFixed(2)}:1`);
-    for (const surface of ['--bs-body-bg', '--bs-tertiary-bg']) {
-        const edge = contrast(resolve('var(--wh-sign)'), resolve(`var(${surface})`));
-        assert.ok(edge >= 3, `--wh-sign on ${surface} is ${edge.toFixed(2)}:1`);
-    }
 });
 
 test('the tram lines\' badges have dark text', () => {
     for (const id of Object.keys(curatedLines('tram').lines)) assert.equal(LINE_COLOURS[id.toLowerCase()].color, 'var(--wh-ink)', `.line-${id.toLowerCase()}`);
 });
 
-test('every line stands out on the maps\' background (3:1, as for graphics)', () => {
-    for (const [id, line] of Object.entries(ALL_LINES())) {
-        const ratio = contrast(line.color.toLowerCase(), resolve('var(--wh-map-bg)'));
-        assert.ok(ratio >= 3, `${id}: ${line.color} on the map is ${ratio.toFixed(2)}:1`);
-    }
-});
-
 test('the metro lines\' badges have white text', () => {
     const lines = JSON.parse(readFileSync(new URL('../data/curated/lines.json', import.meta.url), 'utf8'));
-    for (const id of Object.keys(lines)) assert.equal(resolve(LINE_COLOURS[id.toLowerCase()].color), '#fff', `.line-${id.toLowerCase()}`);
+    for (const id of Object.keys(lines)) assert.equal(resolve(LINE_COLOURS[id.toLowerCase()].color, 'dark'), '#fff', `.line-${id.toLowerCase()}`);
 });
 
 test('line pills are readable on every line colour', () => {
     assert.ok(Object.keys(LINE_COLOURS).length >= 5);
     for (const [id, { background, color }] of Object.entries(LINE_COLOURS)) {
-        const text = resolve(color ?? '');
+        const text = resolve(color ?? '', 'dark');
         assert.ok(text, `.line-${id} sets its text colour`);
-        const ratio = contrast(text, resolve(background));
+        const ratio = contrast(text, resolve(background, 'dark'));
         assert.ok(ratio >= 4.5, `.line-${id}: ${text} on ${background} is ${ratio.toFixed(2)}:1`);
-    }
-});
-
-// The time badge's tiers (DESIGN.md): text on its own colour, on every
-// surface it can sit on (a tint is 10% of its colour over the surface)
-test('time badges are readable: solid green with dark text, tints over the page, cards and raised parts', () => {
-    const hex = name => resolve(`var(${name})`);
-    const rgb = hexColour => [1, 3, 5].map(i => parseInt(hexColour.slice(i, i + 2), 16));
-    const tint = (colour, surface) => `#${rgb(colour).map((c, i) => Math.round(c * 0.1 + rgb(surface)[i] * 0.9).toString(16).padStart(2, '0')).join('')}`;
-    assert.ok(contrast(hex('--wh-ink'), hex('--wh-close')) >= 4.5, 'dark text on the solid green');
-    for (const name of ['--wh-close', '--wh-second-last', '--wh-last']) {
-        assert.equal(TOKENS[`${name}-rgb`].replace(/\s/g, ''), rgb(hex(name)).join(','), `${name}-rgb is ${name}`);
-        for (const surface of SURFACES.filter(s => s !== '--wh-map-bg')) {
-            const ratio = contrast(hex(name), tint(hex(name), hex(surface)));
-            assert.ok(ratio >= 4.5, `${name} on its tint over ${surface} is ${ratio.toFixed(2)}:1`);
-        }
     }
 });

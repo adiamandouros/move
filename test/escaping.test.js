@@ -105,6 +105,7 @@ test('no HTML in plain strings: views or html`` only', () => {
     assert.deepEqual(found, []);
 });
 
+// (and the colour mode's script in <head>: our own constant, with no input in it)
 test('views put nothing in unescaped but the page inside the layout', () => {
     const unescaped = [];
     const walk = (node, file) => {
@@ -113,7 +114,7 @@ test('views put nothing in unescaped but the page inside the layout', () => {
         for (const value of Object.values(node)) if (value && typeof value === 'object' && value !== node.loc) walk(value, file);
     };
     for (const { file, text } of sources(['server/views', 'admin', 'tools']).filter(f => f.file.endsWith('.hbs'))) walk(parseTemplate(text), file);
-    assert.deepEqual(unescaped, ['server/views/layout.hbs: {{{content}}}']);
+    assert.deepEqual(unescaped, ['server/views/layout.hbs: {{{themeScript}}}', 'server/views/layout.hbs: {{{content}}}']);
 });
 
 test('what goes into <head> is escaped: title, description, structured data', () => {

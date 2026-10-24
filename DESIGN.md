@@ -133,8 +133,28 @@ The palettes and every contrast number are in the guide.
   says so too.
 - Clock times (tomorrow, station timetables) are neutral chips.
 - The maps stay black in both themes.
-- Light theme: follows the phone, with Auto / Light / Dark in the menu; dark
-  when unsure. *(step 5)*
+
+### Light and dark
+
+`<html data-bs-theme>` says which one shows; `style.css` has one block of
+colour variables for each, with the same names (a test checks), and the
+colours that don't change (lines, signs, maps) in `:root`. Never a colour
+value outside those blocks.
+
+- **Auto** (the default) follows the phone, but is light only when the phone
+  asks for it; a browser that can't say, or can't store, gets dark.
+  **Light** and **Dark** are a person's choice, kept on the device
+  (`theme` in localStorage, listed on the privacy page). The choice is in the
+  menu on phones and the sidebar on wide screens.
+- A script in `<head>` sets the mode before anything is drawn
+  (`public/js/core/theme.js`, hashed in the CSP); the bar colour
+  (`theme-color`) follows it.
+- Light colours are the guide's, darkened where a tint over the grey page
+  fell under 4.5:1 (green, red, ride-here orange, the menu's gold).
+- The logo comes in both: the ring is `#ffc107` on dark, `#e89b00` on light.
+  A station sign's off-white panel gets a grey edge on light.
+- Forced colours: pills, signs and maps keep their own colours; the car to
+  ride in gets an outline; time badges an edge.
 
 ## Lines and stations
 
@@ -256,12 +276,15 @@ it, the time and the walking directions on a line of their own under that.
 
 - `test/design.test.js`: the tokens are the scale; sizes, corners, shadows,
   px and breakpoints in `style.css` use them.
-- `test/accessibility.test.js`: every text colour on every surface, the line
+- `test/accessibility.test.js`: in both colour modes, every text colour on every surface, the line
   colours, the control edge; and that no page shows a line's name outside
   its pill (`bareLineProblems` in `test/support/markup.js`, which the
   checks on what the browser draws run too).
 - `test/icons.test.js`: every icon the code shows is a meaning, every
   meaning is shown, no picture means two things, status and train symbols
   are filled, `server/icons/` matches the list and the package.
+- `test/theme.test.js`, `test/browser/theme.spec.js`: the mode logic, the
+  switch, remembering, forced colours; `pages.spec.js` runs axe-core on
+  every page in light too.
 - `test/browser/text-size.spec.js`: every page at 200% text, as above, and
   the two parts that change shape.
