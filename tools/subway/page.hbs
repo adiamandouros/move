@@ -5,7 +5,7 @@
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
                 <label for="stop-search-from" class="form-label fw-semibold m-0">{{t "subway.boarding-label"}}</label>
                 <button id="locate-btn" type="button" class="btn btn-sm locate-btn">
-                    {{icon "crosshair"}}<span>{{t "subway.nearest"}}</span>
+                    {{icon "nearest"}}<span>{{t "subway.nearest"}}</span>
                 </button>
             </div>
             <div class="d-flex align-items-stretch gap-2">
@@ -18,7 +18,7 @@
             </div>
             {{!-- Its address and station are filled in by the page's script --}}
             {{#external id="walk-btn" class="directions-btn walk-btn" hidden=true}}
-                {{icon "signpost-2-fill"}}
+                {{icon "walk"}}
                 <span class="sr-only">{{t "subway.walking-directions-to"}} <span id="walk-station"></span></span>
             {{/external}}
             </div>
@@ -28,7 +28,7 @@
         <div class="swap-row">
             <button id="swap-stations" type="button" class="btn btn-sm swap-btn"
                     title="{{t "subway.swap"}}" aria-label="{{t "subway.swap"}}">
-                {{icon "arrow-down-up"}}
+                {{icon "swap"}}
             </button>
         </div>
 

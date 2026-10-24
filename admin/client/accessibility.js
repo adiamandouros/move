@@ -5,7 +5,7 @@
 import { icon, setHtml } from '/js/core/html.js';
 
 const $ = id => document.getElementById(id);
-const ICONS = { ok: 'check-circle-fill', fail: 'x-octagon-fill', warn: 'exclamation-triangle-fill' };
+const ICONS = { ok: 'ok', fail: 'error', warn: 'warning' };
 const RULES = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'];
 const LANGUAGES = { en: 'English', el: 'Ελληνικά' };
 const WAIT_MS = 15_000;

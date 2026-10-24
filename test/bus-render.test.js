@@ -64,7 +64,7 @@ test('the next bus, as a screen reader hears the stop button', async () => {
     assert.match(String(en.nextBus({ arrivals })), /<span class="bus-plate pill-l">Χ95<\/span>/);
     assert.equal(spoken(en.nextBus({ arrivals: [] })), '. No arrivals');
     assert.match(spoken(en.nextBus({ arrivals: [], unavailable: true })), /unavailable/i);
-    assert.match(String(en.nextBus(undefined)), /class="bi[^"]* spin"/);
+    assert.match(String(en.nextBus(undefined)), /class="icon[^"]* spin"/);
     // A line's stop nobody opened isn't asked for: no spinner, but how to get its times
     assert.equal(spoken(en.nextBus(undefined, { waiting: false })), '. Open for live times');
     assert.doesNotMatch(String(en.nextBus(undefined, { waiting: false })), /spin/);
@@ -215,5 +215,5 @@ test('results look tappable: an arrow on each, and a hint that says what tapping
     // One arrow inside every link, hidden from screen readers (the hint isn't in a link's name)
     const links = both.match(/<a [^]*?<\/a>/g);
     assert.equal(links.length, 3);
-    for (const link of links) assert.match(link, /<svg class="bi search-result-arrow" aria-hidden="true">/);
+    for (const link of links) assert.match(link, /<svg class="icon search-result-arrow" aria-hidden="true">/);
 });

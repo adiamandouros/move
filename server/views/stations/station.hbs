@@ -4,9 +4,9 @@
     <h1 class="station-name mb-2">{{sign}}</h1>
     <p class="text-body-secondary mb-3">{{t "stations.lines-here"}}{{#each lines}} {{badge}}{{/each}}</p>
     <div class="station-actions d-flex flex-wrap gap-2 mb-4">
-        <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?from={{id}}">{{icon "signpost-split" "me-1"}}{{t "stations.plan-from"}}</a>
-        <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?to={{id}}">{{icon "geo-alt" "me-1"}}{{t "stations.plan-to"}}</a>
-        {{#external href=walking class="btn btn-sm btn-outline-secondary rounded-pill"}}{{icon "person-walking" "me-1"}}{{t "stations.walk"}}{{/external}}
+        <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?from={{id}}">{{icon "trip-from" "me-1"}}{{t "stations.plan-from"}}</a>
+        <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?to={{id}}">{{icon "trip-to" "me-1"}}{{t "stations.plan-to"}}</a>
+        {{#external href=walking class="btn btn-sm btn-outline-secondary rounded-pill"}}{{icon "walk" "me-1"}}{{t "stations.walk"}}{{/external}}
     </div>
 {{#each lines}}
     <section class="station-section" aria-labelledby="line-{{key}}">
@@ -17,9 +17,9 @@
     </section>
 {{/each}}
 {{#if timetable.stasy}}
-    <p class="schedule-disclaimer">{{icon "info-circle" "me-1"}}{{t "stations.timetable-stasy" date=timetable.stasy}}</p>
+    <p class="schedule-disclaimer">{{icon "info" "me-1"}}{{t "stations.timetable-stasy" date=timetable.stasy}}</p>
 {{/if}}
 {{#if timetable.gtfs}}
-    <p class="schedule-disclaimer">{{icon "info-circle" "me-1"}}{{#if timetable.gtfs.old}}{{t "stations.timetable-old" date=timetable.gtfs.date}}{{else}}{{t "stations.timetable" date=timetable.gtfs.date}}{{/if}}</p>
+    <p class="schedule-disclaimer">{{icon "info" "me-1"}}{{#if timetable.gtfs.old}}{{t "stations.timetable-old" date=timetable.gtfs.date}}{{else}}{{t "stations.timetable" date=timetable.gtfs.date}}{{/if}}</p>
 {{/if}}
 </div>

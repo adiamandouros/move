@@ -125,8 +125,9 @@ test('{{#ifLang}} keeps the page\'s language', () => {
 });
 
 test('{{icon}} and {{json}}', () => {
-    assert.equal(render('{{icon "geo-alt"}}'), '<svg class="bi" aria-hidden="true"><use href="/icons.svg#geo-alt"></use></svg>');
-    assert.equal(render('{{icon "geo-alt" "me-1"}}'), '<svg class="bi me-1" aria-hidden="true"><use href="/icons.svg#geo-alt"></use></svg>');
+    assert.equal(render('{{icon "walk"}}'), '<svg class="icon" aria-hidden="true"><use href="/icons.svg#walk"></use></svg>');
+    assert.equal(render('{{icon "walk" "me-1"}}'), '<svg class="icon me-1" aria-hidden="true"><use href="/icons.svg#walk"></use></svg>');
+    assert.equal(render('{{icon "metro" "icon-nav" filled=true}}'), '<svg class="icon icon-nav" aria-hidden="true"><use href="/icons.svg#metro-filled"></use></svg>');
     assert.equal(render('<script type="application/json">{{json v}}</script>', { v: { a: '</script><script>alert(1)</script>' } }),
         '<script type="application/json">{"a":"\\u003c/script>\\u003cscript>alert(1)\\u003c/script>"}</script>');
 });

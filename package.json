@@ -25,6 +25,7 @@
     "test:browser": "playwright test",
     "test:live": "playwright test --config playwright.live.config.js",
     "diagnose": "node scripts/diagnose.js",
+    "icons": "node scripts/icons.js",
     "lint": "eslint .",
     "typecheck": "tsc -p jsconfig.json",
     "check": "npm run lint && npm run typecheck && npm test && npm run test:browser"
@@ -33,7 +34,6 @@
     "@fontsource-variable/roboto": "^5.3.0",
     "axe-core": "^4.14.0",
     "bootstrap": "^5.3.8",
-    "bootstrap-icons": "^1.13.1",
     "compression": "^1.8.2",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
@@ -46,6 +46,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@material-symbols/svg-400": "^0.48.1",
     "@playwright/test": "^1.64.1",
     "@types/express": "^5.0.6",
     "@types/node": "^20.19.43",

@@ -1,7 +1,7 @@
 {
   "path": "/buses",
   "order": 2,
-  "icon": "bus-front",
+  "icon": "bus",
   "title": { "en": "Nearby Buses", "el": "Κοντινά Λεωφορεία" },
   "shortTitle": { "en": "Buses", "el": "Λεωφορεία" },
   "description": { "en": "Live arrivals at the bus stops around you", "el": "Αφίξεις σε πραγματικό χρόνο στις στάσεις γύρω σας" },

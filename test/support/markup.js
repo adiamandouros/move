@@ -34,7 +34,7 @@ export function nameProblems(html) {
 
 export function iconProblems(html) {
     return [
-        ...(html.match(/<(?:i|svg) class="bi\b[^"]*"[^>]*>/g) ?? []).filter(tag => !/aria-hidden="true"/.test(tag)).map(tag => `${tag} needs aria-hidden="true"`),
+        ...(html.match(/<(?:i|svg) class="icon\b[^"]*"[^>]*>/g) ?? []).filter(tag => !/aria-hidden="true"/.test(tag)).map(tag => `${tag} needs aria-hidden="true"`),
         ...(html.match(/<img\b[^>]*>/g) ?? []).filter(img => !/\salt="/.test(img)).map(img => `${img} needs alt`),
     ];
 }

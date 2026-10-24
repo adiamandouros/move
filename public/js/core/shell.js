@@ -62,7 +62,7 @@ if ('serviceWorker' in navigator) {
         if (hadController || !worker) return;
         const done = () => {
             if (worker.state !== 'activated') return false;
-            toast(t('shell.offline-ready'), 'cloud-check');
+            toast(t('shell.offline-ready'), 'offline-ready');
             return true;
         };
         if (!done()) worker.addEventListener('statechange', done);

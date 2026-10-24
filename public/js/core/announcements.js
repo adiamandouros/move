@@ -31,7 +31,7 @@ export function item({ title, link, date }, greek) {
     const url = safeUrl(link);
     return html`<li class="announcement">
         ${url ? externalLink({ href: url }, text, t('shell.new-tab')) : text}
-        <span class="announcement-meta">${formatDate(date)}${greek && html` <span class="in-greek-badge">${icon('translate', 'me-1')}${t('announcements.in-greek')}</span>`}</span>
+        <span class="announcement-meta">${formatDate(date)}${greek && html` <span class="in-greek-badge">${icon('in-greek', 'me-1')}${t('announcements.in-greek')}</span>`}</span>
     </li>`;
 }
 
@@ -53,12 +53,12 @@ export function disruptionView({ rail, bus, available }) {
     const disruptions = [...rail.map(i => ({ ...i, greek: language !== 'el' })), ...bus[language]].filter(i => i.disruption);
     if (disruptions.length) {
         return html`<div class="disruption-banner">
-            <div class="fw-semibold">${icon('exclamation-triangle-fill')} ${t('announcements.disruption')}</div>
+            <div class="fw-semibold">${icon('warning')} ${t('announcements.disruption')}</div>
             <ul>${disruptions.map(i => item(i, i.greek))}</ul>
         </div>`;
     }
     if (!SOURCES[language].every(source => available.includes(source))) return '';
-    return html`<div class="no-disruptions">${icon('check-circle-fill')} ${t('announcements.no-disruptions')}</div>`;
+    return html`<div class="no-disruptions">${icon('ok')} ${t('announcements.no-disruptions')}</div>`;
 }
 
 function render() {

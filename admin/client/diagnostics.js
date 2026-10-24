@@ -4,7 +4,7 @@ import { icon, setHtml } from '/js/core/html.js';
 import { progressBar } from './progress.js';
 
 const $ = id => document.getElementById(id);
-const ICONS = { ok: 'check-circle-fill', warn: 'exclamation-triangle-fill', fail: 'x-octagon-fill', info: 'info-circle' };
+const ICONS = { ok: 'ok', warn: 'warning', fail: 'error', info: 'info' };
 let report = '';
 
 function el(tag, className, text) {

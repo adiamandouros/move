@@ -54,7 +54,7 @@ export function stopItem(stop, index, { open = false, nearest = false } = {}) {
             <div class="stop-header-fixed d-flex align-items-center">
                 <span class="header-badge-wrap" aria-hidden="true"></span>
                 ${externalLink({ class: 'directions-btn d-flex align-items-center justify-content-center', href: walkingUrl(stop.lat, stop.lng) },
-                    html`${icon('signpost-2-fill')}<span class="sr-only">${t('buses.walking-directions-to')} ${local(stop.name)}</span>`, t('shell.new-tab'))}
+                    html`${icon('walk')}<span class="sr-only">${t('buses.walking-directions-to')} ${local(stop.name)}</span>`, t('shell.new-tab'))}
             </div>
         </div>
         <div id="stop-${index}" class="accordion-collapse collapse${open ? ' show' : ''}">
@@ -89,7 +89,7 @@ export function nextBus(result, { waiting = true } = {}) {
     if (first) return html`<span class="sr-only">. ${t('buses.next-bus-line')} </span><span class="next-bus-line">${busPlate(lineLabel(first), 'l')}</span><span class="sr-only">, </span><span class="next-bus-dest">${destination(first)}</span><span class="sr-only">, ${first.minutes} ${t('buses.minutes')}</span>`;
     if (result) return html`<span class="next-bus-dest text-body-secondary fst-italic"><span class="sr-only">. </span>${t(result.unavailable ? 'buses.unavailable' : 'buses.no-arrivals-short')}</span>`;
     return waiting
-        ? html`<span class="next-bus-dest text-body-secondary">${icon('arrow-repeat', 'spin')}<span class="sr-only">. ${t('buses.finding-stops')}</span></span>`
+        ? html`<span class="next-bus-dest text-body-secondary">${icon('loading', 'spin')}<span class="sr-only">. ${t('buses.finding-stops')}</span></span>`
         : html`<span class="next-bus-dest text-body-secondary"><span class="sr-only">. </span>${t('buses.open-for-times')}</span>`;
 }
 
@@ -125,7 +125,7 @@ export function message(symbol, title, subtitle = '', action = '') {
     const [name, ...extra] = symbol.split(' ');
     return html`
         <div class="bus-message-body d-flex flex-column align-items-center justify-content-center text-body-secondary" tabindex="-1">
-            ${icon(name, ['fs-1 mb-3', ...extra].join(' '))}
+            ${icon(name, ['icon-message mb-3', ...extra].join(' '))}
             <p class="bus-message-title mb-1 text-center px-4">${title}</p>
             ${subtitle && html`<p class="small text-body-secondary text-center px-4">${subtitle}</p>`}
             ${action && html`<button type="button" class="btn btn-primary rounded-pill px-4 mt-2 message-action">${action}</button>`}
@@ -135,7 +135,7 @@ export function message(symbol, title, subtitle = '', action = '') {
 // ── Search and lines ────────────────────────────────────────────────────────
 
 // At the end of every result, so it looks like something to tap
-const resultArrow = () => icon('chevron-right', 'search-result-arrow');
+const resultArrow = () => icon('more', 'search-result-arrow');
 
 // Above the results: what tapping one does
 export function searchHint(lines, stops) {
@@ -187,7 +187,7 @@ export function searchStatus(query, lines, stops) {
 
 // Above a stop or a line: the way back to the stops nearby
 export function backLink() {
-    return html`<a class="btn btn-sm btn-link px-0 back-link" href="${localHref('/buses')}" data-view>${icon('arrow-left', 'me-1')}${t('buses.nearby')}</a>`;
+    return html`<a class="btn btn-sm btn-link px-0 back-link" href="${localHref('/buses')}" data-view>${icon('back', 'me-1')}${t('buses.nearby')}</a>`;
 }
 
 // Above a line's stops: its number and name, and a switch between its two

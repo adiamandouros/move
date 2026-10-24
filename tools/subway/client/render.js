@@ -66,8 +66,8 @@ function legCard(rail, leg, next, now, level, tomorrow, changes) {
     const first = leg.departures[0];
     const ride = changes && first && html`${format(t('subway.ride'), { min: Math.round((first.arrives - first.departs) / 60) })} · `;
     const action = next
-        ? html`${icon('arrow-left-right', 'me-2')}${t('subway.transfer-at')} <strong>${stationLink(rail, leg.to)}</strong>`
-        : html`${icon('door-open', 'me-2')}${t('subway.exit-at')} <strong>${stationLink(rail, leg.to)}</strong>`;
+        ? html`${icon('change-trains', 'me-2')}${t('subway.transfer-at')} <strong>${stationLink(rail, leg.to)}</strong>`
+        : html`${icon('get-off', 'me-2')}${t('subway.exit-at')} <strong>${stationLink(rail, leg.to)}</strong>`;
     // h2 or h3: a number, never data
     const heading = `h${Number(level)}`;
 
@@ -126,7 +126,7 @@ function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, op
         const next = route.legs[i + 1] ?? null;
         const connector = next && html`
             <div class="transfer-connector" aria-hidden="true">
-                ${icon('arrow-down-circle-fill')}
+                ${icon('change-trains')}
                 <span>${t('subway.change-to')} ${linePill(next.line, rail.lines[next.line].name)}</span>
             </div>`;
         return html`${legCard(rail, leg, next, now, level, tomorrow, route.legs.length > 1)}${connector}`;
@@ -135,7 +135,7 @@ function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, op
     // A native disclosure: a button for screen readers and the keyboard
     const key = routeKey(route);
     return html`${header}<details class="route-details" data-route="${key}"${open[key] && html` open`}>
-        <summary class="route-slower">${icon('chevron-right', 'route-chevron')}<span class="route-show">${t('subway.show-route')}</span><span class="route-hide">${t('subway.hide-route')}</span> · ${closed}</summary>
+        <summary class="route-slower">${icon('more', 'route-chevron')}<span class="route-show">${t('subway.show-route')}</span><span class="route-hide">${t('subway.hide-route')}</span> · ${closed}</summary>
         ${cards}
     </details>`;
 }
@@ -144,8 +144,8 @@ function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, op
 // open: { [routeKey]: true/false }, options the user opened or closed
 export function renderResult(rail, plans, now, { expired, tomorrow = false, open = {} }) {
     if (!plans.length) return renderMessage('subway.no-route');
-    const notice = expired && html`<p class="timetable-notice">${icon('exclamation-triangle', 'me-1')}${format(t('subway.timetable-old'), { date: formatDate(rail.feed.validTo) })}</p>`;
-    const tomorrowNotice = tomorrow && html`<p class="tomorrow-notice">${icon('moon-stars', 'me-1')}${t('subway.tomorrow')}</p>`;
+    const notice = expired && html`<p class="timetable-notice">${icon('warning', 'me-1')}${format(t('subway.timetable-old'), { date: formatDate(rail.feed.validTo) })}</p>`;
+    const tomorrowNotice = tomorrow && html`<p class="tomorrow-notice">${icon('night', 'me-1')}${t('subway.tomorrow')}</p>`;
     const times = plans.map(r => tripTime(rail, r, now));
     const first = Math.min(...times.map(time => time ? Math.floor(time.arrives / 60) : Infinity));
     // Minutes after the first option, as the clock times shown differ. One
@@ -158,12 +158,12 @@ export function renderResult(rail, plans, now, { expired, tomorrow = false, open
     const routes = plans.map((r, i) => html`${i > 0 && html`<hr class="route-divider">`}${routeBlock(rail, r, i, plans.length, now, tomorrow, { time: times[i], closed: closed(r, times[i]), open })}`);
     return html`${notice}${tomorrowNotice}
         <div class="routes-wrap">${routes}</div>
-        <p class="schedule-disclaimer">${icon('info-circle', 'me-1')}${t('subway.schedule-disclaimer')}</p>`;
+        <p class="schedule-disclaimer">${icon('info', 'me-1')}${t('subway.schedule-disclaimer')}</p>`;
 }
 
 // Why there's no trip to show, in the same yellow as the other warnings
 export function renderMessage(key) {
-    return html`<p class="subway-message mt-3">${icon('exclamation-triangle', 'me-1')}${t(key)}</p>`;
+    return html`<p class="subway-message mt-3">${icon('warning', 'me-1')}${t(key)}</p>`;
 }
 
 // A one-sentence version of the result for screen readers, announced when the

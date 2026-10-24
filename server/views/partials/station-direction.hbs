@@ -24,7 +24,7 @@ first and last trains from here --}}
     <p class="mt-2">{{arriving.centralPlatform}}</p>
 {{/if}}
 {{#each arriving.transfers}}
-    <p class="small mt-2 mb-0">{{icon "arrow-left-right" "me-1"}}{{t "stations.transfer" line=line name=toward where=where}}</p>
+    <p class="small mt-2 mb-0">{{icon "change-trains" "me-1"}}{{t "stations.transfer" line=line name=toward where=where}}</p>
 {{/each}}
     {{arriving.note}}
 {{/if}}

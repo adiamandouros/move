@@ -14,7 +14,7 @@ import { stringGetter } from './i18n.js';
 // Helpers:
 //   {{t "key"}}                     the page's string for key, escaped;
 //                                   {{t "stations.toward" name=toward}} fills {name}
-//   {{icon "geo-alt" "me-1"}}       an icon from the sprite (/js/core/html.js)
+//   {{icon "walk" "me-1"}}          an icon from the sprite, by its meaning (/js/core/html.js)
 //   {{pill "M3"}}, {{plate "X95"}}  a line's pill, a bus line's plate (/js/core/lines.js)
 //   {{json value}}                  JSON that's safe inside a <script> element
 //   {{formatDate "2026-10-14"}}     a date as people write it: 14/10/2026
@@ -53,7 +53,8 @@ hb.registerHelper('pill', (id, ...rest) => linePill(id, id, rest.length > 1 ? re
 hb.registerHelper('plate', (number, ...rest) => busPlate(number, rest.length > 1 ? rest[0] : 'm'));
 
 // {{icon name}} or {{icon name classes}}: the last argument is Handlebars' options
-hb.registerHelper('icon', (name, ...rest) => new hb.SafeString(String(icon(name, rest.length > 1 ? rest[0] : ''))));
+// {{icon name filled=true}}: a tab's filled form
+hb.registerHelper('icon', (name, ...rest) => new hb.SafeString(String(icon(name, rest.length > 1 ? rest[0] : '', { filled: rest.at(-1).hash.filled === true }))));
 
 hb.registerHelper('json', value => new hb.SafeString(JSON.stringify(value).replace(/</g, '\\u003c')));
 
