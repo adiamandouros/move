@@ -7,6 +7,12 @@ import { html, icon } from './html.js';
 // come from s(key): t() in the browser, the page's strings on the server.
 // Line pills are in lines.js.
 
+// The station a direction of a line ends at, as its signs name it, even
+// when the next train turns back sooner (M3 toward Doukissis / Airport:
+// "airport")
+/** @param {import('../../../types/data.js').Rail} rail @param {string} line @param {string} dir */
+export const lineEnd = (rail, line, dir) => rail.lines[line].directions[dir].stops.at(-1).station;
+
 // "05:32" for a time in seconds after midnight; trains after midnight belong
 // to the day before (24:15 → "00:15")
 /** @param {number} seconds */
