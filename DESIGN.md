@@ -144,6 +144,10 @@ The palettes and every contrast number are in the guide.
 - Three sizes, in em inside: **S** in lists (station suggestions, the
   stations by line, a stop's lines), **M** in sentences, arrival rows and
   tables, **L** in the headers of leg cards, station sections and bus stops.
+- The text in a pill sits dead centre: its box is trimmed to the capitals
+  (`text-box`), so the padding is the same above and below the letters, and
+  M1's pill makes up for Roboto's off-centre 1
+  (`test/browser/pills.spec.js` measures it).
 - A station page's line section is headed by the large pill alone, with
   "Line 2" for screen readers.
 - Bus numbers are neutral plates everywhere, the stop header's too. A plate

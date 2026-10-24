@@ -912,17 +912,30 @@ body {
 /* Lines (/js/core/lines.js): a metro or tram line is a round pill in its
    colour (.line-m1, below), a bus line a neutral plate with square corners.
    Three sizes (DESIGN.md), in em inside so they grow with their text. The
-   transparent edge is what forced colours (Windows' high contrast) draws. */
+   transparent edge is what forced colours (Windows' high contrast) draws.
+   The text sits dead centre: its box is trimmed to the capitals (and
+   digits), from their tops to the baseline, so the padding is the same above
+   and below the letters; where browsers can't trim, the padding is a little
+   less and Roboto's own spacing makes up the rest. Browsers put the
+   baseline on a whole pixel, so it's centred to within half of one. */
 .line-pill,
 .bus-plate {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    --pill-trimmed: 0em;
+    display: inline-block;
     border: 1px solid transparent;
     font-weight: 700;
     line-height: 1;
+    text-align: center;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
+}
+
+@supports (text-box: trim-both cap alphabetic) {
+    .line-pill,
+    .bus-plate {
+        --pill-trimmed: 0.145em;
+        text-box: trim-both cap alphabetic;
+    }
 }
 
 .line-pill {
@@ -936,19 +949,33 @@ body {
     color: var(--bs-body-color);
 }
 
+.line-pill,
+.bus-plate {
+    padding: calc(var(--pill-y) + var(--pill-trimmed)) calc(var(--pill-x) - var(--pill-nudge, 0em)) calc(var(--pill-y) + var(--pill-trimmed)) calc(var(--pill-x) + var(--pill-nudge, 0em));
+}
+
 .pill-s {
-    padding: 0.2em 0.45em;
+    --pill-y: 0.2em;
+    --pill-x: 0.45em;
     font-size: var(--wh-fs-xs);
 }
 
 .pill-m {
-    padding: 0.25em 0.55em;
+    --pill-y: 0.25em;
+    --pill-x: 0.55em;
     font-size: var(--wh-fs-sm);
 }
 
 .pill-l {
-    padding: 0.375em 0.7em;
+    --pill-y: 0.375em;
+    --pill-x: 0.7em;
     font-size: var(--wh-fs-md);
+}
+
+/* Roboto draws a 1 left of the middle of its space: M1's pill moves its
+   text right by as much, so it looks centred */
+.line-m1.line-pill {
+    --pill-nudge: 0.06em;
 }
 
 /* A bus line's plate that opens its stops: blue, as what can be pressed is */
