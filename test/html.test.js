@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Html, escapeHtml, externalLink, format, formatDate, formatHtml, html, icon, localName, raw, safeUrl, setHtml, walkingUrl } from '../public/js/core/html.js';
+import { Html, escapeHtml, externalLink, format, formatDate, formatHtml, html, icon, localName, notice, raw, safeUrl, setHtml, walkingUrl } from '../public/js/core/html.js';
 import { busPlate, linePill, pillList, stationSign } from '../public/js/core/lines.js';
 import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, exitKind, lineEnd, stopNote, trainDiagram } from '../public/js/core/metro.js';
 
@@ -186,4 +186,9 @@ test('several pills: a space between them, and a comma for screen readers', () =
     assert.equal(String(pillList([linePill('M2', 'M2', 's'), linePill('M3', 'M3', 's')])),
         '<span class="line-pill pill-s line-m2">M2</span><span class="sr-only">,</span> <span class="line-pill pill-s line-m3">M3</span>');
     assert.equal(String(pillList([])), '');
+});
+
+test('notice() is an icon and a body in one of four tones, its content escaped', () => {
+    assert.equal(String(notice('ok', 'ok', 'All clear')), `<div class="notice notice-ok">${icon('ok')}<div class="notice-body">All clear</div></div>`);
+    assert.match(String(notice('warn', 'warning', html`<b>${'<i>'}</b>`, 'mt-3')), /^<div class="notice notice-warn mt-3">[^]*<b>&lt;i&gt;<\/b>/);
 });

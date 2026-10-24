@@ -1,5 +1,5 @@
 import { language, localHref, t } from '/js/core/i18n.js';
-import { format, formatDate, html, icon, localName, walkingUrl as walkingTo } from '/js/core/html.js';
+import { format, formatDate, html, icon, localName, notice, walkingUrl as walkingTo } from '/js/core/html.js';
 import { linePill, stationSign } from '/js/core/lines.js';
 import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, lineEnd, stopNote } from '/js/core/metro.js';
 import { legPositions, tripTime } from './network.js';
@@ -145,8 +145,8 @@ function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, op
 // open: { [routeKey]: true/false }, options the user opened or closed
 export function renderResult(rail, plans, now, { expired, tomorrow = false, open = {} }) {
     if (!plans.length) return renderMessage('subway.no-route');
-    const notice = expired && html`<p class="timetable-notice">${icon('warning', 'me-1')}${format(t('subway.timetable-old'), { date: formatDate(rail.feed.validTo) })}</p>`;
-    const tomorrowNotice = tomorrow && html`<p class="tomorrow-notice">${icon('night', 'me-1')}${t('subway.tomorrow')}</p>`;
+    const oldNotice = expired && notice('warn', 'warning', format(t('subway.timetable-old'), { date: formatDate(rail.feed.validTo) }), 'timetable-notice mb-3');
+    const tomorrowNotice = tomorrow && notice('info', 'night', t('subway.tomorrow'), 'tomorrow-notice mb-3');
     const times = plans.map(r => tripTime(rail, r, now));
     const first = Math.min(...times.map(time => time ? Math.floor(time.arrives / 60) : Infinity));
     // Minutes after the first option, as the clock times shown differ. One
@@ -160,7 +160,7 @@ export function renderResult(rail, plans, now, { expired, tomorrow = false, open
     // What the trains above show, in words: every symbol in any of them
     const symbols = [...new Set(plans.flatMap(r => r.legs.map((leg, i) => legPositions(rail, leg, r.legs[i + 1] ?? null)))
         .filter(where => where.exits.length).flatMap(diagramSymbols))];
-    return html`${notice}${tomorrowNotice}
+    return html`${oldNotice}${tomorrowNotice}
         <div class="routes-wrap">${routes}</div>
         ${symbols.length > 0 && diagramLegend(symbols, t)}
         <p class="schedule-disclaimer">${icon('info', 'me-1')}${t('subway.schedule-disclaimer')}</p>`;
@@ -168,7 +168,7 @@ export function renderResult(rail, plans, now, { expired, tomorrow = false, open
 
 // Why there's no trip to show, in the same yellow as the other warnings
 export function renderMessage(key) {
-    return html`<p class="subway-message mt-3">${icon('warning', 'me-1')}${t(key)}</p>`;
+    return notice('warn', 'warning', t(key), 'subway-message mt-3');
 }
 
 // A one-sentence version of the result for screen readers, announced when the

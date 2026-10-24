@@ -201,9 +201,25 @@ Material Symbols Rounded, by meaning: code names what an icon means
 
 ## Components *(step 4)*
 
-One notice component in four tones, replacing today's six boxes. One time
-badge for buses and trains. One style each for tags, small capitals and list
-rows.
+### Notice
+
+One boxed message, `notice(tone, icon, content)` in `/js/core/html.js`: a
+status icon (filled) and the text, in a 12px-cornered box with a 1px edge,
+text at `sm`. Four tones, each also told by its icon and its words, never
+by colour alone:
+
+| Tone | For | Icon |
+|---|---|---|
+| `warn` | Something to watch for: a disruption, an old timetable, no route, paused or stale times | warning |
+| `info` | How to read what's shown: tomorrow's first trains | night |
+| `ok` | All clear: no disruption announcements | ok |
+| `danger` | It isn't working: live bus times unavailable | error |
+
+Margins come from where it's put (`mb-3`), not from the notice. Yellow is
+for warnings only.
+
+*(Still to come in step 4: the time badge for buses and trains, tags, small
+capitals, list rows.)*
 
 ## Tests
 

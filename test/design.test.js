@@ -77,3 +77,11 @@ test('breakpoints are in em', () => {
     const found = [...STYLE.matchAll(/@media[^{]*\d+px[^{]*/g)].map(m => m[0].trim());
     assert.deepEqual(found, []);
 });
+
+// One notice component in four tones; the boxes it replaced have no style of their own
+test('notices: four tones, and no other box of their own', () => {
+    const tones = DECLARATIONS.flatMap(d => d.selector.split(',')).map(sel => sel.trim().match(/^\.notice-(\w+)/)?.[1]).filter(tone => tone && tone !== 'body');
+    assert.deepEqual([...new Set(tones)].sort(), ['danger', 'info', 'ok', 'warn']);
+    const old = DECLARATIONS.filter(d => /(^|[ ,.])(subway-message|tomorrow-notice|timetable-notice|disruption-banner|no-disruptions)\b/.test(d.selector) && /^(border|padding)(-radius)?$|^border/.test(d.property));
+    assert.deepEqual(old.map(where), []);
+});

@@ -288,8 +288,8 @@ test('the disruption box: the banner, "none" once every source the page reads an
     const data = (bus, available = all) => ({ rail: [], bus: { el: bus, en: [plain] }, available });
 
     const en = await browserModule('public/js/core/announcements.js', 'en');
-    assert.match(String(en.disruptionView({ ...data([]), rail: [{ ...strike, title: 'Κλειστός σταθμός' }] })), /class="disruption-banner"[^]*Service disruption[^]*<span lang="el">Κλειστός σταθμός/);
-    assert.match(String(en.disruptionView(data([]))), /<div class="no-disruptions"><svg [^]*<\/svg> No service disruption announcements\.<\/div>/);
+    assert.match(String(en.disruptionView({ ...data([]), rail: [{ ...strike, title: 'Κλειστός σταθμός' }] })), /class="notice notice-warn disruption-banner mb-3"[^]*Service disruption[^]*<span lang="el">Κλειστός σταθμός/);
+    assert.match(String(en.disruptionView(data([]))), /<div class="notice notice-ok no-disruptions mb-3"><svg [^]*<\/svg><div class="notice-body">No service disruption announcements\.<\/div><\/div>/);
     // The English page doesn't read OASA's Greek feed
     assert.match(String(en.disruptionView(data([], ['stasy', 'oasaEn']))), /no-disruptions/);
     assert.equal(String(en.disruptionView(data([], ['oasaEl', 'oasaEn']))), '');

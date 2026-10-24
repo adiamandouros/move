@@ -253,7 +253,7 @@ test('each leg says where to board, and station names link to their pages', asyn
 test('same station and no route: shown in the warnings\' yellow, not light grey', async () => {
     const render = await browserModule('tools/subway/client/render.js', 'en');
     for (const html of [String(render.renderMessage('subway.same-station')), String(render.renderResult(rail, [], NOON, {}))]) {
-        assert.match(html, /^<p class="subway-message mt-3"><svg [^]*<\/svg>/);
+        assert.match(html, /^<div class="notice notice-warn subway-message mt-3"><svg [^]*<\/svg><div class="notice-body">/);
         assert.doesNotMatch(html, /text-body-secondary/);
     }
 });
