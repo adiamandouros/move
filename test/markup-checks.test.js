@@ -13,7 +13,9 @@ test('good markup has no problems', () => {
         <h2>Stop</h2><h3>Line</h3>
         <button aria-controls="x" type="button">Open</button><div id="x"></div>
         <a href="/">Home</a> <a href="https://x" target="_blank">OASA<span class="sr-only"> (opens in a new tab)</span></a>
-        <svg class="bi" aria-hidden="true"></svg> <img src="a.png" alt="">`, { keys }), []);
+        <svg class="bi" aria-hidden="true"></svg> <img src="a.png" alt="">
+        <p>Change to <span class="line-pill pill-m line-m3">M3</span> or <span class="bus-plate pill-s"><span class="sr-only">Line </span>X95</span><span class="sr-only">, M3</span></p>
+        <script>const lines = ['M1'];</script>`, { keys }), []);
 });
 
 test('each problem is caught', () => {
@@ -29,4 +31,8 @@ test('each problem is caught', () => {
     flags('<div tabindex="2"></div>', /positive tabindex/);
     flags('<span>3 buses.minutes</span>', /"buses\.minutes" shown instead of its text/);
     flags('<a href="/" aria-label="shell.new-tab">x</a>', /"shell\.new-tab" shown/);
+    flags('<p>Change to M3</p>', /"M3" shown without its pill/);
+    flags('<p>Στον Πειραιά, το Τ7</p>', /"Τ7" shown without its pill/);
+    flags('<li>X95 Syntagma</li>', /"X95" shown without its pill/);
+    flags('<span class="line-pill pill-m line-m1">M1</span>, M2', /"M2" shown/);
 });

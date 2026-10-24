@@ -535,10 +535,6 @@ body {
 }
 
 .next-bus-line {
-    font-size: var(--wh-fs-xl);
-    font-weight: 700;
-    color: var(--bs-body-color);
-    white-space: nowrap;
     flex-shrink: 0;
 }
 
@@ -632,18 +628,6 @@ body {
 
 .arrival-row:last-child {
     border-bottom: none !important;
-}
-
-.line-pill {
-    display: inline-block;
-    min-width: 2.375rem;
-    padding: 0.125rem 0.375rem;
-    background-color: var(--bs-secondary-bg);
-    border-radius: var(--wh-radius-sm);
-    font-size: var(--wh-fs-sm);
-    font-weight: 600;
-    color: var(--bs-body-color);
-    text-align: center;
 }
 
 /* The line and where it goes take what the time leaves; a name longer than
@@ -919,28 +903,65 @@ body {
     flex-shrink: 0;
 }
 
-.suggestion-line-badge {
-    display: inline-block;
-    padding: 1px 0.375rem;
-    border-radius: var(--wh-radius-round);
-    font-size: var(--wh-fs-xs);
-    font-weight: 700;
-    color: #fff;
-}
-
 /* Result card */
 .result-card {
     --bs-card-spacer-x: 1.25rem;
     --bs-card-spacer-y: 1.25rem;
 }
 
-.line-badge {
-    display: inline-block;
-    padding: 0.1875rem 0.625rem;
-    border-radius: var(--wh-radius-round);
+/* Lines (/js/core/lines.js): a metro or tram line is a round pill in its
+   colour (.line-m1, below), a bus line a neutral plate with square corners.
+   Three sizes (DESIGN.md), in em inside so they grow with their text. The
+   transparent edge is what forced colours (Windows' high contrast) draws. */
+.line-pill,
+.bus-plate {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
     font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.line-pill {
+    border-radius: var(--wh-radius-round);
+}
+
+.bus-plate {
+    min-width: 2.5em;
+    border-radius: var(--wh-radius-sm);
+    background-color: var(--bs-secondary-bg);
+    color: var(--bs-body-color);
+}
+
+.pill-s {
+    padding: 0.2em 0.45em;
+    font-size: var(--wh-fs-xs);
+}
+
+.pill-m {
+    padding: 0.25em 0.55em;
     font-size: var(--wh-fs-sm);
-    color: #fff;
+}
+
+.pill-l {
+    padding: 0.375em 0.7em;
+    font-size: var(--wh-fs-md);
+}
+
+/* A bus line's plate that opens its stops: blue, as what can be pressed is */
+.plate-link {
+    text-decoration: none;
+}
+
+.plate-link .bus-plate {
+    color: var(--bs-link-color);
+}
+
+.plate-link:hover .bus-plate {
+    text-decoration: underline;
 }
 
 .direction-text {
@@ -1440,10 +1461,6 @@ body {
     --bs-btn-bg: var(--bs-secondary-color);
 }
 
-.stop-lines a {
-    color: var(--bs-link-color);
-}
-
 /* ── Info tool ── */
 
 .info-view {
@@ -1564,7 +1581,7 @@ body {
     margin: var(--wh-space-3) 0 0;
 }
 
-/* Line colours, for badges (lineBadge in /js/core/metro.js). The metro's are
+/* Line colours, for pills (linePill in /js/core/lines.js). The metro's are
    data/curated/lines.json's, with white text (M1's green is darker than
    STASY's for it, and to tell it from the tram's): the tram's are
    tram.json's, STASY's light green with dark text. test/accessibility.test.js

@@ -1,4 +1,5 @@
 import { formatDate, localName } from '../../public/js/core/html.js';
+import { linePill } from '../../public/js/core/lines.js';
 import { clockTime } from '../../public/js/core/metro.js';
 import { firstAndLast } from './stations.js';
 
@@ -56,7 +57,7 @@ export function lastTrains(rail, spec, lang, s) {
         const texts = COLUMNS.map(d => time(times.last[d]));
         return {
             ...(found.findIndex(r => r.row.line === row.line) === k && {
-                badge: { key: row.line.toLowerCase(), name: rail.lines[row.line].name, rows: found.filter(r => r.row.line === row.line).length },
+                badge: { pill: linePill(row.line, rail.lines[row.line].name), rows: found.filter(r => r.row.line === row.line).length },
             }),
             name: row.showTo ? `${name(row.from)} → ${name(row.to)}` : name(row.from),
             times: texts.every(t => t === texts[0]) ? [{ text: texts[0], colspan: COLUMNS.length }] : texts.map(text => ({ text })),

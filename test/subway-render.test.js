@@ -36,7 +36,8 @@ for (const lang of ['en', 'el']) {
         test(`${lang}: ${what} is accessible and fully translated`, () => {
             const { trip: { plans, now, tomorrow }, html } = draw(render, trip);
             assert.deepEqual(markupProblems(html, { keys }), []);
-            assert.deepEqual(markupProblems(`<p>${render.routeSummary(rail, plans, now, tomorrow)}</p>`, { keys }), []);
+            // Read out by the status line, which only screen readers have
+            assert.deepEqual(markupProblems(`<p class="sr-only">${render.routeSummary(rail, plans, now, tomorrow)}</p>`, { keys }), []);
         });
     }
     test(`${lang}: no route, and other messages`, () => {
@@ -64,7 +65,9 @@ test('a change of line: two legs, where to change, and a heading per option', as
     const text = spoken(html).replace(/\s+/g, ' ');
     assert.ok(trip.plans.every(p => p.legs.length === 2));
     assert.match(text, /Option 1, Via \w+, Arrive about/);
-    assert.match(html, /transfer-connector/);
+    // Each leg's line is its large pill; the line to change to, between the cards, a medium one
+    assert.match(html, /<h[23] class="leg-title">\s*<span class="line-pill pill-l line-m1">M1<\/span>/);
+    assert.match(html, /Change to <span class="line-pill pill-m line-m3">M3<\/span>/);
     if (trip.plans.length > 1) {
         assert.equal((html.match(/<h2 class="route-option-label"/g) ?? []).length, trip.plans.length);
         assert.equal((html.match(/<h3\b/g) ?? []).length, trip.plans.length * 2);

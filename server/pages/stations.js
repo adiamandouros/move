@@ -6,7 +6,8 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
 import { format, formatDate, localName, walkingUrl } from '../../public/js/core/html.js';
-import { centralPlatformBadge, clockTime, exitDiagram, lineBadge, stopNote } from '../../public/js/core/metro.js';
+import { linePill, pillList } from '../../public/js/core/lines.js';
+import { centralPlatformBadge, clockTime, exitDiagram, stopNote } from '../../public/js/core/metro.js';
 import { athensDate } from '../../tools/subway/client/network.js';
 import { sendFresh } from '../http.js';
 import { LANGS, localPath, mergeStrings, stringGetter } from './i18n.js';
@@ -154,7 +155,9 @@ export function stationView(rail, id, lang, s) {
     let n = 0;
     const lines = station.lines.map(lineId => ({
         key: lineId.toLowerCase(),
-        badge: lineBadge(lineId, rail.lines[lineId].name),
+        // In the sentence under the name, and alone as its section's heading
+        badge: linePill(lineId, rail.lines[lineId].name),
+        heading: linePill(lineId, rail.lines[lineId].name, 'l'),
         number: lineNumber(lineId),
         directions: Object.entries(rail.lines[lineId].directions)
             .filter(([, direction]) => direction.stops.some(stop => stop.station === id))
@@ -181,7 +184,7 @@ export function stationView(rail, id, lang, s) {
                             const [line, dir] = to.split('/');
                             const target = rail.lines[line]?.directions[dir];
                             if (!target || !where.length) return [];
-                            return [{ line: rail.lines[line].name, toward: localName(target.toward, lang), where: where.map(p => s(`subway.pos.${p}`)).join(', ') }];
+                            return [{ line: linePill(line, rail.lines[line].name), toward: localName(target.toward, lang), where: where.map(p => s(`subway.pos.${p}`)).join(', ') }];
                         }),
                         note: stopNote(stop.note),
                     } : null,
@@ -220,14 +223,17 @@ export function indexView(rail, lang, s) {
         crumbs: breadcrumb(rail, null, lang, s),
         lines: Object.entries(rail.lines).map(([lineId, line]) => ({
             key: lineId.toLowerCase(),
-            badge: lineBadge(lineId, line.name),
+            heading: linePill(lineId, line.name, 'l'),
             number: lineNumber(lineId),
-            stops: Object.values(line.directions)[0].stops.map(({ station: id }) => ({
-                href: `${STATIONS_PATH}/${id}`,
-                name: localName(rail.stations[id].name, lang),
+            stops: Object.values(line.directions)[0].stops.map(({ station: id }) => {
                 // The other lines here, if any
-                changes: rail.stations[id].lines.filter(l => l !== lineId).join(', ') || null,
-            })),
+                const others = rail.stations[id].lines.filter(l => l !== lineId);
+                return {
+                    href: `${STATIONS_PATH}/${id}`,
+                    name: localName(rail.stations[id].name, lang),
+                    changes: others.length ? pillList(others.map(l => linePill(l, rail.lines[l].name, 's'))) : null,
+                };
+            }),
         })),
     };
 }

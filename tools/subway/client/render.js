@@ -1,6 +1,7 @@
 import { language, localHref, t } from '/js/core/i18n.js';
 import { format, formatDate, html, icon, localName, walkingUrl as walkingTo } from '/js/core/html.js';
-import { centralPlatformBadge, clockTime, exitDiagram, lineBadge, stopNote } from '/js/core/metro.js';
+import { linePill } from '/js/core/lines.js';
+import { centralPlatformBadge, clockTime, exitDiagram, stopNote } from '/js/core/metro.js';
 import { legPositions, tripTime } from './network.js';
 
 // What the subway page draws, with html`` (every value escaped)
@@ -75,7 +76,7 @@ function legCard(rail, leg, next, now, level, tomorrow, changes) {
             <p class="leg-boarding">${boardAt(rail, leg.from)}</p>
             <div class="result-header d-flex align-items-center gap-2 mb-2">
                 <${heading} class="leg-title">
-                    ${lineBadge(leg.line, line.name)}
+                    ${linePill(leg.line, line.name, 'l')}
                     <span class="direction-text"><span aria-hidden="true">→ </span><span class="sr-only">${t('subway.toward')} </span>${toward}</span>
                 </${heading}>
                 <div class="schedule-section ms-auto">${departureChips(leg.departures, now, tomorrow)}</div>
@@ -126,7 +127,7 @@ function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, op
         const connector = next && html`
             <div class="transfer-connector" aria-hidden="true">
                 ${icon('arrow-down-circle-fill')}
-                <span>${t('subway.change-to')} ${rail.lines[next.line].name}</span>
+                <span>${t('subway.change-to')} ${linePill(next.line, rail.lines[next.line].name)}</span>
             </div>`;
         return html`${legCard(rail, leg, next, now, level, tomorrow, route.legs.length > 1)}${connector}`;
     });

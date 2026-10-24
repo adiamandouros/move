@@ -1,6 +1,6 @@
 import { html, icon, localName, setHtml } from '/js/core/html.js';
 import { language, localHref, t } from '/js/core/i18n.js';
-import { lineBadge } from '/js/core/metro.js';
+import { linePill, pillList } from '/js/core/lines.js';
 
 // The schematic maps of the metro and the tram: drawn as SVG from a layout
 // (map-layout.js, tram-layout.js: positions) and a network from rail.json
@@ -81,7 +81,7 @@ function lineParts(line) {
     return { extra, oneWay };
 }
 
-// A line's name in its colours, as lineBadge in metro.js draws it: the
+// A line's name in its colours, as linePill in lines.js draws it: the
 // box's colour from rail.json, the text's from style.css's .line-m1 etc.
 function badge(x, y, lineId, line) {
     return html`<g class="map-badge line-${lineId.toLowerCase()}"><rect x="${x - BADGE.w / 2}" y="${y - BADGE.h / 2}" width="${BADGE.w}" height="${BADGE.h}" rx="${BADGE.h / 2}" fill="${lineColor(line)}"/><text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central">${line?.name ?? lineId}</text></g>`;
@@ -364,14 +364,14 @@ export function stationList(network, { link = () => null, changes = () => [] } =
         const items = ids.map(id => {
             const station = network.stations[id];
             const others = [...station.lines.filter(l => l !== lineId), ...changes(id)];
-            const change = others.length > 0 && html` <span class="station-change">· ${t('info.change-to')} ${others.join(', ')}</span>`;
+            const change = others.length > 0 && html` <span class="station-change">· ${t('info.change-to')} ${pillList(others.map(l => linePill(l, l, 's')))}</span>`;
             const href = link(id);
             return html`<li>${href ? html`<a href="${href}">${name(id)}</a>` : name(id)}${change}</li>`;
         });
         const { extra } = lineParts(line);
         const ways = Object.values(line.directions).slice(1).filter(d => extra.some(run => directionStations(d).includes(run[1])))
             .map(d => html`<p class="station-way">${t('info.other-way').replace('{toward}', localName(d.toward, language))} ${extra.map(run => run.map(name).join(' – ')).join('; ')}.</p>`);
-        return html`<h5 class="station-line">${lineBadge(lineId, line.name)} ${name(ids[0])} – ${name(ids.at(-1))}</h5>
+        return html`<h5 class="station-line">${linePill(lineId, line.name)} ${name(ids[0])} – ${name(ids.at(-1))}</h5>
             <ol class="station-stops">${items}</ol>${ways}`;
     })}`;
 }

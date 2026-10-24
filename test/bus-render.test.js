@@ -49,7 +49,8 @@ test('the stop row: name, code, distance, directions in a new tab, lines', async
     assert.match(html, /<a href="[^"]+" class="directions-btn [^"]*" target="_blank" rel="noopener">/);
     assert.match(html, /destination=37\.97491,23\.73488&amp;travelmode=walking/);
     // Each line links to its stops, in the page's language
-    assert.match(html, /Lines: <a href="\/buses\?line=040" data-view>040<\/a>, <a href="\/buses\?line=%CE%A795" data-view>Χ95<\/a>/);
+    // Each line a plate, opening its stops
+    assert.match(html, /Lines: <a class="plate-link" href="\/buses\?line=040" data-view><span class="bus-plate pill-s">040<\/span><\/a><span class="sr-only">,<\/span> <a class="plate-link" href="\/buses\?line=%CE%A795" data-view><span class="bus-plate pill-s">Χ95<\/span><\/a>/);
     assert.match(String((await browserModule('tools/buses/client/render.js', 'el')).stopItem(stop, 0)), /href="\/el\/buses\?line=040"/);
     assert.match(String((await browserModule('tools/buses/client/render.js', 'el')).stopItem(stop, 0)), /ΣΥΝΤΑΓΜΑ/);
 });
@@ -59,6 +60,8 @@ test('the next bus, as a screen reader hears the stop button', async () => {
     const el = await browserModule('tools/buses/client/render.js', 'el');
     assert.equal(spoken(en.nextBus({ arrivals })).replace(/\s+/g, ' '), '. Next bus: line Χ95, SYNTAGMA - AIRPORT, 2 minutes');
     assert.equal(spoken(el.nextBus({ arrivals })).replace(/\s+/g, ' '), '. Επόμενο λεωφορείο: γραμμή Χ95, ΣΥΝΤΑΓΜΑ - ΑΕΡΟΔΡΟΜΙΟ, 2 λεπτά');
+    // The line on its large plate
+    assert.match(String(en.nextBus({ arrivals })), /<span class="bus-plate pill-l">Χ95<\/span>/);
     assert.equal(spoken(en.nextBus({ arrivals: [] })), '. No arrivals');
     assert.match(spoken(en.nextBus({ arrivals: [], unavailable: true })), /unavailable/i);
     assert.match(String(en.nextBus(undefined)), /class="bi[^"]* spin"/);
@@ -87,6 +90,7 @@ test('one arrival: line, destination and minutes, as a screen reader hears it', 
     assert.match(row, /^\s*<li class="arrival-row /);
     assert.match(row, /arrival-close/);
     assert.equal(spoken(row).replace(/\s+/g, ' '), 'Γραμμή 040 , ΠΕΙΡΑΙΑΣ, 7 λεπτά');
+    assert.match(row, /<span class="bus-plate pill-m"><span class="sr-only">Γραμμή <\/span>040<\/span>/);
 });
 
 test('every arrival is listed; an unknown line or destination says so', async () => {
@@ -162,6 +166,7 @@ test('a found line: its number and its name in the page\'s language', async () =
     const el = await browserModule('tools/buses/client/render.js', 'el');
     const html = String(en.lineResult(line));
     assert.match(html, /href="\/buses\?line=040"/);
+    assert.match(html, /<span class="bus-plate pill-m">/);
     assert.equal(spoken(html).replace(/\s+/g, ' ').trim(), 'Line 040, PEIRAIAS - SYNTAGMA');
     assert.equal(spoken(String(el.lineResult(line))).replace(/\s+/g, ' ').trim(), 'Γραμμή 040, ΠΕΙΡΑΙΑΣ - ΣΥΝΤΑΓΜΑ');
     assert.match(String(el.lineResult(line)), /href="\/el\/buses\?line=040"/);
@@ -189,7 +194,7 @@ test('the line header: back, the line, and a switch between its two directions',
     const { lineHeader } = await browserModule('tools/buses/client/render.js', 'en');
     const html = String(lineHeader(line, 1));
     assert.match(html, /<a class="[^"]*back-link" href="\/buses" data-view>/);
-    assert.match(html, /<h2 class="line-heading[^"]*" tabindex="-1">/);
+    assert.match(html, /<h2 class="line-heading[^"]*" tabindex="-1"><span class="bus-plate pill-l">/);
     assert.match(html, /role="group" aria-label="Direction"/);
     assert.deepEqual([...html.matchAll(/data-direction="(\d)" aria-pressed="(\w+)">([^]*?)<\/button>/g)].map(m => [m[1], m[2], spoken(m[3])]), [['0', 'false', 'To PEIRAIAS'], ['1', 'true', 'To SYNTAGMA']]);
     // A circular line has one direction: no switch

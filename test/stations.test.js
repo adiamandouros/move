@@ -34,8 +34,8 @@ const get = async path => {
     return { status: res.status, html: await res.text() };
 };
 const main = html => html.match(/<main[^>]*>([\s\S]*)<\/main>/)[1];
-// The page's text, as a reader sees it (Handlebars writes ' as &#x27;)
-const text = html => main(html).replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/\s+/g, ' ');
+// The page's text, as a reader sees it (Handlebars writes ' as &#x27;, html`` as &#39;)
+const text = html => main(html).replace(/<[^>]+>/g, ' ').replace(/&#x27;|&#39;/g, "'").replace(/\s+/g, ' ');
 
 test('first and last trains are grouped by days that look the same', () => {
     const groups = firstAndLast(rail.lines.L1.directions.east.timetable, 1);
@@ -85,7 +85,13 @@ test('what a station\'s page shows, as data: lines, neighbours, where to ride, c
     assert.equal(east.arriving.exitsKnown, true);
     assert.match(String(east.arriving.diagram), /class="train-diagram"/);
     assert.equal(east.arriving.centralPlatform, null);
-    assert.deepEqual(east.arriving.transfers, [{ line: 'L2', toward: 'Gamma', where: 'subway.pos.center-front' }]);
+    // The line to change to is its pill
+    assert.deepEqual(east.arriving.transfers.map(t => ({ ...t, line: String(t.line) })), [{ line: '<span class="line-pill pill-m line-l2">L2</span>', toward: 'Gamma', where: 'subway.pos.center-front' }]);
+    // Each line's pill: in the sentence under the name, and large as its section's heading
+    assert.deepEqual(view.lines.map(l => [String(l.badge), String(l.heading)]), [
+        ['<span class="line-pill pill-m line-l1">L1</span>', '<span class="line-pill pill-l line-l1">L1</span>'],
+        ['<span class="line-pill pill-m line-l2">L2</span>', '<span class="line-pill pill-l line-l2">L2</span>'],
+    ]);
     assert.match(String(east.arriving.note), /class="stop-note[^"]*">.*Unreliable data<\/div>$/);
     assert.equal(view.lines[0].directions[1].arriving.note, null);
     // Arriving at b on L1: a central platform
@@ -198,9 +204,9 @@ test('a station with STASY\'s times shows its note, and the other destinations u
 });
 
 test('the index, as data: every station by line, with the other lines there', () => {
-    assert.deepEqual(indexView(rail, 'el', key => key).lines.map(l => [l.key, l.stops.map(s => [s.name, s.changes])]), [
-        ['l1', [['Άλφα', null], ['Κόμβος', 'L2'], ['Βήτα', null]]],
-        ['l2', [['Κόμβος', 'L1'], ['Γάμμα', null]]],
+    assert.deepEqual(indexView(rail, 'el', key => key).lines.map(l => [l.key, String(l.heading), l.stops.map(s => [s.name, s.changes && String(s.changes)])]), [
+        ['l1', '<span class="line-pill pill-l line-l1">L1</span>', [['Άλφα', null], ['Κόμβος', '<span class="line-pill pill-s line-l2">L2</span>'], ['Βήτα', null]]],
+        ['l2', '<span class="line-pill pill-l line-l2">L2</span>', [['Κόμβος', '<span class="line-pill pill-s line-l1">L1</span>'], ['Γάμμα', null]]],
     ]);
     assert.equal(indexView(rail, 'en', key => key).lines[0].stops[1].href, '/subway/stations/x');
 });
@@ -225,6 +231,9 @@ test('a station page shows lines, neighbours, where to ride, connections and tim
         'From OASA\'s timetable, valid until 31/12/2099. Times are approximate.',
     ]) assert.ok(t.includes(expected), `"${expected}" in: ${t}`);
     assert.match(html, /aria-label="Train diagram showing where to stand: Back, Center \(elevator\)"/);
+    // Each line's section: its large pill alone, its name for screen readers
+    assert.match(html, /<h2 class="station-line-title" id="line-l1"><span class="line-pill pill-l line-l1">L1<\/span><span class="sr-only"> Line 1<\/span><\/h2>/);
+    assert.match(html, /Changing to <span class="line-pill pill-m line-l2">L2<\/span> toward Gamma/);
     assert.match(html, /href="\/subway\/stations\/a">Alpha</);
     assert.match(html, /href="\/subway\?from=x"/);
     assert.match(html, /href="\/subway\?to=x"/);

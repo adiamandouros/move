@@ -10,7 +10,7 @@
     </div>
 {{#each lines}}
     <section class="station-section" aria-labelledby="line-{{key}}">
-        <h2 class="station-line-title" id="line-{{key}}">{{badge}} {{t "stations.line" n=number}}</h2>
+        <h2 class="station-line-title" id="line-{{key}}">{{heading}}<span class="sr-only"> {{t "stations.line" n=number}}</span></h2>
 {{#each directions}}
         {{> station-direction}}
 {{/each}}

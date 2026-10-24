@@ -35,9 +35,9 @@
             <div id="tram-map" class="metro-map"></div>
             <div id="tram-map-help">
                 {{#ifLang "en"}}
-                <p class="info-source">The short coloured lines mark where you can change to the metro. In Piraeus, T7 trams go one way round the loop, as the arrows show. The stops of each line are listed below.</p>
+                <p class="info-source">The short coloured lines mark where you can change to the metro. In Piraeus, {{pill "T7"}} trams go one way round the loop, as the arrows show. The stops of each line are listed below.</p>
                 {{else}}
-                <p class="info-source">Οι μικρές χρωματιστές γραμμές δείχνουν πού μπορείτε να αλλάξετε για το μετρό. Στον Πειραιά, το Τ7 κάνει τον κύκλο προς μία κατεύθυνση, όπως δείχνουν τα βέλη. Οι στάσεις κάθε γραμμής είναι στη λίστα παρακάτω.</p>
+                <p class="info-source">Οι μικρές χρωματιστές γραμμές δείχνουν πού μπορείτε να αλλάξετε για το μετρό. Στον Πειραιά, το {{pill "T7"}} κάνει τον κύκλο προς μία κατεύθυνση, όπως δείχνουν τα βέλη. Οι στάσεις κάθε γραμμής είναι στη λίστα παρακάτω.</p>
                 {{/ifLang}}
             </div>
             <div class="station-index">
@@ -48,9 +48,9 @@
 
         {{#> section id="hours" iconName="clock" title="info.hours"}}
             {{#ifLang "en"}}
-            <p>Last train from each end of the line. Lines 2 and 3 and the tram run all night on Saturdays; line 1 and the airport branch don't. First trains leave at about 05:00 on line 1 and 05:30 on the rest.</p>
+            <p>Last train from each end of the line. Lines {{pill "M2"}} and {{pill "M3"}} and the tram run all night on Saturdays; {{pill "M1"}} and the airport branch don't. First trains leave at about 05:00 on {{pill "M1"}} and 05:30 on the rest.</p>
             {{else}}
-            <p>Τελευταίος συρμός από κάθε αφετηρία. Οι γραμμές 2 και 3 και το τραμ λειτουργούν όλη τη νύχτα τα Σάββατα· η γραμμή 1 και το τμήμα προς το αεροδρόμιο όχι. Οι πρώτοι συρμοί ξεκινούν περίπου στις 05:00 στη γραμμή 1 και στις 05:30 στις υπόλοιπες.</p>
+            <p>Τελευταίος συρμός από κάθε αφετηρία. Οι γραμμές {{pill "M2"}} και {{pill "M3"}} και το τραμ λειτουργούν όλη τη νύχτα τα Σάββατα· η γραμμή {{pill "M1"}} και το τμήμα προς το αεροδρόμιο όχι. Οι πρώτοι συρμοί ξεκινούν περίπου στις 05:00 στη γραμμή {{pill "M1"}} και στις 05:30 στις υπόλοιπες.</p>
             {{/ifLang}}
             <div class="table-responsive" tabindex="0" role="region" aria-label="{{t "info.hours-caption"}}">
                 <table class="table table-sm info-table">
@@ -60,19 +60,19 @@
                     </thead>
                     <tbody>
 {{#each metro.rows}}
-                        <tr>{{#if badge}}<th scope="rowgroup" rowspan="{{badge.rows}}"><span class="line-badge line-{{badge.key}}">{{badge.name}}</span></th>{{/if}}<th scope="row">{{name}}</th>{{#each times}}<td{{#if colspan}} colspan="{{colspan}}"{{/if}}>{{text}}</td>{{/each}}</tr>
+                        <tr>{{#if badge}}<th scope="rowgroup" rowspan="{{badge.rows}}">{{badge.pill}}</th>{{/if}}<th scope="row">{{name}}</th>{{#each times}}<td{{#if colspan}} colspan="{{colspan}}"{{/if}}>{{text}}</td>{{/each}}</tr>
 {{/each}}
-                        <tr><th scope="rowgroup" rowspan="2"><span class="line-badge line-t6">T6</span></th><th scope="row">{{#ifLang "en"}}Syntagma{{else}}Σύνταγμα{{/ifLang}}</th><td>00:50</td><td>01:40</td><td rowspan="4">{{t "info.all-night"}}</td></tr>
+                        <tr><th scope="rowgroup" rowspan="2">{{pill "T6"}}</th><th scope="row">{{#ifLang "en"}}Syntagma{{else}}Σύνταγμα{{/ifLang}}</th><td>00:50</td><td>01:40</td><td rowspan="4">{{t "info.all-night"}}</td></tr>
                         <tr><th scope="row">{{#ifLang "en"}}Pikrodafni{{else}}Πικροδάφνη{{/ifLang}}</th><td>00:10</td><td>00:57</td></tr>
-                        <tr><th scope="rowgroup" rowspan="2"><span class="line-badge line-t7">T7</span></th><th scope="row">{{#ifLang "en"}}Akti Posidonos{{else}}Ακτή Ποσειδώνος{{/ifLang}}</th><td>00:40</td><td>01:50</td></tr>
+                        <tr><th scope="rowgroup" rowspan="2">{{pill "T7"}}</th><th scope="row">{{#ifLang "en"}}Akti Posidonos{{else}}Ακτή Ποσειδώνος{{/ifLang}}</th><td>00:40</td><td>01:50</td></tr>
                         <tr><th scope="row">{{#ifLang "en"}}Asklipiio Voulas{{else}}Ασκληπιείο Βούλας{{/ifLang}}</th><td>23:43</td><td>00:54</td></tr>
                     </tbody>
                 </table>
             </div>
             {{#ifLang "en"}}
-            <p>On line 3, the last train to the airport leaves Dimotiko Theatro at {{metro.facts.toAirport}}; later trains go only as far as Douk. Plakentias. On line 1, one more train leaves each end at {{metro.facts.toOmonia}} but only goes as far as Omonia. Temporary changes, such as closures for works, appear under Announcements.</p>
+            <p>On {{pill "M3"}}, the last train to the airport leaves Dimotiko Theatro at {{metro.facts.toAirport}}; later trains go only as far as Douk. Plakentias. On {{pill "M1"}}, one more train leaves each end at {{metro.facts.toOmonia}} but only goes as far as Omonia. Temporary changes, such as closures for works, appear under Announcements.</p>
             {{else}}
-            <p>Στη γραμμή 3, ο τελευταίος συρμός προς το αεροδρόμιο ξεκινά από το Δημοτικό Θέατρο στις {{metro.facts.toAirport}}· οι επόμενοι φτάνουν μόνο ως τη Δουκ. Πλακεντίας. Στη γραμμή 1, ένας ακόμη συρμός ξεκινά από κάθε άκρο στις {{metro.facts.toOmonia}} αλλά φτάνει μόνο ως την Ομόνοια. Προσωρινές αλλαγές, όπως κλεισίματα λόγω έργων, εμφανίζονται στις Ανακοινώσεις.</p>
+            <p>Στη γραμμή {{pill "M3"}}, ο τελευταίος συρμός προς το αεροδρόμιο ξεκινά από το Δημοτικό Θέατρο στις {{metro.facts.toAirport}}· οι επόμενοι φτάνουν μόνο ως τη Δουκ. Πλακεντίας. Στη γραμμή {{pill "M1"}}, ένας ακόμη συρμός ξεκινά από κάθε άκρο στις {{metro.facts.toOmonia}} αλλά φτάνει μόνο ως την Ομόνοια. Προσωρινές αλλαγές, όπως κλεισίματα λόγω έργων, εμφανίζονται στις Ανακοινώσεις.</p>
             {{/ifLang}}
 {{#if metro.stasy}}
             <p class="small text-body-secondary">{{t "info.hours-stasy" date=metro.stasy}}</p>
@@ -122,13 +122,13 @@
         {{#> section id="airport" iconName="airplane" title="info.airport"}}
             {{#ifLang "en"}}
             <ul>
-                <li><strong>Metro <span class="line-badge line-m3">M3</span>:</strong> every 36 minutes, about 40 minutes from Syntagma. €9, or €16 return (valid 30 days). First train from the airport {{metro.facts.firstFromAirport}}, last {{metro.facts.fromAirport}}; last to the airport from Dimotiko Theatro {{metro.facts.toAirport}}. The same ticket works on the suburban railway.</li>
-                <li><strong>Express buses:</strong> €5.50, every day around the clock. <span class="line-pill">X95</span> Syntagma, <span class="line-pill">X96</span> Piraeus, <span class="line-pill">X97</span> Elliniko metro, <span class="line-pill">X93</span> Kifisos intercity bus station.</li>
+                <li><strong>Metro {{pill "M3"}}:</strong> every 36 minutes, about 40 minutes from Syntagma. €9, or €16 return (valid 30 days). First train from the airport {{metro.facts.firstFromAirport}}, last {{metro.facts.fromAirport}}; last to the airport from Dimotiko Theatro {{metro.facts.toAirport}}. The same ticket works on the suburban railway.</li>
+                <li><strong>Express buses:</strong> €5.50, every day around the clock. {{plate "X95"}} Syntagma, {{plate "X96"}} Piraeus, {{plate "X97"}} Elliniko metro, {{plate "X93"}} Kifisos intercity bus station.</li>
             </ul>
             {{else}}
             <ul>
-                <li><strong>Μετρό <span class="line-badge line-m3">M3</span>:</strong> κάθε 36 λεπτά, περίπου 40 λεπτά από το Σύνταγμα. €9, ή €16 μετ' επιστροφής (ισχύει 30 ημέρες). Πρώτος συρμός από το αεροδρόμιο {{metro.facts.firstFromAirport}}, τελευταίος {{metro.facts.fromAirport}}· τελευταίος προς το αεροδρόμιο από το Δημοτικό Θέατρο {{metro.facts.toAirport}}. Το ίδιο εισιτήριο ισχύει και στον προαστιακό.</li>
-                <li><strong>Λεωφορεία express:</strong> €5,50, κάθε μέρα όλο το 24ωρο. <span class="line-pill">X95</span> Σύνταγμα, <span class="line-pill">X96</span> Πειραιάς, <span class="line-pill">X97</span> Στ. Ελληνικό, <span class="line-pill">X93</span> ΚΤΕΛ Κηφισού.</li>
+                <li><strong>Μετρό {{pill "M3"}}:</strong> κάθε 36 λεπτά, περίπου 40 λεπτά από το Σύνταγμα. €9, ή €16 μετ' επιστροφής (ισχύει 30 ημέρες). Πρώτος συρμός από το αεροδρόμιο {{metro.facts.firstFromAirport}}, τελευταίος {{metro.facts.fromAirport}}· τελευταίος προς το αεροδρόμιο από το Δημοτικό Θέατρο {{metro.facts.toAirport}}. Το ίδιο εισιτήριο ισχύει και στον προαστιακό.</li>
+                <li><strong>Λεωφορεία express:</strong> €5,50, κάθε μέρα όλο το 24ωρο. {{plate "X95"}} Σύνταγμα, {{plate "X96"}} Πειραιάς, {{plate "X97"}} Στ. Ελληνικό, {{plate "X93"}} ΚΤΕΛ Κηφισού.</li>
             </ul>
             {{/ifLang}}
 {{> checked checked.airport}}
@@ -137,30 +137,30 @@
         {{#> section id="night" iconName="moon-stars" title="info.night"}}
             <h3 class="info-subhead">{{#ifLang "en"}}All day and night, every day{{else}}Όλο το 24ωρο, κάθε μέρα{{/ifLang}}</h3>
             <ul class="info-lines">
-                <li><span class="line-pill">040</span> {{#ifLang "en"}}Piraeus – Syntagma{{else}}Πειραιάς – Σύνταγμα{{/ifLang}}</li>
-                <li><span class="line-pill">11</span> {{#ifLang "en"}}Ano Patisia – N. Pagrati – N. Elvetia{{else}}Άνω Πατήσια – Ν. Παγκράτι – Ν. Ελβετία{{/ifLang}}</li>
-                <li><span class="line-pill">X93</span> <span class="line-pill">X95</span> <span class="line-pill">X96</span> <span class="line-pill">X97</span> {{#ifLang "en"}}to the airport{{else}}προς το αεροδρόμιο{{/ifLang}}</li>
+                <li>{{plate "040"}} {{#ifLang "en"}}Piraeus – Syntagma{{else}}Πειραιάς – Σύνταγμα{{/ifLang}}</li>
+                <li>{{plate "11"}} {{#ifLang "en"}}Ano Patisia – N. Pagrati – N. Elvetia{{else}}Άνω Πατήσια – Ν. Παγκράτι – Ν. Ελβετία{{/ifLang}}</li>
+                <li>{{plate "X93"}} {{plate "X95"}} {{plate "X96"}} {{plate "X97"}} {{#ifLang "en"}}to the airport{{else}}προς το αεροδρόμιο{{/ifLang}}</li>
             </ul>
             <h3 class="info-subhead">{{#ifLang "en"}}Night only, every day{{else}}Μόνο τη νύχτα, κάθε μέρα{{/ifLang}}</h3>
             <ul class="info-lines">
-                <li><span class="line-pill">400</span> {{#ifLang "en"}}Piraeus – Douk. Plakentias metro{{else}}Πειραιάς – Στ. Δουκίσσης Πλακεντίας{{/ifLang}}</li>
-                <li><span class="line-pill">500</span> {{#ifLang "en"}}Piraeus – Kifisia{{else}}Πειραιάς – Κηφισιά{{/ifLang}}</li>
-                <li><span class="line-pill">790</span> {{#ifLang "en"}}Glyfada – Peristeri – Anthoupoli{{else}}Γλυφάδα – Περιστέρι – Ανθούπολη{{/ifLang}}</li>
-                <li><span class="line-pill">X14</span> {{#ifLang "en"}}Syntagma – Kifisia{{else}}Σύνταγμα – Κηφισιά{{/ifLang}}</li>
+                <li>{{plate "400"}} {{#ifLang "en"}}Piraeus – Douk. Plakentias metro{{else}}Πειραιάς – Στ. Δουκίσσης Πλακεντίας{{/ifLang}}</li>
+                <li>{{plate "500"}} {{#ifLang "en"}}Piraeus – Kifisia{{else}}Πειραιάς – Κηφισιά{{/ifLang}}</li>
+                <li>{{plate "790"}} {{#ifLang "en"}}Glyfada – Peristeri – Anthoupoli{{else}}Γλυφάδα – Περιστέρι – Ανθούπολη{{/ifLang}}</li>
+                <li>{{plate "X14"}} {{#ifLang "en"}}Syntagma – Kifisia{{else}}Σύνταγμα – Κηφισιά{{/ifLang}}</li>
             </ul>
             <h3 class="info-subhead">{{#ifLang "en"}}All night on Saturdays{{else}}Όλη τη νύχτα τα Σάββατα{{/ifLang}}</h3>
             <ul class="info-lines">
-                <li><span class="line-pill">049</span> {{#ifLang "en"}}Piraeus – Omonia{{else}}Πειραιάς – Ομόνοια{{/ifLang}}</li>
-                <li><span class="line-pill">221</span> {{#ifLang "en"}}Panepistimioupoli – Akadimia{{else}}Πανεπιστημιούπολη – Ακαδημία{{/ifLang}}</li>
-                <li><span class="line-pill">224</span> {{#ifLang "en"}}Kaisariani – El. Venizelou{{else}}Καισαριανή – Ελ. Βενιζέλου{{/ifLang}}</li>
-                <li><span class="line-pill">421</span> {{#ifLang "en"}}Agioi Anargyroi – Agia Paraskevi{{else}}Άγιοι Ανάργυροι – Αγία Παρασκευή{{/ifLang}}</li>
-                <li><span class="line-pill">550</span> {{#ifLang "en"}}Palaio Faliro – Kifisia{{else}}Παλαιό Φάληρο – Κηφισιά{{/ifLang}}</li>
-                <li><span class="line-pill">608</span> {{#ifLang "en"}}Galatsi – Akadimia – Zografou cemetery{{else}}Γαλάτσι – Ακαδημία – Νεκρ. Ζωγράφου{{/ifLang}}</li>
-                <li><span class="line-pill">703</span> {{#ifLang "en"}}Piraeus – Ag. Anargyroi – Ag. Eleftherios (via Thivon){{else}}Πειραιάς – Αγ. Ανάργυροι – Αγ. Ελευθέριος (μέσω Θηβών){{/ifLang}}</li>
-                <li><span class="line-pill">842</span> {{#ifLang "en"}}Perama – Korydallos metro{{else}}Πέραμα – Στ. Κορυδαλλός{{/ifLang}}</li>
-                <li><span class="line-pill">A15</span> {{#ifLang "en"}}Larissa station – Dasos{{else}}Στ. Λαρίσης – Δάσος{{/ifLang}}</li>
-                <li><span class="line-pill">B11</span> {{#ifLang "en"}}Pl. Vathis – Ilion – Petroupoli{{else}}Πλ. Βάθη – Ίλιον – Πετρούπολη{{/ifLang}}</li>
-                <li><span class="line-pill">B12</span> {{#ifLang "en"}}Attiki metro – Ano Liosia{{else}}Στ. Αττική – Άνω Λιόσια{{/ifLang}}</li>
+                <li>{{plate "049"}} {{#ifLang "en"}}Piraeus – Omonia{{else}}Πειραιάς – Ομόνοια{{/ifLang}}</li>
+                <li>{{plate "221"}} {{#ifLang "en"}}Panepistimioupoli – Akadimia{{else}}Πανεπιστημιούπολη – Ακαδημία{{/ifLang}}</li>
+                <li>{{plate "224"}} {{#ifLang "en"}}Kaisariani – El. Venizelou{{else}}Καισαριανή – Ελ. Βενιζέλου{{/ifLang}}</li>
+                <li>{{plate "421"}} {{#ifLang "en"}}Agioi Anargyroi – Agia Paraskevi{{else}}Άγιοι Ανάργυροι – Αγία Παρασκευή{{/ifLang}}</li>
+                <li>{{plate "550"}} {{#ifLang "en"}}Palaio Faliro – Kifisia{{else}}Παλαιό Φάληρο – Κηφισιά{{/ifLang}}</li>
+                <li>{{plate "608"}} {{#ifLang "en"}}Galatsi – Akadimia – Zografou cemetery{{else}}Γαλάτσι – Ακαδημία – Νεκρ. Ζωγράφου{{/ifLang}}</li>
+                <li>{{plate "703"}} {{#ifLang "en"}}Piraeus – Ag. Anargyroi – Ag. Eleftherios (via Thivon){{else}}Πειραιάς – Αγ. Ανάργυροι – Αγ. Ελευθέριος (μέσω Θηβών){{/ifLang}}</li>
+                <li>{{plate "842"}} {{#ifLang "en"}}Perama – Korydallos metro{{else}}Πέραμα – Στ. Κορυδαλλός{{/ifLang}}</li>
+                <li>{{plate "A15"}} {{#ifLang "en"}}Larissa station – Dasos{{else}}Στ. Λαρίσης – Δάσος{{/ifLang}}</li>
+                <li>{{plate "B11"}} {{#ifLang "en"}}Pl. Vathis – Ilion – Petroupoli{{else}}Πλ. Βάθη – Ίλιον – Πετρούπολη{{/ifLang}}</li>
+                <li>{{plate "B12"}} {{#ifLang "en"}}Attiki metro – Ano Liosia{{else}}Στ. Αττική – Άνω Λιόσια{{/ifLang}}</li>
             </ul>
 {{> checked checked.night}}
         {{/section}}

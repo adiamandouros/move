@@ -16,7 +16,7 @@ and stations, icons, components, the light theme, brand. Rules marked
 - **A line is always its pill.** Wherever Wayhop names a line, it shows the
   line's pill: round, in the line's colour. Buses get neutral
   square-cornered plates. Operators' own text (announcements) stays as
-  written. *(step 2)*
+  written.
 - **One meaning per colour, one meaning per icon.** If two things look the
   same, they mean the same.
 - **The answer is the loudest thing.** Times, lines and where to stand are
@@ -136,12 +136,21 @@ The palettes and every contrast number are in the guide.
 - Light theme: follows the phone, with Auto / Light / Dark in the menu; dark
   when unsure. *(step 5)*
 
-## Lines and stations *(step 2)*
+## Lines and stations
 
-- Pills in three sizes, S / M / L. The station page's heading is the large
-  pill alone, with the line's name for screen readers.
-- Bus numbers are neutral plates everywhere, the stop header's too.
-- **Station signs**, like the real ones (a white panel with the line
+- One builder, `/js/core/lines.js`: `linePill(id, name, size)` for metro
+  and tram lines, `busPlate(number, size)` for buses; views write
+  `{{pill "M3"}}` and `{{plate "X95"}}`. Never a line's name as bare text.
+- Three sizes, in em inside: **S** in lists (station suggestions, the
+  stations by line, a stop's lines), **M** in sentences, arrival rows and
+  tables, **L** in the headers of leg cards, station sections and bus stops.
+- A station page's line section is headed by the large pill alone, with
+  "Line 2" for screen readers.
+- Bus numbers are neutral plates everywhere, the stop header's too. A plate
+  that opens its line has blue text.
+- Several pills in a row have a space between them and a comma for screen
+  readers (`pillList`).
+- **Station signs** *(step 2, second part)*, like the real ones (a white panel with the line
   colours on its top and bottom edges), only for the direction of travel:
   the leg card's header (`[M1] → [Kifisia]`), the station page's direction
   cards and its heading. In the page's language only, tight, one line. A
@@ -164,6 +173,8 @@ rows.
 - `test/design.test.js`: the tokens are the scale; sizes, corners, shadows,
   px and breakpoints in `style.css` use them.
 - `test/accessibility.test.js`: every text colour on every surface, the line
-  colours, the control edge.
+  colours, the control edge; and that no page shows a line's name outside
+  its pill (`bareLineProblems` in `test/support/markup.js`, which the
+  checks on what the browser draws run too).
 - `test/browser/text-size.spec.js`: every page at 200% text, as above, and
   the two parts that change shape.

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { join, relative } from 'path';
 import { fileURLToPath } from 'url';
+import { linePill } from '../public/js/core/lines.js';
 import { listFiles } from '../server/pages/assets.js';
 import { renderPages } from '../server/pages/index.js';
 import { mergeStrings, stringGetter, toolNames } from '../server/pages/i18n.js';
@@ -86,7 +87,7 @@ const PAGE = { lang: 'el', strings: { greeting: 'Γεια σου, {name}', 'shel
 const render = (source, context = {}, page = PAGE) => compileView(source, 'test.hbs')(context, page);
 
 test('only these helpers exist', () => {
-    assert.deepEqual(HELPERS.sort(), ['external', 'formatDate', 'icon', 'ifLang', 'json', 't']);
+    assert.deepEqual(HELPERS.sort(), ['external', 'formatDate', 'icon', 'ifLang', 'json', 'pill', 'plate', 't']);
     assert.throws(() => render('{{shout "x"}}'), /test\.hbs/);
 });
 
@@ -106,6 +107,15 @@ test('{{t}}: the page\'s string, escaped, with its placeholders filled; a missin
     assert.equal(render('{{t "greeting" name=who}}', { who: '<Ελένη>' }), 'Γεια σου, &lt;Ελένη&gt;');
     assert.equal(render('{{t key}}', { key: 'shell.skip' }), 'Μετάβαση');
     assert.throws(() => render('{{t "nope"}}'), /test\.hbs: There's no string "nope" \(el\)/);
+    // A piece built with html`` (a line's pill) goes into the sentence as it is
+    assert.equal(render('{{t "greeting" name=pill}}', { pill: linePill('M3', 'M3') }), 'Γεια σου, <span class="line-pill pill-m line-m3">M3</span>');
+});
+
+test('{{pill}} and {{plate}}: a line\'s pill, a bus line\'s plate, in size m unless given', () => {
+    assert.equal(render('{{pill "M3"}}'), '<span class="line-pill pill-m line-m3">M3</span>');
+    assert.equal(render('{{pill "T7" "s"}}'), '<span class="line-pill pill-s line-t7">T7</span>');
+    assert.equal(render('{{plate "X95"}}'), '<span class="bus-plate pill-m">X95</span>');
+    assert.equal(render('{{plate "040" "l"}}'), '<span class="bus-plate pill-l">040</span>');
 });
 
 test('{{#ifLang}} keeps the page\'s language', () => {

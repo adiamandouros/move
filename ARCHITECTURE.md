@@ -91,15 +91,18 @@ too: `seo.js` gives the meta tags' values (`partials/meta.hbs` writes them),
 and structured data and the import map go in with `{{json}}`. Pieces built with ``html`` `` (a line
 badge, the train diagram, a stop's note) go in as `{{value}}`. The metro
 pieces both the subway page and the station pages show are built once, in
-`metro.js`, so they look the same on both. Six helpers:
+`metro.js`, so they look the same on both. Eight helpers:
 
 - `{{t "key"}}`: the page's string; `{{t "stations.toward" name=toward}}`
-  fills its `{name}`.
+  fills its `{name}` (with a piece built with ``html`` `` as it is, a pill
+  say; `formatHtml()` in `/js/core/html.js`).
 - `{{#ifLang "en"}}…{{else}}…{{/ifLang}}`: text written in both languages
   (paragraphs with links, lists), the English first.
 - `{{icon "geo-alt" "me-1"}}`: an icon from the sprite.
 - `{{json value}}`: JSON that's safe inside a `<script>` element.
 - `{{formatDate "2026-10-14"}}`: a date as people write it, 14/10/2026.
+- `{{pill "M3"}}`, `{{plate "X95"}}`: a line's pill, a bus line's plate
+  (`/js/core/lines.js`; a size as a second argument, `"s"` or `"l"`).
 - `{{#external href="https://…"}}text{{/external}}`: a link that opens in a
   new tab and tells screen readers so (`class`, `lang`, `id`, `hidden=true`
   as needed). It's `externalLink()` from `/js/core/html.js`, which the
@@ -139,7 +142,7 @@ own components); rules use the variable names, never colour values, and
 `test/accessibility.test.js` checks their contrast. Sizes, corners,
 space and shadows are tokens too, in rem, with the rules in
 [DESIGN.md](DESIGN.md) (`test/design.test.js` checks). Line colours are
-classes too (`.line-m1`, for `lineBadge` in `/js/core/metro.js`), kept the
+classes too (`.line-m1`, for `linePill` in `/js/core/lines.js`), kept the
 same as `data/curated/lines.json`'s by that test, so pages have no inline
 styles (`csp.test.js` checks). Use Bootstrap's
 components (accordion, card, toast, buttons) and utilities, themed through
@@ -172,8 +175,9 @@ pages use.
 - `public/js/core/`: modules any page can import. `shell.js` runs on every
   page (location, language link, service worker). `i18n.js`, `html.js`
   (`html`, `setHtml`, `safeUrl`, `format`, `localName`, `walkingUrl`,
-  `icon`), `metro.js` (what the subway page and the station pages share:
-  train diagram, line badge, central platform badge, stop notes, times),
+  `icon`, `formatHtml`), `lines.js` (lines' pills and buses' plates),
+  `metro.js` (what the subway page and the station pages share: train
+  diagram, central platform badge, stop notes, times),
   `location.js`, `announcements.js`, `ads.js`.
 - `tools/<id>/client/`: a tool's own scripts, served at `/tools/<id>/`.
 - **Building HTML**: with ``html`…` `` from `/js/core/html.js`, which escapes

@@ -78,6 +78,18 @@ export function format(text, values) {
     return text.replace(/\{(\w+)\}/g, (match, key) => String(values[key] ?? match));
 }
 
+// The same as HTML, for values that are pieces built with html`` (a line's
+// pill in a sentence): the text is escaped, and values go in as html`` puts
+// them, pieces as they are and anything else escaped.
+// formatHtml(t('subway.change-to'), { line: linePill('M3', 'M3') })
+/** @param {string} text @param {Record<string, unknown>} values @returns {Html} */
+export function formatHtml(text, values) {
+    return new Html(text.split(/(\{\w+\})/).map((part, i) => {
+        const key = part.slice(1, -1);
+        return i % 2 && values[key] !== undefined && values[key] !== null ? piece(values[key]) : escapeHtml(part);
+    }).join(''));
+}
+
 // A name in the page's language, or in English if it has none:
 // localName(station.name, 'el')
 /** @param {{ el?: string, en?: string } | null | undefined} names @param {string} lang */
