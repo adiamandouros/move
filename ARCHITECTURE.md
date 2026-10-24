@@ -127,10 +127,12 @@ The other files there: `assets.js` (stylesheets, scripts and their
 versions), `icons.js` (the icon sprite, `/icons.svg`), `service-worker.js`
 (offline cache), `seo.js` (meta tags, structured data, robots.txt, sitemap).
 
-Icons are Bootstrap Icons, served as one small sprite of only the ones in
-use (listed in `icons.js`): `icon(name, classes)` from `/js/core/html.js`
-writes one, on the server or in the browser, and views write
-`{{icon "name"}}`. The server adds the version to every `/icons.svg` link.
+Icons are Material Symbols Rounded, named by what they mean and served as
+one small sprite of only the ones in use: `MEANINGS` in `icons.js` maps each
+meaning to its picture, outline or filled (DESIGN.md has the rules), and
+the SVGs are copied into `server/icons/` by `npm run icons` from a dev
+dependency. `icon(meaning, classes)` from `/js/core/html.js` writes one, on
+the server or in the browser, and views write `{{icon "meaning"}}`. The server adds the version to every `/icons.svg` link.
 
 Styles are Bootstrap 5.3 (from `node_modules`, no build step) plus
 `public/css/style.css`. The font is Roboto, everywhere: its Latin and Greek

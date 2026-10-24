@@ -254,9 +254,9 @@ body {
 }
 
 /* The Wayhop logo as the Home button, the height of the icons next to it
-   (fs-4, like them, and 1em like .bi) so the labels line up */
+   (.icon-nav) so the labels line up */
 .nav-logo {
-    height: 1em;
+    height: 1.5rem;
     width: auto;
 }
 
@@ -362,8 +362,8 @@ body {
     box-shadow: var(--focus-ring);
 }
 
-.tool-tile .bi {
-    font-size: var(--wh-fs-2xl);
+.tool-tile .icon {
+    --icon-size: 1.75rem;
     color: var(--bs-primary);
 }
 
@@ -409,15 +409,27 @@ body {
 
 /* ── Utility ── */
 
-/* Icons from the sprite (icon() in core/html.js): the size and colour of the
-   text, like the letters next to them */
-.bi {
+/* Icons from the sprite (icon() in core/html.js, Material Symbols): the
+   colour of the text and sized by it. Material draws its symbols inside a
+   margin, so beside words they're a little larger than the letters, and
+   centred on the capitals. Elsewhere, the guide's sizes: the navigation,
+   and a page's message. */
+.icon {
+    --icon-size: 1.25em;
     display: inline-block;
-    width: 1em;
-    height: 1em;
+    width: var(--icon-size);
+    height: var(--icon-size);
     flex-shrink: 0;
-    vertical-align: -0.125em;
+    vertical-align: calc(0.355em - var(--icon-size) / 2);
     fill: currentColor;
+}
+
+.icon-nav {
+    --icon-size: 1.5rem;
+}
+
+.icon-message {
+    --icon-size: 3rem;
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -761,12 +773,6 @@ body {
     border-radius: var(--wh-radius-round);
     width: 2.25rem;
     height: 2.25rem;
-}
-
-/* Bolder arrows: the icon is filled shapes, so an outline thickens them */
-.swap-btn .bi {
-    stroke: currentColor;
-    stroke-width: 0.6;
 }
 
 .swap-btn:hover {
@@ -1178,7 +1184,7 @@ body {
     font-weight: 600;
 }
 
-.transfer-connector .bi {
+.transfer-connector .icon {
     font-size: var(--wh-fs-lg);
 }
 
@@ -1525,7 +1531,7 @@ body {
     overflow-wrap: anywhere;
 }
 
-.info-accordion .accordion-button > .bi {
+.info-accordion .accordion-button > .icon {
     color: var(--bs-primary);
     font-size: var(--wh-fs-lg);
 }
@@ -1667,7 +1673,7 @@ body {
     color: var(--bs-body-color);
 }
 
-.no-disruptions .bi {
+.no-disruptions .icon {
     color: var(--wh-close);
 }
 
@@ -1834,7 +1840,7 @@ body {
     gap: var(--wh-space-2);
 }
 
-.toast-message .bi {
+.toast-message .icon {
     color: var(--bs-success-text-emphasis);
     font-size: var(--wh-fs-lg);
 }
@@ -1913,9 +1919,15 @@ body {
     font-weight: 600;
 }
 
-.home-section-title .bi {
+.home-section-title .icon {
     color: var(--bs-primary);
     font-size: var(--wh-fs-lg);
+}
+
+/* A word longer than the card (large text) breaks rather than spill out */
+.home-section-title > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 /* Stations by line, under the metro map */
@@ -2084,7 +2096,7 @@ body {
 /* The button that opens it, last in the bottom bar: three lines in the
    logo's yellow. With no label, the icon fills the button inside its padding;
    the SVG keeps its shape, so the lines are as big as fit, in the middle. */
-.menu-btn .bi {
+.menu-btn .icon {
     flex: 1 1 0;
     width: 100%;
     min-height: 0;
@@ -2121,7 +2133,7 @@ body {
     border-radius: var(--wh-radius-sm);
 }
 
-.site-menu-link .bi {
+.site-menu-link .icon {
     font-size: var(--wh-fs-lg);
     color: var(--bs-secondary-color);
 }

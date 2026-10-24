@@ -123,13 +123,15 @@ export function externalLink(attrs, content, newTab) {
 /** @param {number} lat @param {number} lng */
 export const walkingUrl = (lat, lng) => `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`;
 
-// An icon from the sprite (server/pages/icons.js lists them), sized and
-// coloured like the text around it: icon('geo-alt', 'me-1'). Icons are
-// decoration; the text next to them or the control's label says what they mean.
-// In the browser the sprite's URL comes from the page (it carries the asset
-// version); the server versions /icons.svg when it renders the page.
+// An icon from the sprite, by what it means (MEANINGS in
+// server/pages/icons.js lists them), sized and coloured like the text around
+// it: icon('walk', 'me-1'). Icons are decoration; the text next to them or
+// the control's label says what they mean. filled: a tab's filled form, for
+// the current tab. In the browser the sprite's URL comes from the page (it
+// carries the asset version); the server versions /icons.svg when it renders
+// the page.
 const sprite = globalThis.document?.documentElement.dataset.icons ?? '/icons.svg';
-/** @param {string} name @param {string} [cls] more classes @returns {Html} */
-export function icon(name, cls = '') {
-    return html`<svg class="bi${cls ? ` ${cls}` : ''}" aria-hidden="true"><use href="${sprite}#${name}"></use></svg>`;
+/** @param {string} name @param {string} [cls] more classes @param {{ filled?: boolean }} [options] @returns {Html} */
+export function icon(name, cls = '', { filled = false } = {}) {
+    return html`<svg class="icon${cls ? ` ${cls}` : ''}" aria-hidden="true"><use href="${sprite}#${name}${filled ? '-filled' : ''}"></use></svg>`;
 }

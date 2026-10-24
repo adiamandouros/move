@@ -4,7 +4,7 @@
     <div id="disruptions" aria-live="polite"></div>
 
     <div class="accordion info-accordion">
-        {{#> section id="announcements" iconName="megaphone" title="announcements.title"}}
+        {{#> section id="announcements" iconName="announcements" title="announcements.title"}}
             <div id="announcements">
                 <p class="text-body-secondary">{{t "announcements.loading"}}</p>
             </div>
@@ -46,7 +46,7 @@
             {{/subsection}}
         {{/section}}
 
-        {{#> section id="hours" iconName="clock" title="info.hours"}}
+        {{#> section id="hours" iconName="times" title="info.hours"}}
             {{#ifLang "en"}}
             <p>Last train from each end of the line. Lines {{pill "M2"}} and {{pill "M3"}} and the tram run all night on Saturdays; {{pill "M1"}} and the airport branch don't. First trains leave at about 05:00 on {{pill "M1"}} and 05:30 on the rest.</p>
             {{else}}
@@ -80,7 +80,7 @@
 {{> checked checked.hours}}
         {{/section}}
 
-        {{#> section id="tickets" iconName="ticket-perforated" title="info.tickets"}}
+        {{#> section id="tickets" iconName="tickets" title="info.tickets"}}
             {{#ifLang "en"}}
             <p>One 90-minute ticket takes you on all city transport for 90 minutes from when you first validate it: metro, tram, buses, trolleys and the suburban railway within the city, changing as often as you like. It doesn't cover the airport (beyond Koropi) or the airport express buses.</p>
             {{else}}
@@ -119,7 +119,7 @@
 {{> checked checked.tickets}}
         {{/section}}
 
-        {{#> section id="airport" iconName="airplane" title="info.airport"}}
+        {{#> section id="airport" iconName="airport" title="info.airport"}}
             {{#ifLang "en"}}
             <ul>
                 <li><strong>Metro {{pill "M3"}}:</strong> every 36 minutes, about 40 minutes from Syntagma. €9, or €16 return (valid 30 days). First train from the airport {{metro.facts.firstFromAirport}}, last {{metro.facts.fromAirport}}; last to the airport from Dimotiko Theatro {{metro.facts.toAirport}}. The same ticket works on the suburban railway.</li>
@@ -134,7 +134,7 @@
 {{> checked checked.airport}}
         {{/section}}
 
-        {{#> section id="night" iconName="moon-stars" title="info.night"}}
+        {{#> section id="night" iconName="night" title="info.night"}}
             <h3 class="info-subhead">{{#ifLang "en"}}All day and night, every day{{else}}Όλο το 24ωρο, κάθε μέρα{{/ifLang}}</h3>
             <ul class="info-lines">
                 <li>{{plate "040"}} {{#ifLang "en"}}Piraeus – Syntagma{{else}}Πειραιάς – Σύνταγμα{{/ifLang}}</li>
@@ -165,7 +165,7 @@
 {{> checked checked.night}}
         {{/section}}
 
-        {{#> section id="access" iconName="person-wheelchair" title="info.access"}}
+        {{#> section id="access" iconName="step-free" title="info.access"}}
             {{#ifLang "en"}}
             <ul>
                 <li>STASY lists the {{#external href="https://www.stasy.gr/en/%ce%bb%ce%b5%ce%b9%cf%84%ce%bf%cf%85%cf%81%ce%b3%ce%b9%ce%ba%cf%8c%cf%84%ce%b7%cf%84%ce%b1-%ce%b1%ce%bd%ce%b5%ce%bb%ce%ba%cf%85%cf%83%cf%84%ce%ae%cf%81%cf%89%ce%bd-%ce%b5%ce%bd/"}}lifts that are out of service{{/external}} at each station.</li>
@@ -183,7 +183,7 @@
             {{/ifLang}}
         {{/section}}
 
-        {{#> section id="contacts" iconName="telephone" title="info.contacts"}}
+        {{#> section id="contacts" iconName="phone" title="info.contacts"}}
             {{#ifLang "en"}}
             <ul>
                 <li><strong>OASA information:</strong> <a href="tel:11185">11185</a> (from abroad <a href="tel:+302108202900">+30 210 820 2900</a>), weekdays 06:30–21:30, weekends and holidays 07:30–21:30.</li>

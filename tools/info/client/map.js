@@ -186,9 +186,9 @@ export function createRailMap(container, network, layout, { label, describedBy, 
         aria-label="${t(key)}" title="${t(key)}">${icon(symbol)}</button>`;
     setHtml(container, html`
         <div class="map-controls">
-            ${button('in', 'info.zoom-in', 'plus-lg')}
-            ${button('out', 'info.zoom-out', 'dash-lg')}
-            ${button('reset', 'info.zoom-reset', 'arrows-angle-contract')}
+            ${button('in', 'info.zoom-in', 'zoom-in')}
+            ${button('out', 'info.zoom-out', 'zoom-out')}
+            ${button('reset', 'info.zoom-reset', 'zoom-reset')}
         </div>
         <svg xmlns="${NS}" class="map-svg" role="img" aria-label="${label}" aria-describedby="${describedBy}" tabindex="0"></svg>`);
     const svg = container.querySelector('.map-svg');

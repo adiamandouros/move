@@ -52,7 +52,7 @@
             </div>
             <div class="d-flex flex-column flex-grow-1 px-2">
 {{#each tools}}
-                <a href="{{path}}" data-tool="{{id}}" class="nav-btn btn d-flex align-items-center gap-3 px-3 py-3 mb-1{{#if active}} active{{/if}}"{{#if active}} aria-current="page"{{/if}}>{{icon iconName "fs-5"}}<span>{{t titleKey}}</span></a>
+                <a href="{{path}}" data-tool="{{id}}" class="nav-btn btn d-flex align-items-center gap-3 px-3 py-3 mb-1{{#if active}} active{{/if}}"{{#if active}} aria-current="page"{{/if}}>{{#if active}}{{icon iconName "icon-nav" filled=true}}{{else}}{{icon iconName "icon-nav"}}{{/if}}<span>{{t titleKey}}</span></a>
 {{/each}}
                 <div class="mt-auto pb-3">
                     {{!-- The pages about the site, stacked above the language link at the bottom --}}
@@ -64,7 +64,7 @@
 {{#if other}}
                     {{!-- This page in the other language: its name in its own language --}}
                     <a href="{{other.path}}" hreflang="{{other.lang}}" class="lang-toggle-btn btn d-flex align-items-center gap-3 px-3 py-2 w-100">
-                        {{icon "globe" "fs-5"}}
+                        {{icon "language" "icon-nav"}}
                         <span class="sr-only" lang="{{other.lang}}">{{other.name}}</span>
                         <span class="lang-options" aria-hidden="true">{{#each languages}}{{#unless @first}}<span class="lang-sep">/</span>{{/unless}}<span class="lang-opt{{#if active}} active{{/if}}">{{label}}</span>{{/each}}</span>
                     </a>
@@ -79,7 +79,7 @@
             prefers the other language and hasn't chosen one: in that language --}}
             <div class="lang-suggest" lang="{{other.lang}}" hidden>
                 <a href="{{other.path}}" hreflang="{{other.lang}}">{{suggestion.text}}</a>
-                <button type="button" class="lang-suggest-close" aria-label="{{suggestion.close}}">{{icon "x-lg"}}</button>
+                <button type="button" class="lang-suggest-close" aria-label="{{suggestion.close}}">{{icon "close"}}</button>
             </div>
 {{/if}}
 {{{content}}}
@@ -96,18 +96,18 @@
 
     <!-- Bottom nav (mobile): home (the logo), the tools, and the menu button by the right thumb -->
     <nav id="bottom-nav" class="d-grid d-md-none fixed-bottom border-top" aria-label="{{t "nav.main"}}">
-        <a href="/" class="nav-btn btn d-flex flex-column align-items-center py-2{{#if home}} active{{/if}}"{{#if home}} aria-current="page"{{/if}}><img src="/icon/logo.svg" alt="" width="33" height="24" class="nav-logo fs-4"><span class="nav-label">{{t "nav.home"}}</span></a>
+        <a href="/" class="nav-btn btn d-flex flex-column align-items-center py-2{{#if home}} active{{/if}}"{{#if home}} aria-current="page"{{/if}}><img src="/icon/logo.svg" alt="" width="33" height="24" class="nav-logo"><span class="nav-label">{{t "nav.home"}}</span></a>
 {{#each tools}}
-        <a href="{{path}}" data-tool="{{id}}" class="nav-btn btn d-flex flex-column align-items-center py-2{{#if active}} active{{/if}}"{{#if active}} aria-current="page"{{/if}}>{{icon iconName "fs-4"}}<span class="nav-label">{{t shortKey}}</span></a>
+        <a href="{{path}}" data-tool="{{id}}" class="nav-btn btn d-flex flex-column align-items-center py-2{{#if active}} active{{/if}}"{{#if active}} aria-current="page"{{/if}}>{{#if active}}{{icon iconName "icon-nav" filled=true}}{{else}}{{icon iconName "icon-nav"}}{{/if}}<span class="nav-label">{{t shortKey}}</span></a>
 {{/each}}
         {{!-- Opens the menu: a popover, so the browser opens and closes it (Esc,
         a tap outside) and moves the keyboard into it and back without a script.
         Only the icon shows; screen readers hear its name. --}}
-        <button type="button" class="nav-btn menu-btn btn d-flex flex-column align-items-center py-2" popovertarget="site-menu" aria-label="{{t "nav.menu"}}">{{icon "list" "fs-4"}}</button>
+        <button type="button" class="nav-btn menu-btn btn d-flex flex-column align-items-center py-2" popovertarget="site-menu" aria-label="{{t "nav.menu"}}">{{icon "menu" "icon-nav"}}</button>
     </nav>
     <nav id="site-menu" class="site-menu d-md-none" popover aria-label="{{t "nav.menu"}}">
 {{#if other}}
-            <a href="{{other.path}}" hreflang="{{other.lang}}" lang="{{other.lang}}" class="site-menu-link menu-language">{{icon "globe"}}<span>{{other.name}}</span></a>
+            <a href="{{other.path}}" hreflang="{{other.lang}}" lang="{{other.lang}}" class="site-menu-link menu-language">{{icon "language"}}<span>{{other.name}}</span></a>
 {{/if}}
 {{#each siteLinks}}
             <a href="{{href}}" class="site-menu-link">{{icon iconName}}<span>{{t textKey}}</span></a>

@@ -49,8 +49,7 @@ Roboto everywhere. Six sizes, nothing smaller than 12 px:
 | `--wh-fs-2xl` | 1.75rem (28) | The station name on its page |
 
 A page's `<h1>` is xl (Bootstrap's own heading sizes follow the screen's
-width, so `style.css` sets it); the station page's name is 2xl. Bootstrap's
-`fs-*` classes are for icons only, until the icons step.
+width, so `style.css` sets it); the station page's name is 2xl.
 
 - Weights: 400 text, 600 labels and emphasis, 700 headings, pills and
   times, 800 only in the wordmark.
@@ -160,11 +159,29 @@ The palettes and every contrast number are in the guide.
   cards and its heading. In the page's language only, tight, one line. A
   label, not a link. Change and get-off stations stay plain links.
 
-## Icons *(step 3)*
+## Icons
 
-Material Symbols Rounded. Outline beside words; filled when an icon stands
-alone, for status icons and for the current tab. One meaning per icon; the
-guide has the table. The walking figure is walking directions only.
+Material Symbols Rounded, by meaning: code names what an icon means
+(`icon('walk')`, `{{icon "change-trains"}}`), and `MEANINGS` in
+`server/pages/icons.js` is the one list of meanings and their pictures.
+
+- **One meaning per icon, one icon per meaning.** Walking directions are
+  the walking figure everywhere; changing trains is one figure, not two
+  arrows.
+- **Outline beside a word. Filled when the icon stands alone as the
+  information**: status (all clear, warning, error) and the symbols in the
+  train (the way out, a lift). **The current tab is filled**, the others
+  outline.
+- Until exit types are recorded, the carriage to ride in shows an up
+  arrow, the way out; the walking figure is for walking directions only.
+- Sizes: 1.25em beside words (Material draws inside a margin), centred on
+  the capitals; 1.5rem in the navigation (`icon-nav`); 1.75rem on the home
+  tiles; 3rem above a page's message (`icon-message`).
+- Colour follows the text, except the home tiles and section heads
+  (primary), the carriage to ride in, the lift, and status icons.
+- A new icon: add its meaning to `MEANINGS`, then `npm run icons` copies its
+  SVG into `server/icons/` (the package is a dev dependency; the server
+  never installs it).
 
 ## Components *(step 4)*
 
@@ -180,5 +197,8 @@ rows.
   colours, the control edge; and that no page shows a line's name outside
   its pill (`bareLineProblems` in `test/support/markup.js`, which the
   checks on what the browser draws run too).
+- `test/icons.test.js`: every icon the code shows is a meaning, every
+  meaning is shown, no picture means two things, status and train symbols
+  are filled, `server/icons/` matches the list and the package.
 - `test/browser/text-size.spec.js`: every page at 200% text, as above, and
   the two parts that change shape.

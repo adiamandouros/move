@@ -1,12 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readdirSync, readFileSync } from 'fs';
+import { createRequire } from 'module';
+import { dirname, join } from 'path';
 import { listFiles } from '../server/pages/assets.js';
-import { ICONS, ICONS_DIR, iconSprite } from '../server/pages/icons.js';
+import { ICONS_DIR, MEANINGS, iconFiles, iconSprite } from '../server/pages/icons.js';
 import { loadTools } from '../server/pages/registry.js';
 
-// The icon sprite has every icon the code shows, and only those.
+// Icons by meaning (server/pages/icons.js, DESIGN.md): every icon the code
+// shows is a meaning in the list, every meaning is shown, and no picture
+// means two things. The sprite has them all, from server/icons/.
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const sources = ['server', 'public/js', 'tools', 'admin']
@@ -33,22 +36,50 @@ const used = new Set([
     ...sources.flatMap(text => [...text.matchAll(/const ICONS = \{([^}]*)\}/g)].flatMap(m => quoted(m[1]))),
 ]);
 
-test('every icon the code shows is in the sprite', () => {
-    assert.deepEqual([...used].filter(name => !ICONS.includes(name)), []);
+test('every icon the code shows is a meaning in the list', () => {
+    assert.ok(used.size >= 30, 'found the icons');
+    assert.deepEqual([...used].filter(name => !Object.hasOwn(MEANINGS, name)), []);
 });
 
-test('the sprite has no icons the code doesn\'t show', () => {
-    assert.deepEqual(ICONS.filter(name => !used.has(name)), []);
+test('every meaning in the list is shown somewhere', () => {
+    assert.deepEqual(Object.keys(MEANINGS).filter(name => !used.has(name)), []);
 });
 
-test('every icon in the list is a Bootstrap icon, and in the sprite', () => {
+test('no picture means two things', () => {
+    const symbols = Object.values(MEANINGS).map(m => m.symbol);
+    assert.deepEqual(symbols.filter((symbol, i) => symbols.indexOf(symbol) !== i), []);
+});
+
+test('status icons and the symbols in the train are filled; the tools have both forms, for the current tab', () => {
+    for (const name of ['ok', 'warning', 'error', 'exit', 'lift']) assert.equal(MEANINGS[name].filled, true, name);
+    for (const tool of loadTools()) assert.equal(MEANINGS[tool.icon]?.tab, true, `${tool.id}'s icon`);
+    assert.ok(Object.entries(MEANINGS).filter(([, m]) => m.filled).length <= 6, 'outline beside words: few icons are filled');
+});
+
+test('server/icons/ has exactly the files the list needs, as the package has them', () => {
+    const wanted = [...Object.values(MEANINGS).flatMap(iconFiles), 'LICENSE'].sort();
+    assert.deepEqual(readdirSync(ICONS_DIR).sort(), wanted, 'run npm run icons');
+    // The package is a dev dependency: checked where it's installed
+    const require = createRequire(import.meta.url);
+    let packageDir = null;
+    try { packageDir = join(dirname(require.resolve('@material-symbols/svg-400/package.json')), 'rounded'); } catch { /* not installed */ }
+    if (!packageDir) return;
+    for (const file of wanted.filter(f => f !== 'LICENSE')) assert.equal(readFileSync(join(ICONS_DIR, file), 'utf8'), readFileSync(join(packageDir, file), 'utf8'), `${file}: run npm run icons`);
+});
+
+test('the sprite has every meaning, and a tab\'s filled form too', () => {
     const sprite = iconSprite();
-    for (const name of ICONS) {
-        assert.ok(existsSync(join(ICONS_DIR, `${name}.svg`)), `${name} isn't a Bootstrap icon`);
-        assert.match(sprite, new RegExp(`<symbol id="${name}" viewBox="0 0 16 16"><path`));
+    for (const [name, meaning] of Object.entries(MEANINGS)) {
+        assert.match(sprite, new RegExp(`<symbol id="${name}" viewBox="0 -960 960 960"><path d="`), name);
+        assert.equal(sprite.includes(`<symbol id="${name}-filled"`), Boolean(meaning.tab), `${name}-filled`);
     }
+    // Filled where the list says so: the -fill file's drawing
+    const drawing = file => readFileSync(join(ICONS_DIR, file), 'utf8').match(/<path d="([^"]+)"/)[1];
+    assert.ok(sprite.includes(drawing(`${MEANINGS.warning.symbol}-fill.svg`)));
+    assert.ok(sprite.includes(drawing(`${MEANINGS['metro'].symbol}-fill.svg`)));
+    assert.ok(existsSync(join(ICONS_DIR, `${MEANINGS.walk.symbol}.svg`)));
 });
 
-test('the icon font is gone', () => {
-    for (const text of sources) assert.doesNotMatch(text, /class="bi bi-|bootstrap-icons\.(min\.)?css/);
+test('the icon font and Bootstrap Icons are gone', () => {
+    for (const text of sources) assert.doesNotMatch(text, /class="bi\b|bootstrap-icons/);
 });

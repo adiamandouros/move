@@ -91,7 +91,9 @@ test('externalLink(): opens a new tab and says so; its attributes are escaped, a
 });
 
 test('icon() is built with html``, so its classes are escaped', () => {
-    assert.equal(String(icon('geo-alt', 'me-1')), '<svg class="bi me-1" aria-hidden="true"><use href="/icons.svg#geo-alt"></use></svg>');
+    assert.equal(String(icon('walk', 'me-1')), '<svg class="icon me-1" aria-hidden="true"><use href="/icons.svg#walk"></use></svg>');
+    // A tab's filled form, for the current tab
+    assert.equal(String(icon('metro', 'icon-nav', { filled: true })), '<svg class="icon icon-nav" aria-hidden="true"><use href="/icons.svg#metro-filled"></use></svg>');
     assert.doesNotMatch(String(icon('x', '"><script>')), /<script>/);
 });
 

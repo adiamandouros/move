@@ -72,7 +72,7 @@ function start(rail) {
         remember('subway', query.toString());
     };
 
-    // The signpost beside the boarding station: walking directions to it
+    // The walking figure beside the boarding station: walking directions to it
     const walk = /** @type {HTMLAnchorElement} */ (document.getElementById('walk-btn'));
     const syncWalk = () => {
         walk.hidden = !from.get();

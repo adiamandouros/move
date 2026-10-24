@@ -13,16 +13,16 @@ test('good markup has no problems', () => {
         <h2>Stop</h2><h3>Line</h3>
         <button aria-controls="x" type="button">Open</button><div id="x"></div>
         <a href="/">Home</a> <a href="https://x" target="_blank">OASA<span class="sr-only"> (opens in a new tab)</span></a>
-        <svg class="bi" aria-hidden="true"></svg> <img src="a.png" alt="">
+        <svg class="icon" aria-hidden="true"></svg> <img src="a.png" alt="">
         <p>Change to <span class="line-pill pill-m line-m3">M3</span> or <span class="bus-plate pill-s"><span class="sr-only">Line </span>X95</span><span class="sr-only">, M3</span></p>
         <script>const lines = ['M1'];</script>`, { keys }), []);
 });
 
 test('each problem is caught', () => {
     flags('<h2>a</h2><h4>b</h4>', /<h4> follows <h2>/);
-    flags('<button type="button"><svg class="bi" aria-hidden="true"></svg></button>', /has no text or aria-label/);
+    flags('<button type="button"><svg class="icon" aria-hidden="true"></svg></button>', /has no text or aria-label/);
     flags('<a href="/"></a>', /has no text or aria-label/);
-    flags('<svg class="bi spin"></svg>', /needs aria-hidden/);
+    flags('<svg class="icon spin"></svg>', /needs aria-hidden/);
     flags('<img src="a.png">', /needs alt/);
     flags('<a href="https://x" target="_blank">OASA</a>', /opens a new tab without saying so/);
     flags('<span id="a"></span><span id="a"></span>', /duplicate id "a"/);

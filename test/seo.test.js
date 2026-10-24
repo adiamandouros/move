@@ -160,10 +160,13 @@ test('every page links to itself in the other language: sidebar, menu and a sugg
     // The bottom bar (phones) starts with the home page, highlighted there
     const bottom = html => html.match(/<nav id="bottom-nav"[\s\S]*?<\/nav>/)[0];
     assert.match(bottom(pages['/']), /^<nav[^>]*>\s*<a href="\/" class="nav-btn [^"]*active" aria-current="page"><img src="\/icon\/logo\.svg" alt=""/);
-    assert.match(bottom(pages['/el/subway']), /<a href="\/el" class="nav-btn [^"]*py-2"><img src="\/icon\/logo\.svg" alt="" width="33" height="24" class="nav-logo fs-4"><span class="nav-label">Αρχική</);
+    assert.match(bottom(pages['/el/subway']), /<a href="\/el" class="nav-btn [^"]*py-2"><img src="\/icon\/logo\.svg" alt="" width="33" height="24" class="nav-logo"><span class="nav-label">Αρχική</);
     assert.doesNotMatch(bottom(pages['/subway']), /hreflang/);
+    // The current tab's icon is filled, the others outline (DESIGN.md)
+    assert.match(bottom(pages['/subway']), /aria-current="page"><svg class="icon icon-nav"[^>]*><use href="[^"]*#metro-filled">/);
+    assert.match(bottom(pages['/subway']), /data-tool="buses"[^>]*><svg class="icon icon-nav"[^>]*><use href="[^"]*#bus">/);
     // …and ends with the button that opens the menu: only the icon, named for screen readers
-    assert.match(bottom(pages['/el/subway']), /<button type="button" class="nav-btn menu-btn [^"]*" popovertarget="site-menu" aria-label="Μενού"><svg class="bi fs-4"[^>]*><use href="[^"]*#list"><\/use><\/svg><\/button>\s*<\/nav>/);
+    assert.match(bottom(pages['/el/subway']), /<button type="button" class="nav-btn menu-btn [^"]*" popovertarget="site-menu" aria-label="Μενού"><svg class="icon icon-nav"[^>]*><use href="[^"]*#menu"><\/use><\/svg><\/button>\s*<\/nav>/);
     assert.match(pages['/subway'], /<nav id="site-menu" class="site-menu d-md-none" popover aria-label="Menu"/);
     // The 404 links to the same address in the other language; English-only pages have no language link
     assert.match(notFound('/el/nope'), /<a href="\/nope" hreflang="en"/);

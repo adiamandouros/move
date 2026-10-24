@@ -145,7 +145,7 @@ test.describe('the menu', () => {
         await expect(button).toBeVisible();
         await expect(menu(page)).toBeHidden();
         // The three lines are in the logo's yellow
-        expect(await button.locator('svg use').getAttribute('href')).toMatch(/#list$/);
+        expect(await button.locator('svg use').getAttribute('href')).toMatch(/#menu$/);
         expect(await button.locator('svg').evaluate(svg => getComputedStyle(svg).color)).toBe('rgb(255, 193, 7)');
 
         await button.click();

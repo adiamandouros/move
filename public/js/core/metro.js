@@ -32,7 +32,7 @@ export function trainDiagram(positions, exits, elevators, s) {
             <div class="train-diagram" role="img" aria-label="${s('subway.diagram-label')} ${described}">
                 <div class="train-cars-wrap" aria-hidden="true">
                     <div class="train-cars">${positions.map(p => html`
-                        <div class="train-car${cls(p)}">${exits.includes(p) && icon('person-walking')}${elevators.includes(p) && icon('arrow-up-square', 'car-elevator')}</div>`)}
+                        <div class="train-car${cls(p)}">${exits.includes(p) && icon('exit')}${elevators.includes(p) && icon('lift', 'car-elevator')}</div>`)}
                     </div>
                     <div class="position-labels">${positions.map(p => html`<div class="position-label${cls(p)}">${label(p)}</div>`)}</div>
                     <p class="position-words">
@@ -58,11 +58,11 @@ export function exitDiagram(positions, exits, elevators, s) {
 // The badge for a central platform (the doors open on the left). cls: where it sits.
 /** @param {(key: string) => string} s @param {string} [cls] */
 export function centralPlatformBadge(s, cls = '') {
-    return html`<span class="central-platform-badge${cls ? ` ${cls}` : ''}">${icon('symmetry-horizontal', 'me-1')}${s('subway.doors-left')}</span>`;
+    return html`<span class="central-platform-badge${cls ? ` ${cls}` : ''}">${icon('doors-left', 'me-1')}${s('subway.doors-left')}</span>`;
 }
 
 // A stop's note ("Unreliable data", "No data yet!"), or nothing
 /** @param {string | null | undefined} note */
 export function stopNote(note) {
-    return note ? html`<div class="stop-note mt-3">${icon('info-circle', 'me-1')}${note}</div>` : null;
+    return note ? html`<div class="stop-note mt-3">${icon('info', 'me-1')}${note}</div>` : null;
 }

@@ -142,7 +142,7 @@ export function loadTools(dir = TOOLS_DIR) {
 const toolTile = tool => ({ href: tool.path, tool: tool.id, iconName: tool.icon, titleKey: `tool.${tool.id}.title`, descriptionKey: `tool.${tool.id}.description` });
 
 // The metro stations' pages, from the home page
-const STATIONS_TILE = { href: STATIONS_PATH, tool: null, iconName: 'list-ul', titleKey: 'home.stations', descriptionKey: 'home.stations-text' };
+const STATIONS_TILE = { href: STATIONS_PATH, tool: null, iconName: 'stations', titleKey: 'home.stations', descriptionKey: 'home.stations-text' };
 
 // ── Pages of text ───────────────────────────────────────────────────────────
 

@@ -126,8 +126,8 @@ function applyFilter() {
     const btn = $('toggle-empty-btn');
     btn.setAttribute('aria-pressed', String(state.hideEmpty));
     const swap = document.createElement('span');
-    setHtml(swap, icon(state.hideEmpty ? 'eye' : 'eye-slash', 'me-2'));
-    btn.querySelector('.bi').replaceWith(swap.firstElementChild);
+    setHtml(swap, icon(state.hideEmpty ? 'show-empty' : 'hide-empty', 'me-2'));
+    btn.querySelector('.icon').replaceWith(swap.firstElementChild);
     btn.querySelector('span').textContent = t(state.hideEmpty ? 'buses.show-all' : 'buses.hide-empty');
 }
 
@@ -164,7 +164,7 @@ function pickStops() {
     });
     if (!stops.length) {
         clearStops();
-        showMessage('bus-front', t('buses.no-stops'));
+        showMessage('bus', t('buses.no-stops'));
         return;
     }
     renderStops(stops);
@@ -287,7 +287,7 @@ async function showView({ focus = false } = {}) {
     header.hidden = view.kind === 'nearby';
     setHtml(header, view.kind === 'nearby' ? '' : backLink());
     if (state.loadFailed) {
-        showMessage('wifi-off', t('buses.data-error'));
+        showMessage('no-connection', t('buses.data-error'));
         return;
     }
     if (!state.allStops) return; // drawn once the stop list is in
@@ -302,7 +302,7 @@ async function showView({ focus = false } = {}) {
     if (view.kind === 'stop') {
         const stop = state.byCode.get(view.code);
         if (!stop) {
-            showMessage('bus-front', format(t('buses.stop-not-found'), { code: view.code }));
+            showMessage('bus', format(t('buses.stop-not-found'), { code: view.code }));
             return;
         }
         renderStops([withMeters(stop)], { open: true });
@@ -311,17 +311,17 @@ async function showView({ focus = false } = {}) {
         return;
     }
 
-    showMessage('arrow-repeat spin', t('buses.loading-lines'));
+    showMessage('loading spin', t('buses.loading-lines'));
     const lines = await loadLines();
     if (drawn !== state.drawn) return; // another view since
     if (!lines) {
-        showMessage('wifi-off', t('buses.lines-error'));
+        showMessage('no-connection', t('buses.lines-error'));
         return;
     }
     // ?line=x95 finds the Χ95 too
     const line = lines.find(l => l.line === view.line) ?? lines.find(l => lineKey(l.line) === lineKey(view.line));
     if (!line) {
-        showMessage('bus-front', format(t('buses.line-not-found'), { line: view.line }));
+        showMessage('bus', format(t('buses.line-not-found'), { line: view.line }));
         return;
     }
     const direction = Math.min(view.direction, line.directions.length - 1);
@@ -405,7 +405,7 @@ function showMessage(symbol, title, subtitle = '', action = null) {
 function locate(again = false) {
     state.locating = true;
     state.problem = null;
-    showMessage('arrow-repeat spin', t('buses.getting-location'));
+    showMessage('loading spin', t('buses.getting-location'));
     (again ? restartLocation : startLocation)();
 }
 
@@ -414,16 +414,16 @@ const retry = { label: t('location.try-again'), run: () => locate(true) };
 // The first time, the browser asks for the location after a tap here, where
 // it's clear what it's for
 function askForLocation() {
-    showMessage('geo-alt', t('buses.ask-title'), t('buses.ask-text'), { label: t('location.use'), run: () => locate() });
+    showMessage('nearest', t('buses.ask-title'), t('buses.ask-text'), { label: t('location.use'), run: () => locate() });
 }
 
 // The stops nearby, before there's a position: why not, or the way to give one
 function nearbyWithoutPosition() {
     if (state.problem) locationProblem(state.problem);
-    else if (state.locating) showMessage('arrow-repeat spin', t('buses.getting-location'));
+    else if (state.locating) showMessage('loading spin', t('buses.getting-location'));
     else if (state.permission === 'denied') locationProblem('denied');
     else if (state.permission) askForLocation();
-    else showMessage('arrow-repeat spin', t('buses.getting-location'));
+    else showMessage('loading spin', t('buses.getting-location'));
 }
 
 // A new position: pick the stops near it, unless they were picked from about
@@ -433,7 +433,7 @@ function located({ lat, lng }) {
     state.problem = null;
     if (state.loadFailed) return;
     if (!state.allStops) {
-        if (state.view.kind === 'nearby') showMessage('arrow-repeat spin', t('buses.finding-stops'));
+        if (state.view.kind === 'nearby') showMessage('loading spin', t('buses.finding-stops'));
         return; // picked once the stop list is in
     }
     if (state.view.kind !== 'nearby') {
@@ -450,10 +450,10 @@ function located({ lat, lng }) {
 function locationProblem(problem) {
     state.problem = problem;
     if (state.view.kind !== 'nearby' || state.stops.length || state.loadFailed) return;
-    if (problem === 'denied') showMessage('geo-alt', t('location.denied'), t('location.denied-hint'));
-    else if (problem === 'unavailable') showMessage('geo-alt', t('location.unavailable'), '', retry);
-    else if (problem === 'slow') showMessage('geo-alt', t('location.slow'), t('location.slow-hint'), retry);
-    else showMessage('geo-alt', t('location.unsupported'));
+    if (problem === 'denied') showMessage('nearest', t('location.denied'), t('location.denied-hint'));
+    else if (problem === 'unavailable') showMessage('nearest', t('location.unavailable'), '', retry);
+    else if (problem === 'slow') showMessage('nearest', t('location.slow'), t('location.slow-hint'), retry);
+    else showMessage('nearest', t('location.unsupported'));
 }
 
 // ── Start ───────────────────────────────────────────────────────────────────
@@ -468,8 +468,8 @@ async function start() {
 
     const last = lastPosition();
     if (last) state.coords = { lat: last.lat, lng: last.lng };
-    if (state.view.kind === 'nearby') showMessage('arrow-repeat spin', t(last ? 'buses.finding-stops' : 'buses.getting-location'));
-    else showMessage('arrow-repeat spin', t('buses.finding-stops'));
+    if (state.view.kind === 'nearby') showMessage('loading spin', t(last ? 'buses.finding-stops' : 'buses.getting-location'));
+    else showMessage('loading spin', t('buses.finding-stops'));
 
     // Follow the location if the browser won't need to ask; otherwise ask
     // first, on the nearby stops

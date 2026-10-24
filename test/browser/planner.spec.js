@@ -109,7 +109,7 @@ test('«Change to …» between the cards is centred on them', async ({ page }) 
     await expect(connector).toContainText(/Change to M\d/);
     // The line to change to is its pill
     await expect(connector.locator('.line-pill')).toHaveText(/^M\d$/);
-    const [card, icon, text] = await Promise.all([page.locator('.result-card').first(), connector.locator('.bi'), connector.locator('> span')].map(l => l.boundingBox()));
+    const [card, icon, text] = await Promise.all([page.locator('.result-card').first(), connector.locator('.icon'), connector.locator('> span')].map(l => l.boundingBox()));
     // From the icon's left edge to the text's right edge
     expect(Math.abs((icon.x + text.x + text.width) / 2 - (card.x + card.width / 2))).toBeLessThan(1);
 });
