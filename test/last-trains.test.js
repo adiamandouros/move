@@ -64,8 +64,10 @@ const spec = {
 
 test('each row: its last train Sundays to Thursdays, Fridays and Saturdays, one cell when they\'re the same', () => {
     const { rows, facts, stasy } = lastTrains(network(), spec, 'en', s);
-    assert.deepEqual(rows, [
-        { badge: { key: 'm9', name: 'M9', rows: 3 }, name: 'Alpha', times: [{ text: '00:00' }, { text: '01:30' }, { text: 'all night' }] },
+    // The line's pill heads its rows
+    assert.equal(String(rows[0].badge.pill), '<span class="line-pill pill-m line-m9">M9</span>');
+    assert.deepEqual(rows.map(row => row.badge ? { ...row, badge: { rows: row.badge.rows } } : row), [
+        { badge: { rows: 3 }, name: 'Alpha', times: [{ text: '00:00' }, { text: '01:30' }, { text: 'all night' }] },
         { name: 'Alpha → Gamma', times: [{ text: '22:54', colspan: 3 }] },
         // Back, from the timetable: 00:15 on weekdays, 01:00 on Saturdays
         { name: 'Gamma', times: [{ text: '00:15' }, { text: '00:15' }, { text: '01:00' }] },

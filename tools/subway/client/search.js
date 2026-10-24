@@ -1,6 +1,6 @@
 import { html, localName, setHtml } from '/js/core/html.js';
 import { language } from '/js/core/i18n.js';
-import { lineBadge } from '/js/core/metro.js';
+import { linePill } from '/js/core/lines.js';
 import { normalise } from '/js/core/text.js';
 import { addRecentStation, recentStations } from './recent.js';
 
@@ -53,7 +53,7 @@ export function stationSearch({ input, list, rail, onChange }) {
                     <span class="suggestion-name-gr" lang="el">${s.name.el}</span>
                     <span class="suggestion-name-en" lang="en">${s.name.en}</span>
                 </span>
-                <span class="suggestion-lines" aria-hidden="true">${s.lines.map(line => lineBadge(line, rail.lines[line].name, 'suggestion-line-badge'))}</span>
+                <span class="suggestion-lines" aria-hidden="true">${s.lines.map(line => linePill(line, rail.lines[line].name, 's'))}</span>
                 <span class="sr-only">, ${s.lines.join(', ')}</span>
             </li>`;
         })}`);

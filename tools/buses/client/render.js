@@ -1,5 +1,6 @@
 import { externalLink, format, html, icon, localName, setHtml, walkingUrl } from '/js/core/html.js';
 import { language, localHref, t } from '/js/core/i18n.js';
+import { busPlate, pillList } from '/js/core/lines.js';
 
 // What the bus page draws, with html`` (every value escaped: stop names,
 // lines and destinations come from OASA)
@@ -13,8 +14,8 @@ function formatDistance(meters) {
 // The address of a view of the bus page: viewHref({ stop: '10341' }), viewHref({ line: '040' })
 export const viewHref = params => `${localHref('/buses')}?${new URLSearchParams(params)}`;
 
-// A line's number, for a screen reader "Line 040"
-const linePill = line => html`<span class="line-pill"><span class="sr-only">${t('buses.line')} </span>${line}</span>`;
+// A line's plate, for a screen reader "Line 040"
+const plate = (line, size) => busPlate(line, size, t('buses.line'));
 
 // How far a stop is, when the location is known (beside its code)
 export const distance = meters => meters === undefined ? html`` : html`<span class="sr-only">, </span>${formatDistance(meters)}`;
@@ -69,7 +70,7 @@ export function stopItem(stop, index, { open = false, nearest = false } = {}) {
 export const nearestNote = () => html`<span class="sr-only">, </span>${t('buses.nearest')}`;
 
 // A stop's lines, each a link to its stops in order
-export const lineLinks = lines => html`${lines.map((line, i) => html`${i ? ', ' : ''}<a href="${viewHref({ line })}" data-view>${line}</a>`)}`;
+export const lineLinks = lines => pillList(lines.map(line => html`<a class="plate-link" href="${viewHref({ line })}" data-view>${busPlate(line, 's')}</a>`));
 
 // Fill in one stop's arrivals. `result` is undefined until the first answer
 // arrives; waiting: false when none is on its way (a line's stop, until it's opened).
@@ -85,7 +86,7 @@ export function patchStop(item, stop, result, { waiting = true } = {}) {
 // sits outside the button, so they're repeated for screen readers).
 export function nextBus(result, { waiting = true } = {}) {
     const first = result?.arrivals?.[0];
-    if (first) return html`<span class="sr-only">. ${t('buses.next-bus-line')} </span><span class="next-bus-line">${lineLabel(first)}</span><span class="sr-only">, </span><span class="next-bus-dest">${destination(first)}</span><span class="sr-only">, ${first.minutes} ${t('buses.minutes')}</span>`;
+    if (first) return html`<span class="sr-only">. ${t('buses.next-bus-line')} </span><span class="next-bus-line">${busPlate(lineLabel(first), 'l')}</span><span class="sr-only">, </span><span class="next-bus-dest">${destination(first)}</span><span class="sr-only">, ${first.minutes} ${t('buses.minutes')}</span>`;
     if (result) return html`<span class="next-bus-dest text-body-secondary fst-italic"><span class="sr-only">. </span>${t(result.unavailable ? 'buses.unavailable' : 'buses.no-arrivals-short')}</span>`;
     return waiting
         ? html`<span class="next-bus-dest text-body-secondary">${icon('arrow-repeat', 'spin')}<span class="sr-only">. ${t('buses.finding-stops')}</span></span>`
@@ -103,7 +104,7 @@ export function arrivalRow(a) {
     return html`
             <li class="arrival-row d-flex align-items-center justify-content-between py-2 border-bottom border-secondary-subtle">
                 <span class="d-flex align-items-center gap-2">
-                    <span class="line-pill"><span class="sr-only">${t('buses.line')} </span>${lineLabel(a)}</span>
+                    ${plate(lineLabel(a), 'm')}
                     <span class="arrival-dest"><span class="sr-only">, </span>${destination(a)}<span class="sr-only">, </span></span>
                 </span>
                 ${arrivalBadge(a.minutes)}
@@ -147,7 +148,7 @@ export function lineResult(line) {
     return html`
         <li class="list-group-item p-0">
             <a class="list-group-item-action d-flex align-items-center gap-2 px-3 py-2 search-result" href="${viewHref({ line: line.line })}" data-view>
-                ${linePill(line.line)}<span class="search-result-text flex-grow-1"><span class="sr-only">, </span>${local(line.name)}</span>${resultArrow()}
+                ${plate(line.line, 'm')}<span class="search-result-text flex-grow-1"><span class="sr-only">, </span>${local(line.name)}</span>${resultArrow()}
             </a>
         </li>`;
 }
@@ -161,7 +162,7 @@ export function stopResult(stop) {
                 <span class="search-result-text flex-grow-1">
                     <span class="fw-semibold">${local(stop.name)}</span>
                     <span class="search-result-meta"><span class="sr-only">, ${t('buses.code')}</span> ${stop.code}${stop.meters === undefined ? '' : html`<span aria-hidden="true"> ·</span> ${distance(stop.meters)}`}</span>
-                    <span class="d-block search-result-lines"><span class="sr-only">, </span>${t('buses.lines')}: ${stop.lines.join(', ')}</span>
+                    <span class="d-block search-result-lines"><span class="sr-only">, </span>${t('buses.lines')}: ${pillList(stop.lines.map(line => busPlate(line, 's')))}</span>
                 </span>${resultArrow()}
             </a>
         </li>`;
@@ -199,6 +200,6 @@ export function lineHeader(line, direction) {
         </div>`;
     return html`
         ${backLink()}
-        <h2 class="line-heading d-flex align-items-center gap-2" tabindex="-1">${linePill(line.line)}<span><span class="sr-only">, </span>${local(line.name)}</span></h2>
+        <h2 class="line-heading d-flex align-items-center gap-2" tabindex="-1">${plate(line.line, 'l')}<span><span class="sr-only">, </span>${local(line.name)}</span></h2>
         ${switcher || html`<p class="line-toward">${t('buses.toward')} ${local(line.directions[0].to)}</p>`}`;
 }

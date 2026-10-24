@@ -2,7 +2,8 @@ import { readdirSync, readFileSync } from 'fs';
 import { dirname, join, relative, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import Handlebars from 'handlebars';
-import { externalLink, format, formatDate, icon, raw } from '../../public/js/core/html.js';
+import { externalLink, formatDate, formatHtml, icon, raw } from '../../public/js/core/html.js';
+import { busPlate, linePill } from '../../public/js/core/lines.js';
 import { stringGetter } from './i18n.js';
 
 // The server's views are Handlebars templates (.hbs): the layout
@@ -14,6 +15,7 @@ import { stringGetter } from './i18n.js';
 //   {{t "key"}}                     the page's string for key, escaped;
 //                                   {{t "stations.toward" name=toward}} fills {name}
 //   {{icon "geo-alt" "me-1"}}       an icon from the sprite (/js/core/html.js)
+//   {{pill "M3"}}, {{plate "X95"}}  a line's pill, a bus line's plate (/js/core/lines.js)
 //   {{json value}}                  JSON that's safe inside a <script> element
 //   {{formatDate "2026-10-14"}}     a date as people write it: 14/10/2026
 //   {{#ifLang "en"}}…{{else}}…{{/ifLang}}  text written in both languages:
@@ -32,7 +34,7 @@ import { stringGetter } from './i18n.js';
 const hb = Handlebars.create();
 
 // (A value can't have a helper's name: {{lang}} is the page's language)
-export const HELPERS = ['t', 'icon', 'json', 'ifLang', 'formatDate', 'external'];
+export const HELPERS = ['t', 'icon', 'json', 'ifLang', 'formatDate', 'external', 'pill', 'plate'];
 const OPTIONS = {
     strict: true,
     knownHelpersOnly: true,
@@ -41,8 +43,14 @@ const OPTIONS = {
 
 hb.registerHelper('t', (key, options) => {
     const text = stringGetter(options.data.strings ?? {}, options.data.lang)(key);
-    return Object.keys(options.hash).length ? format(text, options.hash) : text;
+    // Filled: escaped here, as a value may be a piece built with html`` (a line's pill)
+    return Object.keys(options.hash).length ? new hb.SafeString(String(formatHtml(text, options.hash))) : text;
 });
+
+// {{pill "M3"}} or {{pill "M3" "s"}}: a metro or tram line's pill, and
+// {{plate "X95"}} a bus line's plate (/js/core/lines.js), in size m unless given
+hb.registerHelper('pill', (id, ...rest) => linePill(id, id, rest.length > 1 ? rest[0] : 'm'));
+hb.registerHelper('plate', (number, ...rest) => busPlate(number, rest.length > 1 ? rest[0] : 'm'));
 
 // {{icon name}} or {{icon name classes}}: the last argument is Handlebars' options
 hb.registerHelper('icon', (name, ...rest) => new hb.SafeString(String(icon(name, rest.length > 1 ? rest[0] : ''))));

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { browserModule } from './support/browser-modules.js';
+import { bareLineProblems } from './support/markup.js';
 import * as metroLayout from '../tools/info/client/map-layout.js';
 import * as tramLayout from '../tools/info/client/tram-layout.js';
 
@@ -82,15 +83,17 @@ test('two stubs at a stop end in their badges in the same order, without crossin
 test('lists of stops: metro stations are links; tram stops aren\'t, with their changes and the loop\'s other way', async () => {
     const { stationList, subwayLink, tramChanges, metroChanges } = await browserModule('tools/info/client/map.js', 'en');
     const metro = `${stationList(rail, { link: subwayLink, changes: tramChanges(rail) })}`;
-    assert.match(metro, /<li><a href="\/subway\?to=syntagma">Syntagma<\/a> <span class="station-change">· change to M3, T6<\/span><\/li>/);
-    assert.match(metro, /<li><a href="\/subway\?to=faliro">Faliro<\/a> <span class="station-change">· change to T7<\/span><\/li>/);
+    assert.match(metro, /<li><a href="\/subway\?to=syntagma">Syntagma<\/a> <span class="station-change">· change to <span class="line-pill pill-s line-m3">M3<\/span><span class="sr-only">,<\/span> <span class="line-pill pill-s line-t6">T6<\/span><\/span><\/li>/);
+    assert.match(metro, /<li><a href="\/subway\?to=faliro">Faliro<\/a> <span class="station-change">· change to <span class="line-pill pill-s line-t7">T7<\/span><\/span><\/li>/);
 
     const tram = `${stationList(rail.tram, { changes: metroChanges(rail) })}`;
     assert.equal(count(tram, /<a /g), 0);
-    assert.match(tram, /<li>Syntagma <span class="station-change">· change to M2, M3<\/span><\/li>/);
-    assert.match(tram, /<li>Edem <span class="station-change">· change to T7<\/span><\/li>/);
-    assert.match(tram, /line-t7">T7<\/span> Akti Posidonos – Asklipiio Voulas<\/h5>/);
+    assert.match(tram, /<li>Syntagma <span class="station-change">· change to <span class="line-pill pill-s line-m2">M2<\/span><span class="sr-only">,<\/span> <span class="line-pill pill-s line-m3">M3<\/span><\/span><\/li>/);
+    assert.match(tram, /<li>Edem <span class="station-change">· change to <span class="line-pill pill-s line-t7">T7<\/span><\/span><\/li>/);
+    assert.match(tram, /pill-m line-t7">T7<\/span> Akti Posidonos – Asklipiio Voulas<\/h5>/);
     assert.match(tram, /<p class="station-way">Toward Akti Posidonos, trams go back another way: Neo Faliro – Gipedo Karaiskaki – Mikras Asias – Lambraki – Evangelistria – Platia Deligianni – Dimarchio – Akti Posidonos\.<\/p>/);
     // Only T7 goes another way
     assert.equal(count(tram, /station-way/g), 1);
+    // Every line in them is its pill
+    assert.deepEqual([...bareLineProblems(metro), ...bareLineProblems(tram)], []);
 });

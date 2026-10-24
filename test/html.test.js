@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Html, escapeHtml, externalLink, format, formatDate, html, icon, localName, raw, safeUrl, setHtml, walkingUrl } from '../public/js/core/html.js';
-import { centralPlatformBadge, clockTime, exitDiagram, lineBadge, stopNote } from '../public/js/core/metro.js';
+import { Html, escapeHtml, externalLink, format, formatDate, formatHtml, html, icon, localName, raw, safeUrl, setHtml, walkingUrl } from '../public/js/core/html.js';
+import { busPlate, linePill, pillList } from '../public/js/core/lines.js';
+import { centralPlatformBadge, clockTime, exitDiagram, stopNote } from '../public/js/core/metro.js';
 
 // Building HTML (public/js/core/html.js): html`` escapes every value put into
 // it, except pieces it built itself; and the small helpers around it
@@ -63,6 +64,12 @@ test('escapeHtml and format are unchanged', () => {
     assert.equal(format('{min} min, {x}', { min: 12 }), '12 min, {x}');
 });
 
+test('formatHtml: the text escaped, pieces built with html`` as they are', () => {
+    const pill = html`<b>M3</b>`;
+    assert.equal(String(formatHtml('Change to {line} & {x}, {n}', { line: pill, n: '<i>' })), 'Change to <b>M3</b> &amp; {x}, &lt;i&gt;');
+    assert.ok(formatHtml('a', {}) instanceof Html);
+});
+
 test('localName: the page\'s language, else English, else nothing', () => {
     assert.equal(localName({ el: 'Σύνταγμα', en: 'Syntagma' }, 'el'), 'Σύνταγμα');
     assert.equal(localName({ el: '', en: 'Syntagma' }, 'el'), 'Syntagma');
@@ -118,8 +125,21 @@ test('the central platform badge and a stop\'s note', () => {
     for (const none of [null, undefined, '']) assert.equal(stopNote(none), null);
 });
 
-test('a line badge is coloured by its class (style.css), with no inline style', () => {
-    assert.equal(String(lineBadge('M1', 'M1')), '<span class="line-badge line-m1">M1</span>');
-    assert.equal(String(lineBadge('M3', 'M3', 'suggestion-line-badge')), '<span class="suggestion-line-badge line-m3">M3</span>');
-    assert.doesNotMatch(String(lineBadge('M9" onclick="x', '<b>M9</b>')), /<b>|" onclick/);
+test('a line\'s pill is coloured by its class (style.css), with no inline style, in three sizes', () => {
+    assert.equal(String(linePill('M1', 'M1')), '<span class="line-pill pill-m line-m1">M1</span>');
+    assert.equal(String(linePill('M3', 'M3', 's')), '<span class="line-pill pill-s line-m3">M3</span>');
+    assert.equal(String(linePill('T6', 'T6', 'l')), '<span class="line-pill pill-l line-t6">T6</span>');
+    assert.doesNotMatch(String(linePill('M9" onclick="x', '<b>M9</b>')), /<b>|" onclick/);
+});
+
+test('a bus line\'s plate, with words for screen readers when asked', () => {
+    assert.equal(String(busPlate('040')), '<span class="bus-plate pill-m">040</span>');
+    assert.equal(String(busPlate('X95', 'l', 'Line')), '<span class="bus-plate pill-l"><span class="sr-only">Line </span>X95</span>');
+    assert.doesNotMatch(String(busPlate('<b>', 's', '<i>')), /<b>|<i>/);
+});
+
+test('several pills: a space between them, and a comma for screen readers', () => {
+    assert.equal(String(pillList([linePill('M2', 'M2', 's'), linePill('M3', 'M3', 's')])),
+        '<span class="line-pill pill-s line-m2">M2</span><span class="sr-only">,</span> <span class="line-pill pill-s line-m3">M3</span>');
+    assert.equal(String(pillList([])), '');
 });

@@ -73,11 +73,25 @@ export function untranslatedProblems(html, keys) {
     return [...shown.matchAll(new RegExp(`\\b(?:${prefixes})\\.[a-z][\\w-]*`, 'g'))].map(([key]) => `"${key}" shown instead of its text`);
 }
 
+// A line named in words where people see it, not by its pill or plate
+// (/js/core/lines.js, DESIGN.md): "M3", "T7", "X95" (a capital and a number;
+// Greek capitals too, as "Τ7" looks the same). Text only for screen readers
+// is fine, as are bus numbers that are only digits, which can't be told from
+// other numbers. Scripts are data, not text.
+export function bareLineProblems(html) {
+    const shown = String(html)
+        .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/g, '')
+        .replace(/<(\w+) class="sr-only">[^<]*<\/\1>/g, '')
+        .replace(/<span class="(?:line-pill|bus-plate)\b[^"]*">[^<]*<\/span>/g, '')
+        .replace(/<[^>]+>/g, ' ');
+    return [...shown.matchAll(/(?<![\p{L}\p{N}])\p{Lu}\d{1,3}(?![\p{L}\p{N}])/gu)].map(([name]) => `"${name}" shown without its pill`);
+}
+
 // Everything above, for a piece of a page (ids it points at must be in it too)
 export function markupProblems(view, { keys = [] } = {}) {
     const html = String(view);
     return [
         ...headingProblems(html), ...nameProblems(html), ...iconProblems(html), ...newTabProblems(html),
-        ...idProblems(html), ...formProblems(html), ...untranslatedProblems(html, keys),
+        ...idProblems(html), ...formProblems(html), ...untranslatedProblems(html, keys), ...bareLineProblems(html),
     ];
 }

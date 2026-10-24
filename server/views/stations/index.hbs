@@ -5,7 +5,7 @@
     <p class="text-body-secondary">{{t "stations.index-intro"}}</p>
 {{#each lines}}
     <section class="station-section" aria-labelledby="line-{{key}}">
-        <h2 class="station-line-title" id="line-{{key}}">{{badge}} {{t "stations.line" n=number}}</h2>
+        <h2 class="station-line-title" id="line-{{key}}">{{heading}}<span class="sr-only"> {{t "stations.line" n=number}}</span></h2>
         <ol class="station-stops">
 {{#each stops}}
             <li><a href="{{href}}">{{name}}</a>{{#if changes}} <span class="station-change">· {{t "stations.interchange" lines=changes}}</span>{{/if}}</li>

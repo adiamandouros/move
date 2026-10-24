@@ -5,16 +5,7 @@ import { html, icon } from './html.js';
 // Metro markup shared by the subway page (drawn in the browser) and the
 // station pages (written on the server, server/pages/stations.js). Strings
 // come from s(key): t() in the browser, the page's strings on the server.
-
-// A line's badge, in its colour: id is rail.json's key ('M1'), name what it
-// says. The colours are classes in style.css (.line-m1), so no page needs
-// inline styles; test/accessibility.test.js keeps them the same as
-// data/curated/lines.json's, and readable. cls: the badge's own class (the
-// station suggestions have smaller ones).
-/** @param {string} id @param {string} name @param {string} [cls] */
-export function lineBadge(id, name, cls = 'line-badge') {
-    return html`<span class="${cls} line-${id.toLowerCase()}">${name}</span>`;
-}
+// Line pills are in lines.js.
 
 // "05:32" for a time in seconds after midnight; trains after midnight belong
 // to the day before (24:15 → "00:15")

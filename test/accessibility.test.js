@@ -7,7 +7,7 @@ import { mergeStrings } from '../server/pages/i18n.js';
 import { loadTools, stringTables } from '../server/pages/registry.js';
 import { stationPage } from '../server/pages/stations.js';
 import { rail } from './fixtures/rail.js';
-import { formProblems, headingProblems, iconProblems, idProblems, nameProblems, newTabProblems, untranslatedProblems } from './support/markup.js';
+import { bareLineProblems, formProblems, headingProblems, iconProblems, idProblems, nameProblems, newTabProblems, untranslatedProblems } from './support/markup.js';
 
 // Accessibility checks on every public page as the server sends it (WCAG 2.2
 // AA basics), and on the colours in style.css. Content drawn by the pages'
@@ -64,6 +64,11 @@ for (const [path, html] of Object.entries(all)) {
 
     test(`${path}: form fields have labels, and nothing forces its own tab order`, () => {
         assert.deepEqual(formProblems(html), []);
+    });
+
+    // DESIGN.md: a line is always its pill
+    test(`${path}: every line it names is shown by its pill`, () => {
+        assert.deepEqual(bareLineProblems(html.match(/<body[^>]*>([\s\S]*)<\/body>/)[1]), []);
     });
 
     // (Every string a view uses exists in both languages: templates.test.js)
@@ -186,7 +191,7 @@ test('the metro lines\' badges have white text', () => {
     for (const id of Object.keys(lines)) assert.equal(resolve(LINE_COLOURS[id.toLowerCase()].color), '#fff', `.line-${id.toLowerCase()}`);
 });
 
-test('line badges are readable on every line colour', () => {
+test('line pills are readable on every line colour', () => {
     assert.ok(Object.keys(LINE_COLOURS).length >= 5);
     for (const [id, { background, color }] of Object.entries(LINE_COLOURS)) {
         const text = resolve(color ?? '');
