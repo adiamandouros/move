@@ -37,6 +37,8 @@ Ordered by line → direction → station in travel order, one station per line:
 |---|---|
 | `exits` | Cars closest to the exit when getting off here. `[]` = no data yet. |
 | `elevators` | Cars closest to the elevator. Optional. |
+| `escalators` | Cars closest to an escalator up. Optional. With `stairs`, says how the exit is reached: the cars to ride in show an escalator, stairs, or (neither recorded) an up arrow. |
+| `stairs` | Cars closest to ordinary stairs. Optional. |
 | `centralPlatform` | `true` if the platform is between the tracks (exit on the left). Optional. |
 | `transfers` | Cars closest to the way to another line, keyed `"LINE/direction"` (see lines.json). Optional. |
 | `note` | Free text shown under the diagram. Optional. |

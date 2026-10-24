@@ -15,7 +15,7 @@ import { POSITIONS } from './validate.js';
 //   stations:  { id: { name: { el, en }, coords: [lat, lng], lines: ['M1', …] } },
 //   lines: { M1: { name, color, directions: { kifisia: {
 //       toward: { el, en },
-//       stops:  [{ station, exits, elevators?, centralPlatform?, transfers?, note?, hours? }, …],   ← in travel order
+//       stops:  [{ station, exits, elevators?, escalators?, stairs?, centralPlatform?, transfers?, note?, hours? }, …],   ← in travel order
 //       timetable: {
 //         profiles: [{ stops: [stopIndex, …], offsets: [seconds from first stop, …] }, …],
 //         patterns: [[[startSeconds, profileIndex], …], …],                              ← one list of trips per distinct day

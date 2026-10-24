@@ -45,3 +45,24 @@ test('the station editor is accessible too', async ({ page }) => {
     await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
     expect(await axe(page)).toEqual([]);
 });
+
+test('the station editor records how each exit is reached: escalators up and stairs', async ({ page }) => {
+    const saved = [];
+    await page.route('**/admin/api/positions/**', route => {
+        saved.push(route.request().postDataJSON());
+        return route.fulfill({ json: { entry: route.request().postDataJSON().entry, edited: true } });
+    });
+    await page.goto('/admin/login');
+    await page.getByLabel('Password').fill(ADMIN_TEST_PASSWORD);
+    await page.getByRole('button', { name: 'Log in' }).click();
+    // The first station is open; its back car is by an escalator, its front by stairs
+    const escalators = page.getByRole('group', { name: 'Escalators up' });
+    const stairs = page.getByRole('group', { name: 'Stairs' });
+    await escalators.getByRole('button').first().click();
+    await stairs.getByRole('button').last().click();
+    await expect(escalators.getByRole('button').first()).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect.poll(() => saved.length).toBe(1);
+    expect(saved[0].entry).toMatchObject({ escalators: ['back'], stairs: ['front'] });
+    expect(await axe(page)).toEqual([]);
+});

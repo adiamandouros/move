@@ -197,15 +197,16 @@ export function planTrip(rail, from, to, now) {
 }
 
 // Where to stand on a leg: at an interchange, near the way to the next line;
-// otherwise near the exit.
+// otherwise near the exit, with how it's reached (escalators, stairs: those
+// are the exit's, not the change's)
 /**
  * @param {Rail} rail @param {Leg} leg @param {Leg | null} next
- * @returns {{ stop: Stop, exits: Position[], elevators: Position[] }}
+ * @returns {{ stop: Stop, exits: Position[], elevators: Position[], escalators: Position[], stairs: Position[] }}
  */
 export function legPositions(rail, leg, next) {
     const stop = rail.lines[leg.line].directions[leg.dir].stops[leg.toIndex];
     const exits = next ? stop.transfers?.[`${next.line}/${next.dir}`] ?? stop.exits : stop.exits;
-    return { stop, exits, elevators: stop.elevators ?? [] };
+    return { stop, exits, elevators: stop.elevators ?? [], escalators: next ? [] : stop.escalators ?? [], stairs: next ? [] : stop.stairs ?? [] };
 }
 
 /** @param {Rail} rail @param {number} lat @param {number} lng @returns {string} */

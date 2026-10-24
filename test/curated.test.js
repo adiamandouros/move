@@ -24,6 +24,13 @@ test('catches typical editing mistakes', () => {
     assert.ok(errors.some(e => e.includes('MON1 is used by both')));
 });
 
+test('escalators and stairs are lists of positions, like elevators', () => {
+    const c = real();
+    c.positions.M1.kifisia.faliro = { exits: ['center'], escalators: ['center'], stairs: ['top'] };
+    const { errors } = validateCurated(c);
+    assert.deepEqual(errors, ['positions.json: M1/kifisia/faliro.stairs: unknown position "top" (use back, center-back, center, center-front, front)']);
+});
+
 test('how STASY writes a name: a list of names, each leading to one station', () => {
     const c = real();
     c.stations.stations.omonia.stasy = 'ΟΜΟΝΟΙΑ';

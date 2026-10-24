@@ -58,6 +58,10 @@ test('a direct trip: the line, where it goes, when, where to get off and which p
     assert.match(text, /Exit at Airport/);
     assert.equal((html.match(/<h2\b/g) ?? []).length, 1, 'one heading for the one leg');
     assert.match(html, /class="train-diagram|train-car/);
+    // Under the results, what the trains show, open: this one has a way out and a lift
+    assert.match(html, /<details class="diagram-legend" open>\s*<summary>What the train shows<\/summary>/);
+    assert.match(text, /Ride in this part of the train[^]*The way up from the platform[^]*An elevator/);
+    assert.doesNotMatch(text, /An escalator up|Stairs/);
     assert.doesNotMatch(html, /tomorrow-notice|timetable-notice/);
 });
 

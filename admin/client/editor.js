@@ -127,7 +127,7 @@ function renderEntry() {
     $('entry-message').textContent = '';
 
     carToggles(document.querySelector('[data-field="exits"]'), 'exits', entry.exits ?? []);
-    carToggles(document.querySelector('[data-field="elevators"]'), 'elevators', entry.elevators ?? []);
+    for (const field of ['elevators', 'escalators', 'stairs']) carToggles(document.querySelector(`[data-field="${field}"]`), field, entry[field] ?? []);
     $('central-platform').checked = Boolean(entry.centralPlatform);
     $('note').value = entry.note ?? '';
 
@@ -159,6 +159,8 @@ function readForm() {
     return {
         exits: pressed(document.querySelector('[data-field="exits"]')),
         elevators: pressed(document.querySelector('[data-field="elevators"]')),
+        escalators: pressed(document.querySelector('[data-field="escalators"]')),
+        stairs: pressed(document.querySelector('[data-field="stairs"]')),
         centralPlatform: $('central-platform').checked,
         transfers,
         note: $('note').value.trim(),

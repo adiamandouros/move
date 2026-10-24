@@ -75,6 +75,8 @@ export function tidyEntry(entry) {
     const order = list => [...new Set(list ?? [])].sort((a, b) => POSITIONS.indexOf(a) - POSITIONS.indexOf(b));
     const out = { exits: order(entry.exits) };
     if (entry.elevators?.length) out.elevators = order(entry.elevators);
+    if (entry.escalators?.length) out.escalators = order(entry.escalators);
+    if (entry.stairs?.length) out.stairs = order(entry.stairs);
     if (entry.centralPlatform) out.centralPlatform = true;
     const transfers = Object.entries(entry.transfers ?? {})
         .filter(([, list]) => list?.length)

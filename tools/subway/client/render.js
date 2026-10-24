@@ -1,7 +1,7 @@
 import { language, localHref, t } from '/js/core/i18n.js';
 import { format, formatDate, html, icon, localName, walkingUrl as walkingTo } from '/js/core/html.js';
 import { linePill, stationSign } from '/js/core/lines.js';
-import { centralPlatformBadge, clockTime, exitDiagram, lineEnd, stopNote } from '/js/core/metro.js';
+import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, lineEnd, stopNote } from '/js/core/metro.js';
 import { legPositions, tripTime } from './network.js';
 
 // What the subway page draws, with html`` (every value escaped)
@@ -62,7 +62,8 @@ function legCard(rail, leg, next, now, level, tomorrow, changes) {
     const line = rail.lines[leg.line];
     // Where the line goes, as the station's signs say
     const toward = stationName(rail, lineEnd(rail, leg.line, leg.dir));
-    const { stop, exits, elevators } = legPositions(rail, leg, next);
+    const where = legPositions(rail, leg, next);
+    const { stop } = where;
     const first = leg.departures[0];
     const ride = changes && first && html`${format(t('subway.ride'), { min: Math.round((first.arrives - first.departs) / 60) })} · `;
     const action = next
@@ -86,7 +87,7 @@ function legCard(rail, leg, next, now, level, tomorrow, changes) {
                 <span class="leg-ride">${ride}${stopCount(leg)}</span>
             </div>
             ${stop.centralPlatform && html`<p class="leg-doors text-center mb-3">${centralPlatformBadge(t)}</p>`}
-            ${exitDiagram(rail.positions, exits, elevators, t)}
+            ${exitDiagram(rail.positions, where, t)}
             ${stopNote(stop.note)}
         </div></div>`;
 }
@@ -156,8 +157,12 @@ export function renderResult(rail, plans, now, { expired, tomorrow = false, open
         return r.arrives === null && plans[0].arrives !== null ? t('subway.no-connection') : format(t('subway.slower'), { min: slower });
     };
     const routes = plans.map((r, i) => html`${i > 0 && html`<hr class="route-divider">`}${routeBlock(rail, r, i, plans.length, now, tomorrow, { time: times[i], closed: closed(r, times[i]), open })}`);
+    // What the trains above show, in words: every symbol in any of them
+    const symbols = [...new Set(plans.flatMap(r => r.legs.map((leg, i) => legPositions(rail, leg, r.legs[i + 1] ?? null)))
+        .filter(where => where.exits.length).flatMap(diagramSymbols))];
     return html`${notice}${tomorrowNotice}
         <div class="routes-wrap">${routes}</div>
+        ${symbols.length > 0 && diagramLegend(symbols, t)}
         <p class="schedule-disclaimer">${icon('info', 'me-1')}${t('subway.schedule-disclaimer')}</p>`;
 }
 

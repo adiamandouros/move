@@ -324,3 +324,15 @@ test('what is typed before the page\'s script has loaded is kept, and searched',
     await expect(page).toHaveURL(/to=airport/);
     expect(await axe(page)).toEqual([]);
 });
+
+test('under the trip, what the train shows: open, in words, and closes with the keyboard', async ({ page }) => {
+    await page.goto('/subway?from=syntagma&to=airport');
+    const legend = page.locator('.diagram-legend');
+    await expect(legend).toHaveAttribute('open', '');
+    await expect(legend.getByRole('listitem')).toContainText(['Ride in this part of the train', 'The way up from the platform', 'An elevator']);
+    expect(await axe(page)).toEqual([]);
+    await legend.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    await expect(legend).not.toHaveAttribute('open', '');
+    await expect(legend.getByRole('listitem').first()).toBeHidden();
+});

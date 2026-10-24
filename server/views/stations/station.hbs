@@ -16,6 +16,9 @@
 {{/each}}
     </section>
 {{/each}}
+{{#if legend}}
+    {{legend}}
+{{/if}}
 {{#if timetable.stasy}}
     <p class="schedule-disclaimer">{{icon "info" "me-1"}}{{t "stations.timetable-stasy" date=timetable.stasy}}</p>
 {{/if}}

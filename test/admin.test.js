@@ -139,14 +139,15 @@ test('saving, reverting and exporting an entry', async () => {
 
     // A valid edit lands in the overlay, tidied, and triggers a rebuild
     const before = rebuilds;
-    const ok = await put('moschato', { exits: ['front', 'back'], note: ' New stairs ' });
-    assert.deepEqual(await ok.json(), { entry: { exits: ['back', 'front'], note: 'New stairs' }, edited: true });
-    assert.deepEqual(JSON.parse(readFileSync(overlayFile, 'utf8')), { M1: { kifisia: { moschato: { exits: ['back', 'front'], note: 'New stairs' } } } });
+    // (with how the exits are reached: stairs at the back, an escalator at the front)
+    const ok = await put('moschato', { exits: ['front', 'back'], escalators: ['front'], stairs: ['back'], note: ' New stairs ' });
+    assert.deepEqual(await ok.json(), { entry: { exits: ['back', 'front'], escalators: ['front'], stairs: ['back'], note: 'New stairs' }, edited: true });
+    assert.deepEqual(JSON.parse(readFileSync(overlayFile, 'utf8')), { M1: { kifisia: { moschato: { exits: ['back', 'front'], escalators: ['front'], stairs: ['back'], note: 'New stairs' } } } });
     assert.equal(rebuilds, before + 1);
 
     // Export = committed file with the edit applied, one station per line
     const exported = await (await api('/export', cookie)).text();
-    assert.match(exported, /^ {6}"moschato": \{ "exits": \["back", "front"\], "note": "New stairs" \},$/m);
+    assert.match(exported, /^ {6}"moschato": \{ "exits": \["back", "front"\], "escalators": \["front"\], "stairs": \["back"\], "note": "New stairs" \},$/m);
 
     // Saving the committed value again removes the edit
     const same = await put('moschato', { exits: [] });

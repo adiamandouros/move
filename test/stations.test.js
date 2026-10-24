@@ -235,6 +235,8 @@ test('a station page shows lines, neighbours, where to ride, connections and tim
         'From OASA\'s timetable, valid until 31/12/2099. Times are approximate.',
     ]) assert.ok(t.includes(expected), `"${expected}" in: ${t}`);
     assert.match(html, /aria-label="Train diagram showing where to stand: Back, Center \(elevator\)"/);
+    // Under the sections, what the trains show
+    assert.match(html, /<details class="diagram-legend" open>\s*<summary>What the train shows<\/summary>/);
     // Each line's section: its large pill alone, its name for screen readers
     assert.match(html, /<h2 class="station-line-title" id="line-l1"><span class="line-pill pill-l line-l1">L1<\/span><span class="sr-only"> Line 1<\/span><\/h2>/);
     assert.match(html, /Changing to <span class="line-pill pill-m line-l2">L2<\/span> toward Gamma/);

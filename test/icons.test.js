@@ -51,9 +51,9 @@ test('no picture means two things', () => {
 });
 
 test('status icons and the symbols in the train are filled; the tools have both forms, for the current tab', () => {
-    for (const name of ['ok', 'warning', 'error', 'exit', 'lift']) assert.equal(MEANINGS[name].filled, true, name);
+    for (const name of ['ok', 'warning', 'error', 'exit', 'escalator', 'stairs', 'lift']) assert.equal(MEANINGS[name].filled, true, name);
     for (const tool of loadTools()) assert.equal(MEANINGS[tool.icon]?.tab, true, `${tool.id}'s icon`);
-    assert.ok(Object.entries(MEANINGS).filter(([, m]) => m.filled).length <= 6, 'outline beside words: few icons are filled');
+    assert.ok(Object.entries(MEANINGS).filter(([, m]) => m.filled).length <= 7, 'outline beside words: few icons are filled');
 });
 
 test('server/icons/ has exactly the files the list needs, as the package has them', () => {

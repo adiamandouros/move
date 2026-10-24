@@ -79,6 +79,9 @@ export interface Stop {
     station: string;
     exits: Position[];
     elevators?: Position[];
+    /** The cars nearest an escalator up, and nearest stairs: how the exit is reached, when recorded */
+    escalators?: Position[];
+    stairs?: Position[];
     centralPlatform?: boolean;
     /** "<line>/<direction>" → where to ride for that connection */
     transfers?: Record<string, Position[]>;
