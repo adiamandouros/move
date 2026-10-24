@@ -38,7 +38,7 @@ test('only stops on screen are asked for, the rest once scrolled to', async ({ p
 test('each stop is refreshed by when its next bus comes; stops off screen aren\'t', async ({ page }) => {
     const { asks, run } = await watchRequests(page);
     await page.goto('/buses');
-    await expect(page.locator('.stop-item .arrival-badge').first()).toBeVisible();
+    await expect(page.locator('.stop-item .time-badge').first()).toBeVisible();
     await page.locator('#show-more-btn').click();
     await page.locator('#app-content').evaluate(m => m.scrollTo(0, 0));
     await run(5);
@@ -67,7 +67,7 @@ test('each stop is refreshed by when its next bus comes; stops off screen aren\'
 test('between refreshes the minutes count down; opening a stop catches up at once', async ({ page }) => {
     const { asks, run } = await watchRequests(page);
     await page.goto('/buses');
-    await expect(page.locator('.stop-item .arrival-badge').first()).toBeVisible();
+    await expect(page.locator('.stop-item .time-badge').first()).toBeVisible();
     await run(3);
     const shown = await onScreen(page);
     // A stop refreshed every minute: its next bus 11–20 minutes away
@@ -97,7 +97,7 @@ test('between refreshes the minutes count down; opening a stop catches up at onc
 // fills the stop's row rather than only its icon
 test('the floating buttons are solid, and a stop\'s walking directions fill its row', async ({ page }) => {
     await page.goto('/buses');
-    await expect(page.locator('.stop-item .arrival-badge').first()).toBeVisible();
+    await expect(page.locator('.stop-item .time-badge').first()).toBeVisible();
     for (const background of await page.locator('#bus-actions .btn').evaluateAll(els => els.map(e => getComputedStyle(e).backgroundColor))) {
         expect(background).not.toMatch(/transparent|rgba\(.*, 0\)/);
     }

@@ -33,6 +33,9 @@ test.describe('22:50 on a Wednesday, before the last airport train', () => {
         const card = page.locator('.result-card').first();
         await expect(card).toContainText('28 minutes');
         await expect(card).toContainText('Last train');
+        // red on the badge, and in words under the times, with the clock time
+        await expect(card.locator('.time-badge.time-last')).toHaveCount(1);
+        await expect(card.locator('.last-train-last')).toHaveText('Last train 23:18');
         await expect(content(page)).not.toContainText('No more trains today');
     });
 });

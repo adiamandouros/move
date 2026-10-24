@@ -209,3 +209,19 @@ test('line pills are readable on every line colour', () => {
         assert.ok(ratio >= 4.5, `.line-${id}: ${text} on ${background} is ${ratio.toFixed(2)}:1`);
     }
 });
+
+// The time badge's tiers (DESIGN.md): text on its own colour, on every
+// surface it can sit on (a tint is 10% of its colour over the surface)
+test('time badges are readable: solid green with dark text, tints over the page, cards and raised parts', () => {
+    const hex = name => resolve(`var(${name})`);
+    const rgb = hexColour => [1, 3, 5].map(i => parseInt(hexColour.slice(i, i + 2), 16));
+    const tint = (colour, surface) => `#${rgb(colour).map((c, i) => Math.round(c * 0.1 + rgb(surface)[i] * 0.9).toString(16).padStart(2, '0')).join('')}`;
+    assert.ok(contrast(hex('--wh-ink'), hex('--wh-close')) >= 4.5, 'dark text on the solid green');
+    for (const name of ['--wh-close', '--wh-second-last', '--wh-last']) {
+        assert.equal(TOKENS[`${name}-rgb`].replace(/\s/g, ''), rgb(hex(name)).join(','), `${name}-rgb is ${name}`);
+        for (const surface of SURFACES.filter(s => s !== '--wh-map-bg')) {
+            const ratio = contrast(hex(name), tint(hex(name), hex(surface)));
+            assert.ok(ratio >= 4.5, `${name} on its tint over ${surface} is ${ratio.toFixed(2)}:1`);
+        }
+    }
+});

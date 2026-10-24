@@ -131,11 +131,13 @@
     /* Where to stand on the train */
     --wh-highlight: #f59e0b;
     --wh-highlight-rgb: 245, 158, 11;
-    /* Arrivals: soon (--bs-warning), close, and the last departures */
+    /* Departures (the time badge): due (the tint's colour is solid), close, and the last two trains */
     --wh-close: #34d67a;
-    --wh-close-rgb: 40, 199, 111;
+    --wh-close-rgb: 52, 214, 122;
     --wh-second-last: #fbbf24;
+    --wh-second-last-rgb: 251, 191, 36;
     --wh-last: #f87171;
+    --wh-last-rgb: 248, 113, 113;
 }
 
 /* ── Skip link ── */
@@ -628,7 +630,7 @@ body {
     }
 
     .stop-next-bus {
-        padding: var(--wh-space-2) var(--wh-space-3);
+        padding: var(--wh-space-2);
     }
 
     .stop-header-fixed {
@@ -664,30 +666,43 @@ body {
     overflow-wrap: anywhere;
 }
 
-/* Arrival time badges */
-.arrival-badge {
-    font-size: var(--wh-fs-xs);
-    font-weight: 600;
+/* The time badge, for buses and trains (timeBadge() in /js/core/times.js).
+   Colours: text on the page's surfaces and on each tint is checked in
+   test/accessibility.test.js */
+.time-badge {
+    font-size: var(--wh-fs-sm);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
     border-radius: var(--wh-radius-sm);
     padding: 0.1875rem var(--wh-space-2);
     flex-shrink: 0;
     white-space: nowrap;
 }
 
-/* Colours verified WCAG AA against their respective backgrounds */
-.arrival-soon {
-    background-color: rgba(var(--bs-warning-rgb), 0.15);
-    color: var(--bs-warning);
+.time-due {
+    background-color: var(--wh-close);
+    color: var(--wh-ink);
 }
 
-.arrival-close {
-    background-color: rgba(var(--wh-close-rgb), 0.15);
+.time-close {
+    background-color: rgba(var(--wh-close-rgb), 0.1);
     color: var(--wh-close);
 }
 
-.arrival-later {
-    background-color: rgba(var(--bs-primary-rgb), 0.12);
-    color: var(--bs-primary-text-emphasis);
+.time-later {
+    background-color: var(--bs-secondary-bg);
+    color: var(--bs-body-color);
+    font-weight: 600;
+}
+
+.time-second-last {
+    background-color: rgba(var(--wh-second-last-rgb), 0.1);
+    color: var(--wh-second-last);
+}
+
+.time-last {
+    background-color: rgba(var(--wh-last-rgb), 0.1);
+    color: var(--wh-last);
 }
 
 /* ── Scheduled departures ── */
@@ -704,15 +719,6 @@ body {
     gap: 0.375rem;
 }
 
-.schedule-chip {
-    font-size: var(--wh-fs-sm);
-    font-weight: 600;
-    color: var(--bs-body-color);
-    background-color: var(--bs-secondary-bg);
-    border-radius: var(--wh-radius-sm);
-    padding: 0.1875rem var(--wh-space-2);
-}
-
 .schedule-disclaimer {
     font-size: var(--wh-fs-xs);
     /* Bootstrap's warning yellow; about 11:1 contrast against the page background */
@@ -722,11 +728,28 @@ body {
     margin-bottom: 0;
 }
 
-.schedule-chip--second-last {
+/* The last trains in words, under the times */
+.last-trains {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0 var(--wh-space-3);
+    flex-basis: 100%;
+    margin-top: var(--wh-space-1);
+    font-size: var(--wh-fs-sm);
+}
+
+.last-train {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wh-space-1);
+}
+
+.last-train-second-last {
     color: var(--wh-second-last);
 }
 
-.schedule-chip--last {
+.last-train-last {
     color: var(--wh-last);
 }
 

@@ -74,10 +74,10 @@ test('the minutes badge: colour by how soon, short on screen, in full for screen
     const en = await browserModule('tools/buses/client/render.js', 'en');
     const el = await browserModule('tools/buses/client/render.js', 'el');
     const badge = (r, m) => String(r.headerBadge({ arrivals: [{ line: '1', minutes: m }] }));
-    assert.match(badge(en, 3), /arrival-soon/);
-    assert.match(badge(en, 4), /arrival-close/);
-    assert.match(badge(en, 8), /arrival-close/);
-    assert.match(badge(en, 9), /arrival-later/);
+    assert.match(badge(en, 3), /time-due/);
+    assert.match(badge(en, 4), /time-close/);
+    assert.match(badge(en, 8), /time-close/);
+    assert.match(badge(en, 9), /time-later/);
     assert.match(badge(en, 9), /<span aria-hidden="true">9 min<\/span><span class="sr-only">9 minutes<\/span>/);
     assert.match(badge(el, 9), /<span aria-hidden="true">9 λεπ\.<\/span><span class="sr-only">9 λεπτά<\/span>/);
     assert.match(badge(en, 2), /<span class="sr-only">2 minutes, arriving soon<\/span>/);
@@ -88,7 +88,7 @@ test('one arrival: line, destination and minutes, as a screen reader hears it', 
     const el = await browserModule('tools/buses/client/render.js', 'el');
     const row = String(el.arrivalRow(arrivals[1]));
     assert.match(row, /^\s*<li class="arrival-row /);
-    assert.match(row, /arrival-close/);
+    assert.match(row, /time-close/);
     assert.equal(spoken(row).replace(/\s+/g, ' '), 'Γραμμή 040 , ΠΕΙΡΑΙΑΣ, 7 λεπτά');
     assert.match(row, /<span class="bus-plate pill-m"><span class="sr-only">Γραμμή <\/span>040<\/span>/);
 });
