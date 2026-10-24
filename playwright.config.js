@@ -21,6 +21,8 @@ export default defineConfig({
     use: {
         baseURL: `http://localhost:${PORT}`,
         locale: 'en-GB',
+        // The phone asks for dark unless a test says otherwise (theme.spec.js)
+        colorScheme: 'dark',
         timezoneId: 'Europe/Athens',
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',

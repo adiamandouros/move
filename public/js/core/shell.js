@@ -1,6 +1,7 @@
 import { html, icon as iconHtml, setHtml } from './html.js';
 import { t } from './i18n.js';
 import { restoreLinks } from './remember.js';
+import { startTheme } from './theme.js';
 
 // Shared by every page: the links to the tools, the language link and the service worker. Each
 // tool's own script is loaded separately by its page, and only the pages
@@ -11,6 +12,11 @@ import { restoreLinks } from './remember.js';
 // Back to where each tool was left (/js/core/remember.js)
 restoreLinks();
 window.addEventListener('pageshow', restoreLinks);
+
+// ── Colour mode ──────────────────────────────────────────────────────────────
+
+// Auto, Light and Dark in the menu and the sidebar (/js/core/theme.js)
+startTheme();
 
 // ── Language ─────────────────────────────────────────────────────────────────
 

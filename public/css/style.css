@@ -63,6 +63,24 @@
     --wh-space-6: 1.5rem;
     --wh-space-8: 2rem;
     --wh-space-12: 3rem;
+
+    /* ── Colours that are the same in every colour mode ── */
+
+    /* Dark text, only on the light line colours and station signs */
+    --wh-ink: #0f131c;
+    /* The lines' colours: their pills, and the edges of station signs
+       (data/curated/'s, which test/accessibility.test.js checks) */
+    --wh-line-m1: #3a833c;
+    --wh-line-m2: #d43333;
+    --wh-line-m3: #0057b8;
+    --wh-line-t6: #b6d433;
+    --wh-line-t7: #b6d433;
+    /* A station sign's panel: off-white, as in the stations, in every colour mode */
+    --wh-sign: #f4f5f7;
+    /* The maps stay black: their lines are made for it */
+    --wh-map-bg: #000;
+    --wh-map-text: #e8eaf0;
+    --wh-map-link: #7eb8ff;
 }
 
 /* ── Colours ──
@@ -84,7 +102,6 @@
     --bs-secondary-bg-rgb: 30, 37, 56;
     --wh-tertiary-bg-hover: #1a2133;
     --wh-secondary-bg-hover: #313c5b;
-    --wh-map-bg: #000;
 
     /* Text, strongest first */
     --bs-emphasis-color: #fff;
@@ -97,18 +114,8 @@
     --bs-secondary-color-rgb: 154, 163, 178;
     --bs-tertiary-color: #8b95a7;
     --bs-tertiary-color-rgb: 139, 149, 167;
-    /* Dark text, only on the light line colours and station signs */
-    --wh-ink: #0f131c;
-
-    /* The lines' colours: their pills, and the edges of station signs
-       (data/curated/'s, which test/accessibility.test.js checks) */
-    --wh-line-m1: #3a833c;
-    --wh-line-m2: #d43333;
-    --wh-line-m3: #0057b8;
-    --wh-line-t6: #b6d433;
-    --wh-line-t7: #b6d433;
-    /* A station sign's panel: off-white, as in the stations, in every theme */
-    --wh-sign: #f4f5f7;
+    /* A station sign's edge: none needed on a dark page */
+    --wh-sign-edge: transparent;
 
     /* Lines between things: borders, and quieter dividers */
     --bs-border-color: #2a3350;
@@ -126,18 +133,81 @@
     --bs-primary-text-emphasis: #7eb8ff;
     --bs-focus-ring-color: rgba(61, 139, 255, 0.6);
 
-    /* The dot in the wordmark */
+    /* The yellow of the menu button, and the dot in the wordmark (decoration) */
     --wh-brand-yellow: #ffc107;
+    --wh-brand-dot: #ffc107;
+    /* Warnings: text and edge */
+    --wh-warn: #ffc107;
+    --wh-warn-edge: rgba(255, 193, 7, 0.35);
     /* Where to stand on the train */
     --wh-highlight: #f59e0b;
     --wh-highlight-rgb: 245, 158, 11;
     /* Departures (the time badge): due (the tint's colour is solid), close, and the last two trains */
     --wh-close: #34d67a;
     --wh-close-rgb: 52, 214, 122;
+    --wh-on-close: #0f131c;
     --wh-second-last: #fbbf24;
     --wh-second-last-rgb: 251, 191, 36;
     --wh-last: #f87171;
     --wh-last-rgb: 248, 113, 113;
+}
+
+/* The light mode: the same names, for a page the phone or the person asked to
+   be light (the palette of the design guide). */
+[data-bs-theme="light"] {
+    color-scheme: light;
+    --bs-body-bg: #f4f6fa;
+    --bs-body-bg-rgb: 244, 246, 250;
+    --bs-tertiary-bg: #ffffff;
+    --bs-tertiary-bg-rgb: 255, 255, 255;
+    --bs-secondary-bg: #e9edf4;
+    --bs-secondary-bg-rgb: 233, 237, 244;
+    --wh-tertiary-bg-hover: #eef1f7;
+    --wh-secondary-bg-hover: #dde3ee;
+
+    --bs-emphasis-color: #0b0e14;
+    --bs-emphasis-color-rgb: 11, 14, 20;
+    --wh-text-strong: #0b0e14;
+    --bs-body-color: #161b27;
+    --bs-body-color-rgb: 22, 27, 39;
+    --wh-text-soft: #3d4657;
+    --bs-secondary-color: #4f596b;
+    --bs-secondary-color-rgb: 79, 89, 107;
+    --bs-tertiary-color: #5c667a;
+    --bs-tertiary-color-rgb: 92, 102, 122;
+
+    /* The off-white panel needs an edge on a light page */
+    --wh-sign-edge: #c9d0dc;
+
+    --bs-border-color: #d3d9e4;
+    --wh-divider: #e3e8f0;
+    --wh-control-edge: #7d8799;
+
+    --wh-shadow: 0 4px 16px rgba(22, 27, 39, 0.12);
+
+    --bs-primary: #1a66d9;
+    --bs-primary-rgb: 26, 102, 217;
+    --bs-primary-text-emphasis: #0f4fb0;
+    --bs-focus-ring-color: rgba(26, 102, 217, 0.6);
+    /* Bootstrap's own blue is too pale for text on the grey page */
+    --bs-link-color: #0f4fb0;
+    --bs-link-color-rgb: 15, 79, 176;
+    --bs-link-hover-color: #0b3d8a;
+    --bs-link-hover-color-rgb: 11, 61, 138;
+
+    --wh-brand-yellow: #8a5f00;
+    --wh-brand-dot: #e89b00;
+    --wh-warn: #8a5300;
+    --wh-warn-edge: #e0a100;
+    --wh-highlight: #a44708;
+    --wh-highlight-rgb: 164, 71, 8;
+    --wh-close: #116c3b;
+    --wh-close-rgb: 17, 108, 59;
+    --wh-on-close: #fff;
+    --wh-second-last: #8a5300;
+    --wh-second-last-rgb: 138, 83, 0;
+    --wh-last: #b42424;
+    --wh-last-rgb: 180, 36, 36;
 }
 
 /* ── Skip link ── */
@@ -204,6 +274,8 @@ body {
     width: var(--side-nav-width);
     min-width: var(--side-nav-width);
     height: 100dvh;
+    /* Larger text makes it taller than the screen: it scrolls, so the last links stay within reach */
+    overflow-y: auto;
     background-color: var(--bs-tertiary-bg);
     border-color: var(--wh-divider) !important;
 }
@@ -226,7 +298,7 @@ body {
 }
 
 .brand-dot {
-    color: var(--wh-brand-yellow);
+    color: var(--wh-brand-dot);
 }
 
 /* ── Main content ── */
@@ -270,6 +342,13 @@ body {
 .nav-logo {
     height: 1.5rem;
     width: auto;
+}
+
+/* The mark comes twice, in the yellow for a dark page and the gold for a
+   light one (partials/logo.hbs); only the one that fits shows */
+[data-bs-theme="light"] .logo-on-dark,
+[data-bs-theme="dark"] .logo-on-light {
+    display: none;
 }
 
 /* ── Nav buttons (shared) ── */
@@ -697,7 +776,7 @@ body {
 
 .time-due {
     background-color: var(--wh-close);
-    color: var(--wh-ink);
+    color: var(--wh-on-close);
 }
 
 .time-close {
@@ -737,8 +816,8 @@ body {
 
 .schedule-disclaimer {
     font-size: var(--wh-fs-xs);
-    /* Bootstrap's warning yellow; about 11:1 contrast against the page background */
-    color: var(--bs-warning);
+    /* The warning colour of the colour mode */
+    color: var(--wh-warn);
     text-align: center;
     margin-top: var(--wh-space-4);
     margin-bottom: 0;
@@ -902,8 +981,8 @@ body {
 
 /* Something to watch for */
 .notice-warn {
-    color: var(--bs-warning);
-    border-color: rgba(var(--bs-warning-rgb), 0.35);
+    color: var(--wh-warn);
+    border-color: var(--wh-warn-edge);
 }
 
 /* How to read what's shown */
@@ -1064,6 +1143,8 @@ body {
     border-bottom: 0.22em solid var(--wh-sign);
     border-radius: 0;
     background-color: var(--wh-sign);
+    /* On a light page the panel gets an edge (none in the dark) */
+    box-shadow: 0 0 0 1px var(--wh-sign-edge);
     color: var(--wh-ink);
     font-weight: 700;
     line-height: 1.2;
@@ -1883,7 +1964,7 @@ body {
 }
 
 .map-station text {
-    fill: var(--bs-body-color);
+    fill: var(--wh-map-text);
     font-size: 14px;
     paint-order: stroke;
     stroke: var(--wh-map-bg);
@@ -1903,7 +1984,7 @@ body {
 }
 
 .map-link:hover text {
-    fill: var(--bs-primary);
+    fill: var(--wh-map-link);
 }
 
 /* One-way hops (T7's Piraeus loop) */
@@ -2189,6 +2270,54 @@ body {
 
 /* The about, privacy and contact links near the bottom of the sidebar, one
    under the other, above the language button (which stays last) */
+/* Auto, Light and Dark (/js/core/theme.js), in the menu and above the links in the sidebar */
+.theme-switch {
+    display: flex;
+    gap: var(--wh-space-1);
+    margin: 0 0 var(--wh-space-3);
+    padding: var(--wh-space-1);
+    border: 1px solid var(--wh-control-edge);
+    border-radius: var(--wh-radius-round);
+}
+
+.theme-switch[hidden] {
+    display: none;
+}
+
+.theme-switch button {
+    flex: 1 1 auto;
+    min-height: 2.25rem;
+    padding: 0 var(--wh-space-1);
+    border: 0;
+    border-radius: var(--wh-radius-round);
+    background: none;
+    color: var(--bs-secondary-color);
+    font-size: var(--wh-fs-xs);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.theme-switch button:hover {
+    color: var(--bs-body-color);
+    background-color: var(--bs-secondary-bg);
+}
+
+/* The choice made: the current tab's look, with an edge for when colours are gone */
+.theme-switch button[aria-pressed="true"] {
+    color: var(--bs-primary);
+    background-color: rgba(var(--bs-primary-rgb), 0.1);
+    box-shadow: inset 0 0 0 1px var(--bs-primary);
+}
+
+.theme-switch button:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+.site-menu .theme-switch {
+    margin: var(--wh-space-2) var(--wh-space-1) var(--wh-space-1);
+}
+
 .side-links {
     display: flex;
     flex-direction: column;
@@ -2366,4 +2495,27 @@ body {
     --bs-btn-hover-border-color: var(--bs-primary);
     --bs-btn-active-bg: var(--bs-primary);
     --bs-btn-active-border-color: var(--bs-primary);
+}
+
+/* ── Forced colours (Windows high contrast) ──
+   The person's own colours replace ours, so what colour alone showed needs
+   an edge or an outline. The lines' pills and station signs, and the maps,
+   are colours that mean something with their text drawn for them, so they
+   keep them. */
+
+@media (forced-colors: active) {
+    .line-pill,
+    .station-sign,
+    .metro-map {
+        forced-color-adjust: none;
+    }
+
+    .time-badge {
+        border: 1px solid CanvasText;
+    }
+
+    .train-car.highlighted {
+        outline: 0.1875rem solid Highlight;
+        outline-offset: -0.1875rem;
+    }
 }

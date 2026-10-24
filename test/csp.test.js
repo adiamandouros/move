@@ -48,8 +48,8 @@ test('every inline script on every page is allowed by the policy', () => {
     for (const [page, html] of Object.entries(everyPage())) {
         for (const script of inlineScripts(html)) assert.ok(allowed.includes(hashOf(script)), `${page}: an inline script the policy doesn't allow:\n${script.slice(0, 200)}`);
     }
-    // Two today: the language redirect and the import map
-    assert.equal(allowed.filter(v => v.startsWith("'sha256-")).length, 2);
+    // Three today: the colour mode, the language redirect and the import map
+    assert.equal(allowed.filter(v => v.startsWith("'sha256-")).length, 3);
 });
 
 test('no page has what the policy can\'t allow: event handler attributes or javascript: links', () => {

@@ -1,4 +1,5 @@
 import { html } from '../../public/js/core/html.js';
+import { FIRST_PAINT_SCRIPT } from '../../public/js/core/theme.js';
 import { adUnit } from '../ads.js';
 import { FONTS, importMap, versioned } from './assets.js';
 import { LANGS, localiseLinks, localPath, otherLang, pageStrings } from './i18n.js';
@@ -53,6 +54,7 @@ export function createRenderer(tools, pagePaths, config) {
         const other = path ? otherLang(lang) : null;
         const page = layout({
             lang,
+            themeScript: FIRST_PAINT_SCRIPT,
             // For icon() in the browser (public/js/core/html.js); built with
             // html``, so Handlebars keeps the = of its ?v= as it is
             icons: html`${versioned('/icons.svg')}`,

@@ -20,6 +20,10 @@
     <meta name="google-adsense-account" content="{{adsenseClient}}">
 {{/if}}
     <meta name="theme-color" content="#161b27">
+    {{!-- The colour mode the phone or the person chose, before anything is drawn
+    (/js/core/theme.js). The same on every page, so the Content-Security-Policy
+    allows it by one hash (server/csp.js). --}}
+    <script>{{{themeScript}}}</script>
     <script type="importmap">{{json importMap}}</script>
 {{#each fonts}}
     <link rel="preload" href="{{this}}" as="font" type="font/woff2" crossorigin>
@@ -48,13 +52,14 @@
         <!-- Sidebar (desktop) -->
         <nav id="side-nav" class="d-none d-md-flex flex-column border-end" aria-label="{{t "nav.main"}}">
             <div class="side-nav-brand px-3 py-4">
-                <a href="/" class="brand-link text-decoration-none"><img src="/icon/logo.svg" alt="" width="38" height="28"><span>wayhop<span class="brand-dot" aria-hidden="true">.</span></span></a>
+                <a href="/" class="brand-link text-decoration-none">{{> logo width=38 height=28}}<span>wayhop<span class="brand-dot" aria-hidden="true">.</span></span></a>
             </div>
             <div class="d-flex flex-column flex-grow-1 px-2">
 {{#each tools}}
                 <a href="{{path}}" data-tool="{{id}}" class="nav-btn btn d-flex align-items-center gap-3 px-3 py-3 mb-1{{#if active}} active{{/if}}"{{#if active}} aria-current="page"{{/if}}>{{#if active}}{{icon iconName "icon-nav" filled=true}}{{else}}{{icon iconName "icon-nav"}}{{/if}}<span>{{t titleKey}}</span></a>
 {{/each}}
                 <div class="mt-auto pb-3">
+                    {{> theme-switch}}
                     {{!-- The pages about the site, stacked above the language link at the bottom --}}
                     <div class="side-links">
 {{#each siteLinks}}
@@ -96,7 +101,7 @@
 
     <!-- Bottom nav (mobile): home (the logo), the tools, and the menu button by the right thumb -->
     <nav id="bottom-nav" class="d-grid d-md-none fixed-bottom border-top" aria-label="{{t "nav.main"}}">
-        <a href="/" class="nav-btn btn d-flex flex-column align-items-center py-2{{#if home}} active{{/if}}"{{#if home}} aria-current="page"{{/if}}><img src="/icon/logo.svg" alt="" width="33" height="24" class="nav-logo"><span class="nav-label">{{t "nav.home"}}</span></a>
+        <a href="/" class="nav-btn btn d-flex flex-column align-items-center py-2{{#if home}} active{{/if}}"{{#if home}} aria-current="page"{{/if}}>{{> logo width=33 height=24 class="nav-logo"}}<span class="nav-label">{{t "nav.home"}}</span></a>
 {{#each tools}}
         <a href="{{path}}" data-tool="{{id}}" class="nav-btn btn d-flex flex-column align-items-center py-2{{#if active}} active{{/if}}"{{#if active}} aria-current="page"{{/if}}>{{#if active}}{{icon iconName "icon-nav" filled=true}}{{else}}{{icon iconName "icon-nav"}}{{/if}}<span class="nav-label">{{t shortKey}}</span></a>
 {{/each}}
@@ -112,6 +117,7 @@
 {{#each siteLinks}}
             <a href="{{href}}" class="site-menu-link">{{icon iconName}}<span>{{t textKey}}</span></a>
 {{/each}}
+            {{> theme-switch}}
     </nav>
 
     <!-- Live region for screen reader announcements (visually hidden) -->
