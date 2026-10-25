@@ -91,7 +91,7 @@ export function compileView(source, name) {
 
 // A partial, for {{> name}} in any view
 /** @param {string} name @param {string} source */
-export function registerPartial(name, source) {
+function registerPartial(name, source) {
     hb.registerPartial(name, hb.compile(source, OPTIONS));
 }
 

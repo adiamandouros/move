@@ -15,7 +15,7 @@
 
 const DAY = 86_400;
 // Minimum time to change trains at an interchange
-export const TRANSFER_SECONDS = 180;
+const TRANSFER_SECONDS = 180;
 // OASA's feed sometimes has near-duplicate trips a few seconds apart
 const DUPLICATE_SECONDS = 60;
 const MAX_OPTIONS = 3;
@@ -139,7 +139,7 @@ export function departures(rail, leg, { weekday, after, count = 2, ownDay = fals
 // makes the whole journey today.
 // ownDay: only the day's own trains (see departures)
 /** @param {Rail} rail @param {Route} route @param {AthensTime} now @param {boolean} [ownDay] @returns {PlannedRoute} */
-export function planRoute(rail, route, now, ownDay = false) {
+function planRoute(rail, route, now, ownDay = false) {
     let after = now.seconds;
     let reachable = true;
     const legs = route.legs.map(leg => {

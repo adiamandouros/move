@@ -111,7 +111,7 @@ const waiting = code => state.view.kind === 'nearby' || isOpen(code);
 function patchAll() {
     for (const stop of state.stops) {
         const item = itemOf(stop.code);
-        if (item) patchStop(item, stop, shown(stop.code), { waiting: waiting(stop.code) });
+        if (item) patchStop(item, shown(stop.code), { waiting: waiting(stop.code) });
         state.drawnElapsed[stop.code] = elapsed(stop.code);
     }
     applyFilter();
@@ -245,7 +245,7 @@ async function ask(stop) {
     state.asking.delete(stop.code);
     const item = itemOf(stop.code);
     if (!item) return; // the stops changed meanwhile
-    patchStop(item, stop, shown(stop.code), { waiting: waiting(stop.code) });
+    patchStop(item, shown(stop.code), { waiting: waiting(stop.code) });
     state.drawnElapsed[stop.code] = elapsed(stop.code);
     applyFilter();
     renderStatus();

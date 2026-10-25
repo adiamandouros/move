@@ -1361,11 +1361,6 @@ body {
     }
 }
 
-.position-summary {
-    font-size: var(--wh-fs-md);
-    color: var(--bs-body-color);
-}
-
 .stop-note {
     font-size: var(--wh-fs-sm);
     color: var(--bs-tertiary-color);

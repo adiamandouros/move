@@ -9,7 +9,6 @@ import { html } from './html.js';
 // test/lines.test.js checks no page shows a line's name without them.
 
 /** @typedef {'s' | 'm' | 'l'} PillSize */
-export const SIZES = ['s', 'm', 'l'];
 
 // A metro or tram line: a round pill in its colour. id is the line's key in
 // rail.json or tram.json ('M1'), name what it says. The colours are classes
