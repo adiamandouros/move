@@ -200,6 +200,11 @@ test('STASY\'s timetables: the copy the pages use, and what went wrong with the 
 
     assert.match((await row({ fetched: null })).detail, /^Not fetched yet\./);
 
+    // A copy over 45 days old (server/data/status.js, as /api/health judges it)
+    const stale = await row({ last: { at: '2026-08-01T02:30:00.000Z', ok: true, route: 'home relay' }, fetched: '2026-08-01' });
+    assert.equal(stale.status, 'warn');
+    assert.equal(stale.detail, 'The station pages use STASY\'s first and last trains from 2026-08-01, a copy over 45 days old (63 days).');
+
     const partly = await row({ ...STASY_OK, warnings: ['positions.json: no exits for M1/kifisia/moschato', 'STASY M3: unknown station "ΝΕΟΣ ΣΤΑΘΜΟΣ"; its first and last trains come from the GTFS'] });
     assert.equal(partly.status, 'warn');
     assert.match(partly.detail, /from 2026-10-01, except: STASY M3: unknown station "ΝΕΟΣ ΣΤΑΘΜΟΣ"; its first and last trains come from the GTFS$/);
@@ -331,6 +336,10 @@ test('STASY\'s airport timetable: the weekly check, and the airport trains the b
     ]);
     assert.deepEqual(await rows({ at: checked, checked, changes: ['M3/doukissis\'s PDF changed: x.pdf', 'a new one'] }), [
         { title: 'STASY airport timetable', status: 'fail', detail: 'Changed since airport.json, checked 2026-10-14 02:30 UTC: M3/doukissis\'s PDF changed: x.pdf · a new one' },
+    ]);
+    // Not checked for over 21 days (server/data/status.js, as /api/health judges it)
+    assert.deepEqual(await rows({ at: '2026-09-01T02:30:00.000Z', checked: '2026-09-01T02:30:00.000Z', changes: [], route: 'home relay' }), [
+        { title: 'STASY airport timetable', status: 'warn', detail: 'Last checked 2026-09-01 02:30 UTC, over 21 days ago (32 days)' },
     ]);
     assert.deepEqual(await rows({ at: '2026-10-21T02:30:00.000Z', checked, changes: [], error: 'home relay: HTTP 400' }), [
         { title: 'STASY airport timetable', status: 'warn', detail: 'The check at 2026-10-21 02:30 UTC failed: home relay: HTTP 400. Last checked 2026-10-14 02:30 UTC: unchanged' },

@@ -332,7 +332,9 @@ error details. Every 30 minutes, `.github/workflows/health.yml` runs
 (the home pages, one stop's arrivals, the announcements), then reads the
 health page, and rechecks a problem after 2 minutes. While the site is
 unhealthy, an issue labelled `health` stays open; GitHub emails it.
-`/admin/diagnostics` has the details.
+`/admin/diagnostics` has the details. How the data stands (the build's age
+and parts, the timetable's end, STASY's copy, the airport check) is judged
+once, in `server/data/status.js`, so the two always agree.
 
 Facts written on the pages by hand (the Info page's closing times, prices,
 airport and night buses) say when they were last checked: one date per
