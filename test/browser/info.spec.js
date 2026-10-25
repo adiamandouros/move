@@ -1,6 +1,6 @@
 // The Info page: its sections (Bootstrap's accordion) with the keyboard, the
 // metro and tram maps, and every section open passing axe and the keyboard walk.
-import { axe, expect, keyboardWalk, test } from './fixtures.js';
+import { axe, expect, keyboardWalk, openSection, test } from './fixtures.js';
 
 for (const lang of ['', '/el']) {
     test(`${lang || '/'}info sections, maps and station lists`, async ({ page }, { project }) => {
@@ -74,7 +74,7 @@ for (const lang of ['', '/el']) {
 
 test('the tram map zooms with the keyboard and its buttons', async ({ page }) => {
     await page.goto('/info');
-    await page.locator('#toggle-map').click();
+    await openSection(page, '#toggle-map');
     await page.locator('#toggle-tram').click();
     const tram = page.locator('#tram-map');
     const svg = tram.locator('.map-svg');

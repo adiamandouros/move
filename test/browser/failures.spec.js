@@ -4,7 +4,7 @@
 // accessible, keep trying at the approved pace, and recover by itself.
 // The scenarios are copies of the site in server.js; the bus page's timing
 // rules are in tools/buses/client/timing.js.
-import { axe, expect, keyboardWalk, setScenario, test } from './fixtures.js';
+import { axe, expect, keyboardWalk, openSection, setScenario, test } from './fixtures.js';
 
 // The same in every browser: one phone is enough
 test.beforeEach(({}, { project }) => test.skip(project.name !== 'phone', 'the same everywhere: runs on phone only'));
@@ -78,7 +78,7 @@ test.describe('the announcement sources down', () => {
     test('Info says the announcements couldn\'t load; the rest of the page works', async ({ page }) => {
         await page.goto('/info');
         await expect(page.locator('#announcements')).toHaveText('Couldn\'t load the announcements. Check your connection and try again later.');
-        await page.locator('#toggle-map').click();
+        await openSection(page, '#toggle-map');
         await page.locator('#toggle-metro').click();
         await expect(page.locator('#metro-map .map-station').first()).toBeAttached();
         expect(await axe(page)).toEqual([]);
@@ -109,7 +109,7 @@ test.describe('before the first data build', () => {
 
     test('the Info maps say they couldn\'t load; announcements still come', async ({ page }) => {
         await page.goto('/info');
-        await page.locator('#toggle-map').click();
+        await openSection(page, '#toggle-map');
         await page.locator('#toggle-metro').click();
         await expect(page.locator('#metro-map')).toContainText('Couldn\'t load the map.');
         await page.locator('#toggle-tram').click();
