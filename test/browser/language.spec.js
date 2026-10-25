@@ -1,6 +1,6 @@
 // The language link: switching keeps what's on the page, the choice is
 // remembered, and English addresses then open in Greek.
-import { expect, onlyOn, test } from './fixtures.js';
+import { expect, onlyOn, openSection, test } from './fixtures.js';
 
 const path = page => { const u = new URL(page.url()); return u.pathname + u.search; };
 const saved = page => page.evaluate(() => localStorage.getItem('language'));
@@ -55,8 +55,8 @@ test.describe('on one phone (the same everywhere)', () => {
 
     test('the Greek map\'s station list links to Greek pages', async ({ page }) => {
         await page.goto('/el/info');
-        await page.locator('#toggle-map').click();
-        await page.locator('#toggle-metro').click();
+        await openSection(page, '#toggle-map');
+        await openSection(page, '#toggle-metro');
         await page.locator('#toggle-station-list').click();
         await expect(page.locator('#station-list a').first()).toHaveAttribute('href', /^\/el\/subway\?to=/);
         await expect(page.locator('.map-btn').first()).toHaveAttribute('aria-label', 'Μεγέθυνση');

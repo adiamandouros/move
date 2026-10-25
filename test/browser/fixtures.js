@@ -93,6 +93,17 @@ export const test = base.extend({
 export const onlyOn = (...projects) => ({}, { project }) =>
     test.skip(!projects.includes(project.name), `the same everywhere: runs on ${projects.join(', ')} only`);
 
+// Open a section of the accordion (or a part inside one) with a tap, and wait
+// until it has opened, as a person would before tapping something in it.
+// While it slides open it clips what's inside: to show a button there, the
+// browser scrolls the clipped box, which unscrolls as the box grows, and the
+// tap lands above the button.
+export async function openSection(page, toggle) {
+    const button = page.locator(toggle);
+    await button.click();
+    await expect(page.locator(String(await button.getAttribute('data-bs-target')))).toHaveClass(/\bshow\b/);
+}
+
 // axe-core's violations on the page as it is now: ["rule-id (nodes): selector", …]
 export async function axe(page) {
     // Through the devtools, not a <script> element, which the Content-Security-Policy blocks
