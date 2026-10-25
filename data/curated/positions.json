@@ -2,8 +2,8 @@
   "M1": {
     "kifisia": {
       "piraeus": { "exits": ["back"], "transfers": { "M3/dimotiko": ["back"], "M3/doukissis": ["back"] } },
-      "faliro": { "exits": ["center-back", "center"] },
-      "moschato": { "exits": [] },
+      "faliro": { "exits": ["center-back", "center"], "elevators": ["center"] },
+      "moschato": { "exits": ["back"] },
       "kallithea": { "exits": ["center-front"] },
       "tavros": { "exits": ["center"], "centralPlatform": true },
       "petralona": { "exits": ["back"] },
@@ -46,10 +46,10 @@
       "monastiraki": { "exits": ["center-front"], "elevators": ["back"], "transfers": { "M3/dimotiko": ["center-back"], "M3/doukissis": ["center-back"] }, "note": "Regular steps - no escalators" },
       "thiseio": { "exits": ["back", "front"], "note": "For wheelchair ramp sit in the front of the train" },
       "petralona": { "exits": ["front"] },
-      "tavros": { "exits": ["center"], "centralPlatform": true },
+      "tavros": { "exits": ["center"], "elevators": ["center-back"], "centralPlatform": true },
       "kallithea": { "exits": ["center-front"], "note": "No data yet!" },
-      "moschato": { "exits": ["front"] },
-      "faliro": { "exits": ["back", "front"], "elevators": ["center-back"], "note": "Regular steps - no escalators" },
+      "moschato": { "exits": ["front"], "note": "Change sides at front" },
+      "faliro": { "exits": ["back", "center-front", "front"], "elevators": ["center"], "note": "Regular steps - no escalators" },
       "piraeus": { "exits": ["front"], "transfers": { "M3/dimotiko": ["front"], "M3/doukissis": ["front"] } }
     }
   },
@@ -123,18 +123,18 @@
       "aigaleo": { "exits": ["center-back", "center-front"], "elevators": ["center"], "centralPlatform": true },
       "agia-marina": { "exits": ["center"], "elevators": ["center-back"] },
       "agia-varvara": { "exits": ["center"], "elevators": ["center-back"] },
-      "korydallos": { "exits": ["center-front"], "elevators": ["center"] },
-      "nikaia": { "exits": ["center-front"], "elevators": ["center"] },
+      "korydallos": { "exits": ["center-front"], "elevators": ["center"], "escalators": ["center-front"] },
+      "nikaia": { "exits": ["center-front"], "elevators": ["center"], "escalators": ["center-front"], "stairs": ["center-front"] },
       "maniatika": { "exits": ["center-back"], "elevators": ["center"] },
       "piraeus": { "exits": ["back", "front"], "elevators": ["center"], "transfers": { "M1/kifisia": ["back"], "M1/piraeus": ["back"] } },
       "dimotiko-theatro": { "exits": ["center-back", "center-front"], "elevators": ["center"] }
     },
     "doukissis": {
       "dimotiko-theatro": { "exits": ["center-back", "center-front"], "elevators": ["center"] },
-      "piraeus": { "exits": ["back", "front"], "elevators": ["center"], "transfers": { "M1/kifisia": ["back"], "M1/piraeus": ["back"] } },
+      "piraeus": { "exits": ["back"], "elevators": ["center"], "transfers": { "M1/kifisia": ["back"], "M1/piraeus": ["back"] } },
       "maniatika": { "exits": ["center-back"], "elevators": ["center"] },
       "nikaia": { "exits": ["center-back"], "elevators": ["center"] },
-      "korydallos": { "exits": ["center-front"], "elevators": ["center"] },
+      "korydallos": { "exits": ["center-front"], "elevators": ["center"], "escalators": ["center-front"] },
       "agia-varvara": { "exits": ["center-front"], "elevators": ["center"] },
       "agia-marina": { "exits": ["front"], "elevators": ["center"] },
       "aigaleo": { "exits": ["center-back", "center-front"], "elevators": ["center"], "centralPlatform": true },
