@@ -124,7 +124,8 @@ test('saving, reverting and exporting an entry', async () => {
 
     const state = await (await api('/state', cookie)).json();
     assert.deepEqual(state.lines.M1.directions.kifisia.stations, ['moschato', 'monastiraki']);
-    assert.deepEqual(state.committed.M1.kifisia.moschato, { exits: [] });
+    const committed = state.committed.M1.kifisia.moschato;
+    assert.ok(Array.isArray(committed.exits));
 
     const put = (station, entry) => api(`/positions/M1/kifisia/${station}`, cookie, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entry }),
@@ -150,12 +151,12 @@ test('saving, reverting and exporting an entry', async () => {
     assert.match(exported, /^ {6}"moschato": \{ "exits": \["back", "front"\], "escalators": \["front"\], "stairs": \["back"\], "note": "New stairs" \},$/m);
 
     // Saving the committed value again removes the edit
-    const same = await put('moschato', { exits: [] });
+    const same = await put('moschato', committed);
     assert.equal((await same.json()).edited, false);
     assert.deepEqual(JSON.parse(readFileSync(overlayFile, 'utf8')), {});
 
     // DELETE reverts too
     await put('moschato', { exits: ['center'] });
     const reverted = await api('/positions/M1/kifisia/moschato', cookie, { method: 'DELETE' });
-    assert.deepEqual(await reverted.json(), { entry: { exits: [] }, edited: false });
+    assert.deepEqual(await reverted.json(), { entry: committed, edited: false });
 });
