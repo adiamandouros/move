@@ -73,13 +73,23 @@ test('the bar\'s colour in the page is the dark mode\'s', () => {
     assert.match(pages['/'], new RegExp(`<meta name="theme-color" content="${BAR_COLOURS.dark}">`));
 });
 
-test('the logo comes in both colours, and only the one that fits shows', () => {
-    assert.match(pages['/'], /logo-on-dark[^>]*>.*?logo-on-light/s);
+// --wh-brand-dot in each colour mode's block of style.css, dark first
+const brandDots = style => [...style.matchAll(/--wh-brand-dot: (#[0-9a-f]{6});/g)].map(m => m[1]);
+
+test('the logo is drawn once, in the page, its ring in the colour mode\'s gold', () => {
+    // No image to download, nothing hidden: the ring takes --wh-brand-dot
+    assert.doesNotMatch(pages['/'], /<img[^>]+logo/);
+    const marks = pages['/'].match(/<svg class="logo[^"]*"[^>]*aria-hidden="true"[^>]*>.*?<\/svg>/gs);
+    assert.ok(marks.length >= 2, 'the sidebar and the bottom bar');
+    for (const mark of marks) {
+        assert.match(mark, /class="logo-ring"/);
+        assert.match(mark, /class="logo-dot"/);
+        assert.doesNotMatch(mark, /#ffc107|#e89b00/, 'the ring\'s colour is the stylesheet\'s');
+    }
     const style = readFileSync(new URL('../public/css/style.css', import.meta.url), 'utf8');
-    assert.match(style, /\[data-bs-theme="light"\] \.logo-on-dark,\s*\[data-bs-theme="dark"\] \.logo-on-light\s*\{\s*display: none;/);
-    const light = readFileSync(new URL('../public/icon/logo-light.svg', import.meta.url), 'utf8');
-    assert.match(light, /#e89b00/);
-    assert.doesNotMatch(light, /#ffc107/);
+    assert.match(style, /\.logo-ring \{\s*stroke: var\(--wh-brand-dot\);/);
+    assert.match(style, /\.logo-dot \{\s*fill: var\(--wh-brand-dot\);/);
+    assert.deepEqual(brandDots(style), ['#ffc107', '#e89b00'], 'dark, then light');
 });
 
 // Both modes define the same colours (the light block is the dark one's twin)

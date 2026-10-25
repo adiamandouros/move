@@ -344,11 +344,14 @@ body {
     width: auto;
 }
 
-/* The mark comes twice, in the yellow for a dark page and the gold for a
-   light one (partials/logo.hbs); only the one that fits shows */
-[data-bs-theme="light"] .logo-on-dark,
-[data-bs-theme="dark"] .logo-on-light {
-    display: none;
+/* The mark's ring: the yellow on a dark page, the gold on a light one
+   (partials/logo.hbs) */
+.logo-ring {
+    stroke: var(--wh-brand-dot);
+}
+
+.logo-dot {
+    fill: var(--wh-brand-dot);
 }
 
 /* ── Nav buttons (shared) ── */

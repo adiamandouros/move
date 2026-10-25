@@ -6,6 +6,7 @@ import { sendFresh } from '../http.js';
 import { loadConfig } from '../config.js';
 import { format } from '../../public/js/core/html.js';
 import { basePath, langOf, LANGS, localPath, pageStrings, stringGetter } from './i18n.js';
+import { cacheControl, staticFiles } from './assets.js';
 import { iconSprite } from './icons.js';
 import { createRenderer } from './layout.js';
 import { loadTools, NOT_FOUND, SERVER_ERROR, sitePages, STATION_PATHS } from './registry.js';
@@ -121,10 +122,10 @@ export function createPages(tools = loadTools(), { railFile, config = loadConfig
         sendFresh(res, 'js', serviceWorker);
     });
 
-    // The icons (icons.js). Pages link it with the asset version, so that
-    // address never changes and is kept for good.
+    // The icons (icons.js). Pages link it with its version, so that address
+    // never changes and is kept for good (cacheControl in assets.js).
     router.get('/icons.svg', (req, res) => {
-        res.set('Cache-Control', req.query.v ? 'public, max-age=31536000, immutable' : 'no-cache').type('svg').send(iconSprite());
+        res.set('Cache-Control', cacheControl('/icons.svg', typeof req.query.v === 'string' ? req.query.v : undefined)).type('svg').send(iconSprite());
     });
 
     const stringsFor = pageStrings(tools);
@@ -153,7 +154,7 @@ export function createPages(tools = loadTools(), { railFile, config = loadConfig
 
     if (stations) router.use(stations.router);
 
-    for (const tool of tools) router.use(`/tools/${tool.id}`, express.static(tool.clientDir));
+    for (const tool of tools) router.use(`/tools/${tool.id}`, staticFiles(tool.clientDir));
 
     return {
         router,

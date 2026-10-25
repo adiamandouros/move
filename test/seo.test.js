@@ -159,8 +159,8 @@ test('every page links to itself in the other language: sidebar, menu and a sugg
     }
     // The bottom bar (phones) starts with the home page, highlighted there
     const bottom = html => html.match(/<nav id="bottom-nav"[\s\S]*?<\/nav>/)[0];
-    assert.match(bottom(pages['/']), /^<nav[^>]*>\s*<a href="\/" class="nav-btn [^"]*active" aria-current="page"><img src="\/icon\/logo\.svg" alt=""/);
-    assert.match(bottom(pages['/el/subway']), /<a href="\/el" class="nav-btn [^"]*py-2"><img src="\/icon\/logo\.svg" alt="" width="33" height="24" class="logo-on-dark nav-logo"><img src="\/icon\/logo-light\.svg" alt="" width="33" height="24" class="logo-on-light nav-logo"><span class="nav-label">Αρχική</);
+    assert.match(bottom(pages['/']), /^<nav[^>]*>\s*<a href="\/" class="nav-btn [^"]*active" aria-current="page"><svg class="logo nav-logo"/);
+    assert.match(bottom(pages['/el/subway']), /<a href="\/el" class="nav-btn [^"]*py-2"><svg class="logo nav-logo" width="33" height="24" [^>]*aria-hidden="true"[^>]*>.*?<\/svg><span class="nav-label">Αρχική</s);
     assert.doesNotMatch(bottom(pages['/subway']), /hreflang/);
     // The current tab's icon is filled, the others outline (DESIGN.md)
     assert.match(bottom(pages['/subway']), /aria-current="page"><svg class="icon icon-nav"[^>]*><use href="[^"]*#metro-filled">/);
@@ -268,7 +268,9 @@ test('the tab icon turns light, with the light logo ring, when the browser asks 
     const svg = readFileSync('public/icon/favicon.svg', 'utf8');
     const light = svg.match(/@media \(prefers-color-scheme: light\)\{([^<]*)\}<\/style>/)?.[1] ?? '';
     assert.match(light, /\.tile\{fill:#fff\}/);
-    const lightRing = readFileSync('public/icon/logo-light.svg', 'utf8').match(/stroke="(#e89b00)"/)[1];
+    // The light mode's ring (style.css's second --wh-brand-dot, the one the page's logo takes)
+    const lightRing = [...readFileSync('public/css/style.css', 'utf8').matchAll(/--wh-brand-dot: (#[0-9a-f]{6});/g)][1][1];
+    assert.equal(lightRing, '#e89b00');
     assert.match(light, new RegExp(`\\.ring\\{stroke:${lightRing}\\}`));
     assert.match(light, new RegExp(`\\.dot\\{fill:${lightRing}\\}`));
     assert.match(svg, /class="ring" stroke="#ffc107"/, 'dark stays the default');

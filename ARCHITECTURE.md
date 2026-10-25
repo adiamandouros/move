@@ -72,7 +72,10 @@ All in [server/pages/](server/pages/):
    (search tags from `seo.js`), the navigation, the language link, the
    menu, the page's strings and its scripts. Links to the pages point at
    the page's language (`localiseLinks` in `i18n.js`), and links to
-   stylesheets, scripts and icons carry this deploy's version.
+   stylesheets, scripts and icons carry that file's version (`versionOf` in
+   `assets.js`, a hash of the file), so a deploy gives new addresses only to
+   the files it changed. Node keeps a file for good at its current version
+   and checks it every time at any other (`cacheControl`).
 3. The HTML is kept in memory and sent as it is. Station pages are
    rendered from `rail.json` when first asked for (by the same
    `renderPage`), and kept until it changes: `stations.js` works out what each one shows as plain data
@@ -204,7 +207,7 @@ pages use.
   go (a station page's "Plan a trip from here", the bus page's way back to
   the stops nearby) work as they always did.
 - Scripts import each other by absolute URL (`/js/core/i18n.js`). An import
-  map in every page points those URLs at the current version (`?v=<hash>`),
+  map in every page points each of those URLs at its version (`?v=<hash>`),
   so a deploy never mixes old and new files.
 - Logic without the DOM (route finding in `tools/subway/client/network.js`,
   nearest stops in `tools/buses/client/stops.js`, finding a stop or a line in

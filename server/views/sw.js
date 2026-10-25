@@ -78,8 +78,9 @@ async function networkFirst(request) {
     }
 }
 
-// Static files. Stylesheets and scripts get a new ?v= with every deploy, and
-// the whole cache is replaced when the version changes.
+// Static files. Stylesheets and scripts get a new ?v= when they change, and
+// the whole cache is replaced when the version changes (on install, the
+// files that didn't change come from the browser's own cache).
 async function cacheFirst(request) {
     const cache = await caches.open(CACHE);
     // Stylesheets and scripts carry ?v=<version> and must match exactly; other
