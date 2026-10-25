@@ -151,7 +151,8 @@ value outside those blocks.
   (`theme-color`) follows it.
 - Light colours are the guide's, darkened where a tint over the grey page
   fell under 4.5:1 (green, red, ride-here orange, the menu's gold).
-- The logo comes in both: the ring is `#ffc107` on dark, `#e89b00` on light.
+- The logo is drawn in the page (`partials/logo.hbs`), its ring in
+  `--wh-brand-dot`: `#ffc107` on dark, `#e89b00` on light.
   The browser-tab icon (`favicon.svg`) does the same by itself when the
   browser asks for light; the app icons, share image and PNG favicons are
   fixed, dark tiles (a home screen can't switch). A station sign's off-white panel gets a grey edge on light.

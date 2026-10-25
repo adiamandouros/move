@@ -7,7 +7,7 @@ import { BUILD_DIR, OVERLAY_FILE, loadCurated, rebuildSoon } from './data/index.
 import { runDiagnostics } from './diagnostics.js';
 import { createBusApi } from './oasa/index.js';
 import { createOasaClient } from './oasa/client.js';
-import { VENDOR, vendorStatic } from './pages/assets.js';
+import { VENDOR, staticFiles } from './pages/assets.js';
 import { createPages } from './pages/index.js';
 import { checkedFacts, loadTools } from './pages/registry.js';
 import { canonicalHost } from './canonical-host.js';
@@ -108,9 +108,9 @@ export function createApp({
     // Generated data (rail.json, bus-stops.json, bus-lines.json, meta.json); revalidated on every request via ETag
     app.use('/data', express.static(buildDir, { maxAge: 0 }));
 
-    for (const [url, dir] of Object.entries(VENDOR)) app.use(url, vendorStatic(dir));
+    for (const [url, dir] of Object.entries(VENDOR)) app.use(url, staticFiles(dir));
 
-    app.use(express.static(path.join(ROOT, 'public'), { index: false }));
+    app.use(staticFiles(path.join(ROOT, 'public'), { index: false }));
 
     app.use(pages.notFound);
     // Anything that failed: logged, and answered without its details

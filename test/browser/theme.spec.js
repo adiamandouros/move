@@ -6,6 +6,9 @@ import { axe, expect, test } from './fixtures.js';
 
 const DARK_PAGE = 'rgb(15, 17, 23)';
 const LIGHT_PAGE = 'rgb(244, 246, 250)';
+// The logo's ring: #ffc107 on dark, #e89b00 on light
+const DARK_RING = 'rgb(255, 193, 7)';
+const LIGHT_RING = 'rgb(232, 155, 0)';
 
 const mode = page => page.locator('html').getAttribute('data-bs-theme');
 const background = page => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
@@ -49,9 +52,10 @@ test('a dark phone gets dark, and the logo of a dark page', async ({ page }) => 
     await page.goto('/subway');
     expect(await mode(page)).toBe('dark');
     expect(await background(page)).toBe(DARK_PAGE);
-    const logos = page.locator('img[src^="/icon/logo"]:visible');
-    await expect(logos).toHaveCount(1);
-    await expect(logos).toHaveAttribute('src', /logo\.svg/);
+    // One mark, drawn in the page: its ring in the brand's yellow
+    await expect(page.locator('svg.logo:visible')).toHaveCount(1);
+    await expect(page.locator('svg.logo:visible .logo-ring')).toHaveCSS('stroke', DARK_RING);
+    await expect(page.locator('svg.logo:visible .logo-dot')).toHaveCSS('fill', DARK_RING);
 });
 
 test('Light on a dark phone: the page, the bar and the logo change, and stay chosen after a reload', async ({ page }) => {
@@ -60,9 +64,9 @@ test('Light on a dark phone: the page, the bar and the logo change, and stay cho
     expect(await mode(page)).toBe('light');
     expect(await background(page)).toBe(LIGHT_PAGE);
     expect(await barColour(page)).toBe('#ffffff');
-    const logos = page.locator('img[src^="/icon/logo"]:visible');
-    await expect(logos).toHaveCount(1);
-    await expect(logos).toHaveAttribute('src', /logo-light\.svg/);
+    // The same mark, its ring in the darker gold
+    await expect(page.locator('svg.logo:visible .logo-ring')).toHaveCSS('stroke', LIGHT_RING);
+    await expect(page.locator('svg.logo:visible .logo-dot')).toHaveCSS('fill', LIGHT_RING);
 
     await page.reload();
     expect(await mode(page)).toBe('light');
