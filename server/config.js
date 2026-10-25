@@ -13,7 +13,7 @@
 
 // The relays, in the order they're tried after direct access, and the
 // settings (<env>_URL and <env>_KEY) that turn each one on. See proxy/README.md.
-export const RELAYS = [
+const RELAYS = [
     { name: 'relay', env: 'OASA_RELAY' },           // Cloudflare Worker
     { name: 'home relay', env: 'OASA_HOME_RELAY' }, // e.g. a Raspberry Pi at home
 ];

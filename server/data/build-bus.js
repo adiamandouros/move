@@ -29,8 +29,8 @@ import { STOP_CODE } from './check-output.js';
 // the plain one of each, not a variant with a note in brackets
 // ("[22:00-06:00]") unless there's only that. A circular line has one.
 
-export const BUS_SCHEMA = 2;
-export const BUS_LINES_SCHEMA = 2;
+const BUS_SCHEMA = 2;
+const BUS_LINES_SCHEMA = 2;
 
 const MIN_STOPS = 1000;
 

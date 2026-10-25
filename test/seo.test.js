@@ -125,10 +125,10 @@ test('Greek pages are in Greek before any script runs', () => {
     assert.doesNotMatch(pageLinks(html), /href="\/(subway|buses|info)"/);
     assert.match(html, /<link rel="manifest" href="\/el\/manifest\.webmanifest">/);
     assert.match(html, /href="\/icon\/favicon\.svg"/);
-    // The page's strings, for its scripts, are Greek only
+    // The strings its scripts use are Greek only
     const strings = JSON.parse(html.match(/<script type="application\/json" id="strings">(.*?)<\/script>/)[1]);
     assert.equal(strings['shell.skip'], 'Μετάβαση στο περιεχόμενο');
-    assert.equal(strings['tool.subway.title'], 'Μετρό');
+    assert.equal(strings['subway.legend'], 'Τι δείχνει το τρένο');
 });
 
 test('English pages are in English, with English links', () => {

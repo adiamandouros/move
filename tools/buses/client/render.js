@@ -13,7 +13,7 @@ function formatDistance(meters) {
 }
 
 // The address of a view of the bus page: viewHref({ stop: '10341' }), viewHref({ line: '040' })
-export const viewHref = params => `${localHref('/buses')}?${new URLSearchParams(params)}`;
+const viewHref = params => `${localHref('/buses')}?${new URLSearchParams(params)}`;
 
 // A line's plate, for a screen reader "Line 040"
 const plate = (line, size) => busPlate(line, size, t('buses.line'));
@@ -71,11 +71,11 @@ export function stopItem(stop, index, { open = false, nearest = false } = {}) {
 export const nearestNote = () => html`<span class="sr-only">, </span>${t('buses.nearest')}`;
 
 // A stop's lines, each a link to its stops in order
-export const lineLinks = lines => pillList(lines.map(line => html`<a class="plate-link" href="${viewHref({ line })}" data-view>${busPlate(line, 's')}</a>`));
+const lineLinks = lines => pillList(lines.map(line => html`<a class="plate-link" href="${viewHref({ line })}" data-view>${busPlate(line, 's')}</a>`));
 
 // Fill in one stop's arrivals. `result` is undefined until the first answer
 // arrives; waiting: false when none is on its way (a line's stop, until it's opened).
-export function patchStop(item, stop, result, { waiting = true } = {}) {
+export function patchStop(item, result, { waiting = true } = {}) {
     item.dataset.hasArrivals = String((result?.arrivals ?? []).length > 0);
     setHtml(item.querySelector('.stop-next-bus'), nextBus(result, { waiting }));
     setHtml(item.querySelector('.header-badge-wrap'), headerBadge(result));
@@ -139,7 +139,7 @@ export function message(symbol, title, subtitle = '', action = '') {
 const resultArrow = () => icon('more', 'search-result-arrow');
 
 // Above the results: what tapping one does
-export function searchHint(lines, stops) {
+function searchHint(lines, stops) {
     const key = lines.length && stops.length ? 'buses.pick-either' : lines.length ? 'buses.pick-line' : 'buses.pick-stop';
     return html`<p class="search-hint">${t(key)}</p>`;
 }

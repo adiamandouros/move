@@ -168,7 +168,10 @@ pages use.
   side, in `{{#ifLang "en"}}…{{else}}…{{/ifLang}}`.
 - **Pages of prose** (about, privacy, contact): one file per language.
 - **In the browser**: `/js/core/i18n.js` gives `t(key)`, `language` and
-  `localHref(path)`. Each page carries only its own language's strings.
+  `localHref(path)`. Each page carries only its own language's strings, and
+  only those its scripts use: its own, and the shared `shell.`,
+  `announcements.` and `location.` ones (`BROWSER_SHARED` in `layout.js`;
+  `test/strings-sent.test.js` checks every string the browser's code looks up).
 - **Switching**: the language link opens the same page in the other
   language and remembers the choice in `localStorage`; a small script in
   `<head>` sends later visits to that language before the page shows.

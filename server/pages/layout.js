@@ -17,6 +17,11 @@ const SITE_PAGES = [{ name: 'about', iconName: 'info' }, { name: 'privacy', icon
 const LANGUAGE_NAMES = { en: 'English', el: 'Ελληνικά' };
 const LANGUAGE_LABELS = { en: 'EN', el: 'ΕΛ' };
 
+// The shared strings scripts use (public/js/core/: the toast, the
+// announcements, the location): a page sends the browser these and its own,
+// not all the shared ones its view used (test/strings-sent.test.js)
+export const BROWSER_SHARED = /^(shell|announcements|location)\./;
+
 // → render(page): a page as HTML, in the layout and in its language.
 // pagePaths: the pages that exist in both languages, for links in the page's
 // language (see localiseLinks in i18n.js). Page fields:
@@ -47,6 +52,8 @@ export function createRenderer(tools, pagePaths, config) {
         // Built with html`` (the station pages) or by a view
         const content = String(view);
         const strings = stringsFor(lang, own);
+        const ownKeys = new Set(Object.keys(own?.en ?? {}));
+        const sent = Object.fromEntries(Object.entries(strings).filter(([key]) => ownKeys.has(key) || BROWSER_SHARED.test(key)));
         const unit = adUnit(config.adsense, ad);
         // /js/core/ads.js loads AdSense for the ad slot, and for the privacy
         // page's ad choices button
@@ -80,8 +87,8 @@ export function createRenderer(tools, pagePaths, config) {
             siteLinks: SITE_PAGES.map(({ name, iconName }) => ({ href: `/${name}`, iconName, textKey: `menu.${name}` })),
             content,
             ad: unit,
-            // The page's strings, for its scripts (/js/core/i18n.js)
-            strings,
+            // The strings its scripts use (/js/core/i18n.js)
+            strings: sent,
             // (versioned with the other links below)
             scripts,
         }, { lang, strings });

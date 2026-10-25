@@ -20,7 +20,7 @@ export function writeOverlay(path, overlay) {
     writeFileAtomic(path, formatJson(overlay, 3) + '\n');
 }
 
-export function overlayEntries(overlay) {
+function overlayEntries(overlay) {
     const out = [];
     for (const [line, dirs] of Object.entries(overlay)) {
         for (const [dir, stations] of Object.entries(dirs)) {

@@ -181,7 +181,7 @@ export function drawMap(network, layout, { id: mapId, colors, link, changes }) {
  * @param {Layout} layout
  * @param {{ label: string, describedBy: string, colors?: Record<string, any>, link?: (id: string) => string | null, changes?: (id: string) => string[] }} options
  */
-export function createRailMap(container, network, layout, { label, describedBy, colors = network.lines, link = () => null, changes = () => [] }) {
+function createRailMap(container, network, layout, { label, describedBy, colors = network.lines, link = () => null, changes = () => [] }) {
     const button = (zoom, key, symbol) => html`<button type="button" class="btn map-btn" data-zoom="${zoom}"
         aria-label="${t(key)}" title="${t(key)}">${icon(symbol)}</button>`;
     setHtml(container, html`

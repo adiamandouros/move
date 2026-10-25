@@ -9,8 +9,8 @@ import { html } from './html.js';
 // whatever the minutes; their words go with them (the badge's own text for
 // screen readers, a visible line under the trains). Never colour alone.
 
-export const DUE_MINUTES = 3;
-export const CLOSE_MINUTES = 8;
+const DUE_MINUTES = 3;
+const CLOSE_MINUTES = 8;
 
 /** @typedef {'due' | 'close' | 'later' | 'second-last' | 'last'} TimeTier */
 

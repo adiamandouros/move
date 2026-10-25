@@ -9,7 +9,7 @@ import { dirname, join } from 'path';
 import { ICONS_DIR, MEANINGS, iconFiles } from '../server/pages/icons.js';
 
 const require = createRequire(import.meta.url);
-export const PACKAGE_DIR = join(dirname(require.resolve('@material-symbols/svg-400/package.json')), 'rounded');
+const PACKAGE_DIR = join(dirname(require.resolve('@material-symbols/svg-400/package.json')), 'rounded');
 
 const wanted = new Set(Object.values(MEANINGS).flatMap(iconFiles));
 mkdirSync(ICONS_DIR, { recursive: true });

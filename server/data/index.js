@@ -23,7 +23,7 @@ import { createStasyClient } from '../stasy.js';
 import { validateCurated } from './validate.js';
 
 const DATA_DIR    = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'data');
-export const CURATED_DIR = join(DATA_DIR, 'curated');
+const CURATED_DIR = join(DATA_DIR, 'curated');
 // Uncommitted station edits from the admin editor (gitignored)
 export const OVERLAY_FILE = join(DATA_DIR, 'local', 'positions.json');
 export const BUILD_DIR = join(DATA_DIR, 'build');

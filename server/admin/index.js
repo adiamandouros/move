@@ -37,7 +37,7 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
     const styles = ['/admin/assets/admin.css'];
     const serviceWorker = renderServiceWorker();
 
-    router.use((req, res, next) => {
+    router.use((_req, res, next) => {
         res.set('X-Robots-Tag', 'noindex, nofollow');
         next();
     });

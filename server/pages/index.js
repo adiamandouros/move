@@ -88,7 +88,7 @@ export function renderPages(tools = loadTools(), config = loadConfig({}), rail =
 // description in Greek. Both have the same id, so it's one app either way.
 const BASE_MANIFEST = JSON.parse(readFileSync(new URL('../../public/icon/site.webmanifest', import.meta.url), 'utf8'));
 /** @param {string} lang @param {string} description */
-export function appManifest(lang, description) {
+function appManifest(lang, description) {
     const icons = BASE_MANIFEST.icons.map(icon => ({ ...icon }));
     return { ...BASE_MANIFEST, lang, start_url: localPath('/', lang), description, icons };
 }

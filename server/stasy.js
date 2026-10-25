@@ -8,7 +8,7 @@ import { userAgentFor } from './config.js';
 // come through the relays (proxy/worker.js), like OASA's live API. After a
 // refusal, direct access rests for a day.
 
-export const STASY_SITE = 'https://www.stasy.gr/';
+const STASY_SITE = 'https://www.stasy.gr/';
 const TIMEOUT_MS = 15_000;
 const DIRECT_REST_MS = 24 * 3_600_000;
 // Longer than the relay's own 20 s limit for STASY, so it reports a failure first

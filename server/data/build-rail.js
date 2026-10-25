@@ -35,7 +35,7 @@ import { POSITIONS } from './validate.js';
 // are kept once (see dropCopies). A stop's `hours` are STASY's first and last
 // trains from there, [{ to, first, last }] (stasy.js, readLine).
 
-export const RAIL_SCHEMA = 1;
+const RAIL_SCHEMA = 1;
 const DAY = 86_400;
 
 /**
