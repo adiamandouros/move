@@ -152,7 +152,9 @@ value outside those blocks.
 - Light colours are the guide's, darkened where a tint over the grey page
   fell under 4.5:1 (green, red, ride-here orange, the menu's gold).
 - The logo comes in both: the ring is `#ffc107` on dark, `#e89b00` on light.
-  A station sign's off-white panel gets a grey edge on light.
+  The browser-tab icon (`favicon.svg`) does the same by itself when the
+  browser asks for light; the app icons, share image and PNG favicons are
+  fixed, dark tiles (a home screen can't switch). A station sign's off-white panel gets a grey edge on light.
 - Forced colours: pills, signs and maps keep their own colours; the car to
   ride in gets an outline; time badges an edge.
 

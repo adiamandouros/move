@@ -264,6 +264,16 @@ test('the share image and every manifest icon exist', () => {
     assert.deepEqual(new Set(manifest.icons.map(i => i.purpose)), new Set(['any', 'maskable']));
 });
 
+test('the tab icon turns light, with the light logo ring, when the browser asks for it', () => {
+    const svg = readFileSync('public/icon/favicon.svg', 'utf8');
+    const light = svg.match(/@media \(prefers-color-scheme: light\)\{([^<]*)\}<\/style>/)?.[1] ?? '';
+    assert.match(light, /\.tile\{fill:#fff\}/);
+    const lightRing = readFileSync('public/icon/logo-light.svg', 'utf8').match(/stroke="(#e89b00)"/)[1];
+    assert.match(light, new RegExp(`\\.ring\\{stroke:${lightRing}\\}`));
+    assert.match(light, new RegExp(`\\.dot\\{fill:${lightRing}\\}`));
+    assert.match(svg, /class="ring" stroke="#ffc107"/, 'dark stays the default');
+});
+
 test('robots.txt keeps crawlers off the API and points at the sitemap', async () => {
     const res = await fetch(`${base}/robots.txt`);
     assert.equal(res.status, 200);
