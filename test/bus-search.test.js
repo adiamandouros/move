@@ -60,6 +60,9 @@ test('names that start with what was typed, then a word that does, then anywhere
 test('with a location, equally good stops come nearest first, with their distance', () => {
     const found = findStops(stops, 'syntagma', SYNTAGMA);
     const same = found.filter(s => s.name.el === 'ΣΥΝΤΑΓΜΑ');
+    // Found by their English name, which bus-stops.json leaves for the browser to work out ('')
+    assert.equal(same.length, 8);
+    assert.ok(same.every(s => s.name.en === 'SYNTAGMA'));
     assert.ok(same.every(s => typeof s.meters === 'number'));
     assert.deepEqual(same.map(s => s.meters), same.map(s => s.meters).sort((a, b) => a - b));
     // Without one: by name, no distance

@@ -26,6 +26,23 @@ test('every stop on a route today, with every line that calls there', async () =
     assert.deepEqual(checkOutput('bus-stops.json', data), []);
 });
 
+test('an English name that\'s the Greek in Latin letters, or none, is left out: the browser works it out', async () => {
+    const net = await network();
+    // Three of the network's stops: OASA's English as most are, one of its own, none
+    const stopsOf = Object.values(net.stops).flatMap(r => r.stops);
+    const named = (code, el, en) => stopsOf.filter(s => s.code === code).forEach(s => Object.assign(s, { el, en }));
+    named('10000', 'ΓΕΦΥΡΑ ΑΤΤΙΚΗΣ ΟΔΟΥ', 'GEFYRA ATTIKHS ODOY');
+    named('10001', 'ΣΤ. ΗΣΑΠ ΠΕΡΙΣΣΟΥ', 'ST. HSAP PERISSOS');
+    named('10002', 'ΔΙΨΕΛΙΖΑ', '');
+    const { data } = buildBusStops(net);
+    const row = code => data.stops.find(r => r[0] === code);
+    assert.equal(data.schema, 3);
+    assert.deepEqual(row('10000').slice(3, 5), ['ΓΕΦΥΡΑ ΑΤΤΙΚΗΣ ΟΔΟΥ', '']);
+    assert.deepEqual(row('10001').slice(3, 5), ['ΣΤ. ΗΣΑΠ ΠΕΡΙΣΣΟΥ', 'ST. HSAP PERISSOS']);
+    assert.deepEqual(row('10002').slice(3, 5), ['ΔΙΨΕΛΙΖΑ', '']);
+    assert.deepEqual(checkOutput('bus-stops.json', data), []);
+});
+
 test('a network with too few stops, or none yet, fails (the build keeps the last files)', async () => {
     assert.throws(() => buildBusStops(null), /no bus network from OASA yet/);
     assert.throws(() => buildBusLines(null), /no bus network from OASA yet/);

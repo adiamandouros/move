@@ -1,3 +1,5 @@
+import { latinName } from '/js/core/text.js';
+
 // Nearby-stop search over bus-stops.json (see server/data/build-bus.js for the
 // format). No DOM access, so it can be unit-tested in Node.
 
@@ -14,7 +16,8 @@ export function decodeStops({ fields, stops }) {
         code: row[at.code],
         lat: row[at.lat],
         lng: row[at.lng],
-        name: { el: row[at.el], en: row[at.en] || row[at.el] },
+        // '' where it's the Greek in Latin letters (build-bus.js)
+        name: { el: row[at.el], en: row[at.en] || latinName(row[at.el]) },
         lines: row[at.lines],
     }));
 }
