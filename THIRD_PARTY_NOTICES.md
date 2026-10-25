@@ -18,12 +18,7 @@ of others.
 
 The npm packages in [package.json](package.json) are installed with their
 own license files in `node_modules/`. All are under MIT, ISC or BSD
-licenses, except:
-
-- **node-unrar-js** (MIT) contains RARLAB's unRAR code, under the unRAR
-  license, which isn't compatible with the GPL family. It unpacks OASA's
-  `.rar` downloads. See the additional permission in the
-  [README](README.md#license).
+licenses.
 
 ## Data
 

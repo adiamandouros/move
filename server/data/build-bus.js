@@ -6,7 +6,7 @@ import { STOP_CODE } from './check-output.js';
 // bus-stops.json: every stop on a route today, so the browser can find stops
 // near you or by name without calling OASA:
 // {
-//   schema, fetched,
+//   schema,
 //   fields: ['code', 'lat', 'lng', 'el', 'en', 'lines'],
 //   stops:  [['10361', 37.97491, 23.73488, 'ΣΥΝΤΑΓΜΑ', 'SYNTAGMA', ['024', '035', …]], …]
 // }
@@ -15,10 +15,14 @@ import { STOP_CODE } from './check-output.js';
 //
 // bus-lines.json: each line's stops in order, one list per direction:
 // {
-//   schema, fetched,
+//   schema,
 //   lines: [{ line: '040', name: { el, en },
 //             directions: [{ to: { el: 'ΣΥΝΤΑΓΜΑ', en: 'SYNTAGMA' }, stops: ['…', …] }, …] }, …]
 // }
+// Neither says when the network was fetched (meta.json's fingerprint does):
+// a file that's the same as the night before stays as it was, so browsers
+// keep their copy (publish in index.js).
+//
 // A line number can have several line codes (the Α10 and its short working
 // "from Karavos"): its own is the one with the most routes (the lowest code
 // if tied). Its directions are its routes there (type 1) and back (type 2):
@@ -41,7 +45,7 @@ function needNetwork(network) {
 
 /** @param {any} network @returns {{ data: import('../../types/data.js').BusStops, warnings: string[] }} */
 export function buildBusStops(network) {
-    const { lines, routes, stops: routeStops, fetched } = needNetwork(network);
+    const { lines, routes, stops: routeStops } = needNetwork(network);
     const lineOf = new Map(lines.flatMap(l => (routes[l.code] ?? []).map(r => [r.code, l.line])));
 
     /** @type {Map<string, { stop: any, lines: Set<string> }>} */
@@ -63,7 +67,7 @@ export function buildBusStops(network) {
     if (rows.length < MIN_STOPS) throw new Error(`OASA's network has only ${rows.length} stops (expected at least ${MIN_STOPS})`);
 
     const warnings = badCodes.size ? [`${badCodes.size} bus stops have codes the live times can't use and were left out: ${[...badCodes].join(', ')}`] : [];
-    return { data: { schema: BUS_SCHEMA, fetched, fields: ['code', 'lat', 'lng', 'el', 'en', 'lines'], stops: rows }, warnings };
+    return { data: { schema: BUS_SCHEMA, fields: ['code', 'lat', 'lng', 'el', 'en', 'lines'], stops: rows }, warnings };
 }
 
 // Where a route goes, from its name ("ΣΥΝΤΑΓΜΑ - ΠΕΙΡΑΙΑΣ [ΠΡΟΣΩΡΙΝΗ ΛΟΓΩ
@@ -77,7 +81,7 @@ const variant = route => /\[/.test(route.name.el);
 
 /** @param {any} network @returns {{ data: import('../../types/data.js').BusLines, warnings: string[] }} */
 export function buildBusLines(network) {
-    const { lines: codes, routes, stops, fetched } = needNetwork(network);
+    const { lines: codes, routes, stops } = needNetwork(network);
 
     // Each line number's own code: the most routes, then the lowest code
     /** @type {Map<string, any>} */
@@ -106,5 +110,5 @@ export function buildBusLines(network) {
     lines.sort((a, b) => byNumber(a.line, b.line));
     if (!lines.length) throw new Error('OASA\'s network has no lines with stops');
 
-    return { data: { schema: BUS_LINES_SCHEMA, fetched, lines }, warnings: [] };
+    return { data: { schema: BUS_LINES_SCHEMA, lines }, warnings: [] };
 }

@@ -18,7 +18,8 @@ test('every stop on a route today, with every line that calls there', async () =
     assert.deepEqual(data.stops[0], ['10000', 37.9, 23.7, 'ΣΤΑΣΗ 0', 'STOP 0', ['040']]);
     assert.deepEqual(data.stops[7][5], ['040', 'Α10']);
     assert.deepEqual(data.stops[8][5], ['040', '830', 'Α10']);
-    assert.match(data.fetched, /^\d{4}-\d\d-\d\dT/);
+    // When it was fetched is meta.json's, so the same network gives the same file (index.js, publish)
+    assert.equal(data.fetched, undefined);
     // The live times can't use "-2"
     assert.ok(!data.stops.some(s => s[0] === '-2'));
     assert.deepEqual(warnings, ['1 bus stops have codes the live times can\'t use and were left out: -2']);

@@ -182,9 +182,10 @@ export async function runBuild({
 
 // The server runs its builds through this: a child process running this
 // file's CLI, so a build doesn't share the server's memory or event loop. A
-// build parses OASA's 220 MB bus timetable; in the server, that grew it by
-// over 100 MB (kept afterwards) and paused it for up to 140 ms, and running
-// out of memory would have stopped the site, not just the build.
+// build parses the 62 MB metro timetable (and used to parse OASA's 220 MB bus
+// one, which in the server grew it by over 100 MB, kept afterwards, and
+// paused it for up to 140 ms); running out of memory would have stopped the
+// site, not just the build.
 // → 'built' (or already up to date), 'failed' or 'busy' (another build is running)
 export function runBuildInChild({ force = false, offline = false } = {}) {
     const args = [...(force ? ['--force'] : []), ...(offline ? ['--offline'] : [])];
@@ -226,15 +227,22 @@ export function rebuildSoon() {
 
 // Move each file from build.next into build with an atomic rename, so the
 // server never serves a half-written file. The replaced files go to build.prev.
+// A file that came out the same as the one served is left as it was: its
+// time, and so its ETag, don't change, so browsers keep their copy and the
+// server doesn't read it again (most nights, for the bus files).
 function publish(dirs) {
     mkdirSync(dirs.build, { recursive: true });
     rmSync(dirs.prev, { recursive: true, force: true });
     mkdirSync(dirs.prev);
     for (const name of [...Object.keys(OUTPUTS), 'meta.json']) {
         const next = join(dirs.next, name);
+        const served = join(dirs.build, name);
         if (!existsSync(next)) continue;
-        if (existsSync(join(dirs.build, name))) copyFileSync(join(dirs.build, name), join(dirs.prev, name));
-        renameSync(next, join(dirs.build, name));
+        if (existsSync(served)) {
+            if (readFileSync(served).equals(readFileSync(next))) continue;
+            copyFileSync(served, join(dirs.prev, name));
+        }
+        renameSync(next, served);
     }
     rmSync(dirs.next, { recursive: true, force: true });
 }

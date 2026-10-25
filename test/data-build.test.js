@@ -2,12 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'child_process';
 import { createHash } from 'crypto';
-import { cpSync, existsSync, readFileSync, writeFileSync } from 'fs';
+import { cpSync, existsSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { builderFingerprint, runBuild } from '../server/data/index.js';
 import { checkOutput } from '../server/data/check-output.js';
 import { SOURCES } from '../server/data/sources.js';
-import { busFeed, curatedDir, fakePortal, railCurated, railFeed, stopTable, tempDir } from './fixtures/gtfs.js';
+import { curatedDir, fakePortal, railCurated, railFeed, tempDir } from './fixtures/gtfs.js';
 import { fakeOasa } from './fixtures/network.js';
 import { stasyPage, stasyTable } from './fixtures/stasy.js';
 
@@ -20,8 +20,6 @@ const DAY = 86_400_000;
 function setup({ busStops = 1500, curated = undefined } = {}) {
     const portal = fakePortal();
     portal.publish(SOURCES.rail.dataset, railFeed());
-    portal.publish(SOURCES.bus.dataset, busFeed());
-    portal.publishFile(SOURCES.stopTable.dataset, 'stops_all.csv', readFileSync(stopTable(), 'utf8'));
     const oasa = fakeOasa({ stops: busStops });
     // The build's clock: the bus network is fetched at most once a day
     const clock = { now: Date.parse('2026-08-05T01:30:00Z') };
@@ -124,6 +122,36 @@ test('the next night\'s network is fetched and built, and the replaced files are
     assert.equal(served('bus-stops.json').stops.length, 1600);
     assert.equal(JSON.parse(readFileSync(join(dataDir, 'build.prev', 'bus-stops.json'), 'utf8')).stops.length, 1500);
     assert.equal(meta.fingerprint.sources.network, '2026-08-06T01:30:00.000Z');
+});
+
+test('a file that comes out the same as the one served is left as it was, so browsers keep their copy', async () => {
+    const { build, nextNight, oasa, served, dataDir } = setup();
+    await build();
+    // The same file on disk: a replaced one would be a new file (rename), with a new time and ETag
+    const file = name => statSync(join(dataDir, 'build', name));
+    const before = Object.fromEntries(['rail.json', 'bus-stops.json', 'bus-lines.json'].map(name => [name, file(name)]));
+
+    // The next night: the network is fetched again, and it's the same
+    const meta = await nextNight();
+    assert.equal(meta.fingerprint.sources.network, '2026-08-06T01:30:00.000Z', 'fetched again');
+    for (const [name, was] of Object.entries(before)) {
+        assert.equal(file(name).ino, was.ino, `${name} untouched`);
+        assert.equal(file(name).mtimeMs, was.mtimeMs, `${name} keeps its time`);
+        assert.ok(!existsSync(join(dataDir, 'build.prev', name)), `${name} wasn't replaced`);
+        assert.ok(meta.outputs[name].ok);
+    }
+    // Nothing in them says when they were built or fetched (meta.json does)
+    assert.equal(served('rail.json').generated, undefined);
+    assert.equal(served('bus-stops.json').fetched, undefined);
+    assert.equal(served('bus-lines.json').fetched, undefined);
+    assert.equal(served('meta.json').fingerprint.today, '20260806');
+
+    // A night with a change: only the files it changes are replaced
+    oasa.divert(1600);
+    await nextNight();
+    assert.notEqual(file('bus-stops.json').ino, before['bus-stops.json'].ino);
+    assert.ok(existsSync(join(dataDir, 'build.prev', 'bus-stops.json')));
+    assert.equal(file('rail.json').ino, before['rail.json'].ino);
 });
 
 test('STASY\'s timetables come with the build at most every 14 days, and one that can\'t be fetched doesn\'t stop it', async () => {

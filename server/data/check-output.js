@@ -45,11 +45,6 @@ function checkFeed(feed, problems) {
     else if (feed.validFrom > feed.validTo) problems.push(`feed: validFrom ${feed.validFrom} is after validTo ${feed.validTo}`);
 }
 
-/** @param {any} fetched @param {string[]} problems */
-function checkFetched(fetched, problems) {
-    if (typeof fetched !== 'string' || Number.isNaN(Date.parse(fetched))) problems.push('fetched must be when the network was fetched (an ISO time)');
-}
-
 // Text in both languages
 const names = value => typeof value?.el === 'string' && value.el !== '' && typeof value?.en === 'string' && value.en !== '';
 
@@ -137,7 +132,6 @@ function checkTimetable(where, t, stopCount, problems) {
 function checkBus(bus) {
     const problems = [];
     if (typeof bus?.schema !== 'number') return ['bus-stops.json: no schema number'];
-    checkFetched(bus.fetched, problems);
     if (JSON.stringify(bus.fields) !== JSON.stringify(['code', 'lat', 'lng', 'el', 'en', 'lines'])) problems.push('fields must be code, lat, lng, el, en, lines');
     const stops = Array.isArray(bus.stops) ? bus.stops : [];
     if (!stops.length) problems.push('no stops');
@@ -160,7 +154,6 @@ function checkBus(bus) {
 function checkBusLines(bus) {
     const problems = [];
     if (typeof bus?.schema !== 'number') return ['bus-lines.json: no schema number'];
-    checkFetched(bus.fetched, problems);
     const lines = Array.isArray(bus.lines) ? bus.lines : [];
     if (!lines.length) problems.push('no lines');
     const seen = new Set();
