@@ -1,10 +1,7 @@
 import { dirname, join } from 'path';
 import express from 'express';
 import { RELAY_VERSION } from '../proxy/worker.js';
-import { airportCheckFile } from './data/airport-check.js';
-import { stasyFetchFile } from './data/stasy.js';
-import { readJson } from './files.js';
-import { athensDate } from '../tools/subway/client/network.js';
+import { AIRPORT_STALE_DAYS, BUILD_MAX_AGE_MS, dataStatus, STASY_STALE_DAYS, TIMETABLE_WARN_DAYS } from './data/status.js';
 
 // GET /api/health: whether the live site works, for the scheduled check in
 // .github/workflows/health.yml (and any uptime monitor). 200 when it's
@@ -13,29 +10,17 @@ import { athensDate } from '../tools/subway/client/network.js';
 //     (the scheduled check asks for a stop first, so this is current)
 //   - announcements: every source loaded on its last try (or, not tried yet
 //     since the server started, has announcements kept from before)
-//   - data: last night's build worked, the metro timetable doesn't end
-//     within TIMETABLE_WARN_DAYS, and its checks found no problems
-//     (server/data/rail-checks.js; their notes are only on /admin/diagnostics)
-//   - stasy: STASY's timetable pages could be read on the last try, and the
-//     copy of them in use is at most STASY_STALE_DAYS old (server/data/stasy.js)
-//   - airport: STASY's airport timetable is still as data/curated/airport.json
-//     has it, checked within AIRPORT_STALE_DAYS (server/data/airport-check.js)
+//   - data, stasy, airport: as server/data/status.js judges them, the same
+//     as /admin/diagnostics (the rail checks' notes are only there)
 //   - relays: each one runs the current RELAY_VERSION (proxy/worker.js)
 // It's public, so it says what's wrong in plain words but leaves out
 // addresses, keys and error details (those are on /admin/diagnostics).
 // Nothing here asks OASA: relays are only asked for their version.
 
 const ARRIVALS_FRESH_MS = 10 * 60_000;
-const BUILD_MAX_AGE_MS = 36 * 3_600_000;
-const TIMETABLE_WARN_DAYS = 7;
-// Three fetches missed (one every 14 days)
-const STASY_STALE_DAYS = 45;
-// Three weekly checks missed
-const AIRPORT_STALE_DAYS = 21;
 const RELAY_TIMEOUT_MS = 5_000;
 // Answers are kept this long, so the page can't be used to load the relays
 const CACHE_MS = 60_000;
-const DAY_MS = 86_400_000;
 
 /**
  * @param {{
@@ -48,8 +33,6 @@ const DAY_MS = 86_400_000;
  * }} options
  */
 export function createHealth({ busStatus, announcementStatus, buildDir, rawDir = join(dirname(buildDir), 'raw'), relays = [], fetch = globalThis.fetch, now = Date.now }) {
-    const buildFile = name => readJson(join(buildDir, name));
-
     function arrivals() {
         const working = busStatus().routes.filter(r => r.lastOk && now() - r.lastOk < ARRIVALS_FRESH_MS);
         const last = Math.max(0, ...busStatus().routes.map(r => r.lastOk ?? 0));
@@ -65,40 +48,6 @@ export function createHealth({ busStatus, announcementStatus, buildDir, rawDir =
         return { ok: Object.values(sources).every(Boolean), sources };
     }
 
-    function data() {
-        const meta = buildFile('meta.json');
-        const validTo = buildFile('rail.json')?.feed?.validTo ?? null;
-        const built = meta?.generated ? Date.parse(meta.generated) : null;
-        const outputs = Object.fromEntries(Object.entries(meta?.outputs ?? {}).map(([name, o]) => [name, Boolean(o.ok)]));
-        // Whole days from today (Athens) to the timetable's last day
-        const daysLeft = validTo ? Math.round((Date.parse(validTo) - Date.parse(athensDate(new Date(now())))) / DAY_MS) : null;
-        return {
-            ok: Boolean(built && now() - built < BUILD_MAX_AGE_MS && Object.keys(outputs).length && Object.values(outputs).every(Boolean)),
-            built: built ? new Date(built).toISOString() : null,
-            outputs,
-            timetableEnds: validTo,
-            timetableDaysLeft: daysLeft,
-            // What the timetable code relies on that no longer holds (server/data/rail-checks.js)
-            problems: meta?.outputs?.['rail.json']?.checks?.problems?.length ?? 0,
-        };
-    }
-
-    function stasy() {
-        const unreadable = Boolean(readJson(stasyFetchFile(rawDir))?.unreadable);
-        const fetched = buildFile('rail.json')?.hours?.fetched ?? null;
-        const daysOld = fetched ? Math.round((Date.parse(athensDate(new Date(now()))) - Date.parse(fetched)) / DAY_MS) : null;
-        return { ok: !unreadable && !(daysOld > STASY_STALE_DAYS), fetched, daysOld, unreadable };
-    }
-
-    // Not checked yet (no airport.json, or before the first try) counts as fine
-    function airport() {
-        const last = readJson(airportCheckFile(rawDir));
-        const checked = last?.checked ?? null;
-        const daysOld = checked ? Math.floor((now() - Date.parse(checked)) / DAY_MS) : null;
-        const changed = Boolean(last?.changes?.length);
-        return { ok: !changed && !(daysOld > AIRPORT_STALE_DAYS), checked, daysOld, changed };
-    }
-
     async function relayVersions() {
         return Object.fromEntries(await Promise.all(relays.map(async relay => {
             let version = null;
@@ -111,7 +60,8 @@ export function createHealth({ busStatus, announcementStatus, buildDir, rawDir =
     }
 
     async function check() {
-        const result = { arrivals: arrivals(), announcements: announcements(), data: data(), stasy: stasy(), airport: airport(), relays: await relayVersions() };
+        const { build: data, stasy, airport } = dataStatus({ buildDir, rawDir, now });
+        const result = { arrivals: arrivals(), announcements: announcements(), data, stasy, airport, relays: await relayVersions() };
         const problems = [];
         if (!result.arrivals.ok) problems.push(`Live arrivals: no route to OASA has answered in the past ${ARRIVALS_FRESH_MS / 60_000} minutes`);
         for (const [name, ok] of Object.entries(result.announcements.sources)) {

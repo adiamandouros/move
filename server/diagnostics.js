@@ -6,6 +6,7 @@ import { lastFetchFile } from './data/oasa-network.js';
 import { CKAN_API, SOURCES } from './data/sources.js';
 import { AIRPORT_CHECK_MAX_AGE_MS, airportCheckFile } from './data/airport-check.js';
 import { STASY_MAX_AGE_MS, stasyFetchFile } from './data/stasy.js';
+import { AIRPORT_STALE_DAYS, BUILD_MAX_AGE_MS, dataStatus, STASY_STALE_DAYS, TIMETABLE_WARN_DAYS } from './data/status.js';
 import { readJson } from './files.js';
 import { RELAY_VERSION } from '../proxy/worker.js';
 import { OASA_API, REQUESTS_PER_SECOND, TEST_STOP } from './oasa/client.js';
@@ -205,23 +206,32 @@ async function portalCheck(fetch) {
         : check('Services', 'OASA open-data portal (timetables)', 'warn', `${failureText(p)}. Timetable updates can't be downloaded; the last downloaded data keeps being used.`);
 }
 
+// Whether each is fine is server/data/status.js's call, the same as /api/health's
 function dataChecks(dataDir, now) {
     const out = [];
     const meta = readJson(join(dataDir, 'build', 'meta.json'));
+    const status = dataStatus({ buildDir: join(dataDir, 'build'), rawDir: join(dataDir, 'raw'), now });
     if (!meta) {
         out.push(check('Data', 'Timetable data', 'fail', 'Never built (data/build/meta.json is missing)', 'It builds automatically on app start. Check the app log for "[data]" errors, or run "npm run build:data".'));
     } else {
         const hours = Math.round((now() - Date.parse(meta.generated)) / 3_600_000);
-        out.push(check('Data', 'Last data build', hours > 48 ? 'warn' : 'ok', `${meta.generated.slice(0, 16).replace('T', ' ')} UTC (${hours} h ago)`,
-            hours > 48 ? 'Builds run daily at 04:30 and on app start. Is the app running? Check the log for "[data]" lines.' : undefined));
+        out.push(check('Data', 'Last data build', status.build.tooOld ? 'warn' : 'ok', `${meta.generated.slice(0, 16).replace('T', ' ')} UTC (${hours} h ago)`,
+            status.build.tooOld ? `Over ${BUILD_MAX_AGE_MS / 3_600_000} h: builds run daily at 04:30 and on app start. Is the app running? Check the log for "[data]" lines.` : undefined));
+        const { timetableEnds: ends, timetableDaysLeft: left } = status.build;
+        if (ends) {
+            out.push(left < TIMETABLE_WARN_DAYS
+                ? check('Data', 'Metro timetable', 'warn', `Ends on ${ends} (in ${left} days), and no newer one has been published yet`,
+                    'A new feed is picked up by the nightly build as soon as OASA publishes it. After the last day, the planner uses the feed\'s last full week.')
+                : check('Data', 'Metro timetable', 'ok', `Runs until ${ends} (in ${left} days)`));
+        }
         for (const [name, o] of Object.entries(meta.outputs ?? {})) {
             if (!o.ok) out.push(check('Data', name, 'fail', `Last build failed: ${o.error}${o.keptPrevious ? ' (the previous version is still served)' : ''}`));
             for (const w of (o.warnings ?? []).filter(w => /expired/i.test(w))) out.push(check('Data', name, 'info', w));
         }
     }
     out.push(...networkCheck(dataDir));
-    out.push(stasyCheck(dataDir, meta));
-    out.push(...airportCheck(dataDir, meta));
+    out.push(stasyCheck(dataDir, meta, status.stasy));
+    out.push(...airportCheck(dataDir, meta, status.airport));
     out.push(...railChecks(meta));
     const lock = join(dataDir, '.build.lock');
     if (existsSync(lock)) out.push(check('Data', 'Build lock', 'info', `A build is running or was interrupted (process ${readFileSync(lock, 'utf8').trim()})`));
@@ -256,7 +266,7 @@ function networkCheck(dataDir) {
 
 // STASY's first and last trains (server/data/stasy.js): which copy the pages
 // use, how the last fetch went, and lines the copy couldn't give times for
-function stasyCheck(dataDir, meta) {
+function stasyCheck(dataDir, meta, status) {
     const title = 'STASY timetables';
     const last = readJson(stasyFetchFile(join(dataDir, 'raw')));
     const fetched = readJson(join(dataDir, 'build', 'rail.json'))?.hours?.fetched ?? null;
@@ -272,6 +282,7 @@ function stasyCheck(dataDir, meta) {
     }
     if (last && !last.ok) return check('Data', title, 'warn', `The fetch at ${when} failed: ${last.error}. ${using}.`, retry);
     if (!last && !fetched) return check('Data', title, 'warn', `Not fetched yet. ${using}.`, retry);
+    if (!status.ok) return check('Data', title, 'warn', `${using}, a copy over ${STASY_STALE_DAYS} days old (${status.daysOld} days).`, retry);
     if (lines.length) return check('Data', title, 'warn', `${using}, except: ${lines.join(' · ')}`);
     const next = fetched && new Date(Date.parse(fetched) + STASY_MAX_AGE_MS).toISOString().slice(0, 10);
     return check('Data', title, 'ok', `${using}${last ? `, fetched ${when} (${last.route})` : ''}. Next fetch from ${next}.`);
@@ -280,7 +291,7 @@ function stasyCheck(dataDir, meta) {
 // STASY's airport timetable (server/data/airport-check.js): the weekly check
 // that it's still as data/curated/airport.json has it, and what the build did
 // with it (rail.json's warnings: trains added, and ones to check on the platform)
-function airportCheck(dataDir, meta) {
+function airportCheck(dataDir, meta, status) {
     const title = 'STASY airport timetable';
     const last = readJson(airportCheckFile(join(dataDir, 'raw')));
     const built = (meta?.outputs?.['rail.json']?.warnings ?? []).filter(w => /airport/i.test(w));
@@ -292,6 +303,9 @@ function airportCheck(dataDir, meta) {
     else if (last.error) {
         out.push(check('Data', title, 'warn', `The check at ${when(last.at)} failed: ${last.error}${last.checked ? `. Last checked ${when(last.checked)}: unchanged` : ''}`,
             `The next build tries again. STASY refuses the server, so the PDFs come through the relays: check the relay rows above (relay version ${RELAY_VERSION} is needed).`));
+    } else if (!status.ok) {
+        out.push(check('Data', title, 'warn', `Last checked ${when(last.checked)}, over ${AIRPORT_STALE_DAYS} days ago (${status.daysOld} days)`,
+            'The nightly build checks it once a week: check the app log for "[data]" lines, and the relay rows above.'));
     } else {
         const next = new Date(Date.parse(last.checked) + AIRPORT_CHECK_MAX_AGE_MS).toISOString().slice(0, 10);
         out.push(check('Data', title, 'ok', `Unchanged, checked ${when(last.checked)} (${last.route}). Next check from ${next}.`));
