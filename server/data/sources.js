@@ -2,32 +2,25 @@ import { createWriteStream, existsSync, mkdirSync, renameSync, rmSync, writeFile
 import { basename, join } from 'path';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
-import { createExtractorFromFile } from 'node-unrar-js';
 import { userAgentFor } from '../config.js';
 import { readJson } from '../files.js';
 
 // OASA publishes its open data on a CKAN portal. Datasets are looked up by
-// name through the CKAN API, so renamed or re-uploaded files (e.g.
-// stops_260518.csv → stops_260901.csv) are picked up without code changes.
+// name through the CKAN API, so renamed or re-uploaded files are picked up
+// without code changes. Only the metro and tram timetable is used now: the
+// buses come from OASA's live API (oasa-network.js), since its bus timetable
+// stopped in August 2026.
 export const CKAN_API = 'https://catalog.growthfund.gr/api/3/action/package_show?id=';
 
 const API_TIMEOUT_MS = 30_000;
 const DOWNLOAD_TIMEOUT_MS = 10 * 60_000;
 
-const gtfs = (name, optional = false) => ({ out: `${name}.txt`, pattern: new RegExp(`^${name}\\.(txt|rar)$`, 'i'), optional });
+const gtfs = (name, optional = false) => ({ out: `${name}.txt`, pattern: new RegExp(`^${name}\\.(txt|rar|zip)$`, 'i'), optional });
 
 export const SOURCES = {
     rail: {
         dataset: 'dromologia-statheron-sygkinonion',
         files: [gtfs('routes'), gtfs('trips'), gtfs('stop_times'), gtfs('stops'), gtfs('calendar', true), gtfs('calendar_dates', true)],
-    },
-    bus: {
-        dataset: 'dromologia-osy',
-        files: [gtfs('routes'), gtfs('trips'), gtfs('stop_times'), gtfs('stops'), gtfs('calendar', true), gtfs('calendar_dates', true)],
-    },
-    stopTable: {
-        dataset: 'pinakas-staseon-oasa',
-        files: [{ out: 'stops_all.csv', pattern: /stops_all.*\.csv$/i }],
     },
 };
 
@@ -88,7 +81,7 @@ async function syncSource(dir, source, log, fetch, userAgent) {
         const known = manifest[spec.out];
         if (!known || known.url !== resource.url || known.version !== version || !existsSync(dest)) {
             log(`[data] Downloading ${resource.url}`);
-            await download(resource.url, dest, spec.out, fetch, userAgent);
+            await download(resource.url, dest, fetch, userAgent);
             manifest[spec.out] = { url: resource.url, version };
             writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
         }
@@ -117,7 +110,11 @@ function useLocal(dir, source) {
     return { dir, files, modified };
 }
 
-async function download(url, dest, wanted, fetch, userAgent) {
+async function download(url, dest, fetch, userAgent) {
+    // The metro feed comes as plain files. The bus one came in RAR archives
+    // too; an archive now is a change worth hearing about, before downloading it.
+    const archive = new URL(url).pathname.match(/\.(zip|rar)$/i)?.[1].toLowerCase();
+    if (archive) throw new Error(`${url} is a ${archive} archive, which is not supported`);
     const tmp = `${dest}.download`;
     const res = await fetch(url, {
         headers: { 'User-Agent': userAgent },
@@ -125,29 +122,5 @@ async function download(url, dest, wanted, fetch, userAgent) {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
     await pipeline(Readable.fromWeb(res.body), createWriteStream(tmp));
-
-    if (/\.rar$/i.test(new URL(url).pathname)) {
-        await extractRar(tmp, wanted, dest);
-        rmSync(tmp);
-    } else if (/\.zip$/i.test(new URL(url).pathname)) {
-        rmSync(tmp);
-        throw new Error(`${url} is a zip archive, which is not supported yet`);
-    } else {
-        renameSync(tmp, dest);
-    }
-}
-
-async function extractRar(rarPath, wanted, dest) {
-    const outDir = `${dest}.extract`;
-    rmSync(outDir, { recursive: true, force: true });
-    mkdirSync(outDir);
-    try {
-        const extractor = await createExtractorFromFile({ filepath: rarPath, targetPath: outDir });
-        // The file list is a lazy generator; extraction only happens while iterating it
-        const extracted = [...extractor.extract({ files: h => basename(h.name) === wanted }).files];
-        if (!extracted.length) throw new Error(`${basename(rarPath)} does not contain ${wanted}`);
-        renameSync(join(outDir, extracted[0].fileHeader.name), dest);
-    } finally {
-        rmSync(outDir, { recursive: true, force: true });
-    }
+    renameSync(tmp, dest);
 }

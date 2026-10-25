@@ -255,8 +255,8 @@ only when someone asks, and kept on disk.
 
 ## Timetables and stops
 
-[server/data/](server/data/) downloads OASA's open data (GTFS, from the CKAN
-portal) and builds `data/build/rail.json` (metro lines, stations, timetables
+[server/data/](server/data/) downloads OASA's open data (the metro and tram GTFS,
+from the CKAN portal) and builds `data/build/rail.json` (metro lines, stations, timetables
 and where to stand). Its timetable is one typical week: for each weekday the
 next date in the feed, skipping holidays and days on which a line has far
 more trains than usual (two timetables laid over each other), and a train the
@@ -304,7 +304,10 @@ network is used. The build runs when the server
 starts and daily at 04:30 Athens time, in a child process at low priority
 (`runBuildInChild`), so it doesn't slow the site or add to its memory. It
 downloads only what changed, and the site keeps serving the previous build
-if a build fails. Where to stand on each
+if a build fails. A file that comes out the same as the one served is left as
+it was (`publish`), so its ETag stays and browsers keep their copy; that's
+why `rail.json` and the bus files don't say when they were built or fetched
+(`meta.json` does). Where to stand on each
 train is curated by hand in `data/curated/` ([README](data/curated/README.md)),
 and can be edited from a phone at `/admin/stations`.
 

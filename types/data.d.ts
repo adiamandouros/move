@@ -15,7 +15,6 @@ export type Position = 'back' | 'center-back' | 'center' | 'center-front' | 'fro
 /** data/build/rail.json, built by server/data/build-rail.js: everything the subway page needs */
 export interface Rail {
     schema: number;
-    generated: string;
     /** The dates the weekly timetable was taken from, as YYYY-MM-DD */
     feed: { validFrom: string; validTo: string; week: Record<string, string> };
     /** The copy of STASY's first and last trains the stops' `hours` come from (YYYY-MM-DD); absent when none do */
@@ -120,8 +119,6 @@ export interface Timetable {
 /** data/build/bus-stops.json, built by server/data/build-bus.js from OASA's live API: one compact row per stop */
 export interface BusStops {
     schema: number;
-    /** When the network was fetched from OASA (ISO time) */
-    fetched: string;
     /** The order of each row's fields: ['code', 'lat', 'lng', 'el', 'en', 'lines'] */
     fields: string[];
     /** [code, lat, lng, Greek name, English name (may be empty), line numbers] */
@@ -131,8 +128,6 @@ export interface BusStops {
 /** data/build/bus-lines.json, built by server/data/build-bus.js from OASA's live API: each line's stops in order */
 export interface BusLines {
     schema: number;
-    /** When the network was fetched from OASA (ISO time) */
-    fetched: string;
     /** Sorted by line number. One or two directions (a circular line has one) */
     lines: {
         line: string;

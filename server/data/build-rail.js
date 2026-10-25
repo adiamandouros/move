@@ -8,7 +8,7 @@ import { POSITIONS } from './validate.js';
 // Build rail.json — everything the subway page needs, offline:
 //
 // {
-//   schema, generated,
+//   schema,
 //   feed:      { validFrom, validTo, week: { sun: 'YYYY-MM-DD', … } }   ← dates the weekly timetable was taken from
 //   hours?:    { fetched: 'YYYY-MM-DD' }                                ← the copy of STASY's first and last trains
 //   positions: ['back', …, 'front'],
@@ -208,7 +208,6 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
     return {
         data: {
             schema: RAIL_SCHEMA,
-            generated: new Date().toISOString(),
             feed: {
                 validFrom: isoDate(allDates[0]),
                 validTo: isoDate(validTo),

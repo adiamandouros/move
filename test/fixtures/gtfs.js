@@ -1,10 +1,8 @@
 // Small GTFS feeds and helpers for the data build tests: a rail feed with
-// its curated files, a bus feed, OASA's stop table, RAR archives like the
-// ones OASA publishes, and a fake open-data portal.
+// its curated files, and a fake open-data portal.
 import { mkdtempSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { crc32 } from 'zlib';
 
 // A tiny feed: line M9 with stations a–b–c, valid Mon 3 – Sun 9 Aug 2026.
 // X1 is a technical stop that stations.json tells the build to ignore.
@@ -142,41 +140,6 @@ export function tramCurated() {
     };
 }
 
-// A bus feed with `stops` stops (the build needs at least 1000), one line
-// through all of them, valid Mon 3 – Sun 9 Aug 2026. `extraStops` adds rows
-// to stops.txt as they are, e.g. a stop with a bad code.
-export function busFeed({ stops = 1000, extraStops = [], dir = mkdtempSync(join(tmpdir(), 'wayhop-bus-')) } = {}) {
-    const write = (name, rows) => writeFileSync(join(dir, name), rows.join('\n') + '\n');
-    const codes = Array.from({ length: stops }, (_, i) => String(10000 + i));
-    write('routes.txt', ['route_id,route_short_name', 'r1,040', 'r2,Χ95']);
-    write('trips.txt', ['route_id,service_id,trip_id', 'r1,wk,t1', 'r2,wk,t2']);
-    write('calendar.txt', [
-        'service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date',
-        'wk,1,1,1,1,1,1,1,20260803,20260809',
-    ]);
-    write('stops.txt', [
-        'stop_id,stop_name,stop_lat,stop_lon',
-        ...codes.map((code, i) => `${code},ΣΤΑΣΗ  ${i},${(37.9 + i * 1e-4).toFixed(5)},23.7`),
-        // Served by no trip: left out
-        '99999,ΑΧΡΗΣΙΜΟΠΟΙΗΤΗ,37.95,23.75',
-        ...extraStops,
-    ]);
-    write('stop_times.txt', [
-        'trip_id,arrival_time,departure_time,stop_id,stop_sequence',
-        ...codes.map((code, i) => `t1,08:00:00,08:00:00,${code},${i + 1}`),
-        ...extraStops.map((row, i) => `t1,10:00:00,10:00:00,${row.split(',')[0]},${stops + i + 1}`),
-        `t2,09:00:00,09:00:00,${codes[0]},1`,
-    ]);
-    return dir;
-}
-
-// OASA's stop table, with English names for the first `named` stops
-export function stopTable({ named = 10, dir = mkdtempSync(join(tmpdir(), 'wayhop-stoptable-')) } = {}) {
-    const path = join(dir, 'stops_all.csv');
-    writeFileSync(path, ['stop_code,stop_desr_matrix', ...Array.from({ length: named }, (_, i) => `${10000 + i},STOP ${i}`)].join('\n') + '\n');
-    return path;
-}
-
 // The curated files of railCurated(), written as data/curated/ has them
 export function curatedDir(curated = railCurated()) {
     const dir = mkdtempSync(join(tmpdir(), 'wayhop-curated-'));
@@ -184,40 +147,8 @@ export function curatedDir(curated = railCurated()) {
     return dir;
 }
 
-// A RAR 4 archive holding `files` ({ name: text }) uncompressed, as OASA
-// publishes some of its feed files; node-unrar-js reads it like a real one
-export function rar(files) {
-    const header = (type, flags, body) => {
-        const h = Buffer.alloc(7 + body.length);
-        h.writeUInt8(type, 2);
-        h.writeUInt16LE(flags, 3);
-        h.writeUInt16LE(h.length, 5);
-        body.copy(h, 7);
-        h.writeUInt16LE(crc32(h.subarray(2)) & 0xffff, 0);
-        return h;
-    };
-    const parts = [Buffer.from('Rar!\x1a\x07\x00', 'latin1'), header(0x73, 0, Buffer.alloc(6))];
-    for (const [name, text] of Object.entries(files)) {
-        const data = Buffer.from(text);
-        const fileName = Buffer.from(name);
-        const body = Buffer.alloc(25 + fileName.length);
-        body.writeUInt32LE(data.length, 0);       // packed size
-        body.writeUInt32LE(data.length, 4);       // unpacked size
-        body.writeUInt32LE(crc32(data) >>> 0, 9);
-        body.writeUInt32LE(0x5b210000, 13);       // a DOS date in 2025
-        body.writeUInt8(20, 17);                  // version needed
-        body.writeUInt8(0x30, 18);                // stored, not compressed
-        body.writeUInt16LE(fileName.length, 19);
-        body.writeUInt32LE(0x20, 21);             // attributes
-        fileName.copy(body, 25);
-        parts.push(header(0x74, 0x8000, body), data);
-    }
-    parts.push(header(0x7b, 0x4000, Buffer.alloc(0)));
-    return Buffer.concat(parts);
-}
-
 // A fake of OASA's open-data portal (CKAN) and its downloads.
-//   publish(dataset, dir, { version, rarFor: ['stops.txt'] }): offer every file in dir
+//   publish(dataset, dir, { version }): offer every file in dir
 //   publishFile(dataset, name, body, version, urlName): offer one file (at a URL ending in urlName)
 //   remove(dataset, name), down(true|false)
 // `calls` lists every URL asked for; `downloads` only the file downloads.
@@ -235,12 +166,8 @@ export function fakePortal() {
         calls,
         get downloads() { return calls.filter(u => u.startsWith('https://portal.example/')); },
         publishFile,
-        publish(dataset, dir, { version, rarFor = [] } = {}) {
-            for (const name of readdirSync(dir)) {
-                const text = readFileSync(join(dir, name), 'utf8');
-                if (rarFor.includes(name)) publishFile(dataset, name.replace(/\.txt$/, '.rar'), rar({ [name]: text }), version);
-                else publishFile(dataset, name, text, version);
-            }
+        publish(dataset, dir, { version } = {}) {
+            for (const name of readdirSync(dir)) publishFile(dataset, name, readFileSync(join(dir, name), 'utf8'), version);
         },
         remove(dataset, name) { datasets[dataset] = datasets[dataset].filter(r => r.name !== name); },
         down(value = true) { isDown = value; },
