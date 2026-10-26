@@ -5,6 +5,12 @@
 import { expect, onlyOn, test } from './fixtures.js';
 import { EVERY_PAGE, READY } from './site-pages.js';
 
+// Without animations: a turning loading icon (a bus stop below the screen
+// keeps one until it's scrolled to) sticks out of its line at some angles
+// at 200%, though its round drawing never does, so the check would depend on
+// the moment it's made
+test.use({ reducedMotion: 'reduce' });
+
 // What doesn't fit at 200%: the window or the page scrolling sideways, text
 // that spills out of its box (hidden or drawn over its neighbours), and
 // words broken in the middle
