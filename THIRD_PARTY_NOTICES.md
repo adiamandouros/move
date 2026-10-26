@@ -22,12 +22,13 @@ licenses.
 
 ## Data
 
-- **Timetables, lines and stops**: OASA's open data on
+- **Metro and tram timetables**: OASA's open data on
   <https://catalog.growthfund.gr/>, under
   [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Wayhop
   downloads it, converts it and combines it with its own data (see
   [ARCHITECTURE.md](ARCHITECTURE.md)). Station names and platform codes in
   `data/curated/` come from it too.
-- **Live bus arrivals and service announcements**: from OASA's and STASY's
-  services, shown as they are. Wayhop isn't affiliated with or endorsed by
-  OASA, STASY or OSY.
+- **Bus lines and stops, live bus arrivals and service announcements**: from
+  OASA's and STASY's services, as they give them. The metro's first and last
+  trains and its airport trains come from STASY's published timetables.
+  Wayhop isn't affiliated with or endorsed by OASA, STASY or OSY.
