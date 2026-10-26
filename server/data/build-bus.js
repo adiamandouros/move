@@ -1,3 +1,4 @@
+import { latinName } from '../../public/js/core/text.js';
 import { STOP_CODE } from './check-output.js';
 
 // Build bus-stops.json and bus-lines.json from today's network, as OASA's live
@@ -12,6 +13,10 @@ import { STOP_CODE } from './check-output.js';
 // }
 // `code` is the stop code the live API uses; `lines` every line whose routes
 // call there today (night lines, short workings and diversions included).
+// `en` is '' where the browser works it out from the Greek (latinName in
+// /js/core/text.js): most of OASA's English names are just that, so only the
+// others (about 1 in 20) take room in the file. One OASA has no English for
+// is '' too, so it's shown in Latin letters as well.
 //
 // bus-lines.json: each line's stops in order, one list per direction:
 // {
@@ -29,13 +34,17 @@ import { STOP_CODE } from './check-output.js';
 // the plain one of each, not a variant with a note in brackets
 // ("[22:00-06:00]") unless there's only that. A circular line has one.
 
-const BUS_SCHEMA = 2;
+// 3: `en` is '' where it's the Greek in Latin letters
+const BUS_SCHEMA = 3;
 const BUS_LINES_SCHEMA = 2;
 
 const MIN_STOPS = 1000;
 
 const byNumber = (a, b) => a.localeCompare(b, 'el', { numeric: true });
 const round = n => Math.round(n * 1e5) / 1e5;
+
+// A stop's English name where it isn't its Greek one in Latin letters, else ''
+const ownEnglish = stop => stop.en && stop.en !== latinName(stop.el) ? stop.en : '';
 
 // A day's network that can't be built from (never fetched): the build keeps the last files
 function needNetwork(network) {
@@ -62,7 +71,7 @@ export function buildBusStops(network) {
     /** @type {import('../../types/data.js').BusStops['stops']} */
     const rows = [...stops.values()]
         .filter(({ lines: served }) => served.size)
-        .map(({ stop, lines: served }) => /** @type {[string, number, number, string, string, string[]]} */ ([stop.code, round(stop.lat), round(stop.lng), stop.el, stop.en, [...served].sort(byNumber)]))
+        .map(({ stop, lines: served }) => /** @type {[string, number, number, string, string, string[]]} */ ([stop.code, round(stop.lat), round(stop.lng), stop.el, ownEnglish(stop), [...served].sort(byNumber)]))
         .sort((a, b) => a[0].localeCompare(b[0]));
     if (rows.length < MIN_STOPS) throw new Error(`OASA's network has only ${rows.length} stops (expected at least ${MIN_STOPS})`);
 

@@ -121,7 +121,7 @@ export interface BusStops {
     schema: number;
     /** The order of each row's fields: ['code', 'lat', 'lng', 'el', 'en', 'lines'] */
     fields: string[];
-    /** [code, lat, lng, Greek name, English name (may be empty), line numbers] */
+    /** [code, lat, lng, Greek name, English name ('' where it's the Greek in Latin letters: latinName), line numbers] */
     stops: [string, number, number, string, string, string[]][];
 }
 
