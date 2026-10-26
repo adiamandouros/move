@@ -1,10 +1,11 @@
 import { lastPosition, locationPermission, onLocation, onLocationProblem, restartLocation, startLocation } from '/js/core/location.js';
+import { favourites } from '/js/core/favourites.js';
 import { format, html, icon, notice, setHtml } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
 import { remember } from '/js/core/remember.js';
 import { decodeStops, distanceMeters, nearestStops } from './stops.js';
 import { findLines, findStops, lineKey } from './search.js';
-import { backLink, distance, lineHeader, message, nearestNote, patchStop, searchResults, searchStatus, stopItem } from './render.js';
+import { backLink, distance, favouriteLine, lineHeader, message, nearestNote, patchStop, searchResults, searchStatus, stopItem } from './render.js';
 import { countDown, elapsedMinutes, refreshEvery as refreshFor } from './timing.js';
 
 // How often the page checks which stops are due, and counts the minutes down
@@ -21,6 +22,7 @@ const RESULTS_SIZE = 20;
 
 const $ = id => document.getElementById(id);
 const accordion = $('stops-accordion');
+const busView = $('bus-view');
 const header = $('view-header');
 const input = /** @type {HTMLInputElement} */ ($('bus-search-input'));
 
@@ -51,6 +53,8 @@ const state = {
     pickedAt: null,
     limit: PAGE_SIZE,
     stops: [],
+    // The starred stops, above the stops nearby (only there)
+    favouriteStops: [],
     results: {},
     // Per stop code: when its last answer came in (its minutes count down from
     // then), when it was last asked for, answered or not (its refreshes are
@@ -59,8 +63,10 @@ const state = {
     fetched: {},
     asked: {},
     drawnElapsed: {},
-    // Stops being asked for, and the ones on screen (only those are refreshed)
+    // Stops being asked for (codes), and the stop rows on screen (only their
+    // stops are refreshed)
     asking: new Set(),
+    /** @type {Set<Element>} */
     onScreen: new Set(),
     lastInteraction: Date.now(),
     paused: false,
@@ -88,9 +94,7 @@ function renderStops(stops, { open = false } = {}) {
     setHtml(accordion, html`${stops.map((stop, i) => stopItem(stop, i, { open }))}`);
     $('bus-actions').hidden = state.view.kind !== 'nearby';
     $('nearby-heading').hidden = state.view.kind !== 'nearby';
-    observer.disconnect();
-    state.onScreen.clear();
-    accordion.querySelectorAll('.stop-item').forEach(item => observer.observe(item));
+    observe();
     patchAll();
     if (hadFocus) /** @type {HTMLElement | null} */ (accordion.querySelector('.stop-toggle'))?.focus();
 }
@@ -98,8 +102,7 @@ function renderStops(stops, { open = false } = {}) {
 function clearStops() {
     state.stops = [];
     setHtml(accordion, '');
-    observer.disconnect();
-    state.onScreen.clear();
+    observe();
     $('bus-actions').hidden = true;
     $('nearby-heading').hidden = true;
     renderStatus();
@@ -109,9 +112,8 @@ function clearStops() {
 const waiting = code => state.view.kind === 'nearby' || isOpen(code);
 
 function patchAll() {
-    for (const stop of state.stops) {
-        const item = itemOf(stop.code);
-        if (item) patchStop(item, shown(stop.code), { waiting: waiting(stop.code) });
+    for (const stop of listed()) {
+        for (const item of itemsOf(stop.code)) patchStop(item, shown(stop.code), { waiting: waiting(stop.code) });
         state.drawnElapsed[stop.code] = elapsed(stop.code);
     }
     applyFilter();
@@ -133,7 +135,7 @@ function applyFilter() {
 
 function renderStatus() {
     const el = $('bus-status');
-    const results = state.stops.map(s => state.results[s.code]).filter(Boolean);
+    const results = listed().map(s => state.results[s.code]).filter(Boolean);
     /** @type {import('/js/core/html.js').Html | ''} */
     let shown = '';
     if (state.paused) {
@@ -183,8 +185,12 @@ const elapsed = code => elapsedMinutes(state.fetched[code], Date.now());
 // A stop's answer, counted down to now (between refreshes it can be 2 minutes old)
 const shown = code => countDown(state.results[code], elapsed(code));
 
-const itemOf = code => accordion.querySelector(`[data-stop="${code}"]`);
-const isOpen = code => Boolean(itemOf(code)?.querySelector('.stop-toggle[aria-expanded="true"]'));
+// Every stop shown, the starred ones first, once each (a starred stop can be nearby too)
+const listed = () => [...new Map([...state.favouriteStops, ...state.stops].map(stop => [stop.code, stop])).values()];
+
+// A stop's rows: one, or two when it's starred and nearby
+const itemsOf = code => [...busView.querySelectorAll(`.stop-item[data-stop="${code}"]`)];
+const isOpen = code => itemsOf(code).some(item => item.querySelector('.stop-toggle[aria-expanded="true"]'));
 
 // How long a stop's answer is good for (timing.js)
 const refreshEvery = code => refreshFor(shown(code), { opened: isOpen(code) });
@@ -193,26 +199,33 @@ const refreshEvery = code => refreshFor(shown(code), { opened: isOpen(code) });
 // when they scroll into view)
 const observer = new IntersectionObserver(entries => {
     for (const entry of entries) {
-        const code = /** @type {HTMLElement} */ (entry.target).dataset.stop;
-        if (entry.isIntersecting) state.onScreen.add(code);
-        else state.onScreen.delete(code);
+        if (entry.isIntersecting) state.onScreen.add(entry.target);
+        else state.onScreen.delete(entry.target);
     }
     poll();
 });
 
-// Which stops may be asked for. Nearby: those on screen (or hidden by "Hide
-// empty stops", so they come back when a bus is on its way). A stop or a
+// Watch every stop row drawn, the starred ones and the others
+function observe() {
+    observer.disconnect();
+    state.onScreen.clear();
+    busView.querySelectorAll('.stop-item').forEach(item => observer.observe(item));
+}
+
+// Which stops may be asked for. Nearby and starred: those on screen (or
+// hidden by "Hide empty stops", so they come back when a bus is on its way). A stop or a
 // line: only the opened ones, so scrolling down a line asks OASA nothing.
 function eligible(code) {
     if (state.view.kind !== 'nearby') return isOpen(code);
-    return state.onScreen.has(code) || itemOf(code)?.classList.contains('d-none');
+    return itemsOf(code).some(item => state.onScreen.has(item) || item.classList.contains('d-none'));
 }
 
 // Ask for the stops that are due: those that may be asked for, past their
 // refresh time. Nothing while a search covers them.
 function poll() {
-    if (state.paused || document.hidden || !state.stops.length || $('bus-view').hidden) return;
-    for (const stop of state.stops) {
+    const stops = listed();
+    if (state.paused || document.hidden || !stops.length || busView.hidden) return;
+    for (const stop of stops) {
         const { code } = stop;
         if (!eligible(code) || state.asking.has(code)) continue;
         if (Date.now() - (state.asked[code] ?? 0) >= refreshEvery(code)) ask(stop);
@@ -243,9 +256,9 @@ async function ask(stop) {
     }
     state.asked[stop.code] = Date.now();
     state.asking.delete(stop.code);
-    const item = itemOf(stop.code);
-    if (!item) return; // the stops changed meanwhile
-    patchStop(item, shown(stop.code), { waiting: waiting(stop.code) });
+    const items = itemsOf(stop.code);
+    if (!items.length) return; // the stops changed meanwhile
+    for (const item of items) patchStop(item, shown(stop.code), { waiting: waiting(stop.code) });
     state.drawnElapsed[stop.code] = elapsed(stop.code);
     applyFilter();
     renderStatus();
@@ -260,7 +273,7 @@ function tick() {
     }
     poll();
     // A minute has passed for a stop: count its arrivals down
-    if (state.stops.some(stop => elapsed(stop.code) !== state.drawnElapsed[stop.code])) patchAll();
+    if (listed().some(stop => elapsed(stop.code) !== state.drawnElapsed[stop.code])) patchAll();
 }
 
 // Any tap or key press counts as someone looking at the page
@@ -280,6 +293,7 @@ function interact() {
 async function showView({ focus = false } = {}) {
     const drawn = ++state.drawn;
     clearStops();
+    renderFavourites();
     setHtml($('bus-message'), '');
     const { view } = state;
     header.hidden = view.kind === 'nearby';
@@ -329,11 +343,36 @@ async function showView({ focus = false } = {}) {
     markNearest();
 }
 
+// The starred stops and lines, above the stops nearby (only there, and once
+// the stop list is in). A starred stop shows its live times as the stops
+// nearby do: asked for while it's on screen. A starred line links to its
+// stops in the direction it was starred, once the lines are in.
+async function renderFavourites() {
+    const shown = state.view.kind === 'nearby' && state.allStops ? favourites() : { stop: [], line: [] };
+    state.favouriteStops = shown.stop.map(code => state.byCode.get(code)).filter(Boolean).map(withMeters);
+    setHtml($('favourite-stops'), html`${state.favouriteStops.map((stop, i) => stopItem(stop, i, { id: 'fav-stop' }))}`);
+    setHtml($('favourite-lines'), '');
+    $('favourites').hidden = !state.favouriteStops.length && !shown.line.length;
+    observe();
+    patchAll();
+    if (!shown.line.length) return;
+    const drawn = state.drawn;
+    const lines = await loadLines();
+    if (drawn !== state.drawn) return; // another view since
+    const rows = shown.line.flatMap(key => {
+        const dir = Number(key.slice(key.lastIndexOf('/') + 1));
+        const line = lines?.find(l => l.line === key.slice(0, key.lastIndexOf('/')));
+        return line?.directions[dir] ? [favouriteLine(line, dir)] : [];
+    });
+    setHtml($('favourite-lines'), html`${rows}`);
+    $('favourites').hidden = !state.favouriteStops.length && !rows.length;
+}
+
 // On a line, mark the stop nearest to you, once the location is known, and
 // scroll to it unless a stop has been opened meanwhile
 function markNearest() {
     if (state.view.kind !== 'line' || !state.coords || !state.stops.length || accordion.querySelector('.stop-nearest')) return;
-    const item = itemOf(state.stops.reduce((a, b) => (b.meters < a.meters ? b : a)).code);
+    const item = accordion.querySelector(`[data-stop="${state.stops.reduce((a, b) => (b.meters < a.meters ? b : a)).code}"]`);
     item.classList.add('stop-nearest');
     setHtml(item.querySelector('.stop-nearest-note'), nearestNote());
     if (!accordion.querySelector('.stop-toggle[aria-expanded="true"]')) item.scrollIntoView({ block: 'center' });
@@ -357,12 +396,15 @@ function showDirection(direction) {
     showView().then(() => /** @type {HTMLElement | null} */ (header.querySelector(`[data-direction="${direction}"]`))?.focus());
 }
 
-// On a stop or a line, a new position updates how far the stops are
+// A new position updates how far the stops are (a stop's or a line's, and the starred ones)
 function patchDistances() {
     state.stops = state.stops.map(withMeters);
-    for (const stop of state.stops) {
-        const el = itemOf(stop.code)?.querySelector('.stop-distance');
-        if (el) setHtml(el, distance(stop.meters));
+    state.favouriteStops = state.favouriteStops.map(withMeters);
+    for (const stop of listed()) {
+        for (const item of itemsOf(stop.code)) {
+            const el = item.querySelector('.stop-distance');
+            if (el) setHtml(el, distance(stop.meters));
+        }
     }
 }
 
@@ -439,6 +481,7 @@ function located({ lat, lng }) {
         markNearest();
         return;
     }
+    patchDistances();
     if (state.pickedAt && distanceMeters(state.pickedAt.lat, state.pickedAt.lng, lat, lng) < MOVE_THRESHOLD_M) return;
     pickStops();
     poll();
@@ -508,6 +551,14 @@ async function start() {
     accordion.addEventListener('shown.bs.collapse', () => {
         if (state.view.kind !== 'nearby') patchAll();
         poll();
+    });
+    $('favourite-stops').addEventListener('shown.bs.collapse', () => poll());
+
+    // Starred or unstarred elsewhere on the page: the favourites are drawn
+    // again. Unstarred in the favourites, the row stays (with its star off)
+    // until the page is drawn again, so the keyboard isn't lost.
+    document.addEventListener('favourites-change', e => {
+        if (state.view.kind === 'nearby' && !$('favourites').contains(/** @type {CustomEvent} */ (e).detail.source)) renderFavourites();
     });
 
     $('show-more-btn').addEventListener('click', () => {

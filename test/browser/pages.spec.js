@@ -19,7 +19,8 @@ for (const [path, lang, url] of EVERY_PAGE) {
         // Phones have no keyboard, except that some people use one with them;
         // WebKit only tabs to links when Safari's setting is on, so it's skipped there
         if (testInfo.project.name !== 'iphone') {
-            const walk = await keyboardWalk(page);
+            // (a bus line has three stops per bus stop: the stop, its star, its walking directions)
+            const walk = await keyboardWalk(page, { max: 200 });
             expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
         }
     });

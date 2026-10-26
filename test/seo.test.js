@@ -41,8 +41,9 @@ test('the about, privacy and contact pages are written in each language and link
     }
     assert.match(pages['/privacy'], /<h1>Privacy<\/h1>[\s\S]*Last updated: 26 October 2026/);
     assert.match(pages['/privacy'], /The last three metro stations you picked/);
-    assert.match(pages['/privacy'], /The metro stations you starred as favourites/);
-    assert.match(pages['/el/privacy'], /Οι σταθμοί μετρό που σημειώσατε ως αγαπημένους/);
+    assert.match(pages['/privacy'], /The metro stations, bus stops and bus lines you starred as favourites/);
+    assert.match(pages['/privacy'], /nearby stops, and the stops you starred, by their number/);
+    assert.match(pages['/el/privacy'], /Οι σταθμοί μετρό, οι στάσεις και οι γραμμές λεωφορείων που σημειώσατε ως αγαπημένα/);
     assert.match(pages['/el/privacy'], /<h1>Απόρρητο<\/h1>[\s\S]*Τελευταία ενημέρωση: 26 Οκτωβρίου 2026/);
     assert.match(pages['/el/privacy'], /Οι τρεις τελευταίοι σταθμοί μετρό που επιλέξατε/);
     // No hosting details: who hosts the site and where is nothing a visitor needs
