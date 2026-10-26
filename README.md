@@ -4,19 +4,20 @@ Copyright (C) 2026 adiamandouros. Licensed under the
 [GNU Affero General Public License v3.0 or later](LICENSE) (see [License](#license)).
 
 A web app for getting around Athens by public transport, in English and Greek.
-It installs like an app, and the subway and info pages work offline.
+It installs like an app, the subway and info pages work offline, and it
+follows the phone's light or dark mode (or your choice in the menu).
 
 ## Features
 
 - **Subway**: plan a metro trip (lines 1–3), with the next departures from
-  OASA's timetable and which part of the train to ride in for the exit, the
-  next line or an elevator.
-- **Nearby buses**: live arrivals at the bus stops around you, refreshed
-  every 30 seconds when a bus is near (less often when the next one is
-  further away).
-- **Info**: service announcements from OASA and STASY, a zoomable metro map,
-  closing times, tickets, getting to the airport, night buses, accessibility
-  and contacts.
+  OASA's timetable, first and last trains from STASY's, and which carriage to
+  ride in for the exit (an escalator, stairs), the next line or an elevator.
+- **Buses**: live arrivals at the stops around you, refreshed every 30
+  seconds when a bus is near (less often when the next one is further away);
+  any stop by its name or code, and any line with its stops.
+- **Info**: service announcements from OASA and STASY, zoomable metro and
+  tram maps, closing times, tickets, getting to the airport, night buses,
+  accessibility and contacts.
 - **Metro stations**: a page for every station, with where to ride for the
   exit, connections and first and last trains.
 
@@ -50,8 +51,12 @@ npm run build:data   # rebuild the timetables and stops now (the app also does i
 npm run diagnose     # check that the server can reach OASA, the relays and the data portal
 ```
 
-On the first start the app downloads OASA's open data and builds
-`data/build/`, which takes a little while; the subway and bus pages need it.
+On the first start the app builds `data/build/`, which takes a little while;
+the subway and bus pages need it. It downloads the metro and tram timetable
+from OASA's open data, STASY's first and last trains, and the bus lines and
+stops from OASA's live service (which, like live bus times, needs a Greek IP
+address or a relay). Then it checks them every night and rebuilds only what
+changed.
 
 ## Deploying
 
@@ -78,9 +83,3 @@ server's code can't use top-level `await` (`test/startup.test.js` checks).
   [TRADEMARKS.md](TRADEMARKS.md).
 - **Other people's code and data**: see
   [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-
-Additional permission under GNU AGPL version 3 section 7: if you modify this
-program, or any covered work, by linking or combining it with node-unrar-js
-(or a modified version of that library), containing parts covered by the
-terms of the unRAR license, the licensors of this program grant you
-additional permission to convey the resulting work.
