@@ -1064,6 +1064,13 @@ body {
     flex-shrink: 0;
 }
 
+/* A starred station: its star right after its name */
+.suggestion-favourite {
+    flex-shrink: 0;
+    margin-right: auto;
+    color: var(--wh-brand-yellow);
+}
+
 /* Result card */
 .result-card {
     --bs-card-spacer-x: 1.25rem;
@@ -2486,6 +2493,11 @@ body {
 
 /* Bootstrap's primary blue is slightly too dark on the page background */
 .message-view .btn-outline-primary,
+/* The star (/js/core/favourites.js): filled and gold when starred */
+.favourite-btn[aria-pressed="true"] .icon {
+    color: var(--wh-brand-yellow);
+}
+
 .station-actions .btn-outline-primary {
     --bs-btn-color: var(--bs-primary);
     --bs-btn-border-color: var(--bs-primary);

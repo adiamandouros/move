@@ -5,6 +5,7 @@ import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
+import { favouriteButton } from '../../public/js/core/favourites.js';
 import { format, formatDate, localName, walkingUrl } from '../../public/js/core/html.js';
 import { linePill, pillList, stationSign } from '../../public/js/core/lines.js';
 import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, lineEnd, stopNote } from '../../public/js/core/metro.js';
@@ -216,6 +217,8 @@ export function stationView(rail, id, lang, s) {
         crumbs: breadcrumb(rail, id, lang, s),
         lines,
         walking: walkingUrl(lat, lng),
+        // Its star, shown and set by the page's script
+        favourite: favouriteButton({ kind: 'station', key: id, text: s('favourites.star'), cls: 'btn btn-sm btn-outline-secondary rounded-pill', hidden: true }),
         legend: symbols.length ? diagramLegend(symbols, s) : null,
         // Where the first and last trains come from: STASY's copy, the timetable, or both
         timetable: {

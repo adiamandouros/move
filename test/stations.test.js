@@ -244,6 +244,8 @@ test('a station page shows lines, neighbours, where to ride, connections and tim
     assert.match(html, /href="\/subway\?from=x"/);
     assert.match(html, /href="\/subway\?to=x"/);
     assert.match(html, /<a href="https:\/\/www\.google\.com\/maps\/dir\/\?api=1&amp;destination=38,23\.7&amp;travelmode=walking" class="[^"]+" target="_blank" rel="noopener">/);
+    // Its star, hidden until the page's script shows it starred or not
+    assert.match(html, /<button type="button" class="favourite-btn btn btn-sm btn-outline-secondary rounded-pill" data-favourite="station" data-key="x" aria-pressed="false" hidden><svg class="icon me-1"[^>]*><use href="[^"#]*#favourite"><\/use><\/svg><span>Favourite<\/span><\/button>/);
 });
 
 test('arriving at a terminus shows the exit; leaving the first stop shows only times', async () => {
@@ -265,6 +267,7 @@ test('the Greek page is in Greek, with Greek links', async () => {
     assert.ok(t.includes('L1 → προς Βήτα') && t.includes('Δευ–Παρ') && t.includes('Όλη τη νύχτα'), t);
     assert.match(html, /href="\/el\/subway\/stations\/a">Άλφα</);
     assert.match(html, /href="\/el\/subway\?from=x"/);
+    assert.match(html, /data-favourite="station" data-key="x" aria-pressed="false" hidden>.*<span>Αγαπημένο<\/span><\/button>/);
     assert.match(html, /href="\/el\/subway\/stations"/);
     assert.match(html, /<link rel="alternate" hreflang="el" href="https:\/\/wayhop\.example\/el\/subway\/stations\/x">/);
 });

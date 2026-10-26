@@ -7,6 +7,7 @@
         <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?from={{id}}">{{icon "trip-from" "me-1"}}{{t "stations.plan-from"}}</a>
         <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?to={{id}}">{{icon "trip-to" "me-1"}}{{t "stations.plan-to"}}</a>
         {{#external href=walking class="btn btn-sm btn-outline-secondary rounded-pill"}}{{icon "walk" "me-1"}}{{t "stations.walk"}}{{/external}}
+        {{favourite}}
     </div>
 {{#each lines}}
     <section class="station-section" aria-labelledby="line-{{key}}">

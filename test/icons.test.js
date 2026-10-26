@@ -4,7 +4,7 @@ import { existsSync, readdirSync, readFileSync } from 'fs';
 import { createRequire } from 'module';
 import { dirname, join } from 'path';
 import { listFiles } from '../server/pages/assets.js';
-import { ICONS_DIR, MEANINGS, iconFiles, iconSprite } from '../server/pages/icons.js';
+import { ICONS_DIR, MEANINGS, bothForms, iconFiles, iconSprite } from '../server/pages/icons.js';
 import { loadTools } from '../server/pages/registry.js';
 
 // Icons by meaning (server/pages/icons.js, DESIGN.md): every icon the code
@@ -67,11 +67,11 @@ test('server/icons/ has exactly the files the list needs, as the package has the
     for (const file of wanted.filter(f => f !== 'LICENSE')) assert.equal(readFileSync(join(ICONS_DIR, file), 'utf8'), readFileSync(join(packageDir, file), 'utf8'), `${file}: run npm run icons`);
 });
 
-test('the sprite has every meaning, and a tab\'s filled form too', () => {
+test('the sprite has every meaning, and a tab\'s or a toggle\'s filled form too', () => {
     const sprite = iconSprite();
     for (const [name, meaning] of Object.entries(MEANINGS)) {
         assert.match(sprite, new RegExp(`<symbol id="${name}" viewBox="0 -960 960 960"><path d="`), name);
-        assert.equal(sprite.includes(`<symbol id="${name}-filled"`), Boolean(meaning.tab), `${name}-filled`);
+        assert.equal(sprite.includes(`<symbol id="${name}-filled"`), bothForms(meaning), `${name}-filled`);
     }
     // Filled where the list says so: the -fill file's drawing
     const drawing = file => readFileSync(join(ICONS_DIR, file), 'utf8').match(/<path d="([^"]+)"/)[1];

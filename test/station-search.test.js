@@ -65,3 +65,10 @@ test('the stations picked lately come first, three at most, once each, and only 
     assert.ok(!ids.includes('katechaki'), 'a fourth is too many');
     assert.equal(ids.length, 12);
 });
+
+test('the starred stations come before those picked lately, all of them, and the three picked lately are others', () => {
+    const ids = en.startingStations(rail, ['syntagma', 'kerameikos', 'neos-kosmos', 'katechaki'], ['airport', 'nowhere', 'constructor', 'syntagma', 'dafni', 'kifisia']);
+    assert.deepEqual(ids.slice(0, 7), ['airport', 'syntagma', 'dafni', 'kifisia', 'kerameikos', 'neos-kosmos', 'katechaki']);
+    assert.equal(new Set(ids).size, ids.length, 'once each');
+    assert.deepEqual(en.startingStations(rail, ['syntagma']), en.startingStations(rail, ['syntagma'], []), 'none starred: as before');
+});

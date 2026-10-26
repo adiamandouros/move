@@ -206,6 +206,8 @@ Material Symbols Rounded, by meaning: code names what an icon means
   information**: status (all clear, warning, error) and the symbols in the
   train (the way out, a lift). **The current tab is filled**, the others
   outline.
+- **A toggle's icon is outline when off, filled when on**: the favourites'
+  star, gold when starred (`aria-pressed` says it to screen readers).
 - Each carriage to ride in shows how it leads off the platform, filled: an
   escalator up, stairs, or, while that isn't recorded (`escalators` and
   `stairs` in positions.json, set in the station editor), an up arrow. A

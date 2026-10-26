@@ -1,3 +1,4 @@
+import { startFavourites } from './favourites.js';
 import { html, icon as iconHtml, setHtml } from './html.js';
 import { t } from './i18n.js';
 import { restoreLinks } from './remember.js';
@@ -17,6 +18,11 @@ window.addEventListener('pageshow', restoreLinks);
 
 // Auto, Light and Dark in the menu and the sidebar (/js/core/theme.js)
 startTheme();
+
+// ── Favourites ───────────────────────────────────────────────────────────────
+
+// Every star on every page: stations, bus stops, bus lines (/js/core/favourites.js)
+startFavourites();
 
 // ── Language ─────────────────────────────────────────────────────────────────
 
