@@ -100,6 +100,7 @@ function start(rail) {
         list: document.getElementById('stop-suggestions-from'),
         rail,
         onChange: () => { followLocation = false; changed(); },
+        announce,
     });
     fromInput.addEventListener('input', () => { followLocation = false; });
     const to = stationSearch({
@@ -107,6 +108,7 @@ function start(rail) {
         list: document.getElementById('stop-suggestions-to'),
         rail,
         onChange: changed,
+        announce,
     });
 
     // What was typed before this script had loaded stays, unless the address
