@@ -11,11 +11,13 @@ import { fileURLToPath } from 'url';
 //     information (filled: true here: status icons, the symbols in the train)
 //   - the current tab filled (tab: true: the sprite has `<meaning>-filled`
 //     too, which icon(name, cls, { filled: true }) shows)
+//   - a toggle's icon outline when off, filled when on (toggle: true: both
+//     forms, as for a tab)
 // The SVGs are copied into server/icons/ by `npm run icons`, from the
 // @material-symbols/svg-400 package (a dev dependency: it's 23,000 files),
 // so a new icon goes in this list, then that command.
 
-/** @typedef {{ symbol: string, filled?: boolean, tab?: boolean }} Meaning */
+/** @typedef {{ symbol: string, filled?: boolean, tab?: boolean, toggle?: boolean }} Meaning */
 
 /** @type {Record<string, Meaning>} */
 export const MEANINGS = {
@@ -35,6 +37,8 @@ export const MEANINGS = {
     'get-off': { symbol: 'door_open' },
     'doors-left': { symbol: 'door_sliding' },
     night: { symbol: 'bedtime' },
+    // Starred stations, stops and lines (a toggle)
+    favourite: { symbol: 'star', toggle: true },
     // In the train diagram, alone in a carriage: how it leads off the
     // platform (an escalator up, stairs, or, not recorded yet, an arrow:
     // the way out), and a lift
@@ -78,11 +82,15 @@ export const MEANINGS = {
 
 export const ICONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'icons');
 
-// The files a meaning needs: its symbol, outline or filled, and for a tab both
+// A tab or a toggle has both forms: the meaning plus -filled too
 /** @param {Meaning} meaning */
-export const iconFiles = ({ symbol, filled, tab }) => [
-    ...(filled ? [] : [`${symbol}.svg`]),
-    ...(filled || tab ? [`${symbol}-fill.svg`] : []),
+export const bothForms = ({ tab, toggle }) => Boolean(tab || toggle);
+
+// The files a meaning needs: its symbol, outline or filled, and for both forms both
+/** @param {Meaning} meaning */
+export const iconFiles = meaning => [
+    ...(meaning.filled ? [] : [`${meaning.symbol}.svg`]),
+    ...(meaning.filled || bothForms(meaning) ? [`${meaning.symbol}-fill.svg`] : []),
 ];
 
 /** @param {string} id @param {string} file */
@@ -99,7 +107,7 @@ export function iconSprite() {
     if (sprite) return sprite;
     const symbols = Object.entries(MEANINGS).flatMap(([name, meaning]) => [
         symbolOf(name, `${meaning.symbol}${meaning.filled ? '-fill' : ''}.svg`),
-        ...(meaning.tab ? [symbolOf(`${name}-filled`, `${meaning.symbol}-fill.svg`)] : []),
+        ...(bothForms(meaning) ? [symbolOf(`${name}-filled`, `${meaning.symbol}-fill.svg`)] : []),
     ]);
     sprite = `<svg xmlns="http://www.w3.org/2000/svg"><!-- Material Symbols by Google, Apache License 2.0, https://github.com/google/material-design-icons/blob/master/LICENSE -->${symbols.join('')}</svg>`;
     return sprite;

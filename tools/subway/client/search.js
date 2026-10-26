@@ -1,5 +1,6 @@
-import { html, localName, setHtml } from '/js/core/html.js';
-import { language } from '/js/core/i18n.js';
+import { favourites } from '/js/core/favourites.js';
+import { html, icon, localName, setHtml } from '/js/core/html.js';
+import { language, t } from '/js/core/i18n.js';
 import { linePill } from '/js/core/lines.js';
 import { normalise } from '/js/core/text.js';
 import { addRecentStation, recentStations } from './recent.js';
@@ -26,15 +27,18 @@ export function matchStations(stations, query) {
 }
 
 // What a field offers before anything is typed, to show what it takes: the
-// stations picked lately (`recent`), then the interchanges, then the ends of
-// the lines, each A–Z
-export function startingStations(rail, recent) {
+// starred stations (`starred`, all of them), the stations picked lately
+// (`recent`, the last 3 not starred), then the interchanges, then the ends
+// of the lines, each A–Z
+export function startingStations(rail, recent, starred = []) {
     const byName = ids => [...ids].sort((a, b) => stationName(rail.stations[a]).localeCompare(stationName(rail.stations[b]), 'el'));
     const interchanges = Object.keys(rail.stations).filter(id => rail.stations[id].lines.length > 1);
     const ends = Object.values(rail.lines).flatMap(line => Object.values(line.directions)
         .flatMap(({ stops }) => [stops[0].station, stops.at(-1).station]));
-    const known = recent.filter(id => Object.hasOwn(rail.stations, id)).slice(0, 3);
-    return [...new Set([...known, ...byName(interchanges), ...byName(new Set(ends))])];
+    const known = ids => ids.filter(id => Object.hasOwn(rail.stations, id));
+    const favourite = known(starred);
+    const lately = known(recent).filter(id => !favourite.includes(id)).slice(0, 3);
+    return [...new Set([...favourite, ...lately, ...byName(interchanges), ...byName(new Set(ends))])];
 }
 
 // Wire an <input role="combobox"> and its <ul role="listbox"> (from page.html)
@@ -45,14 +49,17 @@ export function stationSearch({ input, list, rail, onChange }) {
 
     function render(ids) {
         if (!ids.length) { hide(); return; }
+        const starred = favourites().station;
         setHtml(list, html`${ids.map(id => {
             const s = rail.stations[id];
+            const favourite = starred.includes(id);
             return html`
             <li role="option" aria-selected="false" class="suggestion-item" tabindex="-1" data-id="${id}">
                 <span class="suggestion-names">
                     <span class="suggestion-name-gr" lang="el">${s.name.el}</span>
                     <span class="suggestion-name-en" lang="en">${s.name.en}</span>
                 </span>
+                ${favourite ? html`${icon('favourite', 'suggestion-favourite', { filled: true })}<span class="sr-only">, ${t('favourites.marked')}</span>` : ''}
                 <span class="suggestion-lines" aria-hidden="true">${s.lines.map(line => linePill(line, rail.lines[line].name, 's'))}</span>
                 <span class="sr-only">, ${s.lines.join(', ')}</span>
             </li>`;
@@ -82,7 +89,7 @@ export function stationSearch({ input, list, rail, onChange }) {
 
     // What's typed, or with nothing typed (or a station chosen) the stations to start from
     const suggestions = () => selected || !normalise(input.value)
-        ? startingStations(rail, recentStations())
+        ? startingStations(rail, recentStations(), favourites().station)
         : matchStations(rail.stations, input.value);
 
     input.addEventListener('input', () => {
