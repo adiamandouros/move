@@ -129,8 +129,8 @@ test('a line: its stops in order, nearest marked, nothing asked until a stop is 
     expect(asked.length).toBeGreaterThanOrEqual(3);
 
     // The other way, named in the page's language
-    const back = page.getByRole('button', { name: 'To PEIRAIAS' });
-    await expect(page.getByRole('button', { name: 'To SYNTAGMA' })).toHaveAttribute('aria-pressed', 'true');
+    const back = page.getByRole('button', { name: 'To PEIRAIAS', exact: true });
+    await expect(page.getByRole('button', { name: 'To SYNTAGMA', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await back.click();
     await expect(page).toHaveURL(/\/buses\?line=040&dir=1$/);
     await expect(back).toHaveAttribute('aria-pressed', 'true');

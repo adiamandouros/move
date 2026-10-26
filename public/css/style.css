@@ -683,6 +683,39 @@ body {
     border-radius: var(--wh-radius-sm);
 }
 
+/* The star beside it (and beside a line's name): the row's full height,
+   a little narrower, as tall a target as the walking directions */
+.stop-favourite,
+.line-favourite {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    width: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--bs-secondary-color);
+    font-size: var(--wh-fs-lg);
+    flex-shrink: 0;
+    transition: color 0.15s, background-color 0.15s;
+}
+
+.stop-favourite:hover,
+.line-favourite:hover {
+    color: var(--bs-primary);
+    background-color: rgba(var(--bs-primary-rgb), 0.08);
+}
+
+.stop-favourite:focus-visible,
+.line-favourite:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: var(--wh-radius-sm);
+}
+
 /* Too narrow for the stop's column beside the next bus (large text, about
    18 letters wide): the stop on a line of its own on top, the next bus, its
    time and the directions under it */
@@ -1707,6 +1740,11 @@ body {
     font-size: var(--wh-fs-lg);
     font-weight: 600;
     margin: var(--wh-space-1) 0 var(--wh-space-2);
+}
+
+.line-title-row > .line-heading {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .line-heading:focus-visible {

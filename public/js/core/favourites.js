@@ -69,7 +69,8 @@ const showAll = () => /** @type {NodeListOf<HTMLElement>} */ (document.querySele
 
 // Every star on the page, now and drawn later: a tap stars or unstars, every
 // star for the same thing follows (a stop can be listed twice), and the page
-// hears of it ('favourites-change', for the lists that show favourites)
+// hears of it ('favourites-change', for the lists that show favourites;
+// detail.source: the star tapped)
 export function startFavourites() {
     showAll();
     document.addEventListener('click', e => {
@@ -78,7 +79,7 @@ export function startFavourites() {
         const { favourite: kind, key } = button.dataset;
         const on = toggleFavourite(/** @type {Kind} */ (kind), key);
         showAll();
-        document.dispatchEvent(new CustomEvent('favourites-change', { detail: { kind, key, on } }));
+        document.dispatchEvent(new CustomEvent('favourites-change', { detail: { kind, key, on, source: button } }));
     });
     // Starred in another tab
     window.addEventListener('storage', e => { if (e.key === KEY) showAll(); });

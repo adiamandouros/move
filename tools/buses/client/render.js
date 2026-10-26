@@ -1,3 +1,4 @@
+import { favouriteButton, isFavourite, lineFavourite } from '/js/core/favourites.js';
 import { externalLink, format, html, icon, localName, setHtml, walkingUrl } from '/js/core/html.js';
 import { language, localHref, t } from '/js/core/i18n.js';
 import { busPlate, pillList } from '/js/core/lines.js';
@@ -34,15 +35,16 @@ const destination = a => a.to ? local(a.to) : t('buses.unknown-line');
 // can jump from stop to stop), named by its visible text: name, code (what
 // tells same-named stops apart, as on its sign) and distance. Arrivals are
 // filled in by patchStop(). open: shown opened; nearest: marked as the
-// nearest (on a line).
-export function stopItem(stop, index, { open = false, nearest = false } = {}) {
+// nearest (on a line); id: the start of its parts' ids (the favourites have
+// their own, as a stop can be listed twice).
+export function stopItem(stop, index, { open = false, nearest = false, id = 'stop' } = {}) {
     return html`
     <div class="accordion-item stop-item${nearest ? ' stop-nearest' : ''}" data-stop="${stop.code}" data-has-arrivals="false">
         <div class="stop-header d-flex align-items-stretch">
             <h2 class="stop-heading d-flex flex-grow-1">
             <button class="accordion-button stop-toggle${open ? '' : ' collapsed'} d-flex align-items-center gap-3 flex-grow-1 p-0"
-                    type="button" data-bs-toggle="collapse" data-bs-target="#stop-${index}"
-                    aria-expanded="${String(open)}" aria-controls="stop-${index}">
+                    type="button" data-bs-toggle="collapse" data-bs-target="#${id}-${index}"
+                    aria-expanded="${String(open)}" aria-controls="${id}-${index}">
                 <span class="stop-label d-flex flex-column align-items-center justify-content-center text-center">
                     <span class="stop-name">${local(stop.name)}</span>
                     <span class="stop-code"><span class="sr-only">, ${t('buses.code')} </span>${stop.code}</span>
@@ -54,11 +56,12 @@ export function stopItem(stop, index, { open = false, nearest = false } = {}) {
             </h2>
             <div class="stop-header-fixed d-flex align-items-center">
                 <span class="header-badge-wrap" aria-hidden="true"></span>
+                ${favouriteButton({ kind: 'stop', key: stop.code, on: isFavourite('stop', stop.code), label: `${t('favourites.star')}: ${local(stop.name)} ${stop.code}`, cls: 'stop-favourite' })}
                 ${externalLink({ class: 'directions-btn d-flex align-items-center justify-content-center', href: walkingUrl(stop.lat, stop.lng) },
                     html`${icon('walk')}<span class="sr-only">${t('buses.walking-directions-to')} ${local(stop.name)}</span>`, t('shell.new-tab'))}
             </div>
         </div>
-        <div id="stop-${index}" class="accordion-collapse collapse${open ? ' show' : ''}">
+        <div id="${id}-${index}" class="accordion-collapse collapse${open ? ' show' : ''}">
             <div class="accordion-body stop-body">
                 <ul class="stop-arrivals list-unstyled mb-0" aria-label="${t('buses.all-arrivals-for')} ${local(stop.name)}"></ul>
                 <p class="stop-lines mb-0">${t('buses.lines')}: ${lineLinks(stop.lines)}</p>
@@ -154,6 +157,16 @@ export function lineResult(line) {
         </li>`;
 }
 
+// A starred line, in the direction it was starred: a link to its stops that way
+export function favouriteLine(line, dir) {
+    return html`
+        <li class="list-group-item p-0">
+            <a class="list-group-item-action d-flex align-items-center gap-2 px-3 py-2 search-result" href="${viewHref({ line: line.line, dir: String(dir) })}" data-view>
+                ${plate(line.line, 'm')}<span class="search-result-text flex-grow-1"><span class="sr-only">, </span>${t('buses.toward')} ${local(line.directions[dir].to)}</span>${resultArrow()}
+            </a>
+        </li>`;
+}
+
 // A stop found by name or code: its name, code, distance and lines, all in
 // the link, so each of eight "SYNTAGMA"s is told apart by what it says
 export function stopResult(stop) {
@@ -192,8 +205,8 @@ export function backLink() {
 }
 
 // Above a line's stops: its number and name, and a switch between its two
-// directions (`direction`: the one shown). The heading takes the keyboard
-// when the line opens.
+// directions (`direction`: the one shown), and a star for the line that
+// way. The heading takes the keyboard when the line opens.
 export function lineHeader(line, direction) {
     const switcher = line.directions.length > 1 && html`
         <div class="btn-group w-100 direction-switch" role="group" aria-label="${t('buses.direction')}">
@@ -201,6 +214,9 @@ export function lineHeader(line, direction) {
         </div>`;
     return html`
         ${backLink()}
-        <h2 class="line-heading d-flex align-items-center gap-2" tabindex="-1">${plate(line.line, 'l')}<span><span class="sr-only">, </span>${local(line.name)}</span></h2>
+        <div class="line-title-row d-flex align-items-center gap-2">
+            <h2 class="line-heading d-flex align-items-center gap-2 flex-grow-1" tabindex="-1">${plate(line.line, 'l')}<span><span class="sr-only">, </span>${local(line.name)}</span></h2>
+            ${favouriteButton({ kind: 'line', key: lineFavourite(line.line, direction), on: isFavourite('line', lineFavourite(line.line, direction)), label: `${t('favourites.star')}: ${t('buses.line')} ${line.line}, ${t('buses.toward')} ${local(line.directions[direction].to)}`, cls: 'line-favourite' })}
+        </div>
         ${switcher || html`<p class="line-toward">${t('buses.toward')} ${local(line.directions[0].to)}</p>`}`;
 }

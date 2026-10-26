@@ -149,6 +149,7 @@ for (const lang of ['en', 'el']) {
         check(render.lineHeader(line, 1));
         check(render.lineHeader(circular, 0));
         check(render.backLink());
+        check(`<ul>${render.favouriteLine(line, 1)}${render.favouriteLine(circular, 0)}</ul>`);
     });
 }
 
@@ -216,4 +217,33 @@ test('results look tappable: an arrow on each, and a hint that says what tapping
     const links = both.match(/<a [^]*?<\/a>/g);
     assert.equal(links.length, 3);
     for (const link of links) assert.match(link, /<svg class="icon search-result-arrow" aria-hidden="true">/);
+});
+
+test('a stop\'s star, beside its walking directions, says which stop it stars; the favourites\' rows have their own ids', async () => {
+    const { stopItem } = await browserModule('tools/buses/client/render.js', 'en');
+    const html = String(stopItem(stop, 3));
+    assert.match(html, /<button type="button" class="favourite-btn stop-favourite" data-favourite="stop" data-key="10361" aria-pressed="false">/);
+    assert.match(html, /<span class="sr-only">Favourite: SYNTAGMA 10361<\/span><\/button>/);
+    assert.ok(html.indexOf('data-favourite') > html.indexOf('header-badge-wrap') && html.indexOf('data-favourite') < html.indexOf('directions-btn'), 'between the minutes and the walking directions');
+    const favourite = String(stopItem(stop, 3, { id: 'fav-stop' }));
+    assert.match(favourite, /data-bs-target="#fav-stop-3"[^>]*aria-controls="fav-stop-3"/);
+    assert.match(favourite, /<div id="fav-stop-3" class="accordion-collapse/);
+});
+
+test('the line header\'s star stars the line in the direction shown', async () => {
+    const { lineHeader } = await browserModule('tools/buses/client/render.js', 'en');
+    const html = String(lineHeader(line, 1));
+    assert.match(html, /data-favourite="line" data-key="040\/1" aria-pressed="false">/);
+    assert.match(html, /<span class="sr-only">Favourite: Line 040, To SYNTAGMA<\/span><\/button>/);
+    assert.match(String(lineHeader(line, 0)), /data-key="040\/0"/);
+    const el = await browserModule('tools/buses/client/render.js', 'el');
+    assert.match(spoken(String(el.lineHeader(line, 0))), /Αγαπημένο: Γραμμή 040, Προς ΠΕΙΡΑΙΑΣ/);
+});
+
+test('a starred line: its plate and where it goes, linking to its stops that way', async () => {
+    const { favouriteLine } = await browserModule('tools/buses/client/render.js', 'en');
+    const html = String(favouriteLine(line, 1));
+    assert.match(html, /href="\/buses\?line=040&amp;dir=1" data-view>/);
+    assert.match(spoken(html), /Line 040, To SYNTAGMA/);
+    assert.match(String((await browserModule('tools/buses/client/render.js', 'el')).favouriteLine(line, 0)), /href="\/el\/buses\?line=040&amp;dir=0"/);
 });

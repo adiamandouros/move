@@ -7,6 +7,12 @@
     </form>
     <div id="search-results" class="search-results" hidden></div>
     <div id="bus-view">
+        {{!-- The starred stops and lines (/js/core/favourites.js), above the stops nearby --}}
+        <section id="favourites" class="bus-favourites" aria-labelledby="favourites-heading" hidden>
+            <h2 id="favourites-heading" class="search-heading">{{t "buses.favourites"}}</h2>
+            <div id="favourite-stops" class="accordion accordion-flush"></div>
+            <ul id="favourite-lines" class="list-group list-group-flush search-list"></ul>
+        </section>
         <h2 id="nearby-heading" class="search-heading nearby-heading" hidden>{{t "buses.nearby"}}</h2>
         <div id="view-header" class="view-header" hidden></div>
         <div id="bus-status" class="bus-status" role="status" hidden></div>

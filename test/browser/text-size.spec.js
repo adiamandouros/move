@@ -5,6 +5,12 @@
 import { expect, onlyOn, test } from './fixtures.js';
 import { EVERY_PAGE, READY } from './site-pages.js';
 
+// Without animations: a turning loading icon (a bus stop below the screen
+// keeps one until it's scrolled to) sticks out of its line at some angles
+// at 200%, though its round drawing never does, so the check would depend on
+// the moment it's made
+test.use({ reducedMotion: 'reduce' });
+
 // What doesn't fit at 200%: the window or the page scrolling sideways, text
 // that spills out of its box (hidden or drawn over its neighbours), and
 // words broken in the middle
@@ -110,12 +116,26 @@ test.describe('at large text', () => {
         expect(await side()).toBe('beside');
         await big(page);
         await expect.poll(side).toBe('under');
-        // the stop's band runs the row's whole width, and the time and directions sit inside the row
-        const [row, label, time, directions] = await Promise.all(['.stop-header', '.stop-label', '.time-badge', '.directions-btn'].map(s => header.locator(s === '.stop-header' ? ':scope' : s).first().boundingBox()));
+        // the stop's band runs the row's whole width, and the time, the star and directions sit inside the row
+        const [row, label, time, star, directions] = await Promise.all(['.stop-header', '.stop-label', '.time-badge', '.stop-favourite', '.directions-btn'].map(s => header.locator(s === '.stop-header' ? ':scope' : s).first().boundingBox()));
         expect(label.width).toBeGreaterThanOrEqual(row.width - 2);
-        for (const box of [time, directions]) {
+        for (const box of [time, star, directions]) {
             expect(box.x + box.width).toBeLessThanOrEqual(row.x + row.width + 1);
             expect(box.y).toBeGreaterThanOrEqual(label.y + label.height - 1);
         }
     });
+});
+
+// The favourites drawn on the bus page aren't on a fresh page: starred first
+test('/buses with starred stops and lines, and a starred line\'s header, at 200% text', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('favourites', JSON.stringify({ stop: ['10361', '10341'], line: ['040/1', 'Χ95/0'] })));
+    await page.goto('/buses');
+    await expect(page.locator('#favourite-lines a')).toHaveCount(2);
+    await expect(page.locator('#favourite-stops .time-badge').first()).toBeVisible();
+    await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
+    expect(await page.evaluate(problems)).toEqual([]);
+    await page.goto('/buses?line=040&dir=1');
+    await expect(page.locator('.line-favourite')).toHaveAttribute('aria-pressed', 'true');
+    await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
+    expect(await page.evaluate(problems)).toEqual([]);
 });
