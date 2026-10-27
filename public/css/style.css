@@ -1080,6 +1080,7 @@ body {
     display: flex;
     flex-direction: column;
     min-width: 0;
+    margin-right: auto;
 }
 
 .suggestion-name-gr {
@@ -1097,11 +1098,24 @@ body {
     flex-shrink: 0;
 }
 
-/* A starred station: its star right after its name */
-.suggestion-favourite {
+/* Every row starts with its star: outline, or filled when starred. The
+   whole left edge of the row is the target for tapping it. */
+.suggestion-star {
     flex-shrink: 0;
-    margin-right: auto;
+    align-self: stretch;
+    width: 2.75rem;
+    margin: calc(-1 * var(--wh-space-2)) 0 calc(-1 * var(--wh-space-2)) -0.875rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.suggestion-favourite {
     color: var(--wh-brand-yellow);
+}
+
+.suggestion-not-favourite {
+    color: var(--bs-secondary-color);
 }
 
 /* Result card */

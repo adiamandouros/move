@@ -63,6 +63,66 @@ test('with the keyboard alone: the star is reached with Tab and pressed with Spa
     await expect(page.locator('#stop-suggestions-from .suggestion-favourite')).toHaveCount(0);
 });
 
+test('the planner\'s lists: every station has a star; tapping it stars the station without picking it, and the row stays put until the list opens again', async ({ page }) => {
+    await page.goto('/subway');
+    await page.locator('#stop-search-to').tap();
+    const rows = page.locator('#stop-suggestions-to .suggestion-item');
+    await expect(rows.first().locator('.suggestion-name-en')).toHaveText('Attiki');
+    const count = await rows.count();
+    await expect(page.locator('#stop-suggestions-to .suggestion-not-favourite')).toHaveCount(count);
+    await expect(page.locator('#stop-suggestions-to .suggestion-favourite')).toHaveCount(0);
+
+    const piraeus = rows.filter({ hasText: 'Piraeus' });
+    const before = await piraeus.boundingBox();
+    await piraeus.locator('.suggestion-star').tap();
+    await expect(piraeus.locator('.suggestion-favourite')).toBeVisible();
+    await expect(piraeus).toContainText(', favourite');
+    await expect(page.locator('#sr-announcer')).toHaveText('Piraeus: added to favourites');
+    // Not picked (the From field has the nearest station), still open, in the same place
+    await expect(page.locator('#stop-search-to')).toHaveValue('');
+    await expect(page.locator('#stop-suggestions-to')).toBeVisible();
+    expect(await piraeus.boundingBox()).toEqual(before);
+    expect(await axe(page)).toEqual([]);
+
+    // Opened again, it's first; tapped again, it's off
+    await page.locator('#stop-search-from').tap();
+    const first = page.locator('#stop-suggestions-from .suggestion-item').first();
+    await expect(first.locator('.suggestion-name-en')).toHaveText('Piraeus');
+    await first.locator('.suggestion-star').tap();
+    await expect(first.locator('.suggestion-not-favourite')).toBeVisible();
+    await expect(first).not.toContainText(', favourite');
+    await expect(page.locator('#sr-announcer')).toHaveText('Piraeus: removed from favourites');
+
+    // A tap beside the star still picks the station
+    await first.locator('.suggestion-names').tap();
+    await expect(page.locator('#stop-search-from')).toHaveValue('Piraeus');
+    await page.goto('/subway/stations/piraeus');
+    await expect(star(page)).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('the planner\'s lists with the keyboard: F stars the station on the row, as the row\'s hint says, and Enter still picks it', async ({ page }) => {
+    await page.goto('/el/subway');
+    const input = page.locator('#stop-search-to');
+    await input.focus();
+    // Pressed again until the page's script lists the stations
+    await expect(async () => {
+        await page.keyboard.press('ArrowDown');
+        await expect(page.locator('#stop-suggestions-to')).toBeVisible({ timeout: 500 });
+    }).toPass();
+    await page.keyboard.press('ArrowDown');
+    const row = page.locator('#stop-suggestions-to .suggestion-item').first();
+    await expect(row).toBeFocused();
+    await expect(row).toHaveAccessibleDescription('Πατήστε F για προσθήκη ή αφαίρεση από τα αγαπημένα');
+    await page.keyboard.press('f');
+    await expect(row.locator('.suggestion-favourite')).toBeVisible();
+    await expect(row).toBeFocused();
+    await expect(page.locator('#sr-announcer')).toHaveText('Αττική: προστέθηκε στα αγαπημένα');
+    await page.keyboard.press('Enter');
+    await expect(input).toHaveValue('Αττική');
+    await page.goto('/el/subway/stations/attiki');
+    await expect(star(page)).toHaveAttribute('aria-pressed', 'true');
+});
+
 // ── Bus stops and lines ─────────────────────────────────────────────────────
 
 const favourites = page => page.locator('#favourites');

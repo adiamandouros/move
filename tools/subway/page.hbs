@@ -15,6 +15,7 @@
                        placeholder="{{t "subway.boarding-placeholder"}}">
                 <ul id="stop-suggestions-from" class="stop-suggestions list-unstyled mb-0" role="listbox"
                     aria-label="{{t "subway.station-suggestions"}}" hidden></ul>
+                <span id="stop-suggestions-from-hint" hidden>{{t "favourites.key-hint"}}</span>
             </div>
             {{!-- Its address and station are filled in by the page's script --}}
             {{#external id="walk-btn" class="directions-btn walk-btn" hidden=true}}
@@ -40,6 +41,7 @@
                        placeholder="{{t "subway.destination-placeholder"}}">
                 <ul id="stop-suggestions-to" class="stop-suggestions list-unstyled mb-0" role="listbox"
                     aria-label="{{t "subway.station-suggestions"}}" hidden></ul>
+                <span id="stop-suggestions-to-hint" hidden>{{t "favourites.key-hint"}}</span>
             </div>
         </div>
     </form>
