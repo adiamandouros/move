@@ -252,10 +252,10 @@ test('each leg says where to board, and station names link to their pages', asyn
     assert.equal((html.match(/<a\b/g) ?? []).length, (html.match(/<a href="\/subway\/stations\/[^"]+">[^<]+<\/a>/g) ?? []).length);
 
     // In Greek without «σταθμός» (the count of stops keeps it: never «στάσεις»):
-    // «Σε Σύνταγμα», «Αλλαγή σε …», «Έξοδος σε …»
+    // «Σε Σύνταγμα:», «Αλλαγή σε …», «Έξοδος σε …»
     const el = await browserModule('tools/subway/client/render.js', 'el');
     const greek = draw(el, TRIPS['a direct trip']).html;
-    assert.match(greek, /<p class="leg-boarding">Σε <a href="\/el\/subway\/stations\/syntagma">Σύνταγμα<\/a><\/p>/);
+    assert.match(greek, /<p class="leg-boarding">Σε <a href="\/el\/subway\/stations\/syntagma">Σύνταγμα<\/a>:<\/p>/);
     assert.match(greek, /Έξοδος σε <strong><a href="\/el\/subway\/stations\/airport">/);
     const change = draw(el, TRIPS['a change of line']).html;
     assert.match(change, new RegExp(`Αλλαγή σε <strong><a href="/el/subway/stations/${trip.plans[0].legs[0].to}">`));

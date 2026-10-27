@@ -69,7 +69,7 @@
     "subway.destination-placeholder": "Αναζήτηση προορισμού…",
     "subway.no-route": "Δεν βρέθηκε διαδρομή. Βεβαιωθείτε ότι και οι δύο σταθμοί ανήκουν στο μετρό Αθήνας ή δοκιμάστε να αντιστρέψετε αφετηρία και προορισμό.",
     "subway.option": "Επιλογή",
-    "subway.board-at": "Σε {station}",
+    "subway.board-at": "Σε {station}:",
     "subway.transfer-at": "Αλλαγή σε",
     "subway.exit-at": "Έξοδος σε",
     "subway.doors-left": "Οι πόρτες ανοίγουν αριστερά",
