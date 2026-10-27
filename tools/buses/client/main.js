@@ -24,6 +24,7 @@ const $ = id => document.getElementById(id);
 const accordion = $('stops-accordion');
 const busView = $('bus-view');
 const header = $('view-header');
+const lineBar = $('line-bar');
 const input = /** @type {HTMLInputElement} */ ($('bus-search-input'));
 
 // What the page shows, from its address: the stops nearby (/buses), one stop
@@ -286,6 +287,29 @@ function interact() {
     }
 }
 
+// ── Pinned and docked bars ──────────────────────────────────────────────────
+
+// A line's bar is pinned at the top while its stops scroll, and the buttons
+// (more stops, hide the empty ones, more results) are docked at the bottom:
+// whatever the keyboard moves to scrolls clear of both (WCAG 2.4.11). A line
+// bar taller than a third of the screen (long names at large text sizes)
+// isn't pinned, so the stops keep room.
+function fitBars() {
+    const content = $('app-content');
+    const tall = lineBar.offsetHeight > content.clientHeight / 3;
+    lineBar.classList.toggle('line-bar-unpinned', tall);
+    content.style.setProperty('--pinned-top', `${lineBar.hidden || tall ? 0 : lineBar.offsetHeight}px`);
+    const docked = [.../** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.nearby-buses-view .filter-bar'))].find(bar => bar.getClientRects().length);
+    content.style.setProperty('--docked-bottom', `${docked?.offsetHeight ?? 0}px`);
+}
+
+function watchBars() {
+    // Measured on the next frame: the observer would be set off again inside
+    // its own callback (WebKit reports that as an error)
+    const observer = new ResizeObserver(() => requestAnimationFrame(fitBars));
+    for (const el of [$('app-content'), lineBar, $('bus-actions'), $('search-results')]) observer.observe(el);
+}
+
 // ── Views ───────────────────────────────────────────────────────────────────
 
 // Draw the view the address asks for. focus: move the keyboard to it (after
@@ -298,6 +322,8 @@ async function showView({ focus = false } = {}) {
     const { view } = state;
     header.hidden = view.kind === 'nearby';
     setHtml(header, view.kind === 'nearby' ? '' : backLink());
+    lineBar.hidden = true;
+    setHtml(lineBar, '');
     if (state.loadFailed) {
         showMessage('no-connection', t('buses.data-error'));
         return;
@@ -337,9 +363,10 @@ async function showView({ focus = false } = {}) {
         return;
     }
     const direction = Math.min(view.direction, line.directions.length - 1);
-    setHtml(header, lineHeader(line, direction));
+    setHtml(lineBar, lineHeader(line, direction));
+    lineBar.hidden = false;
     renderStops(line.directions[direction].stops.map(code => state.byCode.get(code)).filter(Boolean).map(withMeters));
-    if (focus) /** @type {HTMLElement} */ (header.querySelector('.line-heading')).focus();
+    if (focus) /** @type {HTMLElement} */ (lineBar.querySelector('.line-heading')).focus();
     markNearest();
 }
 
@@ -377,7 +404,12 @@ function markNearest() {
     const item = accordion.querySelector(`[data-stop="${state.stops.reduce((a, b) => (b.meters < a.meters ? b : a)).code}"]`);
     item.classList.add('stop-nearest');
     setHtml(item.querySelector('.stop-nearest-note'), nearestNote());
-    if (!accordion.querySelector('.stop-toggle[aria-expanded="true"]')) item.scrollIntoView({ block: 'center' });
+    if (accordion.querySelector('.stop-toggle[aria-expanded="true"]')) return;
+    item.scrollIntoView({ block: 'center' });
+    // The stop half under the line's bar, if one is: shown whole
+    const pinned = lineBar.getBoundingClientRect().bottom;
+    const cut = [...accordion.children].find(row => { const r = row.getBoundingClientRect(); return r.top < pinned && r.bottom > pinned; });
+    if (cut && !lineBar.classList.contains('line-bar-unpinned')) $('app-content').scrollTop -= pinned - cut.getBoundingClientRect().top;
 }
 
 // Follow a link to another view without loading the page again
@@ -395,7 +427,7 @@ function showDirection(direction) {
     params.set('dir', String(direction));
     history.replaceState(null, '', `${location.pathname}?${params}`);
     setView();
-    showView().then(() => /** @type {HTMLElement | null} */ (header.querySelector(`[data-direction="${direction}"]`))?.focus());
+    showView().then(() => /** @type {HTMLElement | null} */ (lineBar.querySelector(`[data-direction="${direction}"]`))?.focus());
 }
 
 // A new position updates how far the stops are (a stop's or a line's, and the starred ones)
@@ -506,6 +538,7 @@ function locationProblem(problem) {
 // stop or a line needs none, so the browser isn't asked for one there.
 async function start() {
     remember('buses', location.search);
+    watchBars();
     onLocation(located);
     onLocationProblem(locationProblem);
 
@@ -600,7 +633,7 @@ async function start() {
         search();
         showView({ focus: true });
     });
-    header.addEventListener('click', e => {
+    lineBar.addEventListener('click', e => {
         const button = /** @type {HTMLElement | null} */ (/** @type {HTMLElement} */ (e.target).closest?.('[data-direction]'));
         if (button) showDirection(Number(button.dataset.direction));
     });

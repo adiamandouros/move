@@ -204,16 +204,16 @@ export function backLink() {
     return html`<a class="btn btn-sm btn-link px-0 back-link" href="${localHref('/buses')}" data-view>${icon('back', 'me-1')}${t('buses.nearby')}</a>`;
 }
 
-// Above a line's stops: its number and name, and a switch between its two
-// directions (`direction`: the one shown), and a star for the line that
-// way. The heading takes the keyboard when the line opens.
+// Above a line's stops, pinned while they scroll (under the way back, which
+// isn't): its number and name, a switch between its two directions
+// (`direction`: the one shown), and a star for the line that way. The
+// heading takes the keyboard when the line opens.
 export function lineHeader(line, direction) {
     const switcher = line.directions.length > 1 && html`
         <div class="btn-group w-100 direction-switch" role="group" aria-label="${t('buses.direction')}">
             ${line.directions.map((d, i) => html`<button type="button" class="btn btn-sm btn-outline-secondary" data-direction="${i}" aria-pressed="${String(i === direction)}">${t('buses.toward')} ${local(d.to)}</button>`)}
         </div>`;
     return html`
-        ${backLink()}
         <div class="line-title-row d-flex align-items-center gap-2">
             <h2 class="line-heading d-flex align-items-center gap-2 flex-grow-1" tabindex="-1">${plate(line.line, 'l')}<span><span class="sr-only">, </span>${local(line.name)}</span></h2>
             ${favouriteButton({ kind: 'line', key: lineFavourite(line.line, direction), on: isFavourite('line', lineFavourite(line.line, direction)), label: `${t('favourites.star')}: ${t('buses.line')} ${line.line}, ${t('buses.toward')} ${local(line.directions[direction].to)}`, cls: 'line-favourite' })}

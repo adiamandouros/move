@@ -538,6 +538,18 @@ body {
 .nearby-buses-view {
     max-width: 45rem;
     margin: 0 auto;
+    /* At least as tall as the screen above the bottom nav, so the buttons
+       docked at its bottom (.filter-bar) are there however few stops show */
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+}
+
+#bus-view,
+.search-results {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Sized by its own width, which the rules at the end of this part check */
@@ -903,10 +915,13 @@ body {
     color: var(--wh-last);
 }
 
-/* Filter bar (sticky above bottom nav) */
+/* Filter bar: docked at the bottom of the screen, above the bottom nav (its
+   page fills the screen's height, so it stays there under a short list too) */
 .filter-bar {
     position: sticky;
     bottom: 0;
+    z-index: 5;
+    margin-top: auto;
     padding: var(--wh-space-3) 0 var(--wh-space-4);
     text-align: center;
     background: linear-gradient(transparent, var(--bs-body-bg) 60%);
@@ -1769,12 +1784,46 @@ body {
     margin-bottom: var(--wh-space-2);
 }
 
-/* Above a stop or a line: the way back, the line and its directions */
+/* Above a stop or a line: the way back */
 .view-header {
     padding: var(--wh-space-1) var(--wh-space-4) var(--wh-space-2);
 }
 
-.view-header:not([hidden]) + .bus-status {
+.view-header:has(+ .line-bar:not([hidden])) {
+    padding-bottom: 0;
+}
+
+/* Under it on a line: the line and its directions, pinned at the top while
+   the stops scroll under it (unless it would fill too much of the screen) */
+.line-bar {
+    position: sticky;
+    top: 0;
+    /* Over the stops, focused ones too (Bootstrap lifts those to 3) */
+    z-index: 5;
+    padding: 0 var(--wh-space-4) var(--wh-space-2);
+    background-color: var(--bs-body-bg);
+    border-bottom: 1px solid var(--wh-divider);
+}
+
+.line-bar.line-bar-unpinned {
+    position: static;
+}
+
+/* The stops and the results scroll clear of the line's bar and the docked
+   buttons when the keyboard moves to them (WCAG 2.4.11); main.js sets how
+   tall those are. On them, not on the page: the bars' own buttons would
+   make the page jump */
+.nearby-buses-view :is(.accordion, .search-list) * {
+    scroll-margin-top: var(--pinned-top, 0);
+    scroll-margin-bottom: var(--docked-bottom, 0);
+}
+
+/* Right under what's above it, which has the space below: the way back,
+   the line, or the stops nearby's heading (margins don't collapse in the
+   page's column) */
+.view-header:not([hidden]) + .bus-status,
+.line-bar:not([hidden]) + .bus-status,
+.nearby-heading:not([hidden]) ~ .bus-status {
     margin-top: 0;
 }
 

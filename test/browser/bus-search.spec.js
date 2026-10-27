@@ -67,7 +67,7 @@ test.describe('searching', () => {
         await page.goto('/buses');
         await search(page).fill('α');
         await expect(stopLinks(page)).toHaveCount(20);
-        await page.getByRole('button', { name: 'Show more stops' }).click();
+        await page.getByRole('button', { name: 'More', exact: true }).click();
         await expect(stopLinks(page)).toHaveCount(40);
         await expect(stopLinks(page).nth(20)).toBeFocused();
     });
