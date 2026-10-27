@@ -1511,6 +1511,11 @@ body {
     color: var(--wh-text-soft);
 }
 
+.subway-intro p,
+.subway-intro ul {
+    margin: 0;
+}
+
 /* At the card's bottom: where to get off on the left, the ride's minutes
    and stops on the right */
 .leg-action {

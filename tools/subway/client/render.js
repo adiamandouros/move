@@ -191,6 +191,9 @@ export function renderResult(rail, plans, now, { expired, tomorrow = false, open
         <p class="schedule-disclaimer">${icon('info', 'me-1')}${t('subway.schedule-disclaimer')}</p>`;
 }
 
+// What the planner shows, as bullets under the intro
+const INTRO_POINTS = ['subway.intro-trains', 'subway.intro-arrival', 'subway.intro-carriage', 'subway.intro-changes', 'subway.intro-access'];
+
 // Before there are two stations: what the page does, in a sentence, and
 // what the trains will show (every symbol any stop has). legend: whether
 // it's open (legendOpen() in metro.js). With one station picked
@@ -199,7 +202,8 @@ export function renderIntro(rail, legend = true, lifts = null, picked = []) {
     const stops = Object.values(rail.lines).flatMap(line => Object.values(line.directions)).flatMap(direction => direction.stops);
     const symbols = [...new Set(stops.filter(stop => stop.exits.length).flatMap(diagramSymbols))];
     const gaps = stepFreeGaps(rail, picked.flatMap(id => stationPlatforms(rail, id)));
-    return html`${liftNotice(lifts, picked, id => stationName(rail, id), gaps)}<p class="subway-intro">${t('subway.intro')}</p>
+    return html`${liftNotice(lifts, picked, id => stationName(rail, id), gaps)}<div class="subway-intro"><p>${t('subway.intro')}</p>
+        <ul>${INTRO_POINTS.map(key => html`<li>${t(key)}</li>`)}</ul></div>
         ${symbols.length > 0 && diagramLegend(symbols, t, legend)}`;
 }
 

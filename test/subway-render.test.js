@@ -348,7 +348,7 @@ test('the last trains are also said in words on a line of their own, with their 
 test('before two stations are picked: what the planner does, and what the trains show, open unless closed before', async () => {
     const render = await browserModule('tools/subway/client/render.js', 'en');
     const intro = String(render.renderIntro(rail));
-    assert.match(intro, /^<p class="subway-intro">Pick where you get on and where you get off[^<]*<\/p>\s*<details class="diagram-legend" open>/);
+    assert.match(intro, /^<div class="subway-intro"><p>Pick where you get on and where you get off\. You&#39;ll see<\/p>\s*<ul><li>next trains<\/li><li>when you&#39;ll arrive<\/li><li>which part of the train to ride in<\/li><li>where to change lines<\/li><li>accessibility warnings<\/li><\/ul><\/div>\s*<details class="diagram-legend" open>/);
     // Every symbol some stop has: the test data has ways out and lifts
     assert.match(spoken(intro), /Ride in this part of the train[^]*The way up from the platform[^]*An elevator/);
     assert.match(String(render.renderIntro(rail, false)), /<details class="diagram-legend">/);
@@ -356,5 +356,5 @@ test('before two stations are picked: what the planner does, and what the trains
     const { trip } = draw(render, TRIPS['a direct trip']);
     assert.match(String(render.renderResult(rail, trip.plans, trip.now, { expired: false, legend: false })), /<details class="diagram-legend">/);
     const greek = await browserModule('tools/subway/client/render.js', 'el');
-    assert.match(String(greek.renderIntro(rail)), /^<p class="subway-intro">Επιλέξτε πού επιβιβάζεστε/);
+    assert.match(String(greek.renderIntro(rail)), /^<div class="subway-intro"><p>Επιλέξτε πού επιβιβάζεστε[^]*<li>προειδοποιήσεις προσβασιμότητας<\/li><\/ul><\/div>/);
 });

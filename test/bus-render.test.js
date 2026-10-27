@@ -78,8 +78,8 @@ test('the minutes badge: colour by how soon, short on screen, in full for screen
     assert.match(badge(en, 4), /time-close/);
     assert.match(badge(en, 8), /time-close/);
     assert.match(badge(en, 9), /time-later/);
-    assert.match(badge(en, 9), /<span aria-hidden="true">9 min<\/span><span class="sr-only">9 minutes<\/span>/);
-    assert.match(badge(el, 9), /<span aria-hidden="true">9 λεπ\.<\/span><span class="sr-only">9 λεπτά<\/span>/);
+    assert.match(badge(en, 9), /<span aria-hidden="true">9'<\/span><span class="sr-only">9 minutes<\/span>/);
+    assert.match(badge(el, 9), /<span aria-hidden="true">9'<\/span><span class="sr-only">9 λεπτά<\/span>/);
     assert.match(badge(en, 2), /<span class="sr-only">2 minutes, arriving soon<\/span>/);
     assert.equal(String(en.headerBadge({ arrivals: [] })), '');
 });
