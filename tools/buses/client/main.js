@@ -1,6 +1,6 @@
 import { lastPosition, locationPermission, onLocation, onLocationProblem, restartLocation, startLocation } from '/js/core/location.js';
 import { favourites } from '/js/core/favourites.js';
-import { format, html, icon, notice, setHtml } from '/js/core/html.js';
+import { announce, format, html, icon, notice, setHtml } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
 import { remember } from '/js/core/remember.js';
 import { decodeStops, distanceMeters, nearestStops } from './stops.js';
@@ -350,7 +350,9 @@ async function showView({ focus = false } = {}) {
 async function renderFavourites() {
     const shown = state.view.kind === 'nearby' && state.allStops ? favourites() : { stop: [], line: [] };
     state.favouriteStops = shown.stop.map(code => state.byCode.get(code)).filter(Boolean).map(withMeters);
-    setHtml($('favourite-stops'), html`${state.favouriteStops.map((stop, i) => stopItem(stop, i, { id: 'fav-stop' }))}`);
+    // The ones opened stay open
+    const opened = new Set([...$('favourite-stops').querySelectorAll('.stop-toggle[aria-expanded="true"]')].map(toggle => toggle.closest('.stop-item').getAttribute('data-stop')));
+    setHtml($('favourite-stops'), html`${state.favouriteStops.map((stop, i) => stopItem(stop, i, { id: 'fav-stop', open: opened.has(stop.code) }))}`);
     setHtml($('favourite-lines'), '');
     $('favourites').hidden = !state.favouriteStops.length && !shown.line.length;
     observe();
@@ -554,11 +556,23 @@ async function start() {
     });
     $('favourite-stops').addEventListener('shown.bs.collapse', () => poll());
 
-    // Starred or unstarred elsewhere on the page: the favourites are drawn
-    // again. Unstarred in the favourites, the row stays (with its star off)
-    // until the page is drawn again, so the keyboard isn't lost.
-    document.addEventListener('favourites-change', e => {
-        if (state.view.kind === 'nearby' && !$('favourites').contains(/** @type {CustomEvent} */ (e).detail.source)) renderFavourites();
+    // Starred or unstarred anywhere on the page: the favourites are drawn
+    // again, so a stop unstarred leaves them at once. Unstarred in the
+    // favourites, the keyboard moves to the closest thing left: the next
+    // stop, else the one before, else a starred line, else the stops nearby.
+    document.addEventListener('favourites-change', async e => {
+        if (state.view.kind !== 'nearby') return;
+        const { source } = /** @type {CustomEvent} */ (e).detail;
+        const row = $('favourites').contains(source) ? source.closest('.stop-item') : null;
+        const index = row ? [...$('favourite-stops').children].indexOf(row) : -1;
+        const name = row?.querySelector('.stop-name').textContent;
+        await renderFavourites();
+        if (!row) return;
+        const stops = $('favourite-stops').querySelectorAll('.stop-toggle');
+        const nearby = $('nearby-heading');
+        nearby.tabIndex = -1;
+        /** @type {HTMLElement} */ (stops[index] ?? stops[index - 1] ?? $('favourite-lines').querySelector('a') ?? (nearby.hidden ? input : nearby)).focus();
+        announce(`${name}: ${t('favourites.removed')}`);
     });
 
     $('show-more-btn').addEventListener('click', () => {

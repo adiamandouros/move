@@ -217,24 +217,57 @@ test('a line starred in one direction is listed by where it goes, and opens that
     await expect(favourites(page)).toBeHidden();
 });
 
-test('with the keyboard alone: open a stop, Tab to its star, unstar and star it; unstarred among the favourites, it stays until the page is drawn again', async ({ page }, { project }) => {
-    test.skip(project.name === 'iphone', 'WebKit only Tabs to links with Safari\'s setting on');
-    await seed(page, { stop: ['10361'] });
-    await page.goto('/buses');
-    await favourites(page).locator('.stop-toggle').focus();
+// Open a stop's row in the favourites with the keyboard, Tab to its star, unstar it
+async function unstarWithKeys(page, code) {
+    await favourites(page).locator(`.stop-item[data-stop="${code}"] .stop-toggle`).focus();
     await page.keyboard.press('Enter');
     await page.keyboard.press('Tab');
-    const starred = favourites(page).locator('.stop-favourite');
-    await expect(starred).toBeFocused();
-    await expect(starred).toHaveAttribute('aria-pressed', 'true');
+    await expect(favourites(page).locator(`.stop-item[data-stop="${code}"] .stop-favourite`)).toBeFocused();
     await page.keyboard.press('Space');
-    await expect(starred).toHaveAttribute('aria-pressed', 'false');
-    await expect(starred).toBeFocused();
+}
+const toggleOf = (page, code) => favourites(page).locator(`.stop-item[data-stop="${code}"] .stop-toggle`);
+
+test('with the keyboard alone: a stop unstarred among the favourites leaves them at once, and the keyboard moves to the next stop, else the one before, else the stops nearby', async ({ page }, { project }) => {
+    test.skip(project.name === 'iphone', 'WebKit only Tabs to links with Safari\'s setting on');
+    await seed(page, { stop: ['10361', '10341', '60718'] });
+    await page.goto('/buses');
+    await expect(favourites(page).locator('.stop-item')).toHaveCount(3);
+
+    await unstarWithKeys(page, '10341');
+    await expect(favourites(page).locator('.stop-item')).toHaveCount(2);
+    await expect(toggleOf(page, '60718')).toBeFocused();
+    await expect(page.locator('#sr-announcer')).toHaveText(/^SYNTAGMA: removed from favourites$/);
+
+    await unstarWithKeys(page, '60718');
     await expect(favourites(page).locator('.stop-item')).toHaveCount(1);
-    await page.keyboard.press('Enter');
-    await expect(starred).toHaveAttribute('aria-pressed', 'true');
-    await page.keyboard.press('Space');
-    await expect(starred).toHaveAttribute('aria-pressed', 'false');
+    await expect(toggleOf(page, '10361')).toBeFocused();
+
+    await unstarWithKeys(page, '10361');
+    await expect(favourites(page)).toBeHidden();
+    await expect(page.locator('#nearby-heading')).toBeFocused();
+    expect(await axe(page)).toEqual([]);
     await page.reload();
     await expect(favourites(page)).toBeHidden();
+});
+
+test('a stop unstarred anywhere leaves the favourites at once; the ones opened there stay open, and the last stop hands the keyboard to a starred line', async ({ page }) => {
+    await seed(page, { stop: ['10361', '10341'], line: ['040/1'] });
+    await page.goto('/buses');
+    await expect(favourites(page).locator('#favourite-lines a')).toHaveCount(1);
+    await toggleOf(page, '10341').tap();
+    await expect(favourites(page).locator('.stop-item[data-stop="10341"] .accordion-collapse')).toHaveClass(/\bshow\b/);
+
+    // Unstarred among the stops nearby
+    const nearby = page.locator('#stops-accordion .stop-item[data-stop="10361"]');
+    await nearby.locator('.stop-toggle').tap();
+    await nearby.locator('.stop-favourite').tap();
+    await expect(nearby.locator('.stop-favourite')).toHaveAttribute('aria-pressed', 'false');
+    await expect(favourites(page).locator('.stop-item')).toHaveCount(1);
+    await expect(favourites(page).locator('.stop-item[data-stop="10341"] .accordion-collapse')).toBeVisible();
+
+    // Unstarred among the favourites: the last stop, so the line is next
+    await favourites(page).locator('.stop-favourite').tap();
+    await expect(favourites(page).locator('.stop-item')).toHaveCount(0);
+    await expect(favourites(page).locator('#favourite-lines a')).toBeFocused();
+    await expect(favourites(page)).toBeVisible();
 });

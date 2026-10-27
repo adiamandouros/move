@@ -1,5 +1,5 @@
 import { lastPosition, locationPermission, onLocation, onLocationProblem, startLocation } from '/js/core/location.js';
-import { localName, setHtml } from '/js/core/html.js';
+import { announce, localName, setHtml } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
 import { remember } from '/js/core/remember.js';
 import { athensNow, closestStation, isTimetableExpired, planTrip } from './network.js';
@@ -21,13 +21,6 @@ async function loadRail() {
         setHtml(result, renderMessage('subway.data-error'));
         return null;
     }
-}
-
-function announce(message) {
-    const el = document.getElementById('sr-announcer');
-    if (!el) return;
-    el.textContent = '';
-    requestAnimationFrame(() => { el.textContent = message; });
 }
 
 function start(rail) {
