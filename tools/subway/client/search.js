@@ -1,4 +1,4 @@
-import { favourites } from '/js/core/favourites.js';
+import { favourites, toggleFavourite } from '/js/core/favourites.js';
 import { html, icon, localName, setHtml } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
 import { linePill } from '/js/core/lines.js';
@@ -41,10 +41,17 @@ export function startingStations(rail, recent, starred = []) {
     return [...new Set([...favourite, ...lately, ...byName(interchanges), ...byName(new Set(ends))])];
 }
 
+// A row's star, filled when the station is starred, and the words that say so
+// to screen readers. Not a button: a listbox holds only its options, so it's
+// tapped, or F pressed on the row (the hint each row points to, from page.html)
+const star = on => icon('favourite', on ? 'suggestion-favourite' : 'suggestion-not-favourite', { filled: on });
+const marked = on => on ? `, ${t('favourites.marked')}` : '';
+
 // Wire an <input role="combobox"> and its <ul role="listbox"> (from page.html)
-// into a station picker. `onChange(id | null)` fires when the selection changes.
+// into a station picker. `onChange(id | null)` fires when the selection changes;
+// `announce(message)` tells screen readers a station was starred or unstarred.
 // Tapping the field, or ArrowDown in it, lists stations to start from.
-export function stationSearch({ input, list, rail, onChange }) {
+export function stationSearch({ input, list, rail, onChange, announce }) {
     let selected = null;
 
     function render(ids) {
@@ -54,18 +61,28 @@ export function stationSearch({ input, list, rail, onChange }) {
             const s = rail.stations[id];
             const favourite = starred.includes(id);
             return html`
-            <li role="option" aria-selected="false" class="suggestion-item" tabindex="-1" data-id="${id}">
+            <li role="option" aria-selected="false" class="suggestion-item" tabindex="-1" data-id="${id}" aria-describedby="${list.id}-hint">
+                <span class="suggestion-star">${star(favourite)}</span>
                 <span class="suggestion-names">
                     <span class="suggestion-name-gr" lang="el">${s.name.el}</span>
                     <span class="suggestion-name-en" lang="en">${s.name.en}</span>
                 </span>
-                ${favourite ? html`${icon('favourite', 'suggestion-favourite', { filled: true })}<span class="sr-only">, ${t('favourites.marked')}</span>` : ''}
+                <span class="sr-only suggestion-marked">${marked(favourite)}</span>
                 <span class="suggestion-lines" aria-hidden="true">${s.lines.map(line => linePill(line, rail.lines[line].name, 's'))}</span>
                 <span class="sr-only">, ${s.lines.join(', ')}</span>
             </li>`;
         })}`);
         list.hidden = false;
         input.setAttribute('aria-expanded', 'true');
+    }
+
+    // Star or unstar a row's station. It keeps its place until the list opens
+    // again, so the next tap doesn't land on another station.
+    function toggleStar(item) {
+        const on = toggleFavourite('station', item.dataset.id);
+        setHtml(item.querySelector('.suggestion-star'), star(on));
+        item.querySelector('.suggestion-marked').textContent = marked(on);
+        announce(`${stationName(rail.stations[item.dataset.id])}: ${t(on ? 'favourites.added' : 'favourites.removed')}`);
     }
 
     function hide() {
@@ -145,6 +162,10 @@ export function stationSearch({ input, list, rail, onChange }) {
         } else if (e.key === 'Escape') {
             hide();
             input.focus();
+        } else if (e.code === 'KeyF' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            // The key, not the letter, so it's F with a Greek keyboard too (φ)
+            e.preventDefault();
+            toggleStar(focused);
         }
     });
 
@@ -155,9 +176,13 @@ export function stationSearch({ input, list, rail, onChange }) {
 
     // mousedown rather than click, so the input doesn't lose focus and close the list first.
     // Then let go of the input, so a phone's keyboard closes and the route shows.
+    // A tap on the star stars the station and leaves the list open.
     list.addEventListener('mousedown', e => {
         const item = e.target.closest('[role="option"]');
-        if (item) { e.preventDefault(); pick(item.dataset.id); input.blur(); }
+        if (!item) return;
+        e.preventDefault();
+        if (e.target.closest('.suggestion-star')) toggleStar(item);
+        else { pick(item.dataset.id); input.blur(); }
     });
 
     input.closest('.subway-search-wrap').addEventListener('focusout', e => {
