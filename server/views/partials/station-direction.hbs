@@ -2,7 +2,7 @@
 of stationView): its neighbours, where to ride when arriving here and the
 first and last trains from here --}}
 <div class="card result-card station-direction" role="group" aria-labelledby="{{headingId}}"><div class="card-body">
-    <h3 class="leg-title" id="{{headingId}}">{{lineBadge}} <span class="direction-text"><span aria-hidden="true">→ </span><span class="sr-only">{{t "subway.toward"}} </span>{{endSign}}</span></h3>
+    <h2 class="leg-title" id="{{headingId}}">{{lineBadge}} <span class="direction-text"><span aria-hidden="true">→ </span><span class="sr-only">{{t "subway.toward"}} </span>{{endSign}}</span></h2>
     <ul class="list-unstyled small station-neighbours">
 {{#if previous}}
         <li>{{t "stations.previous"}}: <a href="{{previous.href}}">{{previous.name}}</a></li>
@@ -15,7 +15,7 @@ first and last trains from here --}}
     </ul>
 {{#if arriving}}
     {{!-- Arriving here: where to ride for the exit and for each connection --}}
-    <h4 class="station-subheading">{{t "stations.exit-heading"}}</h4>
+    <h3 class="station-subheading">{{t "stations.exit-heading"}}</h3>
 {{#if arriving.exitsKnown}}
     <p class="small mb-2">{{t "stations.exit-text"}}</p>
 {{/if}}
@@ -30,7 +30,7 @@ first and last trains from here --}}
 {{/if}}
 {{#if times.length}}
     {{!-- Leaving from here: first and last trains --}}
-    <h4 class="station-subheading">{{t "stations.times-heading"}}</h4>
+    <h3 class="station-subheading">{{t "stations.times-heading"}}</h3>
     {{!-- Scrolls sideways when it doesn't fit (large text) --}}
     <div class="table-responsive station-times-wrap" tabindex="0" role="region" aria-label="{{t "stations.times-caption" name=@root.name toward=timesToward}}">
         <table class="table table-sm station-times mb-0">

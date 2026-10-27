@@ -2274,6 +2274,47 @@ body {
     font-size: var(--wh-fs-2xl);
 }
 
+/* The sign, and its star at the far right of the same line; without room,
+   the star alone, then under the sign, centred (/js/core/station-title.js) */
+.station-title {
+    display: flex;
+    align-items: center;
+    column-gap: var(--wh-space-3);
+    row-gap: var(--wh-space-2);
+    margin-bottom: var(--wh-space-2);
+}
+
+.station-title h1 {
+    min-width: 0;
+    margin: 0;
+}
+
+.station-title .favourite-btn {
+    flex: none;
+    margin-left: auto;
+}
+
+.station-title.measuring h1 {
+    flex: none;
+    white-space: nowrap;
+}
+
+.station-title.star-alone .favourite-btn .icon {
+    margin-right: 0 !important;
+}
+
+.station-title.star-below {
+    flex-wrap: wrap;
+}
+
+.station-title.star-below h1 {
+    flex-basis: 100%;
+}
+
+.station-title.star-below .favourite-btn {
+    margin: 0 auto;
+}
+
 .station-section {
     margin-bottom: var(--wh-space-6);
 }
@@ -2314,6 +2355,7 @@ body {
 
 /* Bootstrap's grey is too faint on the dark background: the lighter one, as
    the text around it has (the bus page's buttons too) */
+.station-title .btn-outline-secondary,
 .station-actions .btn-outline-secondary,
 #bus-actions .btn-outline-secondary,
 .search-results .btn-outline-secondary,

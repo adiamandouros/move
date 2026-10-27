@@ -2,6 +2,7 @@ import { startFavourites } from './favourites.js';
 import { html, icon as iconHtml, setHtml } from './html.js';
 import { t } from './i18n.js';
 import { rememberLegends } from './metro.js';
+import { fitStationTitle } from './station-title.js';
 import { restoreLinks } from './remember.js';
 import { startTheme } from './theme.js';
 
@@ -29,6 +30,11 @@ startFavourites();
 
 // Closed once, closed on every page (/js/core/metro.js)
 rememberLegends();
+
+// ── A station page's title ───────────────────────────────────────────────────
+
+// Its star beside the sign, alone, or under it (/js/core/station-title.js)
+fitStationTitle();
 
 // ── Language ─────────────────────────────────────────────────────────────────
 

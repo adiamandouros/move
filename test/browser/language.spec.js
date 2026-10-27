@@ -20,7 +20,7 @@ test('switching keeps the route and is remembered', async ({ page }, { project }
     await expect(page.locator('html')).toHaveAttribute('lang', 'el');
     expect(await saved(page)).toBe('el');
     await expect(page.locator('#stop-search-from')).toHaveValue('Σύνταγμα');
-    await expect(page.locator('.result-card').first()).toContainText('Αποβίβαση');
+    await expect(page.locator('.result-card').first()).toContainText('Έξοδος σε');
 
     // English addresses now open in Greek
     for (const url of ['/info', '/subway/stations/syntagma', '/nope']) {

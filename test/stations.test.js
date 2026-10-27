@@ -78,7 +78,7 @@ test('the last stop of a direction has no departures', () => {
 test('what a station\'s page shows, as data: lines, neighbours, where to ride, connections, times', () => {
     const view = stationView(rail, 'x', 'en', key => key);
     assert.equal(view.name, 'Cross');
-    assert.deepEqual(view.lines.map(l => [l.key, l.number, l.directions.map(d => d.headingId)]), [['l1', '1', ['l1-east-0', 'l1-west-1']], ['l2', '2', ['l2-east-2']]]);
+    assert.deepEqual(view.lines.map(l => [l.key, l.directions.map(d => d.headingId)]), [['l1', ['l1-east-0', 'l1-west-1']], ['l2', ['l2-east-2']]]);
     const [east] = view.lines[0].directions;
     // Its heading: the line's large pill, and the sign of where it ends
     assert.equal(String(east.lineBadge), '<span class="line-pill pill-l line-l1">L1</span>');
@@ -91,11 +91,8 @@ test('what a station\'s page shows, as data: lines, neighbours, where to ride, c
     assert.equal(east.arriving.centralPlatform, null);
     // The line to change to is its pill
     assert.deepEqual(east.arriving.transfers.map(t => ({ ...t, line: String(t.line) })), [{ line: '<span class="line-pill pill-m line-l2">L2</span>', toward: 'Gamma', where: 'subway.pos.center-front' }]);
-    // Each line's pill: in the sentence under the name, and large as its section's heading
-    assert.deepEqual(view.lines.map(l => [String(l.badge), String(l.heading)]), [
-        ['<span class="line-pill pill-m line-l1">L1</span>', '<span class="line-pill pill-l line-l1">L1</span>'],
-        ['<span class="line-pill pill-m line-l2">L2</span>', '<span class="line-pill pill-l line-l2">L2</span>'],
-    ]);
+    // Each line's pill, in the sentence under the name (no heading per line: the cards name it)
+    assert.deepEqual(view.lines.map(l => String(l.badge)), ['<span class="line-pill pill-m line-l1">L1</span>', '<span class="line-pill pill-m line-l2">L2</span>']);
     assert.match(String(east.arriving.note), /class="stop-note[^"]*">.*Unreliable data<\/div>$/);
     assert.equal(view.lines[0].directions[1].arriving.note, null);
     // Arriving at b on L1: a central platform
@@ -237,14 +234,18 @@ test('a station page shows lines, neighbours, where to ride, connections and tim
     assert.match(html, /aria-label="Train diagram showing where to stand: Back, Center \(elevator\)"/);
     // Under the sections, what the trains show
     assert.match(html, /<details class="diagram-legend" open>\s*<summary>What the train shows<\/summary>/);
-    // Each line's section: its large pill alone, its name for screen readers
-    assert.match(html, /<h2 class="station-line-title" id="line-l1"><span class="line-pill pill-l line-l1">L1<\/span><span class="sr-only"> Line 1<\/span><\/h2>/);
+    // No heading per line: each card names its line, as the page's h2s
+    assert.doesNotMatch(html, /station-line-title/);
+    assert.match(html, /<h2 class="leg-title" id="l1-[^"]+"><span class="line-pill pill-l line-l1">L1<\/span>/);
+    assert.doesNotMatch(html, /<h4\b/);
     assert.match(html, /Changing to <span class="line-pill pill-m line-l2">L2<\/span> toward Gamma/);
     assert.match(html, /href="\/subway\/stations\/a">Alpha</);
     assert.match(html, /href="\/subway\?from=x"/);
     assert.match(html, /href="\/subway\?to=x"/);
     assert.match(html, /<a href="https:\/\/www\.google\.com\/maps\/dir\/\?api=1&amp;destination=38,23\.7&amp;travelmode=walking" class="[^"]+" target="_blank" rel="noopener">/);
-    // Its star, hidden until the page's script shows it starred or not
+    // Its star, on the sign's line (placed by its script), hidden until the
+    // page's script shows it starred or not
+    assert.match(html, /<div class="station-title">\s*<h1 class="station-name">[^]*?<\/h1>\s*<button type="button" class="favourite-btn/);
     assert.match(html, /<button type="button" class="favourite-btn btn btn-sm btn-outline-secondary rounded-pill" data-favourite="station" data-key="x" aria-pressed="false" hidden><svg class="icon me-1"[^>]*><use href="[^"#]*#favourite"><\/use><\/svg><span>Favourite<\/span><\/button>/);
 });
 
@@ -254,8 +255,8 @@ test('arriving at a terminus shows the exit; leaving the first stop shows only t
     assert.ok(t.includes('Doors open on the left'));
     // Alpha starts the eastbound direction and ends the westbound one: one exit, one timetable
     const first = (await get('/subway/stations/a')).html;
-    assert.equal(first.split('>Getting off here</h4>').length - 1, 1);
-    assert.equal(first.split('>First and last trains</h4>').length - 1, 1);
+    assert.equal(first.split('>Getting off here</h3>').length - 1, 1);
+    assert.equal(first.split('>First and last trains</h3>').length - 1, 1);
 });
 
 test('the Greek page is in Greek, with Greek links', async () => {

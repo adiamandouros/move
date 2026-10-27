@@ -156,10 +156,8 @@ export function stationView(rail, id, lang, s) {
     let n = 0;
     const lines = station.lines.map(lineId => ({
         key: lineId.toLowerCase(),
-        // In the sentence under the name, and alone as its section's heading
+        // In the sentence under the name
         badge: linePill(lineId, rail.lines[lineId].name),
-        heading: linePill(lineId, rail.lines[lineId].name, 'l'),
-        number: lineNumber(lineId),
         directions: Object.entries(rail.lines[lineId].directions)
             .filter(([, direction]) => direction.stops.some(stop => stop.station === id))
             .map(([dirId, direction]) => {
