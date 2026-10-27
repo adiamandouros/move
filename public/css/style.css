@@ -703,6 +703,12 @@ body {
     transition: color 0.15s, background-color 0.15s;
 }
 
+/* A stop's star shows once the stop is opened: closed, the row's width
+   goes to the next bus's destination */
+.stop-item:has(.stop-toggle.collapsed) .stop-favourite {
+    display: none;
+}
+
 .stop-favourite:hover,
 .line-favourite:hover {
     color: var(--bs-primary);
