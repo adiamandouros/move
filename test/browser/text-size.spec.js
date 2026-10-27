@@ -109,6 +109,9 @@ test.describe('at large text', () => {
         await page.goto('/buses');
         const header = page.locator('.stop-header').first();
         await expect(header.locator('.time-badge')).toBeVisible();
+        // Opened, so its star shows
+        await header.locator('.stop-toggle').tap();
+        await expect(header.locator('.stop-favourite')).toBeVisible();
         const side = async () => {
             const [label, next] = await Promise.all(['.stop-label', '.stop-next-bus'].map(s => header.locator(s).boundingBox()));
             return next.x >= label.x + label.width - 1 ? 'beside' : next.y >= label.y + label.height - 1 ? 'under' : 'overlapping';

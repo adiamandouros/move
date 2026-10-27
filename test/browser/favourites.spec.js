@@ -136,7 +136,17 @@ test('a stop starred among those nearby is listed above them with its live times
     const first = page.locator('#stops-accordion .stop-item').first();
     await expect(first.locator('.header-badge-wrap .time-badge')).toBeVisible();
     const code = await first.getAttribute('data-stop');
+    // The star shows once the stop is opened, and goes when it's closed
+    await expect(first.locator('.stop-favourite')).toBeHidden();
+    await first.locator('.stop-toggle').tap();
+    await expect(first.locator('.stop-favourite')).toBeVisible();
     await expect(first.locator('.stop-favourite')).toHaveAccessibleName(new RegExp(`^Favourite: .+ ${code}$`));
+    // (a tap while it's still opening is ignored)
+    await expect(first.locator('.accordion-collapse')).toHaveClass(/\bshow\b/);
+    await first.locator('.stop-toggle').tap();
+    await expect(first.locator('.stop-favourite')).toBeHidden();
+    await expect(first.locator('.accordion-collapse')).toBeHidden();
+    await first.locator('.stop-toggle').tap();
     await first.locator('.stop-favourite').tap();
     await expect(first.locator('.stop-favourite')).toHaveAttribute('aria-pressed', 'true');
 
@@ -146,6 +156,8 @@ test('a stop starred among those nearby is listed above them with its live times
     await expect(starred).toHaveCount(1);
     await expect(starred).toHaveAttribute('data-stop', code);
     await expect(starred.locator('.header-badge-wrap .time-badge')).toBeVisible();
+    await expect(starred.locator('.stop-favourite')).toBeHidden();
+    await starred.locator('.stop-toggle').tap();
     await expect(starred.locator('.stop-favourite')).toHaveAttribute('aria-pressed', 'true');
     expect(await axe(page)).toEqual([]);
     await page.reload();
@@ -205,13 +217,16 @@ test('a line starred in one direction is listed by where it goes, and opens that
     await expect(favourites(page)).toBeHidden();
 });
 
-test('with the keyboard alone: star and unstar a stop; unstarred among the favourites, it stays until the page is drawn again', async ({ page }, { project }) => {
+test('with the keyboard alone: open a stop, Tab to its star, unstar and star it; unstarred among the favourites, it stays until the page is drawn again', async ({ page }, { project }) => {
     test.skip(project.name === 'iphone', 'WebKit only Tabs to links with Safari\'s setting on');
     await seed(page, { stop: ['10361'] });
     await page.goto('/buses');
+    await favourites(page).locator('.stop-toggle').focus();
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Tab');
     const starred = favourites(page).locator('.stop-favourite');
+    await expect(starred).toBeFocused();
     await expect(starred).toHaveAttribute('aria-pressed', 'true');
-    await starred.focus();
     await page.keyboard.press('Space');
     await expect(starred).toHaveAttribute('aria-pressed', 'false');
     await expect(starred).toBeFocused();
