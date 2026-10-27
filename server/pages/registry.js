@@ -3,6 +3,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { loadConfig } from '../config.js';
 import { SHELL_STRINGS, stringGetter, toolNames } from './i18n.js';
+import { fares } from './fares.js';
 import { lastTrains } from './last-trains.js';
 import { appData } from './seo.js';
 import { STATION_STRINGS, STATIONS_PATH } from './stations.js';
@@ -74,10 +75,13 @@ export function sitePages(tools, config = loadConfig({}), rail = () => null) {
                 title: `tool.${tool.id}.title`,
                 description: `tool.${tool.id}.description`,
                 // Its data.json gives the view its values; with "rail", also its
-                // data.json "lastTrains" rows' times, as `metro` (last-trains.js)
-                content: (lang, strings) => page(tool.rail
-                    ? { ...tool.data, metro: lastTrains(rail(), tool.data.lastTrains, lang, stringGetter(strings, lang)) }
-                    : tool.data, { lang, strings }),
+                // data.json "lastTrains" rows' times, as `metro` (last-trains.js);
+                // with "fares", its prices as the page shows them, as `prices` (fares.js)
+                content: (lang, strings) => page({
+                    ...tool.data,
+                    ...tool.rail && { metro: lastTrains(rail(), tool.data.lastTrains, lang, stringGetter(strings, lang)) },
+                    ...tool.data.fares && { prices: fares(tool.data.fares, lang) },
+                }, { lang, strings }),
                 strings: tool.strings,
                 scripts: tool.scripts.map(s => `/tools/${tool.id}/${s}`),
                 active: tool.id,

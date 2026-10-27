@@ -1956,6 +1956,13 @@ body {
     vertical-align: middle;
 }
 
+/* Under a pass's price: from how many trips it pays off */
+.info-pays-off {
+    display: block;
+    font-size: var(--wh-fs-xs);
+    color: var(--bs-secondary-color);
+}
+
 .info-subhead {
     margin: var(--wh-space-4) 0 var(--wh-space-2);
 }

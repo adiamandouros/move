@@ -83,8 +83,10 @@
         {{#> section id="tickets" iconName="tickets" title="info.tickets"}}
             {{#ifLang "en"}}
             <p>One 90-minute ticket takes you on all city transport for 90 minutes from when you first validate it: metro, tram, buses, trolleys and the suburban railway within the city, changing as often as you like. It doesn't cover the airport (beyond Koropi) or the airport express buses.</p>
+            <p><strong>No ticket needed:</strong> tap a contactless Visa or Mastercard (or your phone or watch) straight on the validator, as you would a ticket. You pay the full fare, {{prices.single.price}} a trip, and never more than {{prices.day.price}} a day in the city. Use the same card or device every time, and keep it apart from any ATH.ENA card.</p>
             {{else}}
             <p>Ένα εισιτήριο 90 λεπτών ισχύει σε όλα τα μέσα της πόλης για 90 λεπτά από την πρώτη επικύρωση: μετρό, τραμ, λεωφορεία, τρόλεϊ και προαστιακό εντός της πόλης, με όσες αλλαγές μέσου θέλετε. Δεν ισχύει για το αεροδρόμιο (μετά το Κορωπί) ούτε για τα λεωφορεία express του αεροδρομίου.</p>
+            <p><strong>Χωρίς εισιτήριο:</strong> ακουμπήστε μια ανέπαφη Visa ή Mastercard (ή το κινητό ή το ρολόι σας) απευθείας στο ακυρωτικό, όπως ένα εισιτήριο. Πληρώνετε το κανονικό κόμιστρο, {{prices.single.price}} τη διαδρομή, και ποτέ πάνω από {{prices.day.price}} τη μέρα στην πόλη. Χρησιμοποιείτε πάντα την ίδια κάρτα ή συσκευή και κρατήστε τη χωριστά από την κάρτα ATH.ENA.</p>
             {{/ifLang}}
             <div class="table-responsive" tabindex="0" role="region" aria-label="{{t "info.tickets-caption"}}">
                 <table class="table table-sm info-table">
@@ -93,24 +95,43 @@
                         <tr><th scope="col">{{t "info.ticket"}}</th><th scope="col">{{t "info.price"}}</th><th scope="col">{{t "info.reduced"}}</th></tr>
                     </thead>
                     <tbody>
-                        <tr><th scope="row">{{#ifLang "en"}}90 minutes{{else}}90 λεπτών{{/ifLang}}</th><td>€1.20</td><td>€0.50</td></tr>
-                        <tr><th scope="row">{{#ifLang "en"}}24 hours{{else}}24 ωρών{{/ifLang}}</th><td>€4.10</td><td>–</td></tr>
-                        <tr><th scope="row">{{#ifLang "en"}}5 days{{else}}5 ημερών{{/ifLang}}</th><td>€8.20</td><td>–</td></tr>
-                        <tr><th scope="row">{{#ifLang "en"}}3-day tourist, with an airport round trip{{else}}3 ημερών τουριστικό, με μετ' επιστροφής στο αεροδρόμιο{{/ifLang}}</th><td>€20.00</td><td>–</td></tr>
-                        <tr><th scope="row">{{#ifLang "en"}}Packs of 2 / 5 / 10+1 × 90 minutes{{else}}Πακέτα 2 / 5 / 10+1 × 90 λεπτών{{/ifLang}}</th><td>€2.30 / €5.70 / €12.00</td><td>€1.00 / €2.50 / €5.00</td></tr>
+                        <tr><th scope="row">{{#ifLang "en"}}90 minutes{{else}}90 λεπτών{{/ifLang}}</th><td>{{prices.single.price}}</td><td>{{prices.single.reduced}}</td></tr>
+                        <tr><th scope="row">{{#ifLang "en"}}24 hours{{else}}24 ωρών{{/ifLang}}</th><td>{{prices.day.price}}</td><td>{{prices.day.reduced}}</td></tr>
+                        <tr><th scope="row">{{#ifLang "en"}}5 days{{else}}5 ημερών{{/ifLang}}</th><td>{{prices.fiveDays.price}}</td><td>{{prices.fiveDays.reduced}}</td></tr>
+                        <tr><th scope="row">{{#ifLang "en"}}3-day tourist, with an airport round trip{{else}}3 ημερών τουριστικό, με μετ' επιστροφής στο αεροδρόμιο{{/ifLang}}</th><td>{{prices.tourist.price}}</td><td>{{prices.tourist.reduced}}</td></tr>
+                        <tr><th scope="row">{{#ifLang "en"}}Packs of 2 / 5 / 10+1 × 90 minutes{{else}}Πακέτα 2 / 5 / 10+1 × 90 λεπτών{{/ifLang}}</th><td>{{prices.packs.price}}</td><td>{{prices.packs.reduced}}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <h3 class="info-subhead">{{t "info.passes"}}</h3>
+            {{#ifLang "en"}}
+            <p>Unlimited trips on all city transport for 30, 90, 180 or 365 days. Passes go only on a personalised ATH.ENA card. They don't cover the airport: passes that do cost {{prices.withAirport}} (half with a reduced fare).</p>
+            <p>Under each price: from how many trips in its days the pass pays off, against single tickets or a bank card at {{prices.single.price}} a trip ({{prices.single.reduced}} reduced).</p>
+            {{else}}
+            <p>Απεριόριστες διαδρομές σε όλα τα μέσα της πόλης για 30, 90, 180 ή 365 ημέρες. Φορτώνονται μόνο σε προσωποποιημένη κάρτα ATH.ENA. Δεν ισχύουν για το αεροδρόμιο· όσες ισχύουν κοστίζουν {{prices.withAirport}} (τα μισά με μειωμένο κόμιστρο).</p>
+            <p>Κάτω από κάθε τιμή: από πόσες διαδρομές μέσα στις ημέρες της συμφέρει η κάρτα, σε σύγκριση με μεμονωμένα εισιτήρια ή τραπεζική κάρτα στα {{prices.single.price}} τη διαδρομή ({{prices.single.reduced}} με μειωμένο).</p>
+            {{/ifLang}}
+            <div class="table-responsive" tabindex="0" role="region" aria-label="{{t "info.passes-caption"}}">
+                <table class="table table-sm info-table">
+                    <caption class="sr-only">{{t "info.passes-caption"}}</caption>
+                    <thead>
+                        <tr><th scope="col">{{t "info.pass"}}</th><th scope="col">{{t "info.price"}}</th><th scope="col">{{t "info.reduced"}}</th></tr>
+                    </thead>
+                    <tbody>
+                        {{#each prices.passes}}
+                        <tr><th scope="row">{{days}} {{#ifLang "en"}}days{{else}}ημερών{{/ifLang}}</th><td>{{price}}<span class="info-pays-off">{{t "info.pays-off" n=trips}}</span></td><td>{{reduced}}<span class="info-pays-off">{{t "info.pays-off" n=reducedTrips}}</span></td></tr>
+                        {{/each}}
                     </tbody>
                 </table>
             </div>
             {{#ifLang "en"}}
             <ul>
-                <li><strong>Pay by card:</strong> tap a contactless Visa or Mastercard (or your phone) on the reader. You're never charged more than €4.10 a day in the city. Use the same card or device every time, and keep it apart from any ATH.ENA card.</li>
                 <li><strong>Buy:</strong> at the machines and ticket offices in metro stations, or at kiosks. Reduced fares need a personalised ATH.ENA card.</li>
                 <li><strong>Validate:</strong> on every entry and exit in the metro and suburban railway, and once when boarding a bus, trolley or tram.</li>
                 <li><strong>Fine:</strong> €100 without a valid ticket (€50 for reduced fares).</li>
             </ul>
             {{else}}
             <ul>
-                <li><strong>Πληρωμή με κάρτα:</strong> ακουμπήστε μια ανέπαφη Visa ή Mastercard (ή το κινητό σας) στο ακυρωτικό. Η χρέωση στην πόλη δεν ξεπερνά τα €4,10 τη μέρα. Χρησιμοποιείτε πάντα την ίδια κάρτα ή συσκευή και κρατήστε τη χωριστά από την κάρτα ATH.ENA.</li>
                 <li><strong>Αγορά:</strong> στα μηχανήματα και τα εκδοτήρια των σταθμών του μετρό ή στα περίπτερα. Για μειωμένο κόμιστρο χρειάζεται προσωποποιημένη κάρτα ATH.ENA.</li>
                 <li><strong>Επικύρωση:</strong> σε κάθε είσοδο και έξοδο στο μετρό και τον προαστιακό, και μία φορά κατά την επιβίβαση σε λεωφορείο, τρόλεϊ ή τραμ.</li>
                 <li><strong>Πρόστιμο:</strong> €100 χωρίς έγκυρο εισιτήριο (€50 για μειωμένο κόμιστρο).</li>

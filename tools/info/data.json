@@ -17,6 +17,23 @@
       "toOmonia": { "line": "M1", "from": "piraeus", "to": "omonia" }
     }
   },
+  "fares": {
+    "single": { "price": 1.2, "reduced": 0.5 },
+    "day": { "price": 4.1 },
+    "fiveDays": { "price": 8.2 },
+    "tourist": { "price": 20 },
+    "packs": [
+      { "trips": 2, "price": 2.3, "reduced": 1 },
+      { "trips": 5, "price": 5.7, "reduced": 2.5 },
+      { "trips": 11, "price": 12, "reduced": 5 }
+    ],
+    "passes": [
+      { "days": 30, "price": 27, "reduced": 13.5, "withAirport": 45 },
+      { "days": 90, "price": 78, "reduced": 39, "withAirport": 129 },
+      { "days": 180, "price": 155, "reduced": 77.5, "withAirport": 228 },
+      { "days": 365, "price": 300, "reduced": 150, "withAirport": 446 }
+    ]
+  },
   "checked": {
     "hours": {
       "date": "2026-10-14",
@@ -28,7 +45,7 @@
       ]
     },
     "tickets": {
-      "date": "2026-10-14",
+      "date": "2026-10-27",
       "sources": [
         {
           "name": "oasa.gr",
