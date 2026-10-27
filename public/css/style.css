@@ -703,6 +703,20 @@ body {
     transition: color 0.15s, background-color 0.15s;
 }
 
+/* A stop's star and walking directions: as far from each other as the star
+   from the time beside it, the rest of each target on its outer side */
+.stop-favourite {
+    width: auto;
+    min-width: 0;
+    padding-left: 0.6em;
+}
+
+.stop-header-fixed .directions-btn {
+    width: auto;
+    min-width: 0;
+    padding: 0 0.8em 0 0.6em;
+}
+
 /* A stop's star shows once the stop is opened: closed, the row's width
    goes to the next bus's destination */
 .stop-item:has(.stop-toggle.collapsed) .stop-favourite {
@@ -1105,12 +1119,13 @@ body {
 }
 
 /* Every row starts with its star: outline, or filled when starred. The
-   whole left edge of the row is the target for tapping it. */
+   whole left edge of the row, up to the name, is the target for tapping it,
+   with the star in its middle. */
 .suggestion-star {
     flex-shrink: 0;
     align-self: stretch;
     width: 2.75rem;
-    margin: calc(-1 * var(--wh-space-2)) 0 calc(-1 * var(--wh-space-2)) -0.875rem;
+    margin: calc(-1 * var(--wh-space-2)) calc(-1 * var(--wh-space-2)) calc(-1 * var(--wh-space-2)) -0.875rem;
     display: flex;
     align-items: center;
     justify-content: center;
