@@ -327,7 +327,9 @@ and can be edited from a phone at `/admin/stations`.
 - the metro timetable doesn't end within a week;
 - STASY's timetable pages could be read, and its airport timetable hasn't
   changed since `airport.json` (checked weekly);
-- each relay runs the current `RELAY_VERSION`.
+- each relay runs the current `RELAY_VERSION`;
+- the hosting account is well under its thread limit, and no app has old
+  copies still running.
 
 It answers 503 with the problems in plain words, without addresses, keys or
 error details. Every 30 minutes, `.github/workflows/health.yml` runs
@@ -338,6 +340,16 @@ unhealthy, an issue labelled `health` stays open; GitHub emails it.
 `/admin/diagnostics` has the details. How the data stands (the build's age
 and parts, the timetable's end, STASY's copy, the airport check) is judged
 once, in `server/data/status.js`, so the two always agree.
+
+The hosting account may run 100 threads at once, all its apps together
+(about 11 per Node app); at the limit nothing new starts, not even cPanel's
+Node.js page. Copies of apps left running after a restart filled it twice.
+`server/processes.js` reads `/proc` (which starts no process, so it works
+even at the limit): LiteSpeed runs each app as `lsnode:<app folder>`, and a
+copy 10 minutes older than the newest copy of its app is left over. The
+newest copy of Wayhop stops its own every 5 minutes, the deploy stops every
+copy from before the restart (`scripts/stop-old-copies.js`), and the health
+page and `/admin/diagnostics` (with the pids) report other apps' leftovers.
 
 Facts written on the pages by hand (the Info page's closing times, prices,
 airport and night buses) say when they were last checked: one date per

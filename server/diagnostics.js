@@ -11,6 +11,7 @@ import { readJson } from './files.js';
 import { RELAY_VERSION } from '../proxy/worker.js';
 import { OASA_API, REQUESTS_PER_SECOND, TEST_STOP } from './oasa/client.js';
 import { NEW_STOPS_PER_MINUTE } from './oasa/limits.js';
+import { THREAD_LIMIT, THREADS_WARN } from './processes.js';
 
 // Health checks for when something goes wrong on the server: can it reach the
 // internet, OASA, the relay and the open-data portal, is the timetable data
@@ -412,6 +413,28 @@ export function cspChecks(csp, now = Date.now) {
     ];
 }
 
+// The hosting account's threads and the apps LiteSpeed runs for it
+// (server/processes.js accountStatus()); nothing off the host
+/** @param {ReturnType<typeof import('./processes.js').accountStatus> | null} account */
+export function accountChecks(account) {
+    if (!account) return [];
+    const GROUP = 'Hosting account';
+    const { threads, limit } = account;
+    const threadsCheck = check(GROUP, 'Threads', threads >= 0.9 * THREAD_LIMIT ? 'fail' : threads >= THREADS_WARN ? 'warn' : 'ok',
+        `${threads} of the ${limit} the account may run at once`,
+        threads >= THREADS_WARN ? `At ${limit}, nothing new can start: cPanel's Node.js page, deploys, the Terminal. Look for old copies below; each Node app takes about 11.` : undefined);
+    const since = t => new Date(t).toISOString().slice(0, 16).replace('T', ' ');
+    return [threadsCheck, ...account.apps.map(app => {
+        const old = app.copies.filter(c => c.stale);
+        const copies = `${app.copies.length} cop${app.copies.length === 1 ? 'y' : 'ies'}, ${app.threads} threads`;
+        const name = app.dir.split('/').pop() || app.dir;
+        if (!old.length) return check(GROUP, name, 'ok', `${copies}, running since ${since(app.copies.at(-1).started)} UTC`);
+        return check(GROUP, name, 'warn',
+            `${copies}; ${old.length} left over from before a restart: ${old.map(c => `${c.pid} (since ${since(c.started)} UTC)`).join(', ')}`,
+            `Wayhop stops its own within 5 minutes. For another app, in the cPanel Terminal: kill ${old.map(c => c.pid).join(' ')}`);
+    })];
+}
+
 // The facts written on the pages by hand (closing times, prices, night
 // buses: checkedFacts in server/pages/registry.js) are worth checking again
 // after FACTS_MAX_AGE_DAYS; the nightly live check (test/live/) says so too
@@ -497,6 +520,7 @@ function expectBlockedRelays(relays) {
  *   fetch?: typeof globalThis.fetch, dnsLookup?: typeof lookup, now?: () => number, nodeVersion?: string,
  *   csp?: { mode: string, kinds?: any[], dropped?: number } | null,
  *   facts?: { what: string, date: string }[],
+ *   account?: ReturnType<typeof import('./processes.js').accountStatus> | null,
  * }} [options]
  */
 export async function runDiagnostics({
@@ -510,6 +534,7 @@ export async function runDiagnostics({
     nodeVersion = process.version,
     csp = null,
     facts = [],
+    account = null,
 } = {}) {
     // Every request says who we are, as the app's do
     const send = (url, init = {}) => fetch(url, { ...init, headers: { 'User-Agent': config.userAgent, ...init.headers } });
@@ -539,6 +564,7 @@ export async function runDiagnostics({
         ...announcementChecks(announcements, now),
         ...cspChecks(csp, now),
         ...factsChecks(facts, now),
+        ...accountChecks(account),
     ];
     const summary = verdict({
         internet: internet.result,

@@ -61,8 +61,9 @@ changed.
 ## Deploying
 
 The live site runs on cPanel. Its Git deployment runs
-`scripts/cpanel-deploy.sh` (see `.cpanel.yml`), which installs the packages
-and restarts the app. The host starts `server.js` with `require()`, so the
+`scripts/cpanel-deploy.sh` (see `.cpanel.yml`), which installs the packages,
+restarts the app and stops any copy of it still running from before
+(`scripts/stop-old-copies.js`). The host starts `server.js` with `require()`, so the
 server's code can't use top-level `await` (`test/startup.test.js` checks).
 
 ## More
