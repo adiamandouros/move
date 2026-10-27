@@ -1,6 +1,7 @@
 // Lifts out of service, as STASY's lift page says (public/js/core/lifts.js):
 // a notice on the subway page for the stations a trip starts, changes or
-// ends at, words in the station search, and a notice on a station's page.
+// ends at, words in the station search, and a notice on a station's page;
+// and how each platform is reached without steps, on the station's page.
 // In the 'lifts-out' scenario Kerameikos can't be reached step-free and one
 // of Omonia's lifts is out (test/support/test-site.js). What the notices say
 // is tested in Node (subway-render.test.js, lifts.test.js).
@@ -70,6 +71,18 @@ test.describe('lifts out of service', () => {
 });
 
 test.describe('every lift working', () => {
+    test('a station\'s page says how each platform is reached without steps', async ({ page }) => {
+        // Thiseio: an elevator toward Kifisia, a ramp toward Piraeus (positions.json)
+        await page.goto('/subway/stations/thiseio');
+        const cards = page.locator('.station-direction');
+        await expect(cards.filter({ hasText: 'Kifisia' }).locator('.station-step-free')).toHaveText('Step-free from the street: by elevator');
+        await expect(cards.filter({ hasText: 'Piraeus' }).locator('.station-step-free')).toHaveText('Step-free from the street: by ramp');
+        // Petralona waits for a field trip
+        await page.goto('/el/subway/stations/petralona');
+        await expect(page.locator('.station-step-free').first()).toHaveText('Πρόσβαση χωρίς σκαλοπάτια: δεν είναι γνωστή ακόμη');
+        expect(await axe(page)).toEqual([]);
+    });
+
     test('no notice anywhere', async ({ page }) => {
         const loaded = lifts(page);
         await page.goto('/subway?from=kerameikos&to=syntagma');

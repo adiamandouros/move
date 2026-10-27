@@ -128,6 +128,29 @@ test('lifts out of service where the trip starts, changes or ends: one notice, a
     assert.doesNotMatch(String(render.renderIntro(rail, true, LIFTS, ['syntagma'])), /lift-notice/);
 });
 
+test('a platform with steps only where the trip boards, changes or gets off: a warning, without STASY\'s link', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    // As if Thiseio's platform toward Piraeus had steps only
+    const steps = structuredClone(rail);
+    steps.lines.M1.directions.piraeus.stops.find(s => s.station === 'thiseio').stepFree = 'no';
+    const trip = planTrip(steps, 'omonia', 'thiseio', NOON);
+    const html = String(render.renderResult(steps, trip.plans, trip.now, { expired: false }));
+    assert.match(html, /^\s*<div class="notice notice-warn lift-notice/);
+    assert.match(spoken(html).replace(/\s+/g, ' '), /Thiseio: the platform toward Piraeus has steps only, no step-free access\./);
+    assert.doesNotMatch(html, /lift-source/, 'nothing from STASY in it');
+    assert.match(render.routeSummary(steps, trip.plans, trip.now, false), /\. Thiseio: the platform toward Piraeus has steps only, no step-free access\.$/);
+    // Passing through it: nothing; the other direction's platform: nothing
+    const through = planTrip(steps, 'omonia', 'piraeus', NOON);
+    assert.doesNotMatch(String(render.renderResult(steps, through.plans, through.now, { expired: false })), /lift-notice/);
+    const back = planTrip(steps, 'thiseio', 'omonia', NOON);
+    assert.doesNotMatch(String(render.renderResult(steps, back.plans, back.now, { expired: false })), /lift-notice/);
+    // One station picked: its platforms with steps only, with its lifts out of service
+    const intro = spoken(String(render.renderIntro(steps, true, null, ['thiseio'])));
+    assert.match(intro, /Thiseio: the platform toward Piraeus has steps only/);
+    // The real data has no such platform yet
+    assert.doesNotMatch(String(render.renderIntro(rail, true, null, ['thiseio'])), /lift-notice/);
+});
+
 test('lifts out of service, in Greek: STASY\'s Greek page and the Greek names', async () => {
     const render = await browserModule('tools/subway/client/render.js', 'el');
     const text = spoken(draw(render, TRIPS['lifts out of service on the way']).html).replace(/\s+/g, ' ');

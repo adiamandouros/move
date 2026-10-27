@@ -4,7 +4,12 @@ import { stasyNameKey } from './stasy.js';
 /** @type {import('../../types/data.js').Position[]} */
 export const POSITIONS = ['back', 'center-back', 'center', 'center-front', 'front'];
 
-const POSITION_KEYS = new Set(['exits', 'elevators', 'escalators', 'stairs', 'centralPlatform', 'transfers', 'note']);
+// How a platform is reached from the street without steps, or 'no' (none);
+// 'yes' when it is, but how isn't recorded. Left out: not known yet.
+/** @type {import('../../types/data.js').StepFree[]} */
+export const STEP_FREE = ['lift', 'ramp', 'level', 'yes', 'no'];
+
+const POSITION_KEYS = new Set(['exits', 'elevators', 'escalators', 'stairs', 'centralPlatform', 'stepFree', 'transfers', 'note']);
 
 // Check the hand-maintained files in data/curated for mistakes. Returns
 // { errors, warnings }; any error fails the build. Kept independent of the
@@ -66,6 +71,7 @@ export function validateCurated({ stations, lines, positions, airport, tram }) {
                 for (const key of ['elevators', 'escalators', 'stairs']) if (p[key]) checkPositions(`${where}.${key}`, p[key]);
                 if (p.note !== undefined && typeof p.note !== 'string') errors.push(`${where}.note must be text`);
                 if (p.centralPlatform !== undefined && typeof p.centralPlatform !== 'boolean') errors.push(`${where}.centralPlatform must be true or false`);
+                if (p.stepFree !== undefined && !STEP_FREE.includes(p.stepFree)) errors.push(`${where}.stepFree must be one of ${STEP_FREE.join(', ')}`);
                 for (const [ref, list] of Object.entries(p.transfers ?? {})) {
                     if (!directionRefs.has(ref)) errors.push(`${where}.transfers: unknown direction "${ref}"`);
                     else if (ref.startsWith(`${lineId}/`)) errors.push(`${where}.transfers: "${ref}" is on the same line`);

@@ -72,7 +72,9 @@
     "lifts.out": "Out of service: {lifts}.",
     "lifts.source": "Elevator status from STASY, {time}",
     "lifts.closed-short": "No step-free access right now",
-    "lifts.partial-short": "An elevator is out of service"
+    "lifts.partial-short": "An elevator is out of service",
+    "lifts.no-step-free": "{station}: the platform toward {toward} has steps only, no step-free access.",
+    "lifts.no-step-free-short": "Steps only toward {toward}"
   },
   "el": {
     "shell.skip": "Μετάβαση στο περιεχόμενο",
@@ -147,6 +149,8 @@
     "lifts.out": "Εκτός λειτουργίας: {lifts}.",
     "lifts.source": "Ανελκυστήρες σύμφωνα με τη ΣΤΑΣΥ, {time}",
     "lifts.closed-short": "Προς το παρόν χωρίς πρόσβαση με ανελκυστήρα",
-    "lifts.partial-short": "Ανελκυστήρας εκτός λειτουργίας"
+    "lifts.partial-short": "Ανελκυστήρας εκτός λειτουργίας",
+    "lifts.no-step-free": "{station}: στην αποβάθρα προς {toward} φτάνετε μόνο με σκαλοπάτια.",
+    "lifts.no-step-free-short": "Μόνο με σκαλοπάτια προς {toward}"
   }
 }

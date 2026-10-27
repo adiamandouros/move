@@ -21,7 +21,8 @@ follows the phone's light or dark mode (or your choice in the menu).
   tram maps, closing times, tickets, getting to the airport, night buses,
   accessibility and contacts.
 - **Metro stations**: a page for every station, with where to ride for the
-  exit, connections, first and last trains and elevators out of service.
+  exit, connections, first and last trains, how each platform is reached
+  without steps, and elevators out of service.
 
 Every page aims to meet WCAG 2.2 AA (keyboard, screen readers, contrast).
 

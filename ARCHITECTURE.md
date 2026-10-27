@@ -267,7 +267,11 @@ someone asks, through the relays like its other pages, and are kept on disk; a
 copy over 2 hours old isn't served. The subway page warns for the stations a
 trip starts, changes or ends at and in the station search, and a station's
 page for itself (`public/js/core/lifts.js`). Stations STASY lists no lifts
-for (Nerantziotissa, the airport branch) get no warning.
+for (Nerantziotissa, the airport branch) get no warning. How each platform is
+reached without steps, if at all, is recorded by hand (`stepFree` in
+`data/curated/positions.json`, also in the station editor): station pages
+say it for each platform, and a platform with steps only gets the same
+warning in the subway page and its search.
 
 ## Timetables and stops
 

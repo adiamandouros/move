@@ -176,6 +176,8 @@ export function stationView(rail, id, lang, s) {
                     endSign: stationSign(name(lineEnd(rail, lineId, dirId)), [lineId]),
                     previous: link(previous),
                     next: link(next),
+                    // This direction's platform from the street: how without steps, steps only, or not known yet
+                    stepFree: { text: s(`stations.step-free.${stop.stepFree ?? 'unknown'}`), none: stop.stepFree === 'no' },
                     // Arriving here (not at the first stop): where to ride for the exit and for each connection
                     arriving: previous ? {
                         exitsKnown: stop.exits.length > 0,

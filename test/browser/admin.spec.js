@@ -66,3 +66,24 @@ test('the station editor records how each exit is reached: escalators up and sta
     expect(saved[0].entry).toMatchObject({ escalators: ['back'], stairs: ['front'] });
     expect(await axe(page)).toEqual([]);
 });
+
+test('the station editor records whether a platform is step-free, and "not known yet" saves nothing', async ({ page }) => {
+    const saved = [];
+    await page.route('**/admin/api/positions/**', route => {
+        saved.push(route.request().postDataJSON());
+        return route.fulfill({ json: { entry: route.request().postDataJSON().entry, edited: true } });
+    });
+    await page.goto('/admin/login');
+    await page.getByLabel('Password').fill(ADMIN_TEST_PASSWORD);
+    await page.getByRole('button', { name: 'Log in' }).click();
+    const field = page.getByLabel('Step-free from the street (this platform)');
+    await field.selectOption('ramp');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect.poll(() => saved.length).toBe(1);
+    expect(saved[0].entry.stepFree).toBe('ramp');
+
+    await field.selectOption('');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect.poll(() => saved.length).toBe(2);
+    expect(saved[1].entry).not.toHaveProperty('stepFree');
+});
