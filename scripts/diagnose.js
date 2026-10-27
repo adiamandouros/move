@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { loadConfig } from '../server/config.js';
 import { formatReport, runDiagnostics } from '../server/diagnostics.js';
 import { checkedFacts, loadTools } from '../server/pages/registry.js';
+import { createProcessGuard } from '../server/processes.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 dotenv.config({ path: join(ROOT, '.env'), quiet: true });
@@ -17,6 +18,6 @@ dotenv.config({ path: join(ROOT, '.env'), quiet: true });
 let appStatus = null;
 try { appStatus = JSON.parse(readFileSync(join(ROOT, 'data', 'cache', 'oasa-status.json'), 'utf8')); } catch { /* app not running here */ }
 
-const result = await runDiagnostics({ config: loadConfig(), dataDir: join(ROOT, 'data'), appStatus, facts: checkedFacts(loadTools()) });
+const result = await runDiagnostics({ config: loadConfig(), dataDir: join(ROOT, 'data'), appStatus, facts: checkedFacts(loadTools()), account: createProcessGuard().status() });
 console.log(process.argv.includes('--json') ? JSON.stringify(result, null, 2) : formatReport(result));
 process.exitCode = result.summary.status === 'fail' ? 1 : 0;

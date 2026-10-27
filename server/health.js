@@ -1,6 +1,7 @@
 import { dirname, join } from 'path';
 import express from 'express';
 import { RELAY_VERSION } from '../proxy/worker.js';
+import { THREADS_WARN } from './processes.js';
 import { AIRPORT_STALE_DAYS, BUILD_MAX_AGE_MS, dataStatus, STASY_STALE_DAYS, TIMETABLE_WARN_DAYS } from './data/status.js';
 
 // GET /api/health: whether the live site works, for the scheduled check in
@@ -13,6 +14,8 @@ import { AIRPORT_STALE_DAYS, BUILD_MAX_AGE_MS, dataStatus, STASY_STALE_DAYS, TIM
 //   - data, stasy, airport: as server/data/status.js judges them, the same
 //     as /admin/diagnostics (the rail checks' notes are only there)
 //   - relays: each one runs the current RELAY_VERSION (proxy/worker.js)
+//   - server: the hosting account is well under its thread limit, and no
+//     app has old copies still running (server/processes.js)
 // It's public, so it says what's wrong in plain words but leaves out
 // addresses, keys and error details (those are on /admin/diagnostics).
 // Nothing here asks OASA: relays are only asked for their version.
@@ -28,11 +31,12 @@ const CACHE_MS = 60_000;
  *   announcementStatus: () => Record<string, { ok?: boolean, items?: number }>,
  *   buildDir: string, rawDir?: string,
  *   relays?: { name: string, url: string, key: string }[],
+ *   processes?: () => ReturnType<typeof import('./processes.js').accountStatus> | null,
  *   fetch?: typeof globalThis.fetch,
  *   now?: () => number,
  * }} options
  */
-export function createHealth({ busStatus, announcementStatus, buildDir, rawDir = join(dirname(buildDir), 'raw'), relays = [], fetch = globalThis.fetch, now = Date.now }) {
+export function createHealth({ busStatus, announcementStatus, buildDir, rawDir = join(dirname(buildDir), 'raw'), relays = [], processes = () => null, fetch = globalThis.fetch, now = Date.now }) {
     function arrivals() {
         const working = busStatus().routes.filter(r => r.lastOk && now() - r.lastOk < ARRIVALS_FRESH_MS);
         const last = Math.max(0, ...busStatus().routes.map(r => r.lastOk ?? 0));
@@ -59,9 +63,17 @@ export function createHealth({ busStatus, announcementStatus, buildDir, rawDir =
         })));
     }
 
+    // null off the host; app folders stay on /admin/diagnostics
+    function server() {
+        const account = processes();
+        if (!account) return null;
+        const old = account.apps.filter(a => a.copies.some(c => c.stale)).length;
+        return { ok: account.threads < THREADS_WARN && !old, threads: account.threads, limit: account.limit, appsWithOldCopies: old };
+    }
+
     async function check() {
         const { build: data, stasy, airport } = dataStatus({ buildDir, rawDir, now });
-        const result = { arrivals: arrivals(), announcements: announcements(), data, stasy, airport, relays: await relayVersions() };
+        const result = { arrivals: arrivals(), announcements: announcements(), data, stasy, airport, relays: await relayVersions(), server: server() };
         const problems = [];
         if (!result.arrivals.ok) problems.push(`Live arrivals: no route to OASA has answered in the past ${ARRIVALS_FRESH_MS / 60_000} minutes`);
         for (const [name, ok] of Object.entries(result.announcements.sources)) {
@@ -79,6 +91,13 @@ export function createHealth({ busStatus, announcementStatus, buildDir, rawDir =
         else if (!result.airport.ok) problems.push(`Airport timetable: STASY's was last checked on ${result.airport.checked.slice(0, 10)}, over ${AIRPORT_STALE_DAYS} days ago`);
         for (const [name, r] of Object.entries(result.relays)) {
             if (!r.ok) problems.push(`Relay: the ${name} runs ${r.version === null ? 'an older version or is unreachable' : `version ${r.version}`}, not ${RELAY_VERSION}; update it (proxy/README.md)`);
+        }
+        const { server: account } = result;
+        if (account && account.threads >= THREADS_WARN) {
+            problems.push(`Server: the hosting account runs ${account.threads} of its ${account.limit} threads; at ${account.limit}, nothing new can start (cPanel's Node.js page, deploys). Details on /admin/diagnostics`);
+        }
+        if (account?.appsWithOldCopies) {
+            problems.push(`Server: ${account.appsWithOldCopies} app${account.appsWithOldCopies === 1 ? ' has' : 's have'} old copies still running from before a restart (details on /admin/diagnostics)`);
         }
         return { ok: problems.length === 0, checked: new Date(now()).toISOString(), problems, ...result };
     }

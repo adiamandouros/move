@@ -13,6 +13,7 @@ import { checkedFacts, loadTools } from './pages/registry.js';
 import { canonicalHost } from './canonical-host.js';
 import { createAnnouncements } from './info/announcements.js';
 import { createHealth } from './health.js';
+import { createProcessGuard } from './processes.js';
 import { securityHeaders } from './security.js';
 import { contentSecurityPolicy, cspHeaders, REPORT_PATH } from './csp.js';
 import { createCspReports } from './csp-reports.js';
@@ -33,11 +34,14 @@ const DATA_DIR = path.join(ROOT, 'data');
 //   fetch:    how OASA, STASY and the relays are reached
 //   oasaClient, limiter: stand-ins for OASA and the per-visitor limit (oasa/index.js), for tests
 //   logError: where failed requests are logged (server/errors.js)
+//   processGuard: the hosting account's processes (server/processes.js);
+//             server.js starts it
 /**
  * @param {{
  *   config?: import('../types/config.js').Config, buildDir?: string, cacheDir?: string,
  *   fetch?: typeof globalThis.fetch, oasaClient?: ReturnType<typeof createOasaClient>,
  *   limiter?: { take(key: string, stops: number): number }, logError?: (message: string) => void,
+ *   processGuard?: ReturnType<typeof createProcessGuard>,
  * }} [options]
  */
 export function createApp({
@@ -48,6 +52,7 @@ export function createApp({
     oasaClient = createOasaClient({ relays: config.relays, fetch, userAgent: config.userAgent }),
     limiter = undefined,
     logError = console.error,
+    processGuard = createProcessGuard(),
 } = {}) {
     const { relays, cspMode } = config;
     // Pages first: the Content-Security-Policy is built from their inline scripts
@@ -77,7 +82,7 @@ export function createApp({
     const announcements = createAnnouncements({ cacheFile: path.join(cacheDir, 'announcements.json'), relays, fetch, userAgent: config.userAgent });
     app.use('/api/announcements', announcements);
     // Whether the live site works, for the scheduled check (.github/workflows/health.yml)
-    app.use('/api/health', createHealth({ busStatus: busApi.status, announcementStatus: announcements.status, buildDir, relays, fetch }));
+    app.use('/api/health', createHealth({ busStatus: busApi.status, announcementStatus: announcements.status, buildDir, relays, processes: processGuard.status, fetch }));
     // What the Content-Security-Policy blocked, as browsers report it (server/csp-reports.js).
     // Before the bus API, which answers 404 for any other /api address.
     app.use(REPORT_PATH, cspReports.router);
@@ -99,7 +104,7 @@ export function createApp({
             await announcements.refreshNow();
             return runDiagnostics({
                 config, dataDir: DATA_DIR, appStatus: busApi.status(), announcements: announcements.status(),
-                csp: { mode: cspMode, ...cspReports.status() }, facts: checkedFacts(loadTools()),
+                csp: { mode: cspMode, ...cspReports.status() }, facts: checkedFacts(loadTools()), account: processGuard.status(),
             });
         },
     });
