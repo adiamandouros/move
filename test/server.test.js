@@ -5,7 +5,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import http from 'http';
 import { loadTools, sitePages } from '../server/pages/registry.js';
-import { brokenData, down, site } from './support/test-site.js';
+import { brokenData, down, fakeNetwork, LIFTS_OUT, site } from './support/test-site.js';
 
 // The whole server (server/app.js) as a browser or a search engine meets it,
 // over HTTP, without a browser: what every kind of address answers, with
@@ -51,7 +51,7 @@ test('every page answers in both languages, as HTML that browsers revalidate', a
 test('every kind of answer carries the security headers', async () => {
     const answers = {
         'a page': '/subway', 'the 404 page': '/nope', 'a station page': '/el/subway/stations/omonia',
-        'an API answer': '/api/arrivals?stops=10157', 'an API refusal': '/api/arrivals', 'announcements': '/api/announcements',
+        'an API answer': '/api/arrivals?stops=10157', 'an API refusal': '/api/arrivals', 'announcements': '/api/announcements', 'lifts': '/api/lifts',
         'the health check': '/api/health', 'data': '/data/rail.json', 'a stylesheet': '/css/style.css', 'a script': '/js/core/html.js',
         'Bootstrap': '/vendor/bootstrap/css/bootstrap.min.css', 'the icons': '/icons.svg', 'the service worker': '/sw.js',
         'robots.txt': '/robots.txt', 'the sitemap': '/sitemap.xml', 'the app manifest': '/el/manifest.webmanifest',
@@ -217,6 +217,26 @@ test('announcements: never cached, and 503 when every source is down', async () 
 
     const sourcesDown = await serve({ fetch: down });
     const refused = await sourcesDown('/api/announcements');
+    assert.equal(refused.status, 503);
+    assert.match((await refused.json()).error, /unavailable/);
+});
+
+test('lifts: the stations with lifts out, never cached, and 503 when STASY\'s page is down', async () => {
+    const res = await get('/api/lifts');
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('cache-control'), 'no-store');
+    assert.deepEqual((await res.json()).stations, {}, 'every lift works');
+
+    const liftsOut = await serve({ fetch: fakeNetwork({ lifts: LIFTS_OUT }) });
+    const out = await (await liftsOut('/api/lifts')).json();
+    assert.deepEqual(out.stations, {
+        kerameikos: { status: 'closed', out: ['Εξωτερικός Τεχνόπολις Γκάζι'] },
+        omonia: { status: 'partial', out: ['Προς Ανθούπολη'] },
+    });
+    assert.ok(Date.parse(out.fetched));
+
+    const pageDown = await serve({ fetch: down });
+    const refused = await pageDown('/api/lifts');
     assert.equal(refused.status, 503);
     assert.match((await refused.json()).error, /unavailable/);
 });

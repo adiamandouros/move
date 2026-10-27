@@ -18,9 +18,10 @@ const LANGUAGE_NAMES = { en: 'English', el: 'Ελληνικά' };
 const LANGUAGE_LABELS = { en: 'EN', el: 'ΕΛ' };
 
 // The shared strings scripts use (public/js/core/: the toast, the
-// announcements, the location, the favourites' star): a page sends the browser these and its own,
-// not all the shared ones its view used (test/strings-sent.test.js)
-export const BROWSER_SHARED = /^(shell|announcements|location|favourites)\./;
+// announcements, the location, the favourites' star, the lifts out of
+// service): a page sends the browser these and its own, not all the shared
+// ones its view used (test/strings-sent.test.js)
+export const BROWSER_SHARED = /^(shell|announcements|location|favourites|lifts)\./;
 
 // → render(page): a page as HTML, in the layout and in its language.
 // pagePaths: the pages that exist in both languages, for links in the page's

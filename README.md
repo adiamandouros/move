@@ -11,7 +11,9 @@ follows the phone's light or dark mode (or your choice in the menu).
 
 - **Subway**: plan a metro trip (lines 1–3), with the next departures from
   OASA's timetable, first and last trains from STASY's, and which carriage to
-  ride in for the exit (an escalator, stairs), the next line or an elevator.
+  ride in for the exit (an escalator, stairs), the next line or an elevator;
+  a warning when an elevator at the trip's stations is out of service (STASY's
+  elevator page).
 - **Buses**: live arrivals at the stops around you, refreshed every 30
   seconds when a bus is near (less often when the next one is further away);
   any stop by its name or code, and any line with its stops.
@@ -19,7 +21,7 @@ follows the phone's light or dark mode (or your choice in the menu).
   tram maps, closing times, tickets, getting to the airport, night buses,
   accessibility and contacts.
 - **Metro stations**: a page for every station, with where to ride for the
-  exit, connections and first and last trains.
+  exit, connections, first and last trains and elevators out of service.
 
 Every page aims to meet WCAG 2.2 AA (keyboard, screen readers, contrast).
 

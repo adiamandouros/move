@@ -11,6 +11,8 @@ import { AIRPORT_STALE_DAYS, BUILD_MAX_AGE_MS, dataStatus, STASY_STALE_DAYS, TIM
 //     (the scheduled check asks for a stop first, so this is current)
 //   - announcements: every source loaded on its last try (or, not tried yet
 //     since the server started, has announcements kept from before)
+//   - lifts: STASY's lift page loaded on its last try (not tried yet since
+//     the server started counts as fine: nobody has needed it)
 //   - data, stasy, airport: as server/data/status.js judges them, the same
 //     as /admin/diagnostics (the rail checks' notes are only there)
 //   - relays: each one runs the current RELAY_VERSION (proxy/worker.js)
@@ -29,6 +31,7 @@ const CACHE_MS = 60_000;
  * @param {{
  *   busStatus: () => { routes: { name: string, lastOk: number | null }[] },
  *   announcementStatus: () => Record<string, { ok?: boolean, items?: number }>,
+ *   liftStatus?: () => { ok?: boolean, updated: string | null },
  *   buildDir: string, rawDir?: string,
  *   relays?: { name: string, url: string, key: string }[],
  *   processes?: () => ReturnType<typeof import('./processes.js').accountStatus> | null,
@@ -36,7 +39,7 @@ const CACHE_MS = 60_000;
  *   now?: () => number,
  * }} options
  */
-export function createHealth({ busStatus, announcementStatus, buildDir, rawDir = join(dirname(buildDir), 'raw'), relays = [], processes = () => null, fetch = globalThis.fetch, now = Date.now }) {
+export function createHealth({ busStatus, announcementStatus, liftStatus = () => ({ updated: null }), buildDir, rawDir = join(dirname(buildDir), 'raw'), relays = [], processes = () => null, fetch = globalThis.fetch, now = Date.now }) {
     function arrivals() {
         const working = busStatus().routes.filter(r => r.lastOk && now() - r.lastOk < ARRIVALS_FRESH_MS);
         const last = Math.max(0, ...busStatus().routes.map(r => r.lastOk ?? 0));
@@ -50,6 +53,11 @@ export function createHealth({ busStatus, announcementStatus, buildDir, rawDir =
     function announcements() {
         const sources = Object.fromEntries(Object.entries(announcementStatus()).map(([name, s]) => [name, s.ok ?? (s.items ?? 0) > 0]));
         return { ok: Object.values(sources).every(Boolean), sources };
+    }
+
+    function lifts() {
+        const s = liftStatus();
+        return { ok: s.ok ?? true, updated: s.updated };
     }
 
     async function relayVersions() {
@@ -73,12 +81,13 @@ export function createHealth({ busStatus, announcementStatus, buildDir, rawDir =
 
     async function check() {
         const { build: data, stasy, airport } = dataStatus({ buildDir, rawDir, now });
-        const result = { arrivals: arrivals(), announcements: announcements(), data, stasy, airport, relays: await relayVersions(), server: server() };
+        const result = { arrivals: arrivals(), announcements: announcements(), lifts: lifts(), data, stasy, airport, relays: await relayVersions(), server: server() };
         const problems = [];
         if (!result.arrivals.ok) problems.push(`Live arrivals: no route to OASA has answered in the past ${ARRIVALS_FRESH_MS / 60_000} minutes`);
         for (const [name, ok] of Object.entries(result.announcements.sources)) {
             if (!ok) problems.push(`Announcements: ${name} didn't load on its last try`);
         }
+        if (!result.lifts.ok) problems.push('Lifts: STASY\'s lift page didn\'t load on its last try (details on /admin/diagnostics)');
         if (!result.data.built) problems.push('Data: no build yet (data/build/meta.json is missing)');
         else if (!result.data.ok) problems.push(`Data: the last build (${result.data.built}) is over ${BUILD_MAX_AGE_MS / 3_600_000} h old or has failed parts`);
         if (result.data.timetableDaysLeft !== null && result.data.timetableDaysLeft < TIMETABLE_WARN_DAYS) {

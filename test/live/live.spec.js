@@ -1,7 +1,7 @@
 // The live site with its real data (npm run test:live, nightly): the pages
 // load without errors, the planner finds a route in the real timetable, the
-// announcements come in, the Info page's facts aren't too old, the bus
-// page gets live times from OASA and has the lines. Only
+// lift status and the announcements come in, the Info page's facts aren't
+// too old, the bus page gets live times from OASA and has the lines. Only
 // what breaks is checked, not what changes: at 3 a.m. there may be no buses,
 // but there must be an answer.
 import { axe, expect, test } from '../browser/fixtures.js';
@@ -24,6 +24,16 @@ test('the planner finds a route in the real timetable', async ({ page }) => {
     await expect(page.locator('.result-card').first()).toBeVisible();
     await page.goto('/subway/stations/syntagma');
     await expect(page.locator('h1')).toContainText('Syntagma');
+});
+
+// STASY's lift page is read (server/info/lifts.js): its stations are ours,
+// and the page hasn't changed (or /api/lifts would answer 503)
+test('the lift status comes in', async ({ page }) => {
+    const res = await page.request.get('/api/lifts');
+    expect(res.status()).toBe(200);
+    const { fetched, stations } = await res.json();
+    expect(Date.now() - Date.parse(fetched)).toBeLessThan(2 * 3_600_000);
+    for (const [id, { status }] of Object.entries(stations)) expect(['partial', 'closed'], id).toContain(status);
 });
 
 test('the announcements come in', async ({ page }) => {

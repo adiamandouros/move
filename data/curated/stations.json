@@ -27,7 +27,7 @@
     "elliniko": { "name": { "el": "Ελληνικό", "en": "Elliniko" }, "gtfs": ["ELL1", "ELL2"] },
     "ethniki-amyna": { "name": { "el": "Εθνική Άμυνα", "en": "Ethniki Amyna" }, "gtfs": ["EAM1", "EAM2"] },
     "evangelismos": { "name": { "el": "Ευαγγελισμός", "en": "Evangelismos" }, "gtfs": ["EVA1", "EVA2"] },
-    "faliro": { "name": { "el": "Φάληρο", "en": "Faliro" }, "gtfs": ["FALI2", "FALI3"] },
+    "faliro": { "name": { "el": "Φάληρο", "en": "Faliro" }, "gtfs": ["FALI2", "FALI3"], "stasy": ["Νέο Φάληρο"] },
     "ilioupoli": { "name": { "el": "Ηλιούπολη", "en": "Ilioupoli" }, "gtfs": ["ILI1", "ILI2"] },
     "irakleio": { "name": { "el": "Ηράκλειο", "en": "Irakleio" }, "gtfs": ["IRAK1", "IRAK2"] },
     "kallithea": { "name": { "el": "Καλλιθέα", "en": "Kallithea" }, "gtfs": ["KALI1", "KALI2"] },
@@ -63,7 +63,7 @@
     "sepolia": { "name": { "el": "Σεπόλια", "en": "Sepolia" }, "gtfs": ["SEP1", "SEP2"] },
     "syggrou-fix": { "name": { "el": "Συγγρού Φιξ", "en": "Syggrou Fix" }, "gtfs": ["SYG1", "SYG2"] },
     "syntagma": { "name": { "el": "Σύνταγμα", "en": "Syntagma" }, "gtfs": ["SY21", "SY22", "SY31", "SY32"] },
-    "tavros": { "name": { "el": "Ταύρος", "en": "Tavros" }, "gtfs": ["TAVR1", "TAVR2"] },
+    "tavros": { "name": { "el": "Ταύρος", "en": "Tavros" }, "gtfs": ["TAVR1", "TAVR2"], "stasy": ["Ταύρος – Ελ. Βενιζέλος"] },
     "thiseio": { "name": { "el": "Θησείο", "en": "Thiseio" }, "gtfs": ["THIS1", "THIS2"] },
     "victoria": { "name": { "el": "Βικτώρια", "en": "Victoria" }, "gtfs": ["VICT1", "VICT2"] }
   },
