@@ -30,7 +30,8 @@ export const MEANINGS = {
     // Trips and stations
     'trip-from': { symbol: 'trip_origin' },
     'trip-to': { symbol: 'location_on' },
-    nearest: { symbol: 'my_location' },
+    // The boarding station following the location (a toggle)
+    nearest: { symbol: 'my_location', toggle: true },
     swap: { symbol: 'swap_vert' },
     walk: { symbol: 'directions_walk' },
     'change-trains': { symbol: 'transfer_within_a_station' },

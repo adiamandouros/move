@@ -1,5 +1,5 @@
 import { language, localHref, t } from '/js/core/i18n.js';
-import { format, formatDate, html, icon, localName, notice, walkingUrl as walkingTo } from '/js/core/html.js';
+import { format, formatDate, formatHtml, html, icon, localName, notice, walkingUrl as walkingTo } from '/js/core/html.js';
 import { linePill, stationSign } from '/js/core/lines.js';
 import { soonTier, timeBadge } from '/js/core/times.js';
 import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, lineEnd, stopNote } from '/js/core/metro.js';
@@ -25,6 +25,9 @@ export function walkingUrl(rail, id) {
 }
 
 const HOUR = 3600;
+
+// Minutes as on the station boards: "12'" on screen, "12 minutes" for screen readers
+const minutesMark = minutes => html`<span aria-hidden="true">${minutes}'</span><span class="sr-only">${minutes} ${t('subway.minutes')}</span>`;
 
 // Times shown as clock times rather than minutes from now: tomorrow's trains,
 // and trains over an hour away (after midnight, the first ones of the morning)
@@ -67,7 +70,7 @@ export function stopCount(leg) {
 
 // changes: whether the route has more than one leg. Only then does each card
 // say how long its ride is (a direct trip's is the total on the route's line).
-// The stops it always says, on the right: "12 min · 3 stops"
+// The stops it always says, on the right: "12' · 3 stops"
 function legCard(rail, leg, next, now, level, tomorrow, changes) {
     const line = rail.lines[leg.line];
     // Where the line goes, as the station's signs say
@@ -75,13 +78,15 @@ function legCard(rail, leg, next, now, level, tomorrow, changes) {
     const where = legPositions(rail, leg, next);
     const { stop } = where;
     const first = leg.departures[0];
-    const ride = changes && first && html`${format(t('subway.ride'), { min: Math.round((first.arrives - first.departs) / 60) })} · `;
+    const ride = changes && first && html`${minutesMark(Math.round((first.arrives - first.departs) / 60))} · `;
     const action = next
         ? html`${icon('change-trains', 'me-2')}${t('subway.transfer-at')} <strong>${stationLink(rail, leg.to)}</strong>`
         : html`${icon('get-off', 'me-2')}${t('subway.exit-at')} <strong>${stationLink(rail, leg.to)}</strong>`;
     // h2 or h3: a number, never data
     const heading = `h${Number(level)}`;
 
+    // Where to ride first, then where to get off at the bottom, the doors
+    // there under it
     return html`
         <div class="card result-card"><div class="card-body">
             <p class="leg-boarding">${boardAt(rail, leg.from)}</p>
@@ -93,13 +98,13 @@ function legCard(rail, leg, next, now, level, tomorrow, changes) {
                 <div class="schedule-section ms-auto">${departureChips(leg.departures, now, tomorrow)}</div>
             </div>
             ${lastTrainWords(leg.departures)}
-            <div class="leg-action ${stop.centralPlatform ? 'mb-2' : 'mb-3'}">
+            ${exitDiagram(rail.positions, where, t)}
+            ${stopNote(stop.note)}
+            <div class="leg-action mt-3">
                 <span>${action}</span><span class="sr-only">, </span>
                 <span class="leg-ride">${ride}${stopCount(leg)}</span>
             </div>
-            ${stop.centralPlatform && html`<p class="leg-doors text-center mb-3">${centralPlatformBadge(t)}</p>`}
-            ${exitDiagram(rail.positions, where, t)}
-            ${stopNote(stop.note)}
+            ${stop.centralPlatform && html`<p class="leg-doors text-center mt-2 mb-0">${centralPlatformBadge(t)}</p>`}
         </div></div>`;
 }
 
@@ -107,7 +112,7 @@ function legCard(rail, leg, next, now, level, tomorrow, changes) {
 // "Arrive ~12:47 · 23'" on screen, "Arrive about 12:47 · 23 minutes" for
 // screen readers
 function tripTotal(time) {
-    return time && html`${t('subway.arrive')} <span aria-hidden="true">~</span><span class="sr-only">${t('subway.about')} </span>${clockTime(time.arrives)} · <span aria-hidden="true">${time.minutes}'</span><span class="sr-only">${time.minutes} ${t('subway.minutes')}</span>`;
+    return time && html`${t('subway.arrive')} <span aria-hidden="true">~</span><span class="sr-only">${t('subway.about')} </span>${clockTime(time.arrives)} · ${minutesMark(time.minutes)}`;
 }
 
 // An option arriving more than this many minutes after the first starts
@@ -147,14 +152,15 @@ function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, op
     // A native disclosure: a button for screen readers and the keyboard
     const key = routeKey(route);
     return html`${header}<details class="route-details" data-route="${key}"${open[key] && html` open`}>
-        <summary class="route-slower">${icon('more', 'route-chevron')}<span class="route-show">${t('subway.show-route')}</span><span class="route-hide">${t('subway.hide-route')}</span> · ${closed}</summary>
+        <summary class="route-slower">${icon('more', 'route-chevron')}<span class="route-show">${t('subway.show-route')}</span><span class="route-hide">${t('subway.hide-route')}</span><span>· ${closed}</span></summary>
         ${cards}
     </details>`;
 }
 
 // tomorrow: the plans are for tomorrow's first trains (planTrip in network.js)
 // open: { [routeKey]: true/false }, options the user opened or closed
-export function renderResult(rail, plans, now, { expired, tomorrow = false, open = {} }) {
+// legend: whether the legend is open (legendOpen() in metro.js)
+export function renderResult(rail, plans, now, { expired, tomorrow = false, open = {}, legend = true }) {
     if (!plans.length) return renderMessage('subway.no-route');
     const oldNotice = expired && notice('warn', 'warning', format(t('subway.timetable-old'), { date: formatDate(rail.feed.validTo) }), 'timetable-notice mb-3');
     const tomorrowNotice = tomorrow && notice('info', 'night', t('subway.tomorrow'), 'tomorrow-notice mb-3');
@@ -165,7 +171,7 @@ export function renderResult(rail, plans, now, { expired, tomorrow = false, open
     const closed = (r, time) => {
         const slower = time ? Math.floor(time.arrives / 60) - first : 0;
         if (slower <= SLOWER_MINUTES) return '';
-        return r.arrives === null && plans[0].arrives !== null ? t('subway.no-connection') : format(t('subway.slower'), { min: slower });
+        return r.arrives === null && plans[0].arrives !== null ? t('subway.no-connection') : formatHtml(t('subway.slower'), { min: minutesMark(slower) });
     };
     const routes = plans.map((r, i) => html`${i > 0 && html`<hr class="route-divider">`}${routeBlock(rail, r, i, plans.length, now, tomorrow, { time: times[i], closed: closed(r, times[i]), open })}`);
     // What the trains above show, in words: every symbol in any of them
@@ -173,8 +179,18 @@ export function renderResult(rail, plans, now, { expired, tomorrow = false, open
         .filter(where => where.exits.length).flatMap(diagramSymbols))];
     return html`${oldNotice}${tomorrowNotice}
         <div class="routes-wrap">${routes}</div>
-        ${symbols.length > 0 && diagramLegend(symbols, t)}
+        ${symbols.length > 0 && diagramLegend(symbols, t, legend)}
         <p class="schedule-disclaimer">${icon('info', 'me-1')}${t('subway.schedule-disclaimer')}</p>`;
+}
+
+// Before there are two stations: what the page does, in a sentence, and
+// what the trains will show (every symbol any stop has). legend: whether
+// it's open (legendOpen() in metro.js).
+export function renderIntro(rail, legend = true) {
+    const stops = Object.values(rail.lines).flatMap(line => Object.values(line.directions)).flatMap(direction => direction.stops);
+    const symbols = [...new Set(stops.filter(stop => stop.exits.length).flatMap(diagramSymbols))];
+    return html`<p class="subway-intro">${t('subway.intro')}</p>
+        ${symbols.length > 0 && diagramLegend(symbols, t, legend)}`;
 }
 
 // Why there's no trip to show, in the same yellow as the other warnings

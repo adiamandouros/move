@@ -82,10 +82,11 @@ export function exitDiagram(positions, where, s) {
 }
 
 // What the diagrams on a page show, in words, under them: open unless the
-// person closes it. symbols: diagramSymbols() of every diagram there; each
-// line has a small car drawn as in the diagram (decoration: the words say it).
-/** @param {string[]} symbols @param {(key: string) => string} s */
-export function diagramLegend(symbols, s) {
+// person closed it (rememberLegends below). symbols: diagramSymbols() of every
+// diagram there; each line has a small car drawn as in the diagram
+// (decoration: the words say it).
+/** @param {string[]} symbols @param {(key: string) => string} s @param {boolean} [open] */
+export function diagramLegend(symbols, s, open = true) {
     const car = (cls, symbol) => html`<span class="legend-car train-car${cls}" aria-hidden="true">${symbol}</span>`;
     const items = [
         html`<li>${car(' highlighted', null)}<span>${s('subway.legend-ride')}</span></li>`,
@@ -94,10 +95,35 @@ export function diagramLegend(symbols, s) {
         symbols.includes('stairs') && html`<li>${car(' highlighted', icon('stairs'))}<span>${s('subway.legend-stairs')}</span></li>`,
         symbols.includes('lift') && html`<li>${car(' has-elevator', icon('lift', 'car-elevator'))}<span>${s('subway.legend-lift')}</span></li>`,
     ];
-    return html`<details class="diagram-legend" open>
+    return html`<details class="diagram-legend"${open ? html` open` : ''}>
             <summary>${s('subway.legend')}</summary>
             <ul class="diagram-legend-list">${items}</ul>
         </details>`;
+}
+
+// A legend closed stays closed, on every page, until it's opened again: kept
+// on the device. The server draws it open; the browser closes it when the
+// person closed it before (localStorage can be missing or blocked: then it
+// stays open).
+const LEGEND_CLOSED = 'legend-closed';
+
+export function legendOpen() {
+    try { return localStorage.getItem(LEGEND_CLOSED) !== '1'; } catch { return true; }
+}
+
+// Run once per page (shell.js): close the page's legends if they were
+// closed, and remember each one opened or closed
+export function rememberLegends() {
+    if (!legendOpen()) /** @type {NodeListOf<HTMLDetailsElement>} */ (document.querySelectorAll('details.diagram-legend')).forEach(legend => { legend.open = false; });
+    // toggle doesn't bubble: caught on its way down
+    document.addEventListener('toggle', e => {
+        const legend = /** @type {HTMLDetailsElement} */ (e.target);
+        if (!legend.matches?.('details.diagram-legend')) return;
+        try {
+            if (legend.open) localStorage.removeItem(LEGEND_CLOSED);
+            else localStorage.setItem(LEGEND_CLOSED, '1');
+        } catch { /* not kept: open next time */ }
+    }, true);
 }
 
 // The badge for a central platform (the doors open on the left). cls: where it sits.

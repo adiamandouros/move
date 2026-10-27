@@ -1,10 +1,11 @@
 import { lastPosition, locationPermission, onLocation, onLocationProblem, startLocation } from '/js/core/location.js';
 import { announce, localName, setHtml } from '/js/core/html.js';
+import { legendOpen } from '/js/core/metro.js';
 import { language, t } from '/js/core/i18n.js';
 import { remember } from '/js/core/remember.js';
 import { athensNow, closestStation, isTimetableExpired, planTrip } from './network.js';
 import { stationSearch } from './search.js';
-import { renderMessage, renderResult, routeSummary, walkingUrl } from './render.js';
+import { renderIntro, renderMessage, renderResult, routeSummary, walkingUrl } from './render.js';
 
 // Keeps the "in N minutes" chips current while the page is open
 const REFRESH_MS = 30_000;
@@ -31,13 +32,25 @@ function start(rail) {
     // Slower options the user opened or closed themselves (routeKey → open),
     // kept through the refresh, forgotten when the stations change
     let opened = {};
-    // Which one had the keyboard focus, to give it back after a refresh
-    const focused = () => document.activeElement?.closest('#subway-result details')?.getAttribute('data-route');
+    // Which one had the keyboard focus (an option or the legend), to give it
+    // back after a refresh
+    const focused = () => {
+        const details = document.activeElement?.closest('#subway-result details');
+        if (!details) return null;
+        return details.hasAttribute('data-route') ? `details[data-route="${CSS.escape(details.getAttribute('data-route'))}"]` : 'details.diagram-legend';
+    };
+    const refocus = selector => { if (selector) /** @type {HTMLElement | null} */ (result.querySelector(`${selector} > summary`))?.focus(); };
 
     const render = ({ speak = false } = {}) => {
         const origin = from.get();
         const destination = to.get();
-        if (!origin || !destination) { setHtml(result, ''); return; }
+        // Until there are two stations: what the page does, and what the trains show
+        if (!origin || !destination) {
+            const focus = focused();
+            setHtml(result, renderIntro(rail, legendOpen()));
+            refocus(focus);
+            return;
+        }
         if (origin === destination) {
             setHtml(result, renderMessage('subway.same-station'));
             if (speak) announce(t('subway.same-station'));
@@ -47,8 +60,8 @@ function start(rail) {
         // After the last train, tomorrow's first ones
         const { plans, now, tomorrow } = planTrip(rail, origin, destination, today);
         const focus = focused();
-        setHtml(result, renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow, open: opened }));
-        if (focus) /** @type {HTMLElement | null} */ (result.querySelector(`details[data-route="${CSS.escape(focus)}"] > summary`))?.focus();
+        setHtml(result, renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow, open: opened, legend: legendOpen() }));
+        refocus(focus);
         if (speak) announce(routeSummary(rail, plans, now, tomorrow));
     };
 
@@ -83,8 +96,17 @@ function start(rail) {
     });
 
     // Without a station in the address, the boarding station follows the
-    // user's location until they pick one themselves
-    let followLocation = !params.has('from');
+    // user's location until they pick one themselves. The "Nearest" button
+    // shows it: pressed (blue, its icon filled) while it does.
+    let followLocation = false;
+    const locate = document.getElementById('locate-btn');
+    const follow = on => {
+        followLocation = on;
+        locate.setAttribute('aria-pressed', String(on));
+        const use = locate.querySelector('use');
+        use?.setAttribute('href', use.getAttribute('href').replace(/#.*$/, `#nearest${on ? '-filled' : ''}`));
+    };
+    follow(!params.has('from'));
 
     const fromInput = /** @type {HTMLInputElement} */ (document.getElementById('stop-search-from'));
     const toInput = /** @type {HTMLInputElement} */ (document.getElementById('stop-search-to'));
@@ -92,10 +114,10 @@ function start(rail) {
         input: fromInput,
         list: document.getElementById('stop-suggestions-from'),
         rail,
-        onChange: () => { followLocation = false; changed(); },
+        onChange: () => { follow(false); changed(); },
         announce,
     });
-    fromInput.addEventListener('input', () => { followLocation = false; });
+    fromInput.addEventListener('input', () => follow(false));
     const to = stationSearch({
         input: toInput,
         list: document.getElementById('stop-suggestions-to'),
@@ -120,7 +142,7 @@ function start(rail) {
     document.getElementById('subway-form').addEventListener('submit', e => e.preventDefault());
 
     document.getElementById('swap-stations').addEventListener('click', () => {
-        followLocation = false;
+        follow(false);
         const origin = from.get();
         from.set(to.get(), { notify: false });
         to.set(origin, { notify: false });
@@ -132,8 +154,9 @@ function start(rail) {
 
     // ── The nearest station ──
     // Set at once from a recent position (even offline, underground), then
-    // from new ones while followLocation lasts. The "Nearest station" button
-    // asks for it (the browser asks for the location the first time).
+    // from new ones while followLocation lasts. The "Nearest" button turns
+    // that back on and asks for it (the browser asks the first time). Pressed
+    // again while on, it looks again: picking a station is what turns it off.
     const status = document.getElementById('locate-status');
     let requested = false;
 
@@ -143,7 +166,7 @@ function start(rail) {
         if (id !== from.get()) from.set(id);
         else if (!always) return;
         // (from.set counts as choosing it, so it's kept until here)
-        followLocation = true;
+        follow(true);
         syncUrl();
         announce(`${t('subway.location-prefix')} ${localName(rail.stations[id].name, language)} ${t('subway.location-suffix')}`);
     };
@@ -159,20 +182,23 @@ function start(rail) {
 
     const deniedText = () => `${t('location.denied')}. ${t('location.denied-hint')}`;
 
-    // Only said when someone pressed the button and is waiting for it
+    // Only said when someone pressed the button and is waiting for it.
+    // Blocked, the button goes off: it can't follow anything.
     onLocationProblem(problem => {
+        if (problem === 'denied') follow(false);
         if (!requested) return;
         if (problem !== 'slow') requested = false;
         status.textContent = problem === 'denied' ? deniedText() : t(`location.${problem}`);
     });
 
-    document.getElementById('locate-btn').addEventListener('click', async () => {
-        followLocation = true;
+    locate.addEventListener('click', async () => {
+        follow(true);
         const last = lastPosition();
         if (last) {
             setNearest(last, { always: true });
         } else if (await locationPermission() === 'denied') {
             // The browser won't ask, and browsers report this differently when asked anyway
+            follow(false);
             status.textContent = deniedText();
             return;
         } else {
@@ -186,7 +212,10 @@ function start(rail) {
         const last = lastPosition();
         if (last) setNearest(last);
         // Only if the browser won't ask: here it asks when the button is pressed
-        locationPermission().then(permission => { if (permission === 'granted') startLocation(); });
+        locationPermission().then(permission => {
+            if (permission === 'granted') startLocation();
+            else if (permission === 'denied' && !last) follow(false);
+        });
     }
 }
 

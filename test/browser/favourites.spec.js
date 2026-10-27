@@ -8,7 +8,7 @@ import { axe, expect, onlyOn, test } from './fixtures.js';
 
 test.beforeEach(onlyOn('phone'));
 
-const star = page => page.locator('.station-actions [data-favourite="station"]');
+const star = page => page.locator('.station-title [data-favourite="station"]');
 
 test('a station starred on its page comes first in the subway planner\'s lists, marked, and stays starred', async ({ page }) => {
     await page.goto('/subway/stations/kerameikos');
@@ -291,4 +291,40 @@ test('a stop unstarred anywhere leaves the favourites at once; the ones opened t
     await expect(favourites(page).locator('.stop-item')).toHaveCount(0);
     await expect(favourites(page).locator('#favourite-lines a')).toBeFocused();
     await expect(favourites(page)).toBeVisible();
+});
+
+test('a station\'s star sits at the far right of its sign\'s line; without room, alone, then under it with its word', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    const box = locator => locator.boundingBox();
+    const word = page.locator('.station-title .favourite-btn > span');
+
+    // Room for both: centred on the sign, at the right edge
+    await page.goto('/subway/stations/omonia');
+    await expect(star(page)).toBeVisible();
+    await expect(word).toBeVisible();
+    const [title, sign, button] = await Promise.all([page.locator('.station-title'), page.locator('.station-title h1'), star(page)].map(box));
+    expect(Math.abs(button.y + button.height / 2 - (sign.y + sign.height / 2))).toBeLessThan(1);
+    expect(Math.abs(button.x + button.width - (title.x + title.width))).toBeLessThan(1);
+
+    // A longer name: the star alone, its word still there for screen readers
+    await page.goto('/subway/stations/agios-eleftherios');
+    await expect(page.locator('.station-title')).toHaveClass(/\bstar-alone\b/);
+    await expect(star(page)).toHaveAccessibleName('Favourite');
+    expect((await box(word)).width).toBeLessThanOrEqual(1);
+    const [sign2, button2] = await Promise.all([page.locator('.station-title h1'), star(page)].map(box));
+    expect(Math.abs(button2.y + button2.height / 2 - (sign2.y + sign2.height / 2))).toBeLessThan(1);
+    expect(await axe(page)).toEqual([]);
+
+    // Longer still: under the sign, centred, with its word
+    await page.goto('/subway/stations/doukissis-plakentias');
+    await expect(page.locator('.station-title')).toHaveClass(/\bstar-below\b/);
+    await expect(word).toBeVisible();
+    const [title3, sign3, button3] = await Promise.all([page.locator('.station-title'), page.locator('.station-title h1'), star(page)].map(box));
+    expect(button3.y).toBeGreaterThanOrEqual(sign3.y + sign3.height);
+    expect(Math.abs(button3.x + button3.width / 2 - (title3.x + title3.width / 2))).toBeLessThan(1);
+
+    // Wider, it goes back beside the sign
+    await page.setViewportSize({ width: 1000, height: 800 });
+    await expect(page.locator('.station-title')).not.toHaveClass(/star-(alone|below)/);
+    await expect(word).toBeVisible();
 });

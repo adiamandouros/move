@@ -1,22 +1,25 @@
 {{!-- A metro station's page (server/pages/stations.js, stationView) --}}
 <div class="station-view">
 {{> breadcrumb crumbs}}
-    <h1 class="station-name mb-2">{{sign}}</h1>
+    {{!-- The star at the far right of the sign's line, or under it (/js/core/station-title.js, from shell.js) --}}
+    <div class="station-title">
+        <h1 class="station-name">{{sign}}</h1>
+        {{favourite}}
+    </div>
     <p class="text-body-secondary mb-3">{{t "stations.lines-here"}}{{#each lines}} {{badge}}{{/each}}</p>
     <div class="station-actions d-flex flex-wrap gap-2 mb-4">
         <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?from={{id}}">{{icon "trip-from" "me-1"}}{{t "stations.plan-from"}}</a>
         <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?to={{id}}">{{icon "trip-to" "me-1"}}{{t "stations.plan-to"}}</a>
         {{#external href=walking class="btn btn-sm btn-outline-secondary rounded-pill"}}{{icon "walk" "me-1"}}{{t "stations.walk"}}{{/external}}
-        {{favourite}}
     </div>
+    {{!-- Each card names its line: no heading per line --}}
+    <div class="station-section">
 {{#each lines}}
-    <section class="station-section" aria-labelledby="line-{{key}}">
-        <h2 class="station-line-title" id="line-{{key}}">{{heading}}<span class="sr-only"> {{t "stations.line" n=number}}</span></h2>
 {{#each directions}}
         {{> station-direction}}
 {{/each}}
-    </section>
 {{/each}}
+    </div>
 {{#if legend}}
     {{legend}}
 {{/if}}

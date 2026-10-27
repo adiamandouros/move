@@ -968,7 +968,8 @@ body {
     box-shadow: var(--focus-ring);
 }
 
-/* "Nearest station": the boarding station from the location */
+/* "Nearest": the boarding station follows the location. Off, it looks like
+   the buttons around it; on, blue with its icon filled */
 .locate-btn {
     display: inline-flex;
     align-items: center;
@@ -976,6 +977,10 @@ body {
     min-height: 2.75rem;
     padding: 0 var(--wh-space-2);
     font-size: var(--wh-fs-sm);
+    color: var(--bs-secondary-color);
+}
+
+.locate-btn[aria-pressed="true"] {
     color: var(--bs-primary);
 }
 
@@ -1467,7 +1472,15 @@ body {
     margin-bottom: 0.375rem;
 }
 
-/* Where to get off on the left, the ride's minutes and stops on the right */
+/* Before two stations are picked: what the planner does, above the legend */
+.subway-intro {
+    margin: var(--wh-space-4) 0 0;
+    font-size: var(--wh-fs-sm);
+    color: var(--wh-text-soft);
+}
+
+/* At the card's bottom: where to get off on the left, the ride's minutes
+   and stops on the right */
 .leg-action {
     display: flex;
     flex-wrap: wrap;
@@ -2261,6 +2274,47 @@ body {
     font-size: var(--wh-fs-2xl);
 }
 
+/* The sign, and its star at the far right of the same line; without room,
+   the star alone, then under the sign, centred (/js/core/station-title.js) */
+.station-title {
+    display: flex;
+    align-items: center;
+    column-gap: var(--wh-space-3);
+    row-gap: var(--wh-space-2);
+    margin-bottom: var(--wh-space-2);
+}
+
+.station-title h1 {
+    min-width: 0;
+    margin: 0;
+}
+
+.station-title .favourite-btn {
+    flex: none;
+    margin-left: auto;
+}
+
+.station-title.measuring h1 {
+    flex: none;
+    white-space: nowrap;
+}
+
+.station-title.star-alone .favourite-btn .icon {
+    margin-right: 0 !important;
+}
+
+.station-title.star-below {
+    flex-wrap: wrap;
+}
+
+.station-title.star-below h1 {
+    flex-basis: 100%;
+}
+
+.station-title.star-below .favourite-btn {
+    margin: 0 auto;
+}
+
 .station-section {
     margin-bottom: var(--wh-space-6);
 }
@@ -2301,6 +2355,7 @@ body {
 
 /* Bootstrap's grey is too faint on the dark background: the lighter one, as
    the text around it has (the bus page's buttons too) */
+.station-title .btn-outline-secondary,
 .station-actions .btn-outline-secondary,
 #bus-actions .btn-outline-secondary,
 .search-results .btn-outline-secondary,
