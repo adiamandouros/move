@@ -54,6 +54,16 @@ export function setHtml(element, view) {
     element.innerHTML = String(view);
 }
 
+// Tell screen readers something that changed out of sight, through the
+// page's live region (#sr-announcer, in layout.hbs)
+/** @param {string} message */
+export function announce(message) {
+    const el = document.getElementById('sr-announcer');
+    if (!el) return;
+    el.textContent = '';
+    requestAnimationFrame(() => { el.textContent = message; });
+}
+
 // Escape text for safe use inside HTML, as text or in an attribute
 /** @param {unknown} text */
 export function escapeHtml(text) {
