@@ -4,7 +4,8 @@
         <div class="subway-search-wrap mb-1">
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
                 <label for="stop-search-from" class="form-label fw-semibold m-0">{{t "subway.boarding-label"}}</label>
-                <button id="locate-btn" type="button" class="btn btn-sm locate-btn">
+                {{!-- On while the boarding station follows the location (the page's script) --}}
+                <button id="locate-btn" type="button" class="btn btn-sm locate-btn" aria-pressed="false">
                     {{icon "nearest"}}<span>{{t "subway.nearest"}}</span>
                 </button>
             </div>

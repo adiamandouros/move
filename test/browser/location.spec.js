@@ -13,7 +13,7 @@ test.describe('a first visit, where the browser would ask', () => {
             await page.waitForLoadState('networkidle');
             expect(await geoCalls(page), url).toBe(0);
         }
-        // The subway page asks only from "Nearest station"
+        // The subway page asks only from "Nearest"
         await expect(page.locator('#stop-search-from')).toHaveValue('');
         await expect(page.locator('#walk-btn')).toBeHidden();
     });
@@ -81,6 +81,61 @@ test.describe('location blocked', () => {
         await page.goto('/el/subway');
         await page.locator('#locate-btn').click();
         await expect(page.locator('#locate-status')).toContainText('αποκλεισμένη');
+        // It can't follow the location, so it isn't on
+        await expect(page.locator('#locate-btn')).toHaveAttribute('aria-pressed', 'false');
         expect(await axe(page)).toEqual([]);
+    });
+});
+
+test.describe('"Nearest": on while the boarding station follows the location', () => {
+    const colour = locator => locator.evaluate(el => getComputedStyle(el).color);
+
+    test('on at first, off once a station is picked, on again with a tap', async ({ page }) => {
+        await page.goto('/subway?to=airport');
+        const nearest = page.locator('#locate-btn');
+        const from = page.locator('#stop-search-from');
+        await expect(from).toHaveValue('Syntagma');
+        await expect(nearest).toHaveAccessibleName('Nearest');
+        await expect(nearest).toHaveAttribute('aria-pressed', 'true');
+        // Blue (the primary colour), its icon filled
+        const blue = await page.evaluate(() => { const el = document.createElement('i'); el.className = 'text-primary'; document.body.append(el); const c = getComputedStyle(el).color; el.remove(); return c; });
+        await expect.poll(() => colour(nearest)).toBe(blue);
+        await expect(nearest.locator('use')).toHaveAttribute('href', /#nearest-filled$/);
+        expect(await axe(page)).toEqual([]);
+
+        // Another station typed in: off, the colour of the buttons around it
+        await from.fill('Omonia');
+        await expect(nearest).toHaveAttribute('aria-pressed', 'false');
+        await page.locator('#stop-suggestions-from .suggestion-item').first().click();
+        await expect(page).toHaveURL(/from=omonia/);
+        await expect(nearest).toHaveAttribute('aria-pressed', 'false');
+        // (after its fade)
+        await expect.poll(() => colour(nearest)).toBe(await colour(page.locator('#swap-stations')));
+        await expect(nearest.locator('use')).toHaveAttribute('href', /#nearest$/);
+        expect(await axe(page)).toEqual([]);
+
+        // On again: the nearest station again
+        await nearest.click();
+        await expect(nearest).toHaveAttribute('aria-pressed', 'true');
+        await expect(from).toHaveValue('Syntagma');
+        await expect(page).toHaveURL(/from=syntagma/);
+    });
+
+    test('off when the address names the station, or the stations are swapped', async ({ page }) => {
+        await page.goto('/subway?from=omonia&to=airport');
+        const nearest = page.locator('#locate-btn');
+        await expect(page.locator('.result-card').first()).toBeVisible();
+        await expect(nearest).toHaveAttribute('aria-pressed', 'false');
+
+        await page.goto('/subway?to=airport');
+        await expect(nearest).toHaveAttribute('aria-pressed', 'true');
+        await page.locator('#swap-stations').click();
+        await expect(nearest).toHaveAttribute('aria-pressed', 'false');
+        await expect(page.locator('#stop-search-from')).toHaveValue('Airport');
+    });
+
+    test('in Greek: «Κοντινότερος»', async ({ page }) => {
+        await page.goto('/el/subway');
+        await expect(page.locator('#locate-btn')).toHaveAccessibleName('Κοντινότερος');
     });
 });

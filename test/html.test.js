@@ -144,6 +144,8 @@ test('the legend: what the trains show, in words, open, only for the symbols the
     // The small cars are decoration: the words say it
     for (const line of lines) assert.match(line, /^<span class="legend-car train-car[^"]*" aria-hidden="true">/);
     assert.doesNotMatch(String(diagramLegend(['escalator'], s)), /legend-exit|legend-lift|legend-stairs/);
+    // Closed by the person before (legendOpen()): drawn closed
+    assert.match(String(diagramLegend(['exit'], s, false)), /^<details class="diagram-legend">/);
 });
 
 test('the central platform badge and a stop\'s note', () => {

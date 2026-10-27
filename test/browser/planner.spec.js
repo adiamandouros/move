@@ -99,12 +99,16 @@ test('one route: «No transfers» on the left, its arrival on the right', async 
     expect(Math.abs(arrival.x + arrival.width - (box.x + box.width))).toBeLessThan(1);
 });
 
-test('each card: where to get off on the left, the stops (and with a change, minutes) on the right', async ({ page }) => {
+test('each card ends with where to get off on the left, the stops (and with a change, minutes) on the right', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });
-    for (const [path, ride] of [['/subway?from=syntagma&to=airport', /^15 stops$/], ['/subway?from=kifisia&to=aigaleo', /^\d+ min · \d+ stops$/], ['/el/subway?from=kifisia&to=aigaleo', /^\d+ λεπτά · \d+ σταθμοί$/]]) {
+    for (const [path, ride] of [['/subway?from=syntagma&to=airport', /^15 stops$/], ['/subway?from=kifisia&to=aigaleo', /^(\d+)'\1 minutes · \d+ stops$/], ['/el/subway?from=kifisia&to=aigaleo', /^(\d+)'\1 λεπτά · \d+ σταθμοί$/]]) {
+        // ("12'" on screen, "12 minutes" for screen readers)
         await page.goto(path);
         const action = page.locator('.leg-action').first();
         await expect(action.locator('.leg-ride')).toHaveText(ride);
+        // Under the train
+        const [diagram, below] = await Promise.all([page.locator('.result-card').first().locator('.train-diagram'), action].map(l => l.boundingBox()));
+        expect(below.y).toBeGreaterThanOrEqual(diagram.y + diagram.height);
         const [box, where, stops] = await Promise.all([action, action.locator('span').first(), action.locator('.leg-ride')].map(l => l.boundingBox()));
         expect(Math.abs(where.x - box.x)).toBeLessThan(1);
         expect(Math.abs(stops.x + stops.width - (box.x + box.width))).toBeLessThan(1);
@@ -190,7 +194,7 @@ test('a slower option starts closed; opened, it stays open through the refresh, 
     const slower = page.locator('details.route-details');
     const summary = slower.locator('summary');
     await expect(slower).toHaveCount(1);
-    await expect(summary).toHaveAccessibleName('Show route · 6 min slower');
+    await expect(summary).toHaveAccessibleName('Show route · 6 minutes slower');
     await expect(slower.locator('.result-card').first()).toBeHidden();
     expect(await axe(page)).toEqual([]);
 
@@ -198,7 +202,7 @@ test('a slower option starts closed; opened, it stays open through the refresh, 
     await summary.focus();
     await page.keyboard.press('Enter');
     await expect(slower.locator('.result-card').first()).toBeVisible();
-    await expect(summary).toHaveAccessibleName('Hide route · 6 min slower');
+    await expect(summary).toHaveAccessibleName('Hide route · 6 minutes slower');
 
     // The 30-second refresh draws it again: still open, still focused
     await slower.evaluate(el => el.setAttribute('data-before-refresh', ''));
@@ -236,7 +240,9 @@ test('names every object has in the address aren\'t stations: empty fields, no c
     await expect(page.locator('#stop-search-from')).toHaveValue('');
     await expect(page.locator('#stop-search-to')).toHaveValue('');
     await expect(page.locator('#walk-btn')).toBeHidden();
-    await expect(page.locator('#subway-result')).toBeEmpty();
+    // Nothing but what the page is for
+    await expect(page.locator('#subway-result .result-card')).toHaveCount(0);
+    await expect(page.locator('.subway-intro')).toBeVisible();
     await page.goto('/subway?from=toString&to=syntagma');
     await expect(page.locator('#stop-search-to')).toHaveValue('Syntagma');
     await expect(page.locator('#walk-btn')).toBeHidden();
@@ -344,4 +350,38 @@ test('under the trip, what the train shows: open, in words, and closes with the 
     await page.keyboard.press('Enter');
     await expect(legend).not.toHaveAttribute('open', '');
     await expect(legend.getByRole('listitem').first()).toBeHidden();
+    // Through the 30-second refresh it stays closed, and keeps the focus
+    await page.clock.runFor(31_000);
+    await expect(legend).not.toHaveAttribute('open', '');
+    await expect(legend.locator('summary')).toBeFocused();
+});
+
+test('entering the planner: what it does, and what the train shows, open', async ({ page }) => {
+    // The nearest station fills in where to get on; where to get off is still to pick
+    await page.goto('/subway');
+    await expect(page.locator('.subway-intro')).toContainText('Pick where you get on and where you get off');
+    await expect(page.locator('.diagram-legend')).toHaveAttribute('open', '');
+    expect(await axe(page)).toEqual([]);
+});
+
+test('a legend closed stays closed after a reload and on the station pages, until opened again', async ({ page }) => {
+    await page.goto('/subway?from=syntagma&to=airport');
+    const legend = page.locator('.diagram-legend');
+    await legend.locator('summary').click();
+    await expect(legend).not.toHaveAttribute('open', '');
+    await page.reload();
+    await expect(page.locator('.result-card').first()).toBeVisible();
+    await expect(legend).not.toHaveAttribute('open', '');
+    // Another trip, and the page before stations are picked
+    await page.goto('/subway?from=kifisia&to=aigaleo');
+    await expect(page.locator('.result-card').first()).toBeVisible();
+    await expect(legend).not.toHaveAttribute('open', '');
+    await page.goto('/subway/stations/airport');
+    await expect(legend).not.toHaveAttribute('open', '');
+    // Opened there: open everywhere again
+    await legend.locator('summary').click();
+    await expect(legend).toHaveAttribute('open', '');
+    await page.goto('/subway?from=syntagma&to=airport');
+    await expect(page.locator('.result-card').first()).toBeVisible();
+    await expect(legend).toHaveAttribute('open', '');
 });

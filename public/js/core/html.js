@@ -81,7 +81,7 @@ export function safeUrl(url) {
     }
 }
 
-// Fill {name} placeholders: format(t('subway.ride'), { min: 12 }). Gives text;
+// Fill {name} placeholders: format(t('subway.stops-count'), { count: 3 }). Gives text;
 // put it into html`` to escape it.
 /** @param {string} text @param {Record<string, unknown>} values @returns {string} */
 export function format(text, values) {
