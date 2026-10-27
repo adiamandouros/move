@@ -12,6 +12,7 @@ import { createPages } from './pages/index.js';
 import { checkedFacts, loadTools } from './pages/registry.js';
 import { canonicalHost } from './canonical-host.js';
 import { createAnnouncements } from './info/announcements.js';
+import { createLifts } from './info/lifts.js';
 import { createHealth } from './health.js';
 import { createProcessGuard } from './processes.js';
 import { securityHeaders } from './security.js';
@@ -30,7 +31,7 @@ const DATA_DIR = path.join(ROOT, 'data');
 //   config:   the settings (server/config.js): the relays, the admin password,
 //             the CSP mode, the public address, AdSense
 //   buildDir: rail.json, bus-stops.json, bus-lines.json, meta.json (data/build)
-//   cacheDir: OASA's routes, the route status and the announcements (data/cache)
+//   cacheDir: OASA's routes, the route status, the announcements and the lifts (data/cache)
 //   fetch:    how OASA, STASY and the relays are reached
 //   oasaClient, limiter: stand-ins for OASA and the per-visitor limit (oasa/index.js), for tests
 //   logError: where failed requests are logged (server/errors.js)
@@ -81,8 +82,11 @@ export function createApp({
     // Service announcements for the info page, from the OASA and STASY websites
     const announcements = createAnnouncements({ cacheFile: path.join(cacheDir, 'announcements.json'), relays, fetch, userAgent: config.userAgent });
     app.use('/api/announcements', announcements);
+    // Which metro lifts are out of service, from STASY's website
+    const lifts = createLifts({ cacheFile: path.join(cacheDir, 'lifts.json'), relays, fetch, userAgent: config.userAgent });
+    app.use('/api/lifts', lifts);
     // Whether the live site works, for the scheduled check (.github/workflows/health.yml)
-    app.use('/api/health', createHealth({ busStatus: busApi.status, announcementStatus: announcements.status, buildDir, relays, processes: processGuard.status, fetch }));
+    app.use('/api/health', createHealth({ busStatus: busApi.status, announcementStatus: announcements.status, liftStatus: lifts.status, buildDir, relays, processes: processGuard.status, fetch }));
     // What the Content-Security-Policy blocked, as browsers report it (server/csp-reports.js).
     // Before the bus API, which answers 404 for any other /api address.
     app.use(REPORT_PATH, cspReports.router);
@@ -99,11 +103,11 @@ export function createApp({
         loadRail: () => readJson(path.join(buildDir, 'rail.json')),
         rebuild: rebuildSoon,
         render: pages.render,
-        // Fetches the announcements first, so their checks show the current state
+        // Fetches the announcements and the lifts first, so their checks show the current state
         diagnose: async () => {
-            await announcements.refreshNow();
+            await Promise.all([announcements.refreshNow(), lifts.refreshNow()]);
             return runDiagnostics({
-                config, dataDir: DATA_DIR, appStatus: busApi.status(), announcements: announcements.status(),
+                config, dataDir: DATA_DIR, appStatus: busApi.status(), announcements: announcements.status(), lifts: lifts.status(),
                 csp: { mode: cspMode, ...cspReports.status() }, facts: checkedFacts(loadTools()), account: processGuard.status(),
             });
         },

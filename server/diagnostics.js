@@ -393,6 +393,29 @@ export function announcementChecks(sources, now = Date.now) {
     });
 }
 
+// STASY's lift page, as the running app last fetched it (server/info/lifts.js status())
+export function liftChecks(lifts, now = Date.now) {
+    if (!lifts) return [];
+    const ago = t => `${Math.max(0, Math.round((now() - Date.parse(t)) / 60_000))} min ago`;
+    const title = 'STASY lift status';
+    const out = [];
+    if (lifts.ok) {
+        const via = lifts.route && lifts.route !== 'direct' ? `, through the ${lifts.route}` : '';
+        out.push(check('Lifts', title, 'ok', `${lifts.stations} stations${via}`));
+    } else if (lifts.ok === undefined) {
+        out.push(check('Lifts', title, 'info', lifts.updated ? `Not fetched since the app started; the copy is from ${ago(lifts.updated)}` : 'Not fetched since the app started'));
+    } else {
+        const hint = /direct: HTTP 403/.test(lifts.error) && !/relay/.test(lifts.error) ? 'STASY refuses this server\'s address. Its pages can come through the home relay: see proxy/README.md.' : undefined;
+        const shown = lifts.updated ? `The copy is from ${ago(lifts.updated)} (shown for 2 hours).` : 'Nothing to show.';
+        out.push(check('Lifts', title, lifts.updated ? 'warn' : 'fail', `${lifts.error}. ${shown}`, hint));
+    }
+    if (lifts.unknown?.length) {
+        out.push(check('Lifts', 'Stations not known', 'warn', `STASY's lift page lists ${lifts.unknown.map(n => `"${n}"`).join(', ')}, which Wayhop doesn't know, so their lifts aren't shown`,
+            'A new station, or a name written another way: add it to "stasy" in data/curated/stations.json.'));
+    }
+    return out;
+}
+
 // What the Content-Security-Policy blocked, or would block in report-only
 // mode, as browsers reported it since the app started (server/csp-reports.js)
 export function cspChecks(csp, now = Date.now) {
@@ -516,7 +539,7 @@ function expectBlockedRelays(relays) {
 
 /**
  * @param {{
- *   config?: import('../types/config.js').Config, dataDir?: string, appStatus?: any, announcements?: any,
+ *   config?: import('../types/config.js').Config, dataDir?: string, appStatus?: any, announcements?: any, lifts?: any,
  *   fetch?: typeof globalThis.fetch, dnsLookup?: typeof lookup, now?: () => number, nodeVersion?: string,
  *   csp?: { mode: string, kinds?: any[], dropped?: number } | null,
  *   facts?: { what: string, date: string }[],
@@ -528,6 +551,7 @@ export async function runDiagnostics({
     dataDir,
     appStatus = null,
     announcements = null,
+    lifts = null,
     fetch = globalThis.fetch,
     dnsLookup = lookup,
     now = Date.now,
@@ -562,6 +586,7 @@ export async function runDiagnostics({
         ...dataChecks(dataDir, now),
         ...appChecks(appStatus, now),
         ...announcementChecks(announcements, now),
+        ...liftChecks(lifts, now),
         ...cspChecks(csp, now),
         ...factsChecks(facts, now),
         ...accountChecks(account),

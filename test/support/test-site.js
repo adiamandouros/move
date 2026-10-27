@@ -1,6 +1,6 @@
 // The site the browser tests and the server tests run against: the real app
 // (server/app.js) with the data in test/browser/data/, a fake OASA and fake
-// announcement sources, so nothing reaches the network.
+// announcement and lift sources, so nothing reaches the network.
 import { copyFileSync, mkdtempSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -8,6 +8,8 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 import { createApp } from '../../server/app.js';
 import { loadConfig } from '../../server/config.js';
+import { LIFTS_PAGE } from '../../server/info/lifts.js';
+import { liftsPage } from '../fixtures/stasy-lifts.js';
 
 export const DATA = fileURLToPath(new URL('../browser/data/', import.meta.url));
 
@@ -50,12 +52,23 @@ const SOURCES = {
     'https://www.oasa.gr/feed/': rss([['Αλλαγές στη γραμμή 040', 1], ['Έργα στην οδό Πανεπιστημίου', 3]]),
     'https://www.oasa.gr/en/feed/': rss([['Changes to line 040', 1], ['Works on Panepistimiou street', 3]]),
 };
+// Lifts out of service (STASY's lift page): Kerameikos can't be reached
+// step-free, and one of Omonia's lifts is out
+export const LIFTS_OUT = {
+    line119: { 'Κεραμεικός': { status: 'Error', lifts: [['Προς Δημοτικό Θέατρο', true], ['Εξωτερικός Τεχνόπολις Γκάζι', false]] } },
+    line117: { 'Ομόνοια': { status: 'Warning', lifts: [['Προς Ανθούπολη', false], ['Προς Ελληνικό', true]] } },
+};
 // STASY's one post is a closure, so the disruption banner shows; `calm`
-// makes it an ordinary one
-const fakeNetwork = ({ calm = false } = {}) => async url => {
+// makes it an ordinary one. Every lift works, or `lifts` are out
+// (liftsPage() in test/fixtures/stasy-lifts.js), or with `lifts: null` the
+// lift page doesn't answer.
+export const fakeNetwork = ({ calm = false, lifts = {} } = {}) => async url => {
     const href = String(url);
     let body = SOURCES[href];
-    if (!body && href.startsWith('https://www.stasy.gr/news-')) {
+    if (href === LIFTS_PAGE) {
+        if (!lifts) throw new Error('fake network: the lift page is down');
+        body = liftsPage(lifts);
+    } else if (!body && href.startsWith('https://www.stasy.gr/news-')) {
         body = `<meta property="article:published_time" content="${day(2).toISOString()}">`;
     } else if (!body && href.startsWith('https://www.stasy.gr/')) {
         body = `<article id="post-1" class="clearfix">\n<a href="https://www.stasy.gr/news-1/"><h5><span class="light">${calm ? 'Νέα έξοδος στον σταθμό Πανεπιστήμιο' : 'Κλειστός ο σταθμός Πανεπιστήμιο'}</span></h5></a></article>`;
@@ -113,6 +126,10 @@ export const scenarios = () => ({
     'announcements-down': site({ fetch: down }),
     // Announcements, but no strike or closure among them
     'no-disruptions': site({ fetch: fakeNetwork({ calm: true }) }),
+    // Lifts out of service at Kerameikos (no step-free access) and Omonia (one lift)
+    'lifts-out': site({ fetch: fakeNetwork({ lifts: LIFTS_OUT }) }),
+    // STASY's lift page doesn't answer: no lift warnings anywhere
+    'lifts-down': site({ fetch: fakeNetwork({ lifts: null }) }),
     // Before the first data build: no rail.json or bus-stops.json
     'no-data': site({ buildDir: mkdtempSync(join(tmpdir(), 'wayhop-nodata-')) }),
     // With the admin pages, behind this password (test/browser/admin.spec.js)

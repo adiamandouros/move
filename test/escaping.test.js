@@ -55,6 +55,13 @@ test('the subway planner\'s result', async () => {
     safe(render.renderResult(rail, plans, now, { expired: false, tomorrow }), 'route result');
 });
 
+test('lifts out of service, as STASY names them', async () => {
+    const { liftNotice } = await browserModule('public/js/core/lifts.js', 'en');
+    const lifts = { fetched: '2026-10-21T08:50:00Z', stations: { omonia: { status: 'partial', out: [EVIL] } } };
+    safe(liftNotice(lifts, ['omonia'], () => 'Omonia'), 'a lift\'s name');
+    safe(liftNotice(lifts, ['omonia'], () => EVIL), 'a station\'s name');
+});
+
 test('the subway planner\'s station suggestions', async () => {
     const { stationSearch } = await browserModule('tools/subway/client/search.js', 'en');
     // Just enough of the page for the station field

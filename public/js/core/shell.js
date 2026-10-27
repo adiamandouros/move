@@ -1,6 +1,7 @@
 import { startFavourites } from './favourites.js';
 import { html, icon as iconHtml, setHtml } from './html.js';
 import { t } from './i18n.js';
+import { startStationLifts } from './lifts.js';
 import { rememberLegends } from './metro.js';
 import { fitStationTitle } from './station-title.js';
 import { restoreLinks } from './remember.js';
@@ -35,6 +36,9 @@ rememberLegends();
 
 // Its star beside the sign, alone, or under it (/js/core/station-title.js)
 fitStationTitle();
+
+// Its lifts out of service, if any (/js/core/lifts.js)
+startStationLifts();
 
 // ── Language ─────────────────────────────────────────────────────────────────
 

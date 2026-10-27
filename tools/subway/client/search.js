@@ -1,6 +1,7 @@
 import { favourites, toggleFavourite } from '/js/core/favourites.js';
 import { html, icon, localName, setHtml } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
+import { liftWords } from '/js/core/lifts.js';
 import { linePill } from '/js/core/lines.js';
 import { normalise } from '/js/core/text.js';
 import { addRecentStation, recentStations } from './recent.js';
@@ -50,22 +51,27 @@ const marked = on => on ? `, ${t('favourites.marked')}` : '';
 // Wire an <input role="combobox"> and its <ul role="listbox"> (from page.html)
 // into a station picker. `onChange(id | null)` fires when the selection changes;
 // `announce(message)` tells screen readers a station was starred or unstarred.
+// `lifts()`: the lifts out of service (watchLifts() in /js/core/lifts.js), said
+// in words under the station's name.
 // Tapping the field, or ArrowDown in it, lists stations to start from.
-export function stationSearch({ input, list, rail, onChange, announce }) {
+export function stationSearch({ input, list, rail, onChange, announce, lifts = () => null }) {
     let selected = null;
 
     function render(ids) {
         if (!ids.length) { hide(); return; }
         const starred = favourites().station;
+        const known = lifts();
         setHtml(list, html`${ids.map(id => {
             const s = rail.stations[id];
             const favourite = starred.includes(id);
+            const access = liftWords(known, id);
             return html`
             <li role="option" aria-selected="false" class="suggestion-item" tabindex="-1" data-id="${id}" aria-describedby="${list.id}-hint">
                 <span class="suggestion-star">${star(favourite)}</span>
                 <span class="suggestion-names">
                     <span class="suggestion-name-gr" lang="el">${s.name.el}</span>
                     <span class="suggestion-name-en" lang="en">${s.name.en}</span>
+                    ${access && html`<span class="suggestion-lifts${access.closed ? ' suggestion-lifts-closed' : ''}">${icon('step-free', 'me-1')}${access.text}</span>`}
                 </span>
                 <span class="sr-only suggestion-marked">${marked(favourite)}</span>
                 <span class="suggestion-lines" aria-hidden="true">${s.lines.map(line => linePill(line, rail.lines[line].name, 's'))}</span>

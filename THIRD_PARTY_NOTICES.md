@@ -30,5 +30,6 @@ licenses.
   `data/curated/` come from it too.
 - **Bus lines and stops, live bus arrivals and service announcements**: from
   OASA's and STASY's services, as they give them. The metro's first and last
-  trains and its airport trains come from STASY's published timetables.
+  trains and its airport trains come from STASY's published timetables, and
+  the elevators out of service from STASY's elevator page.
   Wayhop isn't affiliated with or endorsed by OASA, STASY or OSY.

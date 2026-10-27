@@ -1,5 +1,6 @@
 import { lastPosition, locationPermission, onLocation, onLocationProblem, startLocation } from '/js/core/location.js';
 import { announce, localName, setHtml } from '/js/core/html.js';
+import { watchLifts } from '/js/core/lifts.js';
 import { legendOpen } from '/js/core/metro.js';
 import { language, t } from '/js/core/i18n.js';
 import { remember } from '/js/core/remember.js';
@@ -44,10 +45,11 @@ function start(rail) {
     const render = ({ speak = false } = {}) => {
         const origin = from.get();
         const destination = to.get();
+        const known = lifts();
         // Until there are two stations: what the page does, and what the trains show
         if (!origin || !destination) {
             const focus = focused();
-            setHtml(result, renderIntro(rail, legendOpen()));
+            setHtml(result, renderIntro(rail, legendOpen(), known, [origin, destination].filter(Boolean)));
             refocus(focus);
             return;
         }
@@ -60,10 +62,12 @@ function start(rail) {
         // After the last train, tomorrow's first ones
         const { plans, now, tomorrow } = planTrip(rail, origin, destination, today);
         const focus = focused();
-        setHtml(result, renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow, open: opened, legend: legendOpen() }));
+        setHtml(result, renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow, open: opened, legend: legendOpen(), lifts: known }));
         refocus(focus);
-        if (speak) announce(routeSummary(rail, plans, now, tomorrow));
+        if (speak) announce(routeSummary(rail, plans, now, tomorrow, known));
     };
+    // Lifts out of service (STASY), drawn again when they come; also in the suggestions
+    const lifts = watchLifts(() => render());
 
     // The selection lives in the URL (?from=syntagma&to=airport) so routes can be bookmarked and shared.
     // It's also kept for coming back to the page, but a boarding station that
@@ -116,6 +120,7 @@ function start(rail) {
         rail,
         onChange: () => { follow(false); changed(); },
         announce,
+        lifts,
     });
     fromInput.addEventListener('input', () => follow(false));
     const to = stationSearch({
@@ -124,6 +129,7 @@ function start(rail) {
         rail,
         onChange: changed,
         announce,
+        lifts,
     });
 
     // What was typed before this script had loaded stays, unless the address

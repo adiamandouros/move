@@ -1077,6 +1077,11 @@ body {
     border-color: var(--wh-last);
 }
 
+/* Where a notice's facts come from (the lifts: STASY) */
+.lift-source {
+    font-size: var(--wh-fs-xs);
+}
+
 .notice-body > ul {
     margin-top: var(--wh-space-2);
 }
@@ -1130,6 +1135,17 @@ body {
 .suggestion-name-en {
     font-size: var(--wh-fs-xs);
     color: var(--bs-tertiary-color);
+}
+
+/* Its lifts out of service (/js/core/lifts.js): a warning when it can't be
+   reached step-free */
+.suggestion-lifts {
+    font-size: var(--wh-fs-xs);
+    color: var(--bs-secondary-color);
+}
+
+.suggestion-lifts-closed {
+    color: var(--wh-warn);
 }
 
 .suggestion-lines {

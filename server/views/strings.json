@@ -66,7 +66,13 @@
     "install.text": "It opens from your home screen and works offline, underground too.",
     "install.button": "Install",
     "install.ios": "In Safari, tap Share, then “Add to Home Screen”.",
-    "install.dismiss": "Not now"
+    "install.dismiss": "Not now",
+    "lifts.closed": "{station}: no step-free access right now.",
+    "lifts.partial": "{station}: not every elevator works, but the station can still be reached by the others.",
+    "lifts.out": "Out of service: {lifts}.",
+    "lifts.source": "Elevator status from STASY, {time}",
+    "lifts.closed-short": "No step-free access right now",
+    "lifts.partial-short": "An elevator is out of service"
   },
   "el": {
     "shell.skip": "Μετάβαση στο περιεχόμενο",
@@ -135,6 +141,12 @@
     "install.text": "Ανοίγει από την αρχική οθόνη σας και λειτουργεί χωρίς σύνδεση, ακόμα και στο μετρό.",
     "install.button": "Εγκατάσταση",
     "install.ios": "Στο Safari, πατήστε Κοινή χρήση και μετά «Προσθήκη στην οθόνη Αφετηρίας».",
-    "install.dismiss": "Όχι τώρα"
+    "install.dismiss": "Όχι τώρα",
+    "lifts.closed": "{station}: προς το παρόν χωρίς πρόσβαση με ανελκυστήρα.",
+    "lifts.partial": "{station}: δεν λειτουργούν όλοι οι ανελκυστήρες, αλλά ο σταθμός είναι προσβάσιμος από τους υπόλοιπους.",
+    "lifts.out": "Εκτός λειτουργίας: {lifts}.",
+    "lifts.source": "Ανελκυστήρες σύμφωνα με τη ΣΤΑΣΥ, {time}",
+    "lifts.closed-short": "Προς το παρόν χωρίς πρόσβαση με ανελκυστήρα",
+    "lifts.partial-short": "Ανελκυστήρας εκτός λειτουργίας"
   }
 }

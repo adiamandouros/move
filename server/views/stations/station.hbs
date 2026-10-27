@@ -7,6 +7,8 @@
         {{favourite}}
     </div>
     <p class="text-body-secondary mb-3">{{t "stations.lines-here"}}{{#each lines}} {{badge}}{{/each}}</p>
+    {{!-- Its lifts out of service, if any, as STASY says (/js/core/lifts.js, from shell.js) --}}
+    <div id="lift-status" aria-live="polite" data-station="{{id}}" data-name="{{name}}"></div>
     <div class="station-actions d-flex flex-wrap gap-2 mb-4">
         <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?from={{id}}">{{icon "trip-from" "me-1"}}{{t "stations.plan-from"}}</a>
         <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?to={{id}}">{{icon "trip-to" "me-1"}}{{t "stations.plan-to"}}</a>

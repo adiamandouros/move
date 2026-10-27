@@ -15,6 +15,7 @@ browser ─► Express (server/app.js, started by server.js)
             ├─ pages ─────────────── server/pages/   every page, in English and Greek
             ├─ /api/arrivals ─────── server/oasa/    live bus times from OASA
             ├─ /api/announcements ── server/info/    OASA's and STASY's announcements
+            ├─ /api/lifts ────────── server/info/    metro lifts out of service, from STASY
             ├─ /data/*.json ──────── data/build/     timetables and stops, built by server/data/
             ├─ /admin ────────────── server/admin/   private station editor and diagnostics
             └─ files ─────────────── public/, tools/<id>/client/, /vendor (node_modules)
@@ -170,7 +171,7 @@ pages use.
 - **In the browser**: `/js/core/i18n.js` gives `t(key)`, `language` and
   `localHref(path)`. Each page carries only its own language's strings, and
   only those its scripts use: its own, and the shared `shell.`,
-  `announcements.` and `location.` ones (`BROWSER_SHARED` in `layout.js`;
+  `announcements.`, `location.`, `favourites.` and `lifts.` ones (`BROWSER_SHARED` in `layout.js`;
   `test/strings-sent.test.js` checks every string the browser's code looks up).
 - **Switching**: the language link opens the same page in the other
   language and remembers the choice in `localStorage`; a small script in
@@ -186,7 +187,8 @@ pages use.
   `icon`, `formatHtml`), `lines.js` (lines' pills and buses' plates),
   `metro.js` (what the subway page and the station pages share: train
   diagram, central platform badge, stop notes, times),
-  `location.js`, `announcements.js`, `ads.js`.
+  `location.js`, `announcements.js`, `lifts.js` (lifts out of service, for
+  the subway page and the station pages), `ads.js`.
 - `tools/<id>/client/`: a tool's own scripts, served at `/tools/<id>/`.
 - **Building HTML**: with ``html`…` `` from `/js/core/html.js`, which escapes
   every value put into it (names from OASA, the strings, numbers) except
@@ -258,6 +260,14 @@ These numbers set our load on OASA; changes to them are agreed first.
 Announcements ([server/info/announcements.js](server/info/announcements.js))
 are fetched from OASA's RSS and STASY's news page at most every 15 minutes,
 only when someone asks, and kept on disk.
+
+Lifts out of service ([server/info/lifts.js](server/info/lifts.js)) come from
+STASY's lift page (stasy.gr/elevators) at most every 10 minutes, only when
+someone asks, through the relays like its other pages, and are kept on disk; a
+copy over 2 hours old isn't served. The subway page warns for the stations a
+trip starts, changes or ends at and in the station search, and a station's
+page for itself (`public/js/core/lifts.js`). Stations STASY lists no lifts
+for (Nerantziotissa, the airport branch) get no warning.
 
 ## Timetables and stops
 
