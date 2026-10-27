@@ -123,6 +123,27 @@ test('the planner\'s lists with the keyboard: F stars the station on the row, as
     await expect(star(page)).toHaveAttribute('aria-pressed', 'true');
 });
 
+// ── Spacing ─────────────────────────────────────────────────────────────────
+
+test('the stars sit evenly: in the planner\'s lists midway between the list\'s edge and the name, on an opened bus stop as far from the walking directions as from the time', async ({ page }) => {
+    await page.goto('/subway');
+    await page.locator('#stop-search-to').tap();
+    const row = page.locator('#stop-suggestions-to .suggestion-item').first();
+    const [edge, star, name] = await Promise.all([row, row.locator('.suggestion-star .icon'), row.locator('.suggestion-names')].map(l => l.boundingBox()));
+    expect(Math.abs((star.x - edge.x) - (name.x - star.x - star.width))).toBeLessThanOrEqual(1);
+
+    await page.goto('/buses');
+    const stop = page.locator('#stops-accordion .stop-item').first();
+    await expect(stop.locator('.header-badge-wrap .time-badge')).toBeVisible();
+    await stop.locator('.stop-toggle').tap();
+    await expect(stop.locator('.stop-favourite')).toBeVisible();
+    const [time, starIcon, walk] = await Promise.all(['.header-badge-wrap .time-badge', '.stop-favourite .icon', '.directions-btn .icon'].map(s => stop.locator(s).boundingBox()));
+    const before = starIcon.x - time.x - time.width;
+    const after = walk.x - starIcon.x - starIcon.width;
+    expect(before).toBeGreaterThan(4);
+    expect(Math.abs(after - before)).toBeLessThanOrEqual(1);
+});
+
 // ── Bus stops and lines ─────────────────────────────────────────────────────
 
 const favourites = page => page.locator('#favourites');
