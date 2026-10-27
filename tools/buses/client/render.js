@@ -25,7 +25,7 @@ export const distance = meters => meters === undefined ? html`` : html`<span cla
 function arrivalBadge(minutes) {
     const tier = soonTier(minutes);
     const label = tier === 'due' ? `${minutes} ${t('buses.arriving-soon')}` : `${minutes} ${t('buses.minutes')}`;
-    return timeBadge(tier, html`<span aria-hidden="true">${minutes} ${t('buses.min')}</span><span class="sr-only">${label}</span>`);
+    return timeBadge(tier, html`<span aria-hidden="true">${minutes}'</span><span class="sr-only">${label}</span>`);
 }
 
 const lineLabel = a => a.line ?? '?';

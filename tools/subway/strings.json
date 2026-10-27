@@ -60,12 +60,17 @@
     "subway.nearest": "Nearest",
     "subway.locating": "Finding your location…",
     "subway.walking-directions-to": "Walking directions to",
-    "subway.intro": "Pick where you get on and where you get off: you'll see the next trains, when you'll arrive, and which part of the train to ride in for the way out or your change."
+    "subway.intro": "Pick where you get on and where you get off. You'll see",
+    "subway.intro-trains": "next trains",
+    "subway.intro-arrival": "when you'll arrive",
+    "subway.intro-carriage": "which part of the train to ride in",
+    "subway.intro-changes": "where to change lines",
+    "subway.intro-access": "accessibility warnings"
   },
   "el": {
-    "subway.boarding-label": "Επιβίβαση στον σταθμό",
+    "subway.boarding-label": "Επιβίβαση σε",
     "subway.boarding-placeholder": "Αναζήτηση σταθμού επιβίβασης…",
-    "subway.destination-label": "Αποβίβαση στον σταθμό",
+    "subway.destination-label": "Αποβίβαση σε",
     "subway.destination-placeholder": "Αναζήτηση προορισμού…",
     "subway.no-route": "Δεν βρέθηκε διαδρομή. Βεβαιωθείτε ότι και οι δύο σταθμοί ανήκουν στο μετρό Αθήνας ή δοκιμάστε να αντιστρέψετε αφετηρία και προορισμό.",
     "subway.option": "Επιλογή",
@@ -123,6 +128,11 @@
     "subway.nearest": "Κοντινότερος",
     "subway.locating": "Εύρεση της τοποθεσίας σας…",
     "subway.walking-directions-to": "Οδηγίες πεζή για",
-    "subway.intro": "Επιλέξτε πού επιβιβάζεστε και πού αποβιβάζεστε: θα δείτε τα επόμενα τρένα, πότε θα φτάσετε και σε ποιο σημείο του τρένου να μπείτε για την έξοδο ή την αλλαγή σας."
+    "subway.intro": "Επιλέξτε πού επιβιβάζεστε και πού αποβιβάζεστε. Θα δείτε",
+    "subway.intro-trains": "τα επόμενα τρένα",
+    "subway.intro-arrival": "πότε θα φτάσετε",
+    "subway.intro-carriage": "σε ποιο σημείο του τρένου να μπείτε",
+    "subway.intro-changes": "πού να αλλάξετε γραμμή",
+    "subway.intro-access": "προειδοποιήσεις προσβασιμότητας"
   }
 }
