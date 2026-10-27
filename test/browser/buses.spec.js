@@ -145,9 +145,12 @@ for (const url of ['/el/buses', '/el/buses?line=040']) {
         const notice = page.locator('#bus-status');
         await expect(notice).toContainText('Σε παύση για εξοικονόμηση δεδομένων.');
         const gaps = await page.evaluate(() => {
+            // A line's bar is pinned: measured where it sits above the stops, not over them
+            document.getElementById('app-content').scrollTo(0, 0);
             const status = document.getElementById('bus-status').getBoundingClientRect();
             const header = document.getElementById('view-header');
-            const above = (header.hidden ? document.getElementById('nearby-heading') : header.lastElementChild).getBoundingClientRect();
+            const line = document.getElementById('line-bar');
+            const above = (!line.hidden ? line.lastElementChild : header.hidden ? document.getElementById('nearby-heading') : header.lastElementChild).getBoundingClientRect();
             return { above: Math.round(status.top - above.bottom), below: Math.round(document.getElementById('stops-accordion').getBoundingClientRect().top - status.bottom) };
         });
         expect(gaps.above, `space above and below: ${JSON.stringify(gaps)}`).toBeGreaterThanOrEqual(gaps.below - 1);

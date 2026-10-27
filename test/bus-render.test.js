@@ -178,7 +178,7 @@ test('results: lines, then the first stops, and a button for more', async () => 
     const html = String(searchResults([line], [stop, stop, stop], 2));
     assert.deepEqual([...html.matchAll(/<h2[^>]*>([^<]+)<\/h2>/g)].map(m => m[1]), ['Lines', 'Stops']);
     assert.equal(html.match(/\?stop=/g).length, 2);
-    assert.match(html, /class="[^"]*more-results"[^>]*>Show more stops</);
+    assert.match(html, /class="[^"]*more-results"[^>]*>More</);
     assert.doesNotMatch(String(searchResults([], [stop], 20)), /Lines<|more-results/);
 });
 
@@ -191,10 +191,10 @@ test('what the search found, for the status line', async () => {
     assert.equal(el.searchStatus('zzz', [], []), 'Καμία στάση ή γραμμή δεν ταιριάζει με «zzz».');
 });
 
-test('the line header: back, the line, and a switch between its two directions', async () => {
+test('the line header: the line and a switch between its two directions; the way back is above it, not in it (it\'s pinned, the way back isn\'t)', async () => {
     const { lineHeader } = await browserModule('tools/buses/client/render.js', 'en');
     const html = String(lineHeader(line, 1));
-    assert.match(html, /<a class="[^"]*back-link" href="\/buses" data-view>/);
+    assert.doesNotMatch(html, /back-link/);
     assert.match(html, /<h2 class="line-heading[^"]*" tabindex="-1"><span class="bus-plate pill-l">/);
     assert.match(html, /role="group" aria-label="Direction"/);
     assert.deepEqual([...html.matchAll(/data-direction="(\d)" aria-pressed="(\w+)">([^]*?)<\/button>/g)].map(m => [m[1], m[2], spoken(m[3])]), [['0', 'false', 'To PEIRAIAS'], ['1', 'true', 'To SYNTAGMA']]);

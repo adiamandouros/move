@@ -90,7 +90,7 @@ test.describe('the buses', () => {
         await expect(page.locator('a.tool-tile[data-tool="buses"]')).toHaveAttribute('href', '/buses?line=040&dir=1');
         await page.locator('a.tool-tile[data-tool="buses"]').click();
         await expect(page).toHaveURL(/\/buses\?line=040&dir=1$/);
-        await expect(page.locator('#view-header [data-direction="1"]')).toHaveAttribute('aria-pressed', 'true');
+        await expect(page.locator('#line-bar [data-direction="1"]')).toHaveAttribute('aria-pressed', 'true');
     });
 
     test('going back to the stops nearby forgets the stop; so does the buses tab, tapped on the buses', async ({ page }) => {
