@@ -40,7 +40,13 @@
     "stations.other-last": "last {last}",
     "stations.other-every-day": "{times}, every day",
     "stations.other-days": "{days}: {times}",
-    "stations.timetable-stasy": "First and last trains from STASY's timetable, as of {date}."
+    "stations.timetable-stasy": "First and last trains from STASY's timetable, as of {date}.",
+    "stations.step-free.lift": "Step-free from the street: by elevator",
+    "stations.step-free.ramp": "Step-free from the street: by ramp",
+    "stations.step-free.level": "Step-free from the street: on the level",
+    "stations.step-free.yes": "Step-free from the street",
+    "stations.step-free.no": "Steps only: no step-free access to this platform",
+    "stations.step-free.unknown": "Step-free access: not known yet"
   },
   "el": {
     "stations.title": "Σταθμοί μετρό",
@@ -83,6 +89,12 @@
     "stations.other-last": "τελευταίο {last}",
     "stations.other-every-day": "{times}, κάθε μέρα",
     "stations.other-days": "{days}: {times}",
-    "stations.timetable-stasy": "Πρώτα και τελευταία δρομολόγια από το πρόγραμμα της ΣΤΑΣΥ, όπως ήταν στις {date}."
+    "stations.timetable-stasy": "Πρώτα και τελευταία δρομολόγια από το πρόγραμμα της ΣΤΑΣΥ, όπως ήταν στις {date}.",
+    "stations.step-free.lift": "Πρόσβαση από τον δρόμο χωρίς σκαλοπάτια: με ανελκυστήρα",
+    "stations.step-free.ramp": "Πρόσβαση από τον δρόμο χωρίς σκαλοπάτια: με ράμπα",
+    "stations.step-free.level": "Πρόσβαση από τον δρόμο χωρίς σκαλοπάτια: στο ίδιο επίπεδο",
+    "stations.step-free.yes": "Πρόσβαση από τον δρόμο χωρίς σκαλοπάτια",
+    "stations.step-free.no": "Μόνο με σκαλοπάτια: η αποβάθρα δεν έχει πρόσβαση χωρίς σκαλοπάτια",
+    "stations.step-free.unknown": "Πρόσβαση χωρίς σκαλοπάτια: δεν είναι γνωστή ακόμη"
   }
 }

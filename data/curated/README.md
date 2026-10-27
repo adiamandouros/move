@@ -40,6 +40,7 @@ Ordered by line → direction → station in travel order, one station per line:
 | `escalators` | Cars closest to an escalator up. Optional. With `stairs`, says how the exit is reached: the cars to ride in show an escalator, stairs, or (neither recorded) an up arrow. |
 | `stairs` | Cars closest to ordinary stairs. Optional. |
 | `centralPlatform` | `true` if the platform is between the tracks (exit on the left). Optional. |
+| `stepFree` | How this platform (the one for this direction) is reached from the street without a single step: `"lift"`, `"ramp"`, `"level"`, `"yes"` (step-free, how not recorded) or `"no"`. Left out: not known yet. A surface station needs a ramp or a level path, never a lift. Optional. |
 | `transfers` | Cars closest to the way to another line, keyed `"LINE/direction"` (see lines.json). Optional. |
 | `note` | Free text shown under the diagram. Optional. |
 

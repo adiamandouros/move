@@ -1,6 +1,7 @@
 // A small metro network in rail.json's format (server/data/build-rail.js), for
 // the station page tests: L1 runs a → x → b and back, L2 runs x → c, with a
-// change at x. L2 runs all night from Saturday into Sunday. L2's first and
+// change at x (step-free by elevator toward b, steps only toward a, not known
+// on L2). L2 runs all night from Saturday into Sunday. L2's first and
 // last trains are STASY's (stops' `hours`, the same as its timetable's); L1's
 // come from its timetable.
 
@@ -27,7 +28,7 @@ export const rail = {
                     toward: { en: 'Beta', el: 'Βήτα' },
                     stops: [
                         { station: 'a', exits: ['front'] },
-                        { station: 'x', exits: ['back'], elevators: ['center'], transfers: { 'L2/east': ['center-front'] }, note: 'Unreliable data' },
+                        { station: 'x', exits: ['back'], elevators: ['center'], stepFree: 'lift', transfers: { 'L2/east': ['center-front'] }, note: 'Unreliable data' },
                         { station: 'b', exits: ['center'], centralPlatform: true },
                     ],
                     timetable: {
@@ -39,7 +40,7 @@ export const rail = {
                 },
                 west: {
                     toward: { en: 'Alpha', el: 'Άλφα' },
-                    stops: [{ station: 'b', exits: [] }, { station: 'x', exits: ['front'] }, { station: 'a', exits: ['back'] }],
+                    stops: [{ station: 'b', exits: [] }, { station: 'x', exits: ['front'], stepFree: 'no' }, { station: 'a', exits: ['back'] }],
                     timetable: { profiles: [{ stops: [0, 1, 2], offsets: [0, 120, 240] }], patterns: [trips(5.5 * H, 24.5 * H, H / 2)], days: [0, 0, 0, 0, 0, 0, 0] },
                 },
             },

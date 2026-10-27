@@ -1144,7 +1144,8 @@ body {
     color: var(--bs-secondary-color);
 }
 
-.suggestion-lifts-closed {
+.suggestion-lifts-closed,
+.station-step-free-none {
     color: var(--wh-warn);
 }
 

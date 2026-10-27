@@ -1,5 +1,6 @@
-import { externalLink, format, formatHtml, html, notice, setHtml } from './html.js';
+import { externalLink, format, formatHtml, html, localName, notice, setHtml } from './html.js';
 import { language, t } from './i18n.js';
+import { lineEnd } from './metro.js';
 
 // Which metro lifts are out of service, as STASY says (/api/lifts,
 // server/info/lifts.js): the warning for the stations of a trip on the subway
@@ -59,37 +60,74 @@ const liftNames = out => html`${out.map((name, i) => html`${i > 0 && ', '}<span 
 // The stations among `ids` (each once, in order) whose lifts aren't all working
 const affected = (lifts, ids) => [...new Set(ids)].filter(id => lifts?.stations && Object.hasOwn(lifts.stations, id));
 
-// One notice for the stations among `ids` with lifts out: a warning when one
-// can't be reached step-free, else for information. '' when there's none.
+// Every platform of a station: [{ line, dir, station }], one per direction
+// of each of its lines
+/** @param {any} rail @param {string} id */
+export const stationPlatforms = (rail, id) => Object.entries(rail.lines).flatMap(([line, { directions }]) => Object.keys(directions)
+    .filter(dir => directions[dir].stops.some(stop => stop.station === id))
+    .map(dir => ({ line, dir, station: id })));
+
+// The platforms among `platforms` ([{ line, dir, station }]) that can't be
+// reached without steps (positions.json's stepFree: 'no'), each once:
+// [{ station, toward }], toward: where its trains go, in the page's language
+/** @param {any} rail @param {{ line: string, dir: string, station: string }[]} platforms */
+export function stepFreeGaps(rail, platforms) {
+    const seen = new Set();
+    return platforms.filter(({ line, dir, station }) => {
+        const key = `${line}/${dir}/${station}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return rail.lines[line]?.directions[dir]?.stops.find(stop => stop.station === station)?.stepFree === 'no';
+    }).map(({ line, dir, station }) => ({ station, toward: localName(rail.stations[lineEnd(rail, line, dir)].name, language) }));
+}
+
+// One notice for the platforms with no step-free access (`gaps`, from
+// stepFreeGaps) and the stations among `ids` with lifts out: a warning when
+// one can't be reached step-free, else for information. '' when there's none.
 // nameOf(id): the station's name in the page's language.
-/** @param {any} lifts @param {string[]} ids @param {(id: string) => string} nameOf */
-export function liftNotice(lifts, ids, nameOf) {
+/**
+ * @param {any} lifts @param {string[]} ids @param {(id: string) => string} nameOf
+ * @param {{ station: string, toward: string }[]} [gaps]
+ */
+export function liftNotice(lifts, ids, nameOf, gaps = []) {
     const stations = affected(lifts, ids);
-    if (!stations.length) return '';
-    const closed = stations.some(id => lifts.stations[id].status === 'closed');
+    if (!stations.length && !gaps.length) return '';
+    const closed = gaps.length > 0 || stations.some(id => lifts.stations[id].status === 'closed');
+    const steps = gaps.map(({ station, toward }) => html`<p class="mb-1">${formatHtml(t('lifts.no-step-free'), { station: html`<strong>${nameOf(station)}</strong>`, toward })}</p>`);
     const lines = stations.map(id => {
         const { status, out } = lifts.stations[id];
         const what = formatHtml(t(`lifts.${status}`), { station: html`<strong>${nameOf(id)}</strong>` });
         return html`<p class="mb-1">${what}${out.length > 0 && html` ${formatHtml(t('lifts.out'), { lifts: liftNames(out) })}`}</p>`;
     });
-    const source = externalLink({ href: STASY_PAGE[language] }, format(t('lifts.source'), { time: athensTime(lifts.fetched) }), t('shell.new-tab'));
-    return notice(closed ? 'warn' : 'info', 'step-free', html`${lines}<p class="lift-source mb-0">${source}</p>`, 'lift-notice mb-3');
+    // Where the lifts out of service come from
+    const source = stations.length > 0 && html`<p class="lift-source mb-0">${externalLink({ href: STASY_PAGE[language] }, format(t('lifts.source'), { time: athensTime(lifts.fetched) }), t('shell.new-tab'))}</p>`;
+    return notice(closed ? 'warn' : 'info', 'step-free', html`${steps}${lines}${source}`, 'lift-notice mb-3');
 }
 
 // The same in a sentence, for screen readers (plain text): '' when there's none
-/** @param {any} lifts @param {string[]} ids @param {(id: string) => string} nameOf */
-export function liftSummary(lifts, ids, nameOf) {
-    return affected(lifts, ids).map(id => format(t(`lifts.${lifts.stations[id].status}`), { station: nameOf(id) })).join(' ');
+/**
+ * @param {any} lifts @param {string[]} ids @param {(id: string) => string} nameOf
+ * @param {{ station: string, toward: string }[]} [gaps]
+ */
+export function liftSummary(lifts, ids, nameOf, gaps = []) {
+    return [
+        ...gaps.map(({ station, toward }) => format(t('lifts.no-step-free'), { station: nameOf(station), toward })),
+        ...affected(lifts, ids).map(id => format(t(`lifts.${lifts.stations[id].status}`), { station: nameOf(id) })),
+    ].join(' ');
 }
 
 // A few words for a station in the search suggestions, and whether it can't
-// be reached step-free; null when its lifts work
-/** @param {any} lifts @param {string} id @returns {{ text: string, closed: boolean } | null} */
-export function liftWords(lifts, id) {
+// be reached step-free; null when it can, as far as is known. Its lifts out
+// of service come first, then its platforms with steps only (`gaps`).
+/**
+ * @param {any} lifts @param {string} id @param {{ station: string, toward: string }[]} [gaps]
+ * @returns {{ text: string, closed: boolean } | null}
+ */
+export function liftWords(lifts, id, gaps = []) {
     const [station] = affected(lifts, [id]);
-    if (!station) return null;
-    const { status } = lifts.stations[station];
-    return { text: t(`lifts.${status}-short`), closed: status === 'closed' };
+    if (station && lifts.stations[station].status === 'closed') return { text: t('lifts.closed-short'), closed: true };
+    if (gaps.length) return { text: format(t('lifts.no-step-free-short'), { toward: gaps.map(g => g.toward).join(', ') }), closed: true };
+    return station ? { text: t('lifts.partial-short'), closed: false } : null;
 }
 
 // A station page's warning (server/views/stations/station.hbs): its

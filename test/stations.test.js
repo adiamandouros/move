@@ -97,6 +97,12 @@ test('what a station\'s page shows, as data: lines, neighbours, where to ride, c
     assert.equal(view.lines[0].directions[1].arriving.note, null);
     // Arriving at b on L1: a central platform
     assert.match(String(stationView(rail, 'b', 'en', key => key).lines[0].directions[0].arriving.centralPlatform), /class="tag">.*subway\.doors-left/);
+    // Each platform from the street: by elevator, steps only, not known yet
+    assert.deepEqual(view.lines.flatMap(l => l.directions.map(d => d.stepFree)), [
+        { text: 'stations.step-free.lift', none: false },
+        { text: 'stations.step-free.no', none: true },
+        { text: 'stations.step-free.unknown', none: false },
+    ]);
     assert.deepEqual(east.times, [
         { days: 'stations.day.1–stations.day.5', first: '05:32', last: '00:32' },
         { days: 'stations.day.6, stations.day.0', first: '06:02', last: '01:02' },
@@ -230,7 +236,10 @@ test('a station page shows lines, neighbours, where to ride, connections and tim
         // L2's times are STASY's, L1's the timetable's
         'First and last trains from STASY\'s timetable, as of 01/10/2026.',
         'From OASA\'s timetable, valid until 31/12/2099. Times are approximate.',
+        // Each platform from the street
+        'Step-free from the street: by elevator', 'Steps only: no step-free access to this platform', 'Step-free access: not known yet',
     ]) assert.ok(t.includes(expected), `"${expected}" in: ${t}`);
+    assert.match(html, /<li class="station-step-free station-step-free-none"><svg class="icon me-1"[^>]*><use href="[^"#]*#step-free"><\/use><\/svg>Steps only/);
     assert.match(html, /aria-label="Train diagram showing where to stand: Back, Center \(elevator\)"/);
     // Under the sections, what the trains show
     assert.match(html, /<details class="diagram-legend" open>\s*<summary>What the train shows<\/summary>/);
@@ -266,6 +275,7 @@ test('the Greek page is in Greek, with Greek links', async () => {
     assert.match(html, /<html lang="el"/);
     const t = text(html);
     assert.ok(t.includes('L1 → προς Βήτα') && t.includes('Δευ–Παρ') && t.includes('Όλη τη νύχτα'), t);
+    assert.ok(t.includes('Πρόσβαση από τον δρόμο χωρίς σκαλοπάτια: με ανελκυστήρα'), t);
     assert.match(html, /href="\/el\/subway\/stations\/a">Άλφα</);
     assert.match(html, /href="\/el\/subway\?from=x"/);
     assert.match(html, /data-favourite="station" data-key="x" aria-pressed="false" hidden>.*<span>Αγαπημένο<\/span><\/button>/);

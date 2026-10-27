@@ -13,6 +13,11 @@ test('tidyEntry orders positions back to front and drops empty fields', () => {
     );
     // How the exits are reached, kept like the elevators
     assert.deepEqual(tidyEntry({ exits: ['front', 'back'], stairs: ['front', 'back'], escalators: [] }), { exits: ['back', 'front'], stairs: ['back', 'front'] });
+    // Step-free access: kept when it's one of the values; not known yet ('') left out
+    assert.deepEqual(tidyEntry({ note: 'x', stepFree: 'ramp', centralPlatform: true, exits: [] }), { exits: [], centralPlatform: true, stepFree: 'ramp', note: 'x' });
+    assert.deepEqual(tidyEntry({ exits: [], stepFree: '' }), { exits: [] });
+    assert.deepEqual(tidyEntry({ exits: [], stepFree: 'maybe' }), { exits: [] });
+    assert.ok(!sameEntry({ exits: [] }, { exits: [], stepFree: 'no' }));
 });
 
 test('sameEntry ignores order and empty optional fields', () => {

@@ -12,6 +12,8 @@ first and last trains from here --}}
 {{else}}
         <li>{{t "stations.terminus"}}</li>
 {{/if}}
+        {{!-- This direction's platform from the street, without steps --}}
+        <li class="station-step-free{{#if stepFree.none}} station-step-free-none{{/if}}">{{icon "step-free" "me-1"}}{{stepFree.text}}</li>
     </ul>
 {{#if arriving}}
     {{!-- Arriving here: where to ride for the exit and for each connection --}}

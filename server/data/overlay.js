@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { writeFileAtomic } from '../files.js';
 import { formatJson } from './format.js';
-import { POSITIONS } from './validate.js';
+import { POSITIONS, STEP_FREE } from './validate.js';
 
 // Station edits made in the admin editor live in a gitignored overlay file
 // with the same shape as positions.json, holding only the edited stations:
@@ -78,6 +78,7 @@ export function tidyEntry(entry) {
     if (entry.escalators?.length) out.escalators = order(entry.escalators);
     if (entry.stairs?.length) out.stairs = order(entry.stairs);
     if (entry.centralPlatform) out.centralPlatform = true;
+    if (STEP_FREE.includes(entry.stepFree)) out.stepFree = entry.stepFree;
     const transfers = Object.entries(entry.transfers ?? {})
         .filter(([, list]) => list?.length)
         .sort(([a], [b]) => a.localeCompare(b));

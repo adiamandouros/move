@@ -221,4 +221,23 @@ test('a station\'s words in the search: none when its lifts work', async () => {
     // ?from=constructor isn't a station with lifts out
     assert.equal(en.liftWords(lifts, 'constructor'), null);
     assert.equal(en.liftNotice(lifts, ['syntagma'], id => id), '');
+
+    // A platform with steps only: after a lift out that leaves none, before one partly out
+    const gaps = [{ station: 'omonia', toward: 'Piraeus' }];
+    assert.deepEqual(en.liftWords(lifts, 'omonia', gaps), { text: 'Steps only toward Piraeus', closed: true });
+    assert.deepEqual(en.liftWords(lifts, 'kerameikos', [{ station: 'kerameikos', toward: 'Airport' }]), { text: 'No step-free access right now', closed: true });
+    assert.deepEqual(el.liftWords(null, 'thiseio', [{ station: 'thiseio', toward: 'Πειραιάς' }]), { text: 'Μόνο με σκαλοπάτια προς Πειραιάς', closed: true });
+});
+
+test('the platforms with steps only, from the data: each once, with where their trains go', async () => {
+    const { stationPlatforms, stepFreeGaps } = await browserModule('public/js/core/lifts.js', 'en');
+    const rail = JSON.parse(readFileSync(new URL('./browser/data/rail.json', import.meta.url), 'utf8'));
+    assert.deepEqual(stationPlatforms(rail, 'syntagma'), [
+        { line: 'M2', dir: 'anthoupoli', station: 'syntagma' }, { line: 'M2', dir: 'elliniko', station: 'syntagma' },
+        { line: 'M3', dir: 'dimotiko', station: 'syntagma' }, { line: 'M3', dir: 'doukissis', station: 'syntagma' },
+    ]);
+    assert.deepEqual(stepFreeGaps(rail, stationPlatforms(rail, 'thiseio')), [], 'by elevator and by ramp');
+    rail.lines.M1.directions.piraeus.stops.find(s => s.station === 'thiseio').stepFree = 'no';
+    const thiseio = { line: 'M1', dir: 'piraeus', station: 'thiseio' };
+    assert.deepEqual(stepFreeGaps(rail, [thiseio, ...stationPlatforms(rail, 'thiseio')]), [{ station: 'thiseio', toward: 'Piraeus' }]);
 });

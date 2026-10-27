@@ -72,6 +72,9 @@ export interface Direction {
     timetable: Timetable;
 }
 
+/** By elevator, by ramp, on the level, step-free without saying how, or not step-free */
+export type StepFree = 'lift' | 'ramp' | 'level' | 'yes' | 'no';
+
 /** A stop on a direction, with where to ride for arriving there (data/curated/positions.json) */
 export interface Stop {
     /** Station id */
@@ -82,6 +85,8 @@ export interface Stop {
     escalators?: Position[];
     stairs?: Position[];
     centralPlatform?: boolean;
+    /** How this platform is reached from the street without steps (server/data/validate.js); absent: not known yet */
+    stepFree?: StepFree;
     /** "<line>/<direction>" → where to ride for that connection */
     transfers?: Record<string, Position[]>;
     note?: string;

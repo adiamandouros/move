@@ -129,6 +129,7 @@ function renderEntry() {
     carToggles(document.querySelector('[data-field="exits"]'), 'exits', entry.exits ?? []);
     for (const field of ['elevators', 'escalators', 'stairs']) carToggles(document.querySelector(`[data-field="${field}"]`), field, entry[field] ?? []);
     $('central-platform').checked = Boolean(entry.centralPlatform);
+    $('step-free').value = entry.stepFree ?? '';
     $('note').value = entry.note ?? '';
 
     // A transfer row for every direction of the other lines at this station
@@ -162,6 +163,8 @@ function readForm() {
         escalators: pressed(document.querySelector('[data-field="escalators"]')),
         stairs: pressed(document.querySelector('[data-field="stairs"]')),
         centralPlatform: $('central-platform').checked,
+        // '' (not known yet) is left out
+        ...($('step-free').value && { stepFree: $('step-free').value }),
         transfers,
         note: $('note').value.trim(),
     };
