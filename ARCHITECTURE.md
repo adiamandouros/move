@@ -364,6 +364,10 @@ copy 10 minutes older than the newest copy of its app is left over. The
 newest copy of Wayhop stops its own every 5 minutes, the deploy stops every
 copy from before the restart (`scripts/stop-old-copies.js`), and the health
 page and `/admin/diagnostics` (with the pids) report other apps' leftovers.
+A data build runs as a process of its own and ends with `process.exit()`:
+on the host it starts with LiteSpeed's `lsnode.js` preloaded, which kept
+builds running for hours. The guard also stops any build in Wayhop's folder
+still running after an hour, and the health page reports them.
 
 Facts written on the pages by hand (the Info page's closing times, prices,
 airport and night buses) say when they were last checked: one date per

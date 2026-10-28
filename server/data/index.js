@@ -319,10 +319,14 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     runBuild({ force: args.has('--force'), offline, userAgent: config.userAgent, oasa, stasy })
         .then(meta => {
             const failed = meta && Object.values(meta.outputs).some(o => !o.ok);
-            process.exitCode = meta === null ? BUSY_EXIT_CODE : failed ? 1 : 0;
-        })
-        .catch(err => {
+            return meta === null ? BUSY_EXIT_CODE : failed ? 1 : 0;
+        }, err => {
             console.error(`[data] Build failed: ${err.message}`);
-            process.exitCode = 1;
-        });
+            return 1;
+        })
+        // Exits rather than waiting until nothing is left to do: on the host,
+        // the child starts as `node --require lsnode.js` (LiteSpeed's, even
+        // with execArgv: []), something keeps it alive, and builds stayed
+        // running for hours, 11 threads each (2026-10-28)
+        .then(code => process.exit(code));
 }

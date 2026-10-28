@@ -15,15 +15,22 @@ import { setTimeout as sleep } from 'timers/promises';
 // restart. The running app stops its own (createProcessGuard), the deploy
 // stops those from before it (scripts/stop-old-copies.js), and
 // /api/health and /admin/diagnostics report the rest.
+//
+// Wayhop's data builds (server/data/index.js, a process of their own) take
+// minutes; one still running after BUILD_MAX_MS never ended (on 2026-10-28,
+// two had run for hours) and is stopped the same way.
 
 export const THREAD_LIMIT = 100;
 export const THREADS_WARN = 70;
 export const STALE_MS = 10 * 60_000;
+// Well past the half hour after which a build's lock counts as left behind
+export const BUILD_MAX_MS = 60 * 60_000;
 const GUARD_EVERY_MS = 5 * 60_000;
 // SIGTERM, then SIGKILL for a copy still running this much later
 const STOP_WAIT_MS = 10_000;
 
 const LSNODE = /^lsnode:/;
+const BUILD = /(^|[ /])server\/data\/index\.js( |$)/;
 // /proc counts start times in these ticks on every Linux
 const USER_HZ = 100;
 
@@ -69,11 +76,12 @@ function groupBy(list, key) {
 }
 
 /**
- * The account's threads and the apps LiteSpeed runs for it, oldest copy first.
- * A copy's threads include those of the processes it started (a data build).
- * @param {ReturnType<typeof readProcesses>} processes @param {number} uid
+ * The account's threads and the apps LiteSpeed runs for it, oldest copy first,
+ * with the data builds running in each app's folder. A copy's threads include
+ * those of the processes it started (a data build).
+ * @param {ReturnType<typeof readProcesses>} processes @param {number} uid @param {number} [now]
  */
-export function accountStatus(processes, uid) {
+export function accountStatus(processes, uid, now = Date.now()) {
     const own = processes.filter(p => p.uid === uid);
     const children = groupBy(own, p => p.ppid);
     const threadsOf = p => p.threads + (children.get(p.pid) ?? []).reduce((sum, c) => sum + threadsOf(c), 0);
@@ -81,11 +89,14 @@ export function accountStatus(processes, uid) {
     const ids = new Set(lsnode.map(p => p.pid));
     // An lsnode process an lsnode process started is part of that copy
     const copies = groupBy(lsnode.filter(p => !ids.has(p.ppid)), appDir);
+    const builds = groupBy(own.filter(p => !LSNODE.test(p.cmd) && BUILD.test(p.cmd)), appDir);
     const apps = [...copies].map(([dir, list]) => {
         const newest = Math.max(...list.map(c => c.started));
         const shown = list.sort((a, b) => a.started - b.started)
             .map(c => ({ pid: c.pid, started: c.started, threads: threadsOf(c), stale: newest - c.started >= STALE_MS }));
-        return { dir, threads: shown.reduce((sum, c) => sum + c.threads, 0), copies: shown };
+        const running = (builds.get(dir) ?? []).sort((a, b) => a.started - b.started)
+            .map(b => ({ pid: b.pid, started: b.started, threads: b.threads, stuck: now - b.started >= BUILD_MAX_MS }));
+        return { dir, threads: shown.reduce((sum, c) => sum + c.threads, 0), copies: shown, builds: running };
     });
     return { threads: own.reduce((sum, p) => sum + p.threads, 0), limit: THREAD_LIMIT, apps };
 }
@@ -119,20 +130,20 @@ export function copiesBefore({ dir, before, uid, procDir = '/proc' }) {
 
 /**
  * Watches the account from inside the running app: status() for the health
- * page and the diagnostics, and start() to stop this app's stale copies every
- * GUARD_EVERY_MS. Only the newest copy stops any, so two copies never stop
- * each other. Reading /proc starts no process, so this works even when the
- * account is at its limit.
- * @param {{ procDir?: string, uid?: number, pid?: number, kill?: (pid: number, signal: string) => void, wait?: number, log?: (message: string) => void }} [options]
+ * page and the diagnostics, and start() to stop this app's stale copies and
+ * stuck data builds every GUARD_EVERY_MS. Only the newest copy stops any, so
+ * two copies never stop each other. Reading /proc starts no process, so this
+ * works even when the account is at its limit.
+ * @param {{ procDir?: string, uid?: number, pid?: number, kill?: (pid: number, signal: string) => void, wait?: number, log?: (message: string) => void, now?: () => number }} [options]
  */
-export function createProcessGuard({ procDir = '/proc', uid = process.getuid?.() ?? -1, pid = process.pid, kill, wait, log = console.warn } = {}) {
+export function createProcessGuard({ procDir = '/proc', uid = process.getuid?.() ?? -1, pid = process.pid, kill, wait, log = console.warn, now = Date.now } = {}) {
     const read = () => {
         try { return readProcesses(procDir); } catch { return []; }
     };
 
     // null where LiteSpeed runs no app for this account (anywhere but the host)
     function status() {
-        const account = accountStatus(read(), uid);
+        const account = accountStatus(read(), uid, now());
         return account.apps.length ? account : null;
     }
 
@@ -141,13 +152,15 @@ export function createProcessGuard({ procDir = '/proc', uid = process.getuid?.()
         const processes = read();
         const self = processes.find(p => p.pid === pid);
         if (!self || !LSNODE.test(self.cmd)) return [];
-        const app = accountStatus(processes, uid).apps.find(a => a.dir === appDir(self));
+        const app = accountStatus(processes, uid, now()).apps.find(a => a.dir === appDir(self));
         if (!app || app.copies.at(-1).pid !== pid) return [];
         const stale = app.copies.filter(c => c.stale);
-        if (!stale.length) return [];
-        log(`[processes] Stopping ${stale.length} old cop${stale.length === 1 ? 'y' : 'ies'} of this app: ${stale.map(c => `${c.pid} (started ${new Date(c.started).toISOString()})`).join(', ')}`);
-        await stopProcesses(stale, { procDir, kill, wait });
-        return stale.map(c => c.pid);
+        const stuck = app.builds.filter(b => b.stuck);
+        const list = ps => ps.map(p => `${p.pid} (started ${new Date(p.started).toISOString()})`).join(', ');
+        if (stale.length) log(`[processes] Stopping ${stale.length} old cop${stale.length === 1 ? 'y' : 'ies'} of this app: ${list(stale)}`);
+        if (stuck.length) log(`[processes] Stopping ${stuck.length} data build${stuck.length === 1 ? '' : 's'} running for over ${BUILD_MAX_MS / 60_000} minutes: ${list(stuck)}`);
+        await stopProcesses([...stale, ...stuck], { procDir, kill, wait });
+        return [...stale, ...stuck].map(p => p.pid);
     }
 
     function start() {

@@ -1,7 +1,7 @@
 import { dirname, join } from 'path';
 import express from 'express';
 import { RELAY_VERSION } from '../proxy/worker.js';
-import { THREADS_WARN } from './processes.js';
+import { BUILD_MAX_MS, THREADS_WARN } from './processes.js';
 import { AIRPORT_STALE_DAYS, BUILD_MAX_AGE_MS, dataStatus, STASY_STALE_DAYS, TIMETABLE_WARN_DAYS } from './data/status.js';
 
 // GET /api/health: whether the live site works, for the scheduled check in
@@ -16,8 +16,9 @@ import { AIRPORT_STALE_DAYS, BUILD_MAX_AGE_MS, dataStatus, STASY_STALE_DAYS, TIM
 //   - data, stasy, airport: as server/data/status.js judges them, the same
 //     as /admin/diagnostics (the rail checks' notes are only there)
 //   - relays: each one runs the current RELAY_VERSION (proxy/worker.js)
-//   - server: the hosting account is well under its thread limit, and no
-//     app has old copies still running (server/processes.js)
+//   - server: the hosting account is well under its thread limit, no app
+//     has old copies still running, and no data build has run for over an
+//     hour (server/processes.js)
 // It's public, so it says what's wrong in plain words but leaves out
 // addresses, keys and error details (those are on /admin/diagnostics).
 // Nothing here asks OASA: relays are only asked for their version.
@@ -76,7 +77,8 @@ export function createHealth({ busStatus, announcementStatus, liftStatus = () =>
         const account = processes();
         if (!account) return null;
         const old = account.apps.filter(a => a.copies.some(c => c.stale)).length;
-        return { ok: account.threads < THREADS_WARN && !old, threads: account.threads, limit: account.limit, appsWithOldCopies: old };
+        const stuck = account.apps.reduce((sum, a) => sum + a.builds.filter(b => b.stuck).length, 0);
+        return { ok: account.threads < THREADS_WARN && !old && !stuck, threads: account.threads, limit: account.limit, appsWithOldCopies: old, stuckBuilds: stuck };
     }
 
     async function check() {
@@ -107,6 +109,9 @@ export function createHealth({ busStatus, announcementStatus, liftStatus = () =>
         }
         if (account?.appsWithOldCopies) {
             problems.push(`Server: ${account.appsWithOldCopies} app${account.appsWithOldCopies === 1 ? ' has' : 's have'} old copies still running from before a restart (details on /admin/diagnostics)`);
+        }
+        if (account?.stuckBuilds) {
+            problems.push(`Server: ${account.stuckBuilds} data build${account.stuckBuilds === 1 ? ' has' : 's have'} been running for over ${BUILD_MAX_MS / 60_000} minutes (details on /admin/diagnostics)`);
         }
         return { ok: problems.length === 0, checked: new Date(now()).toISOString(), problems, ...result };
     }
