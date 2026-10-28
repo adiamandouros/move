@@ -11,7 +11,7 @@ import { readJson } from './files.js';
 import { RELAY_VERSION } from '../proxy/worker.js';
 import { OASA_API, REQUESTS_PER_SECOND, TEST_STOP } from './oasa/client.js';
 import { NEW_STOPS_PER_MINUTE } from './oasa/limits.js';
-import { THREAD_LIMIT, THREADS_WARN } from './processes.js';
+import { BUILD_MAX_MS, THREAD_LIMIT, THREADS_WARN } from './processes.js';
 
 // Health checks for when something goes wrong on the server: can it reach the
 // internet, OASA, the relay and the open-data portal, is the timetable data
@@ -447,14 +447,19 @@ export function accountChecks(account) {
         `${threads} of the ${limit} the account may run at once`,
         threads >= THREADS_WARN ? `At ${limit}, nothing new can start: cPanel's Node.js page, deploys, the Terminal. Look for old copies below; each Node app takes about 11.` : undefined);
     const since = t => new Date(t).toISOString().slice(0, 16).replace('T', ' ');
+    const list = ps => ps.map(p => `${p.pid} (since ${since(p.started)} UTC)`).join(', ');
     return [threadsCheck, ...account.apps.map(app => {
         const old = app.copies.filter(c => c.stale);
+        const stuck = app.builds.filter(b => b.stuck);
         const copies = `${app.copies.length} cop${app.copies.length === 1 ? 'y' : 'ies'}, ${app.threads} threads`;
         const name = app.dir.split('/').pop() || app.dir;
-        if (!old.length) return check(GROUP, name, 'ok', `${copies}, running since ${since(app.copies.at(-1).started)} UTC`);
+        if (!old.length && !stuck.length) return check(GROUP, name, 'ok', `${copies}, running since ${since(app.copies.at(-1).started)} UTC`);
         return check(GROUP, name, 'warn',
-            `${copies}; ${old.length} left over from before a restart: ${old.map(c => `${c.pid} (since ${since(c.started)} UTC)`).join(', ')}`,
-            `Wayhop stops its own within 5 minutes. For another app, in the cPanel Terminal: kill ${old.map(c => c.pid).join(' ')}`);
+            [copies,
+                ...old.length ? [`${old.length} left over from before a restart: ${list(old)}`] : [],
+                ...stuck.length ? [`${stuck.length} data build${stuck.length === 1 ? '' : 's'} running for over ${BUILD_MAX_MS / 60_000} minutes: ${list(stuck)}`] : [],
+            ].join('; '),
+            `Wayhop stops its own within 5 minutes. For another app, in the cPanel Terminal: kill ${[...old, ...stuck].map(p => p.pid).join(' ')}`);
     })];
 }
 

@@ -6,7 +6,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { accountChecks } from '../server/diagnostics.js';
 import { createHealth } from '../server/health.js';
-import { accountStatus, copiesBefore, createProcessGuard, readProcesses, STALE_MS, THREAD_LIMIT } from '../server/processes.js';
+import { accountStatus, BUILD_MAX_MS, copiesBefore, createProcessGuard, readProcesses, STALE_MS, THREAD_LIMIT } from '../server/processes.js';
 import { stopOldCopies } from '../scripts/stop-old-copies.js';
 
 // The hosting account's processes (server/processes.js): reading /proc,
@@ -42,6 +42,8 @@ function write(dir, { pid, ppid = 1, uid = UID, threads = 11, at, cmd, cwd = nul
 }
 
 const lsnode = (pid, at, dir = APP, extra = {}) => ({ pid, at, cmd: `lsnode:${dir}/`, cwd: dir, ...extra });
+// A data build, started the way the host starts one
+const build = (pid, at, extra = {}) => ({ pid, at, cmd: `/usr/bin/node --require /usr/local/lsws/fcgi-bin/lsnode.js ${APP}/server/data/index.js`, cwd: APP, ...extra });
 
 test('reads each process: parent, user, threads, start time, command and folder', () => {
     const proc = fakeProc([lsnode(200, 90 * MINUTE, APP, { ppid: 7, threads: 12 }), { pid: 300, at: 1000, cmd: 'bash -l' }]);
@@ -81,6 +83,25 @@ test('groups the account\'s apps by folder, and marks copies well older than the
     assert.equal(app.dir, APP);
     assert.deepEqual(app.copies.map(c => [c.pid, c.threads, c.stale]), [[100, 11, true], [110, 11, false], [120, 11 + 7 + 1, false]]);
     assert.equal(app.threads, 11 + 11 + 19);
+    assert.deepEqual(app.builds.map(b => b.pid), [121]);
+    assert.deepEqual(other.builds, []);
+});
+
+test('marks data builds running for over an hour as stuck, whoever started them', () => {
+    const now = BOOT + 3 * BUILD_MAX_MS;
+    const proc = fakeProc([
+        lsnode(100, 0),
+        // The copy's own, and one whose copy has gone
+        build(101, BUILD_MAX_MS, { ppid: 100 }),
+        build(102, 0, { threads: 9 }),
+        build(103, 2.5 * BUILD_MAX_MS, { ppid: 100 }),
+        // Another app's file of the same name
+        build(200, 0, { cwd: OTHER, cmd: `node ${OTHER}/server/data/index.js` }),
+        lsnode(201, 0, OTHER),
+    ]);
+    const apps = accountStatus(readProcesses(proc), UID, now).apps.sort((a, b) => a.dir.localeCompare(b.dir));
+    assert.deepEqual(apps[1].builds.map(b => [b.pid, b.threads, b.stuck]), [[102, 9, true], [101, 11, true], [103, 11, false]]);
+    assert.deepEqual(apps[0].builds.map(b => b.pid), [200]);
 });
 
 test('without a folder to read, an app is known by the one its name gives', () => {
@@ -108,6 +129,16 @@ test('the newest copy stops the stale ones: SIGTERM, then SIGKILL for one still 
     assert.match(logged.join(), /Stopping 2 old copies of this app: 100 \(started 2026-10-27T00:00:00\.000Z\), 101/);
     assert.deepEqual(readProcesses(proc).map(p => p.pid).sort(), [110, 120, 200], 'another app\'s copies are left alone');
     assert.deepEqual(await guard.tidy(), [], 'nothing more to stop');
+});
+
+test('the newest copy stops this app\'s stuck data builds, and leaves running ones alone', async () => {
+    const proc = fakeProc([lsnode(100, 0), build(101, MINUTE, { ppid: 100 }), build(102, 2 * BUILD_MAX_MS, { ppid: 100 }), build(200, 0, { cwd: OTHER })]);
+    const { sent, kill } = signals(proc);
+    const logged = [];
+    const now = () => BOOT + 2 * BUILD_MAX_MS + MINUTE;
+    assert.deepEqual(await createProcessGuard({ procDir: proc, uid: UID, pid: 100, kill, wait: 1, log: m => logged.push(m), now }).tidy(), [101]);
+    assert.deepEqual(sent, [[101, 'SIGTERM']]);
+    assert.deepEqual(logged, ['[processes] Stopping 1 data build running for over 60 minutes: 101 (started 2026-10-27T00:01:00.000Z)']);
 });
 
 test('a process given a stopped copy\'s pid is not killed', async () => {
@@ -178,26 +209,29 @@ test('the deploy script stops old copies after restarting the app', () => {
 // What the health page and the diagnostics make of it
 const account = (threads, apps) => ({ threads, limit: THREAD_LIMIT, apps });
 const copy = (pid, stale = false) => ({ pid, started: BOOT, threads: 11, stale });
+const run = (pid, stuck = false) => ({ pid, started: BOOT, threads: 11, stuck });
 
 test('the health page warns near the thread limit and about old copies, naming no folder', async () => {
     const health = processes => createHealth({ busStatus: () => ({ routes: [] }), announcementStatus: () => ({}), buildDir: mkdtempSync(join(tmpdir(), 'b-')), processes }).check();
     assert.equal((await health(() => null)).server, null);
-    const fine = await health(() => account(44, [{ dir: APP, threads: 11, copies: [copy(1)] }]));
-    assert.deepEqual(fine.server, { ok: true, threads: 44, limit: THREAD_LIMIT, appsWithOldCopies: 0 });
+    const fine = await health(() => account(44, [{ dir: APP, threads: 11, copies: [copy(1)], builds: [run(2)] }]));
+    assert.deepEqual(fine.server, { ok: true, threads: 44, limit: THREAD_LIMIT, appsWithOldCopies: 0, stuckBuilds: 0 });
     assert.doesNotMatch(fine.problems.join(), /Server/);
-    const busy = await health(() => account(74, [{ dir: APP, threads: 22, copies: [copy(1, true), copy(2)] }, { dir: OTHER, threads: 11, copies: [copy(3)] }]));
+    const busy = await health(() => account(74, [{ dir: APP, threads: 22, copies: [copy(1, true), copy(2)], builds: [run(4, true), run(5, true), run(6)] }, { dir: OTHER, threads: 11, copies: [copy(3)], builds: [] }]));
     assert.equal(busy.server.ok, false);
     const server = busy.problems.filter(p => p.startsWith('Server'));
     assert.match(server[0], /runs 74 of its 100 threads/);
     assert.match(server[1], /1 app has old copies still running/);
+    assert.match(server[2], /2 data builds have been running for over 60 minutes/);
     assert.doesNotMatch(server.join(), /example/);
 });
 
 test('the diagnostics show the threads and each app, with the pids to stop', () => {
     assert.deepEqual(accountChecks(null), []);
-    const [threads, app, other] = accountChecks(account(74, [
-        { dir: APP, threads: 11, copies: [copy(1)] },
-        { dir: OTHER, threads: 22, copies: [copy(5, true), copy(6)] },
+    const [threads, app, other, stuck] = accountChecks(account(74, [
+        { dir: APP, threads: 11, copies: [copy(1)], builds: [run(2)] },
+        { dir: OTHER, threads: 22, copies: [copy(5, true), copy(6)], builds: [] },
+        { dir: '/home/me/third.example', threads: 11, copies: [copy(7)], builds: [run(8, true), run(9)] },
     ]));
     assert.deepEqual([threads.status, threads.detail], ['warn', '74 of the 100 the account may run at once']);
     assert.match(threads.hint, /nothing new can start/);
@@ -205,6 +239,9 @@ test('the diagnostics show the threads and each app, with the pids to stop', () 
     assert.deepEqual([other.title, other.status], ['other.example', 'warn']);
     assert.match(other.detail, /2 copies, 22 threads; 1 left over from before a restart: 5 \(since 2026-10-27 00:00 UTC\)/);
     assert.match(other.hint, /kill 5$/);
+    assert.equal(stuck.status, 'warn');
+    assert.equal(stuck.detail, '1 copy, 11 threads; 1 data build running for over 60 minutes: 8 (since 2026-10-27 00:00 UTC)');
+    assert.match(stuck.hint, /kill 8$/);
     assert.equal(accountChecks(account(90, []))[0].status, 'fail');
     assert.equal(accountChecks(account(40, []))[0].status, 'ok');
 });
