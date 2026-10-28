@@ -1,7 +1,8 @@
 # How Wayhop fits together
 
 A map of the code, for whoever works on it next. The [README](README.md)
-covers setting it up and running it.
+covers setting it up and running it, and [docs/decisions/](docs/decisions/README.md)
+why it's built this way, one page per decision.
 
 Wayhop has no build step and no front-end framework. The server renders
 every page's HTML at startup and keeps it in memory (pages drawn from
