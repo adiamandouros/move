@@ -382,7 +382,8 @@ export function announcementChecks(sources, now = Date.now) {
         const title = ANNOUNCEMENT_SOURCES[name] ?? name;
         if (s.ok) {
             const via = s.route && s.route !== 'direct' ? `, through the ${s.route}` : '';
-            return check('Announcements', title, 'ok', `${s.items} current${via}`);
+            const leftOut = s.leftOut ? `; ${s.leftOut} new post${s.leftOut === 1 ? '' : 's'} left out for now (${s.leftOut === 1 ? 'its page' : 'their pages'} didn't load)` : '';
+            return check('Announcements', title, 'ok', `${s.items} current${via}${leftOut}`);
         }
         if (s.ok === undefined) return check('Announcements', title, 'info', 'Not fetched since the app started');
         let hint;

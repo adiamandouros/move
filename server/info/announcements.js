@@ -98,9 +98,11 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
     }
     let checkedAt = 0;
     let refreshing = null;
-    // Per source, for the diagnostics: { ok, at, error, route }
+    // Per source, for the diagnostics: { ok, at, error, route, leftOut? }
     const health = {};
     const stasy = createStasyClient({ fetch, now, relays, userAgent });
+    // How many of STASY's newest posts the last load left out
+    let stasyLeftOut = 0;
 
     async function get(url) {
         const res = await fetch(url, { headers: { 'User-Agent': userAgent }, signal: AbortSignal.timeout(TIMEOUT_MS) });
@@ -112,11 +114,21 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
         const posts = parseStasyList(await stasy.page(SOURCES.stasy));
         // Only the newest few are shown, so only they need a date
         const recent = posts.slice(0, MAX_ITEMS);
+        // A post whose page doesn't load (STASY has listed a link its own
+        // site answers 404) is left out for now and tried again next refresh
+        let leftOut = 0;
         for (const post of recent) {
-            if (!(post.link in state.dates)) state.dates[post.link] = parseStasyDate(await stasy.page(post.link));
+            if (post.link in state.dates) continue;
+            try {
+                state.dates[post.link] = parseStasyDate(await stasy.page(post.link));
+            } catch (err) {
+                leftOut++;
+                log(`[announcements] stasy: left out ${post.link} for now: ${err.message}`);
+            }
         }
         // Forget dates of posts that have left the list
-        state.dates = Object.fromEntries(recent.map(p => [p.link, state.dates[p.link]]));
+        state.dates = Object.fromEntries(recent.filter(p => p.link in state.dates).map(p => [p.link, state.dates[p.link]]));
+        stasyLeftOut = leftOut;
         return recent.filter(p => state.dates[p.link]).map(p => ({ ...p, date: state.dates[p.link] }));
     }
 
@@ -130,7 +142,7 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
         await Promise.all(Object.entries(loaders).map(async ([name, load]) => {
             try {
                 state[name] = { items: await load(), updated: new Date(now()).toISOString() };
-                health[name] = { ok: true, at: now(), route: name === 'stasy' ? stasy.route : 'direct' };
+                health[name] = { ok: true, at: now(), route: name === 'stasy' ? stasy.route : 'direct', ...(name === 'stasy' && stasyLeftOut && { leftOut: stasyLeftOut }) };
             } catch (err) {
                 health[name] = { ok: false, at: now(), error: err.message };
                 log(`[announcements] ${name}: ${err.message}`);
