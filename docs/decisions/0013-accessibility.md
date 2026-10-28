@@ -15,7 +15,11 @@ people in a hurry, and public transport sites often fail both.
 - New pages get the axe-core, keyboard and 200% text checks automatically
   ([test/browser/](../../test/browser/README.md)). Contrast is checked from
   the colour tokens (`test/accessibility.test.js`).
-- Meaning is never carried by colour alone.
+- Meaning is never carried by colour alone, nor by a picture alone: each
+  map has a list of its stations beside it.
+- A region that refreshes by itself, like a stop's arrivals, isn't a live
+  region; what screen readers need to hear is said once, through
+  `announce()` in [html.js](../../public/js/core/html.js).
 - The **Check accessibility** button on `/admin/diagnostics` runs axe-core
   on the live pages.
 
