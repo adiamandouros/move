@@ -1,6 +1,6 @@
 import { externalLink, format, formatHtml, html, localName, notice, setHtml } from './html.js';
 import { language, t } from './i18n.js';
-import { lineEnd } from './metro.js';
+import { lineEnd, liftCaution, STASY_LIFTS_PAGE } from './metro.js';
 
 // Which metro lifts are out of service, as STASY says (/api/lifts,
 // server/info/lifts.js): the warning for the stations of a trip on the subway
@@ -14,12 +14,6 @@ const REFRESH_MS = 10 * 60_000;
 // An outage that long ago may be fixed (the server's limit too). Counted from
 // when the page got it, so a phone's clock that's wrong doesn't matter.
 const MAX_AGE_MS = 2 * 3_600_000;
-
-// STASY's lift page, in the page's language
-const STASY_PAGE = {
-    el: 'https://www.stasy.gr/elevators/',
-    en: 'https://www.stasy.gr/en/%ce%bb%ce%b5%ce%b9%cf%84%ce%bf%cf%85%cf%81%ce%b3%ce%b9%ce%ba%cf%8c%cf%84%ce%b7%cf%84%ce%b1-%ce%b1%ce%bd%ce%b5%ce%bb%ce%ba%cf%85%cf%83%cf%84%ce%ae%cf%81%cf%89%ce%bd-%ce%b5%ce%bd/',
-};
 
 // → lifts(): the lifts as last fetched (or null), fetching them again when
 // that was over 10 minutes ago; `onChange` runs once each fetch is done, to
@@ -99,8 +93,11 @@ export function liftNotice(lifts, ids, nameOf, gaps = []) {
         const what = formatHtml(t(`lifts.${status}`), { station: html`<strong>${nameOf(id)}</strong>` });
         return html`<p class="mb-1">${what}${out.length > 0 && html` ${formatHtml(t('lifts.out'), { lifts: liftNames(out) })}`}</p>`;
     });
-    // Where the lifts out of service come from
-    const source = stations.length > 0 && html`<p class="lift-source mb-0">${externalLink({ href: STASY_PAGE[language] }, format(t('lifts.source'), { time: athensTime(lifts.fetched) }), t('shell.new-tab'))}</p>`;
+    // Where the lifts out of service come from; with only platforms that
+    // have steps, that lifts can stop working too, and where to see which have
+    const source = html`<p class="lift-source mb-0">${stations.length > 0
+        ? externalLink({ href: STASY_LIFTS_PAGE[language] }, format(t('lifts.source'), { time: athensTime(lifts.fetched) }), t('shell.new-tab'))
+        : liftCaution(language, t)}</p>`;
     return notice(closed ? 'warn' : 'info', 'step-free', html`${steps}${lines}${source}`, 'lift-notice mb-3');
 }
 

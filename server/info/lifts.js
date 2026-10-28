@@ -1,6 +1,7 @@
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
+import { STASY_LIFTS_PAGE } from '../../public/js/core/metro.js';
 import { userAgentFor } from '../config.js';
 import { stasyNameKey, stationNames } from '../data/stasy.js';
 import { readJson, writeFileAtomic } from '../files.js';
@@ -22,7 +23,8 @@ const MAX_AGE_MS = 2 * 3_600_000;
 // Fewer stations than this on the page: it has changed, not the lifts
 const MIN_STATIONS = 50;
 
-export const LIFTS_PAGE = 'https://www.stasy.gr/elevators/';
+// The Greek page: STASY's station names there are the ones stations.json has
+export const LIFTS_PAGE = STASY_LIFTS_PAGE.el;
 const STATIONS_FILE = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'data', 'curated', 'stations.json');
 
 // ── Parsing ─────────────────────────────────────────────────────────────────

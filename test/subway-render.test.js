@@ -128,7 +128,7 @@ test('lifts out of service where the trip starts, changes or ends: one notice, a
     assert.doesNotMatch(String(render.renderIntro(rail, true, LIFTS, ['syntagma'])), /lift-notice/);
 });
 
-test('a platform with steps only where the trip boards, changes or gets off: a warning, without STASY\'s link', async () => {
+test('a platform with steps only where the trip boards, changes or gets off: a warning, and that lifts can stop working', async () => {
     const render = await browserModule('tools/subway/client/render.js', 'en');
     // As if Thiseio's platform toward Piraeus had steps only
     const steps = structuredClone(rail);
@@ -137,7 +137,9 @@ test('a platform with steps only where the trip boards, changes or gets off: a w
     const html = String(render.renderResult(steps, trip.plans, trip.now, { expired: false }));
     assert.match(html, /^\s*<div class="notice notice-warn lift-notice/);
     assert.match(spoken(html).replace(/\s+/g, ' '), /Thiseio: the platform toward Piraeus has steps only, no step-free access\./);
-    assert.doesNotMatch(html, /lift-source/, 'nothing from STASY in it');
+    // Nothing about lifts out of service, but where to see them
+    assert.doesNotMatch(html, /Elevator status from STASY/);
+    assert.match(spoken(html), /Lifts can stop working at any time: see STASY's elevator page \(opens in a new tab\)\./);
     assert.match(render.routeSummary(steps, trip.plans, trip.now, false), /\. Thiseio: the platform toward Piraeus has steps only, no step-free access\.$/);
     // Passing through it: nothing; the other direction's platform: nothing
     const through = planTrip(steps, 'omonia', 'piraeus', NOON);

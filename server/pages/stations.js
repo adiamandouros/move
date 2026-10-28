@@ -8,7 +8,7 @@ import express from 'express';
 import { favouriteButton } from '../../public/js/core/favourites.js';
 import { format, formatDate, localName, walkingUrl } from '../../public/js/core/html.js';
 import { linePill, pillList, stationSign } from '../../public/js/core/lines.js';
-import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, lineEnd, stopNote } from '../../public/js/core/metro.js';
+import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, lineEnd, liftCaution, stopNote } from '../../public/js/core/metro.js';
 import { athensDate } from '../../tools/subway/client/network.js';
 import { sendFresh } from '../http.js';
 import { LANGS, localPath, mergeStrings, stringGetter } from './i18n.js';
@@ -205,6 +205,9 @@ export function stationView(rail, id, lang, s) {
     }));
     const [lat, lng] = station.coords;
     const directions = lines.flatMap(line => line.directions).filter(d => d.times.length);
+    // Whether one of its platforms can be reached from the street without steps
+    const stepFree = station.lines.some(lineId => Object.values(rail.lines[lineId].directions)
+        .some(direction => direction.stops.some(stop => stop.station === id && stop.stepFree && stop.stepFree !== 'no')));
     // What the trains on the page show, in words, under them
     const symbols = [...new Set(station.lines.flatMap(lineId => Object.values(rail.lines[lineId].directions))
         .flatMap(direction => direction.stops.filter((stop, i) => i > 0 && stop.station === id && stop.exits.length))
@@ -220,6 +223,8 @@ export function stationView(rail, id, lang, s) {
         // Its star, shown and set by the page's script
         favourite: favouriteButton({ kind: 'station', key: id, text: s('favourites.star'), cls: 'btn btn-sm btn-outline-secondary rounded-pill', hidden: true }),
         legend: symbols.length ? diagramLegend(symbols, s) : null,
+        // When it says a platform is step-free: that lifts can stop working
+        liftCaution: stepFree ? liftCaution(lang, s) : null,
         // Where the first and last trains come from: STASY's copy, the timetable, or both
         timetable: {
             stasy: rail.hours && directions.some(d => d.fromStasy) ? formatDate(rail.hours.fetched) : null,
