@@ -30,12 +30,12 @@ before(async () => {
 });
 after(() => server.close());
 
-test('the home page, every tool and the about, privacy and contact pages are indexed', () => {
-    assert.deepEqual(indexed, ['/', ...tools.map(t => t.path), '/about', '/privacy', '/contact']);
+test('the home page, every tool and the about, privacy, terms and contact pages are indexed', () => {
+    assert.deepEqual(indexed, ['/', ...tools.map(t => t.path), '/about', '/privacy', '/terms', '/contact']);
 });
 
-test('the about, privacy and contact pages are written in each language and linked from every page', async () => {
-    for (const name of ['about', 'privacy', 'contact']) {
+test('the about, privacy, terms and contact pages are written in each language and linked from every page', async () => {
+    for (const name of ['about', 'privacy', 'terms', 'contact']) {
         assert.match(pages[`/${name}`], /<html lang="en"/);
         assert.match(pages[`/el/${name}`], /<html lang="el"/);
     }
@@ -49,8 +49,18 @@ test('the about, privacy and contact pages are written in each language and link
     // A closed legend stays closed (/js/core/metro.js)
     assert.match(pages['/privacy'], /Whether you closed the explanation of what the train shows/);
     assert.match(pages['/el/privacy'], /Αν κλείσατε την εξήγηση για το τι δείχνει το τρένο/);
+    // The terms: given as it is, with its own date, and the about page links to them
+    assert.match(pages['/terms'], /<h1>Terms of use<\/h1>[\s\S]*Last updated: 29 October 2026[\s\S]*<strong>In short:<\/strong> Wayhop is free and given as it is\./);
+    assert.match(pages['/el/terms'], /<h1>Όροι χρήσης<\/h1>[\s\S]*Τελευταία ενημέρωση: 29 Οκτωβρίου 2026[\s\S]*παρέχεται ως έχει\./);
+    assert.match(pages['/terms'], /<meta name="description" content="Wayhop is free and given as it is:/);
+    // STASY's lift page in the page's language, as the lift notices link to it
+    assert.match(pages['/terms'], /<a href="https:\/\/www\.stasy\.gr\/en\/[^"]+" target="_blank" rel="noopener">STASY's elevator page</);
+    assert.match(pages['/el/terms'], /<a href="https:\/\/www\.stasy\.gr\/elevators\/" target="_blank" rel="noopener">σελίδα ανελκυστήρων της ΣΤΑΣΥ</);
+    assert.match(pages['/el/terms'], /<a href="\/el\/about">Σχετικά<\/a>/);
+    assert.match(pages['/about'], /The <a href="\/terms">terms of use<\/a> say more\./);
+    assert.match(pages['/el/about'], /Περισσότερα στους <a href="\/el\/terms">όρους χρήσης<\/a>\./);
     // No hosting details: who hosts the site and where is nothing a visitor needs
-    for (const name of ['about', 'privacy', 'contact']) {
+    for (const name of ['about', 'privacy', 'terms', 'contact']) {
         assert.doesNotMatch(pages[`/${name}`] + pages[`/el/${name}`], /Mediahost|cPanel/i);
     }
     // Every page links to them: in the sidebar, and in the menu on phones
@@ -58,7 +68,7 @@ test('the about, privacy and contact pages are written in each language and link
         const prefix = path.startsWith('/el') ? '/el' : '';
         const side = pages[path].match(/<div class="side-links">[\s\S]*?<\/div>/)[0];
         const menu = pages[path].match(/<nav id="site-menu"[\s\S]*?<\/nav>/)[0];
-        for (const name of ['about', 'privacy', 'contact']) {
+        for (const name of ['about', 'privacy', 'terms', 'contact']) {
             assert.ok(side.includes(`href="${prefix}/${name}"`), `${path}: sidebar links to ${name}`);
             assert.ok(menu.includes(`href="${prefix}/${name}"`), `${path}: menu links to ${name}`);
         }

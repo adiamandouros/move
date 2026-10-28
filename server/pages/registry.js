@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { STASY_LIFTS_PAGE } from '../../public/js/core/metro.js';
 import { loadConfig } from '../config.js';
 import { SHELL_STRINGS, stringGetter, toolNames } from './i18n.js';
 import { fares } from './fares.js';
@@ -94,10 +95,11 @@ export function sitePages(tools, config = loadConfig({}), rail = () => null) {
             title: `${name}.title`,
             // The privacy page has its own description once it describes ads
             description: `${name}.description${name === 'privacy' && ads ? '-ads' : ''}`,
-            // The privacy page has parts for with and without ads, and the
-            // contact page shows CONTACT_EMAIL (the address OASA also sees) when it's set
+            // The privacy and terms pages have parts for with and without ads,
+            // the contact page shows CONTACT_EMAIL (the address OASA also sees)
+            // when it's set, and the terms link to STASY's lift page
             content: (lang, strings) => view(`server/views/pages/${name}.${lang}.hbs`)({
-                updated: PRIVACY_UPDATED[lang], email: config.contactEmail, ads, adClient: config.adsense.client ?? '',
+                updated: UPDATED[name]?.[lang], email: config.contactEmail, ads, adClient: config.adsense.client ?? '', stasyLifts: STASY_LIFTS_PAGE[lang],
             }, { lang, strings }),
         })),
     ];
@@ -151,9 +153,12 @@ const STATIONS_TILE = { href: STATIONS_PATH, tool: null, iconName: 'stations', t
 // ── Pages of text ───────────────────────────────────────────────────────────
 
 // Written once per language: server/views/pages/<name>.<lang>.hbs
-const TEXT_PAGES = ['about', 'privacy', 'contact'];
-// When privacy.<lang>.hbs last changed in substance (shown on the page)
-const PRIVACY_UPDATED = { en: '27 October 2026', el: '27 Οκτωβρίου 2026' };
+const TEXT_PAGES = ['about', 'privacy', 'terms', 'contact'];
+// When the privacy and terms pages last changed in substance (shown on them)
+const UPDATED = {
+    privacy: { en: '27 October 2026', el: '27 Οκτωβρίου 2026' },
+    terms: { en: '29 October 2026', el: '29 Οκτωβρίου 2026' },
+};
 
 // ── Strings ─────────────────────────────────────────────────────────────────
 

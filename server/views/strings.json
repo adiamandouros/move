@@ -34,11 +34,14 @@
     "shell.new-tab": "(opens in a new tab)",
     "menu.about": "About",
     "menu.privacy": "Privacy",
+    "menu.terms": "Terms of use",
     "menu.contact": "Contact",
     "about.title": "About Wayhop",
     "about.description": "Wayhop is a free app for getting around Athens: live bus arrivals, metro trips with the best carriage for the exit, and service announcements. Where its information comes from.",
     "privacy.title": "Privacy",
     "privacy.description": "Wayhop has no accounts, uses no cookies or analytics and doesn't track you. What stays on your device and what reaches the server.",
+    "terms.title": "Terms of use",
+    "terms.description": "Wayhop is free and given as it is: where its information comes from, when to check at the station, and what Wayhop is responsible for.",
     "contact.title": "Contact",
     "contact.description": "Report wrong information or a problem with Wayhop, the Athens public transport app.",
     "contact.email": "Email:",
@@ -74,7 +77,9 @@
     "lifts.closed-short": "No step-free access right now",
     "lifts.partial-short": "An elevator is out of service",
     "lifts.no-step-free": "{station}: the platform toward {toward} has steps only, no step-free access.",
-    "lifts.no-step-free-short": "Steps only toward {toward}"
+    "lifts.no-step-free-short": "Steps only toward {toward}",
+    "lifts.caution": "Lifts can stop working at any time: see {link}.",
+    "lifts.caution-link": "STASY's elevator page"
   },
   "el": {
     "shell.skip": "Μετάβαση στο περιεχόμενο",
@@ -111,11 +116,14 @@
     "shell.new-tab": "(ανοίγει σε νέα καρτέλα)",
     "menu.about": "Σχετικά",
     "menu.privacy": "Απόρρητο",
+    "menu.terms": "Όροι χρήσης",
     "menu.contact": "Επικοινωνία",
     "about.title": "Σχετικά με το Wayhop",
     "about.description": "Το Wayhop είναι δωρεάν εφαρμογή για τις μετακινήσεις στην Αθήνα: αφίξεις λεωφορείων σε πραγματικό χρόνο, διαδρομές με το μετρό με το καλύτερο βαγόνι για την έξοδο και ανακοινώσεις. Από πού προέρχονται οι πληροφορίες.",
     "privacy.title": "Απόρρητο",
     "privacy.description": "Το Wayhop δεν έχει λογαριασμούς, δεν χρησιμοποιεί cookies ή εργαλεία στατιστικών και δεν σας παρακολουθεί. Τι μένει στη συσκευή σας και τι φτάνει στον διακομιστή.",
+    "terms.title": "Όροι χρήσης",
+    "terms.description": "Το Wayhop είναι δωρεάν και παρέχεται ως έχει: από πού προέρχονται οι πληροφορίες, πότε να ελέγχετε στον σταθμό και για τι ευθύνεται.",
     "contact.title": "Επικοινωνία",
     "contact.description": "Αναφέρετε λανθασμένες πληροφορίες ή ένα πρόβλημα στο Wayhop, την εφαρμογή για τα μέσα μαζικής μεταφοράς της Αθήνας.",
     "contact.email": "Email:",
@@ -151,6 +159,8 @@
     "lifts.closed-short": "Προς το παρόν χωρίς πρόσβαση με ανελκυστήρα",
     "lifts.partial-short": "Ανελκυστήρας εκτός λειτουργίας",
     "lifts.no-step-free": "{station}: στην αποβάθρα προς {toward} φτάνετε μόνο με σκαλοπάτια.",
-    "lifts.no-step-free-short": "Μόνο με σκαλοπάτια προς {toward}"
+    "lifts.no-step-free-short": "Μόνο με σκαλοπάτια προς {toward}",
+    "lifts.caution": "Οι ανελκυστήρες μπορεί να σταματήσουν ανά πάσα στιγμή: δείτε {link}.",
+    "lifts.caution-link": "τη σελίδα ανελκυστήρων της ΣΤΑΣΥ"
   }
 }

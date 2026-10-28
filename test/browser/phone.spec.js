@@ -150,7 +150,7 @@ test.describe('the menu', () => {
 
         await button.click();
         await expect(menu(page)).toBeVisible();
-        await expect(menu(page).locator('a')).toHaveText(['Ελληνικά', 'About', 'Privacy', 'Contact']);
+        await expect(menu(page).locator('a')).toHaveText(['Ελληνικά', 'About', 'Privacy', 'Terms of use', 'Contact']);
         expect(await axe(page)).toEqual([]);
         const [box, bar, view] = [await menu(page).boundingBox(), await page.locator('#bottom-nav').boundingBox(), page.viewportSize()];
         expect(box.y + box.height).toBeLessThanOrEqual(bar.y);
@@ -163,9 +163,9 @@ test.describe('the menu', () => {
     test('its links go to the pages, in the page\'s language', async ({ page }) => {
         await page.goto('/el/info');
         await page.locator('.menu-btn').click();
-        await expect(menu(page).locator('a')).toHaveText(['English', 'Σχετικά', 'Απόρρητο', 'Επικοινωνία']);
-        await menu(page).getByText('Απόρρητο').click();
-        await expect(page).toHaveURL(/:\d+\/el\/privacy$/);
+        await expect(menu(page).locator('a')).toHaveText(['English', 'Σχετικά', 'Απόρρητο', 'Όροι χρήσης', 'Επικοινωνία']);
+        await menu(page).getByText('Όροι χρήσης').click();
+        await expect(page).toHaveURL(/:\d+\/el\/terms$/);
         await expect(menu(page)).toBeHidden();
     });
 
