@@ -44,10 +44,15 @@ function fakeLocation(settings) {
         // 'never': no answer at all, like a phone without a signal
     };
     let ids = 0;
+    const watching = new Map();
+    // A new fix from the phone, at once, to every watch: page.evaluate(() => window.__sendPosition())
+    window.__sendPosition = () => {
+        for (const ok of watching.values()) ok({ coords: { latitude: geo.at.lat, longitude: geo.at.lng, accuracy: 20 }, timestamp: Date.now() });
+    };
     const location = {
         getCurrentPosition: (ok, fail) => answer(ok, fail),
-        watchPosition: (ok, fail) => { answer(ok, fail); return ++ids; },
-        clearWatch: () => {},
+        watchPosition: (ok, fail) => { watching.set(++ids, ok); answer(ok, fail); return ids; },
+        clearWatch: id => watching.delete(id),
     };
     Object.defineProperty(Navigator.prototype, 'geolocation', { get: () => location, configurable: true });
     const query = navigator.permissions?.query.bind(navigator.permissions);
