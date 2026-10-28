@@ -51,6 +51,11 @@ rules (no flaky tests, coverage only goes up).
 ## Saving progress
 
 When the user says "save our progress", "store our progress", "note
-everything down" or the like, that means: update the roadmap (Claude's
-`roadmap` memory) **and** its roadmap artifact, so both say the same thing.
-Read the artifact first and build on what's there.
+everything down" or the like, that means: update the roadmap page (Claude's
+roadmap artifact), the one place the plan lives. Read it first and build on
+what's there.
+
+- Each open item says what it needs first.
+- Each finished item is one line; the details stay in its pull requests.
+- Claude's `roadmap` memory only points at the page and says, in a few
+  lines, where things stand now. It holds no copy of the plan.
