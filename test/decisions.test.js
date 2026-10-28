@@ -55,3 +55,20 @@ test('every link in the records and the README leads to a file that exists', () 
         links(read(name)).filter(href => !existsSync(join(DIR, href))).map(href => `${name}: ${href}`));
     assert.deepEqual(broken, []);
 });
+
+// ARCHITECTURE.md says how the code works and links to these pages for why
+const ROOT = fileURLToPath(new URL('../', import.meta.url));
+const architecture = readFileSync(join(ROOT, 'ARCHITECTURE.md'), 'utf8');
+
+test('every link in ARCHITECTURE.md leads to a file that exists', () => {
+    assert.deepEqual(links(architecture).filter(href => !existsSync(join(ROOT, href))), []);
+});
+
+test('ARCHITECTURE.md links only to decisions in force', () => {
+    const linked = links(architecture)
+        .filter(href => href.startsWith('docs/decisions/'))
+        .map(href => href.slice('docs/decisions/'.length))
+        .filter(name => RECORD.test(name));
+    assert.ok(linked.length > 0);
+    assert.deepEqual(linked.filter(name => status(name) !== 'In force'), []);
+});
