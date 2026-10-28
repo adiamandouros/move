@@ -26,6 +26,7 @@ const adPages = (() => {
     return {
         '/ (with ads)': withAds.pages['/'], '/el/info (with ads)': withAds.pages['/el/info'],
         '/privacy (with ads)': withAds.pages['/privacy'], '/el/privacy (with ads)': withAds.pages['/el/privacy'],
+        '/terms (with ads)': withAds.pages['/terms'], '/el/terms (with ads)': withAds.pages['/el/terms'],
         '(station x, with ads)': withAds.renderPage(stationPage(rail, 'x', { tools }), 'el'),
     };
 })();

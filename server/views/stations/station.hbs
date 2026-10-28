@@ -25,6 +25,9 @@
 {{#if legend}}
     {{legend}}
 {{/if}}
+{{#if liftCaution}}
+    <p class="schedule-disclaimer">{{icon "step-free" "me-1"}}{{liftCaution}}</p>
+{{/if}}
 {{#if timetable.stasy}}
     <p class="schedule-disclaimer">{{icon "info" "me-1"}}{{t "stations.timetable-stasy" date=timetable.stasy}}</p>
 {{/if}}

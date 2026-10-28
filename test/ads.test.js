@@ -42,6 +42,7 @@ test('without ADSENSE_CLIENT there is no trace of ads', async () => {
     }
     assert.match(pages['/privacy'], /uses no cookies or analytics/);
     assert.doesNotMatch(pages['/privacy'], /id="advertising"/);
+    assert.doesNotMatch(pages['/terms'], /<h2>Ads<\/h2>/);
     assert.equal((await adsTxt({})).status, 404);
 });
 
@@ -62,6 +63,9 @@ test('ADSENSE_CLIENT alone: the verification tag and ads.txt for the review, the
     assert.match(privacy, /<button type="button" id="ad-choices"[^>]*data-ad-client="ca-pub-1234567890123456" hidden>Change your ad choices<\/button>/);
     assert.match(privacy, /src="\/js\/core\/ads\.js\?v=/);
     assert.match(pages['/el/privacy'], /<h2 id="advertising">Διαφημίσεις<\/h2>/);
+    // The terms: Google chooses the ads, not Wayhop
+    assert.match(pages['/terms'], /<h2>Ads<\/h2>\s*<p>The ads come from Google\. Wayhop doesn't choose them/);
+    assert.match(pages['/el/terms'], /<h2>Διαφημίσεις<\/h2>/);
     assert.doesNotMatch(privacy + pages['/el/privacy'], /<!-- \/?(with|without) ads -->/);
 });
 

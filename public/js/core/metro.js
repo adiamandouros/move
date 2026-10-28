@@ -1,4 +1,4 @@
-import { html, icon } from './html.js';
+import { externalLink, formatHtml, html, icon } from './html.js';
 
 /** @typedef {import('../../../types/data.js').Position} Position */
 
@@ -6,6 +6,17 @@ import { html, icon } from './html.js';
 // station pages (written on the server, server/pages/stations.js). Strings
 // come from s(key): t() in the browser, the page's strings on the server.
 // Line pills are in lines.js.
+
+// STASY's page of the lifts out of service, in each language
+export const STASY_LIFTS_PAGE = {
+    el: 'https://www.stasy.gr/elevators/',
+    en: 'https://www.stasy.gr/en/%ce%bb%ce%b5%ce%b9%cf%84%ce%bf%cf%85%cf%81%ce%b3%ce%b9%ce%ba%cf%8c%cf%84%ce%b7%cf%84%ce%b1-%ce%b1%ce%bd%ce%b5%ce%bb%ce%ba%cf%85%cf%83%cf%84%ce%ae%cf%81%cf%89%ce%bd-%ce%b5%ce%bd/',
+};
+
+// What goes with anything Wayhop says about step-free access (the terms of
+// use promise it): lifts can stop working, and STASY's page says which have
+/** @param {'en' | 'el'} lang @param {(key: string) => string} s */
+export const liftCaution = (lang, s) => formatHtml(s('lifts.caution'), { link: externalLink({ href: STASY_LIFTS_PAGE[lang] }, s('lifts.caution-link'), s('shell.new-tab')) });
 
 // The station a direction of a line ends at, as its signs name it, even
 // when the next train turns back sooner (M3 toward Doukissis / Airport:

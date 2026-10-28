@@ -73,6 +73,7 @@ export const MEANINGS = {
     language: { symbol: 'language' },
     email: { symbol: 'mail' },
     private: { symbol: 'lock' },
+    terms: { symbol: 'gavel' },
     'zoom-in': { symbol: 'add' },
     'zoom-out': { symbol: 'remove' },
     'zoom-reset': { symbol: 'fit_screen' },

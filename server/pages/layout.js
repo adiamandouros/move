@@ -11,7 +11,7 @@ import { view } from './templates.js';
 
 // The pages about the site: on phones in the menu, on wider screens near the
 // bottom of the sidebar, above the language button
-const SITE_PAGES = [{ name: 'about', iconName: 'info' }, { name: 'privacy', iconName: 'private' }, { name: 'contact', iconName: 'email' }];
+const SITE_PAGES = [{ name: 'about', iconName: 'info' }, { name: 'privacy', iconName: 'private' }, { name: 'terms', iconName: 'terms' }, { name: 'contact', iconName: 'email' }];
 
 // Each language's name in its own language, as is usual for language links
 const LANGUAGE_NAMES = { en: 'English', el: 'Ελληνικά' };

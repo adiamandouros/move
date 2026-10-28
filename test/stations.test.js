@@ -103,6 +103,9 @@ test('what a station\'s page shows, as data: lines, neighbours, where to ride, c
         { text: 'stations.step-free.no', none: true },
         { text: 'stations.step-free.unknown', none: false },
     ]);
+    // One of them step-free: that lifts can stop working, too; none, nothing
+    assert.match(String(view.liftCaution), /^lifts\.caution$/);
+    assert.equal(stationView(rail, 'a', 'en', key => key).liftCaution, null);
     assert.deepEqual(east.times, [
         { days: 'stations.day.1–stations.day.5', first: '05:32', last: '00:32' },
         { days: 'stations.day.6, stations.day.0', first: '06:02', last: '01:02' },
@@ -240,6 +243,8 @@ test('a station page shows lines, neighbours, where to ride, connections and tim
         'Step-free from the street: by elevator', 'Steps only: no step-free access to this platform', 'Step-free access: not known yet',
     ]) assert.ok(t.includes(expected), `"${expected}" in: ${t}`);
     assert.match(html, /<li class="station-step-free station-step-free-none"><svg class="icon me-1"[^>]*><use href="[^"#]*#step-free"><\/use><\/svg>Steps only/);
+    // A platform step-free by elevator: under the sections, that lifts can stop working, and STASY's page
+    assert.match(html, /<p class="schedule-disclaimer"><svg[^>]*><use href="[^"#]*#step-free"><\/use><\/svg>Lifts can stop working at any time: see <a href="https:\/\/www\.stasy\.gr\/en\/[^"]+" target="_blank" rel="noopener">STASY&#39;s elevator page<span class="sr-only"> \(opens in a new tab\)<\/span><\/a>\.<\/p>/);
     assert.match(html, /aria-label="Train diagram showing where to stand: Back, Center \(elevator\)"/);
     // Under the sections, what the trains show
     assert.match(html, /<details class="diagram-legend" open>\s*<summary>What the train shows<\/summary>/);
@@ -357,7 +362,7 @@ test('a page\'s own strings go to the browser only when it has scripts of its ow
 });
 
 test('the breadcrumb: from the subway page to the page itself, in the views and the structured data alike', () => {
-    const s = key => ({ 'stations.subway': 'Subway', 'stations.title': 'Metro stations' })[key];
+    const s = key => ({ 'stations.subway': 'Subway', 'stations.title': 'Metro stations' })[key] ?? key;
     assert.deepEqual(breadcrumb(rail, 'x', 'el', s), [
         { name: 'Subway', path: '/subway' }, { name: 'Metro stations', path: '/subway/stations' }, { name: 'Κόμβος', path: '/subway/stations/x' },
     ]);

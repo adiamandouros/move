@@ -29,6 +29,7 @@ function everyPage() {
     const withAds = renderPages(tools, loadConfig({ ADSENSE_CLIENT: 'ca-pub-1234567890123456', ADSENSE_SLOT_HOME: '1111111111', ADSENSE_SLOT_INFO: '2222222222', ADSENSE_SLOT_STATION: '3333333333' }));
     all['/ (with ads)'] = withAds.pages['/'];
     all['/el/privacy (with ads)'] = withAds.pages['/el/privacy'];
+    all['/el/terms (with ads)'] = withAds.pages['/el/terms'];
     return all;
 }
 
