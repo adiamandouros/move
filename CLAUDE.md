@@ -2,7 +2,8 @@
 
 Start with [ARCHITECTURE.md](ARCHITECTURE.md) (how the code fits together)
 and [README.md](README.md) (running it). Anything visual follows
-[DESIGN.md](DESIGN.md).
+[DESIGN.md](DESIGN.md). Why things are the way they are is in
+[docs/decisions/](docs/decisions/README.md), one page per decision.
 
 ## Tests come with every change
 
@@ -43,6 +44,9 @@ rules (no flaky tests, coverage only goes up).
   keyboard alone.
 - Anything that changes how often OASA is asked (polling, caching, limits):
   propose the numbers first.
+- A pull request that changes one of the decisions in `docs/decisions/`, or
+  makes a new one of the same weight, comes with its page: a new page for a
+  changed decision, the old one marked as replaced.
 
 ## Saving progress
 

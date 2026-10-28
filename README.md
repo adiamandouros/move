@@ -72,6 +72,7 @@ server's code can't use top-level `await` (`test/startup.test.js` checks).
 ## More
 
 - [ARCHITECTURE.md](ARCHITECTURE.md): how the code fits together
+- [docs/decisions/](docs/decisions/README.md): why it's built that way, one page per decision
 - [DESIGN.md](DESIGN.md): how Wayhop looks: tokens, units, colours and their rules
 - [tools/README.md](tools/README.md): adding or changing a page like Subway or Buses
 - [data/curated/README.md](data/curated/README.md): the hand-maintained station data and its editor
