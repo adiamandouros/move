@@ -53,7 +53,10 @@ Import `test` and `expect` from `./fixtures.js`. Every test gets:
   `test.use({ location: { permission, answer, at } })` changes it:
   `permission` is what the browser reports (`'granted'`, `'prompt'`,
   `'denied'`), `answer` what asking gives (`'position'`, `'deny'`, or
-  `'never'` for no signal). `window.__geo` counts the page's calls to it.
+  `'never'` for no signal). `window.__geo` counts the page's calls to it;
+  `window.__setLocation({ at })` moves it, and `window.__sendPosition()`
+  sends the page's watches a new fix at once, like a phone does every
+  second or so.
 - **no script errors**: a test fails if the page throws or logs an error.
 - **no service worker**, so pages don't come from the offline cache at
   random; `offline.spec.js` turns it on to test that cache.

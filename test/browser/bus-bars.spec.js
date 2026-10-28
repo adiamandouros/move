@@ -2,7 +2,7 @@
 // docked at the bottom of the screen (above the bottom nav on phones) however
 // few stops show, and a line's number, name and directions pinned at the top
 // while its stops scroll. What the keyboard moves to stays clear of both.
-import { expect, onlyOn, test } from './fixtures.js';
+import { expect, OMONIA, onlyOn, test } from './fixtures.js';
 
 // Where the screen ends for the page: the bottom nav's top on phones, the window's bottom on desktop
 const screenEnd = page => page.evaluate(() => {
@@ -93,6 +93,30 @@ test.describe('a line', () => {
         await page.goto('/buses?line=040');
         await expect(page.locator('.stop-nearest')).toBeInViewport();
         await expect.poll(() => cutStops(page)).toEqual([]);
+    });
+
+    // Safari keeps one element of the list steady on screen while the page
+    // changes; replacing it, even with the same text, moved the list and left
+    // a stop half under the bar (#145)
+    test('a new position that changes no distance leaves the stops as they are, and one that does updates them', async ({ page }) => {
+        await page.goto('/buses?line=040');
+        await expect(page.locator('.stop-nearest')).toBeInViewport();
+        const changes = () => page.evaluate(() => {
+            const watch = new MutationObserver(() => {});
+            watch.observe(document.getElementById('stops-accordion'), { subtree: true, childList: true, characterData: true });
+            window.__sendPosition();
+            const records = watch.takeRecords();
+            watch.disconnect();
+            return records.length;
+        });
+        expect(await changes()).toBe(0);
+        expect(await cutStops(page)).toEqual([]);
+
+        const nearest = page.locator('.stop-nearest .stop-distance');
+        const before = await nearest.textContent();
+        await page.evaluate(at => window.__setLocation({ at }), OMONIA);
+        expect(await changes()).toBeGreaterThan(0);
+        await expect(nearest).not.toHaveText(before);
     });
 });
 

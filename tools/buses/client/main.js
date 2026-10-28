@@ -430,14 +430,18 @@ function showDirection(direction) {
     showView().then(() => /** @type {HTMLElement | null} */ (lineBar.querySelector(`[data-direction="${direction}"]`))?.focus());
 }
 
-// A new position updates how far the stops are (a stop's or a line's, and the starred ones)
+// A new position updates how far the stops are (a stop's or a line's, and the
+// starred ones). Only the ones that changed are redrawn: the phone sends
+// positions often, and Safari moves the list when the element it keeps steady
+// on screen is replaced, even with the same text
 function patchDistances() {
     state.stops = state.stops.map(withMeters);
     state.favouriteStops = state.favouriteStops.map(withMeters);
     for (const stop of listed()) {
+        const view = distance(stop.meters);
         for (const item of itemsOf(stop.code)) {
             const el = item.querySelector('.stop-distance');
-            if (el) setHtml(el, distance(stop.meters));
+            if (el && el.innerHTML !== String(view)) setHtml(el, view);
         }
     }
 }
