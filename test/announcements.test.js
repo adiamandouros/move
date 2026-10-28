@@ -57,13 +57,14 @@ test('strikes and closures count as disruptions, in either language and any case
     assert.ok(!isDisruption('Τροποποίηση της γραμμής 418'));
 });
 
-// A fake web with the three sources; records each URL fetched
+// A fake web with the three sources (a number: that HTTP error); records each URL fetched
 function fakeWeb(pages) {
     const calls = [];
     const fetch = async url => {
         calls.push(url);
         const body = typeof pages[url] === 'function' ? pages[url]() : pages[url];
         if (body === undefined || body instanceof Error) throw body ?? new Error('not found');
+        if (typeof body === 'number') return { ok: false, status: body, text: async () => 'Error' };
         return { ok: true, text: async () => body };
     };
     return { fetch, calls };
@@ -167,6 +168,34 @@ test('a failing source keeps its last good copy, and the copy survives a restart
     assert.equal(restored.rail.length, 2);
     assert.equal(restored.bus.el.length, 1);
     assert.ok(JSON.parse(readFileSync(cacheFile, 'utf8')).dates['https://www.stasy.gr/l3/']);
+});
+
+test('a STASY post whose page doesn\'t load is left out for now, not the whole list, and tried again next time', async () => {
+    let t = NOW;
+    const pages = sources();
+    // STASY's news page has listed a post its own site answers 404
+    const broken = 'https://www.stasy.gr/l3-closures/';
+    pages[STASY] = stasyArticle(3, 'l3-closures', 'Κλείνουν νωρίς πέντε σταθμοί της Γραμμής 3') + pages[STASY];
+    pages[broken] = 404;
+    const web = fakeWeb(pages);
+    const ann = createAnnouncements({ fetch: web.fetch, now: () => t, log: () => {} });
+
+    const first = await ann.current();
+    assert.deepEqual(first.rail.map(i => i.title), ['Νέος συρμός στη Γραμμή 1', 'Οι σταθμοί θα κλείνουν στις 21:40']);
+    assert.deepEqual(ann.status().stasy, { ok: true, at: t, route: 'direct', leftOut: 1, items: 2, updated: new Date(t).toISOString() });
+    const [check] = announcementChecks({ stasy: ann.status().stasy }, () => t);
+    assert.deepEqual([check.status, check.detail], ['ok', '2 current; 1 new post left out for now (its page didn\'t load)']);
+
+    // The next refresh tries it again (and only it: the others' dates are known)
+    pages[broken] = stasyPost('2026-10-13T10:00:00+03:00');
+    t += 20 * 60_000;
+    const calls = web.calls.length;
+    await ann.current();
+    await settle();
+    assert.deepEqual(web.calls.slice(calls).sort(), [OASA_EN, OASA_EL, STASY, broken].sort());
+    const fixed = await ann.current();
+    assert.deepEqual(fixed.rail.map(i => i.title), ['Κλείνουν νωρίς πέντε σταθμοί της Γραμμής 3', 'Νέος συρμός στη Γραμμή 1', 'Οι σταθμοί θα κλείνουν στις 21:40']);
+    assert.equal(ann.status().stasy.leftOut, undefined);
 });
 
 // ── STASY through the relays ────────────────────────────────────────────────
