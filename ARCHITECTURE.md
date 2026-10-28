@@ -57,7 +57,7 @@ lists them all and says where the rest are:
 |---|---|---|
 | Home, offline | `registry.js` | `server/views/home.hbs`, `offline.hbs` |
 | Subway, Buses, Info | `tools/<id>/tool.json` | `tools/<id>/page.hbs`, see [tools/README.md](tools/README.md) |
-| About, Privacy, Contact | `registry.js` | `server/views/pages/<name>.<lang>.hbs`, one file per language |
+| About, Privacy, Terms of use, Contact | `registry.js` | `server/views/pages/<name>.<lang>.hbs`, one file per language |
 | Metro stations | `server/pages/stations.js` | `server/views/stations/*.hbs`, from `rail.json` on request |
 | Not found (404) | `registry.js` (`NOT_FOUND`) | `server/views/notfound.hbs` |
 | Error (500) | `registry.js` (`SERVER_ERROR`) | `server/views/error.hbs` |
@@ -173,7 +173,7 @@ pages use.
   string missing in Greek shows in English.
 - **Longer text** (paragraphs with links, lists): written twice, side by
   side, in `{{#ifLang "en"}}…{{else}}…{{/ifLang}}`.
-- **Pages of prose** (about, privacy, contact): one file per language.
+- **Pages of prose** (about, privacy, terms, contact): one file per language.
 - **In the browser**: `/js/core/i18n.js` gives `t(key)`, `language` and
   `localHref(path)`. Each page carries only its own language's strings, and
   only those its scripts use: its own, and the shared `shell.`,
