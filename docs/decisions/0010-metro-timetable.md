@@ -22,7 +22,8 @@ temporary works.
   (#84).
 - Every build checks what it made against STASY's tables
   ([rail-checks.js](../../server/data/rail-checks.js), #85). A stop without
-  STASY's hours fails `/api/health`; smaller differences are notes in
+  STASY's hours fails `/api/health`, since depot runs could get through
+  there; smaller differences are notes in
   `/admin/diagnostics`.
 - Temporary works aren't modelled; the announcements cover them.
 

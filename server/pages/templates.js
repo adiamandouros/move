@@ -64,7 +64,9 @@ hb.registerHelper('ifLang', function (code, options) {
     return options.data.lang === code ? options.fn(this) : options.inverse(this);
 });
 
-// Its content is the view's own output, so already escaped
+// Its content is the view's own output, so already escaped. A helper, not a
+// partial: a partial's hash joins the view's context, so a link's id= would
+// hide the station's own id inside it.
 hb.registerHelper('external', function (options) {
     const newTab = stringGetter(options.data.strings ?? {}, options.data.lang)('shell.new-tab');
     return new hb.SafeString(String(externalLink(options.hash, raw(options.fn(this)), newTab)));

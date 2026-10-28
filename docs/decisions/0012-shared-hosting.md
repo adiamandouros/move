@@ -21,9 +21,12 @@ Wayhop fits the host:
   manages, so a deploy installs through cPanel's own tool
   ([cpanel-deploy.sh](../../scripts/cpanel-deploy.sh)).
 - **The account may run 100 threads**, all its apps together, about 11 per
-  Node app. The newest copy of Wayhop stops its own older copies, a deploy
-  stops the copies from before it, and a data build ends with
-  `process.exit()`; one still running after an hour is stopped
+  Node app; at the limit nothing new starts, not even cPanel's Node.js page.
+  Copies of apps left running after a restart filled it twice. The newest
+  copy of Wayhop stops its own older copies, a deploy stops the copies from
+  before it, and a data build ends with `process.exit()`, since the host
+  preloads LiteSpeed's `lsnode.js` into it, which kept builds running for
+  hours; one still running after an hour is stopped
   ([processes.js](../../server/processes.js), #138, #146). `/api/health`
   warns from 70 threads.
 - **No system cron**: the nightly build is scheduled inside the app.

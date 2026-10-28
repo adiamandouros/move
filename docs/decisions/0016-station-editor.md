@@ -25,6 +25,8 @@ platform, sometimes underground.
 - Until they are committed, edits exist only on the server's disk.
 - Any change near the editor, the positions data or the build after a save
   is checked against this rule.
+- Tests read the station data rather than writing what it says into
+  themselves, so a hand edit never fails a commit (#124).
 
 ## Look again when
 

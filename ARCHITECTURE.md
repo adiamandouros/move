@@ -2,14 +2,19 @@
 
 A map of the code, for whoever works on it next. The [README](README.md)
 covers setting it up and running it, and [docs/decisions/](docs/decisions/README.md)
-why it's built this way, one page per decision.
+why it's built this way, one page per decision: the links below that say
+"decision 7" and so on.
 
-Wayhop has no build step and no front-end framework. The server renders
+Wayhop has no build step and no front-end framework
+([decision 1](docs/decisions/0001-no-build-step.md)). The server renders
 every page's HTML at startup and keeps it in memory (pages drawn from
 `rail.json`, the station pages and the Info page's last trains, are drawn
-again when it changes); each page then loads a
-few plain JavaScript modules for its live parts (routes, bus arrivals,
-announcements, the map).
+again when it changes; [decision 2](docs/decisions/0002-server-rendered-pages.md));
+each page then loads a few plain JavaScript modules for its live parts
+(routes, bus arrivals, announcements, the map). It's one process with no
+database ([decision 4](docs/decisions/0004-one-process-no-database.md)), on
+shared hosting that shapes a few things below
+([decision 12](docs/decisions/0012-shared-hosting.md)).
 
 ```
 browser ─► Express (server/app.js, started by server.js)
@@ -42,8 +47,8 @@ reading a JSON file, and writing a file through a temporary one and a rename.
 
 Every page exists twice: in English at its path (`/subway`) and in Greek
 under `/el` (`/el/subway`). The server renders each one fully in its
-language, so browsers and search engines get it ready to show; the browser
-never translates anything.
+language; the browser never translates anything
+([decision 3](docs/decisions/0003-languages.md)).
 
 Where each page comes from. [server/pages/registry.js](server/pages/registry.js)
 lists them all and says where the rest are:
@@ -87,10 +92,10 @@ All in [server/pages/](server/pages/):
 
 Views are [Handlebars](https://handlebarsjs.com/) templates (`.hbs`),
 compiled once by [templates.js](server/pages/templates.js) and only on the
-server: browsers get finished HTML, and nothing is added to what they load.
-HTML is written in two ways only, both escaping what goes in: views, and
-``html`` `` in JavaScript; never in plain strings (`test/escaping.test.js`
-checks). `{{value}}` is escaped; `{{{content}}}`, the page inside the
+server. HTML is written in two ways only, both escaping what goes in: views,
+and ``html`` `` in JavaScript; never in plain strings
+([decision 2](docs/decisions/0002-server-rendered-pages.md);
+`test/escaping.test.js` checks). `{{value}}` is escaped; `{{{content}}}`, the page inside the
 layout, is the one value put in as it is. What goes into `<head>` is data
 too: `seo.js` gives the meta tags' values (`partials/meta.hbs` writes them),
 and structured data and the import map go in with `{{json}}`. Pieces built with ``html`` `` (a line
@@ -122,8 +127,8 @@ both languages and that every `{{#ifLang}}` has its Greek. Partials are in
 direction card, `station-direction`), or around what's inside it as
 `{{#> section id="map" iconName="map" title="info.map"}}…{{/section}}` (a
 section of the info page's accordion). What the browser draws (bus stops and
-their arrivals, trip results) isn't Handlebars, so browsers load nothing
-more: those components are functions built with ``html`` `` in the tool's
+their arrivals, trip results) isn't Handlebars: those components are
+functions built with ``html`` `` in the tool's
 `client/`, or in `/js/core/metro.js` when the server draws them too. A tool's
 `data.json` gives its `page.hbs` its values. The service
 workers aren't HTML: `fill()` puts their version and file lists in.
@@ -201,7 +206,8 @@ pages use.
 - **Location** (`/js/core/location.js`): only the pages that use it start it
   (Buses, and Subway when allowed or on "Nearest station"), so the browser
   asks once, where it's clear why. The last position is kept on the device
-  for 10 minutes and shared by the pages, and nothing waits for it: pages
+  for 10 minutes and shared by the pages
+  ([decision 17](docs/decisions/0017-privacy.md)), and nothing waits for it: pages
   show what they can and update as positions come.
 - **Coming back to a tool** (`/js/core/remember.js`): the tools open where
   they were left, for this tab or app session (`sessionStorage`). What's kept
@@ -213,13 +219,15 @@ pages use.
   go (a station page's "Plan a trip from here", the bus page's way back to
   the stops nearby) work as they always did.
 - Scripts import each other by absolute URL (`/js/core/i18n.js`). An import
-  map in every page points each of those URLs at its version (`?v=<hash>`),
-  so a deploy never mixes old and new files.
+  map in every page points each of those URLs at its version (`?v=<hash>`;
+  [decision 1](docs/decisions/0001-no-build-step.md)).
 - Logic without the DOM (route finding in `tools/subway/client/network.js`,
   nearest stops in `tools/buses/client/stops.js`, finding a stop or a line in
   `tools/buses/client/search.js`) is tested in Node. `/js/core/text.js` has
   `normalise()`, how both searches compare what's typed with names.
-- `html.js`, `metro.js` and `network.js` are also used by the server (the
+- Trips are worked out in the browser
+  ([decision 5](docs/decisions/0005-trips-in-the-browser.md)), but
+  `html.js`, `metro.js` and `network.js` are also used by the server (the
   station pages), so they only import other files by relative path, which
   works in both.
 
@@ -233,7 +241,8 @@ first, except those tools, which open from the cache at once and update in
 the background. `/api` and `/admin` are never cached. Each deploy changes
 the version, which replaces the whole cache. A new version installs in the
 background and waits (no `skipWaiting`, no reload): open pages keep the
-version they started with, and it takes over once they're closed.
+version they started with, and it takes over once they're closed
+([decision 6](docs/decisions/0006-offline.md)).
 
 ## Live bus times and the load on OASA
 
@@ -241,8 +250,9 @@ version they started with, and it takes over once they're closed.
 
 - `client.js`: at most 2 requests a second, in two lanes: someone's first
   look at a stop goes ahead of refreshes. Routes are tried in order:
-  direct, the Cloudflare Worker, the home relay ([proxy/README.md](proxy/README.md));
-  OASA only accepts Greek addresses. A route that keeps failing rests for a day.
+  direct, the Cloudflare Worker, the home relay ([proxy/README.md](proxy/README.md);
+  [decision 8](docs/decisions/0008-routes-and-relays.md)). A route that keeps
+  failing rests for a day.
 - `arrivals.js`: each stop's arrivals are shared by everyone for 30 s; while
   requests queue for OASA (over 2 s, over 5 s), for 60 s or 90 s, counted
   down and marked stale from a minute old. When OASA can't be reached, the
@@ -256,7 +266,9 @@ version they started with, and it takes over once they're closed.
 - `limits.js`: each visitor may ask for 30 stops a minute that aren't cached.
 - `index.js`: `/api/arrivals`, for stops in `bus-stops.json` only.
 
-These numbers set our load on OASA; changes to them are agreed first.
+These numbers set our load on OASA, and so do the ones for STASY and the
+bus network below; changes to any of them are agreed first
+([decision 7](docs/decisions/0007-load-on-oasa.md)).
 
 Announcements ([server/info/announcements.js](server/info/announcements.js))
 are fetched from OASA's RSS and STASY's news page at most every 15 minutes,
@@ -284,23 +296,21 @@ more trains than usual (two timetables laid over each other), and a train the
 feed lists twice is kept once. The dates from yesterday to the feed's end
 whose trains differ from their weekday's (a holiday, a new timetable) also
 get their own, which the planner uses on that date; the typical week is for
-every other date, and for all of them once the feed has expired. The first and last trains from each stop come
-from STASY's own timetable pages instead (`stasy.js`), as the GTFS has depot
-runs STASY doesn't publish and misses some late airport trains: the pages are
-fetched at most every 14 days (directly or through the relays, like STASY's
-announcements, `server/stasy.js`), and a copy of their tables is kept in
-`data/raw/stasy/`; a line whose pages can't be read keeps the GTFS's times.
-The timetable's trains outside STASY's first and last trains are taken off
-(`trimToHours` in `build-rail.js`), so the planner never offers a depot run.
-The GTFS also misses some airport trains (the last ones) or ends them early:
-STASY's airport timetable, copied by hand from its PDFs into
-`data/curated/airport.json`, adds them (`addTimetabled`), and once a week the
-build checks the PDFs haven't changed (`airport-check.js`: STASY's line 3 page
-and the two PDFs, through the relays).
-Since the GTFS can't be trusted to stay as it was, each build also checks the
-timetable it made against STASY's tables (`rail-checks.js`): a stop without
-STASY's first and last trains is a problem (depot runs could get through
-there), and fails `/api/health`; first or last trains off STASY's (missing
+every other date, and for all of them once the feed has expired. The GTFS
+isn't trusted as it is ([decision 10](docs/decisions/0010-metro-timetable.md)).
+The first and last trains from each stop come from STASY's own timetable
+pages instead (`stasy.js`): the pages are fetched at most every 14 days
+(directly or through the relays, like STASY's announcements,
+`server/stasy.js`), and a copy of their tables is kept in `data/raw/stasy/`;
+a line whose pages can't be read keeps the GTFS's times. The timetable's
+trains outside STASY's first and last trains are taken off (`trimToHours` in
+`build-rail.js`). The airport trains the GTFS misses (the last ones) or ends
+early come from STASY's airport timetable, copied by hand from its PDFs into
+`data/curated/airport.json` (`addTimetabled`), and once a week the build
+checks the PDFs haven't changed (`airport-check.js`: STASY's line 3 page and
+the two PDFs, through the relays). Each build also checks the timetable it
+made against STASY's tables (`rail-checks.js`): a stop without STASY's first
+and last trains is a problem, and fails `/api/health`; first or last trains off STASY's (missing
 trains), how often trains run against STASY's frequency tables, the dates
 with trains of their own and dates the GTFS lays two timetables over (those
 keep the typical week) are notes, on `/admin/diagnostics`. The same feed has
@@ -309,8 +319,8 @@ shape of the metro part without timetables) for the Info page's tram map,
 with names and changes to the metro from `data/curated/tram.json`; a problem
 there is a warning and leaves the tram out, never the metro. The Info page
 draws both maps with one drawer (`tools/info/client/map.js`), each from its
-own layout (`map-layout.js`, `tram-layout.js`). The buses come from OASA's live API instead, as its
-open-data bus timetable falls behind (diversions, new routes):
+own layout (`map-layout.js`, `tram-layout.js`). The buses come from OASA's
+live API instead ([decision 9](docs/decisions/0009-bus-network-from-live-api.md)):
 `oasa-network.js` fetches today's lines, their routes and each route's stops,
 and `build-bus.js` makes `data/build/bus-stops.json` (every stop on a route
 today, its names and lines) and `data/build/bus-lines.json` (each line's
@@ -330,7 +340,8 @@ it was (`publish`), so its ETag stays and browsers keep their copy; that's
 why `rail.json` and the bus files don't say when they were built or fetched
 (`meta.json` does). Where to stand on each
 train is curated by hand in `data/curated/` ([README](data/curated/README.md)),
-and can be edited from a phone at `/admin/stations`.
+and can be edited from a phone at `/admin/stations`, which nothing may block
+([decision 16](docs/decisions/0016-station-editor.md)).
 
 ## Monitoring
 
@@ -357,17 +368,15 @@ and parts, the timetable's end, STASY's copy, the airport check) is judged
 once, in `server/data/status.js`, so the two always agree.
 
 The hosting account may run 100 threads at once, all its apps together
-(about 11 per Node app); at the limit nothing new starts, not even cPanel's
-Node.js page. Copies of apps left running after a restart filled it twice.
+([decision 12](docs/decisions/0012-shared-hosting.md)).
 `server/processes.js` reads `/proc` (which starts no process, so it works
 even at the limit): LiteSpeed runs each app as `lsnode:<app folder>`, and a
 copy 10 minutes older than the newest copy of its app is left over. The
 newest copy of Wayhop stops its own every 5 minutes, the deploy stops every
 copy from before the restart (`scripts/stop-old-copies.js`), and the health
 page and `/admin/diagnostics` (with the pids) report other apps' leftovers.
-A data build runs as a process of its own and ends with `process.exit()`:
-on the host it starts with LiteSpeed's `lsnode.js` preloaded, which kept
-builds running for hours. The guard also stops any build in Wayhop's folder
+A data build runs as a process of its own and ends with `process.exit()`.
+The guard also stops any build in Wayhop's folder
 still running after an hour, and the health page reports them.
 
 Facts written on the pages by hand (the Info page's closing times, prices,
@@ -382,13 +391,14 @@ without its details. Look things up by an address's part with
 `Object.hasOwn`, so `constructor` or `__proto__` in an address finds nothing.
 
 `server/security.js` adds the security headers to every response, including
-the Content-Security-Policy from `server/csp.js`. The policy is built at
+the Content-Security-Policy from `server/csp.js`
+([decision 15](docs/decisions/0015-content-security-policy.md)). The policy is built at
 startup from the inline scripts the pages really have (two: the language
 redirect, the same on every page, and the import map), allowed by hash; so
 don't add inline scripts or `onclick="…"` attributes: put code in a file
 (`csp.test.js` fails otherwise). AdSense's hosts are added only when
 `ADSENSE_CLIENT` is set. `CSP_MODE` in `.env` chooses `report-only` (the
-default while it's tried out: browsers report, nothing is blocked) or
+default for now: browsers report, nothing is blocked) or
 `enforce`; reports go to `/api/csp-report` (`server/csp-reports.js`) and
 show on `/admin/diagnostics`. The tests always enforce it.
 
@@ -412,15 +422,11 @@ and on `main` (`.github/workflows/checks.yml`), with Node 20 and 22.
   The tests need no network.
 - `npm run test:browser`: the site in real browsers (phone, desktop and
   iPhone), with test data and a fake OASA: every page in both languages
-  through axe-core, a keyboard walk and 200% text, plus location, language, the bus
-  page's requests, the planner at night and offline use. See
-  [test/browser/README.md](test/browser/README.md). The app itself is
+  through axe-core, a keyboard walk and 200% text
+  ([decision 13](docs/decisions/0013-accessibility.md)), plus location,
+  language, the bus page's requests, the planner at night and offline use.
+  See [test/browser/README.md](test/browser/README.md). The app itself is
   `server/app.js`; `server.js` only starts it.
-
-Every night `.github/workflows/nightly.yml` runs `npm run check` on `main`,
-and `npm run test:live` (`test/live/`): a few checks against wayhop.gr with
-its real data and live bus times, the bus page opened once. Either failing
-opens an issue labelled "nightly".
 - `npm run lint`: ESLint's recommended checks (`eslint.config.js`).
 - `npm run typecheck`: TypeScript checks every file of the app, the scripts
   and the relays against their JSDoc types (`jsconfig.json`). The shapes of
@@ -430,6 +436,11 @@ opens an issue labelled "nightly".
   `types/globals.d.ts`. Nothing is compiled, and editors show the types too.
   Where TypeScript can't know which element a query finds, a
   `/** @type {HTMLElement} */ (…)` note says so.
+
+Every night `.github/workflows/nightly.yml` runs `npm run check` on `main`,
+and `npm run test:live` (`test/live/`): a few checks against wayhop.gr with
+its real data and live bus times, the bus page opened once. Either failing
+opens an issue labelled "nightly".
 
 The **Check accessibility** button on `/admin/diagnostics` runs axe-core on
 the live pages in your browser.
@@ -447,7 +458,8 @@ then `diff -r` the two folders.
 
 Every change comes with its tests: new functionality gets new tests,
 changed functionality updates the tests that cover it, and a bug fix gets a
-test that would have caught it ([CLAUDE.md](CLAUDE.md)).
+test that would have caught it ([CLAUDE.md](CLAUDE.md);
+[decision 14](docs/decisions/0014-tests.md)).
 
 - **A string**: add it to the right strings file in both `en` and `el`, then
   use `{{t "key"}}` in a view or `t()` in a script.
