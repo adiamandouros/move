@@ -351,7 +351,11 @@ why `rail.json` and the bus files don't say when they were built or fetched
 (`meta.json` does). Where to stand on each
 train is curated by hand in `data/curated/` ([README](data/curated/README.md)),
 and can be edited from a phone at `/admin/stations`, which nothing may block
-([decision 16](docs/decisions/0016-station-editor.md)).
+([decision 16](docs/decisions/0016-station-editor.md)). Each night a GitHub
+workflow (`.github/workflows/station-edits.yml`) reads the editor's export
+with `STATION_EXPORT_KEY` and keeps one pull request, `station-edits`, with
+the edits the repository doesn't have yet; `scripts/station-edits.js` lists
+them.
 
 ## Monitoring
 

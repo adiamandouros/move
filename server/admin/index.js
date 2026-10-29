@@ -11,7 +11,7 @@ import { formatReport } from '../diagnostics.js';
 import { sendFresh } from '../http.js';
 import { listFiles, shellFiles, shellUrls, urlPath } from '../pages/assets.js';
 import { fill, view } from '../pages/templates.js';
-import { createAuth, createLimiter, readCookie } from './auth.js';
+import { createAuth, createLimiter, readCookie, sameSecret } from './auth.js';
 import { usageView } from './usage.js';
 
 const ADMIN_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'admin');
@@ -27,7 +27,9 @@ const require = createRequire(import.meta.url);
 //   rebuild()      → called after every change
 //   diagnose()     → runs the server health checks (server/diagnostics.js)
 //   usageDays()    → the days of OASA's usage (server/oasa/usage.js), for /admin/usage
-export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebuild, render, diagnose, usageDays = () => ({}) }) {
+//   exportKey      → reads the export without a session (Authorization: Bearer <key>),
+//                    for the nightly pull request of station edits; '' for none
+export function createAdmin({ password, exportKey = '', overlayFile, loadCurated, loadRail, rebuild, render, diagnose, usageDays = () => ({}) }) {
     if (!password) return null;
 
     const auth = createAuth(password);
@@ -80,6 +82,25 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
     router.post('/logout', (_req, res) => {
         res.clearCookie(COOKIE, { path: '/admin' });
         res.redirect(303, '/admin/login');
+    });
+
+    // ── The export: with a session, or with the export key ───────────────────
+
+    const hasKey = req => Boolean(exportKey) && sameSecret(req.get('Authorization') ?? '', `Bearer ${exportKey}`);
+
+    // The committed positions.json with every edit applied, ready to commit
+    router.get('/api/export', (req, res) => {
+        if (limiter.blocked(req.ip)) return res.status(429).json({ error: 'Too many attempts. Try again in 15 minutes.' });
+        if (!auth.verify(readCookie(req, COOKIE)) && !hasKey(req)) {
+            // A wrong key counts like a wrong password
+            if (req.get('Authorization')) limiter.fail(req.ip);
+            return res.status(401).json({ error: 'Not logged in' });
+        }
+        const { data } = loadCurated();
+        res.set('Cache-Control', 'no-store')
+            .set('Content-Disposition', 'attachment; filename="positions.json"')
+            .type('json')
+            .send(formatJson(data.positions, 3) + '\n');
     });
 
     // ── Everything below needs a session ────────────────────────────────────
@@ -197,14 +218,6 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
         writeOverlay(overlayFile, removeEntry(curated.overlay, ref));
         rebuild();
         res.json({ entry: curated.committed[ref.line]?.[ref.dir]?.[ref.station] ?? null, edited: false });
-    });
-
-    // The committed positions.json with every edit applied, ready to commit
-    router.get('/api/export', (_req, res) => {
-        const { data } = loadCurated();
-        res.set('Content-Disposition', 'attachment; filename="positions.json"')
-            .type('json')
-            .send(formatJson(data.positions, 3) + '\n');
     });
 
     return router;

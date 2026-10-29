@@ -2,18 +2,21 @@ import { createHash, createHmac, timingSafeEqual } from 'crypto';
 
 const SESSION_MS = 30 * 86_400_000;
 
+// Whether two secrets match, in the same time whatever they are
+const digest = value => createHash('sha256').update(String(value)).digest();
+export const sameSecret = (a, b) => timingSafeEqual(digest(a), digest(b));
+
 // Stateless sessions: the cookie holds an expiry time and an HMAC of it, keyed
 // by the admin password. Sessions survive server restarts (handy when edits
 // are queued offline) and changing ADMIN_PASSWORD logs every device out.
 export function createAuth(password, { now = Date.now } = {}) {
     const key = createHash('sha256').update(`move-admin:${password}`).digest();
     const sign = value => createHmac('sha256', key).update(value).digest('base64url');
-    const digest = value => createHash('sha256').update(String(value)).digest();
 
     return {
         sessionMs: SESSION_MS,
 
-        checkPassword: attempt => timingSafeEqual(digest(attempt), digest(password)),
+        checkPassword: attempt => sameSecret(attempt, password),
 
         issue() {
             const expires = String(now() + SESSION_MS);

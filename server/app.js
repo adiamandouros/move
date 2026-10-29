@@ -106,6 +106,7 @@ export function createApp({
     // Private station editor — only exists when ADMIN_PASSWORD is set
     const admin = createAdmin({
         password: config.adminPassword,
+        exportKey: config.exportKey,
         overlayFile: OVERLAY_FILE,
         loadCurated,
         loadRail: () => readJson(path.join(buildDir, 'rail.json')),

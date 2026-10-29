@@ -22,6 +22,8 @@ const ADSENSE_CLIENT = /^ca-pub-\d{16}$/;
 const ADSENSE_SLOT = /^\d{6,12}$/;
 const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
 const CSP_MODES = ['report-only', 'enforce'];
+// The station-export key is guessed by no one: at least this long
+const EXPORT_KEY_MIN = 32;
 
 // What OASA, STASY and the data portal see us as, with the contact address
 // so they can reach us instead of blocking the server
@@ -79,6 +81,14 @@ export function loadConfig(env = process.env) {
         else slots[key.slice('ADSENSE_SLOT_'.length).toLowerCase()] = id;
     }
 
+    // STATION_EXPORT_KEY: lets the nightly workflow (.github/workflows/station-edits.yml)
+    // read the station editor's export without logging in, and nothing else
+    let exportKey = value('STATION_EXPORT_KEY');
+    if (exportKey && exportKey.length < EXPORT_KEY_MIN) {
+        problem('Station export key', `STATION_EXPORT_KEY should be at least ${EXPORT_KEY_MIN} characters long`, 'The nightly pull request of station edits can\'t read them until it\'s fixed.');
+        exportKey = '';
+    }
+
     // Relays: each needs both its URL and its key
     const relays = [];
     for (const relay of RELAYS) {
@@ -100,6 +110,7 @@ export function loadConfig(env = process.env) {
         contactEmail,
         userAgent: userAgentFor(contactEmail),
         adminPassword: env.ADMIN_PASSWORD ?? '',
+        exportKey,
         cspMode: /** @type {Config['cspMode']} */ (cspMode),
         adsense: Object.freeze({ client, slots: Object.freeze(slots) }),
         relays,
