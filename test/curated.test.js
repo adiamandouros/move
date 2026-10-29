@@ -40,12 +40,13 @@ test('step-free access is one of its values, or left out (not known yet)', () =>
     assert.deepEqual(errors, ['positions.json: M1/kifisia/faliro.stepFree must be one of lift, ramp, level, yes, no']);
 });
 
-test('every platform says whether it\'s step-free, but some of Petralona\'s, M1 Piraeus\'s and Nerantziotissa\'s', () => {
-    // Those wait for the field trips (acc-* in the checklist); filled in, they leave this list
-    const waiting = new Set(['M1/kifisia/nerantziotissa', 'M1/kifisia/petralona', 'M1/kifisia/piraeus', 'M1/piraeus/nerantziotissa', 'M1/piraeus/petralona', 'M1/piraeus/piraeus']);
-    const unknown = Object.entries(load('positions')).flatMap(([line, dirs]) => Object.entries(dirs).flatMap(([dir, stops]) =>
-        Object.entries(stops).filter(([, p]) => !p.stepFree).map(([station]) => `${line}/${dir}/${station}`)));
-    assert.deepEqual(unknown.filter(ref => !waiting.has(ref)), []);
+test('any platform\'s step-free access may be not known yet, however many', () => {
+    // Which ones is the station editor's call, never a test's (decision 16)
+    const c = real();
+    for (const stops of Object.values(c.positions).flatMap(dirs => Object.values(dirs))) {
+        for (const p of Object.values(stops)) delete p.stepFree;
+    }
+    assert.deepEqual(validateCurated(c).errors, []);
 });
 
 test('how STASY writes a name: a list of names, each leading to one station', () => {
