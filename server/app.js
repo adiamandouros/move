@@ -3,7 +3,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createAdmin } from './admin/index.js';
-import { BUILD_DIR, OVERLAY_FILE, loadCurated, rebuildSoon } from './data/index.js';
+import { BUILD_DIR, loadCurated, rebuildSoon } from './data/index.js';
 import { runDiagnostics } from './diagnostics.js';
 import { createBusApi } from './oasa/index.js';
 import { createOasaClient } from './oasa/client.js';
@@ -107,7 +107,6 @@ export function createApp({
     const admin = createAdmin({
         password: config.adminPassword,
         exportKey: config.exportKey,
-        overlayFile: OVERLAY_FILE,
         loadCurated,
         loadRail: () => readJson(path.join(buildDir, 'rail.json')),
         rebuild: rebuildSoon,

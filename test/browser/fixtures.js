@@ -114,8 +114,10 @@ export async function axe(page) {
     // Through the devtools, not a <script> element, which the Content-Security-Policy blocks
     if (!(await page.evaluate(() => 'axe' in window))) await page.evaluate(AXE);
     return page.evaluate(async tags => {
-        // Colours halfway through a fade aren't what anyone reads
-        await Promise.all(document.getAnimations().map(a => a.finished.catch(() => {})));
+        // Colours halfway through a fade aren't what anyone reads. Told by how
+        // they play, not by their `finished`: in Chromium, a fade inside a
+        // closed <details> ends but never settles it.
+        while (document.getAnimations().some(a => a.playState === 'running')) await new Promise(r => setTimeout(r, 20));
         const { violations } = await window.axe.run(document, { runOnly: tags });
         return violations.map(v => `${v.id} (${v.nodes.length}): ${v.nodes[0].target.join(' ')}`);
     }, AXE_TAGS);

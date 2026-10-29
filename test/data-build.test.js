@@ -26,7 +26,7 @@ function setup({ busStops = 1500, curated = undefined } = {}) {
     const dataDir = tempDir();
     const logs = [];
     const options = {
-        dataDir, curatedDir: curatedDir(curated), overlayFile: join(dataDir, 'local', 'positions.json'), fetch: portal.fetch, today: '20260805', log: m => logs.push(m),
+        dataDir, curatedDir: curatedDir(curated), overlayDir: join(dataDir, 'local'), fetch: portal.fetch, today: '20260805', log: m => logs.push(m),
         oasa: oasa.request, now: () => clock.now, sleep: async () => {},
     };
     const build = (more = {}) => runBuild({ ...options, ...more });

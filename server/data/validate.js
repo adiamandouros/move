@@ -17,11 +17,20 @@ const ELEVATOR_KEYS = new Set(['at', 'name']);
 
 const POSITION_KEYS = new Set(['exits', 'elevators', 'escalators', 'stairs', 'centralPlatform', 'stepFree', 'transfers', 'note']);
 
+// How a street exit is reached from inside: up the stairs, an escalator up
+// (toward the street), an escalator down
+export const EXIT_WAYS = ['stairs', 'escalator-up', 'escalator-down'];
+
+// Where a place on the street can be, [lat, lng]: around the metro, wide.
+// Outside it is a mistake (latitude and longitude swapped, a digit lost).
+/** @type {{ lat: [number, number], lng: [number, number] }} */
+export const ATHENS = { lat: [37.7, 38.3], lng: [23.4, 24.2] };
+
 // Check the hand-maintained files in data/curated for mistakes. Returns
 // { errors, warnings }; any error fails the build. Kept independent of the
 // GTFS feed so it can run in tests and before every build.
-/** @param {{ stations: any, lines: any, positions: any, airport?: any, tram?: any }} curated */
-export function validateCurated({ stations, lines, positions, airport, tram }) {
+/** @param {{ stations: any, lines: any, positions: any, airport?: any, tram?: any, street?: any }} curated */
+export function validateCurated({ stations, lines, positions, airport, tram, street }) {
     const errors = [];
     const warnings = [];
 
@@ -102,7 +111,51 @@ export function validateCurated({ stations, lines, positions, airport, tram }) {
 
     if (airport !== undefined) checkAirport(airport, stationIds, lines, errors);
     if (tram !== undefined) checkTram(tram, stationIds, seenCodes, errors);
+    if (street !== undefined) checkStreet(street, stationIds, errors);
     return { errors, warnings };
+}
+
+// street.json: each station's exits to the street and its lifts there, each
+// with its name (an exit's as its signs write it, in Greek and, when signed,
+// English; a lift's as STASY's lift page does) and where it is, or one of
+// them while the other isn't known yet
+function checkStreet(street, stationIds, errors) {
+    const text = value => typeof value === 'string' && value.trim() !== '';
+    const checkCoords = (where, coords) => {
+        if (coords === undefined) return;
+        const [lat, lng] = Array.isArray(coords) ? coords : [];
+        const inside = (n, [min, max]) => typeof n === 'number' && n >= min && n <= max;
+        if (coords.length !== 2 || !inside(lat, ATHENS.lat) || !inside(lng, ATHENS.lng)) {
+            errors.push(`${where}.coords must be [latitude, longitude] around Athens, like [37.97552, 23.73481]`);
+        }
+    };
+    const checkFields = (where, item, keys) => {
+        if (typeof item !== 'object' || item === null || Array.isArray(item)) { errors.push(`${where} must be an object`); return false; }
+        for (const key of Object.keys(item)) if (!keys.includes(key)) errors.push(`${where}: unknown field "${key}"`);
+        return true;
+    };
+    for (const [stationId, entry] of Object.entries(street ?? {})) {
+        const where = `street.json: ${stationId}`;
+        if (!stationIds.has(stationId)) { errors.push(`${where}: unknown station`); continue; }
+        if (!checkFields(where, entry, ['exits', 'lifts'])) continue;
+        for (const key of ['exits', 'lifts']) if (entry[key] !== undefined && !Array.isArray(entry[key])) errors.push(`${where}.${key} must be a list`);
+        for (const [i, exit] of (Array.isArray(entry.exits) ? entry.exits : []).entries()) {
+            const at = `${where}.exits[${i}]`;
+            if (!checkFields(at, exit, ['name', 'coords', 'way'])) continue;
+            const { el, en } = exit.name ?? {};
+            if (exit.name !== undefined && (!(text(el) || text(en)) || [el, en].some(n => n !== undefined && !text(n)))) errors.push(`${at}.name must be { "el": …, "en": … }, either one while the other isn't known`);
+            if (exit.name === undefined && exit.coords === undefined) errors.push(`${at} needs its name or where it is`);
+            checkCoords(at, exit.coords);
+            if (exit.way !== undefined && (!Array.isArray(exit.way) || exit.way.some(w => !EXIT_WAYS.includes(w)))) errors.push(`${at}.way must be a list of ${EXIT_WAYS.join(', ')}`);
+        }
+        for (const [i, lift] of (Array.isArray(entry.lifts) ? entry.lifts : []).entries()) {
+            const at = `${where}.lifts[${i}]`;
+            if (!checkFields(at, lift, ['name', 'coords'])) continue;
+            if (lift.name !== undefined && !text(lift.name)) errors.push(`${at}.name must be text`);
+            if (lift.name === undefined && lift.coords === undefined) errors.push(`${at} needs its name or where it is`);
+            checkCoords(at, lift.coords);
+        }
+    }
 }
 
 // airport.json: STASY's airport trains (build-rail.js, addTimetabled), with

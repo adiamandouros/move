@@ -13,7 +13,7 @@ import { buildRail } from './build-rail.js';
 import { buildTram } from './build-tram.js';
 import { checkOutput, shrinkage } from './check-output.js';
 import { createOasaClient } from '../oasa/client.js';
-import { applyOverlay, pruneOverlay, readOverlay, writeOverlay } from './overlay.js';
+import { EDITED, applyOverlay, pruneOverlay, readOverlay, writeOverlay } from './overlay.js';
 import { liveNetwork } from './oasa-network.js';
 import { fetchSources } from './sources.js';
 import { checkAirport } from './airport-check.js';
@@ -24,8 +24,9 @@ import { validateCurated } from './validate.js';
 
 const DATA_DIR    = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'data');
 const CURATED_DIR = join(DATA_DIR, 'curated');
-// Uncommitted station edits from the admin editor (gitignored)
-export const OVERLAY_FILE = join(DATA_DIR, 'local', 'positions.json');
+// Uncommitted station edits from the admin editor (gitignored), a file named
+// like each one it edits (positions.json, street.json)
+const OVERLAY_DIR = join(DATA_DIR, 'local');
 export const BUILD_DIR = join(DATA_DIR, 'build');
 
 // Where a build keeps its files, under a data folder (data/, or a test's own)
@@ -99,7 +100,7 @@ export async function runBuild({
     offline = false,
     dataDir = DATA_DIR,
     curatedDir = CURATED_DIR,
-    overlayFile = OVERLAY_FILE,
+    overlayDir = OVERLAY_DIR,
     fetch = globalThis.fetch,
     userAgent = userAgentFor(null),
     oasa = null,
@@ -116,7 +117,7 @@ export async function runBuild({
         return null;
     }
     try {
-        const curated = loadCurated({ curatedDir, overlayFile, log });
+        const curated = loadCurated({ curatedDir, overlayDir, log });
         const check = validateCurated(curated.data);
         for (const w of check.warnings) log(`[data] warning: ${w}`);
         if (check.errors.length) throw new Error(`Curated data has errors:\n  ${check.errors.join('\n  ')}`);
@@ -247,15 +248,18 @@ function publish(dirs) {
     rmSync(dirs.next, { recursive: true, force: true });
 }
 
-// airport.json (STASY's airport trains) and tram.json (the tram map's stops) can be missing
-const OPTIONAL_CURATED = ['airport', 'tram'];
+// airport.json (STASY's airport trains), tram.json (the tram map's stops) and
+// street.json (the stations' exits and lifts on the street) can be missing
+const OPTIONAL_CURATED = ['airport', 'tram', 'street'];
 
-// Read the curated files and apply the editor's overlay on top of positions.
-// Overlay entries that the committed positions.json now matches are pruned.
-export function loadCurated({ curatedDir = CURATED_DIR, overlayFile = OVERLAY_FILE, log = console.log } = {}) {
+// Read the curated files and apply the editor's overlays on top of the ones
+// it edits (positions.json, street.json): `data` as the site uses it, and
+// `edits`, each edited file's { committed, overlay }. Overlay entries a
+// committed file now matches are pruned.
+export function loadCurated({ curatedDir = CURATED_DIR, overlayDir = OVERLAY_DIR, log = console.log } = {}) {
     const hash = createHash('sha256');
-    const data = /** @type {{ stations: any, lines: any, positions: any, airport?: any, tram?: any }} */ ({});
-    for (const name of ['stations', 'lines', 'positions', 'airport', 'tram']) {
+    const data = /** @type {{ stations: any, lines: any, positions: any, airport?: any, tram?: any, street?: any }} */ ({});
+    for (const name of ['stations', 'lines', 'positions', 'airport', 'tram', 'street']) {
         if (OPTIONAL_CURATED.includes(name) && !existsSync(join(curatedDir, `${name}.json`))) continue;
         const raw = readFileSync(join(curatedDir, `${name}.json`), 'utf8');
         hash.update(raw);
@@ -263,15 +267,20 @@ export function loadCurated({ curatedDir = CURATED_DIR, overlayFile = OVERLAY_FI
         catch (err) { throw new Error(`data/curated/${name}.json is not valid JSON: ${err.message}`, { cause: err }); }
     }
 
-    const { overlay, pruned } = pruneOverlay(data.positions, readOverlay(overlayFile));
-    if (pruned.length) {
-        writeOverlay(overlayFile, overlay);
-        log(`[data] Committed data now includes editor changes for ${pruned.join(', ')} — removed from the overlay`);
+    const edits = {};
+    for (const kind of Object.values(EDITED)) {
+        const file = join(overlayDir, `${kind.name}.json`);
+        const committed = data[kind.name] ?? {};
+        const { overlay, pruned } = pruneOverlay(committed, readOverlay(file, kind), kind);
+        if (pruned.length) {
+            writeOverlay(file, overlay);
+            log(`[data] Committed ${kind.name}.json now includes editor changes for ${pruned.join(', ')} — removed from the overlay`);
+        }
+        hash.update(JSON.stringify(overlay));
+        data[kind.name] = applyOverlay(committed, overlay, kind);
+        edits[kind.name] = { committed, overlay, file };
     }
-    hash.update(JSON.stringify(overlay));
-    const committed = data.positions;
-    data.positions = applyOverlay(committed, overlay);
-    return { data, committed, overlay, hash: hash.digest('hex') };
+    return { data, edits, hash: hash.digest('hex') };
 }
 
 function acquireLock(dirs) {

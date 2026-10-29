@@ -5,8 +5,8 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import express from 'express';
 import { formatJson } from '../data/format.js';
-import { applyOverlay, removeEntry, sameEntry, setEntry, tidyEntry, writeOverlay } from '../data/overlay.js';
-import { POSITIONS, validateCurated } from '../data/validate.js';
+import { EDITED, applyOverlay, entryAt, removeEntry, sameEntry, setEntry, writeOverlay } from '../data/overlay.js';
+import { ATHENS, EXIT_WAYS, POSITIONS, validateCurated } from '../data/validate.js';
 import { formatReport } from '../diagnostics.js';
 import { sendFresh } from '../http.js';
 import { listFiles, shellFiles, shellUrls, urlPath } from '../pages/assets.js';
@@ -22,7 +22,7 @@ const require = createRequire(import.meta.url);
 // The private station editor, mounted at /admin. Returns null when no
 // password is configured, so every /admin URL is a plain 404.
 //
-//   loadCurated()  → { data, committed, overlay }   (see server/data/index.js)
+//   loadCurated()  → { data, edits }   (see server/data/index.js)
 //   loadRail()     → the current rail.json, for station order and names
 //   rebuild()      → called after every change
 //   diagnose()     → runs the server health checks (server/diagnostics.js)
@@ -30,7 +30,7 @@ const require = createRequire(import.meta.url);
 //   liftNames()    → STASY's names for each station's lifts (server/info/lifts.js)
 //   exportKey      → reads the export without a session (Authorization: Bearer <key>),
 //                    for the nightly pull request of station edits; '' for none
-export function createAdmin({ password, exportKey = '', overlayFile, loadCurated, loadRail, rebuild, render, diagnose, usageDays = () => ({}), liftNames = () => ({}) }) {
+export function createAdmin({ password, exportKey = '', loadCurated, loadRail, rebuild, render, diagnose, usageDays = () => ({}), liftNames = () => ({}) }) {
     if (!password) return null;
 
     const auth = createAuth(password);
@@ -89,19 +89,25 @@ export function createAdmin({ password, exportKey = '', overlayFile, loadCurated
 
     const hasKey = req => Boolean(exportKey) && sameSecret(req.get('Authorization') ?? '', `Bearer ${exportKey}`);
 
-    // The committed positions.json with every edit applied, ready to commit
-    router.get('/api/export', (req, res) => {
+    // A committed file the editor edits, with every edit applied, ready to
+    // commit: /api/export/positions.json or /api/export/street.json, and
+    // /api/export the first (what the nightly workflow read before there
+    // was a second)
+    router.get(['/api/export', '/api/export/:file'], (req, res) => {
         if (limiter.blocked(req.ip)) return res.status(429).json({ error: 'Too many attempts. Try again in 15 minutes.' });
         if (!auth.verify(readCookie(req, COOKIE)) && !hasKey(req)) {
             // A wrong key counts like a wrong password
             if (req.get('Authorization')) limiter.fail(req.ip);
             return res.status(401).json({ error: 'Not logged in' });
         }
+        const file = req.params.file ?? 'positions.json';
+        const kind = Object.values(EDITED).find(k => `${k.name}.json` === file);
+        if (!kind) return res.status(404).json({ error: `The editor doesn't edit ${file}` });
         const { data } = loadCurated();
         res.set('Cache-Control', 'no-store')
-            .set('Content-Disposition', 'attachment; filename="positions.json"')
+            .set('Content-Disposition', `attachment; filename="${file}"`)
             .type('json')
-            .send(formatJson(data.positions, 3) + '\n');
+            .send(formatJson(data[kind.name], 3) + '\n');
     });
 
     // ── Everything below needs a session ────────────────────────────────────
@@ -169,9 +175,12 @@ export function createAdmin({ password, exportKey = '', overlayFile, loadCurated
     router.get('/api/state', (_req, res) => {
         const rail = loadRail();
         if (!rail) return res.status(503).json({ error: 'rail.json has not been built yet' });
-        const { committed, overlay } = loadCurated();
+        const { edits } = loadCurated();
         res.set('Cache-Control', 'no-cache').json({
             positions: POSITIONS,
+            // What the editor offers and checks before a save, as the server does
+            exitWays: EXIT_WAYS,
+            bounds: ATHENS,
             stations: Object.fromEntries(Object.entries(rail.stations).map(([id, s]) => [id, { name: s.name, coords: s.coords, lines: s.lines }])),
             lines: Object.fromEntries(Object.entries(rail.lines).map(([id, line]) => [id, {
                 name: line.name,
@@ -181,46 +190,60 @@ export function createAdmin({ password, exportKey = '', overlayFile, loadCurated
                     stations: d.stops.map(s => s.station),
                 }])),
             }])),
-            committed,
-            overlay,
+            committed: edits.positions.committed,
+            overlay: edits.positions.overlay,
+            street: { committed: edits.street.committed, overlay: edits.street.overlay },
             stasyLifts: liftNames(),
         });
     });
 
     // object[key] when it's the object's own (so "constructor" in the address finds nothing)
     const own = (object, key) => object && Object.hasOwn(object, key) ? object[key] : undefined;
-    const target = (req, res) => {
+    // The platform or station in the address, or a 404
+    const platform = (req, res) => {
         const { line, dir, station } = req.params;
         const served = own(own(loadRail()?.lines, line)?.directions, dir)?.stops.some(s => s.station === station);
         if (!served) { res.status(404).json({ error: `${line}/${dir} does not serve ${station}` }); return null; }
         return { line, dir, station };
     };
+    const station = (req, res) => {
+        if (own(loadRail()?.stations, req.params.station)) return { station: req.params.station };
+        res.status(404).json({ error: `There's no station ${req.params.station}` });
+        return null;
+    };
 
-    router.put('/api/positions/:line/:dir/:station', express.json({ limit: '20kb' }), (req, res) => {
-        const ref = target(req, res);
-        if (!ref) return;
-        const entry = tidyEntry(req.body?.entry ?? {});
-        const curated = loadCurated();
-        const committedEntry = curated.committed[ref.line]?.[ref.dir]?.[ref.station];
+    // Saving an entry (PUT) or going back to the committed one (DELETE), in
+    // the file `kind` edits, for the place in the address
+    function editing(kind, path, place) {
+        router.put(path, express.json({ limit: '20kb' }), (req, res) => {
+            const ref = place(req, res);
+            if (!ref) return;
+            const entry = kind.tidy(req.body?.entry ?? {});
+            const curated = loadCurated();
+            const { committed, overlay: before, file } = curated.edits[kind.name];
 
-        // Saving what's already committed just removes the edit
-        const overlay = sameEntry(committedEntry, entry) ? removeEntry(curated.overlay, ref) : setEntry(curated.overlay, ref, entry);
-        const { errors } = validateCurated({ ...curated.data, positions: applyOverlay(curated.committed, overlay) });
-        if (errors.length) return res.status(400).json({ error: 'Invalid entry', details: errors });
+            // Saving what's already committed just removes the edit
+            const overlay = sameEntry(entryAt(committed, ref, kind), entry, kind) ? removeEntry(before, ref, kind) : setEntry(before, ref, entry, kind);
+            const { errors } = validateCurated({ ...curated.data, [kind.name]: applyOverlay(committed, overlay, kind) });
+            if (errors.length) return res.status(400).json({ error: 'Invalid entry', details: errors });
 
-        writeOverlay(overlayFile, overlay);
-        rebuild();
-        res.json({ entry, edited: Boolean(overlay[ref.line]?.[ref.dir]?.[ref.station]) });
-    });
+            writeOverlay(file, overlay);
+            rebuild();
+            res.json({ entry, edited: entryAt(overlay, ref, kind) !== undefined });
+        });
 
-    router.delete('/api/positions/:line/:dir/:station', (req, res) => {
-        const ref = target(req, res);
-        if (!ref) return;
-        const curated = loadCurated();
-        writeOverlay(overlayFile, removeEntry(curated.overlay, ref));
-        rebuild();
-        res.json({ entry: curated.committed[ref.line]?.[ref.dir]?.[ref.station] ?? null, edited: false });
-    });
+        router.delete(path, (req, res) => {
+            const ref = place(req, res);
+            if (!ref) return;
+            const { committed, overlay, file } = loadCurated().edits[kind.name];
+            writeOverlay(file, removeEntry(overlay, ref, kind));
+            rebuild();
+            res.json({ entry: entryAt(committed, ref, kind) ?? null, edited: false });
+        });
+    }
+
+    editing(EDITED.positions, '/api/positions/:line/:dir/:station', platform);
+    editing(EDITED.street, '/api/street/:station', station);
 
     return router;
 }

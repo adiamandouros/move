@@ -5,9 +5,14 @@
             <a class="btn btn-sm btn-outline-secondary" href="/admin/diagnostics" title="Diagnostics" aria-label="Diagnostics">
                 {{icon "health"}}
             </a>
-            <a class="btn btn-sm btn-outline-secondary" href="/admin/api/export" download>
-                {{icon "download" "me-1"}}Export
-            </a>
+            {{!-- The files with every edit, ready to commit --}}
+            <details class="export-menu">
+                <summary class="btn btn-sm btn-outline-secondary">{{icon "download" "me-1"}}Export</summary>
+                <div class="export-files">
+                    <a class="btn btn-sm btn-outline-secondary" href="/admin/api/export/positions.json" download>positions.json</a>
+                    <a class="btn btn-sm btn-outline-secondary" href="/admin/api/export/street.json" download>street.json</a>
+                </div>
+            </details>
             <form method="post" action="/admin/logout">
                 <button type="submit" class="btn btn-sm btn-outline-secondary">Log out</button>
             </form>
@@ -30,6 +35,7 @@
     </div>
 
     <form id="entry-form" class="entry-form" hidden>
+        <h2 class="entry-part">This platform</h2>
         <p id="entry-state" class="entry-state"></p>
         <p id="entry-missing" class="entry-missing" hidden></p>
 
@@ -92,9 +98,30 @@
         <label for="note" class="form-label">Note</label>
         <textarea id="note" class="form-control mb-3" rows="2" maxlength="500"></textarea>
 
-        <div class="d-flex gap-2">
+        {{!-- In street.json; left out with an older copy of the data, from before it --}}
+        <div id="street-part">
+            <h2 class="entry-part">Whole station</h2>
+            <p class="entry-state">The same for every line and direction here.</p>
+            <p id="street-state" class="entry-state"></p>
+            <p id="street-missing" class="entry-missing" hidden></p>
+
+            <fieldset>
+                <legend>Exits to the street</legend>
+                <div id="street-exit-rows"></div>
+                <button id="add-street-exit" type="button" class="btn btn-sm btn-outline-primary">Add exit</button>
+            </fieldset>
+
+            <fieldset>
+                <legend>Elevators to the street</legend>
+                <div id="street-lift-rows"></div>
+                <button id="add-street-lift" type="button" class="btn btn-sm btn-outline-primary">Add street elevator</button>
+            </fieldset>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
             <button type="submit" class="btn btn-primary flex-grow-1">Save</button>
-            <button id="revert-btn" type="button" class="btn btn-outline-warning">Revert to committed</button>
+            <button id="revert-platform" type="button" class="btn btn-outline-warning">Revert platform</button>
+            <button id="revert-station" type="button" class="btn btn-outline-warning">Revert station</button>
         </div>
         <p id="entry-message" class="small mt-2" role="status"></p>
     </form>
