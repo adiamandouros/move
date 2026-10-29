@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import http from 'http';
+import { createUsage } from '../server/oasa/usage.js';
 import { loadTools, sitePages } from '../server/pages/registry.js';
 import { brokenData, down, fakeNetwork, LIFTS_OUT, site } from './support/test-site.js';
 
@@ -159,7 +160,11 @@ test('the service worker, robots.txt, the sitemap and the manifests', async () =
     const sw = await get('/sw.js');
     assert.equal(sw.headers.get('content-type'), 'text/javascript; charset=utf-8');
     assert.equal(sw.headers.get('cache-control'), 'no-cache', 'a new version is picked up at once');
-    assert.match(await sw.text(), /const VERSION = '[0-9a-f]{12}'/);
+    const code = await sw.text();
+    assert.match(code, /const VERSION = '[0-9a-f]{12}'/);
+    // A page fetched because it was opened says so, for the count of pages opened
+    assert.match(code, /const OPENED = "Wayhop-Opened";/);
+    assert.match(code, /const key = new Request\(url\.pathname, \{ headers: \{ \[OPENED\]: '1' \} \}\);/);
     assert.match(await (await get('/robots.txt')).text(), /Sitemap: .*\/sitemap\.xml/);
     const sitemap = await (await get('/sitemap.xml')).text();
     for (const id of Object.keys(rail.stations)) assert.ok(sitemap.includes(`/subway/stations/${id}<`), `station ${id} in the sitemap`);
@@ -295,4 +300,31 @@ test('the settings reach every part: the public address, ads and the contact add
     const moved = await new Promise((resolve, reject) => http.get(live.base + '/subway', { headers: { host: 'old.example' } }, res => { res.resume(); resolve(res); }).on('error', reject));
     assert.equal(moved.statusCode, 301);
     assert.equal(moved.headers.location, 'https://wayhop.example/subway');
+});
+
+test('each page opened is counted by the language the browser asks for and the one served; not the copies cached, nor other addresses', async () => {
+    const usage = createUsage({ now: () => Date.parse('2026-10-30T10:00:00Z') });
+    const { base } = await serve({ usage });
+    // Exactly these headers (fetch() sets its own Sec-Fetch-Mode and Accept-Language)
+    const get = (path, headers = {}, method = 'GET') => new Promise((resolve, reject) => {
+        http.request(`${base}${path}`, { method, headers }, res => { res.resume(); res.on('end', resolve); }).on('error', reject).end();
+    });
+    // As a browser sends it: without the service worker (navigate), or through it
+    const open = { 'sec-fetch-mode': 'navigate' };
+    const throughWorker = { 'sec-fetch-mode': 'cors', 'wayhop-opened': '1' };
+    await get('/', { ...open, 'accept-language': 'de-AT,de;q=0.9,en;q=0.8' });
+    await get('/el/subway/stations/syntagma', { ...throughWorker, 'accept-language': 'el-GR,el;q=0.9' });
+    await get('/subway/stations', { ...open, 'accept-language': 'FR' });
+    // A bot: no Sec-Fetch-Mode, no Accept-Language
+    await get('/about');
+    await get('/el', { ...open, 'accept-language': '*' });
+    // Not opened: the service worker caching pages at install, a HEAD
+    await get('/el/subway', { 'sec-fetch-mode': 'cors', 'accept-language': 'el' });
+    await get('/info', open, 'HEAD');
+    // Not pages: a missing page or station, the API, a file, the admin
+    for (const path of ['/nope', '/subway/stations/nowhere', '/api/arrivals?stops=10157', '/sw.js', '/robots.txt', '/admin/login']) {
+        await get(path, { ...open, 'accept-language': 'it' });
+    }
+    const { pages } = usage.days()['2026-10-30'];
+    assert.deepEqual(pages, { asked: { de: 1, el: 1, fr: 1, none: 2 }, served: { en: 3, el: 2 } });
 });

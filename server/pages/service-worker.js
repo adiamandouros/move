@@ -11,6 +11,9 @@ import { fill } from './templates.js';
 // the tools marked "offline" with their scripts and data.
 
 const VIEWS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'views');
+// Sent with the pages the service worker fetches because one was opened, so
+// the server can tell them from the ones it only caches (index.js counts them)
+export const OPENED_HEADER = 'Wayhop-Opened';
 
 // pages: every rendered page by path, so the version changes with any of them
 export function renderServiceWorker(tools, pages) {
@@ -42,5 +45,6 @@ export function renderServiceWorker(tools, pages) {
         precache: JSON.stringify(precache, null, 4),
         precacheData: JSON.stringify(precacheData, null, 4),
         offlinePages: JSON.stringify(offlineTools.flatMap(t => inLangs(t.path))),
+        opened: JSON.stringify(OPENED_HEADER),
     });
 }

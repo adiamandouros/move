@@ -207,7 +207,7 @@ pages use.
   (Buses, and Subway when allowed or on "Nearest station"), so the browser
   asks once, where it's clear why. The last position is kept on the device
   for 10 minutes and shared by the pages
-  ([decision 17](docs/decisions/0017-privacy.md)), and nothing waits for it: pages
+  ([decision 19](docs/decisions/0019-privacy-counts-only.md)), and nothing waits for it: pages
   show what they can and update as positions come.
 - **Coming back to a tool** (`/js/core/remember.js`): the tools open where
   they were left, for this tab or app session (`sessionStorage`). What's kept
@@ -238,7 +238,9 @@ version and what it caches at install: the home and offline pages, the files
 every page needs, and the tools with `"offline": true` in `tool.json`
 (Subway and Info) with their data (`rail.json`). Pages come from the network
 first, except those tools, which open from the cache at once and update in
-the background. `/api` and `/admin` are never cached. Each deploy changes
+the background. A page fetched because it was opened carries a
+`Wayhop-Opened` header, so the server counts it and not the copies cached at
+install. `/api` and `/admin` are never cached. Each deploy changes
 the version, which replaces the whole cache. A new version installs in the
 background and waits (no `skipWaiting`, no reload): open pages keep the
 version they started with, and it takes over once they're closed
@@ -269,8 +271,10 @@ version they started with, and it takes over once they're closed
   and per day, kept for 120 days in `data/local/oasa-usage.json`: requests
   by kind, the cache's share, stops watched at once, waits and drops, each
   route's answer times and failures, and how far ahead OASA predicts each
-  line's buses. Counts only; `/admin/diagnostics`
-  shows the past hour and today, `/admin/usage` a row per day.
+  line's buses. Beside them, the pages opened, by the language the browser
+  asks for and the one served (`server/pages/index.js`, for item 43).
+  Counts only; `/admin/diagnostics` shows the past hour and today,
+  `/admin/usage` a row per day.
 
 These numbers set our load on OASA, and so do the ones for STASY and the
 bus network below; changes to any of them are agreed first

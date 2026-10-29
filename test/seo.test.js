@@ -39,16 +39,28 @@ test('the about, privacy, terms and contact pages are written in each language a
         assert.match(pages[`/${name}`], /<html lang="en"/);
         assert.match(pages[`/el/${name}`], /<html lang="el"/);
     }
-    assert.match(pages['/privacy'], /<h1>Privacy<\/h1>[\s\S]*Last updated: 27 October 2026/);
+    assert.match(pages['/privacy'], /<h1>Privacy<\/h1>[\s\S]*Last updated: 29 October 2026/);
     assert.match(pages['/privacy'], /The last three metro stations you picked/);
     assert.match(pages['/privacy'], /The metro stations, bus stops and bus lines you starred as favourites/);
     assert.match(pages['/privacy'], /nearby stops, and the stops you starred, by their number/);
     assert.match(pages['/el/privacy'], /Οι σταθμοί μετρό, οι στάσεις και οι γραμμές λεωφορείων που σημειώσατε ως αγαπημένα/);
-    assert.match(pages['/el/privacy'], /<h1>Απόρρητο<\/h1>[\s\S]*Τελευταία ενημέρωση: 27 Οκτωβρίου 2026/);
+    assert.match(pages['/el/privacy'], /<h1>Απόρρητο<\/h1>[\s\S]*Τελευταία ενημέρωση: 29 Οκτωβρίου 2026/);
     assert.match(pages['/el/privacy'], /Οι τρεις τελευταίοι σταθμοί μετρό που επιλέξατε/);
     // A closed legend stays closed (/js/core/metro.js)
     assert.match(pages['/privacy'], /Whether you closed the explanation of what the train shows/);
     assert.match(pages['/el/privacy'], /Αν κλείσατε την εξήγηση για το τι δείχνει το τρένο/);
+    // Everything else kept on the device: remember.js, install.js, location.js
+    assert.match(pages['/privacy'], /<strong>Where you left each tool<\/strong> \(the stations or the bus stop you were looking at\), while the tab or app stays open/);
+    assert.match(pages['/privacy'], /<strong>Whether you closed the offer to install the app<\/strong> with "Not now"/);
+    assert.match(pages['/privacy'], /Wayhop also notes that you allowed it, so the next page doesn't have to ask first\./);
+    assert.match(pages['/el/privacy'], /<strong>Πού αφήσατε κάθε εργαλείο<\/strong>/);
+    assert.match(pages['/el/privacy'], /<strong>Αν κλείσατε την πρόταση εγκατάστασης της εφαρμογής<\/strong> με «Όχι τώρα»/);
+    assert.match(pages['/el/privacy'], /Το Wayhop σημειώνει επίσης ότι το επιτρέψατε/);
+    // The pages opened, counted by browser language (server/pages/index.js)
+    assert.match(pages['/privacy'], /<strong>The language your browser prefers, as a count\.<\/strong>[^<]*Only the daily totals are kept/);
+    assert.match(pages['/el/privacy'], /<strong>Η γλώσσα που προτιμά ο browser σας, ως αριθμός\.<\/strong>[^<]*Κρατιούνται μόνο τα σύνολα ανά ημέρα/);
+    assert.match(pages['/el/privacy'], /δεν χρησιμοποιεί cookies και δεν σας παρακολουθεί\. Μετρά μόνο πόσες σελίδες ανοίγουν σε κάθε γλώσσα browser/);
+    assert.doesNotMatch(pages['/privacy'].replace(/<script type="application\/json" id="strings">.*?<\/script>/s, ''), /analytics/);
     // The terms: given as it is, with its own date, and the about page links to them
     assert.match(pages['/terms'], /<h1>Terms of use<\/h1>[\s\S]*Last updated: 29 October 2026[\s\S]*<strong>In short:<\/strong> Wayhop is free and given as it is\./);
     assert.match(pages['/el/terms'], /<h1>Όροι χρήσης<\/h1>[\s\S]*Τελευταία ενημέρωση: 29 Οκτωβρίου 2026[\s\S]*παρέχεται ως έχει\./);

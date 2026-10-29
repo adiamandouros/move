@@ -28,5 +28,6 @@ decisions, or makes one of the same weight, comes with its page.
 | 14 | [Tests with every change, and no flaky tests](0014-tests.md) | In force |
 | 15 | [A Content-Security-Policy by hashes](0015-content-security-policy.md) | In force |
 | 16 | [The station editor is never blocked](0016-station-editor.md) | In force |
-| 17 | [Privacy: kept on the device, nothing about people on the server](0017-privacy.md) | In force |
+| 17 | [Privacy: kept on the device, nothing about people on the server](0017-privacy.md) | Replaced by 19 |
 | 18 | [The information is given as it is, and says so](0018-information-as-it-is.md) | In force |
+| 19 | [Privacy: kept on the device; on the server, counts only](0019-privacy-counts-only.md) | In force |

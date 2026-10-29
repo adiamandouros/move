@@ -40,7 +40,7 @@ test('without ADSENSE_CLIENT there is no trace of ads', async () => {
         assert.doesNotMatch(html, /adsbygoogle|google-adsense-account|src="\/js\/core\/ads\.js|ad-slot/);
         assert.doesNotMatch(html, /<!-- \/?(with|without) ads -->/);
     }
-    assert.match(pages['/privacy'], /uses no cookies or analytics/);
+    assert.match(pages['/privacy'], /uses no cookies and doesn't track you\. It only counts how many pages are opened in each browser language/);
     assert.doesNotMatch(pages['/privacy'], /id="advertising"/);
     assert.doesNotMatch(pages['/terms'], /<h2>Ads<\/h2>/);
     assert.equal((await adsTxt({})).status, 404);
@@ -58,7 +58,8 @@ test('ADSENSE_CLIENT alone: the verification tag and ads.txt for the review, the
     // Neither the page nor its description (the embedded string table holds every string, unused ones too)
     assert.doesNotMatch(privacy.replace(/<script type="application\/json" id="strings">.*?<\/script>/s, ''), /uses no cookies/);
     // (escaped by the view: Handlebars writes ' as &#x27;)
-    assert.match(privacy, /<meta name="description" content="Wayhop has no accounts or analytics and doesn&#x27;t track you itself/);
+    assert.match(privacy, /<meta name="description" content="Wayhop has no accounts and doesn&#x27;t track you itself; its ads come from Google/);
+    assert.match(privacy, /doesn't track you itself; it only counts how many pages are opened in each browser language\. It shows ads from Google/);
     assert.match(privacy, /<h2 id="advertising">Advertising<\/h2>/);
     assert.match(privacy, /<button type="button" id="ad-choices"[^>]*data-ad-client="ca-pub-1234567890123456" hidden>Change your ad choices<\/button>/);
     assert.match(privacy, /src="\/js\/core\/ads\.js\?v=/);

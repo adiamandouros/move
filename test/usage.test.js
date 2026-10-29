@@ -5,6 +5,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { ANSWER_MS, answerTime, createUsage, KEEP_DAYS, STOPS_KEPT_FRESH } from '../server/oasa/usage.js';
 import { usageView } from '../server/admin/usage.js';
+import { askedLanguage } from '../server/pages/i18n.js';
 import { view } from '../server/pages/templates.js';
 
 // The usage of OASA (server/oasa/usage.js): counted each minute, added up per
@@ -269,4 +270,50 @@ test('the usage page: how far ahead OASA predicts each line over the newest 7 da
     assert.match(html, /<div class="table-responsive usage-table-wrap" tabindex="0" role="region" aria-labelledby="horizon-title">/);
     assert.match(html, /<th scope="row" lang="el">040<\/th>\s*<td>40<\/td>\s*<td>25<\/td>\s*<td>5<\/td>/);
     assert.match(view_(usageView({ '2026-10-30': day({}) })), /No predictions counted yet\./);
+});
+
+test('the language a browser asks for first, from its Accept-Language header', () => {
+    assert.equal(askedLanguage('de-AT,de;q=0.9,en;q=0.8'), 'de');
+    assert.equal(askedLanguage('el'), 'el');
+    assert.equal(askedLanguage(' FR-ca ;q=1, en'), 'fr');
+    assert.equal(askedLanguage('fil-PH'), 'fil');
+    // None given, or none that is a language
+    for (const header of [undefined, '', '*', 'en_US', 'x-pig-latin', 'english', '12']) assert.equal(askedLanguage(header), 'none', String(header));
+});
+
+test('pages opened: per day, by the language asked for and the one served, across minutes and restarts', () => {
+    const c = clock(Date.parse('2026-10-30T10:00:00Z'));
+    const file = tempFile();
+    // A day kept before the pages were counted
+    writeFileSync(file, JSON.stringify({ days: { '2026-10-30': { ...createUsage({ now: c.now }).status().today, pages: undefined } } }));
+    const usage = createUsage({ file, now: c.now });
+    usage.page('de', 'en');
+    usage.page('el', 'el');
+    c.advance(MIN);
+    usage.page('de', 'en');
+    usage.page('none', 'en');
+    c.advance(MIN);
+    usage.save();
+    const again = createUsage({ file, now: c.now });
+    again.page('el', 'el');
+    assert.deepEqual(again.days()['2026-10-30'].pages, { asked: { de: 2, el: 2, none: 1 }, served: { en: 3, el: 2 } });
+    assert.deepEqual(again.status().hour.pages, { asked: { el: 1 }, served: { el: 1 } });
+});
+
+test('the usage page: pages opened per day, the browser languages most asked first', () => {
+    const day = pages => ({ ...createUsage().status().today, pages });
+    const view = usageView({
+        // Kept before the pages were counted: no row
+        '2026-10-29': { ...day(undefined), pages: undefined },
+        '2026-10-30': day({ asked: { none: 4, de: 2, el: 9, fr: 2 }, served: { en: 8, el: 9 } }),
+        '2026-10-31': day({ asked: {}, served: {} }),
+    });
+    assert.deepEqual(view.pages, [
+        { date: '2026-10-31', opened: 0, en: 0, el: 0, asked: '–' },
+        { date: '2026-10-30', opened: 17, en: 8, el: 9, asked: 'el 9, none 4, de 2, fr 2' },
+    ]);
+    const html = view_(view);
+    assert.match(html, /<div class="table-responsive usage-table-wrap" tabindex="0" role="region" aria-labelledby="pages-title">/);
+    assert.match(html, /<th scope="row">2026-10-30<\/th>\s*<td>17<\/td>\s*<td>8<\/td>\s*<td>9<\/td>\s*<td class="text-start">el 9, none 4, de 2, fr 2<\/td>/);
+    assert.match(view_(usageView({ '2026-10-29': { ...day(undefined), pages: undefined } })), /No pages counted yet\./);
 });

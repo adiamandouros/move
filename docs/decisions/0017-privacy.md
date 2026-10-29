@@ -1,6 +1,6 @@
 # 17. Privacy: kept on the device, nothing about people on the server
 
-Decided 2026-10-16 · In force
+Decided 2026-10-16 · Replaced by [19](0019-privacy-counts-only.md)
 
 ## Situation
 

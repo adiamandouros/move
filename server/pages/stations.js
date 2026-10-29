@@ -298,11 +298,13 @@ export function stationPage(rail, id, { tools, origin = '' }) {
 
 // → { router, paths() }. renderPage puts a page in its language and the
 // layout (index.js, renderPages); paths() lists the English paths for the sitemap.
+// opened(req, lang): each page sent, for the count of pages opened (index.js).
 /**
  * @param {{ railFile: string, renderPage: (page: import('../../types/pages.js').Page, lang: Lang) => string,
- *   tools: import('../../types/pages.js').Tool[], origin?: string }} options
+ *   tools: import('../../types/pages.js').Tool[], origin?: string,
+ *   opened?: (req: import('express').Request, lang: Lang) => void }} options
  */
-export function createStationPages({ railFile, renderPage, tools, origin = '' }) {
+export function createStationPages({ railFile, renderPage, tools, origin = '', opened = () => {} }) {
     const read = railReader(railFile);
     // Rendered pages are kept until rail.json changes (or the day does)
     let drawn = { key: null, html: new Map() };
@@ -325,9 +327,13 @@ export function createStationPages({ railFile, renderPage, tools, origin = '' })
     const router = express.Router();
     for (const lang of LANGS) {
         const base = localPath(STATIONS_PATH, lang);
-        const send = (res, next, html) => html ? sendFresh(res, 'html', html) : next();
-        router.get(base, (_req, res, next) => send(res, next, page(null, lang)));
-        router.get(`${base}/:id`, (req, res, next) => send(res, next, page(req.params.id, lang)));
+        const send = (req, res, next, html) => {
+            if (!html) return next();
+            opened(req, lang);
+            sendFresh(res, 'html', html);
+        };
+        router.get(base, (req, res, next) => send(req, res, next, page(null, lang)));
+        router.get(`${base}/:id`, (req, res, next) => send(req, res, next, page(req.params.id, lang)));
     }
 
     return {

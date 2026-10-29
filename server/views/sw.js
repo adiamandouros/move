@@ -9,6 +9,9 @@ const PRECACHE = {{precache}};
 const PRECACHE_DATA = {{precacheData}};
 // Pages that must open instantly even with a bad connection (e.g. underground)
 const OFFLINE_PAGES = {{offlinePages}};
+// Sent when fetching a page because it was opened, not to cache it, so the
+// server counts it (server/pages/index.js)
+const OPENED = {{opened}};
 
 self.addEventListener('install', e => {
     e.waitUntil(caches.open(CACHE).then(cache => Promise.all([
@@ -37,7 +40,7 @@ self.addEventListener('fetch', e => {
 
     if (e.request.mode === 'navigate') {
         // Pages are cached by path; the query string only carries page state
-        const key = new Request(url.pathname);
+        const key = new Request(url.pathname, { headers: { [OPENED]: '1' } });
         e.respondWith(OFFLINE_PAGES.includes(url.pathname)
             ? staleWhileRevalidate(e, key, true)
             : networkFirst(key));

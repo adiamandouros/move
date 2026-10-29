@@ -19,6 +19,14 @@ export const otherLang = lang => lang === 'el' ? 'en' : 'el';
 export const basePath = path => path.replace(/^\/el(?=\/|$)/, '') || '/';
 export const localPath = (path, lang) => lang === 'el' ? (path === '/' ? '/el' : `/el${path}`) : path;
 
+// The language a browser asks for first, from its Accept-Language header:
+// "de" from "de-AT,de;q=0.9,en;q=0.8"; "none" when it asks for none (most bots)
+/** @param {string | undefined} header */
+export function askedLanguage(header) {
+    const first = header?.split(',')[0].split(';')[0].trim().split('-')[0].toLowerCase() ?? '';
+    return /^[a-z]{2,3}$/.test(first) ? first : 'none';
+}
+
 // ── Strings ─────────────────────────────────────────────────────────────────
 
 // → (lang, own) => the strings of a page in one language: the shell's

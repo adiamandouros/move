@@ -24,6 +24,9 @@ import { REQUESTS_PER_SECOND } from './client.js';
 //   horizon   per line, the most minutes ahead OASA predicted a bus, from
 //             fresh answers: how far ahead its predictions reach (for retries
 //             and scheduled times, items 37 and 13)
+// And, beside OASA's, the pages opened (server/pages/index.js), by the
+// language the browser asks for and the one served: which languages to add
+// next (item 43). A count per language, nothing about who opened them.
 //
 // The file: { days: { "2026-10-30": summary, … }, today: { date, stops: [codes] } }.
 // Today's stop codes are kept so a restart doesn't count a stop twice.
@@ -59,6 +62,7 @@ const emptySummary = () => ({
     dropMinutes: 0,
     network: null,
     horizon: {},
+    pages: { asked: {}, served: {} },
 });
 
 const newMinute = at => ({ at, ...emptySummary(), stopCodes: new Set() });
@@ -88,6 +92,11 @@ function addMinute(summary, minute) {
     // (days kept before the horizon was counted have none)
     summary.horizon ??= {};
     for (const [line, minutes] of Object.entries(minute.horizon)) summary.horizon[line] = Math.max(summary.horizon[line] ?? 0, minutes);
+    // (nor the pages, before they were counted)
+    summary.pages ??= { asked: {}, served: {} };
+    for (const part of ['asked', 'served']) {
+        for (const [lang, n] of Object.entries(minute.pages[part])) summary.pages[part][lang] = (summary.pages[part][lang] ?? 0) + n;
+    }
     return summary;
 }
 
@@ -210,6 +219,12 @@ export function createUsage({ file = null, networkFile = null, now = Date.now, k
         answer(stop, source) { const m = current(); m.answers[source]++; m.stopCodes.add(stop); },
         // A bus of this line OASA predicted this many minutes ahead
         horizon(line, minutes) { const m = current(); m.horizon[line] = Math.max(m.horizon[line] ?? 0, minutes); },
+        // A page opened in `served` (en, el) by a browser asking for `asked` (askedLanguage in server/pages/i18n.js)
+        page(asked, served) {
+            const { pages } = current();
+            pages.asked[asked] = (pages.asked[asked] ?? 0) + 1;
+            pages.served[served] = (pages.served[served] ?? 0) + 1;
+        },
         // → { hour, today } for the status file and the diagnostics
         status: () => ({ hour: pastHour(), today: soFar() }),
         // Every day kept, today so far, for /admin/usage
