@@ -98,6 +98,7 @@ test('createAdmin is disabled without a password', () => {
 
 test('pages and API need a session; wrong passwords are rejected', async () => {
     assert.equal((await fetch(`${base}/stations`, { redirect: 'manual' })).headers.get('location'), '/admin/login');
+    assert.equal((await fetch(`${base}/usage`, { redirect: 'manual' })).headers.get('location'), '/admin/login');
     assert.equal((await api('/state')).status, 401);
     // The login page's stylesheet must load without a session
     assert.match((await fetch(`${base}/assets/admin.css`)).headers.get('content-type'), /text\/css/);
@@ -160,3 +161,12 @@ test('saving, reverting and exporting an entry', async () => {
     const reverted = await api('/positions/M1/kifisia/moschato', cookie, { method: 'DELETE' });
     assert.deepEqual(await reverted.json(), { entry: committed, edited: false });
 });
+
+test('the use of OASA, with a session: nothing counted yet when the app gives no days', async () => {
+    const { cookie } = await login();
+    const res = await fetch(`${base}/usage`, { headers: { Cookie: cookie } });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('cache-control'), 'no-store');
+    assert.match(await res.text(), /<h1 class="fs-5 m-0">Use of OASA<\/h1>[\s\S]*Nothing has been counted yet\./);
+});
+

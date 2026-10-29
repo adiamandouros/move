@@ -11,7 +11,7 @@ import { readJson } from './files.js';
 import { RELAY_VERSION } from '../proxy/worker.js';
 import { OASA_API, REQUESTS_PER_SECOND, TEST_STOP } from './oasa/client.js';
 import { NEW_STOPS_PER_MINUTE } from './oasa/limits.js';
-import { answerTime, BUSY_WAITS_MS, STOPS_KEPT_FRESH } from './oasa/usage.js';
+import { answerTime, answerTimeText, BUSY_WAITS_MS, secondsText, STOPS_KEPT_FRESH, total } from './oasa/usage.js';
 import { BUILD_MAX_MS, THREAD_LIMIT, THREADS_WARN } from './processes.js';
 
 // Health checks for when something goes wrong on the server: can it reach the
@@ -353,7 +353,7 @@ function appChecks(appStatus, now) {
     // Load: requests that didn't fit the budget to OASA, and visitors over their share of it
     const hour = appStatus.usage?.hour;
     if (hour) {
-        const dropped = sum(hour.dropped);
+        const dropped = total(hour.dropped);
         out.push(dropped
             ? check('Running app', 'Request budget', 'warn', `${dropped} requests to OASA in the past hour didn't fit the ${REQUESTS_PER_SECOND}/s budget, so people saw older arrivals`,
                 'If this keeps happening, raise REQUESTS_PER_SECOND (server/oasa/client.js) or ARRIVALS_TTL_MS (server/oasa/arrivals.js). OASA states no limit, so go up gradually.')
@@ -368,11 +368,6 @@ function appChecks(appStatus, now) {
 
 // ── Use of OASA ─────────────────────────────────────────────────────────────
 
-const sum = counts => Object.values(counts).reduce((a, b) => a + b, 0);
-const seconds = ms => `${Math.round(ms / 100) / 10} s`;
-// An answer-time bucket's limit (usage.js answerTime) in words
-const under = ms => ms === Infinity ? `over ${seconds(8_000)}` : `under ${ms < 1000 ? `${ms} ms` : seconds(ms)}`;
-
 // What the running app asked of OASA and how OASA answered (server/oasa/usage.js),
 // over the past hour and today so far
 function usageChecks(usage) {
@@ -385,16 +380,16 @@ function usageChecks(usage) {
 
 function usageText(u) {
     const r = u.requests;
-    const answers = sum(u.answers);
+    const answers = total(u.answers);
     const parts = [
-        `${sum(r)} requests (${r['arrivals-new']} first looks at a stop, ${r['arrivals-refresh']} refreshes, ${r['route-names']} route names, ${r['route-test']} route tests)`,
+        `${total(r)} requests (${r['arrivals-new']} first looks at a stop, ${r['arrivals-refresh']} refreshes, ${r['route-names']} route names, ${r['route-test']} route tests)`,
         answers ? `${Math.round(100 * u.answers.cache / answers)}% of ${answers} stop answers from the cache` : 'no stop answers',
         `${u.stops} different stops, at most ${u.peaks.stops} in one minute (about ${STOPS_KEPT_FRESH} can be kept fresh)`,
-        `longest wait for a slot ${seconds(u.peaks.waitMs)}`,
+        `longest wait for a slot ${secondsText(u.peaks.waitMs)}`,
     ];
     const busy = BUSY_WAITS_MS.filter(ms => u.busyMinutes[ms]);
-    if (busy.length) parts.push(`waited over ${busy.map(ms => `${seconds(ms)} in ${u.busyMinutes[ms]} minutes`).join(', over ')}`);
-    const dropped = sum(u.dropped);
+    if (busy.length) parts.push(`waited over ${busy.map(ms => `${secondsText(ms)} in ${u.busyMinutes[ms]} minutes`).join(', over ')}`);
+    const dropped = total(u.dropped);
     if (dropped) parts.push(`${dropped} dropped, in ${u.dropMinutes} minutes`);
     if (u.answers.old || u.answers.none) parts.push(`OASA failed for ${u.answers.old + u.answers.none} stop answers (${u.answers.old} served older arrivals)`);
     if (u.paused) parts.push(`${u.paused} refused while every route rested`);
@@ -408,7 +403,7 @@ function routeText(r) {
     const most = answerTime(r.ms, 0.95);
     return [
         `${r.ok} answers, ${r.failed} failed${r.downMinutes ? `, none answered in ${r.downMinutes} minutes` : ''}`,
-        ...(half === null ? [] : [`half ${under(half)}, 95% ${under(most)}`]),
+        ...(half === null ? [] : [`half ${answerTimeText(half)}, 95% ${answerTimeText(most)}`]),
     ].join('; ');
 }
 

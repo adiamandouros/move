@@ -4,6 +4,8 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { ANSWER_MS, answerTime, createUsage, KEEP_DAYS, STOPS_KEPT_FRESH } from '../server/oasa/usage.js';
+import { usageView } from '../server/admin/usage.js';
+import { view } from '../server/pages/templates.js';
 
 // The usage of OASA (server/oasa/usage.js): counted each minute, added up per
 // Athens day, kept in a file for KEEP_DAYS
@@ -16,6 +18,8 @@ const quiet = () => {};
 function clock(t = T0) {
     return { now: () => t, advance: ms => { t += ms; } };
 }
+// The page's view, in English like every admin page
+const view_ = data => view('admin/usage.hbs')(data, { lang: 'en', strings: {} });
 const tempFile = () => join(mkdtempSync(join(tmpdir(), 'wayhop-usage-')), 'oasa-usage.json');
 
 test('each minute is added to its day: sums, the busiest minute, minutes waiting and dropping', () => {
@@ -186,4 +190,39 @@ test('the nightly bus-network fetch\'s requests go under the day it ran', () => 
     usage.save();
     assert.equal(usage.days()['2026-10-30'].network, 572);
     assert.equal(usage.status().today.network, 572);
+});
+
+// ── /admin/usage ────────────────────────────────────────────────────────────
+
+test('the usage page: a day per row, newest first, and each route\'s answers per day', () => {
+    const c = clock(Date.parse('2026-10-30T10:00:00Z'));
+    const usage = createUsage({ now: c.now });
+    usage.request('arrivals-new');
+    usage.call('home relay', true, 300);
+    usage.answer('10361', 'oasa');
+    usage.answer('10361', 'cache');
+    usage.answer('10362', 'cache');
+    usage.request('arrivals-refresh');
+    usage.waited(2_400);
+    usage.dropped('arrivals-refresh');
+    c.advance(86_400_000);
+    usage.call('home relay', false, 9_000);
+
+    const view = usageView(usage.days());
+    assert.deepEqual(view.asked.map(d => d.date), ['2026-10-31', '2026-10-30']);
+    assert.deepEqual(view.asked[1], {
+        date: '2026-10-30', requests: 2, firstLooks: 1, refreshes: 1, routeNames: 0, routeTests: 0, network: '–',
+        fromCache: '67%', stops: 2, mostAtOnce: 2, longestWait: '2.4 s', busyMinutes: '1 / 0', dropped: '1 (in 1 min)', paused: 0, limited: 0,
+    });
+    assert.deepEqual(view.answered, [
+        { date: '2026-10-31', route: 'home relay', ok: 0, failed: 1, half: 'over 8 s', most: 'over 8 s', downMinutes: 1 },
+        { date: '2026-10-30', route: 'home relay', ok: 1, failed: 0, half: 'under 500 ms', most: 'under 500 ms', downMinutes: 0 },
+    ]);
+
+    const html = view_(view);
+    assert.match(html, /<table class="table table-sm usage-table">\s*<caption class="sr-only">What Wayhop asked of OASA, per day<\/caption>/);
+    assert.match(html, /<th scope="col">Minutes waiting over 2 s \/ 5 s<\/th>/);
+    assert.match(html, /<th scope="row">2026-10-30<\/th>\s*<td>2<\/td>\s*<td>1<\/td>/);
+    assert.match(html, /<td class="text-start">home relay<\/td>\s*<td>0<\/td>\s*<td>1<\/td>\s*<td>over 8 s<\/td>/);
+    assert.match(view_(usageView({})), /<p>Nothing has been counted yet\.<\/p>/);
 });

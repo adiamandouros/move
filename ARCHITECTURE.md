@@ -269,7 +269,7 @@ version they started with, and it takes over once they're closed
   and per day, kept for 120 days in `data/local/oasa-usage.json`: requests
   by kind, the cache's share, stops watched at once, waits and drops, each
   route's answer times and failures. Counts only; `/admin/diagnostics`
-  shows the past hour and today.
+  shows the past hour and today, `/admin/usage` a row per day.
 
 These numbers set our load on OASA, and so do the ones for STASY and the
 bus network below; changes to any of them are agreed first

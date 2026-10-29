@@ -1,7 +1,7 @@
 // The admin pages (server/admin/): the diagnostics page, its checks as the
 // server would send them (server/diagnostics.js), not run for real here
 import { ADMIN_TEST_PASSWORD } from '../support/test-site.js';
-import { axe, expect, onlyOn, test } from './fixtures.js';
+import { axe, expect, keyboardWalk, onlyOn, test } from './fixtures.js';
 
 test.use({ scenario: 'admin' });
 test.beforeEach(onlyOn('phone', 'desktop'));
@@ -34,6 +34,31 @@ test('diagnostics: a bus network fetch that stopped shows how far it got, as a b
     // Only the check that has a progress gets a bar
     await expect(page.getByRole('progressbar')).toHaveCount(1);
     expect(await axe(page)).toEqual([]);
+});
+
+test('the use of OASA: today\'s row, from what the app counted; its tables scroll and take the keyboard', async ({ page }, testInfo) => {
+    // Someone looks at a stop: an answer the app counts
+    await page.request.get('/api/arrivals?stops=10157');
+    await page.goto('/admin/login');
+    await page.getByLabel('Password').fill(ADMIN_TEST_PASSWORD);
+    await page.getByRole('button', { name: 'Log in' }).click();
+    await page.goto('/admin/diagnostics');
+    await page.getByRole('link', { name: 'Use of OASA' }).click();
+    await expect(page).toHaveURL(/\/admin\/usage$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Use of OASA');
+
+    const asked = page.getByRole('region', { name: 'What Wayhop asked for' });
+    const today = asked.getByRole('row').nth(1);
+    await expect(today.getByRole('rowheader')).toHaveText(/^\d{4}-\d{2}-\d{2}$/);
+    // Different stops: one
+    await expect(today.getByRole('cell').nth(7)).toHaveText('1');
+    await expect(page.getByRole('region', { name: 'How OASA answered, per route' })).toBeVisible();
+    expect(await axe(page)).toEqual([]);
+    if (testInfo.project.name !== 'iphone') {
+        const walk = await keyboardWalk(page);
+        expect(walk.problems, walk.stops.join(' → ')).toEqual([]);
+        expect(walk.stops.join(' → ')).toMatch(/div "What Wayhop asked of OASA.*→ div "How each route to OASA/);
+    }
 });
 
 test('the station editor is accessible too', async ({ page }) => {

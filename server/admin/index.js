@@ -12,6 +12,7 @@ import { sendFresh } from '../http.js';
 import { listFiles, shellFiles, shellUrls, urlPath } from '../pages/assets.js';
 import { fill, view } from '../pages/templates.js';
 import { createAuth, createLimiter, readCookie } from './auth.js';
+import { usageView } from './usage.js';
 
 const ADMIN_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'admin');
 const CLIENT_DIR = join(ADMIN_DIR, 'client');
@@ -25,14 +26,15 @@ const require = createRequire(import.meta.url);
 //   loadRail()     → the current rail.json, for station order and names
 //   rebuild()      → called after every change
 //   diagnose()     → runs the server health checks (server/diagnostics.js)
-export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebuild, render, diagnose }) {
+//   usageDays()    → the days of OASA's usage (server/oasa/usage.js), for /admin/usage
+export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebuild, render, diagnose, usageDays = () => ({}) }) {
     if (!password) return null;
 
     const auth = createAuth(password);
     const limiter = createLimiter();
     const router = express.Router();
     // The admin pages' views (admin/<name>.hbs), in English only
-    const views = { login: view('admin/login.hbs'), stations: view('admin/stations.hbs'), diagnostics: view('admin/diagnostics.hbs') };
+    const views = { login: view('admin/login.hbs'), stations: view('admin/stations.hbs'), diagnostics: view('admin/diagnostics.hbs'), usage: view('admin/usage.hbs') };
     const english = { lang: 'en', strings: {} };
     const styles = ['/admin/assets/admin.css'];
     const serviceWorker = renderServiceWorker();
@@ -105,6 +107,15 @@ export function createAdmin({ password, overlayFile, loadCurated, loadRail, rebu
             styles,
             content: views.diagnostics({}, english),
             scripts: ['/admin/assets/diagnostics.js', '/admin/assets/accessibility.js'],
+        }));
+    });
+
+    // What Wayhop asked of OASA each day, and how OASA answered
+    router.get('/usage', (_req, res) => {
+        res.set('Cache-Control', 'no-store').type('html').send(render({
+            title: 'Use of OASA',
+            styles,
+            content: views.usage(usageView(usageDays()), english),
         }));
     });
 

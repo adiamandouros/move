@@ -1,0 +1,92 @@
+<div class="admin-view admin-view-wide">
+    <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+        <h1 class="fs-5 m-0">Use of OASA</h1>
+        <a class="btn btn-sm btn-outline-secondary" href="/admin/diagnostics">Diagnostics</a>
+    </div>
+    <p class="small text-body-secondary">What Wayhop asked of OASA each day (Athens time) and how OASA answered, as the running app counted it (<code>server/oasa/usage.js</code>), kept for {{keepDays}} days. Today's row is so far. Counts only: stop codes and routes, nothing about who asked.</p>
+{{#if asked.length}}
+    <h2 class="fs-6 mt-4" id="asked-title">What Wayhop asked for</h2>
+    <p class="small text-body-secondary">About {{stopsKeptFresh}} stops can be kept fresh at once. The nightly bus network is fetched by the data build, apart from the rest.</p>
+    <div class="table-responsive usage-table-wrap" tabindex="0" role="region" aria-labelledby="asked-title">
+        <table class="table table-sm usage-table">
+            <caption class="sr-only">What Wayhop asked of OASA, per day</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Day</th>
+                    <th scope="col">Requests</th>
+                    <th scope="col">First looks at a stop</th>
+                    <th scope="col">Refreshes</th>
+                    <th scope="col">Route names</th>
+                    <th scope="col">Route tests</th>
+                    <th scope="col">Nightly bus network</th>
+                    <th scope="col">Stop answers from the cache</th>
+                    <th scope="col">Different stops</th>
+                    <th scope="col">Most stops in one minute</th>
+                    <th scope="col">Longest wait for a slot</th>
+                    <th scope="col">Minutes waiting over {{busyWaits}}</th>
+                    <th scope="col">Dropped</th>
+                    <th scope="col">Refused, every route resting</th>
+                    <th scope="col">Refused, visitor over their share</th>
+                </tr>
+            </thead>
+            <tbody>
+{{#each asked}}
+                <tr>
+                    <th scope="row">{{date}}</th>
+                    <td>{{requests}}</td>
+                    <td>{{firstLooks}}</td>
+                    <td>{{refreshes}}</td>
+                    <td>{{routeNames}}</td>
+                    <td>{{routeTests}}</td>
+                    <td>{{network}}</td>
+                    <td>{{fromCache}}</td>
+                    <td>{{stops}}</td>
+                    <td>{{mostAtOnce}}</td>
+                    <td>{{longestWait}}</td>
+                    <td>{{busyMinutes}}</td>
+                    <td>{{dropped}}</td>
+                    <td>{{paused}}</td>
+                    <td>{{limited}}</td>
+                </tr>
+{{/each}}
+            </tbody>
+        </table>
+    </div>
+
+    <h2 class="fs-6 mt-4" id="answered-title">How OASA answered, per route</h2>
+    <p class="small text-body-secondary">Minutes without an answer: minutes the route was asked and every request failed.</p>
+    <div class="table-responsive usage-table-wrap" tabindex="0" role="region" aria-labelledby="answered-title">
+        <table class="table table-sm usage-table">
+            <caption class="sr-only">How each route to OASA answered, per day</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Day</th>
+                    <th scope="col" class="text-start">Route</th>
+                    <th scope="col">Answers</th>
+                    <th scope="col">Failed</th>
+                    <th scope="col">Half of the answers</th>
+                    <th scope="col">95% of the answers</th>
+                    <th scope="col">Minutes without an answer</th>
+                </tr>
+            </thead>
+            <tbody>
+{{#each answered}}
+                <tr>
+                    <th scope="row">{{date}}</th>
+                    <td class="text-start">{{route}}</td>
+                    <td>{{ok}}</td>
+                    <td>{{failed}}</td>
+                    <td>{{half}}</td>
+                    <td>{{most}}</td>
+                    <td>{{downMinutes}}</td>
+                </tr>
+{{else}}
+                <tr><td class="text-start" colspan="7">No requests to OASA yet.</td></tr>
+{{/each}}
+            </tbody>
+        </table>
+    </div>
+{{else}}
+    <p>Nothing has been counted yet.</p>
+{{/if}}
+</div>
