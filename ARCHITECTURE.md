@@ -265,6 +265,11 @@ version they started with, and it takes over once they're closed
   the stops opened, every 30 s; searching asks OASA nothing.
 - `limits.js`: each visitor may ask for 30 stops a minute that aren't cached.
 - `index.js`: `/api/arrivals`, for stops in `bus-stops.json` only.
+- `usage.js`: counts what is asked of OASA and how it answers, each minute
+  and per day, kept for 120 days in `data/local/oasa-usage.json`: requests
+  by kind, the cache's share, stops watched at once, waits and drops, each
+  route's answer times and failures. Counts only; `/admin/diagnostics`
+  shows the past hour and today.
 
 These numbers set our load on OASA, and so do the ones for STASY and the
 bus network below; changes to any of them are agreed first

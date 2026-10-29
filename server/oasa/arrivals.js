@@ -14,6 +14,7 @@ import { writeFileAtomic } from '../files.js';
 // Arrivals only carry OASA's internal route code, so line numbers and
 // destinations come from a route table filled from webRoutesForStop and kept
 // on disk; route codes rarely change, so each is looked up about once a week.
+// Each answer is counted by where it came from (`usage`, server/oasa/usage.js).
 
 export const ARRIVALS_TTL_MS = 30_000;
 // [queue wait over, answers fresh for] while OASA's queue is busy (approved
@@ -25,7 +26,7 @@ const STALE_MAX_MS = 5 * 60_000;
 const ROUTES_TTL_MS = 7 * 86_400_000;
 const MAX_CACHED_STOPS = 5000;
 
-export function createArrivals({ client, routesFile, now = Date.now, log = console.warn }) {
+export function createArrivals({ client, routesFile, now = Date.now, log = console.warn, usage = /** @type {Pick<import('./usage.js').Usage, 'answer'>} */ ({ answer() {} }) }) {
     const cache = new Map();      // stop → { at, arrivals }
     const inflight = new Map();   // stop → Promise
     const routeLookups = new Map();
@@ -110,8 +111,15 @@ export function createArrivals({ client, routesFile, now = Date.now, log = conso
     // → { arrivals: [...], updated: ms | null, stale: boolean, unavailable?: true }
     function stopArrivals(stop) {
         const hit = cache.get(stop);
-        if (hit && now() - hit.at < freshFor()) return Promise.resolve(served(hit));
-        if (inflight.has(stop)) return inflight.get(stop);
+        if (hit && now() - hit.at < freshFor()) {
+            usage.answer(stop, 'cache');
+            return Promise.resolve(served(hit));
+        }
+        // Already being asked for: this answer shares that request
+        if (inflight.has(stop)) {
+            usage.answer(stop, 'cache');
+            return inflight.get(stop);
+        }
         // Nobody has looked at this stop lately: a newcomer, who goes first
         const lane = hit && now() - hit.at < STALE_MAX_MS ? 'normal' : 'high';
 
@@ -123,9 +131,14 @@ export function createArrivals({ client, routesFile, now = Date.now, log = conso
                 const raw = await client.request('getStopArrivals', stop, { lane });
                 const arrivals = await describe(stop, Array.isArray(raw) ? raw : []);
                 remember(stop, arrivals, asked);
+                usage.answer(stop, 'oasa');
                 return { arrivals, updated: asked, stale: false };
             } catch {
-                if (hit && now() - hit.at < STALE_MAX_MS) return { arrivals: countDown(hit.arrivals, now() - hit.at), updated: hit.at, stale: true };
+                if (hit && now() - hit.at < STALE_MAX_MS) {
+                    usage.answer(stop, 'old');
+                    return { arrivals: countDown(hit.arrivals, now() - hit.at), updated: hit.at, stale: true };
+                }
+                usage.answer(stop, 'none');
                 return { arrivals: [], updated: null, stale: false, unavailable: true };
             } finally {
                 inflight.delete(stop);

@@ -3,7 +3,8 @@ import express from 'express';
 import { writeFileAtomic } from '../files.js';
 import { createArrivals } from './arrivals.js';
 import { createOasaClient } from './client.js';
-import { clientKey, createClientLimiter, hourCounter } from './limits.js';
+import { clientKey, createClientLimiter } from './limits.js';
+import { createUsage } from './usage.js';
 import { STOP_CODE } from '../data/check-output.js';
 
 // Most stops one request may ask for (the bus page shows 6 at a time)
@@ -19,34 +20,39 @@ const MAX_STOPS = 12;
 //
 // `relays` ([{ name, url, key }]) are the optional fallback routes described in client.js.
 //
-// `statusFile`: where the live route status is written about once a minute,
-// so `npm run diagnose` (a separate process) can show what the app sees.
+// `statusFile`: where the live route status and the past hour's and today's
+// usage are written about once a minute, so `npm run diagnose` (a separate
+// process) can show what the app sees.
+//
+// `usage` counts what is asked of OASA and how it answers (usage.js); the
+// client is given the same one. Its days are saved once a minute.
 /**
  * @param {{
  *   routesFile?: string, statusFile?: string, stopsFile?: string,
  *   relays?: { name: string, url: string, key: string }[],
+ *   usage?: ReturnType<typeof createUsage>,
  *   client?: ReturnType<typeof createOasaClient>,
  *   limiter?: { take(key: string, stops: number): number },
  *   now?: () => number,
  * }} [options]
  */
-export function createBusApi({ routesFile, statusFile, stopsFile, relays = [], client = createOasaClient({ relays }), limiter, now = Date.now } = {}) {
-    const arrivals = createArrivals({ client, routesFile, now });
+export function createBusApi({ routesFile, statusFile, stopsFile, relays = [], now = Date.now, usage = createUsage({ now }), client = createOasaClient({ relays, usage }), limiter } = {}) {
+    const arrivals = createArrivals({ client, routesFile, now, usage });
     limiter ??= createClientLimiter({ now });
-    const limited = hourCounter(now);
     const isKnown = knownStops(stopsFile, now);
-    const status = () => ({ ...client.status(), limitedLastHour: limited.count() });
+    const status = () => ({ ...client.status(), usage: usage.status() });
     const router = express.Router();
 
-    if (statusFile) {
-        // Written every minute even when nothing changed, so its timestamp also
-        // shows whether the app is running
-        const write = () => {
+    // Written every minute even when nothing changed, so the status file's
+    // timestamp also shows whether the app is running
+    const write = () => {
+        usage.save();
+        if (statusFile) {
             try { writeFileAtomic(statusFile, JSON.stringify(status())); } catch { /* diagnostics only */ }
-        };
-        write();
-        setInterval(write, 60_000).unref();
-    }
+        }
+    };
+    write();
+    setInterval(write, 60_000).unref();
 
     router.get('/arrivals', async (req, res) => {
         const stops = [...new Set(String(req.query.stops ?? '').split(',').filter(Boolean))];
@@ -58,7 +64,7 @@ export function createBusApi({ routesFile, statusFile, stopsFile, relays = [], c
 
         const wait = limiter.take(clientKey(req.ip), stops.filter(s => !arrivals.isCached(s)).length);
         if (wait) {
-            limited.add();
+            usage.limited();
             return res.status(429).set('Retry-After', String(Math.ceil(wait / 1000))).json({ error: 'Too many new stops; try again shortly' });
         }
 
@@ -68,7 +74,7 @@ export function createBusApi({ routesFile, statusFile, stopsFile, relays = [], c
 
     router.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 
-    return Object.assign(router, { status });
+    return Object.assign(router, { status, usage });
 }
 
 // code → whether it's a stop in bus-stops.json. The file is checked for

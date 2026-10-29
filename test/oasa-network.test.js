@@ -156,6 +156,8 @@ test('each route\'s stops are saved as they arrive: after a failed fetch, the ne
     assert.deepEqual(readJson(lastFetchFile(rawDir)), {
         at: new Date(T0).toISOString(), ok: false, seconds: 0, error: 'route 3924: HTTP 502 (4 tries)',
         lines: { done: 5, total: 5 }, stops: { done: 2, total: 7 },
+        // Each try is a request: the lines, their 5 routes, 3 routes' stops and 3 retries
+        requests: 12,
     });
     // The process stopped while saving a third
     appendFileSync(progress, '{"code":"6051","at":"2026');
@@ -174,5 +176,6 @@ test('each route\'s stops are saved as they arrive: after a failed fetch, the ne
     assert.deepEqual(readJson(lastFetchFile(rawDir)), {
         at: new Date(T0 + 3_600_000).toISOString(), ok: true, seconds: 0,
         lines: { done: 5, total: 5 }, stops: { done: 5, total: 5 },
+        requests: 11,
     });
 });

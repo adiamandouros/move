@@ -5,6 +5,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { countDown, createArrivals } from '../server/oasa/arrivals.js';
 import { createOasaClient, OasaUnavailable } from '../server/oasa/client.js';
+import { createUsage } from '../server/oasa/usage.js';
 
 // A fake clock where sleeping just moves time forward
 function clock() {
@@ -430,4 +431,93 @@ test('the last route rests only a minute, since nothing comes after it', async (
     await settle();
     for (let i = 0; i < 5; i++) await assert.rejects(client.request('getStopArrivals', '1'), OasaUnavailable);
     assert.match(logs.join('\n'), /5 home relay failures in a row \(last: home down\); resting it for 60 s$/m);
+});
+
+// ── What is counted (server/oasa/usage.js) ──────────────────────────────────
+
+test('the client counts each request by kind, each call by route and its time, and what didn\'t go ahead', async () => {
+    const c = clock();
+    const usage = createUsage({ now: c.now });
+    let up = true;
+    // Each answer takes 300 ms
+    const fetch = async () => { c.advance(300); if (!up) throw new Error('down'); return { ok: true, text: async () => '[]' }; };
+    const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: quiet, usage });
+    await client.request('getStopArrivals', '1', { lane: 'high' });
+    await client.request('getStopArrivals', '1');
+    await client.request('webRoutesForStop', '1', { lane: 'high' });
+    up = false;
+    for (let i = 0; i < 5; i++) await assert.rejects(client.request('getStopArrivals', '1'), OasaUnavailable);
+    // Every route resting: refused without a request
+    await assert.rejects(client.request('getStopArrivals', '1'), /paused/);
+
+    const { hour } = usage.status();
+    assert.deepEqual(hour.requests, { 'arrivals-new': 1, 'arrivals-refresh': 6, 'route-names': 1, 'route-test': 0 });
+    assert.deepEqual([hour.routes.direct.ok, hour.routes.direct.failed], [3, 5]);
+    assert.equal(hour.routes.direct.ms[1], 8, 'each under 500 ms');
+    assert.equal(hour.paused, 1);
+    // The longest wait for a slot: slots are 500 ms apart, and each answer took 300 of them
+    assert.equal(hour.peaks.waitMs, 200);
+});
+
+test('requests that don\'t fit the budget are counted as dropped, by kind', async () => {
+    const c = clock();
+    const usage = createUsage({ now: c.now });
+    const client = createOasaClient({ fetch: async () => ({ ok: true, text: async () => 'null' }), now: c.now, sleep: async () => {}, log: quiet, usage });
+    await Promise.allSettled(Array.from({ length: 20 }, () => client.request('getStopArrivals', '1')));
+    assert.equal(usage.status().hour.dropped['arrivals-refresh'], 3);
+    assert.equal(usage.status().hour.requests['arrivals-refresh'], 17);
+});
+
+test('a route\'s background test is counted as one', async () => {
+    const c = clock();
+    const usage = createUsage({ now: c.now });
+    const { fetch } = routedFetch({ directUp: () => true });
+    const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: quiet, relays: [RELAY], usage });
+    await settle();
+    await client.request('getStopArrivals', '1');
+    const { hour } = usage.status();
+    assert.deepEqual(hour.requests, { 'arrivals-new': 0, 'arrivals-refresh': 1, 'route-names': 0, 'route-test': 1 });
+    assert.equal(hour.routes.direct.ok, 2);
+});
+
+test('each stop answer is counted by where it came from', async () => {
+    let up = true;
+    const c = clock();
+    const usage = createUsage({ now: c.now });
+    const oasa = fakeOasa({ ...routesAt, getStopArrivals: () => (up ? [{ route_code: '2052', veh_code: '1', btime2: '4' }] : new Error('down')) });
+    const client = createOasaClient({ fetch: oasa.fetch, now: c.now, sleep: c.sleep, log: quiet, usage });
+    const arrivals = createArrivals({ client, now: c.now, log: quiet, usage });
+    // Asked for twice at once: one request, the other shares it
+    await Promise.all([arrivals.stopArrivals('1'), arrivals.stopArrivals('1')]);
+    await arrivals.stopArrivals('1');
+    up = false;
+    c.advance(60_000);
+    await arrivals.stopArrivals('1');
+    await arrivals.stopArrivals('2');
+
+    const { today } = usage.status();
+    assert.deepEqual(today.answers, { oasa: 1, cache: 2, old: 1, none: 1 });
+    assert.equal(today.stops, 2);
+    // A first look and its route names, then a refresh and a first look that both failed
+    assert.deepEqual(today.requests, { 'arrivals-new': 2, 'arrivals-refresh': 1, 'route-names': 1, 'route-test': 0 });
+});
+
+test('counting changes nothing that is asked of OASA, or when', async () => {
+    const run = async withUsage => {
+        const c = clock();
+        const usage = withUsage ? createUsage({ now: c.now }) : undefined;
+        const asked = [];
+        const oasa = fakeOasa({ ...routesAt, getStopArrivals: p1 => (p1 === '3' ? new Error('down') : [{ route_code: '2052', veh_code: '1', btime2: '7' }]) });
+        const fetch = (url, init) => { asked.push([c.now(), url]); return oasa.fetch(url, init); };
+        const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: quiet, usage });
+        const arrivals = createArrivals({ client, now: c.now, log: quiet, usage });
+        for (let round = 0; round < 4; round++) {
+            await Promise.all(['1', '2', '3', '1'].map(stop => arrivals.stopArrivals(stop)));
+            c.advance(20_000);
+        }
+        return asked;
+    };
+    const without = await run(false);
+    assert.ok(without.length > 8);
+    assert.deepEqual(await run(true), without);
 });

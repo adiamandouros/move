@@ -5,6 +5,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { loadConfig } from '../server/config.js';
 import { classifyError, formatReport, runDiagnostics } from '../server/diagnostics.js';
+import { createUsage } from '../server/oasa/usage.js';
 import { browserModule } from './support/browser-modules.js';
 
 const NOW = Date.parse('2026-10-03T12:00:00Z');
@@ -142,14 +143,45 @@ test('data and running-app problems are reported', async () => {
 
 test('requests over the OASA budget or over a visitor\'s limit are reported', async () => {
     const find = (r, t) => r.checks.find(c => c.title === t);
-    const quiet = await run(world(), { appStatus: { at: NOW, droppedLastHour: 0, limitedLastHour: 0, routes: [] } });
+    const usage = createUsage({ now: () => NOW });
+    const quiet = await run(world(), { appStatus: { at: NOW, routes: [], usage: usage.status() } });
     assert.equal(find(quiet, 'Request budget').status, 'ok');
     assert.equal(find(quiet, 'Visitor limit'), undefined);
 
-    const busy = await run(world(), { appStatus: { at: NOW, droppedLastHour: 4, limitedLastHour: 2, routes: [] } });
+    for (let i = 0; i < 4; i++) usage.dropped('arrivals-refresh');
+    usage.limited();
+    usage.limited();
+    const busy = await run(world(), { appStatus: { at: NOW, routes: [], usage: usage.status() } });
     assert.match(find(busy, 'Request budget').detail, /^4 requests .* 2\/s budget/);
     assert.equal(find(busy, 'Request budget').status, 'warn');
     assert.match(find(busy, 'Visitor limit').detail, /^2 requests .* more than 30 new stops/);
+});
+
+test('what the running app asked of OASA, and how it answered: the past hour and today so far', async () => {
+    let t = NOW;
+    const usage = createUsage({ now: () => t });
+    // A first look at a stop, answered in 0.3 s; a refresh the home relay failed after 3 s,
+    // so the older answer was served; two answers from the cache
+    usage.request('arrivals-new');
+    usage.call('home relay', true, 300);
+    usage.answer('10361', 'oasa');
+    usage.request('arrivals-refresh');
+    usage.call('home relay', false, 3000);
+    usage.answer('10362', 'old');
+    usage.answer('10361', 'cache');
+    usage.answer('10363', 'cache');
+    usage.waited(2500);
+    t += 60_000;
+    const { checks } = await run(world(), { appStatus: { at: t, routes: [], usage: usage.status() } });
+    const of = title => checks.find(c => c.group === 'Use of OASA' && c.title === title);
+    assert.equal(of('Past hour').status, 'info');
+    assert.equal(of('Past hour').detail, '2 requests (1 first looks at a stop, 1 refreshes, 0 route names, 0 route tests); '
+        + '50% of 4 stop answers from the cache; 3 different stops, at most 3 in one minute (about 60 can be kept fresh); '
+        + 'longest wait for a slot 2.5 s; waited over 2 s in 1 minutes; OASA failed for 1 stop answers (1 served older arrivals)');
+    assert.equal(of('Past hour, home relay').detail, '1 answers, 1 failed; half under 500 ms, 95% under 4 s');
+    assert.equal(of('Today so far').detail, of('Past hour').detail);
+    // Before the app had counted anything (a status file from before), nothing
+    assert.equal((await run(world(), { appStatus: { at: t, routes: [] } })).checks.find(c => c.group === 'Use of OASA'), undefined);
 });
 
 test('the bus network\'s last fetch: how far a stopped one got, as a bar; a finished one, in a line', async () => {
