@@ -1,12 +1,18 @@
 import { answerTime, answerTimeText, BUSY_WAITS_MS, KEEP_DAYS, secondsText, STOPS_KEPT_FRESH, total } from '../oasa/usage.js';
 
+// How far ahead OASA predicts is shown over this many of the newest days
+const HORIZON_DAYS = 7;
+
 // The days of OASA's usage (server/oasa/usage.js) as /admin/usage shows them
-// (admin/usage.hbs), newest first: what Wayhop asked for each day, and how
-// each route to OASA answered.
+// (admin/usage.hbs), newest first: what Wayhop asked for each day, how each
+// route to OASA answered, and how far ahead OASA predicts, per line.
 /** @param {Record<string, any>} days */
 export function usageView(days) {
     const dates = Object.keys(days).sort().reverse();
     const share = (part, whole) => whole ? `${Math.round(100 * part / whole)}%` : '–';
+    const week = dates.slice(0, HORIZON_DAYS);
+    const lines = [...new Set(week.flatMap(date => Object.keys(days[date].horizon ?? {})))]
+        .sort((a, b) => a.localeCompare(b, 'el', { numeric: true }));
     return {
         keepDays: KEEP_DAYS,
         stopsKeptFresh: STOPS_KEPT_FRESH,
@@ -41,5 +47,11 @@ export function usageView(days) {
             most: answerTimeText(answerTime(r.ms, 0.95)),
             downMinutes: r.downMinutes,
         }))),
+        horizonDays: HORIZON_DAYS,
+        // Per line: the most minutes ahead in those days, and on the median day
+        horizon: lines.map(line => {
+            const daily = week.map(date => days[date].horizon?.[line]).filter(n => n !== undefined).sort((a, b) => a - b);
+            return { line, most: daily.at(-1), typical: daily[Math.floor((daily.length - 1) / 2)], days: daily.length };
+        }),
     };
 }

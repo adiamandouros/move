@@ -21,6 +21,9 @@ import { REQUESTS_PER_SECOND } from './client.js';
 //   waits     the longest wait for a slot; minutes waiting over BUSY_WAITS_MS
 //   network   the nightly bus-network fetch's requests (it runs in the data
 //             build's own process, which records them in `networkFile`)
+//   horizon   per line, the most minutes ahead OASA predicted a bus, from
+//             fresh answers: how far ahead its predictions reach (for retries
+//             and scheduled times, items 37 and 13)
 //
 // The file: { days: { "2026-10-30": summary, … }, today: { date, stops: [codes] } }.
 // Today's stop codes are kept so a restart doesn't count a stop twice.
@@ -55,6 +58,7 @@ const emptySummary = () => ({
     busyMinutes: Object.fromEntries(BUSY_WAITS_MS.map(ms => [ms, 0])),
     dropMinutes: 0,
     network: null,
+    horizon: {},
 });
 
 const newMinute = at => ({ at, ...emptySummary(), stopCodes: new Set() });
@@ -81,6 +85,9 @@ function addMinute(summary, minute) {
     summary.peaks.waitMs = Math.max(summary.peaks.waitMs, minute.peaks.waitMs);
     for (const ms of BUSY_WAITS_MS) if (minute.peaks.waitMs > ms) summary.busyMinutes[ms]++;
     if (Object.values(minute.dropped).some(Boolean)) summary.dropMinutes++;
+    // (days kept before the horizon was counted have none)
+    summary.horizon ??= {};
+    for (const [line, minutes] of Object.entries(minute.horizon)) summary.horizon[line] = Math.max(summary.horizon[line] ?? 0, minutes);
     return summary;
 }
 
@@ -201,6 +208,8 @@ export function createUsage({ file = null, networkFile = null, now = Date.now, k
         limited() { current().limited++; },
         // A stop's answer to a visitor, and where it came from
         answer(stop, source) { const m = current(); m.answers[source]++; m.stopCodes.add(stop); },
+        // A bus of this line OASA predicted this many minutes ahead
+        horizon(line, minutes) { const m = current(); m.horizon[line] = Math.max(m.horizon[line] ?? 0, minutes); },
         // → { hour, today } for the status file and the diagnostics
         status: () => ({ hour: pastHour(), today: soFar() }),
         // Every day kept, today so far, for /admin/usage

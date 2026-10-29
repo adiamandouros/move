@@ -226,3 +226,47 @@ test('the usage page: a day per row, newest first, and each route\'s answers per
     assert.match(html, /<td class="text-start">home relay<\/td>\s*<td>0<\/td>\s*<td>1<\/td>\s*<td>over 8 s<\/td>/);
     assert.match(view_(usageView({})), /<p>Nothing has been counted yet\.<\/p>/);
 });
+
+test('how far ahead OASA predicts: per line, the most minutes in the day, across minutes and restarts', () => {
+    const c = clock(Date.parse('2026-10-30T10:00:00Z'));
+    const file = tempFile();
+    // A day kept before the horizon was counted
+    writeFileSync(file, JSON.stringify({ days: { '2026-10-30': { ...createUsage({ now: c.now }).status().today, horizon: undefined } } }));
+    const usage = createUsage({ file, now: c.now });
+    usage.horizon('040', 12);
+    usage.horizon('040', 31);
+    usage.horizon('Χ95', 44);
+    c.advance(MIN);
+    usage.horizon('040', 18);
+    c.advance(MIN);
+    assert.deepEqual(usage.days()['2026-10-30'].horizon, { '040': 31, 'Χ95': 44 });
+    assert.deepEqual(usage.status().hour.horizon, { '040': 31, 'Χ95': 44 });
+});
+
+test('the usage page: how far ahead OASA predicts each line over the newest 7 days, and on a typical day', () => {
+    const day = horizon => ({ ...createUsage().status().today, horizon });
+    const days = {
+        // Older than the 7 newest: left out
+        '2026-10-01': day({ '040': 90, A1: 70 }),
+        '2026-10-24': day({ '040': 30 }),
+        '2026-10-25': day({ '040': 20, 'Χ95': 50 }),
+        '2026-10-26': day({ '040': 25 }),
+        '2026-10-27': day({ '040': 40, '2': 15 }),
+        '2026-10-28': day({}),
+        '2026-10-29': day({ '040': 22 }),
+        // Kept before the horizon was counted
+        '2026-10-30': { ...day({}), horizon: undefined },
+    };
+    const view = usageView(days);
+    assert.equal(view.horizonDays, 7);
+    // In the order of their numbers, then their letters
+    assert.deepEqual(view.horizon, [
+        { line: '2', most: 15, typical: 15, days: 1 },
+        { line: '040', most: 40, typical: 25, days: 5 },
+        { line: 'Χ95', most: 50, typical: 50, days: 1 },
+    ]);
+    const html = view_(view);
+    assert.match(html, /<div class="table-responsive usage-table-wrap" tabindex="0" role="region" aria-labelledby="horizon-title">/);
+    assert.match(html, /<th scope="row" lang="el">040<\/th>\s*<td>40<\/td>\s*<td>25<\/td>\s*<td>5<\/td>/);
+    assert.match(view_(usageView({ '2026-10-30': day({}) })), /No predictions counted yet\./);
+});

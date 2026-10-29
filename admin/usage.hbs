@@ -86,6 +86,36 @@
             </tbody>
         </table>
     </div>
+
+    <h2 class="fs-6 mt-4" id="horizon-title">How far ahead OASA predicts, per line</h2>
+    <p class="small text-body-secondary">Over the newest {{horizonDays}} days, from OASA's fresh answers: the most minutes ahead it predicted a bus of each line, and the most on a typical day (the median day).</p>
+{{#if horizon.length}}
+    <div class="table-responsive usage-table-wrap" tabindex="0" role="region" aria-labelledby="horizon-title">
+        <table class="table table-sm usage-table usage-table-narrow">
+            <caption class="sr-only">How far ahead OASA predicts each line's buses</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Line</th>
+                    <th scope="col">Most minutes ahead</th>
+                    <th scope="col">On a typical day</th>
+                    <th scope="col">Days seen</th>
+                </tr>
+            </thead>
+            <tbody>
+{{#each horizon}}
+                <tr>
+                    <th scope="row" lang="el">{{line}}</th>
+                    <td>{{most}}</td>
+                    <td>{{typical}}</td>
+                    <td>{{days}}</td>
+                </tr>
+{{/each}}
+            </tbody>
+        </table>
+    </div>
+{{else}}
+    <p class="small">No predictions counted yet.</p>
+{{/if}}
 {{else}}
     <p>Nothing has been counted yet.</p>
 {{/if}}
