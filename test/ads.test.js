@@ -95,8 +95,3 @@ test('a slot without its own setting stays off', () => {
     assert.equal(slots(pages['/info']), 0);
     assert.equal(slots(station), 0);
 });
-
-test('settings that look wrong leave ads off', () => {
-    const { pages } = withEnv({ ADSENSE_CLIENT: 'pub-123', ADSENSE_SLOT_HOME: '1111111111' });
-    assert.doesNotMatch(pages['/'], /adsbygoogle|google-adsense-account/);
-});

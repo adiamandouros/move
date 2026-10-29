@@ -157,7 +157,8 @@ test('pages, data and scripts are compressed for browsers that take it', async (
     }
 });
 
-test('the service worker, robots.txt, the sitemap and the manifests', async () => {
+// (robots.txt, the sitemap and the manifests: seo.test.js and stations.test.js)
+test('the service worker: a new version picked up at once, and the pages it fetches as opened say so', async () => {
     const sw = await get('/sw.js');
     assert.equal(sw.headers.get('content-type'), 'text/javascript; charset=utf-8');
     assert.equal(sw.headers.get('cache-control'), 'no-cache', 'a new version is picked up at once');
@@ -166,10 +167,6 @@ test('the service worker, robots.txt, the sitemap and the manifests', async () =
     // A page fetched because it was opened says so, for the count of pages opened
     assert.match(code, /const OPENED = "Wayhop-Opened";/);
     assert.match(code, /const key = new Request\(url\.pathname, \{ headers: \{ \[OPENED\]: '1' \} \}\);/);
-    assert.match(await (await get('/robots.txt')).text(), /Sitemap: .*\/sitemap\.xml/);
-    const sitemap = await (await get('/sitemap.xml')).text();
-    for (const id of Object.keys(rail.stations)) assert.ok(sitemap.includes(`/subway/stations/${id}<`), `station ${id} in the sitemap`);
-    assert.equal(JSON.parse(await (await get('/el/manifest.webmanifest')).text()).start_url, '/el');
 });
 
 test('the bus API: an answer for each stop asked for, once each', async () => {

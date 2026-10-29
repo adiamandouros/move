@@ -239,17 +239,9 @@ test('text written in both languages keeps only the page\'s language', () => {
     assert.doesNotMatch(pages['/el/info'], /Piraeus|data-lang=/);
 });
 
-test('a missing page under /el gets the Greek 404', async () => {
-    const res = await fetch(`${base}/el/nope`);
-    assert.equal(res.status, 404);
-    assert.match(await res.text(), /<html lang="el"/);
-    assert.match(await (await fetch(`${base}/nope`)).text(), /<html lang="en"/);
-});
-
-test('the Greek pages are served and work offline', async () => {
-    for (const path of ['/el', '/el/subway', '/el/info', '/el/offline']) {
-        assert.equal((await fetch(base + path)).status, 200, path);
-    }
+// (Every page is served in both languages, and a missing page under /el gets
+// the Greek 404: server.test.js)
+test('the Greek pages work offline', async () => {
     const sw = await (await fetch(`${base}/sw.js`)).text();
     for (const path of ['/el', '/el/offline', '/el/subway', '/el/info']) assert.ok(sw.includes(`"${path}"`), `${path} is precached`);
     assert.match(sw, /'\/el\/offline'/);
