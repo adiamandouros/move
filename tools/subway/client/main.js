@@ -33,14 +33,18 @@ function start(rail) {
     // Slower options the user opened or closed themselves (routeKey → open),
     // kept through the refresh, forgotten when the stations change
     let opened = {};
-    // Which one had the keyboard focus (an option or the legend), to give it
-    // back after a refresh
+    // Legs whose stations the user opened (legKey → true), the same way
+    let stationsOpen = {};
+    // Which one had the keyboard focus (an option, a leg's stops or the
+    // legend), to give it back after a refresh
     const focused = () => {
+        const toggle = document.activeElement?.closest('#subway-result .leg-stops-toggle');
+        if (toggle) return `.leg-stops-toggle[data-leg="${CSS.escape(toggle.getAttribute('data-leg'))}"]`;
         const details = document.activeElement?.closest('#subway-result details');
         if (!details) return null;
-        return details.hasAttribute('data-route') ? `details[data-route="${CSS.escape(details.getAttribute('data-route'))}"]` : 'details.diagram-legend';
+        return `${details.hasAttribute('data-route') ? `details[data-route="${CSS.escape(details.getAttribute('data-route'))}"]` : 'details.diagram-legend'} > summary`;
     };
-    const refocus = selector => { if (selector) /** @type {HTMLElement | null} */ (result.querySelector(`${selector} > summary`))?.focus(); };
+    const refocus = selector => { if (selector) /** @type {HTMLElement | null} */ (result.querySelector(selector))?.focus(); };
 
     const render = ({ speak = false } = {}) => {
         const origin = from.get();
@@ -62,7 +66,7 @@ function start(rail) {
         // After the last train, tomorrow's first ones
         const { plans, now, tomorrow } = planTrip(rail, origin, destination, today);
         const focus = focused();
-        setHtml(result, renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow, open: opened, legend: legendOpen(), lifts: known }));
+        setHtml(result, renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow, open: opened, stations: stationsOpen, legend: legendOpen(), lifts: known }));
         refocus(focus);
         if (speak) announce(routeSummary(rail, plans, now, tomorrow, known));
     };
@@ -91,12 +95,22 @@ function start(rail) {
         document.getElementById('walk-station').textContent = localName(rail.stations[from.get()].name, language);
     };
 
-    const changed = () => { opened = {}; syncUrl(); syncWalk(); render({ speak: true }); };
+    const changed = () => { opened = {}; stationsOpen = {}; syncUrl(); syncWalk(); render({ speak: true }); };
 
     // A click on a summary (also Enter or Space) comes before the toggle
     result.addEventListener('click', e => {
         const details = /** @type {Element} */ (e.target).closest?.('details[data-route]');
         if (details && /** @type {Element} */ (e.target).closest('summary')) opened[details.getAttribute('data-route')] = !details.hasAttribute('open');
+    });
+
+    // A leg's stops: open or close its stations
+    result.addEventListener('click', e => {
+        const toggle = /** @type {Element} */ (e.target).closest?.('.leg-stops-toggle');
+        if (!toggle) return;
+        const open = toggle.getAttribute('aria-expanded') !== 'true';
+        toggle.setAttribute('aria-expanded', String(open));
+        /** @type {HTMLElement} */ (document.getElementById(toggle.getAttribute('aria-controls'))).hidden = !open;
+        stationsOpen[toggle.getAttribute('data-leg')] = open;
     });
 
     // Without a station in the address, the boarding station follows the

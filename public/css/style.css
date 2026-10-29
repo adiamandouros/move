@@ -1535,6 +1535,105 @@ body {
     color: var(--bs-body-color);
 }
 
+/* "3 stops": blue, as what can be pressed is, its chevron turning down
+   while the stations on the way are open */
+.leg-stops-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15em;
+    min-height: 2rem;
+    padding: 0 0 0 0.25em;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: var(--bs-link-color);
+    cursor: pointer;
+}
+
+.leg-stops-chevron {
+    transition: transform 0.15s;
+}
+
+.leg-stops-toggle[aria-expanded="true"] .leg-stops-chevron {
+    transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .leg-stops-chevron {
+        transition: none;
+    }
+}
+
+/* The stations on the way: dots on a strip in the line's colour, like the
+   line maps in the trains; where it boards and gets off in bold */
+.leg-stations {
+    --strip: var(--bs-secondary-color);
+    list-style: none;
+    margin: var(--wh-space-2) 0 0;
+    padding: 0 0 0 1.5rem;
+    font-size: var(--wh-fs-sm);
+}
+
+.strip-m1 { --strip: var(--wh-line-m1); }
+.strip-m2 { --strip: var(--wh-line-m2); }
+.strip-m3 { --strip: var(--wh-line-m3); }
+
+.leg-stations li {
+    position: relative;
+    padding: 0.2rem 0;
+}
+
+.leg-stations li::before,
+.leg-stations li::after {
+    content: "";
+    position: absolute;
+}
+
+/* The strip, from the first dot to the last */
+.leg-stations li::after {
+    left: -1.05rem;
+    width: 0.25rem;
+    top: 0;
+    bottom: 0;
+    background: var(--strip);
+}
+
+.leg-stations li:first-child::after { top: 50%; }
+.leg-stations li:last-child::after { bottom: 50%; }
+
+.leg-stations li::before {
+    z-index: 1;
+    left: -1.3rem;
+    top: 50%;
+    width: 0.75rem;
+    height: 0.75rem;
+    transform: translateY(-50%);
+    border: 3px solid var(--strip);
+    border-radius: var(--wh-radius-round);
+    background: var(--bs-card-bg);
+}
+
+/* Plain names, in the text's colour: a blue underlined link on every line
+   is too heavy. Still links: underlined while pointed at */
+.leg-stations a {
+    color: var(--bs-body-color);
+    text-decoration: none;
+}
+
+.leg-stations a:hover {
+    text-decoration: underline;
+}
+
+.leg-stations li:first-child,
+.leg-stations li:last-child {
+    font-weight: 600;
+}
+
+.leg-stations li:first-child::before,
+.leg-stations li:last-child::before {
+    background: var(--strip);
+}
+
 /* Connector between legs in a transfer route, centred between the cards */
 .transfer-connector {
     display: flex;

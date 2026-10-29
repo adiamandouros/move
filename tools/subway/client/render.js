@@ -1,7 +1,7 @@
 import { language, localHref, t } from '/js/core/i18n.js';
 import { format, formatDate, formatHtml, html, icon, localName, notice, walkingUrl as walkingTo } from '/js/core/html.js';
 import { liftNotice, liftSummary, stationPlatforms, stepFreeGaps } from '/js/core/lifts.js';
-import { linePill, stationSign } from '/js/core/lines.js';
+import { linePill, pillList, stationSign } from '/js/core/lines.js';
 import { soonTier, timeBadge } from '/js/core/times.js';
 import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, lineEnd, stopNote } from '/js/core/metro.js';
 import { legPositions, tripTime } from './network.js';
@@ -74,10 +74,30 @@ export function stopCount(leg) {
     return format(t(count === 1 ? 'subway.stop-count' : 'subway.stops-count'), { count });
 }
 
+// Names a leg of a route through the 30-second refresh, to keep its
+// stations open or closed as the user left them
+export const legKey = (route, i) => `${routeKey(route)}#${i}`;
+
+// The stations a leg goes through, in order, from where it boards to where
+// it gets off, each linked to its page, with the other lines at the
+// interchanges: under the card, on a strip in the line's colour.
+// id: the list's, for its button. open: whether it starts open.
+function legStations(rail, leg, id, open) {
+    const stops = rail.lines[leg.line].directions[leg.dir].stops.slice(leg.fromIndex, leg.toIndex + 1);
+    return html`<ol class="leg-stations strip-${leg.line.toLowerCase()}" id="${id}" aria-label="${t('subway.leg-stations')}"${!open && html` hidden`}>
+        ${stops.map(({ station }) => {
+            const others = rail.stations[station].lines.filter(line => line !== leg.line && rail.lines[line]);
+            return html`<li>${stationLink(rail, station)}${others.length > 0 && html` ${pillList(others.map(line => linePill(line, rail.lines[line].name, 's')))}`}</li>`;
+        })}
+    </ol>`;
+}
+
 // changes: whether the route has more than one leg. Only then does each card
 // say how long its ride is (a direct trip's is the total on the route's line).
-// The stops it always says, on the right: "12' · 3 stops"
-function legCard(rail, leg, next, now, level, tomorrow, changes) {
+// The stops it always says, on the right: "12' · 3 stops", a button that
+// opens the stations on the way (legStations). key: legKey's; open: whether
+// they're open.
+function legCard(rail, leg, next, now, level, tomorrow, changes, key, open) {
     const line = rail.lines[leg.line];
     // Where the line goes, as the station's signs say
     const toward = stationName(rail, lineEnd(rail, leg.line, leg.dir));
@@ -90,6 +110,7 @@ function legCard(rail, leg, next, now, level, tomorrow, changes) {
         : html`${icon('get-off', 'me-2')}${t('subway.exit-at')} <strong>${stationLink(rail, leg.to)}</strong>`;
     // h2 or h3: a number, never data
     const heading = `h${Number(level)}`;
+    const id = `stations-${key.replace(/[^a-z0-9]+/gi, '-')}`;
 
     // Where to ride first, then where to get off at the bottom, the doors
     // there under it
@@ -108,8 +129,9 @@ function legCard(rail, leg, next, now, level, tomorrow, changes) {
             ${stopNote(stop.note)}
             <div class="leg-action mt-3">
                 <span>${action}</span><span class="sr-only">, </span>
-                <span class="leg-ride">${ride}${stopCount(leg)}</span>
+                <span class="leg-ride">${ride}<button type="button" class="leg-stops-toggle" data-leg="${key}" aria-expanded="${String(open)}" aria-controls="${id}">${stopCount(leg)}${icon('more', 'leg-stops-chevron')}</button></span>
             </div>
+            ${legStations(rail, leg, id, open)}
             ${stop.centralPlatform && html`<p class="leg-doors text-center mt-2 mb-0">${centralPlatformBadge(t)}</p>`}
         </div></div>`;
 }
@@ -130,8 +152,9 @@ export const SLOWER_MINUTES = 5;
 export const routeKey = route => route.legs.map(leg => `${leg.line}/${leg.dir}/${leg.from}/${leg.to}`).join('+');
 
 // time: tripTime's. closed: why the option starts closed ("9 min slower"),
-// or '' when it doesn't. open: the options the user opened or closed (routeKey).
-function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, open }) {
+// or '' when it doesn't. open: the options the user opened or closed
+// (routeKey). stations: the legs whose stations are open (legKey).
+function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, open, stations }) {
     // Headings: one per option when there are several, then one per leg.
     // The option's line has to fit a phone in one line in both languages:
     // "Via Monastiraki" (or "No transfers") on the left, "Arrive ~06:14 · 33'"
@@ -152,7 +175,8 @@ function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, op
                 ${icon('change-trains')}
                 <span>${t('subway.change-to')} ${linePill(next.line, rail.lines[next.line].name)}</span>
             </div>`;
-        return html`${legCard(rail, leg, next, now, level, tomorrow, route.legs.length > 1)}${connector}`;
+        const key = legKey(route, i);
+        return html`${legCard(rail, leg, next, now, level, tomorrow, route.legs.length > 1, key, Boolean(stations[key]))}${connector}`;
     });
     if (!closed) return html`${header}${cards}`;
     // A native disclosure: a button for screen readers and the keyboard
@@ -165,9 +189,10 @@ function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, op
 
 // tomorrow: the plans are for tomorrow's first trains (planTrip in network.js)
 // open: { [routeKey]: true/false }, options the user opened or closed
+// stations: { [legKey]: true }, legs whose stations the user opened
 // legend: whether the legend is open (legendOpen() in metro.js)
 // lifts: the lifts out of service (watchLifts() in /js/core/lifts.js), or null
-export function renderResult(rail, plans, now, { expired, tomorrow = false, open = {}, legend = true, lifts = null }) {
+export function renderResult(rail, plans, now, { expired, tomorrow = false, open = {}, stations = {}, legend = true, lifts = null }) {
     if (!plans.length) return renderMessage('subway.no-route');
     const liftsNotice = liftNotice(lifts, tripStations(plans), id => stationName(rail, id), tripGaps(rail, plans));
     const oldNotice = expired && notice('warn', 'warning', format(t('subway.timetable-old'), { date: formatDate(rail.feed.validTo) }), 'timetable-notice mb-3');
@@ -181,7 +206,7 @@ export function renderResult(rail, plans, now, { expired, tomorrow = false, open
         if (slower <= SLOWER_MINUTES) return '';
         return r.arrives === null && plans[0].arrives !== null ? t('subway.no-connection') : formatHtml(t('subway.slower'), { min: minutesMark(slower) });
     };
-    const routes = plans.map((r, i) => html`${i > 0 && html`<hr class="route-divider">`}${routeBlock(rail, r, i, plans.length, now, tomorrow, { time: times[i], closed: closed(r, times[i]), open })}`);
+    const routes = plans.map((r, i) => html`${i > 0 && html`<hr class="route-divider">`}${routeBlock(rail, r, i, plans.length, now, tomorrow, { time: times[i], closed: closed(r, times[i]), open, stations })}`);
     // What the trains above show, in words: every symbol in any of them
     const symbols = [...new Set(plans.flatMap(r => r.legs.map((leg, i) => legPositions(rail, leg, r.legs[i + 1] ?? null)))
         .filter(where => where.exits.length).flatMap(diagramSymbols))];
