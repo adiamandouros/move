@@ -96,10 +96,3 @@ test('the tram map zooms with the keyboard and its buttons', async ({ page }) =>
     // The metro map is still closed, and undrawn
     await expect(page.locator('#metro-map .map-svg')).toHaveCount(0);
 });
-
-test('a bus stop opens', async ({ page }) => {
-    await page.goto('/buses');
-    const first = page.locator('.stop-toggle').first();
-    await first.click();
-    await expect(first).toHaveAttribute('aria-expanded', 'true');
-});

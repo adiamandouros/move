@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { countDown, dueStops, elapsedMinutes, IDLE_MS, isIdle, refreshEvery, REFRESH, REFRESH_SLOW_MS, SLACK_MS } from '../tools/buses/client/timing.js';
 
 // Which stops the bus page asks for, when it asks again, and how the minutes
-// count down in between (tools/buses/client/timing.js). The browser tests
-// check the same in a real page (test/browser/buses.spec.js, and every
-// request of a scripted visit in bus-trace.spec.js); these say exactly where
-// each boundary is.
+// count down in between (tools/buses/client/timing.js), exactly where each
+// boundary is. In a real page: every request of a scripted visit in
+// test/browser/bus-trace.spec.js, and the minutes counting down while
+// offline in failures.spec.js.
 
 const at = minutes => ({ arrivals: minutes.map(m => ({ minutes: m, line: '040' })) });
 

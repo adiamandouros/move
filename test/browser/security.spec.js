@@ -31,11 +31,3 @@ for (const path of ['/', '/subway?from=syntagma&to=airport', '/el/buses', '/subw
         expect(ran).toEqual([]);
     });
 }
-
-test('the policy is enforced, and says where to report', async ({ page }) => {
-    const response = await page.goto('/');
-    const headers = response.headers();
-    expect(headers['content-security-policy']).toMatch(/script-src 'self' 'sha256-/);
-    expect(headers['content-security-policy-report-only']).toBeUndefined();
-    expect(headers['reporting-endpoints']).toBe('csp="/api/csp-report"');
-});

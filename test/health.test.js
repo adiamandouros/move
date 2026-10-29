@@ -146,7 +146,8 @@ test('the relay answers its version', async () => {
     assert.equal(denied.status, 401);
 });
 
-test('security headers go on every response; HSTS only over https', async () => {
+// (The other security headers, on every kind of answer: server.test.js)
+test('HSTS goes only on answers over https', async () => {
     const app = express();
     app.set('trust proxy', true);
     app.use(securityHeaders());
@@ -154,12 +155,7 @@ test('security headers go on every response; HSTS only over https', async () => 
     const server = await listen(app);
     try {
         const base = `${server.url}/`;
-        const plain = await fetch(base);
-        assert.equal(plain.headers.get('x-content-type-options'), 'nosniff');
-        assert.equal(plain.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
-        assert.equal(plain.headers.get('permissions-policy'), 'geolocation=(self), camera=(), microphone=()');
-        assert.equal(plain.headers.get('x-frame-options'), 'SAMEORIGIN');
-        assert.equal(plain.headers.get('strict-transport-security'), null);
+        assert.equal((await fetch(base)).headers.get('strict-transport-security'), null);
         const secure = await fetch(base, { headers: { 'X-Forwarded-Proto': 'https' } });
         assert.equal(secure.headers.get('strict-transport-security'), 'max-age=31536000');
     } finally {

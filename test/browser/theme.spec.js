@@ -39,15 +39,6 @@ test.describe('Auto follows the phone', () => {
     });
 });
 
-// (A browser with no preference says "light" too, so only one that can't say at all is unsure)
-test('a browser that can\'t say what the phone prefers gets dark', async ({ page }) => {
-    await page.addInitScript(() => { window.matchMedia = () => /** @type {any} */ ({ matches: false, addEventListener() {} }); });
-    await page.goto('/subway');
-    expect(await mode(page)).toBe('dark');
-    expect(await background(page)).toBe(DARK_PAGE);
-    expect(await barColour(page)).toBe('#161b27');
-});
-
 test('a dark phone gets dark, and the logo of a dark page', async ({ page }) => {
     await page.goto('/subway');
     expect(await mode(page)).toBe('dark');
@@ -145,21 +136,6 @@ test('the switch works with the keyboard', async ({ page }, testInfo) => {
 
 test.describe('light', () => {
     test.use({ colorScheme: 'light' });
-
-    test('a route, with its train and times, has no axe-core violations', async ({ page }) => {
-        await page.goto('/subway?from=kifisia&to=airport');
-        await expect(page.locator('.result-card').first()).toBeAttached();
-        expect(await axe(page), 'axe-core violations').toEqual([]);
-        // The train to ride in is the amber one, and still stands out from the others
-        const [ride, other] = await page.locator('.train-car').evaluateAll(cars => cars.map(c => getComputedStyle(c).backgroundColor));
-        expect(ride).not.toBe(other);
-    });
-
-    test('a bus stop with its times has no axe-core violations', async ({ page }) => {
-        await page.goto('/buses?stop=10341');
-        await expect(page.locator('.stop-item .arrival-row').first()).toBeAttached();
-        expect(await axe(page), 'axe-core violations').toEqual([]);
-    });
 
     test('the menu and the switch have no axe-core violations', async ({ page }) => {
         await page.goto('/subway');

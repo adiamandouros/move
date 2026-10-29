@@ -2,8 +2,11 @@
 // the yellow banner when a strike or closure is announced, a quiet box saying
 // there's none otherwise, and nothing when the announcements can't be read
 // (failures.spec.js). Which announcements count is tested in Node
-// (announcements.test.js).
-import { axe, expect, test } from './fixtures.js';
+// (announcements.test.js). Whether the box shows doesn't depend on the
+// device: one phone.
+import { axe, expect, onlyOn, test } from './fixtures.js';
+
+test.beforeEach(onlyOn('phone'));
 
 const PAGES = ['/', '/info', '/el', '/el/info'];
 

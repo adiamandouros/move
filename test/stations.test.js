@@ -74,57 +74,6 @@ test('the last stop of a direction has no departures', () => {
     assert.deepEqual(firstAndLast(rail.lines.L1.directions.east.timetable, 2), []);
 });
 
-// The data the station views draw (server/views/stations/*.hbs): plain values,
-// and the metro pieces shared with the subway page (metro.js) as html``
-test('what a station\'s page shows, as data: lines, neighbours, where to ride, connections, times', () => {
-    const view = stationView(rail, 'x', 'en', key => key);
-    assert.equal(view.name, 'Cross');
-    assert.deepEqual(view.lines.map(l => [l.key, l.directions.map(d => d.headingId)]), [['l1', ['l1-east-0', 'l1-west-1']], ['l2', ['l2-east-2']]]);
-    const [east] = view.lines[0].directions;
-    // Its heading: the line's large pill, and the sign of where it ends
-    assert.equal(String(east.lineBadge), '<span class="line-pill pill-l line-l1">L1</span>');
-    assert.equal(String(east.endSign), '<span class="station-sign sign-m">Beta</span>');
-    // The page's title: the station's sign (the test network's lines aren't the metro's: no edges)
-    assert.equal(String(view.sign), '<span class="station-sign sign-l">Cross</span>');
-    assert.deepEqual([east.previous, east.next], [{ href: '/subway/stations/a', name: 'Alpha' }, { href: '/subway/stations/b', name: 'Beta' }]);
-    assert.equal(east.arriving.exitsKnown, true);
-    assert.match(String(east.arriving.diagram), /class="train-diagram"/);
-    assert.equal(east.arriving.centralPlatform, null);
-    // The line to change to is its pill
-    assert.deepEqual(east.arriving.transfers.map(t => ({ ...t, line: String(t.line) })), [{ line: '<span class="line-pill pill-m line-l2">L2</span>', toward: 'Gamma', where: 'subway.pos.center-front' }]);
-    // Each line's pill, in the sentence under the name (no heading per line: the cards name it)
-    assert.deepEqual(view.lines.map(l => String(l.badge)), ['<span class="line-pill pill-m line-l1">L1</span>', '<span class="line-pill pill-m line-l2">L2</span>']);
-    assert.match(String(east.arriving.note), /class="stop-note[^"]*">.*Unreliable data<\/div>$/);
-    assert.equal(view.lines[0].directions[1].arriving.note, null);
-    // Arriving at b on L1: a central platform
-    assert.match(String(stationView(rail, 'b', 'en', key => key).lines[0].directions[0].arriving.centralPlatform), /class="tag">.*subway\.doors-left/);
-    // Each platform from the street: by elevator, steps only, not known yet
-    assert.deepEqual(view.lines.flatMap(l => l.directions.map(d => d.stepFree)), [
-        { text: 'stations.step-free.lift', none: false },
-        { text: 'stations.step-free.no', none: true },
-        { text: 'stations.step-free.unknown', none: false },
-    ]);
-    // One of them step-free: that lifts can stop working, too; none, nothing
-    assert.match(String(view.liftCaution), /^lifts\.caution$/);
-    assert.equal(stationView(rail, 'a', 'en', key => key).liftCaution, null);
-    assert.deepEqual(east.times, [
-        { days: 'stations.day.1–stations.day.5', first: '05:32', last: '00:32' },
-        { days: 'stations.day.6, stations.day.0', first: '06:02', last: '01:02' },
-    ]);
-    // Leaving the first stop of L2: nothing about arriving; all night on Saturday
-    const [l2] = view.lines[1].directions;
-    assert.equal(l2.previous, null);
-    assert.equal(l2.arriving, null);
-    assert.deepEqual(l2.times.map(t => [t.first, t.last]), [['05:00', '00:00'], ['05:00', 'stations.all-night'], ['stations.all-night', '00:00']]);
-    assert.deepEqual([l2.fromStasy, l2.timesToward, l2.others], [true, 'Gamma', []]);
-    assert.deepEqual([east.fromStasy, east.timesToward], [false, 'Beta']);
-    // In Greek, and where the times come from: STASY for L2, the timetable for L1
-    assert.equal(String(stationView(rail, 'x', 'el', key => key).lines[0].directions[0].endSign), '<span class="station-sign sign-m">Βήτα</span>');
-    assert.deepEqual(view.timetable, { stasy: '01/10/2026', gtfs: { old: false, date: '31/12/2099' } });
-    assert.deepEqual(stationView(rail, 'a', 'en', key => key).timetable, { stasy: null, gtfs: { old: false, date: '31/12/2099' } });
-    assert.equal(view.walking, 'https://www.google.com/maps/dir/?api=1&destination=38,23.7&travelmode=walking');
-});
-
 // A line like M3 from Dimotiko Theatro: p → q → r, and on to s for some
 // trains (s like the airport); STASY's times from p to each of them
 function branching() {
@@ -214,14 +163,6 @@ test('a station with STASY\'s times shows its note, and the other destinations u
     ]) assert.ok(greek.includes(expected), `"${expected}" in: ${greek}`);
 });
 
-test('the index, as data: every station by line, with the other lines there', () => {
-    assert.deepEqual(indexView(rail, 'el', key => key).lines.map(l => [l.key, String(l.heading), l.stops.map(s => [s.name, s.changes && String(s.changes)])]), [
-        ['l1', '<span class="line-pill pill-l line-l1">L1</span>', [['Άλφα', null], ['Κόμβος', '<span class="line-pill pill-s line-l2">L2</span>'], ['Βήτα', null]]],
-        ['l2', '<span class="line-pill pill-l line-l2">L2</span>', [['Κόμβος', '<span class="line-pill pill-s line-l1">L1</span>'], ['Γάμμα', null]]],
-    ]);
-    assert.equal(indexView(rail, 'en', key => key).lines[0].stops[1].href, '/subway/stations/x');
-});
-
 test('a station page shows lines, neighbours, where to ride, connections and times', async () => {
     const { status, html } = await get('/subway/stations/x');
     assert.equal(status, 200);
@@ -243,6 +184,8 @@ test('a station page shows lines, neighbours, where to ride, connections and tim
         // Each platform from the street
         'Step-free from the street: by elevator', 'Steps only: no step-free access to this platform', 'Step-free access: not known yet',
     ]) assert.ok(t.includes(expected), `"${expected}" in: ${t}`);
+    // The note is the eastbound stop's: not where the westbound trains or L2's arrive
+    assert.equal(t.split('Unreliable data').length - 1, 1);
     assert.match(html, /<li class="station-step-free station-step-free-none"><svg class="icon me-1"[^>]*><use href="[^"#]*#step-free"><\/use><\/svg>Steps only/);
     // A platform step-free by elevator: under the sections, that lifts can stop working, and STASY's page
     assert.match(html, /<p class="schedule-disclaimer"><svg[^>]*><use href="[^"#]*#step-free"><\/use><\/svg>Lifts can stop working at any time: see <a href="https:\/\/www\.stasy\.gr\/en\/[^"]+" target="_blank" rel="noopener">STASY&#39;s elevator page<span class="sr-only"> \(opens in a new tab\)<\/span><\/a>\.<\/p>/);
@@ -272,6 +215,9 @@ test('arriving at a terminus shows the exit; leaving the first stop shows only t
     const first = (await get('/subway/stations/a')).html;
     assert.equal(first.split('>Getting off here</h3>').length - 1, 1);
     assert.equal(first.split('>First and last trains</h3>').length - 1, 1);
+    // No platform there is step-free, so nothing about lifts; its times are the timetable's, not STASY's
+    assert.ok(!text(first).includes('Lifts can stop working'));
+    assert.ok(!text(first).includes('STASY\'s timetable'));
 });
 
 test('the Greek page is in Greek, with Greek links', async () => {
