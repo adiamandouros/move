@@ -1,6 +1,6 @@
 # 7. Our load on OASA and STASY: our own numbers, agreed before they change
 
-Decided 2026-10-18 · In force
+Decided 2026-10-18 · Replaced by [21](0021-load-on-oasa-with-trips.md)
 
 ## Situation
 

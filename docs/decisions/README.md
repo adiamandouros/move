@@ -18,7 +18,7 @@ decisions, or makes one of the same weight, comes with its page.
 | 4 | [One process and no database](0004-one-process-no-database.md) | In force |
 | 5 | [Metro trips worked out in the browser](0005-trips-in-the-browser.md) | In force |
 | 6 | [Offline: what is kept, and updates that never reload a page](0006-offline.md) | In force |
-| 7 | [Our load on OASA and STASY: our own numbers, agreed before they change](0007-load-on-oasa.md) | In force |
+| 7 | [Our load on OASA and STASY: our own numbers, agreed before they change](0007-load-on-oasa.md) | Replaced by 21 |
 | 8 | [Reaching OASA and STASY from a server abroad](0008-routes-and-relays.md) | In force |
 | 9 | [Bus lines and stops from OASA's live service](0009-bus-network-from-live-api.md) | In force |
 | 10 | [The metro timetable: the open data, held to STASY's](0010-metro-timetable.md) | In force |
@@ -32,3 +32,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 18 | [The information is given as it is, and says so](0018-information-as-it-is.md) | In force |
 | 19 | [Privacy: kept on the device; on the server, counts only](0019-privacy-counts-only.md) | In force |
 | 20 | [Tests with every change, no flaky tests, and when each kind runs](0020-tests-and-when-they-run.md) | In force |
+| 21 | [Our load on OASA and STASY, with the bus trip finder](0021-load-on-oasa-with-trips.md) | In force |

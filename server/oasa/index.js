@@ -9,10 +9,15 @@ import { STOP_CODE } from '../data/check-output.js';
 
 // Most stops one request may ask for (the bus page shows 6 at a time)
 const MAX_STOPS = 12;
+// What the trip finder says it asks for (see below)
+const TRIP = new Set(['trip', 'trip-start']);
 
 // /api routes for the bus page.
 //   GET /api/arrivals?stops=10361,10341
 //   → { stops: { "10361": { arrivals: [{ line, to: { el, en }, minutes, route, vehicle }], updated, stale, unavailable? } } }
+//
+// The trip finder adds &for=trip (&for=trip-start on the first request of a
+// new search), so its searches and its answers are counted apart (usage.js).
 //
 // Only stops in `stopsFile` (bus-stops.json, which the bus page picks from)
 // are accepted, and each visitor may ask for NEW_STOPS_PER_MINUTE stops that
@@ -62,13 +67,18 @@ export function createBusApi({ routesFile, statusFile, stopsFile, relays = [], n
         const unknown = stops.filter(s => !isKnown(s));
         if (unknown.length) return res.status(400).json({ error: `Unknown stop code: ${unknown.join(', ')}` });
 
-        const wait = limiter.take(clientKey(req.ip), stops.filter(s => !arrivals.isCached(s)).length);
+        const cached = stops.map(s => arrivals.isCached(s));
+        const wait = limiter.take(clientKey(req.ip), cached.filter(c => !c).length);
         if (wait) {
             usage.limited();
             return res.status(429).set('Retry-After', String(Math.ceil(wait / 1000))).json({ error: 'Too many new stops; try again shortly' });
         }
 
         const results = await Promise.all(stops.map(s => arrivals.stopArrivals(s)));
+        if (TRIP.has(String(req.query.for))) {
+            if (req.query.for === 'trip-start') usage.tripSearch();
+            results.forEach((r, i) => usage.tripAnswer(cached[i] ? 'cache' : r.unavailable ? 'none' : r.stale ? 'old' : 'oasa'));
+        }
         res.set('Cache-Control', 'no-store').json({ stops: Object.fromEntries(stops.map((s, i) => [s, results[i]])) });
     });
 

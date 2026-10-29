@@ -9,6 +9,7 @@ import { $, accordion, clearStops, header, input, interact, lineBar, loadLines, 
 import { askForLocation, locationProblem, nearbyLocated, renderFavourites, showNearby, wireNearby } from './views/nearby.js';
 import { showStop } from './views/stop.js';
 import { markNearest, showLine } from './views/line.js';
+import { showTrip, tripLocated, wireTrip } from './views/trip.js';
 
 // The bus page: which view the address asks for (views/), the search over
 // them, and the location. What the views share is in page.js.
@@ -56,8 +57,14 @@ async function showView({ focus = false } = {}) {
     renderFavourites();
     setHtml($('bus-message'), '');
     const { view } = state;
-    header.hidden = view.kind === 'nearby';
-    setHtml(header, view.kind === 'nearby' ? '' : backLink());
+    // The trip finder has its own way back and its own fields
+    const own = view.kind === 'nearby' || view.kind === 'trip';
+    header.hidden = own;
+    setHtml(header, own ? '' : backLink());
+    $('bus-search').hidden = view.kind === 'trip';
+    $('where-to').hidden = view.kind !== 'nearby';
+    $('trip-view').hidden = view.kind !== 'trip';
+    if (view.kind !== 'trip') setHtml($('trip-view'), '');
     lineBar.hidden = true;
     setHtml(lineBar, '');
     if (state.loadFailed) {
@@ -67,6 +74,7 @@ async function showView({ focus = false } = {}) {
     if (!state.allStops) return; // drawn once the stop list is in
 
     if (view.kind === 'nearby') showNearby({ focus });
+    else if (view.kind === 'trip') await showTrip({ focus });
     else if (view.kind === 'stop') showStop({ focus });
     else await showLine({ focus });
 }
@@ -122,6 +130,10 @@ function located({ lat, lng }) {
         if (state.view.kind === 'nearby') showMessage('loading spin', t('buses.finding-stops'));
         return; // picked once the stop list is in
     }
+    if (state.view.kind === 'trip') {
+        tripLocated();
+        return;
+    }
     if (state.view.kind !== 'nearby') {
         patchDistances();
         markNearest();
@@ -139,7 +151,10 @@ async function start() {
     remember('buses', location.search);
     watchBars();
     onLocation(located);
-    onLocationProblem(locationProblem);
+    onLocationProblem(problem => {
+        locationProblem(problem);
+        if (state.view.kind === 'trip' && !state.loadFailed && state.allStops) showTrip();
+    });
 
     const last = lastPosition();
     if (last) state.coords = { lat: last.lat, lng: last.lng };
@@ -150,6 +165,8 @@ async function start() {
     // first, on the nearby stops
     locationPermission().then(permission => {
         state.permission = permission;
+        // The trip finder offers a stop to start from when the location is off
+        if (state.view.kind === 'trip' && permission === 'denied' && state.allStops) showTrip();
         if (permission === 'granted') {
             state.locating = true;
             startLocation();
@@ -187,6 +204,7 @@ async function start() {
         poll();
     });
     wireNearby();
+    wireTrip();
 
     // Links to a stop or a line (results, a stop's lines, the way back) change
     // the view in place; with a modifier key they open as links do

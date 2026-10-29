@@ -214,6 +214,7 @@ test('the usage page: a day per row, newest first, and each route\'s answers per
     assert.deepEqual(view.asked[1], {
         date: '2026-10-30', requests: 2, firstLooks: 1, refreshes: 1, routeNames: 0, routeTests: 0, network: '–',
         fromCache: '67%', stops: 2, mostAtOnce: 2, longestWait: '2.4 s', busyMinutes: '1 / 0', dropped: '1 (in 1 min)', paused: 0, limited: 0,
+        tripSearches: 0, tripAsked: 0, tripPerSearch: '–',
     });
     assert.deepEqual(view.answered, [
         { date: '2026-10-31', route: 'home relay', ok: 0, failed: 1, half: 'over 8 s', most: 'over 8 s', downMinutes: 1 },
@@ -226,6 +227,28 @@ test('the usage page: a day per row, newest first, and each route\'s answers per
     assert.match(html, /<th scope="row">2026-10-30<\/th>\s*<td>2<\/td>\s*<td>1<\/td>/);
     assert.match(html, /<td class="text-start">home relay<\/td>\s*<td>0<\/td>\s*<td>1<\/td>\s*<td>over 8 s<\/td>/);
     assert.match(view_(usageView({})), /<p>Nothing has been counted yet\.<\/p>/);
+});
+
+test('the trip finder: its searches and its stop answers by source, per day; days from before it show none', () => {
+    const c = clock(Date.parse('2026-10-30T10:00:00Z'));
+    const file = tempFile();
+    // A day kept before the trip finder
+    writeFileSync(file, JSON.stringify({ days: { '2026-10-29': { ...createUsage({ now: c.now }).status().today, trips: undefined } } }));
+    const usage = createUsage({ file, now: c.now });
+    usage.tripSearch();
+    for (const source of ['oasa', 'oasa', 'oasa', 'cache']) usage.tripAnswer(source);
+    c.advance(MIN);
+    usage.tripSearch();
+    usage.tripAnswer('oasa');
+    usage.tripAnswer('none');
+
+    assert.deepEqual(usage.status().hour.trips, { searches: 2, answers: { oasa: 4, cache: 1, old: 0, none: 1 } });
+    const view = usageView(usage.days());
+    assert.deepEqual(view.asked.map(d => [d.date, d.tripSearches, d.tripAsked, d.tripPerSearch]), [
+        ['2026-10-30', 2, 4, '2.0'],
+        ['2026-10-29', '–', '–', '–'],
+    ]);
+    assert.match(view_(view), /<th scope="col">Asked of OASA per trip search<\/th>/);
 });
 
 test('how far ahead OASA predicts: per line, the most minutes in the day, across minutes and restarts', () => {

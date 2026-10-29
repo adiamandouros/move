@@ -27,6 +27,9 @@
                     <th scope="col">Dropped</th>
                     <th scope="col">Refused, every route resting</th>
                     <th scope="col">Refused, visitor over their share</th>
+                    <th scope="col">Trip searches</th>
+                    <th scope="col">Trip stops asked of OASA</th>
+                    <th scope="col">Asked of OASA per trip search</th>
                 </tr>
             </thead>
             <tbody>
@@ -47,6 +50,9 @@
                     <td>{{dropped}}</td>
                     <td>{{paused}}</td>
                     <td>{{limited}}</td>
+                    <td>{{tripSearches}}</td>
+                    <td>{{tripAsked}}</td>
+                    <td>{{tripPerSearch}}</td>
                 </tr>
 {{/each}}
             </tbody>

@@ -5,7 +5,8 @@ const HORIZON_DAYS = 7;
 
 // The days of OASA's usage (server/oasa/usage.js) as /admin/usage shows them
 // (admin/usage.hbs), newest first: what Wayhop asked for each day, how each
-// route to OASA answered, how far ahead OASA predicts, per line, and the
+// route to OASA answered (and how much of it was the trip finder's), how far
+// ahead OASA predicts, per line, and the
 // pages opened by browser language.
 /** @param {Record<string, any>} days */
 export function usageView(days) {
@@ -37,6 +38,10 @@ export function usageView(days) {
                 dropped: dropped ? `${dropped} (in ${d.dropMinutes} min)` : 0,
                 paused: d.paused,
                 limited: d.limited,
+                // (days before the trip finder have none)
+                tripSearches: d.trips?.searches ?? '–',
+                tripAsked: d.trips ? d.trips.answers.oasa : '–',
+                tripPerSearch: d.trips?.searches ? (d.trips.answers.oasa / d.trips.searches).toFixed(1) : '–',
             };
         }),
         answered: dates.flatMap(date => Object.entries(days[date].routes).map(([route, r]) => ({

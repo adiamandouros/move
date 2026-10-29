@@ -272,20 +272,28 @@ version they started with, and it takes over once they're closed
   `dueStops` in `timing.js`, given what the page shows as data;
   `test/browser/bus-trace.spec.js` writes down every request of a scripted
   visit, second by second, so a change to them shows.
+- The trip finder (`?trip`, `views/trip.js`) finds direct buses from the
+  stops near you, or a stop you pick, to those near a stop or a metro
+  station, in the browser from `bus-lines.json` (`trips.js`). It asks only
+  for the two stops of each of at most 5 lines: the one you board at by its
+  line's next bus, the one you get off at once a minute, to tell the ride's
+  length from the same bus's two predictions. Its requests carry
+  `&for=trip` (`trip-start` for a new search's first);
+  `test/browser/bus-trips.spec.js` writes down every one of a scripted search.
 - `limits.js`: each visitor may ask for 30 stops a minute that aren't cached.
 - `index.js`: `/api/arrivals`, for stops in `bus-stops.json` only.
 - `usage.js`: counts what is asked of OASA and how it answers, each minute
   and per day, kept for 120 days in `data/local/oasa-usage.json`: requests
   by kind, the cache's share, stops watched at once, waits and drops, each
   route's answer times and failures, and how far ahead OASA predicts each
-  line's buses. Beside them, the pages opened, by the language the browser
+  line's buses, and the trip finder's searches and their answers. Beside them, the pages opened, by the language the browser
   asks for and the one served (`server/pages/index.js`, for item 43).
   Counts only; `/admin/diagnostics` shows the past hour and today,
   `/admin/usage` a row per day.
 
 These numbers set our load on OASA, and so do the ones for STASY and the
 bus network below; changes to any of them are agreed first
-([decision 7](docs/decisions/0007-load-on-oasa.md)).
+([decision 21](docs/decisions/0021-load-on-oasa-with-trips.md), which replaced 7).
 
 Announcements ([server/info/announcements.js](server/info/announcements.js))
 are fetched from OASA's RSS and STASY's news page at most every 15 minutes,

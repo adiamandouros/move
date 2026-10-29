@@ -1,7 +1,7 @@
 // Every request the bus page makes in a scripted visit, second by second:
 // what it asks of /api/arrivals, and so of OASA, written down so a change to
 // how the page polls (tools/buses/client/) can't change it unnoticed. A change
-// that means to (new numbers, agreed first: decision 7) updates these lists.
+// that means to (new numbers, agreed first: decision 21) updates these lists.
 import { onScreen, watchRequests } from './bus-requests.js';
 import { expect, onlyOn, test } from './fixtures.js';
 
@@ -63,28 +63,22 @@ test('a line: nothing until a stop is opened, then that stop every 30 s', async 
     expect(await trace()).toEqual(LINE);
 });
 
+// (61335, the last stop that fits, went below the fold with the trip finder's
+// "Where to?" above the stops, #13: asked for once scrolled to, not before)
 const NEARBY = [
-    [0, '61335'],
     [30, '10341'], [30, '10361'], [30, '60718'], [30, '60991'], [30, '60998'],
-    [32, '61335'],
     [60, '60002'],
     [62, '10341'], [62, '10361'], [62, '60718'], [62, '60991'], [62, '60998'],
-    [64, '61335'],
     [94, '10341'], [94, '10361'], [94, '60718'], [94, '60991'], [94, '60998'],
-    [96, '61335'],
     [122, '60002'],
-    [125, '10343'], [125, '60015'], [125, '61020'], [125, '61197'], [125, '61357'],
+    [125, '10343'], [125, '60015'], [125, '61020'], [125, '61197'], [125, '61335'], [125, '61357'],
     [126, '60998'],
-    [128, '61335'],
-    [157, '61197'], [157, '61357'],
+    [157, '61197'], [157, '61335'], [157, '61357'],
     [158, '60998'],
-    [160, '61335'],
     [187, '10343'], [187, '60015'],
-    [189, '61197'], [189, '61357'],
+    [189, '61197'], [189, '61335'], [189, '61357'],
     [190, '60998'],
-    [192, '61335'],
-    [221, '61197'], [221, '61357'],
+    [221, '61197'], [221, '61335'], [221, '61357'],
     [222, '60998'],
-    [224, '61335'],
 ];
 const LINE = [[10, '10341'], [42, '10341'], [74, '10341']];

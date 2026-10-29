@@ -78,3 +78,18 @@ test(`a visitor may ask for ${NEW_STOPS_PER_MINUTE} new stops a minute; cached o
     assert.equal(api.status().usage.hour.limited, 1);
 });
 
+test('the trip finder\'s requests are counted apart: a search when it starts, each stop by where its answer came from', async () => {
+    const trips = () => api.status().usage.hour.trips;
+    const before = trips();
+    const get = (query, ip = '198.51.100.9') => fetch(`${base}/api/arrivals?${query}`, { headers: { 'X-Forwarded-For': ip } });
+    assert.equal((await get(`stops=${KNOWN[34]},${KNOWN[35]}&for=trip-start`)).status, 200);
+    assert.equal((await get(`stops=${KNOWN[34]}&for=trip`)).status, 200);
+    // The bus page's own requests, and anything else said, aren't the finder's
+    assert.equal((await get(`stops=${KNOWN[36]}`)).status, 200);
+    assert.equal((await get(`stops=${KNOWN[37]}&for=other`)).status, 200);
+    const after = trips();
+    assert.equal(after.searches - before.searches, 1);
+    assert.equal(after.answers.oasa - before.answers.oasa, 2);
+    assert.equal(after.answers.cache - before.answers.cache, 1);
+});
+

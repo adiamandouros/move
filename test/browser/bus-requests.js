@@ -1,5 +1,5 @@
 // What the bus page asks of /api/arrivals, for the specs that watch it
-// (bus-trace.spec.js, bus-search.spec.js, favourites.spec.js)
+// (bus-trace.spec.js, bus-search.spec.js, favourites.spec.js, bus-trips.spec.js)
 
 // Every /api/arrivals request, stamped with the page's (fake) time when it was
 // sent; recorded in the page, so nothing in flight is missed
@@ -17,7 +17,9 @@ export async function watchRequests(page) {
         window.fetch = (url, ...rest) => {
             const match = String(url).match(/\/api\/arrivals\?stops=([\d,]+)/);
             if (!match) return real(url, ...rest);
-            for (const code of match[1].split(',')) window.__asks.push({ code, at: Date.now() });
+            // What the trip finder says it asks for (&for=trip, trip-start), if anything
+            const purpose = String(url).match(/[?&]for=([\w-]+)/)?.[1] ?? null;
+            for (const code of match[1].split(',')) window.__asks.push({ code, at: Date.now(), for: purpose });
             window.__pending++;
             return real(url, ...rest).finally(() => window.__pending--);
         };

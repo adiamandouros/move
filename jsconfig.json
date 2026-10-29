@@ -2,8 +2,8 @@
     // npm run typecheck: TypeScript checks every file of the app against the
     // JSDoc types in it and in types/. Nothing is compiled; the app runs the
     // same JavaScript. Editors use this file too. Packages without types count
-    // as untyped (maxNodeModuleJsDepth), and '/js/…' is public/js/ as in the
-    // pages' import map.
+    // as untyped (maxNodeModuleJsDepth), and '/js/…' is public/js/ and
+    // '/tools/subway/…' the subway's client files, as in the pages' import map.
     "compilerOptions": {
         "target": "es2023",
         "module": "nodenext",
@@ -16,7 +16,7 @@
         "noEmit": true,
         "strict": false,
         "skipLibCheck": true,
-        "paths": { "/js/*": ["./public/js/*"] }
+        "paths": { "/js/*": ["./public/js/*"], "/tools/subway/*": ["./tools/subway/client/*"] }
     },
     "include": ["server.js", "server/**/*.js", "tools/*/client/**/*.js", "public/js/**/*.js", "scripts/**/*.js", "proxy/*.js", "types/**/*.d.ts"],
     "exclude": ["server/views/sw.js"]

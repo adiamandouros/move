@@ -25,7 +25,7 @@ and limits how many threads an account may run.
   data and work offline ([5](0005-trips-in-the-browser.md)).
 - The caches and the limit on what each visitor may ask for belong to the
   one process. A second process would split the caches and double our load
-  on OASA ([7](0007-load-on-oasa.md)), so Wayhop runs one. Node is not the
+  on OASA ([21](0021-load-on-oasa-with-trips.md)), so Wayhop runs one. Node is not the
   bottleneck: OASA is.
 
 ## Look again when

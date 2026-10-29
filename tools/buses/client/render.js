@@ -22,7 +22,7 @@ const plate = (line, size) => busPlate(line, size, t('buses.line'));
 // How far a stop is, when the location is known (beside its code)
 export const distance = meters => meters === undefined ? html`` : html`<span class="sr-only">, </span>${formatDistance(meters)}`;
 
-function arrivalBadge(minutes) {
+export function arrivalBadge(minutes) {
     const tier = soonTier(minutes);
     const label = tier === 'due' ? `${minutes} ${t('buses.arriving-soon')}` : `${minutes} ${t('buses.minutes')}`;
     return timeBadge(tier, html`<span aria-hidden="true">${minutes}'</span><span class="sr-only">${label}</span>`);
