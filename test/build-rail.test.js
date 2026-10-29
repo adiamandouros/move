@@ -26,6 +26,19 @@ test('builds stations, stops and a compressed weekly timetable', async () => {
     assert.ok(warnings.some(w => /expired on 2026-08-09/.test(w)));
 });
 
+test('the pages get only where the elevators are, each place once; "none" is left out', async () => {
+    const positions = {
+        M9: {
+            north: { a: { exits: ['back'], elevators: [{ at: 'front', name: 'Προς Γ' }, { at: 'back' }, { at: 'front', name: 'Εξωτερικός' }], stepFree: 'lift' }, b: { exits: ['front'], elevators: 'none' }, c: { exits: ['back'] } },
+            south: { c: { exits: ['back'] }, b: { exits: ['center'] }, a: { exits: ['front'] } },
+        },
+    };
+    const { data } = await buildRail({ dir: feed(), curated: curated({ positions }), today: '20261003' });
+    const [a, b] = data.lines.M9.directions.north.stops;
+    assert.deepEqual(a, { station: 'a', exits: ['back'], elevators: ['front', 'back'], stepFree: 'lift' });
+    assert.deepEqual(b, { station: 'b', exits: ['front'] });
+});
+
 test('a train the feed lists twice is kept once, the night before\'s copy on the earlier day', async () => {
     const { data, warnings } = await buildRail({ dir: feed({ copies: true }), curated: curated(), today: '20261003' });
     const { profiles, patterns, days } = data.lines.M9.directions.north.timetable;

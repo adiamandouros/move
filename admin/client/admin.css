@@ -75,6 +75,42 @@
     color: var(--bs-warning);
 }
 
+/* The warning colour of the colour mode */
+.entry-missing {
+    font-size: 0.85rem;
+    color: var(--wh-warn);
+}
+
+/* Things recorded several at a time (lists.js): a box for each */
+.elevators-known { margin-bottom: 8px; }
+
+.entry-form .list { margin-bottom: 0; }
+
+.entry-form .list-row {
+    margin-bottom: 8px;
+    padding: 8px 12px 12px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+}
+
+.entry-form .list-row legend {
+    font-size: 0.85rem;
+    margin-bottom: 4px;
+}
+
+.list-fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.list-field { flex: 1 1 140px; }
+.list-field-wide { flex-basis: 100%; }
+.list-field .form-label { font-size: 0.85rem; margin-bottom: 2px; }
+.list-hint { font-size: 0.8rem; color: var(--wh-warn); }
+.list-hint:empty { display: none; }
+
 .car-toggles {
     display: grid;
     grid-template-columns: repeat(5, 1fr);

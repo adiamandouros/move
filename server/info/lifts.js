@@ -10,7 +10,8 @@ import { decode } from './announcements.js';
 
 // Which metro lifts are out of service, from STASY's lift page: its control
 // rooms keep it current, for every lift of every M1, M2 and M3 station. The
-// subway planner and the station pages warn with it (public/js/core/lifts.js).
+// subway planner and the station pages warn with it (public/js/core/lifts.js);
+// the station editor offers its names for each station's lifts.
 // Fetched only when someone asks and the copy is older than REFRESH_MS
 // (at most 144 a day, agreed 2026-10-27), so an idle app sends nothing; a
 // failure keeps the last good copy, but one older than MAX_AGE_MS isn't
@@ -36,16 +37,20 @@ const STATIONS_FILE = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 
 const STATUSES = { Ok: 'ok', Warning: 'partial', Error: 'closed' };
 const WORST = ['ok', 'partial', 'closed'];
 
-// → { stations: { <id>: { status, out } }, checked, unknown }: the stations
-// whose lifts aren't all working, with the lifts out of service by STASY's
-// (Greek) names; how many stations the page had; the names on it that aren't
-// one of ours (a new station: left out, and shown on /admin/diagnostics).
-// A station on several lines (Omonia, Attiki…) is listed under each: its
-// worst status counts. `names`: stationNames() of stations.json.
+// → { stations: { <id>: { status, out } }, lifts, checked, unknown }: the
+// stations whose lifts aren't all working, with the lifts out of service by
+// STASY's (Greek) names; every station's lifts by those names, { <id>:
+// [name, …] }, a name twice when two lifts have it (for the station editor);
+// how many stations the page had; the names on it that aren't one of ours
+// (a new station: left out, and shown on /admin/diagnostics). A station on
+// several lines (Omonia, Attiki…) is listed under each: its worst status
+// counts, and each of its lifts once. `names`: stationNames() of stations.json.
 /** @param {string} html @param {Map<string, string>} names */
 export function parseLifts(html, names) {
     /** @type {Record<string, { status: string, out: string[] }>} */
     const stations = {};
+    /** @type {Record<string, string[]>} */
+    const lifts = {};
     const seen = new Set();
     const unknown = new Set();
     for (const block of html.split(/<li class="jw_line_station /).slice(1)) {
@@ -55,7 +60,11 @@ export function parseLifts(html, names) {
         const id = names.get(stasyNameKey(name));
         if (!id) { unknown.add(name); continue; }
         seen.add(id);
-        const out = [...block.matchAll(/<li class=['"]jw_elevatorStatusError['"]>([^<]*)</g)].map(m => decode(m[1])).filter(Boolean);
+        const listed = [...block.matchAll(/<li class=['"]jw_elevatorStatus(\w+)['"]>([^<]*)</g)]
+            .map(m => ({ working: m[1] !== 'Error', name: liftName(decode(m[2])) }))
+            .filter(lift => lift.name);
+        lifts[id] = withEach(lifts[id] ?? [], listed.map(lift => lift.name));
+        const out = listed.filter(lift => !lift.working).map(lift => lift.name);
         if (status === 'ok' && !out.length) continue;
         const was = stations[id] ?? { status: 'ok', out: [] };
         stations[id] = {
@@ -64,7 +73,22 @@ export function parseLifts(html, names) {
         };
     }
     if (seen.size < MIN_STATIONS) throw new Error(`STASY's lift page lists ${seen.size} of our stations, not ${MIN_STATIONS} or more: has it changed?`);
-    return { stations, checked: seen.size, unknown: [...unknown] };
+    return { stations, lifts, checked: seen.size, unknown: [...unknown] };
+}
+
+// A lift's name as STASY writes it, without its stray spaces and tabs
+const liftName = text => text.replace(/\s+/g, ' ').trim();
+
+// `names` with each of `more` that it doesn't have as many times
+function withEach(names, more) {
+    const left = [...names];
+    const added = more.filter(name => {
+        const i = left.indexOf(name);
+        if (i === -1) return true;
+        left.splice(i, 1);
+        return false;
+    });
+    return [...names, ...added];
 }
 
 // ── Fetching ────────────────────────────────────────────────────────────────
@@ -117,6 +141,14 @@ export function createLifts({ fetch = globalThis.fetch, now = Date.now, log = co
         return fresh() ? { fetched: state.fetched, stations: state.stations } : null;
     }
 
+    // STASY's names for each station's lifts, { <id>: [name, …] }, from the
+    // last copy however old (names hardly change), refreshed behind it like
+    // current(), for the station editor
+    function liftNames() {
+        if (now() - checkedAt > REFRESH_MS) refreshNow();
+        return state?.lifts ?? {};
+    }
+
     // → { ok?, at?, error?, route?, stations, unknown, updated }, for the diagnostics and /api/health
     const status = () => ({
         ...health,
@@ -132,5 +164,5 @@ export function createLifts({ fetch = globalThis.fetch, now = Date.now, log = co
         res.set('Cache-Control', 'no-store').json(body);
     });
 
-    return Object.assign(router, { current, refresh, refreshNow, status });
+    return Object.assign(router, { current, liftNames, refresh, refreshNow, status });
 }

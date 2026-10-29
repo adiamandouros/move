@@ -27,9 +27,10 @@ const require = createRequire(import.meta.url);
 //   rebuild()      → called after every change
 //   diagnose()     → runs the server health checks (server/diagnostics.js)
 //   usageDays()    → the days of OASA's usage (server/oasa/usage.js), for /admin/usage
+//   liftNames()    → STASY's names for each station's lifts (server/info/lifts.js)
 //   exportKey      → reads the export without a session (Authorization: Bearer <key>),
 //                    for the nightly pull request of station edits; '' for none
-export function createAdmin({ password, exportKey = '', overlayFile, loadCurated, loadRail, rebuild, render, diagnose, usageDays = () => ({}) }) {
+export function createAdmin({ password, exportKey = '', overlayFile, loadCurated, loadRail, rebuild, render, diagnose, usageDays = () => ({}), liftNames = () => ({}) }) {
     if (!password) return null;
 
     const auth = createAuth(password);
@@ -182,6 +183,7 @@ export function createAdmin({ password, exportKey = '', overlayFile, loadCurated
             }])),
             committed,
             overlay,
+            stasyLifts: liftNames(),
         });
     });
 

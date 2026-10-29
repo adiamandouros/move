@@ -113,6 +113,7 @@ export function createApp({
         rebuild: rebuildSoon,
         render: pages.render,
         usageDays: usage.days,
+        liftNames: lifts.liftNames,
         // Fetches the announcements and the lifts first, so their checks show the current state
         diagnose: async () => {
             await Promise.all([announcements.refreshNow(), lifts.refreshNow()]);

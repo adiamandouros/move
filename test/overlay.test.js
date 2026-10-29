@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyOverlay, pruneOverlay, removeEntry, sameEntry, setEntry, tidyEntry } from '../server/data/overlay.js';
+import { mkdtempSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { applyOverlay, pruneOverlay, readOverlay, removeEntry, sameEntry, setEntry, tidyEntry } from '../server/data/overlay.js';
 
 const positions = {
     M1: { kifisia: { faliro: { exits: ['center-back', 'center'] }, moschato: { exits: [] } } },
@@ -18,6 +21,26 @@ test('tidyEntry orders positions back to front and drops empty fields', () => {
     assert.deepEqual(tidyEntry({ exits: [], stepFree: '' }), { exits: [] });
     assert.deepEqual(tidyEntry({ exits: [], stepFree: 'maybe' }), { exits: [] });
     assert.ok(!sameEntry({ exits: [] }, { exits: [], stepFree: 'no' }));
+});
+
+test('elevators: "none", or each with where it is and its name, back to front; an empty list is not known yet', () => {
+    assert.deepEqual(
+        tidyEntry({ exits: [], elevators: [{ name: ' Προς Πειραιά ', at: 'front' }, { at: 'back', name: '  ' }, { at: 'front' }] }),
+        { exits: [], elevators: [{ at: 'back' }, { at: 'front', name: 'Προς Πειραιά' }, { at: 'front' }] },
+    );
+    assert.deepEqual(tidyEntry({ exits: [], elevators: 'none' }), { exits: [], elevators: 'none' });
+    // What the editor sent before elevators had names: nothing pressed is not known yet
+    assert.deepEqual(tidyEntry({ exits: [], elevators: [] }), { exits: [] });
+    assert.deepEqual(tidyEntry({ exits: [], elevators: ['front', 'center'] }), { exits: [], elevators: [{ at: 'center' }, { at: 'front' }] });
+    assert.ok(sameEntry({ exits: [], elevators: ['center'] }, { exits: [], elevators: [{ at: 'center' }] }));
+    assert.ok(!sameEntry({ exits: [], elevators: [{ at: 'center' }] }, { exits: [], elevators: [{ at: 'center', name: 'Προς Αποβάθρες' }] }));
+    assert.ok(!sameEntry({ exits: [] }, { exits: [], elevators: 'none' }));
+});
+
+test('an overlay saved before elevators had names reads as it would be saved now', () => {
+    const file = join(mkdtempSync(join(tmpdir(), 'overlay-')), 'positions.json');
+    writeFileSync(file, JSON.stringify({ M1: { kifisia: { faliro: { exits: ['center'], elevators: ['center'] }, moschato: { exits: ['back'], elevators: [] } } } }));
+    assert.deepEqual(readOverlay(file), { M1: { kifisia: { faliro: { exits: ['center'], elevators: [{ at: 'center' }] }, moschato: { exits: ['back'] } } } });
 });
 
 test('sameEntry ignores order and empty optional fields', () => {

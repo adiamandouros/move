@@ -35,13 +35,13 @@ and drops them from `data/local/`.
 Ordered by line → direction → station in travel order, one station per line:
 
 ```json
-"monastiraki": { "exits": ["center-back", "center-front"], "elevators": ["center-front"], "transfers": { "M3/dimotiko": ["center-back"] }, "note": "Regular steps - no escalators" }
+"monastiraki": { "exits": ["center-back", "center-front"], "elevators": [{ "at": "center-front", "name": "Προς Γραμμή 1 Πειραιά" }], "transfers": { "M3/dimotiko": ["center-back"] }, "note": "Regular steps - no escalators" }
 ```
 
 | Field | Meaning |
 |---|---|
 | `exits` | Cars closest to the exit when getting off here. `[]` = no data yet. |
-| `elevators` | Cars closest to the elevator. Optional. |
+| `elevators` | The platform's elevators, each `{ "at": position, "name": … }`: the car closest to it, and its name as [STASY's lift page](https://www.stasy.gr/elevators/) writes it (the editor offers those; left out until known). `"none"`: the platform has no elevator. Left out: not known yet, which the editor marks ⚠ unless the platform is step-free by ramp or on the level. |
 | `escalators` | Cars closest to an escalator up. Optional. With `stairs`, says how the exit is reached: the cars to ride in show an escalator, stairs, or (neither recorded) an up arrow. |
 | `stairs` | Cars closest to ordinary stairs. Optional. |
 | `centralPlatform` | `true` if the platform is between the tracks (exit on the left). Optional. |

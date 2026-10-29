@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { writeFileAtomic } from '../files.js';
 import { formatJson } from './format.js';
-import { POSITIONS, STEP_FREE } from './validate.js';
+import { NO_ELEVATOR, POSITIONS, STEP_FREE } from './validate.js';
 
 // Station edits made in the admin editor live in a gitignored overlay file
 // with the same shape as positions.json, holding only the edited stations:
@@ -9,11 +9,16 @@ import { POSITIONS, STEP_FREE } from './validate.js';
 // Each entry replaces the committed entry for that station and direction.
 // Once the committed positions.json catches up (export → commit → deploy),
 // matching entries are pruned, so the overlay only holds uncommitted edits.
+// Entries are tidied as they're read, so ones saved before a change of
+// format (elevators as plain positions) read as they would be saved now.
 
 export function readOverlay(path) {
     if (!existsSync(path)) return {};
-    try { return JSON.parse(readFileSync(path, 'utf8')); }
+    let overlay;
+    try { overlay = JSON.parse(readFileSync(path, 'utf8')); }
     catch (err) { throw new Error(`${path} is not valid JSON: ${err.message}`, { cause: err }); }
+    for (const { line, dir, station, entry } of overlayEntries(overlay)) overlay[line][dir][station] = tidyEntry(entry);
+    return overlay;
 }
 
 export function writeOverlay(path, overlay) {
@@ -72,9 +77,9 @@ export function sameEntry(a, b) {
 // The canonical form of an entry: fields in a fixed order, positions from the
 // back of the train to the front, empty optional fields left out.
 export function tidyEntry(entry) {
-    const order = list => [...new Set(list ?? [])].sort((a, b) => POSITIONS.indexOf(a) - POSITIONS.indexOf(b));
     const out = { exits: order(entry.exits) };
-    if (entry.elevators?.length) out.elevators = order(entry.elevators);
+    const elevators = tidyElevators(entry.elevators);
+    if (elevators) out.elevators = elevators;
     if (entry.escalators?.length) out.escalators = order(entry.escalators);
     if (entry.stairs?.length) out.stairs = order(entry.stairs);
     if (entry.centralPlatform) out.centralPlatform = true;
@@ -85,6 +90,24 @@ export function tidyEntry(entry) {
     if (transfers.length) out.transfers = Object.fromEntries(transfers.map(([k, v]) => [k, order(v)]));
     if (typeof entry.note === 'string' && entry.note.trim()) out.note = entry.note.trim();
     return out;
+}
+
+const byPosition = (a, b) => POSITIONS.indexOf(a) - POSITIONS.indexOf(b);
+const order = list => [...new Set(list ?? [])].sort(byPosition);
+
+// "none", or each elevator as { at, name? } from the back to the front; an
+// empty list (nothing recorded) is left out, as is anything else. Plain
+// positions, how elevators were written before they had names, become
+// elevators without a name.
+function tidyElevators(elevators) {
+    if (elevators === NO_ELEVATOR) return NO_ELEVATOR;
+    if (!Array.isArray(elevators)) return undefined;
+    const lifts = elevators.map(lift => {
+        const { at, name } = typeof lift === 'string' ? { at: lift } : lift ?? {};
+        const named = typeof name === 'string' ? name.trim() : '';
+        return { at, ...(named && { name: named }) };
+    });
+    return lifts.length ? lifts.sort((a, b) => byPosition(a.at, b.at)) : undefined;
 }
 
 function dropEmpty(overlay) {
