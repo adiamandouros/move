@@ -20,6 +20,7 @@ test('with no settings: everything optional is off', () => {
         contactEmail: null,
         userAgent: 'Wayhop (Athens transit web app)',
         adminPassword: '',
+        exportKey: '',
         cspMode: 'report-only',
         adsense: { client: null, slots: {} },
         relays: [],
@@ -33,6 +34,7 @@ test('settings are read and tidied', () => {
         SITE_URL: ' https://wayhop.gr/ ',
         CONTACT_EMAIL: 'hello@wayhop.gr',
         ADMIN_PASSWORD: 'secret',
+        STATION_EXPORT_KEY: ' k'.padEnd(40, 'k') + ' ',
         CSP_MODE: 'enforce',
         ADSENSE_CLIENT: 'ca-pub-1234567890123456',
         ADSENSE_SLOT_HOME: '1111111111',
@@ -45,6 +47,7 @@ test('settings are read and tidied', () => {
     assert.equal(config.siteUrl, 'https://wayhop.gr');
     assert.equal(config.userAgent, 'Wayhop (Athens transit web app; hello@wayhop.gr)');
     assert.equal(config.adminPassword, 'secret');
+    assert.equal(config.exportKey, 'k'.repeat(39));
     assert.equal(config.cspMode, 'enforce');
     assert.deepEqual(config.adsense, { client: 'ca-pub-1234567890123456', slots: { home: '1111111111', station: '3333333333' } });
     assert.deepEqual(config.relays, [
@@ -95,6 +98,12 @@ test('AdSense settings that look wrong leave their ads off', () => {
     assert.ok(config.problems.every(p => p.title === 'AdSense' && /off until it's fixed/.test(p.hint)));
 });
 
+test('a station export key short enough to guess is off', () => {
+    const config = loadConfig({ STATION_EXPORT_KEY: 'too-short' });
+    assert.equal(config.exportKey, '');
+    assert.deepEqual(texts(config), ['STATION_EXPORT_KEY should be at least 32 characters long']);
+});
+
 test('a relay with only its address or key, or an address that isn\'t one, is off', () => {
     const half = loadConfig({ OASA_RELAY_URL: 'https://w.example/', OASA_HOME_RELAY_KEY: 'b' });
     assert.deepEqual(half.relays, []);
@@ -122,7 +131,7 @@ test('only server/config.js reads the environment', () => {
     assert.deepEqual(readers, []);
 });
 
-test('the scheduled health check needs nothing from node_modules (GitHub runs it without npm install)', () => {
+test('the scripts GitHub runs without npm install need nothing from node_modules (the health check, the station edits)', () => {
     const seen = new Set();
     const visit = file => {
         if (seen.has(file)) return;
@@ -134,5 +143,6 @@ test('the scheduled health check needs nothing from node_modules (GitHub runs it
         }
     };
     visit(join(ROOT, 'scripts', 'health-check.js'));
+    visit(join(ROOT, 'scripts', 'station-edits.js'));
     assert.ok(seen.size > 1, 'it follows the script\'s imports');
 });

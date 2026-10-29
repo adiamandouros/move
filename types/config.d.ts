@@ -28,6 +28,8 @@ export interface Config {
     userAgent: string;
     /** '' turns the admin pages off */
     adminPassword: string;
+    /** Reads the station editor's export without a login (the nightly pull request); '' when unset */
+    exportKey: string;
     cspMode: 'report-only' | 'enforce';
     /** client is null while AdSense is off; slots by place (home, info, station) */
     adsense: { client: string | null; slots: Record<string, string> };

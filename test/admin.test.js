@@ -170,3 +170,29 @@ test('the use of OASA, with a session: nothing counted yet when the app gives no
     assert.match(await res.text(), /<h1 class="fs-5 m-0">Use of OASA<\/h1>[\s\S]*Nothing has been counted yet\./);
 });
 
+
+test('the export key reads the export without a session, and opens nothing else', async () => {
+    const KEY = 'k'.repeat(40);
+    const app = express();
+    const options = { password: PASSWORD, overlayFile, loadCurated: () => loadCurated({ overlayFile }), loadRail: () => rail, rebuild() {}, render: ({ content }) => content };
+    app.use('/admin', createAdmin({ ...options, exportKey: KEY }));
+    // An editor without a key: no header opens its export
+    app.use('/keyless/admin', createAdmin(options));
+    const keyed = await new Promise(resolve => { const s = app.listen(0, () => resolve(s)); });
+    after(() => keyed.close());
+    const at = `http://localhost:${keyed.address().port}`;
+    const get = (path, key) => fetch(at + path, key === undefined ? {} : { headers: { Authorization: `Bearer ${key}` } });
+
+    const res = await get('/admin/api/export', KEY);
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('cache-control'), 'no-store');
+    // The committed file as it is, with no edits waiting
+    assert.equal(await res.text(), readFileSync(new URL('../data/curated/positions.json', import.meta.url), 'utf8'));
+    assert.equal((await get('/admin/api/state', KEY)).status, 401);
+    assert.equal((await get('/admin/stations', KEY)).redirected, true);
+    assert.equal((await get('/keyless/admin/api/export', '')).status, 401);
+    assert.equal((await get('/admin/api/export')).status, 401);
+    // Wrong keys count like wrong passwords: the fifth blocks the next try, the right key too
+    for (let i = 0; i < 5; i++) assert.equal((await get('/admin/api/export', `${KEY}x`)).status, 401);
+    assert.equal((await get('/admin/api/export', KEY)).status, 429);
+});

@@ -1,0 +1,96 @@
+# Every night: the station edits made in the editor (/admin/stations) that
+# the repository doesn't have yet, as one pull request from the branch
+# station-edits. It's updated while there are edits waiting and closed once
+# there are none; it's still yours to review and merge (decision 16). Run it
+# by hand from the Actions tab ("Run workflow").
+#
+# Needs two repository secrets:
+# - STATION_EXPORT_KEY: the same as the server's (.env), which reads the
+#   editor's export and nothing else
+# - STATION_EDITS_TOKEN: a fine-grained token for this repository only, with
+#   Contents and Pull requests set to "Read and write". (A pull request
+#   opened with the built-in token runs no checks.) Two weeks before it
+#   expires, an issue labelled "token" says so, which GitHub emails to the
+#   repository's watchers.
+# (GitHub may run scheduled jobs late, and pauses them after 60 days without
+# activity in the repository.)
+name: Station edits
+
+on:
+  schedule:
+    # 01:47 UTC: 03:47 or 04:47 in Athens, after the nightly run
+    - cron: '47 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: station-edits
+
+jobs:
+  station-edits:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say when the token is about to expire
+        env:
+          TOKEN: ${{ secrets.STATION_EDITS_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # GitHub tells a token's expiry in this header (none: it never expires)
+          expires=$(curl -sS -D - -o /dev/null -H "Authorization: Bearer $TOKEN" "https://api.github.com/repos/$GH_REPO" \
+            | tr -d '\r' | sed -n 's/^github-authentication-token-expiration: //Ip')
+          [ -n "$expires" ] || exit 0
+          days=$(( ($(date -d "$expires" +%s) - $(date +%s)) / 86400 ))
+          echo "The token expires on $expires, in $days days."
+          open=$(gh issue list --label token --state open --json number --jq '.[0].number')
+          if [ "$days" -le 14 ] && [ -z "$open" ]; then
+            gh label create token --color FBCA04 --description "A workflow's token is about to expire" 2>/dev/null || true
+            gh issue create --title "The station edits token expires on ${expires%% *}" --label token --body \
+              "STATION_EDITS_TOKEN expires on $expires. Make a new fine-grained token for this repository (Contents and Pull requests: read and write) and put it in the repository's STATION_EDITS_TOKEN secret. The next run closes this issue."
+          elif [ "$days" -gt 14 ] && [ -n "$open" ]; then
+            gh issue close "$open" --comment "Renewed: the token now expires on $expires."
+          fi
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          token: ${{ secrets.STATION_EDITS_TOKEN }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Fetch the editor's export from wayhop.gr
+        env:
+          KEY: ${{ secrets.STATION_EXPORT_KEY }}
+        run: |
+          curl -fsS --max-time 60 -H "Authorization: Bearer $KEY" https://wayhop.gr/admin/api/export -o "$RUNNER_TEMP/exported.json"
+          node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'))" "$RUNNER_TEMP/exported.json"
+      - name: Open, update or close the pull request
+        env:
+          GH_TOKEN: ${{ secrets.STATION_EDITS_TOKEN }}
+          EXPORTED: ${{ runner.temp }}/exported.json
+        run: |
+          open=$(gh pr list --head station-edits --state open --json number --jq '.[0].number')
+          if cmp -s "$EXPORTED" data/curated/positions.json; then
+            echo "No station edits waiting."
+            [ -z "$open" ] || gh pr close "$open" --delete-branch --comment "Nothing left to commit: the repository has every edit."
+            exit 0
+          fi
+          # Already in the pull request as it is: nothing to push, so its checks don't run again
+          if [ -n "$open" ] && git fetch -q origin station-edits && git show origin/station-edits:data/curated/positions.json | cmp -s - "$EXPORTED"; then
+            echo "Pull request #$open already has these edits."
+            exit 0
+          fi
+          node scripts/station-edits.js data/curated/positions.json "$EXPORTED" > "$RUNNER_TEMP/body.md"
+          cp "$EXPORTED" data/curated/positions.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B station-edits
+          git commit -qm "Station edits from the editor" -- data/curated/positions.json
+          git push -q --force origin station-edits
+          if [ -n "$open" ]; then
+            gh pr edit "$open" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr create --base main --head station-edits --title "Station edits from the editor" --body-file "$RUNNER_TEMP/body.md"
+          fi

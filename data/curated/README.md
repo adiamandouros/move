@@ -20,10 +20,15 @@ are stored on the server in `data/local/positions.json` (not in git) and go
 live within seconds. They work offline too: saves are queued on the phone and
 sent when the connection returns.
 
-To make edits permanent, use **Export** in the editor, replace
+To make edits permanent, merge the pull request **Station edits from the
+editor** and deploy. A GitHub workflow (`.github/workflows/station-edits.yml`)
+opens it each night there are edits the repository doesn't have, keeps it up
+to date and closes it once there are none; it needs `STATION_EXPORT_KEY` on the
+server and in the repository's secrets, with `STATION_EDITS_TOKEN` (the
+workflow says how to make it). By hand: use **Export** in the editor, replace
 `data/curated/positions.json` with the downloaded file, commit and deploy.
-The next build notices the committed file now contains those edits and drops
-them from `data/local/`.
+Either way, the next build notices the committed file now contains those edits
+and drops them from `data/local/`.
 
 ## positions.json — where to stand
 
