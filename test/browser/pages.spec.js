@@ -1,7 +1,7 @@
 // Every page, in both languages, once its scripts have drawn it: in the right
 // language, no axe-core violations (WCAG 2.2 AA), and usable with the keyboard
 // alone, with only the page scrolling. The pages: site-pages.js.
-import { axe, expect, keyboardWalk, test } from './fixtures.js';
+import { axe, expect, keyboardWalk, onlyOn, test } from './fixtures.js';
 import { EVERY_PAGE, READY } from './site-pages.js';
 
 for (const [path, lang, url] of EVERY_PAGE) {
@@ -17,8 +17,10 @@ for (const [path, lang, url] of EVERY_PAGE) {
         expect(window.scroll, 'the window scrolls').toBeLessThanOrEqual(window.height);
 
         // Phones have no keyboard, except that some people use one with them;
-        // WebKit only tabs to links when Safari's setting is on, so it's skipped there
-        if (testInfo.project.name !== 'iphone') {
+        // WebKit only tabs to links when Safari's setting is on, so it's skipped
+        // there. The English pages only: the Greek ones have the same controls
+        // in the same order, and their longer words are the 200% check's
+        if (lang === 'en' && testInfo.project.name !== 'iphone') {
             // (a bus line has three stops per bus stop: the stop, its star, its walking directions)
             const walk = await keyboardWalk(page, { max: 200 });
             expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
@@ -26,9 +28,12 @@ for (const [path, lang, url] of EVERY_PAGE) {
     });
 }
 
-// The same pages in the light mode: the colours are the whole difference, so axe-core is what matters
+// The same pages in the light mode: the colours are the whole difference, so
+// axe-core is what matters. The phone's layout and the desktop's: the iPhone
+// has the phone's, with the same stylesheet
 test.describe('in the light mode', { tag: '@every-page' }, () => {
     test.use({ colorScheme: 'light' });
+    test.beforeEach(onlyOn('phone', 'desktop'));
     for (const [path, lang, url] of EVERY_PAGE) {
         test(`${url}`, async ({ page }) => {
             await page.goto(url);

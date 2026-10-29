@@ -1,8 +1,8 @@
 // Buses without the location (tools/buses/client/main.js): finding a stop by
 // name or code and a line by its number, a stop's live times, a line's stops
-// in order, and what each asks of OASA: searching nothing, a stop or a line
-// only the stops opened. Which names match is tested in Node
-// (bus-search.test.js); here, what a person does.
+// in order, and that searching asks nothing of OASA. Which names match is
+// tested in Node (bus-search.test.js), and what a stop or a line asks for in
+// bus-timing.test.js and bus-trace.spec.js; here, what a person does.
 import { watchRequests } from './bus-requests.js';
 import { axe, expect, keyboardWalk, onlyOn, test } from './fixtures.js';
 
@@ -73,12 +73,9 @@ test.describe('searching', () => {
     });
 });
 
-test('a stop: opened, its live times asked for at once and every 30 s, and the way back', async ({ page }) => {
-    const { asks, run } = await watchRequests(page);
+test('a stop: opened with its live times and its lines, and the way back', async ({ page }) => {
     await page.goto('/buses');
     await search(page).fill('10341');
-    // 10341 is near where the test stands, so it was asked for already: count from here
-    const from = await page.evaluate(() => Date.now());
     await stopLinks(page).first().click();
     await expect(page).toHaveURL(/\/buses\?stop=10341$/);
     const stop = page.locator('[data-stop="10341"]');
@@ -89,22 +86,13 @@ test('a stop: opened, its live times asked for at once and every 30 s, and the w
     // Its lines lead to their stops
     await expect(stop.getByRole('link', { name: '040' })).toHaveAttribute('href', '/buses?line=040');
 
-    await run(95);
-    const times = (await asks()).filter(a => a.code === '10341' && a.at >= from).map(a => a.at);
-    const gaps = times.slice(1).map((t, i) => Math.round((t - times[i]) / 1000));
-    expect(gaps.length, `gaps ${gaps}`).toBeGreaterThanOrEqual(2);
-    for (const gap of gaps) expect(gap).toBeGreaterThanOrEqual(30);
-    // Only that stop: the nearby ones aren't on screen
-    expect(new Set((await asks()).filter(a => a.at > times[0]).map(a => a.code))).toEqual(new Set(['10341']));
-
     await page.getByRole('link', { name: 'Stops near you' }).click();
     await expect(page).toHaveURL(/\/buses$/);
     await expect(page.locator('.stop-item').nth(1)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Stops near you' })).toBeVisible();
 });
 
-test('a line: its stops in order, nearest marked, nothing asked until a stop is opened; the other direction', async ({ page }) => {
-    const { asks, run } = await watchRequests(page);
+test('a line: its stops in order, the nearest marked; the other direction', async ({ page }) => {
     await page.goto('/buses?line=040');
     await expect(page.getByRole('heading', { name: /040/ })).toBeVisible();
     const items = page.locator('.stop-item');
@@ -118,15 +106,6 @@ test('a line: its stops in order, nearest marked, nothing asked until a stop is 
     await expect(nearest).toBeInViewport();
     const metres = await items.locator('.stop-distance').evaluateAll(els => els.map(e => parseFloat(e.textContent.replace(/[^\d.]/g, '')) * (/km/.test(e.textContent) ? 1000 : 1)));
     expect(parseFloat((await nearest.locator('.stop-distance').textContent()).replace(/[^\d.]/g, ''))).toBe(Math.min(...metres));
-    await run(40);
-    expect(await asks(), 'requests before a stop is opened').toEqual([]);
-
-    await items.nth(3).locator('.stop-toggle').click();
-    await run(65);
-    const code = await items.nth(3).getAttribute('data-stop');
-    const asked = await asks();
-    expect(new Set(asked.map(a => a.code))).toEqual(new Set([code]));
-    expect(asked.length).toBeGreaterThanOrEqual(3);
 
     // The other way, named in the page's language
     const back = page.getByRole('button', { name: 'To PEIRAIAS', exact: true });

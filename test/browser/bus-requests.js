@@ -1,5 +1,5 @@
-// What the bus page asks of /api/arrivals, for the bus page's specs
-// (buses.spec.js, bus-search.spec.js)
+// What the bus page asks of /api/arrivals, for the specs that watch it
+// (bus-trace.spec.js, bus-search.spec.js, favourites.spec.js)
 
 // Every /api/arrivals request, stamped with the page's (fake) time when it was
 // sent; recorded in the page, so nothing in flight is missed

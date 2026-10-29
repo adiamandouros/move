@@ -50,7 +50,7 @@ Import `test` and `expect` from `./fixtures.js`. Every test gets:
 - **a fixed clock**: Wednesday 21 October 2026, 12:00 in Athens, running
   from there. `test.use({ now: '2026-10-14T23:55:00+03:00' })` for another
   moment; `page.clock.fastForward()` / `runFor()` to skip ahead (see
-  `buses.spec.js` for minutes of refreshes in a second).
+  `bus-trace.spec.js` for minutes of refreshes in a second).
 - **a fake location**, at Syntagma and allowed.
   `test.use({ location: { permission, answer, at } })` changes it:
   `permission` is what the browser reports (`'granted'`, `'prompt'`,
