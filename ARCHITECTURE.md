@@ -223,7 +223,8 @@ pages use.
   [decision 1](docs/decisions/0001-no-build-step.md)).
 - Logic without the DOM (route finding in `tools/subway/client/network.js`,
   nearest stops in `tools/buses/client/stops.js`, finding a stop or a line in
-  `tools/buses/client/search.js`) is tested in Node. `/js/core/text.js` has
+  `tools/buses/client/search.js`, which stops the bus page asks for in
+  `tools/buses/client/timing.js`) is tested in Node. `/js/core/text.js` has
   `normalise()`, how both searches compare what's typed with names.
 - Trips are worked out in the browser
   ([decision 5](docs/decisions/0005-trips-in-the-browser.md)), but
@@ -264,7 +265,10 @@ version they started with, and it takes over once they're closed
   10 minutes every 30 s, 10–20 minutes every 60 s, later or none every 2
   minutes (an opened stop every 30 s), and counts the minutes down in between.
   A stop or a line opened from the search (`?stop=`, `?line=`) asks only for
-  the stops opened, every 30 s; searching asks OASA nothing.
+  the stops opened, every 30 s; searching asks OASA nothing. These rules are
+  `dueStops` in `timing.js`, given what the page shows as data;
+  `test/browser/bus-trace.spec.js` writes down every request of a scripted
+  visit, second by second, so a change to them shows.
 - `limits.js`: each visitor may ask for 30 stops a minute that aren't cached.
 - `index.js`: `/api/arrivals`, for stops in `bus-stops.json` only.
 - `usage.js`: counts what is asked of OASA and how it answers, each minute

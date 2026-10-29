@@ -6,12 +6,10 @@ import { remember } from '/js/core/remember.js';
 import { decodeStops, distanceMeters, nearestStops } from './stops.js';
 import { findLines, findStops, lineKey } from './search.js';
 import { backLink, distance, favouriteLine, lineHeader, message, nearestNote, patchStop, searchResults, searchStatus, stopItem } from './render.js';
-import { countDown, elapsedMinutes, refreshEvery as refreshFor } from './timing.js';
+import { countDown, dueStops, elapsedMinutes, isIdle } from './timing.js';
 
 // How often the page checks which stops are due, and counts the minutes down
 const TICK_MS = 1_000;
-// Stop polling when nobody has touched the page for this long
-const IDLE_MS = 10 * 60_000;
 // Re-pick the nearby stops after walking this far
 const MOVE_THRESHOLD_M = 40;
 const PAGE_SIZE = 6;
@@ -193,9 +191,6 @@ const listed = () => [...new Map([...state.favouriteStops, ...state.stops].map(s
 const itemsOf = code => [...busView.querySelectorAll(`.stop-item[data-stop="${code}"]`)];
 const isOpen = code => itemsOf(code).some(item => item.querySelector('.stop-toggle[aria-expanded="true"]'));
 
-// How long a stop's answer is good for (timing.js)
-const refreshEvery = code => refreshFor(shown(code), { opened: isOpen(code) });
-
 // Which stops are on screen: only those are refreshed (and asked for at once
 // when they scroll into view)
 const observer = new IntersectionObserver(entries => {
@@ -213,61 +208,60 @@ function observe() {
     busView.querySelectorAll('.stop-item').forEach(item => observer.observe(item));
 }
 
-// Which stops may be asked for. Nearby and starred: those on screen (or
-// hidden by "Hide empty stops", so they come back when a bus is on its way). A stop or a
-// line: only the opened ones, so scrolling down a line asks OASA nothing.
-function eligible(code) {
-    if (state.view.kind !== 'nearby') return isOpen(code);
-    return itemsOf(code).some(item => state.onScreen.has(item) || item.classList.contains('d-none'));
-}
+// A stop on screen, or hidden by "Hide empty stops"
+const watched = code => itemsOf(code).some(item => state.onScreen.has(item) || item.classList.contains('d-none'));
 
-// Ask for the stops that are due: those that may be asked for, past their
-// refresh time. Nothing while a search covers them.
+// Ask for the stops that are due (dueStops in timing.js). Nothing while
+// paused, out of sight, or while a search covers them.
 function poll() {
-    const stops = listed();
-    if (state.paused || document.hidden || !stops.length || busView.hidden) return;
-    for (const stop of stops) {
-        const { code } = stop;
-        if (!eligible(code) || state.asking.has(code)) continue;
-        if (Date.now() - (state.asked[code] ?? 0) >= refreshEvery(code)) ask(stop);
-    }
+    const codes = listed().map(stop => stop.code);
+    if (state.paused || document.hidden || !codes.length || busView.hidden) return;
+    const { asking, asked, fetched, results } = state;
+    const due = dueStops({
+        codes,
+        view: state.view.kind,
+        opened: new Set(codes.filter(isOpen)),
+        watched: new Set(codes.filter(watched)),
+        asking, asked, fetched, results,
+    }, Date.now());
+    for (const code of due) ask(code);
 }
 
 // One request per stop, so each stop shows as soon as its arrivals are in: the
 // server asks OASA for stops it hasn't cached one after another (about 2 a
 // second), so a single request for all of them waited for the slowest.
-async function ask(stop) {
-    state.asking.add(stop.code);
+async function ask(code) {
+    state.asking.add(code);
     try {
-        const res = await fetch(`/api/arrivals?stops=${stop.code}`, { signal: AbortSignal.timeout(20_000) });
+        const res = await fetch(`/api/arrivals?stops=${code}`, { signal: AbortSignal.timeout(20_000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         Object.assign(state.results, (await res.json()).stops);
-        state.fetched[stop.code] = Date.now();
+        state.fetched[code] = Date.now();
     } catch {
         // Offline or server trouble: keep the last answer, counting down from
         // when it came and marked as possibly old; with none, live times are
         // unavailable
-        const last = state.results[stop.code];
+        const last = state.results[code];
         if (last && !last.unavailable) {
-            state.results[stop.code] = { ...last, stale: true };
+            state.results[code] = { ...last, stale: true };
         } else {
-            state.results[stop.code] = { arrivals: [], unavailable: true };
-            state.fetched[stop.code] = Date.now();
+            state.results[code] = { arrivals: [], unavailable: true };
+            state.fetched[code] = Date.now();
         }
     }
-    state.asked[stop.code] = Date.now();
-    state.asking.delete(stop.code);
-    const items = itemsOf(stop.code);
+    state.asked[code] = Date.now();
+    state.asking.delete(code);
+    const items = itemsOf(code);
     if (!items.length) return; // the stops changed meanwhile
-    for (const item of items) patchStop(item, shown(stop.code), { waiting: waiting(stop.code) });
-    state.drawnElapsed[stop.code] = elapsed(stop.code);
+    for (const item of items) patchStop(item, shown(code), { waiting: waiting(code) });
+    state.drawnElapsed[code] = elapsed(code);
     applyFilter();
     renderStatus();
 }
 
 function tick() {
     if (document.hidden || state.paused) return;
-    if (Date.now() - state.lastInteraction > IDLE_MS) {
+    if (isIdle(state.lastInteraction, Date.now())) {
         state.paused = true;
         renderStatus();
         return;

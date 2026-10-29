@@ -7,6 +7,12 @@ export async function watchRequests(page) {
     await page.addInitScript(() => {
         window.__asks = [];
         window.__pending = 0;
+        // When the page's once-a-second check started (main.js, TICK_MS)
+        const every = window.setInterval;
+        window.setInterval = (fn, ms, ...rest) => {
+            if (ms === 1000) window.__tickFrom ??= Date.now();
+            return every(fn, ms, ...rest);
+        };
         const real = window.fetch;
         window.fetch = (url, ...rest) => {
             const match = String(url).match(/\/api\/arrivals\?stops=([\d,]+)/);
@@ -17,11 +23,17 @@ export async function watchRequests(page) {
         };
     });
     // Stops the clock, then moves it on a second at a time, letting each
-    // second's requests finish, so time passes only as the test says
+    // second's requests finish, so time passes only as the test says. The
+    // page's checks then come halfway through each second, so a request
+    // made on one falls in the same second every run.
     let paused = false;
     const run = async seconds => {
         if (!paused) {
-            await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
+            await page.clock.pauseAt(await page.evaluate(() => {
+                const soon = Date.now() + 1000;
+                const from = window.__tickFrom;
+                return from === undefined ? soon : soon + ((from - soon + 500) % 1000 + 1000) % 1000;
+            }));
             paused = true;
         }
         for (let i = 0; i < seconds; i++) {
