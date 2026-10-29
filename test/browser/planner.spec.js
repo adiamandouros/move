@@ -218,6 +218,47 @@ test('a slower option starts closed; opened, it stays open through the refresh, 
     await expect(slower.locator('.result-card').first()).toBeHidden();
 });
 
+test('a leg\'s stops open its stations on the way, by tap or keyboard; open through the refresh, until the stations change', async ({ page }) => {
+    await page.goto('/subway?from=syntagma&to=airport');
+    const toggle = content(page).locator('.leg-stops-toggle').first();
+    const list = content(page).locator('ol.leg-stations').first();
+    await expect(toggle).toHaveAccessibleName('15 stops');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(list).toBeHidden();
+
+    // A tap: Syntagma to the Airport, in order
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(list).toHaveAccessibleName('Stations on the way');
+    const items = list.locator('li');
+    await expect(items).toHaveCount(16);
+    await expect(items.first()).toHaveText(/^Syntagma/);
+    await expect(items.last()).toHaveText(/^Airport/);
+    // The tap target: at least 24 px high (DESIGN.md)
+    expect((await toggle.boundingBox()).height).toBeGreaterThanOrEqual(24);
+    expect(await axe(page)).toEqual([]);
+
+    // The 30-second refresh draws it again: still open, still focused
+    await toggle.focus();
+    await list.evaluate(el => el.setAttribute('data-before-refresh', ''));
+    await page.clock.runFor(30_000);
+    await expect(page.locator('[data-before-refresh]')).toHaveCount(0);
+    await expect(list).toBeVisible();
+    await expect(toggle).toBeFocused();
+
+    // With the keyboard: closed
+    await page.keyboard.press('Enter');
+    await expect(list).toBeHidden();
+    await page.keyboard.press('Space');
+    await expect(list).toBeVisible();
+
+    // Other stations and back: closed again
+    await page.locator('#swap-stations').click();
+    await page.locator('#swap-stations').click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(list).toBeHidden();
+});
+
 test('the signpost walks you to the boarding station, and goes when there is none', async ({ page }) => {
     await page.goto('/subway?from=syntagma&to=airport');
     const walk = page.locator('#walk-btn');

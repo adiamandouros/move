@@ -227,18 +227,21 @@ test('each option\'s line: where to change, when it arrives and how long the who
     assert.match(spoken(draw(greek, TRIPS['a direct trip']).html), /^\s*Χωρίς αλλαγή, Άφιξη περίπου/);
 });
 
+// The stops at the end of a card: a button that opens the leg's stations
+const stopsButton = (count, open = false) => new RegExp(`<button type="button" class="leg-stops-toggle" data-leg="[^"]+" aria-expanded="${open}" aria-controls="stations-[\\w-]+">${count} stops<svg[^]*?</svg></button>`);
+
 test('each card ends with where to get off and how many stops the ride is, on the right, with or without a change', async () => {
     const render = await browserModule('tools/subway/client/render.js', 'en');
     // Syntagma to the Airport: 15 stops on M3, said after where to get off
     const direct = draw(render, TRIPS['a direct trip']);
     const [leg] = direct.trip.plans[0].legs;
     assert.equal(leg.toIndex - leg.fromIndex, 15);
-    assert.match(direct.html, /<span class="leg-ride">15 stops<\/span>/);
+    assert.match(direct.html, new RegExp(`<span class="leg-ride">${stopsButton(15).source}</span>`));
     assert.match(spoken(direct.html).replace(/\s+/g, ' '), /Exit at Airport, 15 stops Doors open on the left/);
-    // At the bottom of the card: after the train, then the Airport's central
-    // platform on a line of its own, under it
+    // At the bottom of the card: after the train, then the stations on the
+    // way (closed), then the Airport's central platform on a line of its own
     assert.match(direct.html, /class="train-diagram"[^]*<div class="leg-action mt-3">/);
-    assert.match(direct.html, /<span class="leg-ride">15 stops<\/span>\s*<\/div>\s*<p class="leg-doors text-center mt-2 mb-0"><span class="tag">[^]*?<\/p>\s*<\/div><\/div>/);
+    assert.match(direct.html, /<\/button><\/span>\s*<\/div>\s*<ol class="leg-stations[^]*?<\/ol>\s*<p class="leg-doors text-center mt-2 mb-0"><span class="tag">[^]*?<\/p>\s*<\/div><\/div>/);
     // One stop: singular, in both languages
     const one = { fromIndex: 4, toIndex: 5 };
     assert.equal(render.stopCount(one), '1 stop');
@@ -250,8 +253,38 @@ test('each card ends with where to get off and how many stops the ride is, on th
     const change = draw(render, TRIPS['a change of line']);
     change.trip.plans.forEach(plan => plan.legs.forEach(leg => {
         const minutes = Math.round((leg.departures[0].arrives - leg.departures[0].departs) / 60);
-        assert.ok(change.html.includes(`<span class="leg-ride"><span aria-hidden="true">${minutes}'</span><span class="sr-only">${minutes} minutes</span> · ${leg.toIndex - leg.fromIndex} stops</span>`));
+        assert.match(change.html, new RegExp(`<span class="leg-ride"><span aria-hidden="true">${minutes}'</span><span class="sr-only">${minutes} minutes</span> · ${stopsButton(leg.toIndex - leg.fromIndex).source}</span>`));
     }));
+});
+
+test('a leg\'s stops open the stations on the way: in order, from boarding to getting off, linked, with the other lines where they meet', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    // Kifisia to Aigaleo: M1 to Omonia or Monastiraki, then on
+    const { trip, html } = draw(render, TRIPS['a change of line']);
+    const lists = [...html.matchAll(/<ol class="leg-stations strip-(m\d)" id="([\w-]+)" aria-label="Stations on the way" hidden>([^]*?)<\/ol>/g)];
+    const legs = trip.plans.flatMap(plan => plan.legs);
+    assert.equal(lists.length, legs.length, 'one closed list per leg');
+    lists.forEach(([, strip, id, items], i) => {
+        const leg = legs[i];
+        assert.equal(strip, leg.line.toLowerCase());
+        // Its button points at it
+        assert.ok(html.includes(`aria-controls="${id}"`));
+        const stations = [...items.matchAll(/<li><a href="\/subway\/stations\/([\w-]+)">/g)].map(m => m[1]);
+        assert.equal(stations.length, leg.toIndex - leg.fromIndex + 1, 'the stops, and where it boards');
+        assert.equal(stations[0], leg.from);
+        assert.equal(stations.at(-1), leg.to);
+        assert.deepEqual(stations, rail.lines[leg.line].directions[leg.dir].stops.slice(leg.fromIndex, leg.toIndex + 1).map(s => s.station));
+    });
+    // Where it meets another line, that line's pill, not the leg's own
+    const [first] = lists;
+    assert.match(first[3], /<li><a href="\/subway\/stations\/attiki">Attiki<\/a> <span class="line-pill pill-s line-m2">M2<\/span><\/li>/);
+    assert.doesNotMatch(first[3], /line-m1/);
+    // Opened by the user (legKey), it stays open through the refresh
+    const key = render.legKey(trip.plans[0], 0);
+    const again = String(render.renderResult(rail, trip.plans, trip.now, { expired: false, stations: { [key]: true } }));
+    assert.match(again, stopsButton(legs[0].toIndex - legs[0].fromIndex, true));
+    assert.match(again, /<ol class="leg-stations strip-m1" id="[\w-]+" aria-label="Stations on the way">/);
+    assert.equal((again.match(/aria-expanded="true"/g) ?? []).length, 1, 'only that one');
 });
 
 test('an option no train makes tonight is timed on tomorrow\'s first trains', async () => {

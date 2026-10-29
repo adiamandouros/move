@@ -6,11 +6,12 @@
 
 export const attr = (tag, name) => tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1];
 
-// Text a screen reader would read: tags removed, aria-hidden parts dropped.
+// Text a screen reader would read: tags removed, aria-hidden and hidden parts dropped.
 // Each check takes HTML as a string or built with html``.
 export function spoken(fragment) {
     return String(fragment)
         .replace(/<(\w+)[^>]*aria-hidden="true"[^>]*>[\s\S]*?<\/\1>/g, '')
+        .replace(/<(\w+)\b[^>]*\shidden(?=[\s>])[^>]*>[\s\S]*?<\/\1>/g, '')
         .replace(/<[^>]+>/g, '')
         .replace(/&(amp|lt|gt|quot|#39);/g, (_, name) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" })[name])
         .replace(/&\w+;/g, ' ')
