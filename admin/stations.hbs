@@ -95,6 +95,19 @@
 
         <div id="transfers"></div>
 
+        <fieldset>
+            <legend>Way to the other side</legend>
+            <p class="entry-state">Where to stand for the footbridge or underpass across the tracks, at a station that has one.</p>
+            <div class="car-toggles" data-field="crossing"></div>
+            <label for="crossing-via" class="form-label mt-2">Over or under</label>
+            <select id="crossing-via" class="form-select mb-2">
+                <option value="">Not recorded</option>
+                <option value="bridge">A footbridge</option>
+                <option value="underpass">An underpass</option>
+            </select>
+            <div id="crossing-way"></div>
+        </fieldset>
+
         <label for="note" class="form-label">Note</label>
         <textarea id="note" class="form-control mb-3" rows="2" maxlength="500"></textarea>
 

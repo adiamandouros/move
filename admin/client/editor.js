@@ -13,7 +13,7 @@ const RETRY_MS = 30_000;
 
 const $ = id => document.getElementById(id);
 const POSITION_LABELS = { 'back': 'Back', 'center-back': 'Near back', 'center': 'Center', 'center-front': 'Near front', 'front': 'Front' };
-const WAY_LABELS = { 'stairs': 'Stairs', 'escalator-up': 'Escalator up', 'escalator-down': 'Escalator down' };
+const WAY_LABELS = { 'stairs': 'Stairs', 'escalator-up': 'Escalator up', 'escalator-down': 'Escalator down', 'lift': 'Elevator', 'ramp': 'Ramp' };
 
 let state = null;
 let selection = { line: null, dir: null, station: null };
@@ -21,6 +21,8 @@ let syncing = false;
 let elevatorRows = null;
 let exitRows = null;
 let streetLiftRows = null;
+// The ticked ways to the other side
+let crossingWay = () => [];
 // The form as it was drawn, for each part, so Save sends only what changed
 let shown = new Map();
 
@@ -281,6 +283,13 @@ function renderForm() {
     }
     $('transfers').replaceChildren(...rows);
 
+    // The way to the other side (an older copy of the data has no ways for it)
+    const crossing = entry.crossing ?? {};
+    carToggles(document.querySelector('[data-field="crossing"]'), 'crossing', crossing.at ?? []);
+    $('crossing-via').value = crossing.via ?? '';
+    $('crossing-way').replaceChildren();
+    crossingWay = checks($('crossing-way'), 'How it\'s reached from this platform', (state.crossingWays ?? []).map(w => [w, WAY_LABELS[w] ?? w]), crossing.way ?? []);
+
     // The whole station
     $('street-part').hidden = !state.street;
     const station = stationRef(ref.station);
@@ -298,6 +307,7 @@ function readPlatform() {
         if (list.length) transfers[el.dataset.field.slice('transfer:'.length)] = list;
     });
     const known = elevatorsKnown();
+    const crossing = { at: pressed(document.querySelector('[data-field="crossing"]')), via: $('crossing-via').value, way: crossingWay() };
     return {
         exits: pressed(document.querySelector('[data-field="exits"]')),
         // Left out while not known
@@ -309,6 +319,8 @@ function readPlatform() {
         // '' (not known yet) is left out
         ...($('step-free').value && { stepFree: $('step-free').value }),
         transfers,
+        // Left out until any of it is known
+        ...((crossing.at.length || crossing.via || crossing.way.length) && { crossing }),
         note: $('note').value.trim(),
     };
 }

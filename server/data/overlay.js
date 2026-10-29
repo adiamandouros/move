@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { writeFileAtomic } from '../files.js';
 import { formatJson } from './format.js';
-import { EXIT_WAYS, NO_ELEVATOR, POSITIONS, STEP_FREE } from './validate.js';
+import { CROSSING_VIA, CROSSING_WAYS, EXIT_WAYS, NO_ELEVATOR, POSITIONS, STEP_FREE } from './validate.js';
 
 // Station edits made in the admin editor live in gitignored overlay files
 // beside the committed ones, with the same shape, holding only the edited
@@ -116,8 +116,21 @@ export function tidyEntry(entry) {
         .filter(([, list]) => list?.length)
         .sort(([a], [b]) => a.localeCompare(b));
     if (transfers.length) out.transfers = Object.fromEntries(transfers.map(([k, v]) => [k, order(v)]));
+    const crossing = tidyCrossing(entry.crossing);
+    if (crossing) out.crossing = crossing;
     if (typeof entry.note === 'string' && entry.note.trim()) out.note = entry.note.trim();
     return out;
+}
+
+// The way to the other side: where to stand for it, back to front, what it
+// is and how it's reached, each in its own order; left out with none of them
+function tidyCrossing(crossing) {
+    if (typeof crossing !== 'object' || crossing === null) return undefined;
+    const at = order(crossing.at);
+    const way = CROSSING_WAYS.filter(w => Array.isArray(crossing.way) && crossing.way.includes(w));
+    const via = CROSSING_VIA.includes(crossing.via) ? crossing.via : undefined;
+    const out = { ...(at.length && { at }), ...(via && { via }), ...(way.length && { way }) };
+    return Object.keys(out).length ? out : undefined;
 }
 
 const byPosition = (a, b) => POSITIONS.indexOf(a) - POSITIONS.indexOf(b);

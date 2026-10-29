@@ -38,6 +38,17 @@ test('elevators: "none", or each with where it is and its name, back to front; a
     assert.ok(!sameEntry({ exits: [] }, { exits: [], elevators: 'none' }));
 });
 
+test('the way to the other side: positions back to front, ways in their order, what isn\'t known left out', () => {
+    assert.deepEqual(
+        tidyEntry({ exits: [], crossing: { at: ['front', 'back', 'front'], via: 'bridge', way: ['lift', 'stairs', 'ladder'] } }),
+        { exits: [], crossing: { at: ['back', 'front'], via: 'bridge', way: ['stairs', 'lift'] } },
+    );
+    assert.deepEqual(tidyEntry({ exits: [], crossing: { at: [], via: '', way: [] } }), { exits: [] });
+    assert.deepEqual(tidyEntry({ exits: [], crossing: { via: 'underpass' } }), { exits: [], crossing: { via: 'underpass' } });
+    // In its place among the fields: after the transfers, before the note
+    assert.deepEqual(Object.keys(tidyEntry({ note: 'x', crossing: { at: ['front'] }, transfers: { 'M3/x': ['back'] }, exits: [] })), ['exits', 'transfers', 'crossing', 'note']);
+});
+
 test('an overlay saved before elevators had names reads as it would be saved now', () => {
     const file = join(mkdtempSync(join(tmpdir(), 'overlay-')), 'positions.json');
     writeFileSync(file, JSON.stringify({ M1: { kifisia: { faliro: { exits: ['center'], elevators: ['center'] }, moschato: { exits: ['back'], elevators: [] } } } }));

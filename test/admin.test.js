@@ -177,6 +177,9 @@ test('elevators: STASY\'s names come with the data; one saved as the editor did 
     assert.deepEqual((await (await put({ exits: ['back'], elevators: ['front'] })).json()).entry, { exits: ['back'], elevators: [{ at: 'front' }] });
     assert.deepEqual((await (await put({ exits: ['back'], elevators: [] })).json()).entry, { exits: ['back'] });
     assert.deepEqual((await (await put({ exits: ['back'], elevators: 'none' })).json()).entry, { exits: ['back'], elevators: 'none' });
+    // The way to the other side, tidied like the rest
+    const crossing = await (await put({ exits: ['back'], crossing: { at: ['front', 'back'], via: 'bridge', way: ['escalator-up', 'stairs'] } })).json();
+    assert.deepEqual(crossing.entry, { exits: ['back'], crossing: { at: ['back', 'front'], via: 'bridge', way: ['stairs', 'escalator-up'] } });
     const named = await (await put({ exits: ['back'], elevators: [{ at: 'front', name: 'Προς Κηφισιά' }] })).json();
     assert.deepEqual(named.entry.elevators, [{ at: 'front', name: 'Προς Κηφισιά' }]);
     assert.deepEqual(JSON.parse(readFileSync(overlayFile, 'utf8')).M1.kifisia.moschato.elevators, [{ at: 'front', name: 'Προς Κηφισιά' }]);
@@ -193,6 +196,7 @@ test('a station\'s exits and elevators on the street: saved to street.json\'s ov
     assert.deepEqual(state.street, { committed: JSON.parse(readFileSync(new URL('../data/curated/street.json', import.meta.url), 'utf8')), overlay: {} });
     // What the editor offers and checks, as the server does
     assert.deepEqual(state.exitWays, ['stairs', 'escalator-up', 'escalator-down']);
+    assert.deepEqual(state.crossingWays, ['stairs', 'escalator-up', 'escalator-down', 'lift', 'ramp']);
     assert.deepEqual(Object.keys(state.bounds), ['lat', 'lng']);
 
     const put = (station, entry) => api(`/street/${station}`, cookie, {

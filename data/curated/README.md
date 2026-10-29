@@ -48,6 +48,7 @@ Ordered by line → direction → station in travel order, one station per line:
 | `centralPlatform` | `true` if the platform is between the tracks (exit on the left). Optional. |
 | `stepFree` | How this platform (the one for this direction) is reached from the street without a single step: `"lift"`, `"ramp"`, `"level"`, `"yes"` (step-free, how not recorded) or `"no"`. Left out: not known yet. A surface station needs a ramp or a level path, never a lift. Optional. |
 | `transfers` | Cars closest to the way to another line, keyed `"LINE/direction"` (see lines.json). Optional. |
+| `crossing` | The way to the other side of the tracks, at a station that has one (an M1 surface station's footbridge or underpass): `at`, the cars closest to it; `via`, `"bridge"` or `"underpass"`; `way`, how it's reached from this platform, any of `stairs`, `escalator-up`, `escalator-down`, `lift` and `ramp`. Each may be left out while not known. Optional; not shown on the site yet. |
 | `note` | Free text shown under the diagram. Optional. |
 
 Positions, from the back of the train to the front:

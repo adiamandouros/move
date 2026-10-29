@@ -85,6 +85,23 @@ test('street.json: each station\'s exits and elevators on the street, by name an
     ]);
 });
 
+test('the way to the other side: where to stand, over or under, how it\'s reached, each while the others aren\'t known', () => {
+    const c = real();
+    c.positions.M1.kifisia.moschato = { exits: ['back'], crossing: { at: ['front'], via: 'bridge', way: ['stairs', 'escalator-up', 'lift', 'ramp'] } };
+    c.positions.M1.piraeus.moschato = { exits: ['front'], crossing: { via: 'underpass' } };
+    assert.deepEqual(validateCurated(c).errors, []);
+
+    c.positions.M1.kifisia.moschato = { exits: ['back'], crossing: { at: ['top'], via: 'tunnel', way: ['ladder'], side: 'east' } };
+    c.positions.M1.piraeus.moschato = { exits: ['front'], crossing: ['front'] };
+    assert.deepEqual(validateCurated(c).errors, [
+        'positions.json: M1/kifisia/moschato.crossing: unknown field "side"',
+        'positions.json: M1/kifisia/moschato.crossing.at: unknown position "top" (use back, center-back, center, center-front, front)',
+        'positions.json: M1/kifisia/moschato.crossing.via must be one of bridge, underpass',
+        'positions.json: M1/kifisia/moschato.crossing.way must be a list of stairs, escalator-up, escalator-down, lift, ramp',
+        'positions.json: M1/piraeus/moschato.crossing must be { "at": [positions], "via": …, "way": […] }',
+    ]);
+});
+
 test('step-free access is one of its values, or left out (not known yet)', () => {
     const c = real();
     c.positions.M1.kifisia.faliro = { exits: ['center'], stepFree: 'stairs' };
