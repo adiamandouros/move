@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { applyOverlay, pruneOverlay, readOverlay, removeEntry, sameEntry, setEntry, tidyEntry } from '../server/data/overlay.js';
+import { formatJson } from '../server/data/format.js';
+import { EDITED, applyOverlay, pruneOverlay, readOverlay, removeEntry, sameEntry, setEntry, tidyEntry, tidyStreet } from '../server/data/overlay.js';
 
 const positions = {
     M1: { kifisia: { faliro: { exits: ['center-back', 'center'] }, moschato: { exits: [] } } },
@@ -64,4 +65,64 @@ test('pruneOverlay removes entries the committed data now matches', () => {
     const { overlay: left, pruned } = pruneOverlay(positions, overlay);
     assert.deepEqual(pruned, ['M1/kifisia/faliro']);
     assert.deepEqual(left, { M1: { kifisia: { moschato: { exits: ['front'] } } } });
+});
+
+// ── street.json: one entry per station ──────────────────────────────────────
+
+test('a station\'s street entry: names trimmed, places to about 1 m, ways in their order; empty rows and fields left out', () => {
+    assert.deepEqual(tidyStreet({
+        lifts: [{ name: ' Εξωτερικός ', coords: [37.975481234, 23.735019876] }, { name: '', coords: null }],
+        exits: [
+            { name: { el: ' Βουλή ', en: '' }, coords: [37.97552, 23.73481], way: ['escalator-up', 'stairs', 'stairs'] },
+            { name: { el: '', en: '' }, way: ['stairs'] },
+            { name: { el: '', en: 'Parliament' } },
+        ],
+        junk: 1,
+    }), {
+        exits: [
+            { name: { el: 'Βουλή' }, coords: [37.97552, 23.73481], way: ['stairs', 'escalator-up'] },
+            { name: { en: 'Parliament' } },
+        ],
+        lifts: [{ name: 'Εξωτερικός', coords: [37.97548, 23.73502] }],
+    });
+    assert.deepEqual(tidyStreet({ exits: [], lifts: [] }), {});
+    // A place that isn't one stays as it is, for the checks to refuse
+    assert.deepEqual(tidyStreet({ lifts: [{ name: 'x', coords: [1] }] }), { lifts: [{ name: 'x', coords: [1] }] });
+});
+
+test('street edits: set, applied, removed; nothing recorded is the same as no entry', () => {
+    const kind = EDITED.street;
+    const committed = { syntagma: { exits: [{ name: { el: 'Βουλή' } }] } };
+    const ref = { station: 'omonia' };
+    const overlay = setEntry({}, ref, { lifts: [{ name: 'Εξωτερικός' }] }, kind);
+    assert.deepEqual(overlay, { omonia: { lifts: [{ name: 'Εξωτερικός' }] } });
+    assert.deepEqual(Object.keys(applyOverlay(committed, overlay, kind)), ['syntagma', 'omonia']);
+    assert.deepEqual(removeEntry(overlay, ref, kind), {});
+
+    // Everything removed from a station: no entry left in the data
+    const cleared = setEntry({}, { station: 'syntagma' }, {}, kind);
+    assert.deepEqual(applyOverlay(committed, cleared, kind), {});
+    assert.ok(sameEntry(undefined, {}, kind));
+    assert.ok(!sameEntry(undefined, {}), 'positions.json: a platform with no entry has none');
+
+    const { overlay: left, pruned } = pruneOverlay(committed, { syntagma: { exits: [{ name: { el: ' Βουλή ' } }] }, ...overlay }, kind);
+    assert.deepEqual(pruned, ['syntagma']);
+    assert.deepEqual(left, overlay);
+});
+
+test('a street overlay is read tidied, and written with each exit on its own line', () => {
+    const file = join(mkdtempSync(join(tmpdir(), 'overlay-')), 'street.json');
+    writeFileSync(file, JSON.stringify({ syntagma: { exits: [{ name: { el: ' Βουλή ' }, coords: [37.975521, 23.734809] }, { name: { el: 'Αμαλίας' } }] } }));
+    const overlay = readOverlay(file, EDITED.street);
+    assert.deepEqual(overlay, { syntagma: { exits: [{ name: { el: 'Βουλή' }, coords: [37.97552, 23.73481] }, { name: { el: 'Αμαλίας' } }] } });
+    assert.equal(formatJson(overlay, 3), [
+        '{',
+        '  "syntagma": {',
+        '    "exits": [',
+        '      { "name": { "el": "Βουλή" }, "coords": [37.97552, 23.73481] },',
+        '      { "name": { "el": "Αμαλίας" } }',
+        '    ]',
+        '  }',
+        '}',
+    ].join('\n'));
 });

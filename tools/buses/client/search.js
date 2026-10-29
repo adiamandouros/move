@@ -1,5 +1,5 @@
+import { distanceMeters } from '/js/core/geo.js';
 import { normalise } from '/js/core/text.js';
-import { distanceMeters } from './stops.js';
 
 // Finding a stop by its name or code, and a line by its number, in our own
 // data (bus-stops.json, bus-lines.json): nothing is asked of OASA. No DOM

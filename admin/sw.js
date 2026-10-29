@@ -23,9 +23,9 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
     const url = new URL(e.request.url);
     if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;
-    // Login, the export download and diagnostics always need the server (an old
-    // diagnostics result shown from the cache would be misleading)
-    if (['/admin/login', '/admin/api/export', '/admin/api/diagnostics'].includes(url.pathname)) return;
+    // Login, the exports and diagnostics always need the server (an old copy
+    // from the cache would be misleading)
+    if (['/admin/login', '/admin/api/diagnostics'].includes(url.pathname) || url.pathname.startsWith('/admin/api/export')) return;
 
     e.respondWith(networkFirst(e.request, url));
 });

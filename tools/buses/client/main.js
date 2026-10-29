@@ -1,9 +1,10 @@
 import { lastPosition, locationPermission, onLocation, onLocationProblem, restartLocation, startLocation } from '/js/core/location.js';
 import { favourites } from '/js/core/favourites.js';
+import { distanceMeters } from '/js/core/geo.js';
 import { announce, format, html, icon, notice, setHtml } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
 import { remember } from '/js/core/remember.js';
-import { decodeStops, distanceMeters, nearestStops } from './stops.js';
+import { decodeStops, nearestStops } from './stops.js';
 import { findLines, findStops, lineKey } from './search.js';
 import { backLink, distance, favouriteLine, lineHeader, message, nearestNote, patchStop, searchResults, searchStatus, stopItem } from './render.js';
 import { countDown, dueStops, elapsedMinutes, isIdle } from './timing.js';

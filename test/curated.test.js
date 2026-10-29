@@ -4,7 +4,7 @@ import { readFileSync } from 'fs';
 import { validateCurated } from '../server/data/validate.js';
 
 const load = name => JSON.parse(readFileSync(new URL(`../data/curated/${name}.json`, import.meta.url), 'utf8'));
-const real = () => ({ stations: load('stations'), lines: load('lines'), positions: load('positions'), airport: load('airport'), tram: load('tram') });
+const real = () => ({ stations: load('stations'), lines: load('lines'), positions: load('positions'), airport: load('airport'), tram: load('tram'), street: load('street') });
 
 test('the committed curated files are valid', () => {
     const { errors } = validateCurated(real());
@@ -45,6 +45,43 @@ test('elevators: "none", or each with where it is and, once known, its name', ()
         'positions.json: M1/kifisia/faliro.elevators[1].at: unknown position "top" (use back, center-back, center, center-front, front)',
         'positions.json: M1/kifisia/faliro.elevators[2].name must be text',
         'positions.json: M1/kifisia/moschato.elevators must be "none" or a list of elevators',
+    ]);
+});
+
+test('street.json: each station\'s exits and elevators on the street, by name and where they are, either while the other isn\'t known', () => {
+    const c = real();
+    c.street = {
+        syntagma: {
+            exits: [
+                { name: { el: 'Πλατεία Συντάγματος', en: 'Syntagma Square' }, coords: [37.97552, 23.73481], way: ['stairs', 'escalator-up'] },
+                { name: { el: 'Βουλή' } },
+                { name: { en: 'Parliament' }, coords: [37.9754, 23.7357] },
+            ],
+            lifts: [{ name: 'Εξωτερικός Πλατεία Συντάγματος', coords: [37.97548, 23.73502] }, { name: 'Προς Αποβάθρες' }],
+        },
+    };
+    assert.deepEqual(validateCurated(c).errors, []);
+
+    c.street = {
+        nowhere: { exits: [] },
+        omonia: {
+            exits: [{ way: ['stairs'] }, { name: { el: ' ' }, coords: [23.73, 37.97] }, { coords: [37.97, 23.73], way: ['lift'], gate: 3 }],
+            lifts: [{}, { name: 'Εξωτερικός', coords: [37.98] }],
+            note: 'x',
+        },
+        monastiraki: { exits: {} },
+    };
+    assert.deepEqual(validateCurated(c).errors, [
+        'street.json: nowhere: unknown station',
+        'street.json: omonia: unknown field "note"',
+        'street.json: omonia.exits[0] needs its name or where it is',
+        'street.json: omonia.exits[1].name must be { "el": …, "en": … }, either one while the other isn\'t known',
+        'street.json: omonia.exits[1].coords must be [latitude, longitude] around Athens, like [37.97552, 23.73481]',
+        'street.json: omonia.exits[2]: unknown field "gate"',
+        'street.json: omonia.exits[2].way must be a list of stairs, escalator-up, escalator-down',
+        'street.json: omonia.lifts[0] needs its name or where it is',
+        'street.json: omonia.lifts[1].coords must be [latitude, longitude] around Athens, like [37.97552, 23.73481]',
+        'street.json: monastiraki.exits must be a list',
     ]);
 });
 

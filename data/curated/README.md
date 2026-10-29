@@ -15,9 +15,9 @@ These files are under CC BY-SA 4.0, not the code's license: see
 ## Editing on the go: /admin/stations
 
 Set `ADMIN_PASSWORD` in `.env` to enable a private, phone-friendly editor for
-positions.json at `/admin/stations` (it's a 404 without the password). Edits
-are stored on the server in `data/local/positions.json` (not in git) and go
-live within seconds. They work offline too: saves are queued on the phone and
+positions.json and street.json at `/admin/stations` (it's a 404 without the
+password). Edits are stored on the server in `data/local/positions.json` and
+`data/local/street.json` (not in git) and go live within seconds. They work offline too: saves are queued on the phone and
 sent when the connection returns.
 
 To make edits permanent, merge the pull request **Station edits from the
@@ -26,7 +26,8 @@ opens it each night there are edits the repository doesn't have, keeps it up
 to date and closes it once there are none; it needs `STATION_EXPORT_KEY` on the
 server and in the repository's secrets, with `STATION_EDITS_TOKEN` (the
 workflow says how to make it). By hand: use **Export** in the editor, replace
-`data/curated/positions.json` with the downloaded file, commit and deploy.
+`data/curated/positions.json` and `street.json` with the downloaded files,
+commit and deploy.
 Either way, the next build notices the committed file now contains those edits
 and drops them from `data/local/`.
 
@@ -51,6 +52,35 @@ Ordered by line → direction → station in travel order, one station per line:
 
 Positions, from the back of the train to the front:
 `back`, `center-back`, `center`, `center-front`, `front`.
+
+## street.json — a station's exits and elevators on the street
+
+One entry per station (its id as in stations.json), the same whichever line
+and direction it's seen from, each exit on a line of its own:
+
+```json
+"syntagma": {
+  "exits": [
+    { "name": { "el": "Πλατεία Συντάγματος", "en": "Syntagma Square" }, "coords": [37.97552, 23.73481], "way": ["stairs", "escalator-up"] }
+  ],
+  "lifts": [
+    { "name": "Εξωτερικός Πλατεία Συντάγματος", "coords": [37.97548, 23.73502] }
+  ]
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `exits` | Its exits to the street. Each has `name` (as the signs inside write it: `el`, and `en` when they say it in English too) and `coords`, or one of them while the other isn't known yet, and `way`: how it's reached from inside, any of `stairs`, `escalator-up` (toward the street) and `escalator-down`. |
+| `lifts` | Its elevators that come out on the street. Each has `name` (as [STASY's lift page](https://www.stasy.gr/elevators/) writes it, like the platforms' elevators in positions.json) and `coords`, or one of them while the other isn't known yet. One that goes from a platform straight to the street is in both files under the same name. |
+
+`coords` are `[latitude, longitude]`, to 5 decimals (about 1 m), around Athens
+(`ATHENS` in `server/data/validate.js`). The editor takes them from the
+phone's location ("Here") or as written, like a map copies them, and says how
+far each is from the station. A station without an entry has nothing
+recorded yet; the editor marks it, an exit missing its Greek name, its place
+or how it's reached, an elevator missing its name or place, and STASY's lifts
+recorded nowhere at the station yet.
 
 ## stations.json — stations and their GTFS platforms
 

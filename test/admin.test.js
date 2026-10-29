@@ -38,6 +38,7 @@ test('the limiter blocks after repeated failures and forgets them later', () => 
 const PASSWORD = 'test-password';
 let server;
 let base;
+let overlayDir;
 let overlayFile;
 let rebuilds = 0;
 
@@ -52,12 +53,12 @@ const rail = {
 };
 
 before(async () => {
-    overlayFile = join(mkdtempSync(join(tmpdir(), 'move-admin-')), 'positions.json');
+    overlayDir = mkdtempSync(join(tmpdir(), 'move-admin-'));
+    overlayFile = join(overlayDir, 'positions.json');
     const app = express();
     app.use('/admin', createAdmin({
         password: PASSWORD,
-        overlayFile,
-        loadCurated: () => loadCurated({ overlayFile }),
+        loadCurated: () => loadCurated({ overlayDir }),
         loadRail: () => rail,
         rebuild: () => { rebuilds++; },
         render: ({ content }) => content,
@@ -186,6 +187,45 @@ test('elevators: STASY\'s names come with the data; one saved as the editor did 
     await api('/positions/M1/kifisia/moschato', cookie, { method: 'DELETE' });
 });
 
+test('a station\'s exits and elevators on the street: saved to street.json\'s overlay, reverted, exported, each exit on its line', async () => {
+    const { cookie } = await login();
+    const state = await (await api('/state', cookie)).json();
+    assert.deepEqual(state.street, { committed: JSON.parse(readFileSync(new URL('../data/curated/street.json', import.meta.url), 'utf8')), overlay: {} });
+    // What the editor offers and checks, as the server does
+    assert.deepEqual(state.exitWays, ['stairs', 'escalator-up', 'escalator-down']);
+    assert.deepEqual(Object.keys(state.bounds), ['lat', 'lng']);
+
+    const put = (station, entry) => api(`/street/${station}`, cookie, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entry }),
+    });
+    const streetFile = join(overlayDir, 'street.json');
+    const before = rebuilds;
+    const saved = await put('monastiraki', { exits: [{ name: { el: ' Αθηνάς ', en: '' }, coords: [37.976012345, 23.725654321], way: ['stairs'] }], lifts: [{ name: '', coords: null }] });
+    assert.deepEqual(await saved.json(), { entry: { exits: [{ name: { el: 'Αθηνάς' }, coords: [37.97601, 23.72565], way: ['stairs'] }] }, edited: true });
+    assert.deepEqual(JSON.parse(readFileSync(streetFile, 'utf8')), { monastiraki: { exits: [{ name: { el: 'Αθηνάς' }, coords: [37.97601, 23.72565], way: ['stairs'] }] } });
+    assert.equal(rebuilds, before + 1);
+    assert.deepEqual((await (await api('/state', cookie)).json()).street.overlay.monastiraki.exits[0].name, { el: 'Αθηνάς' });
+
+    // Ready to commit, one exit per line; positions.json is still at its own address
+    const exported = await (await api('/export/street.json', cookie)).text();
+    assert.match(exported, /^ {4}"exits": \[\n {6}\{ "name": \{ "el": "Αθηνάς" \}, "coords": \[37\.97601, 23\.72565\], "way": \["stairs"\] \}\n {4}\]$/m);
+    assert.equal(await (await api('/export/positions.json', cookie)).text(), await (await api('/export', cookie)).text());
+    assert.equal((await api('/export/stations.json', cookie)).status, 404);
+
+    // A place that isn't around Athens is refused; a station that isn't one is a 404
+    const swapped = await put('monastiraki', { exits: [{ coords: [23.72565, 37.97601] }] });
+    assert.equal(swapped.status, 400);
+    assert.match((await swapped.json()).details.join(), /monastiraki\.exits\[0\]\.coords must be \[latitude, longitude\] around Athens/);
+    for (const station of ['nowhere', 'constructor']) assert.equal((await put(station, { exits: [] })).status, 404, station);
+
+    // Saving nothing for a station with nothing committed, or reverting, removes the edit
+    assert.deepEqual(await (await put('monastiraki', { exits: [], lifts: [] })).json(), { entry: {}, edited: false });
+    await put('monastiraki', { lifts: [{ name: 'Εξωτερικός Αθηνάς' }] });
+    const reverted = await api('/street/monastiraki', cookie, { method: 'DELETE' });
+    assert.deepEqual(await reverted.json(), { entry: null, edited: false });
+    assert.deepEqual(JSON.parse(readFileSync(streetFile, 'utf8')), {});
+});
+
 test('the use of OASA, with a session: nothing counted yet when the app gives no days', async () => {
     const { cookie } = await login();
     const res = await fetch(`${base}/usage`, { headers: { Cookie: cookie } });
@@ -198,7 +238,7 @@ test('the use of OASA, with a session: nothing counted yet when the app gives no
 test('the export key reads the export without a session, and opens nothing else', async () => {
     const KEY = 'k'.repeat(40);
     const app = express();
-    const options = { password: PASSWORD, overlayFile, loadCurated: () => loadCurated({ overlayFile }), loadRail: () => rail, rebuild() {}, render: ({ content }) => content };
+    const options = { password: PASSWORD, loadCurated: () => loadCurated({ overlayDir }), loadRail: () => rail, rebuild() {}, render: ({ content }) => content };
     app.use('/admin', createAdmin({ ...options, exportKey: KEY }));
     // An editor without a key: no header opens its export
     app.use('/keyless/admin', createAdmin(options));
@@ -206,6 +246,7 @@ test('the export key reads the export without a session, and opens nothing else'
     after(() => keyed.close());
     const get = (path, key) => fetch(keyed.url + path, key === undefined ? {} : { headers: { Authorization: `Bearer ${key}` } });
 
+    assert.equal((await get('/admin/api/export/street.json', KEY)).status, 200);
     const res = await get('/admin/api/export', KEY);
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('cache-control'), 'no-store');

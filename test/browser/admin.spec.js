@@ -78,6 +78,11 @@ test('the station editor is accessible too', async ({ page }) => {
     await expect(page).toHaveURL(/\/admin\/stations$/);
     await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
     expect(await axe(page)).toEqual([]);
+    // Export: the two files the editor edits, each ready to commit
+    await page.getByText('Export', { exact: true }).click();
+    await expect(page.getByRole('link', { name: 'positions.json' })).toHaveAttribute('href', '/admin/api/export/positions.json');
+    await expect(page.getByRole('link', { name: 'street.json' })).toHaveAttribute('href', '/admin/api/export/street.json');
+    expect(await axe(page)).toEqual([]);
 });
 
 test('the station editor records how each exit is reached: escalators up and stairs', async ({ page }) => {
@@ -102,45 +107,65 @@ test('the station editor records how each exit is reached: escalators up and sta
 });
 
 test('the station editor records whether a platform is step-free, and "not known yet" saves nothing', async ({ page }) => {
-    const saved = [];
-    await page.route('**/admin/api/positions/**', route => {
-        saved.push(route.request().postDataJSON());
-        return route.fulfill({ json: { entry: route.request().postDataJSON().entry, edited: true } });
-    });
+    const saved = await fakeSaves(page);
     await page.goto('/admin/login');
     await page.getByLabel('Password').fill(ADMIN_TEST_PASSWORD);
     await page.getByRole('button', { name: 'Log in' }).click();
     const field = page.getByLabel('Step-free from the street (this platform)');
+    // (synced once the form says it's an edit again)
+    const synced = page.locator('#entry-state[data-state="edited"]');
     await field.selectOption('ramp');
     await page.getByRole('button', { name: 'Save' }).click();
     await expect.poll(() => saved.length).toBe(1);
+    await expect(synced).toBeVisible();
     expect(saved[0].entry.stepFree).toBe('ramp');
 
     await field.selectOption('');
     await page.getByRole('button', { name: 'Save' }).click();
     await expect.poll(() => saved.length).toBe(2);
+    await expect(synced).toBeVisible();
     expect(saved[1].entry).not.toHaveProperty('stepFree');
 });
 
-// Saves answered as the server would, without writing its files: each is
-// recorded, and the station data the editor fetches after it includes it,
-// as an edit. While `online()` is false, saves fail as with no connection.
+// Saves and reverts answered as the server would, without writing its
+// files: each is recorded, { kind: 'positions' or 'street', ref, entry }
+// (null: reverted), and the station data the editor fetches after it has
+// the edits. While `online()` is false, they fail as with no connection.
 async function fakeSaves(page, online = () => true) {
     const saved = [];
-    await page.route('**/admin/api/positions/**', route => {
+    const edits = new Map();
+    const answer = route => {
         if (!online()) return route.abort('internetdisconnected');
-        const { entry } = route.request().postDataJSON();
-        const [line, dir, station] = new URL(route.request().url()).pathname.split('/').slice(-3).map(decodeURIComponent);
-        saved.push({ line, dir, station, entry });
-        return route.fulfill({ json: { entry, edited: true } });
-    });
+        const request = route.request();
+        // /admin/api/<kind>/<ref…>
+        const [kind, ...ref] = new URL(request.url()).pathname.split('/').slice(3).map(decodeURIComponent);
+        const entry = request.method() === 'PUT' ? request.postDataJSON().entry : null;
+        saved.push({ kind, ref, entry });
+        if (entry) edits.set(JSON.stringify([kind, ...ref]), entry);
+        else edits.delete(JSON.stringify([kind, ...ref]));
+        return route.fulfill({ json: { entry, edited: Boolean(entry) } });
+    };
+    await page.route('**/admin/api/positions/**', answer);
+    await page.route('**/admin/api/street/**', answer);
     await page.route('**/admin/api/state', async route => {
-        const state = await (await route.fetch()).json();
-        for (const { line, dir, station, entry } of saved) ((state.overlay[line] ??= {})[dir] ??= {})[station] = entry;
+        let state;
+        // (a test that has seen what it waited for may end during the fetch)
+        try { state = await (await route.fetch()).json(); } catch { return; }
+        for (const [key, entry] of edits) {
+            const [kind, line, dir, station] = JSON.parse(key);
+            if (kind === 'street') state.street.overlay[line] = entry;
+            else ((state.overlay[line] ??= {})[dir] ??= {})[station] = entry;
+        }
         return route.fulfill({ json: state });
     });
     return saved;
 }
+
+// What the station list marks missing for the open station
+const marks = async page => {
+    const text = await page.getByLabel('Station', { exact: true }).locator('option:checked').textContent();
+    return text.includes('⚠') ? text.split('⚠ ')[1].split(', ') : [];
+};
 
 // Logged in, on the first station (M1 → Kifisia: Piraeus), with STASY's
 // lift page read once, so its lift names come with the station data
@@ -153,15 +178,16 @@ async function openEditor(page) {
 }
 
 test.describe('saved underground', () => {
-    // The saves the test makes fail, as with no connection
-    test.use({ allowErrors: [/ERR_INTERNET_DISCONNECTED/] });
+    // The saves the test makes fail, as with no connection; the phone is at
+    // one of Piraeus's exits
+    test.use({ allowErrors: [/ERR_INTERNET_DISCONNECTED/], location: { at: { lat: 37.9483, lng: 23.6431 } } });
 
     test('the station editor records each elevator by STASY\'s name and where it is, saved offline and sent once back', async ({ page }) => {
         let online = false;
         const saved = await fakeSaves(page, () => online);
         await openEditor(page);
         // Whether Piraeus has elevators isn't known yet
-        await expect(page.getByLabel('Station', { exact: true }).locator('option:checked')).toHaveText(/⚠ elevators$/);
+        expect(await marks(page)).toContain('elevators');
         await expect(page.getByText('Missing: elevators.')).toBeVisible();
 
         await page.getByRole('radio', { name: 'Elevators', exact: true }).check();
@@ -192,14 +218,64 @@ test.describe('saved underground', () => {
         await page.getByRole('button', { name: 'Sync now' }).click();
         await expect(page.locator('#entry-state')).toHaveAttribute('data-state', 'edited');
         expect(saved.map(s => s.entry.elevators)).toEqual([[{ at: 'front', name: 'Προς Α' }]]);
-        await expect(page.getByLabel('Station', { exact: true }).locator('option:checked')).not.toHaveText(/⚠/);
+        expect(await marks(page)).not.toContain('elevators');
+    });
+
+    test('a station\'s exit on the street, placed with "Here", saved offline with an edit of the platform, both sent once back', async ({ page }) => {
+        let online = false;
+        const saved = await fakeSaves(page, () => online);
+        await openEditor(page);
+        await expect(page.locator('#street-missing')).toHaveText(/^Missing: street exits/);
+
+        await page.getByRole('button', { name: 'Add exit' }).click();
+        const exit = page.getByRole('group', { name: 'Exit 1' });
+        const name = exit.getByLabel('Name, as signed');
+        await expect(name).toBeFocused();
+        await name.fill('Ακτή Καλλιμασιώτη');
+        await exit.getByRole('button', { name: 'Here: where I am now' }).click();
+        await expect(exit.getByLabel('Where it is (latitude, longitude)')).toHaveValue('37.94830, 23.64310');
+        // Said as it is: yellow is for warnings only
+        await expect(exit.getByText(/^±20 m · \d+ m from the station$/)).not.toHaveClass(/list-hint-warn/);
+        await exit.getByRole('checkbox', { name: 'Stairs' }).check();
+        await exit.getByRole('checkbox', { name: 'Escalator up' }).check();
+        expect(await axe(page)).toEqual([]);
+        // and the platform's note: two edits in one Save
+        await page.getByLabel('Note').fill('Two exits');
+
+        await page.getByRole('button', { name: 'Save' }).click();
+        await expect(page.getByRole('status').filter({ hasText: '2 edits waiting to sync' })).toContainText('Offline.');
+        online = true;
+        await page.getByRole('button', { name: 'Sync now' }).click();
+        await expect(page.locator('#street-state')).toHaveAttribute('data-state', 'edited');
+        await expect(page.locator('#entry-state')).toHaveAttribute('data-state', 'edited');
+        expect(saved.find(s => s.kind === 'street')).toEqual({
+            kind: 'street', ref: ['piraeus'],
+            entry: { exits: [{ name: { el: 'Ακτή Καλλιμασιώτη', en: '' }, coords: [37.9483, 23.6431], way: ['stairs', 'escalator-up'] }], lifts: [] },
+        });
+        expect(saved.find(s => s.kind === 'positions').entry.note).toBe('Two exits');
+        expect(await marks(page)).not.toContain('street exits');
+    });
+
+    test('a sync in the background leaves what\'s being typed alone', async ({ page }) => {
+        let online = false;
+        await fakeSaves(page, () => online);
+        await openEditor(page);
+        await page.getByLabel('Note').fill('Saved');
+        await page.getByRole('button', { name: 'Save' }).click();
+        await expect(page.getByRole('status').filter({ hasText: '1 edit waiting to sync' })).toBeVisible();
+        // Typing the next thing when the connection comes back
+        await page.getByRole('button', { name: 'Add exit' }).click();
+        await page.getByLabel('Name, as signed').fill('Ακτή');
+        online = true;
+        await page.getByRole('button', { name: 'Sync now' }).click();
+        await expect(page.locator('#entry-state')).toHaveAttribute('data-state', 'edited');
+        await expect(page.getByLabel('Name, as signed')).toHaveValue('Ακτή');
     });
 });
 
 test('the station editor: an elevator needs to say where it is; "no elevator", or a platform reached by a ramp, isn\'t marked missing', async ({ page }) => {
     const saved = await fakeSaves(page);
     await openEditor(page);
-    const station = page.getByLabel('Station', { exact: true }).locator('option:checked');
 
     // An elevator not yet placed stops the save, with the browser saying why
     await page.getByRole('radio', { name: 'Elevators', exact: true }).check();
@@ -221,7 +297,7 @@ test('the station editor: an elevator needs to say where it is; "no elevator", o
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(synced).toBeVisible();
     expect(saved.map(s => s.entry.elevators)).toEqual(['none']);
-    await expect(station).not.toHaveText(/⚠/);
+    expect(await marks(page)).not.toContain('elevators');
 
     // Not known, but reached by a ramp: a surface station's needs no elevator
     await page.getByRole('radio', { name: 'Not known yet' }).check();
@@ -230,5 +306,33 @@ test('the station editor: an elevator needs to say where it is; "no elevator", o
     await expect.poll(() => saved.length).toBe(2);
     await expect(synced).toBeVisible();
     expect(saved[1].entry).not.toHaveProperty('elevators');
-    await expect(station).not.toHaveText(/⚠/);
+    expect(await marks(page)).not.toContain('elevators');
+});
+
+test('the station editor: a place that can\'t be read stops the save, one far off is questioned, and the station goes back to the committed data', async ({ page }) => {
+    const saved = await fakeSaves(page);
+    await openEditor(page);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByText('Nothing has changed.')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Add street elevator' }).click();
+    const lift = page.getByRole('group', { name: 'Street elevator 1' });
+    await lift.getByLabel('Name', { exact: true }).fill('Προς Α');
+    const where = lift.getByLabel('Where it is (latitude, longitude)');
+    await where.fill('37.948');
+    await expect(lift.getByText('Write it as latitude, longitude, like 37.97552, 23.73481.')).toBeVisible();
+    await page.getByRole('button', { name: 'Save' }).click();
+    expect(await where.evaluate(input => input.validity.customError)).toBe(true);
+
+    // The phone is at Syntagma, not Piraeus
+    await lift.getByRole('button', { name: 'Here: where I am now' }).click();
+    await expect(lift.getByText(/^±20 m · \d+ m from the station: is that right\?$/)).toHaveClass(/list-hint-warn/);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#street-state')).toHaveAttribute('data-state', 'edited');
+    expect(saved).toEqual([{ kind: 'street', ref: ['piraeus'], entry: { exits: [], lifts: [{ name: 'Προς Α', coords: [37.9755, 23.7348] }] } }]);
+
+    await page.getByRole('button', { name: 'Revert station' }).click();
+    await expect(page.locator('#street-state')).toHaveAttribute('data-state', 'committed');
+    expect(saved[1]).toEqual({ kind: 'street', ref: ['piraeus'], entry: null });
+    await expect(page.getByRole('group', { name: 'Street elevator 1' })).toHaveCount(0);
 });

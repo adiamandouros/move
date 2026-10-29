@@ -355,7 +355,9 @@ if a build fails. A file that comes out the same as the one served is left as
 it was (`publish`), so its ETag stays and browsers keep their copy; that's
 why `rail.json` and the bus files don't say when they were built or fetched
 (`meta.json` does). Where to stand on each
-train is curated by hand in `data/curated/` ([README](data/curated/README.md)),
+train (`positions.json`) and each station's exits and elevators on the street
+(`street.json`, not used by the pages yet) are curated by hand in
+`data/curated/` ([README](data/curated/README.md)),
 and can be edited from a phone at `/admin/stations`, which nothing may block
 ([decision 16](docs/decisions/0016-station-editor.md)). Each night a GitHub
 workflow (`.github/workflows/station-edits.yml`) reads the editor's export

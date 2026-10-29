@@ -1,23 +1,42 @@
 import { existsSync, readFileSync } from 'fs';
 import { writeFileAtomic } from '../files.js';
 import { formatJson } from './format.js';
-import { NO_ELEVATOR, POSITIONS, STEP_FREE } from './validate.js';
+import { EXIT_WAYS, NO_ELEVATOR, POSITIONS, STEP_FREE } from './validate.js';
 
-// Station edits made in the admin editor live in a gitignored overlay file
-// with the same shape as positions.json, holding only the edited stations:
+// Station edits made in the admin editor live in gitignored overlay files
+// beside the committed ones, with the same shape, holding only the edited
+// entries: data/local/positions.json one per line, direction and station,
 //   { "M1": { "kifisia": { "moschato": { "exits": ["front"] } } } }
-// Each entry replaces the committed entry for that station and direction.
-// Once the committed positions.json catches up (export → commit → deploy),
-// matching entries are pruned, so the overlay only holds uncommitted edits.
-// Entries are tidied as they're read, so ones saved before a change of
-// format (elevators as plain positions) read as they would be saved now.
+// and data/local/street.json one per station. Each entry replaces the
+// committed one. Once a committed file catches up (export → commit →
+// deploy), matching entries are pruned, so an overlay only holds
+// uncommitted edits. Entries are tidied as they're read, so ones saved
+// before a change of format (elevators as plain positions) read as they
+// would be saved now.
 
-export function readOverlay(path) {
+// The files the editor edits: the keys of a ref ({ line, dir, station })
+// that find an entry, its tidy form, and for street.json the entry of a
+// station that has none (nothing recorded is the same as no entry)
+export const EDITED = {
+    positions: { name: 'positions', keys: ['line', 'dir', 'station'], tidy: tidyEntry },
+    street: { name: 'street', keys: ['station'], tidy: tidyStreet, blank: {} },
+};
+
+const pathOf = (ref, kind) => kind.keys.map(key => ref[key]);
+const at = (tree, path) => path.reduce((node, key) => node?.[key], tree);
+
+function put(tree, path, entry) {
+    let node = tree;
+    for (const key of path.slice(0, -1)) node = node[key] ??= {};
+    node[path.at(-1)] = entry;
+}
+
+export function readOverlay(path, kind = EDITED.positions) {
     if (!existsSync(path)) return {};
     let overlay;
     try { overlay = JSON.parse(readFileSync(path, 'utf8')); }
     catch (err) { throw new Error(`${path} is not valid JSON: ${err.message}`, { cause: err }); }
-    for (const { line, dir, station, entry } of overlayEntries(overlay)) overlay[line][dir][station] = tidyEntry(entry);
+    for (const { ref, entry } of overlayEntries(overlay, kind)) put(overlay, pathOf(ref, kind), kind.tidy(entry));
     return overlay;
 }
 
@@ -25,44 +44,52 @@ export function writeOverlay(path, overlay) {
     writeFileAtomic(path, formatJson(overlay, 3) + '\n');
 }
 
-function overlayEntries(overlay) {
+// Every entry of `overlay`, with its ref
+function overlayEntries(overlay, kind) {
     const out = [];
-    for (const [line, dirs] of Object.entries(overlay)) {
-        for (const [dir, stations] of Object.entries(dirs)) {
-            for (const [station, entry] of Object.entries(stations)) out.push({ line, dir, station, entry });
-        }
-    }
+    const walk = (node, depth, ref) => {
+        if (depth === kind.keys.length) return void out.push({ ref, entry: node });
+        for (const [key, child] of Object.entries(node ?? {})) walk(child, depth + 1, { ...ref, [kind.keys[depth]]: key });
+    };
+    walk(overlay, 0, {});
     return out;
 }
 
-export function applyOverlay(positions, overlay) {
-    const merged = structuredClone(positions);
-    for (const { line, dir, station, entry } of overlayEntries(overlay)) {
-        ((merged[line] ??= {})[dir] ??= {})[station] = entry;
+// The entry of `ref` in a committed file or an overlay
+export const entryAt = (tree, ref, kind = EDITED.positions) => at(tree, pathOf(ref, kind));
+
+export function applyOverlay(committed, overlay, kind = EDITED.positions) {
+    let merged = structuredClone(committed);
+    for (const { ref, entry } of overlayEntries(overlay, kind)) {
+        // Nothing left in it: no entry at all
+        if (kind.blank && sameEntry(kind.blank, entry, kind)) merged = removeEntry(merged, ref, kind);
+        else put(merged, pathOf(ref, kind), entry);
     }
     return merged;
 }
 
-export function setEntry(overlay, { line, dir, station }, entry) {
+export function setEntry(overlay, ref, entry, kind = EDITED.positions) {
     const next = structuredClone(overlay);
-    ((next[line] ??= {})[dir] ??= {})[station] = entry;
+    put(next, pathOf(ref, kind), entry);
     return next;
 }
 
-export function removeEntry(overlay, { line, dir, station }) {
+export function removeEntry(overlay, ref, kind = EDITED.positions) {
     const next = structuredClone(overlay);
-    delete next[line]?.[dir]?.[station];
-    return dropEmpty(next);
+    const path = pathOf(ref, kind);
+    const parent = at(next, path.slice(0, -1));
+    if (parent) delete parent[path.at(-1)];
+    return dropEmpty(next, kind.keys.length);
 }
 
 // Remove entries identical to the committed data. Returns { overlay, pruned }.
-export function pruneOverlay(positions, overlay) {
+export function pruneOverlay(committed, overlay, kind = EDITED.positions) {
     let next = overlay;
     const pruned = [];
-    for (const ref of overlayEntries(overlay)) {
-        if (sameEntry(positions[ref.line]?.[ref.dir]?.[ref.station], ref.entry)) {
-            next = removeEntry(next, ref);
-            pruned.push(`${ref.line}/${ref.dir}/${ref.station}`);
+    for (const { ref, entry } of overlayEntries(overlay, kind)) {
+        if (sameEntry(entryAt(committed, ref, kind), entry, kind)) {
+            next = removeEntry(next, ref, kind);
+            pruned.push(pathOf(ref, kind).join('/'));
         }
     }
     return { overlay: next, pruned };
@@ -70,8 +97,9 @@ export function pruneOverlay(positions, overlay) {
 
 // Entries are equal if they mean the same thing: key order, empty optional
 // fields and the order of positions in a list don't matter.
-export function sameEntry(a, b) {
-    return a !== undefined && b !== undefined && JSON.stringify(tidyEntry(a)) === JSON.stringify(tidyEntry(b));
+export function sameEntry(a, b, kind = EDITED.positions) {
+    const [x, y] = [a ?? kind.blank, b ?? kind.blank];
+    return x !== undefined && y !== undefined && JSON.stringify(kind.tidy(x)) === JSON.stringify(kind.tidy(y));
 }
 
 // The canonical form of an entry: fields in a fixed order, positions from the
@@ -94,6 +122,7 @@ export function tidyEntry(entry) {
 
 const byPosition = (a, b) => POSITIONS.indexOf(a) - POSITIONS.indexOf(b);
 const order = list => [...new Set(list ?? [])].sort(byPosition);
+const trimmed = text => typeof text === 'string' ? text.trim() : '';
 
 // "none", or each elevator as { at, name? } from the back to the front; an
 // empty list (nothing recorded) is left out, as is anything else. Plain
@@ -104,16 +133,45 @@ function tidyElevators(elevators) {
     if (!Array.isArray(elevators)) return undefined;
     const lifts = elevators.map(lift => {
         const { at, name } = typeof lift === 'string' ? { at: lift } : lift ?? {};
-        const named = typeof name === 'string' ? name.trim() : '';
+        const named = trimmed(name);
         return { at, ...(named && { name: named }) };
     });
     return lifts.length ? lifts.sort((a, b) => byPosition(a.at, b.at)) : undefined;
 }
 
-function dropEmpty(overlay) {
-    for (const [line, dirs] of Object.entries(overlay)) {
-        for (const [dir, stations] of Object.entries(dirs)) if (!Object.keys(stations).length) delete dirs[dir];
-        if (!Object.keys(dirs).length) delete overlay[line];
+// A station's entry in street.json: its exits, then its lifts, each in the
+// order they were recorded, with names trimmed, places to 5 decimals (about
+// 1 m) and an exit's ways in their own order. One with neither a name nor
+// a place, and empty fields, are left out.
+export function tidyStreet(entry) {
+    const exits = (Array.isArray(entry?.exits) ? entry.exits : []).flatMap(exit => {
+        const [el, en] = [trimmed(exit?.name?.el), trimmed(exit?.name?.en)];
+        const coords = tidyCoords(exit?.coords);
+        const way = EXIT_WAYS.filter(w => Array.isArray(exit?.way) && exit.way.includes(w));
+        if (!el && !en && !coords) return [];
+        return [{ ...((el || en) && { name: { ...(el && { el }), ...(en && { en }) } }), ...(coords && { coords }), ...(way.length && { way }) }];
+    });
+    const lifts = (Array.isArray(entry?.lifts) ? entry.lifts : []).flatMap(lift => {
+        const name = trimmed(lift?.name);
+        const coords = tidyCoords(lift?.coords);
+        return name || coords ? [{ ...(name && { name }), ...(coords && { coords }) }] : [];
+    });
+    return { ...(exits.length && { exits }), ...(lifts.length && { lifts }) };
+}
+
+// [lat, lng] to 5 decimals; anything else as it is, for the checks to refuse
+function tidyCoords(coords) {
+    if (coords === null || coords === undefined || coords === '') return undefined;
+    const ok = Array.isArray(coords) && coords.length === 2 && coords.every(Number.isFinite);
+    return ok ? coords.map(n => Math.round(n * 1e5) / 1e5) : coords;
+}
+
+// Remove the levels above the entries that have none left
+function dropEmpty(node, depth) {
+    if (depth <= 1) return node;
+    for (const [key, child] of Object.entries(node)) {
+        dropEmpty(child, depth - 1);
+        if (!Object.keys(child).length) delete node[key];
     }
-    return overlay;
+    return node;
 }

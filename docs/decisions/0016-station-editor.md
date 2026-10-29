@@ -11,9 +11,9 @@ platform, sometimes underground.
 ## Decision
 
 - `/admin/stations` (only when `ADMIN_PASSWORD` is set) saves each edit to
-  `data/local/positions.json`, beside the committed
-  `data/curated/positions.json`. The next build uses both
-  ([overlay.js](../../server/data/overlay.js)).
+  `data/local/positions.json` or `data/local/street.json`, beside the
+  committed files of the same names in `data/curated/`. The next build uses
+  both ([overlay.js](../../server/data/overlay.js)).
 - Once the committed file has caught up (export, commit, deploy), the edits
   it now holds are removed from the local file.
 - Nothing stands in the way of a save: no check, test or deploy step. Only

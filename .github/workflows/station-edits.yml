@@ -1,8 +1,9 @@
-# Every night: the station edits made in the editor (/admin/stations) that
-# the repository doesn't have yet, as one pull request from the branch
-# station-edits. It's updated while there are edits waiting and closed once
-# there are none; it's still yours to review and merge (decision 16). Run it
-# by hand from the Actions tab ("Run workflow").
+# Every night: the station edits made in the editor (/admin/stations), to
+# positions.json and street.json, that the repository doesn't have yet, as
+# one pull request from the branch station-edits. It's updated while there
+# are edits waiting and closed once there are none; it's still yours to
+# review and merge (decision 16). Run it by hand from the Actions tab
+# ("Run workflow").
 #
 # Needs two repository secrets:
 # - STATION_EXPORT_KEY: the same as the server's (.env), which reads the
@@ -60,34 +61,47 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: Fetch the editor's export from wayhop.gr
+      - name: Fetch the editor's exports from wayhop.gr
         env:
           KEY: ${{ secrets.STATION_EXPORT_KEY }}
+          EXPORTED: ${{ runner.temp }}/exported
         run: |
-          curl -fsS --max-time 60 -H "Authorization: Bearer $KEY" https://wayhop.gr/admin/api/export -o "$RUNNER_TEMP/exported.json"
-          node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'))" "$RUNNER_TEMP/exported.json"
+          mkdir -p "$EXPORTED"
+          curl -fsS --max-time 60 -H "Authorization: Bearer $KEY" https://wayhop.gr/admin/api/export -o "$EXPORTED/positions.json"
+          # street.json: not there (404) on a server from before it, which has no edits of it
+          code=$(curl -sS --max-time 60 -H "Authorization: Bearer $KEY" -w '%{http_code}' https://wayhop.gr/admin/api/export/street.json -o "$EXPORTED/street.json")
+          if [ "$code" = 404 ]; then cp data/curated/street.json "$EXPORTED/street.json"
+          elif [ "$code" != 200 ]; then echo "street.json: HTTP $code"; exit 1; fi
+          for file in positions street; do node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'))" "$EXPORTED/$file.json"; done
       - name: Open, update or close the pull request
         env:
           GH_TOKEN: ${{ secrets.STATION_EDITS_TOKEN }}
-          EXPORTED: ${{ runner.temp }}/exported.json
+          EXPORTED: ${{ runner.temp }}/exported
         run: |
+          files="positions street"
+          # Whether each exported file is the same as in the branch $1 (none: the repository's)
+          same_as() {
+            for file in $files; do
+              if [ -z "$1" ]; then cat "data/curated/$file.json"; else git show "$1:data/curated/$file.json" 2>/dev/null; fi | cmp -s - "$EXPORTED/$file.json" || return 1
+            done
+          }
           open=$(gh pr list --head station-edits --state open --json number --jq '.[0].number')
-          if cmp -s "$EXPORTED" data/curated/positions.json; then
+          if same_as ""; then
             echo "No station edits waiting."
             [ -z "$open" ] || gh pr close "$open" --delete-branch --comment "Nothing left to commit: the repository has every edit."
             exit 0
           fi
           # Already in the pull request as it is: nothing to push, so its checks don't run again
-          if [ -n "$open" ] && git fetch -q origin station-edits && git show origin/station-edits:data/curated/positions.json | cmp -s - "$EXPORTED"; then
+          if [ -n "$open" ] && git fetch -q origin station-edits && same_as origin/station-edits; then
             echo "Pull request #$open already has these edits."
             exit 0
           fi
-          node scripts/station-edits.js data/curated/positions.json "$EXPORTED" > "$RUNNER_TEMP/body.md"
-          cp "$EXPORTED" data/curated/positions.json
+          node scripts/station-edits.js data/curated/positions.json "$EXPORTED/positions.json" data/curated/street.json "$EXPORTED/street.json" > "$RUNNER_TEMP/body.md"
+          for file in $files; do cp "$EXPORTED/$file.json" "data/curated/$file.json"; done
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B station-edits
-          git commit -qm "Station edits from the editor" -- data/curated/positions.json
+          git commit -qm "Station edits from the editor" -- data/curated/positions.json data/curated/street.json
           git push -q --force origin station-edits
           if [ -n "$open" ]; then
             gh pr edit "$open" --body-file "$RUNNER_TEMP/body.md"

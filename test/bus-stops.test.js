@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { browserModule } from './support/browser-modules.js';
 
-const { decodeStops, distanceMeters, nearestStops } = await browserModule('tools/buses/client/stops.js');
+const { decodeStops, nearestStops } = await browserModule('tools/buses/client/stops.js');
+const { distanceMeters } = await browserModule('public/js/core/geo.js');
 const { latinName } = await browserModule('public/js/core/text.js');
 
 // Stops spaced ~111 m apart going north from (38.0, 23.7)
