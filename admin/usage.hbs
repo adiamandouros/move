@@ -3,7 +3,7 @@
         <h1 class="fs-5 m-0">Use of OASA</h1>
         <a class="btn btn-sm btn-outline-secondary" href="/admin/diagnostics">Diagnostics</a>
     </div>
-    <p class="small text-body-secondary">What Wayhop asked of OASA each day (Athens time) and how OASA answered, as the running app counted it (<code>server/oasa/usage.js</code>), kept for {{keepDays}} days. Today's row is so far. Counts only: stop codes and routes, nothing about who asked.</p>
+    <p class="small text-body-secondary">What Wayhop asked of OASA each day (Athens time) and how OASA answered, and the pages opened, as the running app counted it (<code>server/oasa/usage.js</code>), kept for {{keepDays}} days. Today's row is so far. Counts only: stop codes, routes and languages, nothing about who asked.</p>
 {{#if asked.length}}
     <h2 class="fs-6 mt-4" id="asked-title">What Wayhop asked for</h2>
     <p class="small text-body-secondary">About {{stopsKeptFresh}} stops can be kept fresh at once. The nightly bus network is fetched by the data build, apart from the rest.</p>
@@ -115,6 +115,38 @@
     </div>
 {{else}}
     <p class="small">No predictions counted yet.</p>
+{{/if}}
+
+    <h2 class="fs-6 mt-4" id="pages-title">Pages opened, by browser language</h2>
+    <p class="small text-body-secondary">Each public page sent because someone opened it (not the copies the service worker keeps for offline use), by the first language the browser asks for, and the language Wayhop served. "none": the browser asked for none, as most bots do. For choosing the next language (item 43).</p>
+{{#if pages.length}}
+    <div class="table-responsive usage-table-wrap" tabindex="0" role="region" aria-labelledby="pages-title">
+        <table class="table table-sm usage-table">
+            <caption class="sr-only">Pages opened per day, by browser language</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Day</th>
+                    <th scope="col">Pages opened</th>
+                    <th scope="col">In English</th>
+                    <th scope="col">In Greek</th>
+                    <th scope="col" class="text-start">Browser languages, most first</th>
+                </tr>
+            </thead>
+            <tbody>
+{{#each pages}}
+                <tr>
+                    <th scope="row">{{date}}</th>
+                    <td>{{opened}}</td>
+                    <td>{{en}}</td>
+                    <td>{{el}}</td>
+                    <td class="text-start">{{asked}}</td>
+                </tr>
+{{/each}}
+            </tbody>
+        </table>
+    </div>
+{{else}}
+    <p class="small">No pages counted yet.</p>
 {{/if}}
 {{else}}
     <p>Nothing has been counted yet.</p>

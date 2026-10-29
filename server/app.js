@@ -64,7 +64,7 @@ export function createApp({
 } = {}) {
     const { relays, cspMode } = config;
     // Pages first: the Content-Security-Policy is built from their inline scripts
-    const pages = createPages(undefined, { railFile: path.join(buildDir, 'rail.json'), config });
+    const pages = createPages(undefined, { railFile: path.join(buildDir, 'rail.json'), config, usage });
     const csp = contentSecurityPolicy({ scripts: pages.inlineScripts, ads: Boolean(config.adsense.client) });
     const cspReports = createCspReports();
 

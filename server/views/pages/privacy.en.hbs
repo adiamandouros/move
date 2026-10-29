@@ -2,10 +2,10 @@
     <h1>Privacy</h1>
     <p class="text-body-secondary">Last updated: {{updated}}</p>
 {{#unless ads}}
-    <p><strong>In short:</strong> Wayhop has no accounts, uses no cookies or analytics, and doesn't track you.</p>
+    <p><strong>In short:</strong> Wayhop has no accounts, uses no cookies and doesn't track you. It only counts how many pages are opened in each browser language, nothing about who opened them.</p>
 {{/unless}}
 {{#if ads}}
-    <p><strong>In short:</strong> Wayhop has no accounts or analytics and doesn't track you itself. It shows ads from Google, which uses cookies as described under <a href="#advertising">Advertising</a>.</p>
+    <p><strong>In short:</strong> Wayhop has no accounts and doesn't track you itself; it only counts how many pages are opened in each browser language. It shows ads from Google, which uses cookies as described under <a href="#advertising">Advertising</a>.</p>
 {{/if}}
 
     <h2>What stays on your device</h2>
@@ -13,10 +13,12 @@
         <li><strong>Your language</strong> (English or Greek), saved in your browser so pages open in it next time.</li>
         <li><strong>The last three metro stations you picked,</strong> so the subway planner can offer them first next time.</li>
         <li><strong>The metro stations, bus stops and bus lines you starred as favourites,</strong> so the subway planner and the bus page offer them first.</li>
+        <li><strong>Where you left each tool</strong> (the stations or the bus stop you were looking at), while the tab or app stays open, so the navigation takes you back there.</li>
         <li><strong>Whether you chose the light or the dark colours,</strong> if you did, so the pages open in them.</li>
         <li><strong>Whether you closed the explanation of what the train shows,</strong> if you did, so it stays closed on the metro pages.</li>
+        <li><strong>Whether you closed the offer to install the app</strong> with "Not now", if you did, so it isn't shown again.</li>
         <li><strong>Copies of pages and timetables,</strong> saved by the app so it works offline.</li>
-        <li><strong>Your location,</strong> if you allow it: your browser uses it to find the bus stops and metro station nearest to you. The last one is kept on your device for 10 minutes, so the next page can use it straight away, even without a signal. It isn't sent to Wayhop's server.</li>
+        <li><strong>Your location,</strong> if you allow it: your browser uses it to find the bus stops and metro station nearest to you. The last one is kept on your device for 10 minutes, so the next page can use it straight away, even without a signal. It isn't sent to Wayhop's server. Wayhop also notes that you allowed it, so the next page doesn't have to ask first.</li>
     </ul>
     <p>You can clear all of this in your browser's settings for this site.</p>
 
@@ -24,6 +26,7 @@
     <ul>
         <li><strong>The bus stops you're looking at.</strong> To show live arrivals, the bus page asks the server for nearby stops, and the stops you starred, by their number. Nearby stops show roughly where you are, but they aren't kept with anything that identifies you. Arrivals are kept per stop for a few minutes and shared by everyone.</li>
         <li><strong>Your IP address, for one minute.</strong> To share OASA's live data fairly, the server counts each address's requests for new stops over one minute, in memory only.</li>
+        <li><strong>The language your browser prefers, as a count.</strong> When a page is opened, the server adds one to that day's count for the first language your browser asks for (English, German, French…). Only the daily totals are kept, to see which languages to add next. Nothing about who opened the page is kept.</li>
         <li><strong>Standard web server logs.</strong> Like any website, our host's web server logs each request (IP address, page, time and browser) for security and to fix problems.</li>
     </ul>
     <p>Wayhop's server, not your device, asks OASA for live data, and those requests carry only the stop number.</p>

@@ -36,9 +36,11 @@ test('diagnostics: a bus network fetch that stopped shows how far it got, as a b
     expect(await axe(page)).toEqual([]);
 });
 
-test('the use of OASA: today\'s row and the lines\' predictions, from what the app counted; its tables scroll and take the keyboard', async ({ page }, testInfo) => {
+test('the use of OASA: today\'s row, the lines\' predictions and the pages opened, from what the app counted; its tables scroll and take the keyboard', async ({ page }, testInfo) => {
     // Someone looks at a stop: an answer the app counts
     await page.request.get('/api/arrivals?stops=10157');
+    // and opens a Greek page
+    await page.goto('/el/info');
     await page.goto('/admin/login');
     await page.getByLabel('Password').fill(ADMIN_TEST_PASSWORD);
     await page.getByRole('button', { name: 'Log in' }).click();
@@ -57,11 +59,14 @@ test('the use of OASA: today\'s row and the lines\' predictions, from what the a
     const horizon = page.getByRole('region', { name: 'How far ahead OASA predicts, per line' });
     await expect(horizon.getByRole('rowheader').first()).toBeVisible();
     await expect(horizon.getByRole('row').nth(1).getByRole('cell').first()).toHaveText(/^\d+$/);
+    // Today's pages, at least that one in Greek (other tests open pages too)
+    const opened = page.getByRole('region', { name: 'Pages opened, by browser language' }).getByRole('row').nth(1);
+    await expect(opened.getByRole('cell').nth(2)).toHaveText(/^[1-9]\d*$/);
     expect(await axe(page)).toEqual([]);
     if (testInfo.project.name !== 'iphone') {
         const walk = await keyboardWalk(page);
         expect(walk.problems, walk.stops.join(' → ')).toEqual([]);
-        expect(walk.stops.join(' → ')).toMatch(/div "What Wayhop asked of OASA.*→ div "How each route to OASA.*→ div "How far ahead OASA predicts/);
+        expect(walk.stops.join(' → ')).toMatch(/div "What Wayhop asked of OASA.*→ div "How each route to OASA.*→ div "How far ahead OASA predicts.*→ div "Pages opened per day/);
     }
 });
 

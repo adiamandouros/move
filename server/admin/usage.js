@@ -5,7 +5,8 @@ const HORIZON_DAYS = 7;
 
 // The days of OASA's usage (server/oasa/usage.js) as /admin/usage shows them
 // (admin/usage.hbs), newest first: what Wayhop asked for each day, how each
-// route to OASA answered, and how far ahead OASA predicts, per line.
+// route to OASA answered, how far ahead OASA predicts, per line, and the
+// pages opened by browser language.
 /** @param {Record<string, any>} days */
 export function usageView(days) {
     const dates = Object.keys(days).sort().reverse();
@@ -52,6 +53,18 @@ export function usageView(days) {
         horizon: lines.map(line => {
             const daily = week.map(date => days[date].horizon?.[line]).filter(n => n !== undefined).sort((a, b) => a - b);
             return { line, most: daily.at(-1), typical: daily[Math.floor((daily.length - 1) / 2)], days: daily.length };
+        }),
+        // (days kept before the pages were counted have none)
+        pages: dates.filter(date => days[date].pages).map(date => {
+            const { asked, served } = days[date].pages;
+            return {
+                date,
+                opened: total(served),
+                en: served.en ?? 0,
+                el: served.el ?? 0,
+                // Most asked first: "el 120, en 40, de 3, none 12"
+                asked: Object.entries(asked).sort(([a, x], [b, y]) => y - x || a.localeCompare(b)).map(([lang, n]) => `${lang} ${n}`).join(', ') || '–',
+            };
         }),
     };
 }

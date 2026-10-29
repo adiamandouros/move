@@ -5,12 +5,12 @@ import { adsTxt } from '../ads.js';
 import { sendFresh } from '../http.js';
 import { loadConfig } from '../config.js';
 import { format } from '../../public/js/core/html.js';
-import { basePath, langOf, LANGS, localPath, pageStrings, stringGetter } from './i18n.js';
+import { askedLanguage, basePath, langOf, LANGS, localPath, pageStrings, stringGetter } from './i18n.js';
 import { cacheControl, staticFiles } from './assets.js';
 import { iconSprite } from './icons.js';
 import { createRenderer } from './layout.js';
 import { loadTools, NOT_FOUND, SERVER_ERROR, sitePages, STATION_PATHS } from './registry.js';
-import { renderServiceWorker } from './service-worker.js';
+import { OPENED_HEADER, renderServiceWorker } from './service-worker.js';
 import { robotsTxt, sitemapXml } from './seo.js';
 import { railReader } from './rail-file.js';
 import { createStationPages } from './stations.js';
@@ -96,17 +96,29 @@ function appManifest(lang, description) {
 // Pages, tool client files and the service worker. Everything is rendered once
 // at startup; `node --watch` restarts the server when these files change.
 // config: the settings (server/config.js); without them, no public address and no ads.
+// usage: where each page opened is counted, by the language the browser asks
+// for and the one served (server/oasa/usage.js)
 /**
  * @param {import('../../types/pages.js').Tool[]} [tools]
- * @param {{ railFile?: string, config?: import('../../types/config.js').Config }} [options]
+ * @param {{ railFile?: string, config?: import('../../types/config.js').Config, usage?: Pick<import('../oasa/usage.js').Usage, 'page'> }} [options]
  */
-export function createPages(tools = loadTools(), { railFile, config = loadConfig({}) } = {}) {
+export function createPages(tools = loadTools(), { railFile, config = loadConfig({}), usage = { page() {} } } = {}) {
     const rail = railFile ? railReader(railFile) : () => ({ key: null, rail: null });
     const { pages, railPages, indexed, notFound, errorPage, render, renderPage } = renderPages(tools, config, () => rail().rail);
     const serviceWorker = renderServiceWorker(tools, pages);
     const router = express.Router();
+    // A page sent because someone opened it: a browser's own request for it
+    // (or a bot's, which says nothing of its mode), or the service worker's
+    // for an open page, which says so. Not the copies it fetches to cache.
+    /** @param {import('express').Request} req @param {import('../../types/pages.js').Lang} lang */
+    const opened = (req, lang) => {
+        const mode = req.get('Sec-Fetch-Mode');
+        if (req.method === 'GET' && (!mode || mode === 'navigate' || req.get(OPENED_HEADER) === '1')) {
+            usage.page(askedLanguage(req.get('Accept-Language')), lang);
+        }
+    };
     // The station pages, built from rail.json (when there is one)
-    const stations = railFile ? createStationPages({ railFile, renderPage, tools, origin: config.siteUrl }) : null;
+    const stations = railFile ? createStationPages({ railFile, renderPage, tools, origin: config.siteUrl, opened }) : null;
     // A page drawn from rail.json, drawn again once it changes (the others are drawn once, above)
     let drawn = { key: rail().key, html: {} };
     const pageAt = path => {
@@ -149,7 +161,10 @@ export function createPages(tools = loadTools(), { railFile, config = loadConfig
     });
 
     for (const path of Object.keys(pages)) {
-        router.get(path, (_req, res) => sendFresh(res, 'html', pageAt(path)));
+        router.get(path, (req, res) => {
+            opened(req, langOf(path));
+            sendFresh(res, 'html', pageAt(path));
+        });
     }
 
     if (stations) router.use(stations.router);
