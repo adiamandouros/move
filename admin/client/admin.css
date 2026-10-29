@@ -6,6 +6,9 @@
     padding: 24px 16px;
 }
 
+/* Pages of tables (/admin/usage): as wide as the screen allows */
+.admin-view-wide { max-width: 1100px; }
+
 /* Outline buttons: Bootstrap's grey and blue text are too faint on the dark
    background (4.0:1 and 4.2:1); these meet WCAG AA */
 .btn-outline-secondary { --bs-btn-color: var(--bs-secondary-color); }
@@ -167,3 +170,9 @@
 }
 
 .a11y-violations li + li { margin-top: 4px; }
+
+/* /admin/usage: a day per row; numbers line up, and the table scrolls sideways when it doesn't fit */
+.usage-table { --bs-table-bg: transparent; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.usage-table th, .usage-table td { white-space: nowrap; }
+.usage-table thead th { white-space: normal; min-width: 5rem; vertical-align: bottom; font-weight: 600; }
+.usage-table td, .usage-table thead th:not(:first-child) { text-align: end; }

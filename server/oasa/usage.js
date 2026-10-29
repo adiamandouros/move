@@ -84,6 +84,16 @@ function addMinute(summary, minute) {
     return summary;
 }
 
+// ── In words, for /admin/diagnostics and /admin/usage ────────────────────────
+
+// All of a summary's counts of one thing (its requests, its answers…)
+export const total = counts => Object.values(counts).reduce((a, b) => a + b, 0);
+export const secondsText = ms => `${Math.round(ms / 100) / 10} s`;
+// An answer time from answerTime: "under 500 ms", "over 8 s"; null: no answers
+export const answerTimeText = ms => ms === null ? '–'
+    : ms === Infinity ? `over ${secondsText(ANSWER_MS.at(-1))}`
+        : `under ${ms < 1000 ? `${ms} ms` : secondsText(ms)}`;
+
 // The answer time under which a share p (0–1) of `ms`'s answers came, from its
 // buckets: one of ANSWER_MS, Infinity when longer, null when there were none
 export function answerTime(ms, p) {
@@ -191,9 +201,13 @@ export function createUsage({ file = null, networkFile = null, now = Date.now, k
         limited() { current().limited++; },
         // A stop's answer to a visitor, and where it came from
         answer(stop, source) { const m = current(); m.answers[source]++; m.stopCodes.add(stop); },
-        // → { hour, today } for the status file and the diagnostics; days: every day kept
+        // → { hour, today } for the status file and the diagnostics
         status: () => ({ hour: pastHour(), today: soFar() }),
-        days: () => { roll(); return days; },
+        // Every day kept, today so far, for /admin/usage
+        days: () => {
+            const sofar = soFar();
+            return { ...days, [today]: sofar };
+        },
         save,
     };
 }
