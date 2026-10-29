@@ -1,6 +1,8 @@
 // Station editor. Edits are queued in localStorage first and then sent to the
 // server, so saving works underground; the queue is flushed whenever the
 // connection comes back.
+import { field, rowList } from './lists.js';
+import { missing } from './missing.js';
 
 const STATE_URL = '/admin/api/state';
 const QUEUE_KEY = 'move-admin:queue';
@@ -13,6 +15,7 @@ const POSITION_LABELS = { 'back': 'Back', 'center-back': 'Near back', 'center': 
 let state = null;
 let selection = { line: null, dir: null, station: null };
 let syncing = false;
+let elevatorRows = null;
 
 // ── Storage ─────────────────────────────────────────────────────────────────
 
@@ -83,9 +86,10 @@ function renderPickers() {
     picker.replaceChildren(...state.lines[line].directions[dir].stations.map(id => {
         const ref = { line, dir, station: id };
         const s = state.stations[id];
+        const gaps = missing(currentEntry(ref));
         const marks = [
             entryState(ref).startsWith('pending') ? '⏳' : entryState(ref) === 'edited' ? '✎' : '',
-            currentEntry(ref).exits?.length ? '' : '⚠',
+            gaps.length ? `⚠ ${gaps.join(', ')}` : '',
         ].filter(Boolean).join(' ');
         return new Option(`${s.name.en} · ${s.name.el}${marks ? `  ${marks}` : ''}`, id, false, id === station);
     }));
@@ -93,8 +97,8 @@ function renderPickers() {
 
 // ── Entry form ──────────────────────────────────────────────────────────────
 
-function carToggles(container, field, selected) {
-    container.dataset.field = field;
+function carToggles(container, key, selected) {
+    container.dataset.field = key;
     container.replaceChildren(...state.positions.map(p => {
         const b = document.createElement('button');
         b.type = 'button';
@@ -108,6 +112,34 @@ function carToggles(container, field, selected) {
 }
 
 const pressed = container => [...container.querySelectorAll('[aria-pressed="true"]')].map(b => b.dataset.position);
+
+// STASY's names for the station's lifts, each once
+const stasyNames = station => [...new Set(state.stasyLifts?.[station] ?? [])];
+
+// Whether the platform's elevators are known: '' (not yet), 'none' or 'list'
+const elevatorsKnown = () => document.querySelector('input[name="elevators-known"]:checked')?.value ?? '';
+
+function showElevatorList() {
+    const list = elevatorsKnown() === 'list';
+    $('elevator-list').hidden = !list;
+    $('elevator-list').disabled = !list;
+    if (list && !elevatorRows.size) elevatorRows.add();
+}
+
+// One elevator: its name (STASY's, offered) and where on the platform it is
+function elevatorRow(fields, lift) {
+    const names = stasyNames(selection.station);
+    const name = field(fields, 'Name', lift.name, {
+        list: 'stasy-lifts',
+        wide: true,
+        check: value => value.trim() && names.length && !names.includes(value.trim()) ? 'Not one of STASY\'s names for this station.' : '',
+    });
+    const at = field(fields, 'Where', lift.at ?? '', {
+        options: [['', 'Choose…'], ...state.positions.map(p => [p, POSITION_LABELS[p] ?? p])],
+        required: true,
+    });
+    return () => ({ at: at.value, name: name.value.trim() });
+}
 
 function renderEntry() {
     const ref = selection;
@@ -125,9 +157,20 @@ function renderEntry() {
     $('entry-state').dataset.state = st;
     $('revert-btn').hidden = st === 'committed';
     $('entry-message').textContent = '';
+    const gaps = missing(entry);
+    $('entry-missing').hidden = !gaps.length;
+    $('entry-missing').textContent = `Missing: ${gaps.join(', ')}.`;
 
     carToggles(document.querySelector('[data-field="exits"]'), 'exits', entry.exits ?? []);
-    for (const field of ['elevators', 'escalators', 'stairs']) carToggles(document.querySelector(`[data-field="${field}"]`), field, entry[field] ?? []);
+    for (const name of ['escalators', 'stairs']) carToggles(document.querySelector(`[data-field="${name}"]`), name, entry[name] ?? []);
+
+    // (an elevator from before they had names is a plain position)
+    const elevators = Array.isArray(entry.elevators) ? entry.elevators.map(lift => typeof lift === 'string' ? { at: lift } : lift) : [];
+    const known = entry.elevators === 'none' ? 'none' : elevators.length ? 'list' : '';
+    document.querySelector(`input[name="elevators-known"][value="${known}"]`).checked = true;
+    $('stasy-lifts').replaceChildren(...stasyNames(ref.station).map(name => new Option(name)));
+    elevatorRows.set(elevators);
+    showElevatorList();
     $('central-platform').checked = Boolean(entry.centralPlatform);
     $('step-free').value = entry.stepFree ?? '';
     $('note').value = entry.note ?? '';
@@ -157,9 +200,12 @@ function readForm() {
         const list = pressed(el);
         if (list.length) transfers[el.dataset.field.slice('transfer:'.length)] = list;
     });
+    const known = elevatorsKnown();
     return {
         exits: pressed(document.querySelector('[data-field="exits"]')),
-        elevators: pressed(document.querySelector('[data-field="elevators"]')),
+        // Left out while not known
+        ...(known === 'none' && { elevators: 'none' }),
+        ...(known === 'list' && { elevators: elevatorRows.read() }),
         escalators: pressed(document.querySelector('[data-field="escalators"]')),
         stairs: pressed(document.querySelector('[data-field="stairs"]')),
         centralPlatform: $('central-platform').checked,
@@ -288,6 +334,9 @@ async function start() {
         $('load-error').textContent = `Couldn't load the station data (${err.message}). Open the editor once while online so it's available offline.`;
         return;
     }
+
+    elevatorRows = rowList($('elevator-rows'), $('add-elevator'), 'Elevator', elevatorRow);
+    document.querySelectorAll('input[name="elevators-known"]').forEach(radio => radio.addEventListener('change', showElevatorList));
 
     select(readStore(LAST_KEY, {}));
     renderSyncStatus();

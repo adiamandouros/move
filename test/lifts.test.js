@@ -43,6 +43,19 @@ test('a station on two lines counts its worst status, and no-lift stations are l
     assert.deepEqual(out, { monastiraki: { status: 'closed', out: ['Προς Κηφισιά', 'Εξωτερικός'] } });
 });
 
+test('every station\'s lifts by STASY\'s names, for the station editor: a station on two lines counts each lift once, two lifts with one name twice', () => {
+    const { lifts, stations: out } = parseLifts(liftsPage({
+        line118: { 'Πειραιάς': { status: 'Warning', lifts: [['Εξωτερικός Ακτή Καλλιμασιώτη ', true], ['Προς Αεροδρόμιο', true], ['Εξωτερικός  Ακτή\tΚαλλιμασιώτη', false], ['', true]] } },
+        line119: { 'Πειραιάς': { status: 'Warning', lifts: [['Εξωτερικός Ακτή Καλλιμασιώτη', true], ['Προς Αεροδρόμιο', true], ['Εξωτερικός Ακτή Καλλιμασιώτη', false], ['Προς Δημοτικό Θέατρο', true]] } },
+    }), names);
+    // Spaces and tabs tidied, the empty name left out
+    assert.deepEqual(lifts.piraeus, ['Εξωτερικός Ακτή Καλλιμασιώτη', 'Προς Αεροδρόμιο', 'Εξωτερικός Ακτή Καλλιμασιώτη', 'Προς Δημοτικό Θέατρο']);
+    assert.deepEqual(out.piraeus.out, ['Εξωτερικός Ακτή Καλλιμασιώτη']);
+    // Every lift of every station, working or not
+    assert.deepEqual(lifts.kifisia, ['Προς Α', 'Προς Β']);
+    assert.equal(lifts.nerantziotissa, undefined, 'no lifts listed');
+});
+
 test('a station Wayhop doesn\'t know is left out and listed; a page with few stations has changed', () => {
     const lines = { ...STASY_LINES, line120: ['Νέος Σταθμός'] };
     const { stations: out, unknown } = parseLifts(liftsPage({ line120: { 'Νέος Σταθμός': { status: 'Error', lifts: [['Εξωτερικός', false]] } } }, lines), names);
@@ -127,6 +140,25 @@ test('a restart starts from the kept copy, without fetching again at once', asyn
     assert.ok((await again.current()).stations.kerameikos);
     assert.equal(web.calls.length, 0);
     assert.equal(again.status().updated, new Date(NOW).toISOString());
+});
+
+test('the lifts\' names come from the last copy, however old, and ask for a new one no more than the warnings do', async () => {
+    let t = NOW;
+    const web = fakeWeb(liftsPage(OUT));
+    const lifts = createLifts({ fetch: web.fetch, now: () => t, log: () => {} });
+    assert.deepEqual(lifts.liftNames(), {}, 'no copy yet: nothing, without waiting');
+    await settle();
+    assert.equal(web.calls.length, 1);
+    assert.deepEqual(lifts.liftNames().kerameikos, ['Προς Δημοτικό Θέατρο', 'Εξωτερικός Τεχνόπολις Γκάζι']);
+    assert.equal(web.calls.length, 1, 'within 10 minutes: the copy');
+
+    // Too old for the warnings, still good for the names; the refresh it
+    // starts is the warnings' too
+    t += 3 * 60 * MIN;
+    web.calls.length = 0;
+    assert.ok(lifts.liftNames().kerameikos);
+    assert.equal((await lifts.current()).fetched, new Date(t).toISOString());
+    assert.equal(web.calls.length, 1, 'one refresh for both');
 });
 
 test('refused directly, the lift page comes through the relay', async () => {

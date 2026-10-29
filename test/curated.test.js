@@ -24,11 +24,28 @@ test('catches typical editing mistakes', () => {
     assert.ok(errors.some(e => e.includes('MON1 is used by both')));
 });
 
-test('escalators and stairs are lists of positions, like elevators', () => {
+test('escalators and stairs are lists of positions', () => {
     const c = real();
     c.positions.M1.kifisia.faliro = { exits: ['center'], escalators: ['center'], stairs: ['top'] };
     const { errors } = validateCurated(c);
     assert.deepEqual(errors, ['positions.json: M1/kifisia/faliro.stairs: unknown position "top" (use back, center-back, center, center-front, front)']);
+});
+
+test('elevators: "none", or each with where it is and, once known, its name', () => {
+    const c = real();
+    c.positions.M1.kifisia.faliro = { exits: ['center'], elevators: [{ at: 'center', name: 'Προς Πειραιά' }, { at: 'front' }] };
+    c.positions.M1.kifisia.moschato = { exits: ['back'], elevators: 'none' };
+    assert.deepEqual(validateCurated(c).errors, []);
+
+    c.positions.M1.kifisia.faliro = { exits: ['center'], elevators: ['center', { at: 'top', floor: 1 }, { at: 'back', name: ' ' }] };
+    c.positions.M1.kifisia.moschato = { exits: ['back'], elevators: 'no' };
+    assert.deepEqual(validateCurated(c).errors, [
+        'positions.json: M1/kifisia/faliro.elevators[0] must be { "at": position, "name": … }',
+        'positions.json: M1/kifisia/faliro.elevators[1]: unknown field "floor"',
+        'positions.json: M1/kifisia/faliro.elevators[1].at: unknown position "top" (use back, center-back, center, center-front, front)',
+        'positions.json: M1/kifisia/faliro.elevators[2].name must be text',
+        'positions.json: M1/kifisia/moschato.elevators must be "none" or a list of elevators',
+    ]);
 });
 
 test('step-free access is one of its values, or left out (not known yet)', () => {

@@ -31,6 +31,7 @@
 
     <form id="entry-form" class="entry-form" hidden>
         <p id="entry-state" class="entry-state"></p>
+        <p id="entry-missing" class="entry-missing" hidden></p>
 
         <fieldset>
             <legend>Exits</legend>
@@ -39,7 +40,26 @@
 
         <fieldset>
             <legend>Elevators</legend>
-            <div class="car-toggles" data-field="elevators"></div>
+            <div class="elevators-known">
+                <div class="form-check form-check-inline">
+                    <input id="elevators-unknown" class="form-check-input" type="radio" name="elevators-known" value="">
+                    <label for="elevators-unknown" class="form-check-label">Not known yet</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input id="elevators-none" class="form-check-input" type="radio" name="elevators-known" value="none">
+                    <label for="elevators-none" class="form-check-label">No elevator</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input id="elevators-list" class="form-check-input" type="radio" name="elevators-known" value="list">
+                    <label for="elevators-list" class="form-check-label">Elevators</label>
+                </div>
+            </div>
+            {{!-- Disabled while hidden, so a row left half filled doesn't stop a save --}}
+            <fieldset id="elevator-list" class="list" aria-label="Elevators on this platform">
+                <div id="elevator-rows"></div>
+                <button id="add-elevator" type="button" class="btn btn-sm btn-outline-primary">Add elevator</button>
+            </fieldset>
+            <datalist id="stasy-lifts"></datalist>
         </fieldset>
 
         <fieldset>

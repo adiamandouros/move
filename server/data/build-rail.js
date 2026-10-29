@@ -224,11 +224,18 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
     };
 }
 
+// A stop's entry from positions.json, as the pages read it: its elevators
+// are only where they are (none: left out), each place once
 function stopPositions(positions, lineId, dirKey, station, warnings) {
     const p = positions[lineId]?.[dirKey]?.[station];
     if (!p) warnings.push(`positions.json: no entry for ${lineId}/${dirKey}/${station}`);
     else if (!p.exits?.length) warnings.push(`positions.json: no exits for ${lineId}/${dirKey}/${station}`);
-    return { station, exits: [], ...p };
+    const fields = Object.entries(p ?? {}).flatMap(([key, value]) => {
+        if (key !== 'elevators') return [[key, value]];
+        const at = Array.isArray(value) ? [...new Set(value.map(lift => lift.at))] : [];
+        return at.length ? [[key, at]] : [];
+    });
+    return { station, exits: [], ...Object.fromEntries(fields) };
 }
 
 // Turn raw trips into shared run-time profiles plus [start, profile] pairs per

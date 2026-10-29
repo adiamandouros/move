@@ -9,6 +9,12 @@ export const POSITIONS = ['back', 'center-back', 'center', 'center-front', 'fron
 /** @type {import('../../types/data.js').StepFree[]} */
 export const STEP_FREE = ['lift', 'ramp', 'level', 'yes', 'no'];
 
+// A platform's elevators: this instead of the list when it has none. Left
+// out: not known yet. A list holds each elevator as { at, name? }, its name
+// as STASY's lift page writes it (server/info/lifts.js).
+export const NO_ELEVATOR = 'none';
+const ELEVATOR_KEYS = new Set(['at', 'name']);
+
 const POSITION_KEYS = new Set(['exits', 'elevators', 'escalators', 'stairs', 'centralPlatform', 'stepFree', 'transfers', 'note']);
 
 // Check the hand-maintained files in data/curated for mistakes. Returns
@@ -59,6 +65,18 @@ export function validateCurated({ stations, lines, positions, airport, tram }) {
         for (const p of list) if (!POSITIONS.includes(p)) errors.push(`${where}: unknown position "${p}" (use ${POSITIONS.join(', ')})`);
     };
 
+    const checkElevators = (where, elevators) => {
+        if (elevators === NO_ELEVATOR) return;
+        if (!Array.isArray(elevators)) { errors.push(`${where} must be "${NO_ELEVATOR}" or a list of elevators`); return; }
+        for (const [i, lift] of elevators.entries()) {
+            const at = `${where}[${i}]`;
+            if (typeof lift !== 'object' || lift === null) { errors.push(`${at} must be { "at": position, "name": … }`); continue; }
+            for (const key of Object.keys(lift)) if (!ELEVATOR_KEYS.has(key)) errors.push(`${at}: unknown field "${key}"`);
+            if (!POSITIONS.includes(lift.at)) errors.push(`${at}.at: unknown position "${lift.at}" (use ${POSITIONS.join(', ')})`);
+            if (lift.name !== undefined && (typeof lift.name !== 'string' || !lift.name.trim())) errors.push(`${at}.name must be text`);
+        }
+    };
+
     for (const [lineId, dirs] of Object.entries(positions)) {
         if (!lines[lineId]) { errors.push(`positions.json: unknown line ${lineId}`); continue; }
         for (const [dirKey, stops] of Object.entries(dirs)) {
@@ -68,7 +86,8 @@ export function validateCurated({ stations, lines, positions, airport, tram }) {
                 if (!stationIds.has(stationId)) { errors.push(`${where}: unknown station`); continue; }
                 for (const key of Object.keys(p)) if (!POSITION_KEYS.has(key)) errors.push(`${where}: unknown field "${key}"`);
                 checkPositions(`${where}.exits`, p.exits ?? []);
-                for (const key of ['elevators', 'escalators', 'stairs']) if (p[key]) checkPositions(`${where}.${key}`, p[key]);
+                for (const key of ['escalators', 'stairs']) if (p[key]) checkPositions(`${where}.${key}`, p[key]);
+                if (p.elevators !== undefined) checkElevators(`${where}.elevators`, p.elevators);
                 if (p.note !== undefined && typeof p.note !== 'string') errors.push(`${where}.note must be text`);
                 if (p.centralPlatform !== undefined && typeof p.centralPlatform !== 'boolean') errors.push(`${where}.centralPlatform must be true or false`);
                 if (p.stepFree !== undefined && !STEP_FREE.includes(p.stepFree)) errors.push(`${where}.stepFree must be one of ${STEP_FREE.join(', ')}`);

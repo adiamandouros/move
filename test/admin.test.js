@@ -61,6 +61,7 @@ before(async () => {
         loadRail: () => rail,
         rebuild: () => { rebuilds++; },
         render: ({ content }) => content,
+        liftNames: () => ({ moschato: ['Προς Πειραιά', 'Προς Κηφισιά'] }),
     }));
     server = await listen(app);
     base = `${server.url}/admin`;
@@ -161,6 +162,28 @@ test('saving, reverting and exporting an entry', async () => {
     await put('moschato', { exits: ['center'] });
     const reverted = await api('/positions/M1/kifisia/moschato', cookie, { method: 'DELETE' });
     assert.deepEqual(await reverted.json(), { entry: committed, edited: false });
+});
+
+test('elevators: STASY\'s names come with the data; one saved as the editor did before names, or as "none", is tidied', async () => {
+    const { cookie } = await login();
+    const state = await (await api('/state', cookie)).json();
+    assert.deepEqual(state.stasyLifts, { moschato: ['Προς Πειραιά', 'Προς Κηφισιά'] });
+
+    const put = entry => api('/positions/M1/kifisia/moschato', cookie, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entry }),
+    });
+    // A phone's queue may still hold edits from the editor before (decision 16)
+    assert.deepEqual((await (await put({ exits: ['back'], elevators: ['front'] })).json()).entry, { exits: ['back'], elevators: [{ at: 'front' }] });
+    assert.deepEqual((await (await put({ exits: ['back'], elevators: [] })).json()).entry, { exits: ['back'] });
+    assert.deepEqual((await (await put({ exits: ['back'], elevators: 'none' })).json()).entry, { exits: ['back'], elevators: 'none' });
+    const named = await (await put({ exits: ['back'], elevators: [{ at: 'front', name: 'Προς Κηφισιά' }] })).json();
+    assert.deepEqual(named.entry.elevators, [{ at: 'front', name: 'Προς Κηφισιά' }]);
+    assert.deepEqual(JSON.parse(readFileSync(overlayFile, 'utf8')).M1.kifisia.moschato.elevators, [{ at: 'front', name: 'Προς Κηφισιά' }]);
+
+    const bad = await put({ exits: ['back'], elevators: [{ at: 'roof' }] });
+    assert.equal(bad.status, 400);
+    assert.match((await bad.json()).details.join(), /elevators\[0\]\.at: unknown position "roof"/);
+    await api('/positions/M1/kifisia/moschato', cookie, { method: 'DELETE' });
 });
 
 test('the use of OASA, with a session: nothing counted yet when the app gives no days', async () => {
