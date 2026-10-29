@@ -26,7 +26,7 @@ const STALE_MAX_MS = 5 * 60_000;
 const ROUTES_TTL_MS = 7 * 86_400_000;
 const MAX_CACHED_STOPS = 5000;
 
-export function createArrivals({ client, routesFile, now = Date.now, log = console.warn, usage = /** @type {Pick<import('./usage.js').Usage, 'answer'>} */ ({ answer() {} }) }) {
+export function createArrivals({ client, routesFile, now = Date.now, log = console.warn, usage = /** @type {Pick<import('./usage.js').Usage, 'answer' | 'horizon'>} */ ({ answer() {}, horizon() {} }) }) {
     const cache = new Map();      // stop → { at, arrivals }
     const inflight = new Map();   // stop → Promise
     const routeLookups = new Map();
@@ -132,6 +132,8 @@ export function createArrivals({ client, routesFile, now = Date.now, log = conso
                 const arrivals = await describe(stop, Array.isArray(raw) ? raw : []);
                 remember(stop, arrivals, asked);
                 usage.answer(stop, 'oasa');
+                // How far ahead OASA predicts, per line (its fresh answers only)
+                for (const a of arrivals) if (a.line && Number.isFinite(a.minutes)) usage.horizon(a.line, a.minutes);
                 return { arrivals, updated: asked, stale: false };
             } catch {
                 if (hit && now() - hit.at < STALE_MAX_MS) {

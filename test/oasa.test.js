@@ -521,3 +521,19 @@ test('counting changes nothing that is asked of OASA, or when', async () => {
     assert.ok(without.length > 8);
     assert.deepEqual(await run(true), without);
 });
+
+test('how far ahead OASA predicts, per line: from its fresh answers only, never a cached or older one', async () => {
+    let up = true;
+    const c = clock();
+    const usage = createUsage({ now: c.now });
+    const oasa = fakeOasa({ ...routesAt, getStopArrivals: () => (up ? [{ route_code: '2052', veh_code: '1', btime2: '9' }, { route_code: '2052', veh_code: '2', btime2: '37' }, { route_code: '9999', veh_code: '3', btime2: '50' }] : new Error('down')) });
+    const client = createOasaClient({ fetch: oasa.fetch, now: c.now, sleep: c.sleep, log: quiet, usage });
+    const arrivals = createArrivals({ client, now: c.now, log: quiet, usage });
+    await arrivals.stopArrivals('1');
+    // A route with no known line (9999) isn't counted
+    assert.deepEqual(usage.status().today.horizon, { 'Χ95': 37 });
+    up = false;
+    c.advance(60_000);
+    await arrivals.stopArrivals('1');
+    assert.deepEqual(usage.status().today.horizon, { 'Χ95': 37 });
+});

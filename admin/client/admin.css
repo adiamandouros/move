@@ -176,3 +176,4 @@
 .usage-table th, .usage-table td { white-space: nowrap; }
 .usage-table thead th { white-space: normal; min-width: 5rem; vertical-align: bottom; font-weight: 600; }
 .usage-table td, .usage-table thead th:not(:first-child) { text-align: end; }
+.usage-table-narrow { width: auto; }

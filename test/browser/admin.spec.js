@@ -36,7 +36,7 @@ test('diagnostics: a bus network fetch that stopped shows how far it got, as a b
     expect(await axe(page)).toEqual([]);
 });
 
-test('the use of OASA: today\'s row, from what the app counted; its tables scroll and take the keyboard', async ({ page }, testInfo) => {
+test('the use of OASA: today\'s row and the lines\' predictions, from what the app counted; its tables scroll and take the keyboard', async ({ page }, testInfo) => {
     // Someone looks at a stop: an answer the app counts
     await page.request.get('/api/arrivals?stops=10157');
     await page.goto('/admin/login');
@@ -53,11 +53,15 @@ test('the use of OASA: today\'s row, from what the app counted; its tables scrol
     // Different stops: one
     await expect(today.getByRole('cell').nth(7)).toHaveText('1');
     await expect(page.getByRole('region', { name: 'How OASA answered, per route' })).toBeVisible();
+    // The stop's lines, and the most minutes ahead their buses were predicted
+    const horizon = page.getByRole('region', { name: 'How far ahead OASA predicts, per line' });
+    await expect(horizon.getByRole('rowheader').first()).toBeVisible();
+    await expect(horizon.getByRole('row').nth(1).getByRole('cell').first()).toHaveText(/^\d+$/);
     expect(await axe(page)).toEqual([]);
     if (testInfo.project.name !== 'iphone') {
         const walk = await keyboardWalk(page);
         expect(walk.problems, walk.stops.join(' → ')).toEqual([]);
-        expect(walk.stops.join(' → ')).toMatch(/div "What Wayhop asked of OASA.*→ div "How each route to OASA/);
+        expect(walk.stops.join(' → ')).toMatch(/div "What Wayhop asked of OASA.*→ div "How each route to OASA.*→ div "How far ahead OASA predicts/);
     }
 });
 
