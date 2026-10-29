@@ -7,6 +7,8 @@ import { BUILD_DIR, OVERLAY_FILE, loadCurated, rebuildSoon } from './data/index.
 import { runDiagnostics } from './diagnostics.js';
 import { createBusApi } from './oasa/index.js';
 import { createOasaClient } from './oasa/client.js';
+import { createUsage } from './oasa/usage.js';
+import { lastFetchFile } from './data/oasa-network.js';
 import { VENDOR, staticFiles } from './pages/assets.js';
 import { createPages } from './pages/index.js';
 import { checkedFacts, loadTools } from './pages/registry.js';
@@ -32,6 +34,8 @@ const DATA_DIR = path.join(ROOT, 'data');
 //             the CSP mode, the public address, AdSense
 //   buildDir: rail.json, bus-stops.json, bus-lines.json, meta.json (data/build)
 //   cacheDir: OASA's routes, the route status, the announcements and the lifts (data/cache)
+//   usageFile: the days of OASA's usage (server/oasa/usage.js), kept for
+//             months (data/local); null counts in memory only
 //   fetch:    how OASA, STASY and the relays are reached
 //   oasaClient, limiter: stand-ins for OASA and the per-visitor limit (oasa/index.js), for tests
 //   logError: where failed requests are logged (server/errors.js)
@@ -39,8 +43,8 @@ const DATA_DIR = path.join(ROOT, 'data');
 //             server.js starts it
 /**
  * @param {{
- *   config?: import('../types/config.js').Config, buildDir?: string, cacheDir?: string,
- *   fetch?: typeof globalThis.fetch, oasaClient?: ReturnType<typeof createOasaClient>,
+ *   config?: import('../types/config.js').Config, buildDir?: string, cacheDir?: string, usageFile?: string | null,
+ *   fetch?: typeof globalThis.fetch, usage?: ReturnType<typeof createUsage>, oasaClient?: ReturnType<typeof createOasaClient>,
  *   limiter?: { take(key: string, stops: number): number }, logError?: (message: string) => void,
  *   processGuard?: ReturnType<typeof createProcessGuard>,
  * }} [options]
@@ -49,8 +53,11 @@ export function createApp({
     config = loadConfig(),
     buildDir = BUILD_DIR,
     cacheDir = path.join(DATA_DIR, 'cache'),
+    usageFile = path.join(DATA_DIR, 'local', 'oasa-usage.json'),
     fetch = globalThis.fetch,
-    oasaClient = createOasaClient({ relays: config.relays, fetch, userAgent: config.userAgent }),
+    // With the nightly bus-network fetch's requests, from its record
+    usage = createUsage({ file: usageFile, networkFile: lastFetchFile(path.join(path.dirname(buildDir), 'raw')) }),
+    oasaClient = createOasaClient({ relays: config.relays, fetch, userAgent: config.userAgent, usage }),
     limiter = undefined,
     logError = console.error,
     processGuard = createProcessGuard(),
@@ -76,6 +83,7 @@ export function createApp({
         statusFile: path.join(cacheDir, 'oasa-status.json'),
         stopsFile: path.join(buildDir, 'bus-stops.json'),
         relays,
+        usage,
         client: oasaClient,
         limiter,
     });

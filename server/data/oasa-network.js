@@ -53,7 +53,8 @@ const list = (body, what) => {
  * request(act, p1): one call to OASA's API (server/oasa/client.js) → parsed JSON
  * saved(code, entry): called with each route's stops as they arrive
  * progress: filled in as it goes, so a caller sees how far a failed fetch got:
- * { lines: { done, total }, stops: { done, total } }
+ * { lines: { done, total }, stops: { done, total }, requests } (requests: for
+ * the usage of OASA, server/oasa/usage.js)
  * @returns {Promise<{ network: any, requests: number }>}
  */
 export async function fetchNetwork({ request, previous = null, now = Date.now, sleep = realSleep, log = console.log, saved = /** @type {(code: string, entry: any) => void} */ (() => {}), progress = /** @type {any} */ ({}) }) {
@@ -63,6 +64,7 @@ export async function fetchNetwork({ request, previous = null, now = Date.now, s
     const ask = async (act, p1, what, { none = false } = {}) => {
         for (let tries = 1; ; tries++) {
             if (requests++) await sleep(PACE_MS);
+            progress.requests = requests;
             try {
                 const body = await request(act, p1);
                 return list(none ? body ?? [] : body, what);

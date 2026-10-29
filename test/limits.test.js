@@ -5,7 +5,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import express from 'express';
 import { createBusApi } from '../server/oasa/index.js';
-import { clientKey, createClientLimiter, hourCounter, NEW_STOPS_PER_MINUTE } from '../server/oasa/limits.js';
+import { clientKey, createClientLimiter, NEW_STOPS_PER_MINUTE } from '../server/oasa/limits.js';
 
 // Fair use of the request budget to OASA: known stops only, and a per-visitor
 // allowance of stops that aren't cached
@@ -34,16 +34,6 @@ test('each client gets its allowance per minute; free requests always pass', () 
     assert.equal(limiter.take('a', 10), 0, 'a new minute');
 });
 
-test('hourCounter forgets after an hour', () => {
-    const counter = hourCounter(now);
-    counter.add();
-    t += 1_800_000;
-    counter.add();
-    assert.equal(counter.count(), 2);
-    t += 1_800_000;
-    assert.equal(counter.count(), 1);
-});
-
 // ── /api/arrivals ───────────────────────────────────────────────────────────
 
 const KNOWN = Array.from({ length: 40 }, (_, i) => String(10_000 + i));
@@ -55,7 +45,7 @@ before(async () => {
     const dir = mkdtempSync(join(tmpdir(), 'limits-'));
     const stopsFile = join(dir, 'bus-stops.json');
     writeFileSync(stopsFile, JSON.stringify({ fields: ['code', 'lat', 'lng'], stops: KNOWN.map(c => [c, 37.9, 23.7]) }));
-    const client = { request: async () => { calls++; return []; }, status: () => ({ at: now(), droppedLastHour: 0, routes: [] }) };
+    const client = { request: async () => { calls++; return []; }, status: () => ({ at: now(), routes: [] }) };
     api = createBusApi({ client, stopsFile, now });
     const app = express();
     app.set('trust proxy', true);
@@ -83,6 +73,7 @@ test(`a visitor may ask for ${NEW_STOPS_PER_MINUTE} new stops a minute; cached o
     assert.equal(over.headers.get('retry-after'), '60');
     assert.equal((await ask(KNOWN.slice(0, 6), ip)).status, 200, 'stops cached a moment ago cost nothing');
     assert.equal((await ask(KNOWN.slice(NEW_STOPS_PER_MINUTE, NEW_STOPS_PER_MINUTE + 1), '198.51.100.3')).status, 200, 'other visitors are unaffected');
-    assert.equal(api.status().limitedLastHour, 1);
+    // Counted in the usage of OASA, for the diagnostics
+    assert.equal(api.status().usage.hour.limited, 1);
 });
 

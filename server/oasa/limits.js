@@ -40,13 +40,3 @@ export function clientKey(ip = '') {
     const groups = [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t];
     return `${groups.slice(0, 4).map(g => g.replace(/^0+(?=.)/, '')).join(':')}::/64`;
 }
-
-// How many times something happened in the past hour, for diagnostics
-export function hourCounter(now = Date.now) {
-    const times = [];
-    const prune = () => { while (times.length && now() - times[0] >= 3_600_000) times.shift(); };
-    return {
-        add() { times.push(now()); prune(); },
-        count() { prune(); return times.length; },
-    };
-}
