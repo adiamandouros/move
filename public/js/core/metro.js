@@ -113,26 +113,32 @@ export function diagramLegend(symbols, s, open = true) {
 }
 
 // A legend closed stays closed, on every page, until it's opened again: kept
-// on the device. The server draws it open; the browser closes it when the
-// person closed it before (localStorage can be missing or blocked: then it
-// stays open).
-const LEGEND_CLOSED = 'legend-closed';
+// on the device. So does the step-free notice (liftNotice in lifts.js). The
+// server draws them open; the browser closes them when the person closed them
+// before (localStorage can be missing or blocked: then they stay open).
+// Each: what it is → the key it's kept under.
+const KEPT_CLOSED = { 'details.diagram-legend': 'legend-closed', 'details.lift-notice': 'lifts-closed' };
 
-export function legendOpen() {
-    try { return localStorage.getItem(LEGEND_CLOSED) !== '1'; } catch { return true; }
-}
+const keptOpen = selector => {
+    try { return localStorage.getItem(KEPT_CLOSED[selector]) !== '1'; } catch { return true; }
+};
+export const legendOpen = () => keptOpen('details.diagram-legend');
+export const liftsOpen = () => keptOpen('details.lift-notice');
 
-// Run once per page (shell.js): close the page's legends if they were
-// closed, and remember each one opened or closed
-export function rememberLegends() {
-    if (!legendOpen()) /** @type {NodeListOf<HTMLDetailsElement>} */ (document.querySelectorAll('details.diagram-legend')).forEach(legend => { legend.open = false; });
+// Run once per page (shell.js): close the page's legends and step-free
+// notices if they were closed, and remember each one opened or closed
+export function rememberClosed() {
+    for (const selector of Object.keys(KEPT_CLOSED)) {
+        if (!keptOpen(selector)) /** @type {NodeListOf<HTMLDetailsElement>} */ (document.querySelectorAll(selector)).forEach(details => { details.open = false; });
+    }
     // toggle doesn't bubble: caught on its way down
     document.addEventListener('toggle', e => {
-        const legend = /** @type {HTMLDetailsElement} */ (e.target);
-        if (!legend.matches?.('details.diagram-legend')) return;
+        const details = /** @type {HTMLDetailsElement} */ (e.target);
+        const selector = Object.keys(KEPT_CLOSED).find(sel => details.matches?.(sel));
+        if (!selector) return;
         try {
-            if (legend.open) localStorage.removeItem(LEGEND_CLOSED);
-            else localStorage.setItem(LEGEND_CLOSED, '1');
+            if (details.open) localStorage.removeItem(KEPT_CLOSED[selector]);
+            else localStorage.setItem(KEPT_CLOSED[selector], '1');
         } catch { /* not kept: open next time */ }
     }, true);
 }

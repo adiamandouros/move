@@ -192,9 +192,10 @@ function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, op
 // stations: { [legKey]: true }, legs whose stations the user opened
 // legend: whether the legend is open (legendOpen() in metro.js)
 // lifts: the lifts out of service (watchLifts() in /js/core/lifts.js), or null
-export function renderResult(rail, plans, now, { expired, tomorrow = false, open = {}, stations = {}, legend = true, lifts = null }) {
+// liftsOpen: whether their notice is open (liftsOpen() in metro.js)
+export function renderResult(rail, plans, now, { expired, tomorrow = false, open = {}, stations = {}, legend = true, lifts = null, liftsOpen = true }) {
     if (!plans.length) return renderMessage('subway.no-route');
-    const liftsNotice = liftNotice(lifts, tripStations(plans), id => stationName(rail, id), tripGaps(rail, plans));
+    const liftsNotice = liftNotice(lifts, tripStations(plans), id => stationName(rail, id), tripGaps(rail, plans), liftsOpen);
     const oldNotice = expired && notice('warn', 'warning', format(t('subway.timetable-old'), { date: formatDate(rail.feed.validTo) }), 'timetable-notice mb-3');
     const tomorrowNotice = tomorrow && notice('info', 'night', t('subway.tomorrow'), 'tomorrow-notice mb-3');
     const times = plans.map(r => tripTime(rail, r, now));
@@ -222,12 +223,13 @@ const INTRO_POINTS = ['subway.intro-trains', 'subway.intro-arrival', 'subway.int
 // Before there are two stations: what the page does, in a sentence, and
 // what the trains will show (every symbol any stop has). legend: whether
 // it's open (legendOpen() in metro.js). With one station picked
-// (`picked`), its lifts out of service (`lifts`) and platforms with steps only, if any.
-export function renderIntro(rail, legend = true, lifts = null, picked = []) {
+// (`picked`), its lifts out of service (`lifts`) and platforms with steps only, if any,
+// their notice open or not (`liftsOpen`).
+export function renderIntro(rail, legend = true, lifts = null, picked = [], liftsOpen = true) {
     const stops = Object.values(rail.lines).flatMap(line => Object.values(line.directions)).flatMap(direction => direction.stops);
     const symbols = [...new Set(stops.filter(stop => stop.exits.length).flatMap(diagramSymbols))];
     const gaps = stepFreeGaps(rail, picked.flatMap(id => stationPlatforms(rail, id)));
-    return html`${liftNotice(lifts, picked, id => stationName(rail, id), gaps)}<div class="subway-intro"><p>${t('subway.intro')}</p>
+    return html`${liftNotice(lifts, picked, id => stationName(rail, id), gaps, liftsOpen)}<div class="subway-intro"><p>${t('subway.intro')}</p>
         <ul>${INTRO_POINTS.map(key => html`<li>${t(key)}</li>`)}</ul></div>
         ${symbols.length > 0 && diagramLegend(symbols, t, legend)}`;
 }

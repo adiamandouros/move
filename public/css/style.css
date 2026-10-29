@@ -1077,6 +1077,55 @@ body {
     border-color: var(--wh-last);
 }
 
+/* A closable notice (closableNotice in html.js): its first line, in the
+   notice's colour, always shown with the chevron on the right; the rest under
+   it, in line with the words */
+.closable-notice {
+    display: block;
+}
+
+.closable-notice > summary {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--wh-space-2);
+    min-height: 1.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+}
+
+.closable-notice > summary::-webkit-details-marker {
+    display: none;
+}
+
+.closable-notice .closable-summary {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.closable-notice > summary > .icon {
+    margin-top: 0.0625rem;
+}
+
+.closable-notice > .notice-body {
+    margin: var(--wh-space-2) 0 0 calc(1.25em + var(--wh-space-2));
+}
+
+.closable-chevron {
+    transition: transform 0.15s;
+}
+
+.closable-notice[open] .closable-chevron {
+    transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .closable-chevron {
+        transition: none;
+    }
+}
+
 /* Where a notice's facts come from (the lifts: STASY) */
 .lift-source {
     font-size: var(--wh-fs-xs);

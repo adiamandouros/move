@@ -2,7 +2,7 @@ import { startFavourites } from './favourites.js';
 import { html, icon as iconHtml, setHtml } from './html.js';
 import { t } from './i18n.js';
 import { startStationLifts } from './lifts.js';
-import { rememberLegends } from './metro.js';
+import { rememberClosed } from './metro.js';
 import { fitStationTitle } from './station-title.js';
 import { restoreLinks } from './remember.js';
 import { startTheme } from './theme.js';
@@ -27,10 +27,10 @@ startTheme();
 // Every star on every page: stations, bus stops, bus lines (/js/core/favourites.js)
 startFavourites();
 
-// ── The train legends ────────────────────────────────────────────────────────
+// ── The train legends and step-free notices ──────────────────────────────────
 
 // Closed once, closed on every page (/js/core/metro.js)
-rememberLegends();
+rememberClosed();
 
 // ── A station page's title ───────────────────────────────────────────────────
 

@@ -25,6 +25,45 @@ test.describe('lifts out of service', () => {
         expect(await axe(page)).toEqual([]);
     });
 
+    test('closed, the warning keeps its first line, in yellow; it stays closed through the refresh, a reload and on the station pages, until opened again', async ({ page }) => {
+        await page.goto('/subway?from=kerameikos&to=syntagma');
+        const summary = notice(page).locator('summary');
+        await expect(summary).toHaveText('Step-free access: Kerameikos');
+        await expect(notice(page)).toHaveAttribute('open', '');
+
+        // With the keyboard
+        await summary.focus();
+        await page.keyboard.press('Enter');
+        await expect(notice(page)).not.toHaveAttribute('open', '');
+        await expect(notice(page)).toHaveClass(/notice-warn/);
+        await expect(notice(page).locator('.notice-body')).toBeHidden();
+        expect(await axe(page)).toEqual([]);
+
+        // The 30-second refresh draws it again: still closed, still focused
+        await notice(page).evaluate(el => el.setAttribute('data-before-refresh', ''));
+        await page.clock.runFor(30_000);
+        await expect(page.locator('[data-before-refresh]')).toHaveCount(0);
+        await expect(notice(page)).not.toHaveAttribute('open', '');
+        await expect(summary).toBeFocused();
+
+        // A reload, and a station's page
+        await page.reload();
+        await expect(summary).toBeVisible();
+        await expect(notice(page)).not.toHaveAttribute('open', '');
+        await page.goto('/subway/stations/kerameikos');
+        const status = page.locator('#lift-status .lift-notice');
+        await expect(status.locator('summary')).toHaveText('Step-free access: Kerameikos');
+        await expect(status).not.toHaveAttribute('open', '');
+
+        // Opened there: open everywhere again
+        await status.locator('summary').click();
+        await expect(status).toHaveAttribute('open', '');
+        await page.goto('/subway?from=kerameikos&to=syntagma');
+        await expect(notice(page)).toHaveAttribute('open', '');
+        // The train legend is kept apart: still open
+        await expect(page.locator('.diagram-legend')).toHaveAttribute('open', '');
+    });
+
     test('a change of line at a station with a lift out: for information, in Greek', async ({ page }) => {
         await page.goto('/el/subway?from=victoria&to=panepistimio');
         await expect(notice(page)).toHaveClass(/notice-info/);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Html, escapeHtml, externalLink, format, formatDate, formatHtml, html, icon, localName, notice, raw, safeUrl, setHtml, walkingUrl } from '../public/js/core/html.js';
+import { Html, closableNotice, escapeHtml, externalLink, format, formatDate, formatHtml, html, icon, localName, notice, raw, safeUrl, setHtml, walkingUrl } from '../public/js/core/html.js';
 import { busPlate, linePill, pillList, stationSign } from '../public/js/core/lines.js';
 import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, exitKind, lineEnd, stopNote, trainDiagram } from '../public/js/core/metro.js';
 
@@ -193,4 +193,10 @@ test('several pills: a space between them, and a comma for screen readers', () =
 test('notice() is an icon and a body in one of four tones, its content escaped', () => {
     assert.equal(String(notice('ok', 'ok', 'All clear')), `<div class="notice notice-ok">${icon('ok')}<div class="notice-body">All clear</div></div>`);
     assert.match(String(notice('warn', 'warning', html`<b>${'<i>'}</b>`, 'mt-3')), /^<div class="notice notice-warn mt-3">[^]*<b>&lt;i&gt;<\/b>/);
+});
+
+test('closableNotice(): a disclosure in a notice\'s tone, its first line beside the icon, open unless closed before', () => {
+    const open = String(closableNotice('warn', 'step-free', 'Step-free access: <Omonia>', html`<p>${'<i>'}</p>`, 'lift-notice'));
+    assert.match(open, /^<details class="notice notice-warn closable-notice lift-notice" open>\s*<summary><svg class="icon"[^]*?<\/svg><span class="closable-summary">Step-free access: &lt;Omonia&gt;<\/span><svg class="icon closable-chevron"[^]*?<\/summary>\s*<div class="notice-body"><p>&lt;i&gt;<\/p><\/div>\s*<\/details>$/);
+    assert.match(String(closableNotice('info', 'step-free', 'x', 'y', '', false)), /^<details class="notice notice-info closable-notice">/);
 });

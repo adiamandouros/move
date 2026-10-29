@@ -79,7 +79,8 @@
     "lifts.no-step-free": "{station}: the platform toward {toward} has steps only, no step-free access.",
     "lifts.no-step-free-short": "Steps only toward {toward}",
     "lifts.caution": "Lifts can stop working at any time: see {link}.",
-    "lifts.caution-link": "STASY's elevator page"
+    "lifts.caution-link": "STASY's elevator page",
+    "lifts.summary": "Step-free access: {stations}"
   },
   "el": {
     "shell.skip": "Μετάβαση στο περιεχόμενο",
@@ -161,6 +162,7 @@
     "lifts.no-step-free": "{station}: στην αποβάθρα προς {toward} φτάνετε μόνο με σκαλοπάτια.",
     "lifts.no-step-free-short": "Μόνο με σκαλοπάτια προς {toward}",
     "lifts.caution": "Οι ανελκυστήρες μπορεί να σταματήσουν ανά πάσα στιγμή: δείτε {link}.",
-    "lifts.caution-link": "τη σελίδα ανελκυστήρων της ΣΤΑΣΥ"
+    "lifts.caution-link": "τη σελίδα ανελκυστήρων της ΣΤΑΣΥ",
+    "lifts.summary": "Πρόσβαση με ανελκυστήρα: {stations}"
   }
 }
