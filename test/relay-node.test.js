@@ -1,6 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRelayServer } from '../proxy/node.js';
+import { listen } from './support/listen.js';
 
 const realFetch = globalThis.fetch;
 const BIG_PAGE = `<html>${'<article>Ανακοίνωση</article>'.repeat(5000)}</html>`;
@@ -9,9 +10,8 @@ let base;
 let upstream;
 
 before(async () => {
-    server = createRelayServer({ RELAY_KEY: 'secret' });
-    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-    base = `http://127.0.0.1:${server.address().port}`;
+    server = await listen(createRelayServer({ RELAY_KEY: 'secret' }));
+    base = server.url;
     // Fake OASA and Cloudflare; requests to the relay itself go out for real
     globalThis.fetch = async (url, init) => {
         if (String(url).startsWith(base)) return realFetch(url, init);

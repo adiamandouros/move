@@ -6,6 +6,7 @@ import { join } from 'path';
 import http from 'http';
 import { createUsage } from '../server/oasa/usage.js';
 import { loadTools, sitePages } from '../server/pages/registry.js';
+import { listen } from './support/listen.js';
 import { brokenData, down, fakeNetwork, LIFTS_OUT, site } from './support/test-site.js';
 
 // The whole server (server/app.js) as a browser or a search engine meets it,
@@ -14,9 +15,9 @@ import { brokenData, down, fakeNetwork, LIFTS_OUT, site } from './support/test-s
 // (test data, a fake OASA), so it needs no network.
 
 async function serve(overrides) {
-    const server = await new Promise(resolve => { const s = site(overrides).listen(0, () => resolve(s)); });
+    const server = await listen(site(overrides));
     after(() => server.close());
-    const base = `http://localhost:${server.address().port}`;
+    const base = server.url;
     const get = (path, init = {}) => fetch(base + path, { redirect: 'manual', ...init });
     // A browser revalidating its copy: only If-None-Match (fetch() would add
     // Cache-Control: no-cache, which asks for a full answer) → the status

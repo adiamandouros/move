@@ -30,8 +30,9 @@ Where tests go:
 
 `npm run check` runs lint, type checks and both kinds of tests. Git runs the
 quick part before every commit and the browser tests on one phone before
-every push (`.githooks/`, set up by `npm install`); GitHub runs everything on
-every pull request, and every night on `main`. Don't skip the hooks to get
+every push, all but the checks of every page (`.githooks/`, set up by
+`npm install`); GitHub runs everything on every pull request, each device
+side by side, and every night on `main`. Don't skip the hooks to get
 past a failure: fix it. [test/README.md](test/README.md) has the map and the
 rules (no flaky tests, coverage only goes up).
 

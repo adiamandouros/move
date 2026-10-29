@@ -2,14 +2,16 @@
 
 The site in real browsers, the way people use it: every page in both
 languages, the keyboard, location, the bus page's requests, offline use.
-They run on every pull request (`.github/workflows/checks.yml`) and in
-`npm run check`.
+They run on every pull request (`.github/workflows/checks.yml`, each device
+a job of its own), every night and in `npm run check`; before a push, on
+the phone without the checks of every page (`.githooks/pre-push`).
 
 ```bash
 npx playwright install chromium webkit   # once, and after updating @playwright/test
 npm run test:browser                     # everything, on phone, desktop and iPhone
 npm run test:browser -- --project=phone  # one of them
 npm run test:browser -- buses            # the files whose names match
+npm run test:browser -- --grep-invert @every-page  # all but the checks of every page, as before a push
 npm run test:browser -- --ui             # watch them run, step by step
 ```
 
@@ -70,9 +72,10 @@ And two helpers:
 
 `pages.spec.js` already runs both on every page in the registry, in both
 languages (the list is `site-pages.js`), and `text-size.spec.js` checks
-each one at 200% text, so a new page is covered by itself. Write a new spec for what a
-page *does*: wait for what a person would see (`await expect(locator)…`),
-never a fixed time.
+each one at 200% text, so a new page is covered by itself. Both are tagged
+`@every-page`: they're the slow part, so the push hook leaves them out and
+GitHub runs them. Write a new spec for what a page *does*: wait for what a
+person would see (`await expect(locator)…`), never a fixed time.
 
 The projects: `phone` (Pixel 7, Chromium), `desktop` (1366 × 900, Chromium)
 and `iphone` (iPhone 15, WebKit). Skip one where a test doesn't apply, with

@@ -6,6 +6,7 @@ import { createPages, renderPages } from '../server/pages/index.js';
 import { loadTools } from '../server/pages/registry.js';
 import { stationPage } from '../server/pages/stations.js';
 import { rail } from './fixtures/rail.js';
+import { listen } from './support/listen.js';
 
 // AdSense is off until ADSENSE_CLIENT is set; each ADSENSE_SLOT_* adds one ad
 // unit. (Which settings count, and the problems with wrong ones: config.test.js.)
@@ -22,9 +23,9 @@ function withEnv(env) {
 async function adsTxt(env) {
     const app = express();
     app.use(createPages(tools, { config: loadConfig(env) }).router);
-    const server = await new Promise(resolve => { const s = app.listen(0, () => resolve(s)); });
+    const server = await listen(app);
     try {
-        const res = await fetch(`http://localhost:${server.address().port}/ads.txt`);
+        const res = await fetch(`${server.url}/ads.txt`);
         return { status: res.status, text: await res.text() };
     } finally {
         server.close();

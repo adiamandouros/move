@@ -8,6 +8,7 @@ import { RELAY_VERSION } from '../proxy/worker.js';
 import { createHealth } from '../server/health.js';
 import { securityHeaders } from '../server/security.js';
 import { report, runChecks } from '../scripts/health-check.js';
+import { listen } from './support/listen.js';
 
 // The health page (server/health.js), the security headers, and the
 // scheduled check that reads them (scripts/health-check.js)
@@ -108,9 +109,9 @@ test('a failed part of the build counts, and so does no build at all', async () 
 test('the page answers 503 when unhealthy, without addresses, keys or error details', async () => {
     const app = express();
     app.use('/api/health', health({ sources: { stasy: false } }));
-    const server = await new Promise(r => { const s = app.listen(0, () => r(s)); });
+    const server = await listen(app);
     try {
-        const res = await fetch(`http://localhost:${server.address().port}/api/health`);
+        const res = await fetch(`${server.url}/api/health`);
         assert.equal(res.status, 503);
         const body = await res.text();
         for (const secret of ['pi.example', 'k3y', 'secret detail']) assert.ok(!body.includes(secret), `leaks ${secret}`);
@@ -128,9 +129,9 @@ test('answers are kept for a minute, so the page can\'t be used to load the rela
         now: () => NOW,
     });
     const app = express().use('/h', page);
-    const server = await new Promise(r => { const s = app.listen(0, () => r(s)); });
+    const server = await listen(app);
     try {
-        for (let i = 0; i < 3; i++) await fetch(`http://localhost:${server.address().port}/h`);
+        for (let i = 0; i < 3; i++) await fetch(`${server.url}/h`);
         assert.equal(asked, 1);
     } finally {
         server.close();
@@ -150,9 +151,9 @@ test('security headers go on every response; HSTS only over https', async () => 
     app.set('trust proxy', true);
     app.use(securityHeaders());
     app.get('/', (_req, res) => res.send('ok'));
-    const server = await new Promise(r => { const s = app.listen(0, () => r(s)); });
+    const server = await listen(app);
     try {
-        const base = `http://localhost:${server.address().port}/`;
+        const base = `${server.url}/`;
         const plain = await fetch(base);
         assert.equal(plain.headers.get('x-content-type-options'), 'nosniff');
         assert.equal(plain.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');

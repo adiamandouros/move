@@ -2,6 +2,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
 import { errorHandler } from '../server/errors.js';
+import { listen } from './support/listen.js';
 
 // What a visitor gets when answering a request fails (server/errors.js): the
 // error page, or JSON from an API, never the error's details, which only go
@@ -19,9 +20,9 @@ async function serve(options) {
     app.get('/not-yet', () => { throw Object.assign(new Error('not built yet'), { status: 503, retryAfter: 300 }); });
     app.get('/half', (_req, res) => { res.write('half'); throw new Error('mid-answer'); });
     app.use(errorHandler(options));
-    const server = await new Promise(resolve => { const s = app.listen(0, () => resolve(s)); });
+    const server = await listen(app);
     after(() => server.close());
-    return path => fetch(`http://localhost:${server.address().port}${path}`);
+    return path => fetch(server.url + path);
 }
 
 const logged = [];

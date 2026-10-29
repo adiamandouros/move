@@ -5,7 +5,7 @@ import { axe, expect, keyboardWalk, test } from './fixtures.js';
 import { EVERY_PAGE, READY } from './site-pages.js';
 
 for (const [path, lang, url] of EVERY_PAGE) {
-    test(`${url}`, async ({ page }, testInfo) => {
+    test(`${url}`, { tag: '@every-page' }, async ({ page }, testInfo) => {
         await page.goto(url);
         if (READY[path]) await expect(page.locator(READY[path]).first()).toBeAttached();
         await expect(page.locator('html')).toHaveAttribute('lang', lang);
@@ -27,7 +27,7 @@ for (const [path, lang, url] of EVERY_PAGE) {
 }
 
 // The same pages in the light mode: the colours are the whole difference, so axe-core is what matters
-test.describe('in the light mode', () => {
+test.describe('in the light mode', { tag: '@every-page' }, () => {
     test.use({ colorScheme: 'light' });
     for (const [path, lang, url] of EVERY_PAGE) {
         test(`${url}`, async ({ page }) => {

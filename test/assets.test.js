@@ -7,6 +7,7 @@ import express from 'express';
 import { FONTS, listFiles, VENDOR, staticFiles, versioned, versionOf } from '../server/pages/assets.js';
 import { iconSprite } from '../server/pages/icons.js';
 import { createPages, renderPages } from '../server/pages/index.js';
+import { listen } from './support/listen.js';
 
 // Stylesheets and scripts are linked with ?v=<that file's version>, so a
 // deploy can't mix new pages with old cached files, and gives new addresses
@@ -24,8 +25,8 @@ before(async () => {
     app.use(createPages().router);
     for (const [url, dir] of Object.entries(VENDOR)) app.use(url, staticFiles(dir));
     app.use(staticFiles(join(ROOT, 'public'), { index: false }));
-    await new Promise(resolve => { server = app.listen(0, resolve); });
-    base = `http://localhost:${server.address().port}`;
+    server = await listen(app);
+    base = server.url;
 });
 after(() => server.close());
 
