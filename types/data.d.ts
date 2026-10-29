@@ -137,7 +137,7 @@ export interface BusLines {
     lines: {
         line: string;
         name: Names;
-        /** `to`: where it goes; `stops`: codes in bus-stops.json, in order */
-        directions: { to: Names; stops: string[] }[];
+        /** `to`: where it goes; `route`: the OASA route its stops are from; `stops`: codes in bus-stops.json, in order */
+        directions: { to: Names; route: string; stops: string[] }[];
     }[];
 }

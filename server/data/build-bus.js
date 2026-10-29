@@ -22,8 +22,10 @@ import { STOP_CODE } from './check-output.js';
 // {
 //   schema,
 //   lines: [{ line: '040', name: { el, en },
-//             directions: [{ to: { el: 'ΣΥΝΤΑΓΜΑ', en: 'SYNTAGMA' }, stops: ['…', …] }, …] }, …]
+//             directions: [{ to: { el: 'ΣΥΝΤΑΓΜΑ', en: 'SYNTAGMA' }, route: '3923', stops: ['…', …] }, …] }, …]
 // }
+// `route` is the OASA route the direction's stops are from: live arrivals
+// carry it, so a bus's direction can be told (the trip finder, item 13).
 // Neither says when the network was fetched (meta.json's fingerprint does):
 // a file that's the same as the night before stays as it was, so browsers
 // keep their copy (publish in index.js).
@@ -36,7 +38,8 @@ import { STOP_CODE } from './check-output.js';
 
 // 3: `en` is '' where it's the Greek in Latin letters
 const BUS_SCHEMA = 3;
-const BUS_LINES_SCHEMA = 2;
+// 3: each direction's `route`
+const BUS_LINES_SCHEMA = 3;
 
 const MIN_STOPS = 1000;
 
@@ -111,6 +114,7 @@ export function buildBusLines(network) {
             if (!route) continue;
             directions.push({
                 to: { el: towardName(route.name.el), en: towardName(route.name.en) || towardName(route.name.el) },
+                route: route.code,
                 stops: stops[route.code].stops.map(s => s.code).filter(code => STOP_CODE.test(code)),
             });
         }

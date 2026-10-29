@@ -167,6 +167,7 @@ function checkBusLines(bus) {
         if (directions.length < 1 || directions.length > 2) problems.push(`${which}: needs one or two directions`);
         directions.forEach((d, i) => {
             if (!names(d?.to)) problems.push(`${which}, direction ${i}: needs where it goes, in Greek and English`);
+            if (typeof d?.route !== 'string' || !/^\d+$/.test(d.route)) problems.push(`${which}, direction ${i}: needs its OASA route code`);
             const stops = Array.isArray(d?.stops) ? d.stops : [];
             if (stops.length < 2) problems.push(`${which}, direction ${i}: fewer than two stops`);
             if (stops.some(code => typeof code !== 'string' || !STOP_CODE.test(code))) problems.push(`${which}, direction ${i}: stop codes must be numeric`);
