@@ -34,10 +34,24 @@ jobs:
         run: npm run test:coverage
 
   # The site in real browsers (test/browser/): phone and desktop Chromium, and
-  # WebKit as on an iPhone. Also needs no network: the tests run their own
-  # server with test data and a fake OASA.
+  # WebKit as on an iPhone, each device a job of its own, side by side, so a
+  # pull request waits for the slowest one rather than all three (decision
+  # 20). Also needs no network: the tests run their own server with test
+  # data and a fake OASA.
   browser:
     runs-on: ubuntu-latest
+    strategy:
+      # One device failing doesn't stop the others: each says what it found
+      fail-fast: false
+      matrix:
+        include:
+          - project: phone
+            engine: chromium
+          - project: desktop
+            engine: chromium
+          - project: iphone
+            engine: webkit
+    name: browser (${{ matrix.project }})
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -45,12 +59,12 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium webkit
-      - run: npm run test:browser
+      - run: npx playwright install --with-deps ${{ matrix.engine }}
+      - run: npm run test:browser -- --project=${{ matrix.project }}
       - name: Keep the report, screenshots and traces of failures
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.project }}
           path: playwright-report/
           retention-days: 14

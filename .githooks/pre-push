@@ -1,14 +1,16 @@
 #!/bin/sh
-# Before every push: the browser tests on one phone (about 20 s), so a broken
-# page is found before GitHub runs the full set. Skipped when Playwright's
+# Before every push: the browser tests on one phone, without the checks of
+# every page (@every-page: axe-core, the keyboard and 200% text on each of
+# them), about half a minute, so a broken page is found before GitHub runs
+# the full set, those included (decision 20). Skipped when Playwright's
 # browsers aren't installed (npx playwright install chromium webkit). To skip
 # once: git push --no-verify.
 if ! npx --no-install playwright --version >/dev/null 2>&1; then
     echo "[pre-push] Playwright isn't installed: skipping the browser tests"
     exit 0
 fi
-echo "[pre-push] browser tests on one phone…"
-npx playwright test --project=phone --reporter=dot || {
+echo "[pre-push] browser tests on one phone (the checks of every page run on GitHub)…"
+npx playwright test --project=phone --grep-invert @every-page --reporter=dot || {
     status=$?
     echo "[pre-push] Failed: see above (npx playwright show-report for details), or push with --no-verify to skip once."
     exit $status

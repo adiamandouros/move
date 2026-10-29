@@ -465,7 +465,8 @@ the live pages in your browser.
 
 [test/README.md](test/README.md) maps the whole suite: which kind of test
 goes where, what runs on each commit (lint, types, Node tests) and push
-(browser tests on one phone) through `.githooks/`, the coverage floor
+(browser tests on one phone, but not the checks of every page) through
+`.githooks/`, the coverage floor
 (`npm run test:coverage`) and the rule that flaky tests fail.
 
 `node scripts/snapshot.js <folder>` writes every response the server sends
@@ -477,7 +478,7 @@ then `diff -r` the two folders.
 Every change comes with its tests: new functionality gets new tests,
 changed functionality updates the tests that cover it, and a bug fix gets a
 test that would have caught it ([CLAUDE.md](CLAUDE.md);
-[decision 14](docs/decisions/0014-tests.md)).
+[decision 20](docs/decisions/0020-tests-and-when-they-run.md)).
 
 - **A string**: add it to the right strings file in both `en` and `el`, then
   use `{{t "key"}}` in a view or `t()` in a script.

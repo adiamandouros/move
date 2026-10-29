@@ -79,7 +79,7 @@ test('the 200% check finds text that doesn\'t fit', async ({ page }) => {
 });
 
 for (const [path, , url] of EVERY_PAGE) {
-    test(`${url} at 200% text`, async ({ page }) => {
+    test(`${url} at 200% text`, { tag: '@every-page' }, async ({ page }) => {
         await page.goto(url);
         if (READY[path]) await expect(page.locator(READY[path]).first()).toBeAttached();
         // The browser's default text size, doubled

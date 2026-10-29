@@ -1,6 +1,6 @@
 # 14. Tests with every change, and no flaky tests
 
-Decided 2026-10-18 · In force
+Decided 2026-10-18 · Replaced by [20](0020-tests-and-when-they-run.md)
 
 ## Situation
 

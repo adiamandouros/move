@@ -25,9 +25,10 @@ decisions, or makes one of the same weight, comes with its page.
 | 11 | [Real data first; timetable times marked](0011-real-data-first.md) | In force |
 | 12 | [Shared hosting, and what it rules out](0012-shared-hosting.md) | In force |
 | 13 | [Accessibility is a requirement](0013-accessibility.md) | In force |
-| 14 | [Tests with every change, and no flaky tests](0014-tests.md) | In force |
+| 14 | [Tests with every change, and no flaky tests](0014-tests.md) | Replaced by 20 |
 | 15 | [A Content-Security-Policy by hashes](0015-content-security-policy.md) | In force |
 | 16 | [The station editor is never blocked](0016-station-editor.md) | In force |
 | 17 | [Privacy: kept on the device, nothing about people on the server](0017-privacy.md) | Replaced by 19 |
 | 18 | [The information is given as it is, and says so](0018-information-as-it-is.md) | In force |
 | 19 | [Privacy: kept on the device; on the server, counts only](0019-privacy-counts-only.md) | In force |
+| 20 | [Tests with every change, no flaky tests, and when each kind runs](0020-tests-and-when-they-run.md) | In force |
