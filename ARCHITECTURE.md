@@ -260,7 +260,9 @@ version they started with, and it takes over once they're closed
   requests queue for OASA (over 2 s, over 5 s), for 60 s or 90 s, counted
   down and marked stale from a minute old. When OASA can't be reached, the
   last answer is served for up to 5 minutes.
-- The bus page ([tools/buses/client/main.js](tools/buses/client/main.js))
+- The bus page ([tools/buses/client/](tools/buses/client/): `main.js`
+  picks the view and wires the page up, each view is in `views/`, and what
+  they share, the stop list and its polling, is in `page.js`)
   refreshes only the stops on screen, by when their next bus comes: within
   10 minutes every 30 s, 10–20 minutes every 60 s, later or none every 2
   minutes (an opened stop every 30 s), and counts the minutes down in between.
