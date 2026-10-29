@@ -7,6 +7,7 @@ import express from 'express';
 import { createPages } from '../server/pages/index.js';
 import { lastTrains } from '../server/pages/last-trains.js';
 import { loadTools } from '../server/pages/registry.js';
+import { listen } from './support/listen.js';
 
 // The Info page's last metro trains (server/pages/last-trains.js), from
 // rail.json: the rows and facts the info tool's data.json lists
@@ -103,8 +104,8 @@ test('the Info page is drawn again when rail.json changes, without a restart', a
     };
     toAirport(22.9 * H);
     const app = express().use(createPages(loadTools(), { railFile }).router);
-    const server = await new Promise(resolve => { const srv = app.listen(0, () => resolve(srv)); });
-    const info = async () => (await fetch(`http://localhost:${server.address().port}/info`)).text();
+    const server = await listen(app);
+    const info = async () => (await fetch(`${server.url}/info`)).text();
     try {
         assert.match(await info(), /the last train to the airport leaves Dimotiko Theatro at 22:54;/);
         toAirport(23.25 * H);

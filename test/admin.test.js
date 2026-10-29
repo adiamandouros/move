@@ -7,6 +7,7 @@ import express from 'express';
 import { createAuth, createLimiter } from '../server/admin/auth.js';
 import { createAdmin } from '../server/admin/index.js';
 import { loadCurated } from '../server/data/index.js';
+import { listen } from './support/listen.js';
 
 test('sessions verify until they expire and depend on the password', () => {
     let now = 1_000;
@@ -61,8 +62,8 @@ before(async () => {
         rebuild: () => { rebuilds++; },
         render: ({ content }) => content,
     }));
-    await new Promise(resolve => { server = app.listen(0, resolve); });
-    base = `http://localhost:${server.address().port}/admin`;
+    server = await listen(app);
+    base = `${server.url}/admin`;
 });
 
 after(() => server.close());
@@ -178,10 +179,9 @@ test('the export key reads the export without a session, and opens nothing else'
     app.use('/admin', createAdmin({ ...options, exportKey: KEY }));
     // An editor without a key: no header opens its export
     app.use('/keyless/admin', createAdmin(options));
-    const keyed = await new Promise(resolve => { const s = app.listen(0, () => resolve(s)); });
+    const keyed = await listen(app);
     after(() => keyed.close());
-    const at = `http://localhost:${keyed.address().port}`;
-    const get = (path, key) => fetch(at + path, key === undefined ? {} : { headers: { Authorization: `Bearer ${key}` } });
+    const get = (path, key) => fetch(keyed.url + path, key === undefined ? {} : { headers: { Authorization: `Bearer ${key}` } });
 
     const res = await get('/admin/api/export', KEY);
     assert.equal(res.status, 200);

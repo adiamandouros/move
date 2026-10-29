@@ -10,6 +10,7 @@ import { loadTools } from '../server/pages/registry.js';
 import { renderPages } from '../server/pages/index.js';
 import { breadcrumb, firstAndLast, indexView, mainDestination, stationPage, stationView } from '../server/pages/stations.js';
 import { rail } from './fixtures/rail.js';
+import { listen } from './support/listen.js';
 
 // The station pages (/subway/stations/<id>), built from rail.json
 
@@ -24,8 +25,8 @@ before(async () => {
     const pages = createPages(tools, { railFile, config: loadConfig({ SITE_URL: 'https://wayhop.example' }) });
     app.use(pages.router);
     app.use(pages.notFound);
-    await new Promise(resolve => { server = app.listen(0, resolve); });
-    base = `http://localhost:${server.address().port}`;
+    server = await listen(app);
+    base = server.url;
 });
 after(() => server.close());
 

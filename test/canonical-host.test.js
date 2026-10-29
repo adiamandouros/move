@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { request } from 'http';
 import express from 'express';
 import { canonicalHost, RETIRED_WORKER } from '../server/canonical-host.js';
+import { listen } from './support/listen.js';
 
 // Other addresses redirect to SITE_URL; installed copies at the old address retire
 
@@ -11,9 +12,9 @@ async function serve(siteUrl) {
     const app = express();
     app.use(canonicalHost(siteUrl));
     app.use((req, res) => res.send(`page ${req.method} ${req.originalUrl}`));
-    const server = await new Promise(resolve => { const s = app.listen(0, () => resolve(s)); });
+    const server = await listen(app);
     after(() => server.close());
-    return (path, host, options) => get(`http://localhost:${server.address().port}`, path, host, options);
+    return (path, host, options) => get(server.url, path, host, options);
 }
 // fetch can't set Host, so a plain http request stands in for each address
 const get = (base, path, host, { method = 'GET' } = {}) => new Promise((resolve, reject) => {

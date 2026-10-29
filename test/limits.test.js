@@ -6,6 +6,7 @@ import { join } from 'path';
 import express from 'express';
 import { createBusApi } from '../server/oasa/index.js';
 import { clientKey, createClientLimiter, NEW_STOPS_PER_MINUTE } from '../server/oasa/limits.js';
+import { listen } from './support/listen.js';
 
 // Fair use of the request budget to OASA: known stops only, and a per-visitor
 // allowance of stops that aren't cached
@@ -50,8 +51,8 @@ before(async () => {
     const app = express();
     app.set('trust proxy', true);
     app.use('/api', api);
-    await new Promise(resolve => { server = app.listen(0, resolve); });
-    base = `http://localhost:${server.address().port}`;
+    server = await listen(app);
+    base = server.url;
 });
 after(() => server.close());
 

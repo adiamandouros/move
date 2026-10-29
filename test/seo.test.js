@@ -6,6 +6,7 @@ import { loadConfig } from '../server/config.js';
 import { localPath } from '../server/pages/i18n.js';
 import { createPages, renderPages } from '../server/pages/index.js';
 import { loadTools } from '../server/pages/registry.js';
+import { listen } from './support/listen.js';
 
 // What search engines and link previews see: meta tags, the Greek pages under
 // /el, robots.txt and the sitemap
@@ -25,8 +26,8 @@ before(async () => {
     const served = createPages(tools, { config });
     app.use(served.router);
     app.use(served.notFound);
-    await new Promise(resolve => { server = app.listen(0, resolve); });
-    base = `http://localhost:${server.address().port}`;
+    server = await listen(app);
+    base = server.url;
 });
 after(() => server.close());
 

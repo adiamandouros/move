@@ -2,6 +2,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
 import { createCspReports } from '../server/csp-reports.js';
+import { listen } from './support/listen.js';
 
 // Where browsers report what the Content-Security-Policy blocked
 // (server/csp-reports.js): both report formats, a summary without people's
@@ -10,9 +11,9 @@ import { createCspReports } from '../server/csp-reports.js';
 async function receiver({ now } = {}) {
     const reports = createCspReports({ now });
     const app = express().use('/api/csp-report', reports.router);
-    const server = await new Promise(resolve => { const s = app.listen(0, () => resolve(s)); });
+    const server = await listen(app);
     after(() => server.close());
-    const post = (body, type = 'application/csp-report') => fetch(`http://localhost:${server.address().port}/api/csp-report`, {
+    const post = (body, type = 'application/csp-report') => fetch(`${server.url}/api/csp-report`, {
         method: 'POST', headers: { 'content-type': type }, body: typeof body === 'string' ? body : JSON.stringify(body),
     });
     return { post, status: reports.status };
