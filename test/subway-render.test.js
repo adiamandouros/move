@@ -106,8 +106,10 @@ test('lifts out of service where the trip starts, changes or ends: one notice, a
     const render = await browserModule('tools/subway/client/render.js', 'en');
     const { trip, html } = draw(render, TRIPS['lifts out of service on the way']);
     const text = spoken(html).replace(/\s+/g, ' ');
-    assert.equal((html.match(/class="notice notice-warn lift-notice/g) ?? []).length, 1, 'one warning, first');
-    assert.match(html, /^\s*<div class="notice notice-warn lift-notice/);
+    assert.equal((html.match(/class="notice notice-warn closable-notice lift-notice/g) ?? []).length, 1, 'one warning, first');
+    assert.match(html, /^\s*<details class="notice notice-warn closable-notice lift-notice mb-3" open>/);
+    // Its first line names the stations, and stays when it's closed
+    assert.match(html, /<summary><svg [^]*?<\/svg><span class="closable-summary">Step-free access: Kifisia, Aigaleo<\/span><svg class="icon closable-chevron"/);
     assert.match(text, /Kifisia: not every elevator works, but the station can still be reached by the others\. Out of service: «Αποβάθρα - Υπόγεια Διάβαση»\./);
     assert.match(text, /Aigaleo: no step-free access right now\. Out of service: «Εξωτερικός», «Προς Αγία Μαρίνα»\./);
     assert.match(html, /<span lang="el">«Εξωτερικός»<\/span>/);
@@ -118,12 +120,15 @@ test('lifts out of service where the trip starts, changes or ends: one notice, a
 
     // Only partly out: for information. None on the way, or none known: nothing
     const partly = { ...LIFTS, stations: { kifisia: LIFTS.stations.kifisia } };
-    assert.match(draw(render, ['kifisia', 'aigaleo', NOON, { lifts: partly }]).html, /notice notice-info lift-notice/);
+    assert.match(draw(render, ['kifisia', 'aigaleo', NOON, { lifts: partly }]).html, /notice notice-info closable-notice lift-notice/);
+    // Closed by the person before (liftsOpen()): drawn closed, still yellow
+    assert.match(draw(render, ['kifisia', 'aigaleo', NOON, { lifts: LIFTS, liftsOpen: false }]).html, /^\s*<details class="notice notice-warn closable-notice lift-notice mb-3">\s*<summary>/);
     assert.doesNotMatch(draw(render, ['syntagma', 'airport', NOON, { lifts: LIFTS }]).html, /lift-notice/);
     assert.doesNotMatch(draw(render, TRIPS['a change of line']).html, /lift-notice/);
     // One station picked: its lifts, above what the page does
     const intro = String(render.renderIntro(rail, true, LIFTS, ['aigaleo']));
-    assert.match(intro, /^<div class="notice notice-warn lift-notice[^]*subway-intro/);
+    assert.match(intro, /^<details class="notice notice-warn closable-notice lift-notice mb-3" open>[^]*subway-intro/);
+    assert.match(String(render.renderIntro(rail, true, LIFTS, ['aigaleo'], false)), /^<details class="notice notice-warn closable-notice lift-notice mb-3">/);
     assert.match(spoken(intro), /Aigaleo: no step-free access/);
     assert.doesNotMatch(String(render.renderIntro(rail, true, LIFTS, ['syntagma'])), /lift-notice/);
 });
@@ -135,7 +140,7 @@ test('a platform with steps only where the trip boards, changes or gets off: a w
     steps.lines.M1.directions.piraeus.stops.find(s => s.station === 'thiseio').stepFree = 'no';
     const trip = planTrip(steps, 'omonia', 'thiseio', NOON);
     const html = String(render.renderResult(steps, trip.plans, trip.now, { expired: false }));
-    assert.match(html, /^\s*<div class="notice notice-warn lift-notice/);
+    assert.match(html, /^\s*<details class="notice notice-warn closable-notice lift-notice mb-3" open>\s*<summary>[^]*?Step-free access: Thiseio</);
     assert.match(spoken(html).replace(/\s+/g, ' '), /Thiseio: the platform toward Piraeus has steps only, no step-free access\./);
     // Nothing about lifts out of service, but where to see them
     assert.doesNotMatch(html, /Elevator status from STASY/);

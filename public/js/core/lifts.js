@@ -1,6 +1,6 @@
-import { externalLink, format, formatHtml, html, localName, notice, setHtml } from './html.js';
+import { closableNotice, externalLink, format, formatHtml, html, localName, setHtml } from './html.js';
 import { language, t } from './i18n.js';
-import { lineEnd, liftCaution, STASY_LIFTS_PAGE } from './metro.js';
+import { lineEnd, liftCaution, liftsOpen, STASY_LIFTS_PAGE } from './metro.js';
 
 // Which metro lifts are out of service, as STASY says (/api/lifts,
 // server/info/lifts.js): the warning for the stations of a trip on the subway
@@ -78,12 +78,15 @@ export function stepFreeGaps(rail, platforms) {
 // One notice for the platforms with no step-free access (`gaps`, from
 // stepFreeGaps) and the stations among `ids` with lifts out: a warning when
 // one can't be reached step-free, else for information. '' when there's none.
-// nameOf(id): the station's name in the page's language.
+// nameOf(id): the station's name in the page's language. It can be closed to
+// its first line, which names the stations ("Step-free access: Kifisia,
+// Aigaleo"), and stays closed on every page until opened again
+// (rememberClosed in metro.js); open: whether it is (liftsOpen()).
 /**
  * @param {any} lifts @param {string[]} ids @param {(id: string) => string} nameOf
- * @param {{ station: string, toward: string }[]} [gaps]
+ * @param {{ station: string, toward: string }[]} [gaps] @param {boolean} [open]
  */
-export function liftNotice(lifts, ids, nameOf, gaps = []) {
+export function liftNotice(lifts, ids, nameOf, gaps = [], open = true) {
     const stations = affected(lifts, ids);
     if (!stations.length && !gaps.length) return '';
     const closed = gaps.length > 0 || stations.some(id => lifts.stations[id].status === 'closed');
@@ -98,7 +101,8 @@ export function liftNotice(lifts, ids, nameOf, gaps = []) {
     const source = html`<p class="lift-source mb-0">${stations.length > 0
         ? externalLink({ href: STASY_LIFTS_PAGE[language] }, format(t('lifts.source'), { time: athensTime(lifts.fetched) }), t('shell.new-tab'))
         : liftCaution(language, t)}</p>`;
-    return notice(closed ? 'warn' : 'info', 'step-free', html`${steps}${lines}${source}`, 'lift-notice mb-3');
+    const names = [...new Set([...gaps.map(g => g.station), ...stations])].map(nameOf).join(', ');
+    return closableNotice(closed ? 'warn' : 'info', 'step-free', format(t('lifts.summary'), { stations: names }), html`${steps}${lines}${source}`, 'lift-notice mb-3', open);
 }
 
 // The same in a sentence, for screen readers (plain text): '' when there's none
@@ -133,7 +137,7 @@ export function startStationLifts() {
     const slot = document.getElementById('lift-status');
     if (!slot) return;
     const { station, name } = slot.dataset;
-    const lifts = watchLifts(() => setHtml(slot, liftNotice(lifts(), [station], () => name)));
+    const lifts = watchLifts(() => setHtml(slot, liftNotice(lifts(), [station], () => name, [], liftsOpen())));
     lifts();
     // Opened offline: asked once the connection is back
     addEventListener('online', () => lifts());

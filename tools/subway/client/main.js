@@ -1,7 +1,7 @@
 import { lastPosition, locationPermission, onLocation, onLocationProblem, startLocation } from '/js/core/location.js';
 import { announce, localName, setHtml } from '/js/core/html.js';
 import { watchLifts } from '/js/core/lifts.js';
-import { legendOpen } from '/js/core/metro.js';
+import { legendOpen, liftsOpen } from '/js/core/metro.js';
 import { language, t } from '/js/core/i18n.js';
 import { remember } from '/js/core/remember.js';
 import { athensNow, closestStation, isTimetableExpired, planTrip } from './network.js';
@@ -35,14 +35,15 @@ function start(rail) {
     let opened = {};
     // Legs whose stations the user opened (legKey → true), the same way
     let stationsOpen = {};
-    // Which one had the keyboard focus (an option, a leg's stops or the
-    // legend), to give it back after a refresh
+    // Which one had the keyboard focus (an option, a leg's stops, the
+    // step-free notice or the legend), to give it back after a refresh
     const focused = () => {
         const toggle = document.activeElement?.closest('#subway-result .leg-stops-toggle');
         if (toggle) return `.leg-stops-toggle[data-leg="${CSS.escape(toggle.getAttribute('data-leg'))}"]`;
         const details = document.activeElement?.closest('#subway-result details');
         if (!details) return null;
-        return `${details.hasAttribute('data-route') ? `details[data-route="${CSS.escape(details.getAttribute('data-route'))}"]` : 'details.diagram-legend'} > summary`;
+        if (details.hasAttribute('data-route')) return `details[data-route="${CSS.escape(details.getAttribute('data-route'))}"] > summary`;
+        return `${details.matches('.lift-notice') ? 'details.lift-notice' : 'details.diagram-legend'} > summary`;
     };
     const refocus = selector => { if (selector) /** @type {HTMLElement | null} */ (result.querySelector(selector))?.focus(); };
 
@@ -53,7 +54,7 @@ function start(rail) {
         // Until there are two stations: what the page does, and what the trains show
         if (!origin || !destination) {
             const focus = focused();
-            setHtml(result, renderIntro(rail, legendOpen(), known, [origin, destination].filter(Boolean)));
+            setHtml(result, renderIntro(rail, legendOpen(), known, [origin, destination].filter(Boolean), liftsOpen()));
             refocus(focus);
             return;
         }
@@ -66,7 +67,7 @@ function start(rail) {
         // After the last train, tomorrow's first ones
         const { plans, now, tomorrow } = planTrip(rail, origin, destination, today);
         const focus = focused();
-        setHtml(result, renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow, open: opened, stations: stationsOpen, legend: legendOpen(), lifts: known }));
+        setHtml(result, renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow, open: opened, stations: stationsOpen, legend: legendOpen(), lifts: known, liftsOpen: liftsOpen() }));
         refocus(focus);
         if (speak) announce(routeSummary(rail, plans, now, tomorrow, known));
     };

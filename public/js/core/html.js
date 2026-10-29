@@ -153,3 +153,14 @@ export function icon(name, cls = '', { filled = false } = {}) {
 export function notice(tone, iconName, content, cls = '') {
     return html`<div class="notice notice-${tone}${cls ? ` ${cls}` : ''}">${icon(iconName)}<div class="notice-body">${content}</div></div>`;
 }
+
+// The same, closable (a native disclosure: a button for screen readers and
+// the keyboard): `summary` beside the icon, always shown, the chevron on the
+// right; `content` under it while it's open.
+/** @param {'warn' | 'info' | 'ok' | 'danger'} tone @param {string} iconName @param {unknown} summary @param {unknown} content @param {string} [cls] @param {boolean} [open] @returns {Html} */
+export function closableNotice(tone, iconName, summary, content, cls = '', open = true) {
+    return html`<details class="notice notice-${tone} closable-notice${cls ? ` ${cls}` : ''}"${open && html` open`}>
+        <summary>${icon(iconName)}<span class="closable-summary">${summary}</span>${icon('more', 'closable-chevron')}</summary>
+        <div class="notice-body">${content}</div>
+    </details>`;
+}
