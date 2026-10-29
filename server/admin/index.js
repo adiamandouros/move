@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 import { formatJson } from '../data/format.js';
 import { EDITED, applyOverlay, entryAt, removeEntry, sameEntry, setEntry, writeOverlay } from '../data/overlay.js';
-import { ATHENS, EXIT_WAYS, POSITIONS, validateCurated } from '../data/validate.js';
+import { ATHENS, CROSSING_WAYS, EXIT_WAYS, POSITIONS, validateCurated } from '../data/validate.js';
 import { formatReport } from '../diagnostics.js';
 import { sendFresh } from '../http.js';
 import { listFiles, shellFiles, shellUrls, urlPath } from '../pages/assets.js';
@@ -180,6 +180,7 @@ export function createAdmin({ password, exportKey = '', loadCurated, loadRail, r
             positions: POSITIONS,
             // What the editor offers and checks before a save, as the server does
             exitWays: EXIT_WAYS,
+            crossingWays: CROSSING_WAYS,
             bounds: ATHENS,
             stations: Object.fromEntries(Object.entries(rail.stations).map(([id, s]) => [id, { name: s.name, coords: s.coords, lines: s.lines }])),
             lines: Object.fromEntries(Object.entries(rail.lines).map(([id, line]) => [id, {

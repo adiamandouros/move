@@ -336,3 +336,32 @@ test('the station editor: a place that can\'t be read stops the save, one far of
     expect(saved[1]).toEqual({ kind: 'street', ref: ['piraeus'], entry: null });
     await expect(page.getByRole('group', { name: 'Street elevator 1' })).toHaveCount(0);
 });
+
+test('the station editor records the way to the other side: where to stand, over or under, and how it\'s reached', async ({ page }) => {
+    const saved = await fakeSaves(page);
+    await openEditor(page);
+    const crossing = page.getByRole('group', { name: 'Way to the other side' });
+    await crossing.getByRole('button', { name: 'Front', exact: true }).click();
+    await crossing.getByLabel('Over or under').selectOption('bridge');
+    const how = crossing.getByRole('group', { name: 'How it\'s reached from this platform' });
+    await how.getByRole('checkbox', { name: 'Escalator up' }).check();
+    await how.getByRole('checkbox', { name: 'Elevator' }).check();
+    expect(await axe(page)).toEqual([]);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#entry-state[data-state="edited"]')).toBeVisible();
+    expect(saved.map(s => s.entry.crossing)).toEqual([{ at: ['front'], via: 'bridge', way: ['escalator-up', 'lift'] }]);
+    // Drawn again from what was saved
+    await expect(crossing.getByRole('button', { name: 'Front', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(crossing.getByLabel('Over or under')).toHaveValue('bridge');
+    await expect(how.getByRole('checkbox', { name: 'Elevator' })).toBeChecked();
+
+    // Nothing ticked any more: no crossing
+    await crossing.getByRole('button', { name: 'Front', exact: true }).click();
+    await crossing.getByLabel('Over or under').selectOption('');
+    await how.getByRole('checkbox', { name: 'Escalator up' }).uncheck();
+    await how.getByRole('checkbox', { name: 'Elevator' }).uncheck();
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect.poll(() => saved.length).toBe(2);
+    await expect(page.locator('#entry-state[data-state="edited"]')).toBeVisible();
+    expect(saved[1].entry).not.toHaveProperty('crossing');
+});

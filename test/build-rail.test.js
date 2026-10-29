@@ -26,10 +26,10 @@ test('builds stations, stops and a compressed weekly timetable', async () => {
     assert.ok(warnings.some(w => /expired on 2026-08-09/.test(w)));
 });
 
-test('the pages get only where the elevators are, each place once; "none" is left out', async () => {
+test('the pages get only where the elevators are, each place once; "none" and the way to the other side are left out', async () => {
     const positions = {
         M9: {
-            north: { a: { exits: ['back'], elevators: [{ at: 'front', name: 'Προς Γ' }, { at: 'back' }, { at: 'front', name: 'Εξωτερικός' }], stepFree: 'lift' }, b: { exits: ['front'], elevators: 'none' }, c: { exits: ['back'] } },
+            north: { a: { exits: ['back'], elevators: [{ at: 'front', name: 'Προς Γ' }, { at: 'back' }, { at: 'front', name: 'Εξωτερικός' }], stepFree: 'lift' }, b: { exits: ['front'], elevators: 'none', crossing: { at: ['front'], via: 'bridge' } }, c: { exits: ['back'] } },
             south: { c: { exits: ['back'] }, b: { exits: ['center'] }, a: { exits: ['front'] } },
         },
     };

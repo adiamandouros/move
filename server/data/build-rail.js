@@ -225,12 +225,14 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
 }
 
 // A stop's entry from positions.json, as the pages read it: its elevators
-// are only where they are (none: left out), each place once
+// are only where they are (none: left out), each place once; the way to the
+// other side isn't shown yet, so it's left out
 function stopPositions(positions, lineId, dirKey, station, warnings) {
     const p = positions[lineId]?.[dirKey]?.[station];
     if (!p) warnings.push(`positions.json: no entry for ${lineId}/${dirKey}/${station}`);
     else if (!p.exits?.length) warnings.push(`positions.json: no exits for ${lineId}/${dirKey}/${station}`);
     const fields = Object.entries(p ?? {}).flatMap(([key, value]) => {
+        if (key === 'crossing') return [];
         if (key !== 'elevators') return [[key, value]];
         const at = Array.isArray(value) ? [...new Set(value.map(lift => lift.at))] : [];
         return at.length ? [[key, at]] : [];

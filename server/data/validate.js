@@ -15,11 +15,18 @@ export const STEP_FREE = ['lift', 'ramp', 'level', 'yes', 'no'];
 export const NO_ELEVATOR = 'none';
 const ELEVATOR_KEYS = new Set(['at', 'name']);
 
-const POSITION_KEYS = new Set(['exits', 'elevators', 'escalators', 'stairs', 'centralPlatform', 'stepFree', 'transfers', 'note']);
+const POSITION_KEYS = new Set(['exits', 'elevators', 'escalators', 'stairs', 'centralPlatform', 'stepFree', 'transfers', 'crossing', 'note']);
 
 // How a street exit is reached from inside: up the stairs, an escalator up
 // (toward the street), an escalator down
 export const EXIT_WAYS = ['stairs', 'escalator-up', 'escalator-down'];
+
+// A platform's way to the other side of the tracks (an M1 surface station's):
+// over a footbridge or through an underpass, reached from the platform up
+// or down the stairs, an escalator, an elevator or a ramp
+export const CROSSING_VIA = ['bridge', 'underpass'];
+export const CROSSING_WAYS = [...EXIT_WAYS, 'lift', 'ramp'];
+const CROSSING_KEYS = ['at', 'via', 'way'];
 
 // Where a place on the street can be, [lat, lng]: around the metro, wide.
 // Outside it is a mistake (latitude and longitude swapped, a digit lost).
@@ -86,6 +93,16 @@ export function validateCurated({ stations, lines, positions, airport, tram, str
         }
     };
 
+    // Where to stand for it, what it is and how it's reached, each while the
+    // others aren't known yet
+    const checkCrossing = (where, crossing) => {
+        if (typeof crossing !== 'object' || crossing === null || Array.isArray(crossing)) { errors.push(`${where} must be { "at": [positions], "via": …, "way": […] }`); return; }
+        for (const key of Object.keys(crossing)) if (!CROSSING_KEYS.includes(key)) errors.push(`${where}: unknown field "${key}"`);
+        if (crossing.at !== undefined) checkPositions(`${where}.at`, crossing.at);
+        if (crossing.via !== undefined && !CROSSING_VIA.includes(crossing.via)) errors.push(`${where}.via must be one of ${CROSSING_VIA.join(', ')}`);
+        if (crossing.way !== undefined && (!Array.isArray(crossing.way) || crossing.way.some(w => !CROSSING_WAYS.includes(w)))) errors.push(`${where}.way must be a list of ${CROSSING_WAYS.join(', ')}`);
+    };
+
     for (const [lineId, dirs] of Object.entries(positions)) {
         if (!lines[lineId]) { errors.push(`positions.json: unknown line ${lineId}`); continue; }
         for (const [dirKey, stops] of Object.entries(dirs)) {
@@ -100,6 +117,7 @@ export function validateCurated({ stations, lines, positions, airport, tram, str
                 if (p.note !== undefined && typeof p.note !== 'string') errors.push(`${where}.note must be text`);
                 if (p.centralPlatform !== undefined && typeof p.centralPlatform !== 'boolean') errors.push(`${where}.centralPlatform must be true or false`);
                 if (p.stepFree !== undefined && !STEP_FREE.includes(p.stepFree)) errors.push(`${where}.stepFree must be one of ${STEP_FREE.join(', ')}`);
+                if (p.crossing !== undefined) checkCrossing(`${where}.crossing`, p.crossing);
                 for (const [ref, list] of Object.entries(p.transfers ?? {})) {
                     if (!directionRefs.has(ref)) errors.push(`${where}.transfers: unknown direction "${ref}"`);
                     else if (ref.startsWith(`${lineId}/`)) errors.push(`${where}.transfers: "${ref}" is on the same line`);
