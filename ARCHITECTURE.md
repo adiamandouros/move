@@ -224,7 +224,8 @@ pages use.
 - Logic without the DOM (route finding in `tools/subway/client/network.js`,
   nearest stops in `tools/buses/client/stops.js`, finding a stop or a line in
   `tools/buses/client/search.js`, which stops the bus page asks for in
-  `tools/buses/client/timing.js`) is tested in Node. `/js/core/text.js` has
+  `tools/buses/client/timing.js`, the trip finder's buses in
+  `tools/buses/client/trips.js`) is tested in Node. `/js/core/text.js` has
   `normalise()`, how both searches compare what's typed with names.
 - Trips are worked out in the browser
   ([decision 5](docs/decisions/0005-trips-in-the-browser.md)), but

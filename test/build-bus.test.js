@@ -56,17 +56,18 @@ test('each line\'s stops in order, there and back: its own code, the plain route
     const the040 = byLine['040'];
     assert.deepEqual(the040.name, { el: 'ΠΕΙΡΑΙΑΣ - ΣΥΝΤΑΓΜΑ', en: 'PEIRAIAS - SYNTAGMA' });
     // Not the night variant; in the order OASA numbers them, not the order it answers in
-    assert.deepEqual(the040.directions.map(d => [d.to, d.stops.length, d.stops[0]]), [
-        [{ el: 'ΣΥΝΤΑΓΜΑ', en: 'SYNTAGMA' }, 1000, '10000'],
-        [{ el: 'ΠΕΙΡΑΙΑΣ', en: 'PEIRAIAS' }, 1000, '10999'],
+    // Each with the OASA route its stops are from, which live arrivals carry
+    assert.deepEqual(the040.directions.map(d => [d.to, d.route, d.stops.length, d.stops[0]]), [
+        [{ el: 'ΣΥΝΤΑΓΜΑ', en: 'SYNTAGMA' }, '3922', 1000, '10000'],
+        [{ el: 'ΠΕΙΡΑΙΑΣ', en: 'PEIRAIAS' }, '3923', 1000, '10999'],
     ]);
     // The Α10's own code (two routes), not its short working; only variants there, so those, without the note
     assert.deepEqual(byLine['Α10'].directions, [
-        { to: { el: 'ΑΧΑΡΝΑΙ', en: 'ACHARNAI' }, stops: ['10007', '10006', '10005'] },
-        { to: { el: 'ΣΤ. ΛΑΡΙΣΗΣ', en: 'ST. LARISIS' }, stops: ['10005', '10006', '10007'] },
+        { to: { el: 'ΑΧΑΡΝΑΙ', en: 'ACHARNAI' }, route: '6052', stops: ['10007', '10006', '10005'] },
+        { to: { el: 'ΣΤ. ΛΑΡΙΣΗΣ', en: 'ST. LARISIS' }, route: '6051', stops: ['10005', '10006', '10007'] },
     ]);
     // Circular: one direction; no English route name, so the Greek; no "-2"
-    assert.deepEqual(byLine['830'].directions, [{ to: { el: 'ΣΤ. ΚΟΡΥΔΑΛΛΟΣ', en: 'ΣΤ. ΚΟΡΥΔΑΛΛΟΣ' }, stops: ['10008', '10009', '10008'] }]);
+    assert.deepEqual(byLine['830'].directions, [{ to: { el: 'ΣΤ. ΚΟΡΥΔΑΛΛΟΣ', en: 'ΣΤ. ΚΟΡΥΔΑΛΛΟΣ' }, route: '6038', stops: ['10008', '10009', '10008'] }]);
     assert.deepEqual(checkOutput('bus-lines.json', data), []);
 });
 

@@ -72,6 +72,7 @@ const broken = {
         ['no directions', l => { l.lines[0].directions = []; }, /needs one or two directions/],
         ['three directions', l => { l.lines[0].directions.push(l.lines[0].directions[0]); }, /needs one or two directions/],
         ['a direction going nowhere', l => { l.lines[0].directions[0].to = { el: 'ΠΟΥΘΕΝΑ', en: '' }; }, /direction 0: needs where it goes, in Greek and English/],
+        ['a direction without its route', l => { delete l.lines[0].directions[1].route; }, /direction 1: needs its OASA route code/],
         ['a direction with one stop', l => { l.lines[0].directions[1].stops = ['10341']; }, /direction 1: fewer than two stops/],
         ['a code the live times can\'t use', l => { l.lines[0].directions[0].stops[0] = '-2'; }, /stop codes must be numeric/],
     ],
