@@ -44,8 +44,10 @@ for (const lang of ['en', 'el']) {
         assert.equal(r.placeStatus('air', 1, 2), lang === 'en' ? 'Stations: 1 · Stops: 2' : 'Σταθμοί: 1 · Στάσεις: 2');
     });
 
-    test(`${lang}: the header, from your location or a stop`, () => {
+    test(`${lang}: the header, from your location or a stop, saying the finder is a beta`, () => {
         check(r.tripHeader(station, null, r.tripHref()));
+        assert.match(spoken(r.tripHeader(station, null, r.tripHref())), lang === 'en' ? /This is a beta/ : /Δοκιμαστική έκδοση/);
+        check(r.betaTag());
         const fromStop = r.tripHeader(place, stop('10361', 'SYNTAGMA'), r.tripHref({ from: '10361' }));
         check(fromStop);
         assert.match(spoken(fromStop), /SYNTAGMA/);

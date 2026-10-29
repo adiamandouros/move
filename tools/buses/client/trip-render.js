@@ -77,6 +77,10 @@ export function placeStatus(query, stations, stops) {
     return [stations && format(t('buses.found-stations'), { count: stations }), stops && format(t('buses.found-stops'), { count: stops })].filter(Boolean).join(' · ');
 }
 
+// The finder is a beta (roadmap item 13): a tag beside its name, and a line saying what that means
+export const betaTag = () => html`<span class="tag trip-beta-tag">${t('buses.beta')}</span>`;
+export const betaNote = () => html`<p class="trip-beta">${t('buses.trip-beta-note')}</p>`;
+
 // A place already chosen in the form, with the way to change it
 /** @param {string} label @param {import('/js/core/html.js').Html} what @param {string} change */
 export const chosenPlace = (label, what, change) => html`
@@ -92,7 +96,8 @@ export function tripHeader(to, from, backHref) {
         <a class="btn btn-sm btn-link px-0 back-link" href="${backHref}" data-view>${icon('back', 'me-1')}${t('buses.where-to')}</a>
         <h2 class="trip-title" tabindex="-1">${t('buses.trip-title')} ${placeName(to)}</h2>
         <p class="trip-from">${from ? format(t('buses.trip-from-named'), { stop: local(from.name) }) : t('buses.trip-from-location')}<span aria-hidden="true"> · </span><a href="${tripHref({ to: to.key, from: from?.code, pick: 'from' })}" data-view>${t('buses.trip-change')}<span class="sr-only">: ${t('buses.trip-from')}</span></a></p>
-        <p class="trip-hint">${t('buses.trip-hint')}</p>`;
+        <p class="trip-hint">${t('buses.trip-hint')}</p>
+        ${betaNote()}`;
 }
 
 // "18:48" for a number of minutes from now (seconds since midnight in Athens)

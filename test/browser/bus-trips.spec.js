@@ -14,7 +14,11 @@ test.describe('finding a trip', () => {
 
     test('from the stops nearby to a metro station: the Χ95 to the airport, with when you\'re off it', async ({ page }) => {
         await page.goto('/buses');
+        // A beta, and it says so: on the way in, and on the finder
+        await expect(page.locator('#where-to .tag')).toHaveText('Beta');
         await page.getByRole('link', { name: /Where to\?/ }).click();
+        await expect(page.locator('.trip-title .tag')).toHaveText('Beta');
+        await expect(page.locator('.trip-beta')).toHaveText('This is a beta: it\'s still being built, so it may change.');
         await expect(page).toHaveURL(/\/buses\?trip$/);
         await expect(page.locator('#trip-view')).toContainText('Your location');
         // The stop search and the way in are out of the way
@@ -30,6 +34,7 @@ test.describe('finding a trip', () => {
 
         await expect(page).toHaveURL(/\?trip=&to=station%3Aairport$/);
         await expect(page.locator('.trip-title')).toHaveText(/Buses to\s+M3\s+Airport/);
+        await expect(page.locator('.trip-beta')).toBeVisible();
         await expect(options(page)).toHaveCount(1);
         const x95 = options(page).first();
         await expect(x95.locator('.bus-plate')).toHaveText('Line Χ95');
@@ -82,6 +87,7 @@ test.describe('finding a trip', () => {
     test('in Greek', async ({ page }) => {
         await page.goto('/el/buses?trip&to=station:airport');
         await expect(page.locator('.trip-title')).toHaveText(/Λεωφορεία προς\s+M3\s+Αεροδρόμιο/);
+        await expect(page.locator('.trip-beta')).toContainText('Δοκιμαστική έκδοση');
         await expect(options(page).first()).toContainText('Αποβίβαση');
     });
 });

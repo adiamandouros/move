@@ -2167,6 +2167,19 @@ body {
     margin: 0;
 }
 
+.where-to-beta,
+.trip-beta-tag {
+    font-size: var(--wh-fs-xs);
+    font-weight: 600;
+}
+
+/* What "beta" means, under the finder's name */
+.trip-beta {
+    font-size: var(--wh-fs-sm);
+    color: var(--bs-secondary-color);
+    margin: 0;
+}
+
 .trip-hint {
     font-size: var(--wh-fs-xs);
     color: var(--bs-tertiary-color);

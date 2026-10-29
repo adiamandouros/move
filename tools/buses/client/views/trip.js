@@ -5,7 +5,7 @@ import { athensNow } from '/tools/subway/network.js';
 import { matchStations } from '/tools/subway/search.js';
 import { findStops } from '../search.js';
 import { message } from '../render.js';
-import { chosenPlace, noTrip, placeName, placeResults, placeStatus, tripHeader, tripHref, tripOption } from '../trip-render.js';
+import { betaNote, betaTag, chosenPlace, noTrip, placeName, placeResults, placeStatus, tripHeader, tripHref, tripOption } from '../trip-render.js';
 import { findTrips, rankTrips, tripBuses, tripStops, walkMinutes } from '../trips.js';
 import { $, elapsed, hooks, loadLines, poll, shown, state } from '../page.js';
 import { locate } from './nearby.js';
@@ -81,7 +81,7 @@ function drawForm(to, from, { focus }) {
     const toPart = to && pick === 'from'
         ? chosenPlace(t('buses.trip-to'), placeName(to), tripHref({ from: from?.code }))
         : field('to', t('buses.trip-to'));
-    setHtml(view, html`<h2 class="trip-title" tabindex="-1">${t('buses.where-to')}</h2>${fromPart}${toPart}`);
+    setHtml(view, html`<h2 class="trip-title" tabindex="-1">${t('buses.where-to')} ${betaTag()}</h2>${betaNote()}${fromPart}${toPart}`);
     if (focus) /** @type {HTMLElement | null} */ (view.querySelector(pickFrom ? '#trip-from-input' : '#trip-to-input') ?? view.querySelector('.trip-title'))?.focus();
 }
 
