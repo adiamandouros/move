@@ -6,7 +6,7 @@ import { REQUESTS_PER_SECOND } from './client.js';
 
 // How much Wayhop asks of OASA, and how OASA answers (roadmap item 39):
 // counted each minute, added up per day (Athens time) and kept for KEEP_DAYS,
-// so the limits of decision 7 can be judged by numbers. Counts only: stop
+// so the limits of decision 21 can be judged by numbers. Counts only: stop
 // codes and route names, nothing about who asked. Nothing here sends a request.
 //
 // What is counted (the OASA client, the arrivals cache and the bus API report it):
@@ -24,6 +24,9 @@ import { REQUESTS_PER_SECOND } from './client.js';
 //   horizon   per line, the most minutes ahead OASA predicted a bus, from
 //             fresh answers: how far ahead its predictions reach (for retries
 //             and scheduled times, items 37 and 13)
+//   trips     the bus trip finder's searches, and its stop answers by where
+//             they came from (also counted in `answers`): its load on OASA
+//             per search (item 13)
 // And, beside OASA's, the pages opened (server/pages/index.js), by the
 // language the browser asks for and the one served: which languages to add
 // next (item 43). A count per language, nothing about who opened them.
@@ -62,6 +65,7 @@ const emptySummary = () => ({
     dropMinutes: 0,
     network: null,
     horizon: {},
+    trips: { searches: 0, answers: counts(SOURCES) },
     pages: { asked: {}, served: {} },
 });
 
@@ -92,6 +96,10 @@ function addMinute(summary, minute) {
     // (days kept before the horizon was counted have none)
     summary.horizon ??= {};
     for (const [line, minutes] of Object.entries(minute.horizon)) summary.horizon[line] = Math.max(summary.horizon[line] ?? 0, minutes);
+    // (nor the trips, before the finder)
+    summary.trips ??= { searches: 0, answers: counts(SOURCES) };
+    summary.trips.searches += minute.trips.searches;
+    for (const s of SOURCES) summary.trips.answers[s] += minute.trips.answers[s];
     // (nor the pages, before they were counted)
     summary.pages ??= { asked: {}, served: {} };
     for (const part of ['asked', 'served']) {
@@ -217,6 +225,9 @@ export function createUsage({ file = null, networkFile = null, now = Date.now, k
         limited() { current().limited++; },
         // A stop's answer to a visitor, and where it came from
         answer(stop, source) { const m = current(); m.answers[source]++; m.stopCodes.add(stop); },
+        // The trip finder: a new search, and a stop's answer to it (by where it came from)
+        tripSearch() { current().trips.searches++; },
+        tripAnswer(source) { current().trips.answers[source]++; },
         // A bus of this line OASA predicted this many minutes ahead
         horizon(line, minutes) { const m = current(); m.horizon[line] = Math.max(m.horizon[line] ?? 0, minutes); },
         // A page opened in `served` (en, el) by a browser asking for `asked` (askedLanguage in server/pages/i18n.js)

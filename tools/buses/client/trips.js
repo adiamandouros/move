@@ -18,7 +18,7 @@ import { countDown, elapsedMinutes, refreshEvery, SLACK_MS } from './timing.js';
  * @typedef {{ vehicle: string, minutes: number, ride: number | null, arrives: number | null }} TripBus
  */
 
-// The numbers agreed for the finder's load on OASA (29 Oct 2026, decision 7):
+// The numbers agreed for the finder's load on OASA (29 Oct 2026, decision 21):
 // at most this many line directions, so at most twice as many stops asked for
 export const MAX_OPTIONS = 5;
 // A destination stop is only asked for to match the vehicles: once a minute

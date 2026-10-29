@@ -24,7 +24,7 @@ longer matched the buses that OASA's live times report.
 - The stops and lines are the ones OASA's live times use.
 - Wayhop reads no bus timetable so far; [11](0011-real-data-first.md) says
   how one may be used.
-- The nightly fetch is part of our load on OASA ([7](0007-load-on-oasa.md)).
+- The nightly fetch is part of our load on OASA ([21](0021-load-on-oasa-with-trips.md)).
 
 ## Look again when
 

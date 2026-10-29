@@ -116,8 +116,10 @@ export async function axe(page) {
     return page.evaluate(async tags => {
         // Colours halfway through a fade aren't what anyone reads. Told by how
         // they play, not by their `finished`: in Chromium, a fade inside a
-        // closed <details> ends but never settles it.
-        while (document.getAnimations().some(a => a.playState === 'running')) await new Promise(r => setTimeout(r, 20));
+        // closed <details> ends but never settles it. A spinner never ends
+        // (a stop below the fold waits for a scroll to be asked for): not waited for.
+        const fading = a => a.playState === 'running' && a.effect?.getComputedTiming().iterations !== Infinity;
+        while (document.getAnimations().some(fading)) await new Promise(r => setTimeout(r, 20));
         const { violations } = await window.axe.run(document, { runOnly: tags });
         return violations.map(v => `${v.id} (${v.nodes.length}): ${v.nodes[0].target.join(' ')}`);
     }, AXE_TAGS);
