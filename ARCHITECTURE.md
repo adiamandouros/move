@@ -376,6 +376,21 @@ with `STATION_EXPORT_KEY` and keeps one pull request, `station-edits`, with
 the edits the repository doesn't have yet; `scripts/station-edits.js` lists
 them.
 
+## Address search
+
+The planner's addresses will come from an index of OpenStreetMap's data for
+Attica ([decision 22](docs/decisions/0022-address-search.md)). Building it
+takes about 550 MB, too much for the host, so it's built each week on GitHub
+(`.github/workflows/places-index.yml`): `scripts/places/fetch.js` asks
+Overpass, `build.js` makes the index, with Wayhop's stations from the live
+site's `rail.json`, and `check.js` decides whether it may go out. A good
+index is published on the release `places-index`; a bad week opens an issue
+labelled `places` and the last good index stays. A pull request that changes
+any of this runs the build without publishing.
+
+`server/places/search.js` is the search itself: pure logic, used by the
+checks. The site doesn't use it yet.
+
 ## Monitoring
 
 `/api/health` (`server/health.js`) says whether the live site works:

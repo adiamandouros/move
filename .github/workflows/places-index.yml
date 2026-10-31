@@ -1,0 +1,91 @@
+# Every week: the address search index, built here because it takes about
+# 550 MB, too much for the host (decision 22). scripts/places/ fetches
+# OpenStreetMap's data for Attica, builds the index and checks it, and only a
+# good one is published, on the release "places-index", for the site to
+# download. On a bad week the last good index stays out there; an issue
+# labelled "places" says so, which GitHub emails to the repository's watchers,
+# and the next good week closes it.
+#
+# A pull request that changes the build runs it too, without publishing. Run
+# it by hand from the Actions tab ("Run workflow").
+# (GitHub may run scheduled jobs late, and pauses them after 60 days without
+# activity in the repository.)
+name: Places index
+
+on:
+  schedule:
+    # Sundays at 02:23 UTC: 04:23 or 05:23 in Athens, a quiet time for Overpass
+    - cron: '23 2 * * 0'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/places-index.yml
+      - scripts/places/**
+      - server/places/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: places-index
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+      - name: Fetch, build and check
+        run: node --max-old-space-size=4096 scripts/places/index.js places-index.json.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: places-index
+          path: places-index.json.gz
+          retention-days: 7
+
+  publish:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: places-index
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          notes="Wayhop's address search index for Attica, built $(date -u +%F). Data © OpenStreetMap contributors, under the Open Database License 1.0: https://www.openstreetmap.org/copyright"
+          if gh release view places-index > /dev/null 2>&1; then
+            gh release upload places-index places-index.json.gz --clobber
+            gh release edit places-index --notes "$notes"
+          else
+            gh release create places-index places-index.json.gz --title "Address search index" --notes "$notes" --latest=false
+          fi
+
+  report:
+    needs: [build, publish]
+    if: always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open or close the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          open=$(gh issue list --label places --state open --json number --jq '.[0].number')
+          if [ "${{ needs.build.result }}" = success ] && [ "${{ needs.publish.result }}" = success ]; then
+            if [ -n "$open" ]; then gh issue close "$open" --comment "This week's index went out: $RUN"; fi
+          elif [ -z "$open" ]; then
+            gh label create places --color B60205 --description "address search index" 2>/dev/null || true
+            gh issue create --title "The address search index didn't go out" --label places --body "The last good index stays in use. $RUN"
+          fi

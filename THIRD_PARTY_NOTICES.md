@@ -28,6 +28,10 @@ licenses.
   downloads it, converts it and combines it with its own data (see
   [ARCHITECTURE.md](ARCHITECTURE.md)). Station names and platform codes in
   `data/curated/` come from it too.
+- **Addresses, streets and places**: © [OpenStreetMap](https://www.openstreetmap.org/copyright)
+  contributors, under the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
+  Wayhop builds an index from it each week (`scripts/places/`) and publishes
+  it, under the same license, on the repository's `places-index` release.
 - **Bus lines and stops, live bus arrivals and service announcements**: from
   OASA's and STASY's services, as they give them. The metro's first and last
   trains and its airport trains come from STASY's published timetables, and
