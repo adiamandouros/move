@@ -15,6 +15,6 @@ const app = createApp({ config, processGuard });
 app.listen(config.port, () => {
     console.log(`Wayhop running at http://localhost:${config.port}`);
     for (const r of config.relays) console.log(`[oasa] Fallback ${r.name}: ${new URL(r.url).host}`);
-    startScheduler();
+    startScheduler({ refreshPlaces: app.locals.places.refreshIfDue });
     processGuard.start();
 });

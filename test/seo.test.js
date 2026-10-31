@@ -40,12 +40,14 @@ test('the about, privacy, terms and contact pages are written in each language a
         assert.match(pages[`/${name}`], /<html lang="en"/);
         assert.match(pages[`/el/${name}`], /<html lang="el"/);
     }
-    assert.match(pages['/privacy'], /<h1>Privacy<\/h1>[\s\S]*Last updated: 29 October 2026/);
+    assert.match(pages['/privacy'], /<h1>Privacy<\/h1>[\s\S]*Last updated: 31 October 2026/);
+    assert.match(pages['/privacy'], /The addresses and places you search for/);
+    assert.match(pages['/el/privacy'], /Οι διευθύνσεις και τα μέρη που αναζητάτε/);
     assert.match(pages['/privacy'], /The last three metro stations you picked/);
     assert.match(pages['/privacy'], /The metro stations, bus stops and bus lines you starred as favourites/);
     assert.match(pages['/privacy'], /nearby stops, and the stops you starred, by their number/);
     assert.match(pages['/el/privacy'], /Οι σταθμοί μετρό, οι στάσεις και οι γραμμές λεωφορείων που σημειώσατε ως αγαπημένα/);
-    assert.match(pages['/el/privacy'], /<h1>Απόρρητο<\/h1>[\s\S]*Τελευταία ενημέρωση: 29 Οκτωβρίου 2026/);
+    assert.match(pages['/el/privacy'], /<h1>Απόρρητο<\/h1>[\s\S]*Τελευταία ενημέρωση: 31 Οκτωβρίου 2026/);
     assert.match(pages['/el/privacy'], /Οι τρεις τελευταίοι σταθμοί μετρό που επιλέξατε/);
     // A closed legend stays closed (/js/core/metro.js)
     assert.match(pages['/privacy'], /Whether you closed the explanation of what the train shows/);

@@ -2,8 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { gzipSync, gunzipSync } from 'zlib';
 import { buildIndex } from '../scripts/places/build.js';
-import { countsOf, problemsWith } from '../scripts/places/check.js';
+import { problemsWith } from '../scripts/places/check.js';
 import { makeIndex, publishedCounts } from '../scripts/places/index.js';
+import { countsOf } from '../server/places/published.js';
 import { raw, rail } from './fixtures/places.js';
 
 // Only a good index goes out: a bad week of data stops before the live site

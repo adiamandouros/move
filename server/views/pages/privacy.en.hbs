@@ -25,7 +25,8 @@
     <h2>What reaches our server</h2>
     <ul>
         <li><strong>The bus stops you're looking at.</strong> To show live arrivals, the bus page asks the server for nearby stops, and the stops you starred, by their number. Nearby stops show roughly where you are, but they aren't kept with anything that identifies you. Arrivals are kept per stop for a few minutes and shared by everyone.</li>
-        <li><strong>Your IP address, for one minute.</strong> To share OASA's live data fairly, the server counts each address's requests for new stops over one minute, in memory only.</li>
+        <li><strong>The addresses and places you search for.</strong> To find them, the planner sends what you type to our server as you type, and the server looks it up itself. It isn't kept, it isn't in the web server's logs, and it goes to nobody else.</li>
+        <li><strong>Your IP address, for one minute.</strong> To share OASA's live data fairly, and to keep address search working for everyone, the server counts each address's requests over one minute, in memory only.</li>
         <li><strong>The language your browser prefers, as a count.</strong> When a page is opened, the server adds one to that day's count for the first language your browser asks for (English, German, French…). Only the daily totals are kept, to see which languages to add next. Nothing about who opened the page is kept.</li>
         <li><strong>Standard web server logs.</strong> Like any website, our host's web server logs each request (IP address, page, time and browser) for security and to fix problems.</li>
     </ul>

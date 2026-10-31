@@ -388,8 +388,12 @@ index is published on the release `places-index`; a bad week opens an issue
 labelled `places` and the last good index stays. A pull request that changes
 any of this runs the build without publishing.
 
-`server/places/search.js` is the search itself: pure logic, used by the
-checks. The site doesn't use it yet.
+`server/places/index.js` downloads the index into `data/cache/` once it's a
+week old, and `POST /api/places` answers searches from it with
+`server/places/search.js`, pure logic the checks use too. What's typed goes
+in the body, so it stays out of the host's logs. The index is loaded for the
+first search and dropped for a new one, and `/api/health` warns when it's
+over three weeks old. No page uses this yet.
 
 ## Monitoring
 

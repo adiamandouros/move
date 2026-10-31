@@ -156,7 +156,7 @@ const STATIONS_TILE = { href: STATIONS_PATH, tool: null, iconName: 'stations', t
 const TEXT_PAGES = ['about', 'privacy', 'terms', 'contact'];
 // When the privacy and terms pages last changed in substance (shown on them)
 const UPDATED = {
-    privacy: { en: '29 October 2026', el: '29 Οκτωβρίου 2026' },
+    privacy: { en: '31 October 2026', el: '31 Οκτωβρίου 2026' },
     terms: { en: '29 October 2026', el: '29 Οκτωβρίου 2026' },
 };
 

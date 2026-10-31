@@ -12,7 +12,7 @@ export function readJson(path) {
 // Write a file through a temporary one and a rename, so a crash never leaves
 // it half-written and nothing reads it half-written; its folder is made if
 // needed. Throws when it can't be written.
-/** @param {string} path @param {string} text */
+/** @param {string} path @param {string | Buffer} text */
 export function writeFileAtomic(path, text) {
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(`${path}.tmp`, text);
