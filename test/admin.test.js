@@ -58,7 +58,12 @@ before(async () => {
     const app = express();
     app.use('/admin', createAdmin({
         password: PASSWORD,
-        loadCurated: () => loadCurated({ overlayDir }),
+        // Nothing committed in street.json, whatever the editor has added to the real one
+        loadCurated: () => {
+            const curated = loadCurated({ overlayDir });
+            curated.edits.street.committed = {};
+            return curated;
+        },
         loadRail: () => rail,
         rebuild: () => { rebuilds++; },
         render: ({ content }) => content,
@@ -193,7 +198,7 @@ test('elevators: STASY\'s names come with the data; one saved as the editor did 
 test('a station\'s exits and elevators on the street: saved to street.json\'s overlay, reverted, exported, each exit on its line', async () => {
     const { cookie } = await login();
     const state = await (await api('/state', cookie)).json();
-    assert.deepEqual(state.street, { committed: JSON.parse(readFileSync(new URL('../data/curated/street.json', import.meta.url), 'utf8')), overlay: {} });
+    assert.deepEqual(state.street, { committed: {}, overlay: {} });
     // What the editor offers and checks, as the server does
     assert.deepEqual(state.exitWays, ['stairs', 'escalator-up', 'escalator-down']);
     assert.deepEqual(state.crossingWays, ['stairs', 'escalator-up', 'escalator-down', 'lift', 'ramp']);
