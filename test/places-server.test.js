@@ -198,6 +198,6 @@ test('the address is on the site, by POST only', async () => {
     const server = await listen(site());
     servers.push(server);
     const res = await fetch(`${server.url}/api/places`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"q":"Μενελάου"}' });
-    assert.equal(res.status, 503);
+    assert.equal(res.status, 200);
     assert.equal((await fetch(`${server.url}/api/places?q=Μενελάου`)).status, 404);
 });

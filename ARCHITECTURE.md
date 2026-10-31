@@ -393,7 +393,14 @@ week old, and `POST /api/places` answers searches from it with
 `server/places/search.js`, pure logic the checks use too. What's typed goes
 in the body, so it stays out of the host's logs. The index is loaded for the
 first search and dropped for a new one, and `/api/health` warns when it's
-over three weeks old. No page uses this yet.
+over three weeks old.
+
+The trip page (`tools/trip/`, [decision 23](docs/decisions/0023-trip-page.md))
+is what uses it. `client/picker.js` finds places as they're typed,
+`client/plan.js` works out the trip in the browser from the Subway's
+`network.js`, trying the three stations nearest each end, and
+`client/render.js` draws it. Addresses aren't kept, and never go in the page's
+address.
 
 ## Monitoring
 

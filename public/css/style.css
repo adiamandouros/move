@@ -1533,6 +1533,120 @@ body {
     padding: var(--wh-space-2) 0.625rem;
 }
 
+/* The trip page */
+.trip-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--wh-space-2);
+    margin-bottom: var(--wh-space-3);
+}
+
+.trip-heading h1 {
+    margin: 0;
+}
+
+.trip-exact {
+    font-size: var(--wh-fs-sm);
+    color: var(--bs-secondary-color);
+}
+
+.trip-exact-warn {
+    color: var(--wh-warn);
+}
+
+.trip-intro,
+.trip-estimates {
+    font-size: var(--wh-fs-sm);
+    color: var(--bs-secondary-color);
+}
+
+.trip-places,
+.trip-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--wh-space-2);
+    background-color: var(--bs-tertiary-bg);
+    border: 1px solid var(--wh-divider);
+    border-radius: var(--wh-radius-lg);
+    padding: var(--wh-space-3);
+    margin-bottom: var(--wh-space-3);
+}
+
+.trip-places button,
+.trip-stand {
+    align-self: flex-start;
+    border: 1px solid var(--wh-control-edge);
+    border-radius: var(--wh-radius-round);
+    padding-inline: var(--wh-space-3);
+}
+
+.trip-place-name {
+    font-weight: 600;
+}
+
+.trip-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--wh-space-2);
+}
+
+.trip-total {
+    margin: 0;
+    font-size: var(--wh-fs-xl);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.trip-total-small {
+    font-size: var(--wh-fs-lg);
+}
+
+.trip-arrives,
+.trip-step-note,
+.trip-other {
+    font-size: var(--wh-fs-sm);
+    color: var(--bs-secondary-color);
+    font-variant-numeric: tabular-nums;
+}
+
+.trip-other {
+    margin: 0;
+}
+
+.trip-steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--wh-space-3);
+}
+
+.trip-step {
+    display: flex;
+    gap: var(--wh-space-3);
+}
+
+.trip-step-when {
+    flex: 0 0 3rem;
+    font-size: var(--wh-fs-sm);
+    color: var(--bs-secondary-color);
+    font-variant-numeric: tabular-nums;
+}
+
+.trip-step-what {
+    min-width: 0;
+}
+
+.trip-credit {
+    margin-top: var(--wh-space-4);
+    font-size: var(--wh-fs-xs);
+    color: var(--bs-secondary-color);
+}
+
 /* Tags: a short fact about the thing beside them (doors open on the left,
    only in Greek) */
 .tag {

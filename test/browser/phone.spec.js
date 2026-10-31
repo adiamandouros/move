@@ -11,7 +11,7 @@ test.describe('a phone set to Greek', () => {
 
     test('on an English page: the suggestion, once', async ({ page }, { project }) => {
         await page.goto('/subway?from=omonia&to=airport');
-        await expect(page.locator('#bottom-nav a')).toHaveText(['Home', 'Subway', 'Buses', 'Info']);
+        await expect(page.locator('#bottom-nav a')).toHaveText(['Home', 'Trip', 'Subway', 'Buses', 'Info']);
         await expect(page.locator('#bottom-nav button')).toHaveText('');
         await expect(page.locator('#bottom-nav button')).toHaveAccessibleName('Menu');
         await expect(page.locator('.lang-suggest')).toBeVisible();
@@ -95,10 +95,10 @@ test.describe('the install card', () => {
 test('the bottom bar: Home lines up with the other icons, and the labels with each other', async ({ page }) => {
     await page.goto('/subway');
     const items = page.locator('#bottom-nav > a');
-    await expect(items).toHaveCount(4);
+    await expect(items).toHaveCount(5);
     const icons = await items.evaluateAll(els => els.map(el => el.firstElementChild).map(el => Math.round(el.getBoundingClientRect().top)));
     const labels = await page.locator('#bottom-nav .nav-label').evaluateAll(els => els.map(el => Math.round(el.getBoundingClientRect().top)));
-    expect(labels).toHaveLength(4);
+    expect(labels).toHaveLength(5);
     for (const t of icons) expect(t).toBe(icons[1]);
     for (const t of labels) expect(t).toBe(labels[1]);
 });
