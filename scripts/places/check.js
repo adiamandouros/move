@@ -1,11 +1,10 @@
 // Whether an index is good enough to publish. It's built from what volunteers
 // mapped that week and sent to the live site, so a bad week must stop here.
 
+import { countsOf, lostSince } from '../../server/places/published.js';
 import { load, search, meters } from '../../server/places/search.js';
 
 const FLOORS = { towns: 60, streets: 30_000, numbers: 100_000, places: 2_500 };
-// Editing removes a little; this much in a week means a broken fetch
-const MOST_LOST = 0.1;
 // Answers that have to keep working, near where they are now. Only the place
 // is held: a number that's estimated today may be mapped tomorrow.
 const ANSWERS = [
@@ -22,23 +21,13 @@ const CLOSE_ENOUGH = 1000;
 // Never a street in the town next door when the town typed doesn't have it
 const NOT_THERE = ['Μενελάου 25, Νέα Σμύρνη'];
 
-export function countsOf(index) {
-    return {
-        towns: index.towns.length,
-        streets: index.streets.length,
-        numbers: index.streets.reduce((sum, street) => sum + street[3].length / 3, 0),
-        places: index.places.length,
-    };
-}
-
 // What's wrong with an index, in words; none means it can go out.
 // previous: the published index's counts, if there is one.
 export function problemsWith(index, { previous = null, floors = FLOORS, answers = ANSWERS, notThere = NOT_THERE } = {}) {
     const counts = countsOf(index);
-    const problems = [];
+    const problems = lostSince(counts, previous);
     for (const [what, floor] of Object.entries(floors)) {
         if (counts[what] < floor) problems.push(`${what}: ${counts[what]}, the least expected is ${floor}`);
-        if (previous && counts[what] < previous[what] * (1 - MOST_LOST)) problems.push(`${what}: ${counts[what]}, down from ${previous[what]}`);
     }
     const db = load(index);
     for (const { query, town, at: [lat, lng] } of answers) {

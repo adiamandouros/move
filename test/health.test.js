@@ -42,8 +42,9 @@ const relayFetch = versions => async url => {
     return Response.json({ version: versions[name] });
 };
 
-function health({ lastOk = NOW - 2 * MINUTE, sources = { oasaEl: true, stasy: true }, dir = buildDir(), versions = { 'pi.example': RELAY_VERSION } } = {}) {
+function health({ lastOk = NOW - 2 * MINUTE, sources = { oasaEl: true, stasy: true }, dir = buildDir(), versions = { 'pi.example': RELAY_VERSION }, places = undefined } = {}) {
     return createHealth({
+        placesStatus: places && (() => places),
         busStatus: () => ({ routes: [{ name: 'direct', lastOk: null }, { name: 'home relay', lastOk }] }),
         announcementStatus: () => Object.fromEntries(Object.entries(sources).map(([k, ok]) => [k, { ok, error: 'secret detail' }])),
         buildDir: dir,
@@ -52,6 +53,12 @@ function health({ lastOk = NOW - 2 * MINUTE, sources = { oasaEl: true, stasy: tr
         now: () => NOW,
     });
 }
+
+test('an address index that went stale or never came is a problem, and says which', async () => {
+    assert.deepEqual((await health({ places: { ok: true, built: '2026-10-11' } }).check()).problems, []);
+    assert.match((await health({ places: { ok: false, built: '2026-09-01' } }).check()).problems[0], /the index is from 2026-09-01, over 21 days old/);
+    assert.match((await health({ places: { ok: false, built: null } }).check()).problems[0], /couldn't be downloaded/);
+});
 
 test('a working site is healthy', async () => {
     const result = await health().check();

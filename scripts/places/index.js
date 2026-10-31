@@ -9,21 +9,21 @@
 import { writeFileSync } from 'fs';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { gunzipSync, gzipSync } from 'zlib';
+import { gzipSync } from 'zlib';
+import { countsOf, PUBLISHED, unpack } from '../../server/places/published.js';
 import { buildIndex } from './build.js';
-import { countsOf, problemsWith } from './check.js';
+import { problemsWith } from './check.js';
 import { fetchAll } from './fetch.js';
 
 // The stations come from the live site: rail.json is built there, not kept here
 const RAIL = 'https://wayhop.gr/data/rail.json';
-const PUBLISHED = 'https://github.com/adiamandouros/move/releases/download/places-index/places-index.json.gz';
 
 // The published index's counts, or null before the first one
 export async function publishedCounts(get = fetch) {
     const response = await get(PUBLISHED);
     if (response.status === 404) return null;
     if (!response.ok) throw new Error(`The published index: ${response.status}`);
-    return countsOf(JSON.parse(gunzipSync(Buffer.from(await response.arrayBuffer())).toString()));
+    return countsOf(unpack(Buffer.from(await response.arrayBuffer())));
 }
 
 async function railData(get) {

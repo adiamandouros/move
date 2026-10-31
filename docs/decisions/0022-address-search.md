@@ -37,13 +37,16 @@ account's other apps and about half used ([12](0012-shared-hosting.md)).
 - The build is `scripts/places/`, on GitHub, which needs nothing installed;
   the search is `server/places/`. They share one file's code, so the checks
   run the same search as the site.
-- The search adds about 95 MB to what the app uses on the host. Its load on
-  the host is one 2 MB download a week, and nothing changes for OASA.
+- The search adds about 95 MB to what the app uses on the host, from the
+  first search on. A new index replaces the old by dropping it, so the two
+  are never in memory together. Its load on the host is one 2 MB download a
+  week, and nothing changes for OASA.
 - The index is a database made from OpenStreetMap, so it's public under the
   same licence (ODbL), and the site must credit OpenStreetMap wherever it
   shows these results.
-- What someone types goes to our server, so the privacy page says so before
-  search goes live ([19](0019-privacy-counts-only.md)).
+- What someone types goes to our server, in the body of a `POST`, so that
+  addresses stay out of the host's request logs, and it isn't kept. The
+  privacy page says so ([19](0019-privacy-counts-only.md)).
 - Metro and tram stops come from the live site's `rail.json`, so a broken
   site stops the week's index, not the search.
 - Coverage comes from volunteers. A wrong or missing address is fixed in
