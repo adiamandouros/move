@@ -24,6 +24,7 @@ export const MEANINGS = {
     // The tools, in the navigation and on the home page
     metro: { symbol: 'subway', tab: true },
     bus: { symbol: 'directions_bus', tab: true },
+    trip: { symbol: 'route', tab: true },
     info: { symbol: 'info', tab: true },
     stations: { symbol: 'format_list_bulleted' },
     menu: { symbol: 'menu' },

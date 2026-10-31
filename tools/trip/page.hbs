@@ -1,0 +1,47 @@
+<div class="subway-view trip-view">
+    <div class="trip-heading">
+        <h1 id="trip-title" tabindex="-1">{{t "tool.trip.title"}}</h1>
+        <span class="tag">{{t "trip.beta"}}</span>
+    </div>
+    <form id="trip-form" class="subway-form" role="search" autocomplete="off">
+        <div class="subway-search-wrap mb-1">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <label for="trip-from" class="form-label fw-semibold m-0">{{t "trip.from"}}</label>
+                <button id="trip-locate" type="button" class="btn btn-sm locate-btn" aria-pressed="false">
+                    {{icon "nearest"}}<span>{{t "trip.my-location"}}</span>
+                </button>
+            </div>
+            <div class="position-relative">
+                <input id="trip-from" class="form-control subway-search-input" type="search"
+                       role="combobox" aria-autocomplete="list" aria-controls="trip-from-list" aria-expanded="false"
+                       placeholder="{{t "trip.placeholder"}}">
+                <ul id="trip-from-list" class="stop-suggestions list-unstyled mb-0" role="listbox"
+                    aria-label="{{t "trip.places-found"}}" hidden></ul>
+            </div>
+            <p id="trip-from-status" class="locate-status" role="status"></p>
+        </div>
+
+        <div class="swap-row">
+            <button id="trip-swap" type="button" class="btn btn-sm swap-btn"
+                    title="{{t "trip.swap"}}" aria-label="{{t "trip.swap"}}">
+                {{icon "swap"}}
+            </button>
+        </div>
+
+        <div class="subway-search-wrap mb-1">
+            <label for="trip-to" class="form-label fw-semibold m-0">{{t "trip.to"}}</label>
+            <div class="position-relative">
+                <input id="trip-to" class="form-control subway-search-input" type="search"
+                       role="combobox" aria-autocomplete="list" aria-controls="trip-to-list" aria-expanded="false"
+                       placeholder="{{t "trip.placeholder"}}">
+                <ul id="trip-to-list" class="stop-suggestions list-unstyled mb-0" role="listbox"
+                    aria-label="{{t "trip.places-found"}}" hidden></ul>
+            </div>
+            <p id="trip-to-status" class="locate-status" role="status"></p>
+        </div>
+    </form>
+
+    <div id="trip-result"></div>
+
+    <p class="trip-credit">{{t "trip.addresses-from"}} {{#external href="https://www.openstreetmap.org/copyright"}}OpenStreetMap{{/external}}</p>
+</div>

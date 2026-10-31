@@ -34,3 +34,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 20 | [Tests with every change, no flaky tests, and when each kind runs](0020-tests-and-when-they-run.md) | In force |
 | 21 | [Our load on OASA and STASY, with the bus trip finder](0021-load-on-oasa-with-trips.md) | In force |
 | 22 | [Address search from OpenStreetMap, built on GitHub](0022-address-search.md) | In force |
+| 23 | [The trip page: door to door, beside Subway and Buses](0023-trip-page.md) | In force |

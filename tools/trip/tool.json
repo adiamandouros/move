@@ -1,0 +1,11 @@
+{
+  "path": "/trip",
+  "order": 0,
+  "icon": "trip",
+  "title": { "en": "Plan a trip", "el": "Σχεδιασμός διαδρομής" },
+  "shortTitle": { "en": "Trip", "el": "Διαδρομή" },
+  "description": { "en": "From one address to another: the walks and the metro, door to door", "el": "Από διεύθυνση σε διεύθυνση: τα περπατήματα και το μετρό, από πόρτα σε πόρτα" },
+  "offline": false,
+  "scripts": ["main.js"],
+  "precache": []
+}

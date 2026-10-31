@@ -5,10 +5,14 @@ import { copyFileSync, mkdtempSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
+import { gzipSync } from 'zlib';
 import express from 'express';
+import { buildIndex } from '../../scripts/places/build.js';
 import { createApp } from '../../server/app.js';
 import { loadConfig } from '../../server/config.js';
 import { LIFTS_PAGE } from '../../server/info/lifts.js';
+import { countsOf } from '../../server/places/published.js';
+import { raw } from '../fixtures/places.js';
 import { liftsPage } from '../fixtures/stasy-lifts.js';
 
 export const DATA = fileURLToPath(new URL('../browser/data/', import.meta.url));
@@ -88,6 +92,16 @@ export function brokenData() {
     return dir;
 }
 
+// A cache folder with the address index of test/fixtures/places.js in it, as
+// if it had been downloaded
+function withPlaces(dir) {
+    const rail = JSON.parse(readFileSync(join(DATA, 'rail.json'), 'utf8'));
+    const { index } = buildIndex(raw, rail, '2026-10-18');
+    writeFileSync(join(dir, 'places-index.json.gz'), gzipSync(JSON.stringify(index)));
+    writeFileSync(join(dir, 'places-index.meta.json'), JSON.stringify({ built: index.built, counts: countsOf(index) }));
+    return dir;
+}
+
 // ── The site, and copies of it where things go wrong ────────────────────────
 // site(overrides): the app with this data and these fakes; createApp's
 // options override them, and `env` adds settings (e.g. { ADMIN_PASSWORD: 'x' }). Scenarios are each their own copy (with their own
@@ -96,7 +110,7 @@ export function brokenData() {
 export const site = ({ env = {}, ...overrides } = {}) => createApp({
     config: loadConfig({ ...SETTINGS, ...env }),
     buildDir: DATA,
-    cacheDir: mkdtempSync(join(tmpdir(), 'wayhop-browser-')),
+    cacheDir: withPlaces(mkdtempSync(join(tmpdir(), 'wayhop-browser-'))),
     // Counted in memory: never the real data/local
     usageFile: null,
     fetch: fakeNetwork(),
