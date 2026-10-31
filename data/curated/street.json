@@ -1,1 +1,76 @@
-{}
+{
+  "korydallos": {
+    "exits": [
+      { "name": { "el": "Πλατεία Ελευθερίας", "en": "Eleftherias square" }, "coords": [37.97684, 23.6508], "way": ["stairs", "escalator-up", "escalator-down"] },
+      { "name": { "el": "Οδός Αγίου Γεωργίου", "en": "Agiou Georgiou str." }, "coords": [37.9779, 23.6503], "way": ["stairs", "escalator-up", "escalator-down"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός Πλατεία Ελευθερίας", "coords": [37.97692, 23.65063] }
+    ]
+  },
+  "agia-varvara": {
+    "exits": [
+      { "name": { "el": "Πλατεία Αγίας Ελεούσης", "en": "Agias Eleousis square" }, "coords": [37.99011, 23.65982], "way": ["stairs", "escalator-up", "escalator-down"] },
+      { "name": { "el": "Οδός Κρήτης", "en": "Kritis str." }, "coords": [37.99043, 23.65942], "way": ["stairs", "escalator-up"] },
+      { "name": { "el": "Οδός Καλαντζάκου", "en": "Kalantzakou str." }, "coords": [37.98934, 23.65921], "way": ["escalator-up"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός Πλατεία Αγίας Ελεούσης", "coords": [37.98968, 23.65933] }
+    ]
+  },
+  "agia-marina": {
+    "exits": [
+      { "name": { "el": "Ιερά Οδός/ Οδός Αγ. Μαρίνας", "en": "Iera Odos / Aghias Marinas str." }, "coords": [37.99686, 23.66765], "way": ["stairs", "escalator-up", "escalator-down"] },
+      { "name": { "el": "Ιερά Οδός / Οδός Κάλβου", "en": "Iera Odos / Kalvou str." }, "coords": [37.99767, 23.66784], "way": ["stairs", "escalator-up", "escalator-down"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός Αγίας Μαρίνης", "coords": [37.9969, 23.66772] }
+    ]
+  },
+  "aigaleo": {
+    "exits": [
+      { "name": { "el": "Έξοδος οδός Παπαναστασίου", "en": "Exit Papanastasiou str." }, "coords": [37.99078, 23.68206], "way": ["stairs", "escalator-up", "escalator-down"] },
+      { "name": { "el": "Έξοδος Πλ. Εσταυρωμένου", "en": "Exit Estavromenou Sq." }, "coords": [37.99182, 23.6815], "way": ["stairs", "escalator-up", "escalator-down"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός Προς Πλατεία Εσταυρωμένου", "coords": [37.99183, 23.68155] }
+    ]
+  },
+  "elaionas": {
+    "exits": [
+      { "name": { "el": "Έξοδος Ιερά Οδός / Μαρκόνι", "en": "Exit Iera Odos / Markoni str." }, "coords": [37.98789, 23.69408], "way": ["stairs", "escalator-up", "escalator-down"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός Ιερά Οδός Μαρκόνι", "coords": [37.98803, 23.69374] }
+    ]
+  },
+  "kerameikos": {
+    "exits": [
+      { "name": { "el": "Έξοδος Τεχνόπολις / Γκάζι", "en": "Exit Technopolis / Gazi" }, "coords": [37.97854, 23.71173], "way": ["stairs", "escalator-up", "escalator-down"] },
+      { "name": { "el": "Έξοδος οδός Κωνσταντινουπόλεως", "en": "Exit Konstantinoupoleos str." }, "coords": [37.97906, 23.71047], "way": ["stairs", "escalator-up", "escalator-down"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός Τεχνόπολις Γκάζι", "coords": [37.97854, 23.71173] }
+    ]
+  },
+  "monastiraki": {
+    "exits": [
+      { "name": { "el": "Έξοδος / Πλατεία", "en": "Exit / Square" }, "coords": [37.97607, 23.72556], "way": ["stairs", "escalator-up", "escalator-down"] },
+      { "name": { "el": "Οδός Αθηνάς / Θέμιδος", "en": "Athinas / Themidos Street" }, "coords": [37.97703, 23.7263], "way": ["stairs", "escalator-up", "escalator-down"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός Αθηνάς", "coords": [37.9771, 23.72591] },
+      { "name": "Εξωτερικός Πλατεία Μοναστηρακίου και προς Γραμμή 1 Κηφισιά", "coords": [37.97608, 23.72572] }
+    ]
+  },
+  "chalandri": {
+    "exits": [
+      { "name": { "el": "Οδός Δουκ. Πλακεντίας (Προς Αθήνα)", "en": "Doukissis Plakentias Str. (To Athens)" }, "coords": [38.02186, 23.82116], "way": ["stairs", "escalator-up", "escalator-down"] },
+      { "name": { "el": "Οδός Δουκ. Πλακεντίας (Προς Βριλήσσια)", "en": "Doukissis Plakentias Str. (To Vrilissia)" }, "coords": [38.02151, 23.82139], "way": ["stairs", "escalator-up", "escalator-down"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός προς Αθήνα και προς Δημ. Θέατρο", "coords": [38.02187, 23.82112] },
+      { "name": "Εξωτερικός προς Βριλήσια και προς Αεροδρόμιο", "coords": [38.02153, 23.82126] }
+    ]
+  }
+}
