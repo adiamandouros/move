@@ -108,11 +108,12 @@ first and last trains come from the GTFS and the build warns 'unknown station
 Colours, names and direction names. `gtfsDirection` is the feed's
 `direction_id` for that direction.
 
-## tram.json — the tram map's lines and stops
+## tram.json — the tram's lines and stops
 
-The tram (T6, T7) is in the same rail feed as the metro, but only drawn, on
-the Info page's tram map (`server/data/build-tram.js`, laid out in
-`tools/info/client/tram-layout.js`). `lines` are as in lines.json (colour:
+The tram (T6, T7) is in the same rail feed as the metro. It's drawn on the
+Info page's tram map (`server/data/build-tram.js`, laid out in
+`tools/info/client/tram-layout.js`), and the subway planner uses its
+timetable. `lines` are as in lines.json (colour:
 STASY's tram green, with dark text on badges, see style.css). `stops` are as
 in stations.json: each stop's names (English as on STASY's English tram
 timetable page) and `gtfs` codes (one per direction, sometimes one for both),
@@ -121,6 +122,15 @@ short stubs in the other network's colours, each ending in its line's badge
 (`STUBS` in `tram-layout.js` and `map-layout.js`). A code the feed's trams use that
 isn't here is a warning on `/admin/diagnostics`, and the stop isn't drawn: add
 it to its stop, and a new stop to the layout too.
+
+`walks` lists what's a short walk from a stop, for the planner: to change
+there, or to walk instead of riding. Each has `metro` (a station in
+stations.json) or `stop` (another stop here) and `minutes`, how long it takes
+to get from one to the other, platform included. A pair goes on one of its two
+stops, and works both ways. A stop with `metro` needs a walk to that station;
+a walk needs no `metro`, which is only the map's official change. The minutes
+are first guesses until checked on the spot: the straight line × 1.3 at 80 m a
+minute, plus 2 to reach the platform.
 
 ## airport.json — STASY's airport trains
 

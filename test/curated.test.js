@@ -167,3 +167,27 @@ test('tram.json: lines with a colour and directions, stops with names and their 
     ].sort());
 });
 
+test('tram.json: walks go to stations and stops that exist, in whole minutes, and every change to the metro has one', () => {
+    const c = real();
+    c.tram.stops.batis.walks = [{ metro: 'nowhere', minutes: 3 }];
+    c.tram.stops.edem.walks = [{ stop: 'nowhere', minutes: 3 }, { stop: 'batis', minutes: 2.5 }, { metro: 'faliro', minutes: 0 }];
+    c.tram.stops.zefyros.walks = [{ minutes: 3 }];
+    c.tram.stops.fix.walks = [];
+    const { errors } = validateCurated(c);
+    assert.deepEqual(errors.sort(), [
+        'tram.json: batis walks to an unknown station or stop "nowhere"',
+        'tram.json: edem walks to an unknown station or stop "nowhere"',
+        'tram.json: edem\'s walk to batis needs whole minutes',
+        'tram.json: edem\'s walk to faliro needs whole minutes',
+        'tram.json: fix needs a walk to syggrou-fix, the metro station it changes to',
+        'tram.json: zefyros walks to an unknown station or stop "undefined"',
+    ].sort());
+});
+
+test('tram.json as it stands has a walk for every change to the metro', () => {
+    const { tram } = real();
+    for (const [id, stop] of Object.entries(tram.stops).filter(([, s]) => s.metro)) {
+        assert.ok(stop.walks?.some(walk => walk.metro === stop.metro), id);
+    }
+});
+

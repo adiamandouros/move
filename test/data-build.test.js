@@ -288,16 +288,18 @@ test('with airport.json, the build checks STASY\'s airport timetable weekly, and
     assert.equal(stasy.asked.length, asked);
 });
 
-test('with tram.json, rail.json has the tram for its map; a tram that can\'t be built is left out, with a warning', async () => {
+test('with tram.json, rail.json has the tram; a tram that can\'t be built is left out, with a warning', async () => {
     const tram = {
         lines: { T1: { name: 'T1', color: '#b6d433', directions: { out: { gtfsDirection: '0', toward: { el: 'Ω', en: 'Z' } } } } },
-        stops: { z: { name: { el: 'Ω', en: 'Z' }, gtfs: ['Z1'], metro: 'a' } },
+        stops: { z: { name: { el: 'Ω', en: 'Z' }, gtfs: ['Z1'], metro: 'a', walks: [{ metro: 'a', minutes: 3 }] } },
     };
     const { build, served } = setup({ curated: railCurated({ tram }) });
     const meta = await build();
     assert.equal(meta.outputs['rail.json'].ok, true);
     assert.deepEqual(served('rail.json').tram.lines.T1.directions.out.stops, [{ station: 'z' }]);
     assert.deepEqual(served('rail.json').tram.stations.z.metro, { station: 'a', lines: ['M9'] });
+    assert.deepEqual(served('rail.json').tram.stations.z.walks, [{ metro: 'a', minutes: 3 }]);
+    assert.ok(served('rail.json').tram.lines.T1.directions.out.timetable);
     assert.deepEqual(checkOutput('rail.json', served('rail.json')), []);
 
     // tram.json passes its checks, but its line's directions aren't a list
@@ -305,6 +307,6 @@ test('with tram.json, rail.json has the tram for its map; a tram that can\'t be 
     const meta2 = await broken.build();
     assert.equal(meta2.outputs['rail.json'].ok, true);
     assert.equal(broken.served('rail.json').tram, undefined);
-    assert.ok(meta2.outputs['rail.json'].warnings.some(w => w.startsWith('Tram map left out: ')), meta2.outputs['rail.json'].warnings.join('\n'));
+    assert.ok(meta2.outputs['rail.json'].warnings.some(w => w.startsWith('Tram left out: ')), meta2.outputs['rail.json'].warnings.join('\n'));
 });
 

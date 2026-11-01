@@ -58,15 +58,16 @@ const OUTPUTS = {
         // STASY's first and last trains when there's a copy (stasy.js); without one, the GTFS's
         // and the nightly checks of what it built against STASY's tables (rail-checks.js)
         build: async (src, curated, today) => {
-            const { data, warnings, notes } = await buildRail({ dir: src.rail.dir, curated, today, stasy: src.stasy.data });
-            // The tram, for its map on the Info page, from the same feed (build-tram.js)
+            const { data, warnings, notes, calendar } = await buildRail({ dir: src.rail.dir, curated, today, stasy: src.stasy.data });
+            // The tram, for its map on the Info page and the subway planner,
+            // from the same feed and on the same dates (build-tram.js)
             if (curated.tram) {
                 try {
-                    const tram = await buildTram({ dir: src.rail.dir, tram: curated.tram, metroStations: data.stations });
+                    const tram = await buildTram({ dir: src.rail.dir, tram: curated.tram, metroStations: data.stations, calendar });
                     data.tram = tram.data;
                     warnings.push(...tram.warnings);
                 } catch (err) {
-                    warnings.push(`Tram map left out: ${err.message}`);
+                    warnings.push(`Tram left out: ${err.message}`);
                 }
             }
             return { data, warnings, checks: checkRail(data, { frequencies: src.stasy.data?.frequencies ?? null, notes }) };
