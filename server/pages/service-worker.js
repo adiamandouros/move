@@ -29,6 +29,8 @@ export function renderServiceWorker(tools, pages) {
         ]),
     ];
     const precacheData = offlineTools.flatMap(t => t.precache);
+    // The home page is where the installed app opens
+    const offlinePages = [...inLangs('/'), ...offlineTools.flatMap(t => inLangs(t.path))];
 
     // The version changes whenever any page or cached file changes
     const hash = createHash('sha256');
@@ -44,7 +46,7 @@ export function renderServiceWorker(tools, pages) {
         version: hash.digest('hex').slice(0, 12),
         precache: JSON.stringify(precache, null, 4),
         precacheData: JSON.stringify(precacheData, null, 4),
-        offlinePages: JSON.stringify(offlineTools.flatMap(t => inLangs(t.path))),
+        offlinePages: JSON.stringify(offlinePages),
         opened: JSON.stringify(OPENED_HEADER),
     });
 }

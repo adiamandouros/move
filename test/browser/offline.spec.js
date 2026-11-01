@@ -1,6 +1,8 @@
 // The offline cache (server/views/sw.js): the first visit says when it's
-// ready, then the subway planner works without a connection, and pages that
-// aren't saved show the offline page in their language.
+// ready, then the subway planner works without a connection, pages that
+// aren't saved show the offline page in their language, and a connection that
+// hangs (underground, no signal: requests get no answer, not an error) doesn't
+// keep anyone waiting.
 import { axe, expect, test } from './fixtures.js';
 
 test.use({ serviceWorkers: 'allow' });
@@ -34,6 +36,44 @@ test('offline: the planner works, other pages show the offline page', async ({ p
     await page.goto('/el/privacy');
     await expect(page.locator('h1')).toHaveText('Είστε εκτός σύνδεσης');
     expect(await axe(page)).toEqual([]);
+});
+
+// Every request goes out and nothing ever comes back. Includes the service
+// worker's own requests, which page.route() doesn't see
+const noSignal = context => context.route('**/*', () => {});
+
+test('no signal: the app opens at once, in both languages', async ({ page, context }) => {
+    await installed(page);
+    await noSignal(context);
+
+    for (const path of ['/', '/el']) {
+        const started = Date.now();
+        await page.goto(path);
+        await expect(page.locator('.home-tiles a').first()).toBeVisible();
+        expect(Date.now() - started, path).toBeLessThan(2_500);
+    }
+});
+
+test('no signal: a page seen before comes from the cache, one that wasn\'t gets the offline page', async ({ page, context }) => {
+    await installed(page);
+    await page.goto('/about');
+    const about = await page.locator('h1').textContent();
+    await noSignal(context);
+
+    await page.goto('/about');
+    await expect(page.locator('h1')).toHaveText(about);
+    await page.goto('/privacy');
+    await expect(page.locator('h1')).toHaveText('You\'re offline');
+});
+
+test('a slow connection: a page not saved yet still arrives', async ({ page, context }) => {
+    await installed(page);
+    await context.route('**/about', async route => {
+        await new Promise(resolve => setTimeout(resolve, 4_000));
+        await route.continue();
+    });
+    await page.goto('/about');
+    await expect(page.locator('h1')).not.toHaveText('You\'re offline');
 });
 
 test('a new version installs in the background: the open page is not reloaded', async ({ page }) => {
