@@ -95,7 +95,9 @@ export function railCurated(overrides = {}) {
 // in Piraeus; T2 runs Q ↔ E, sharing E with T1. Other runs: a T1 tram that
 // turns back at C, one from E that ends at A (on the line, the other way),
 // a T2 tram to C (not on T2) and one to X9, a stop tramCurated() doesn't
-// know. M9 is a metro line, left alone.
+// know. M9 is a metro line, left alone. Trams leave ten minutes apart, from
+// 08:00, and take a minute between stops; `again` is `out1` listed twice.
+// All of it runs every day of Mon 3 – Sun 9 Aug 2026.
 export function tramFeed() {
     const dir = mkdtempSync(join(tmpdir(), 'wayhop-tram-'));
     const write = (name, rows) => writeFileSync(join(dir, name), rows.join('\n') + '\n');
@@ -107,15 +109,17 @@ export function tramFeed() {
         '9,Q,37.9,23.9', '10,X9,38.0,24.0', '11,M,37.0,23.0',
     ]);
     const trips = {
-        out1: [1, 1, [1, 2, 4, 5, 7]], out2: [1, 1, [1, 2, 4, 5, 7]],
-        back1: [1, 0, [8, 6, 4, 3, 1]], back2: [1, 0, [8, 6, 4, 3, 1]], short: [1, 0, [8, 6]], toA: [1, 0, [8, 6, 4, 2]],
-        up1: [2, 0, [9, 7]], up2: [2, 0, [9, 7]], down1: [2, 1, [8, 9]], toC: [2, 1, [8, 6]], toX: [2, 1, [8, 10]],
+        out1: [1, 1, [1, 2, 4, 5, 7]], out2: [1, 1, [1, 2, 4, 5, 7], 10], again: [1, 1, [1, 2, 4, 5, 7]],
+        back1: [1, 0, [8, 6, 4, 3, 1]], back2: [1, 0, [8, 6, 4, 3, 1], 10], short: [1, 0, [8, 6], 20], toA: [1, 0, [8, 6, 4, 2], 30],
+        up1: [2, 0, [9, 7]], up2: [2, 0, [9, 7], 10], down1: [2, 1, [8, 9]], toC: [2, 1, [8, 6], 10], toX: [2, 1, [8, 10], 20],
         metro: [3, 0, [11, 11]],
     };
+    write('calendar.txt', ['service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date', 'wk,1,1,1,1,1,1,1,20260803,20260809']);
     write('trips.txt', ['route_id,service_id,trip_id,direction_id', ...Object.entries(trips).map(([id, [route, d]]) => `${route},wk,${id},${d}`)]);
+    const clock = minutes => `08:${String(minutes).padStart(2, '0')}:00`;
     write('stop_times.txt', [
         'trip_id,arrival_time,departure_time,stop_id,stop_sequence',
-        ...Object.entries(trips).flatMap(([id, [, , stops]]) => stops.map((stop, i) => `${id},08:0${i}:00,08:0${i}:00,${stop},${i + 1}`)),
+        ...Object.entries(trips).flatMap(([id, [, , stops, start = 0]]) => stops.map((stop, i) => `${id},${clock(start + i)},${clock(start + i)},${stop},${i + 1}`)),
     ]);
     return dir;
 }
@@ -131,10 +135,10 @@ export function tramCurated() {
             p: { name: toward('Π', 'P'), gtfs: ['P'] },
             a: { name: toward('Α', 'A'), gtfs: ['A'] },
             b: { name: toward('Β', 'B'), gtfs: ['B'] },
-            n: { name: toward('Ν', 'N'), gtfs: ['N'], metro: 'b' },
+            n: { name: toward('Ν', 'N'), gtfs: ['N'], metro: 'b', walks: [{ metro: 'b', minutes: 3 }, { stop: 'c', minutes: 5 }] },
             c: { name: toward('Γ', 'C'), gtfs: ['C1', 'C2'] },
             e: { name: toward('Ε', 'E'), gtfs: ['E1', 'E2'] },
-            q: { name: toward('Κ', 'Q'), gtfs: ['Q'], metro: 'nowhere' },
+            q: { name: toward('Κ', 'Q'), gtfs: ['Q'], metro: 'nowhere', walks: [{ metro: 'nowhere', minutes: 4 }] },
             lonely: { name: toward('Λ', 'L'), gtfs: ['L'] },
         },
     };

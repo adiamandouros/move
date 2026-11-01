@@ -203,8 +203,9 @@ function checkAirport(airport, stationIds, lines, errors) {
     }
 }
 
-// tram.json: the tram map's lines and stops (build-tram.js), in the style of
-// lines.json and stations.json; `metro` is the metro station a stop changes to
+// tram.json: the tram's lines and stops (build-tram.js), in the style of
+// lines.json and stations.json; `metro` is the metro station a stop changes to,
+// and `walks` the stations and stops a short walk from it, each in one place
 function checkTram(tram, stationIds, metroCodes, errors) {
     for (const [lineId, line] of Object.entries(tram?.lines ?? {})) {
         if (!line.name || !/^#[0-9a-f]{6}$/i.test(line.color ?? '')) errors.push(`tram.json: ${lineId} needs a name and a #rrggbb color`);
@@ -226,5 +227,11 @@ function checkTram(tram, stationIds, metroCodes, errors) {
             seen.set(code, id);
         }
         if (s.metro !== undefined && !stationIds.has(s.metro)) errors.push(`tram.json: ${id} changes to an unknown metro station "${s.metro}"`);
+        else if (s.metro !== undefined && !s.walks?.some(walk => walk.metro === s.metro)) errors.push(`tram.json: ${id} needs a walk to ${s.metro}, the metro station it changes to`);
+        for (const walk of s.walks ?? []) {
+            const known = walk.metro ? stationIds.has(walk.metro) : Object.hasOwn(tram.stops, walk.stop ?? '');
+            if (!known) errors.push(`tram.json: ${id} walks to an unknown station or stop "${walk.metro ?? walk.stop}"`);
+            if (!Number.isInteger(walk.minutes) || walk.minutes < 1) errors.push(`tram.json: ${id}'s walk to ${walk.metro ?? walk.stop} needs whole minutes`);
+        }
     }
 }

@@ -1,28 +1,44 @@
 import { join } from 'path';
+import { buildTimetable, dropCopies } from './build-rail.js';
+import { toSeconds } from './calendar.js';
 import { readCsv, readCsvAll } from './csv.js';
 
-// The tram network for the Info page's tram map, from the same rail feed as
-// the metro: rail.json's `tram`, in the shape of its metro part (so one map
-// drawer serves both), without timetables or car positions:
+// The tram network for the Info page's tram map and the subway planner, from
+// the same rail feed as the metro: rail.json's `tram`, in the shape of its
+// metro part (so one map drawer and one route finder serve both), without car
+// positions:
 //
 // {
-//   stations: { id: { name: { el, en }, coords: [lat, lng], lines: ['T6', …], metro?: { station, lines } } },
-//   lines: { T6: { name, color, directions: { pikrodafni: { toward: { el, en }, stops: [{ station }, …] } } } }
+//   stations: { id: { name: { el, en }, coords: [lat, lng], lines: ['T6', …], metro?: { station, lines }, walks?: [{ metro | stop, minutes }, …] } },
+//   lines: { T6: { name, color, directions: { pikrodafni: { toward: { el, en }, stops: [{ station }, …], timetable } } } }
 // }
 //
-// A direction's stops are its most common stop pattern in the feed; other
-// runs (trams that turn back early) are left out. The two directions of a
+// A direction's stops are its most common stop pattern in the feed. Other runs
+// (trams that turn back early) go in its timetable as far as they follow those
+// stops, as the metro's branches do; they aren't drawn. The two directions of a
 // line may call at different stops: T7 runs one way round its Piraeus loop.
 // `metro` is the metro station a stop changes to (tram.json's `metro`, with
-// that station's lines from the metro part of rail.json).
+// that station's lines from the metro part of rail.json), and `walks` the
+// stops it's a short walk from, with the minutes: to change there, or instead
+// of riding.
 //
-// The tram is only drawn, so problems are warnings, never a failed rail.json:
-// a stop the curated file doesn't know is left out of the map.
+// The timetable is the feed's, on the metro's week and dates (`calendar`, from
+// buildRail). Unlike the metro's it isn't held to STASY's: its first and last
+// trams agree with STASY's tram page (checked by hand, record 25).
+//
+// A problem here is a warning, never a failed rail.json: a stop the curated
+// file doesn't know is left out, and without the tram the metro still works.
 /**
- * @param {{ dir: string, tram: any, metroStations: Record<string, { lines: string[] }> }} options
+ * What buildRail worked out about the feed's days: each service's days (a
+ * weekday, 0 = Sunday, or a date), every such day with the day before it, and
+ * the dates that may have trains of their own
+ * @typedef {{ daysOf: (service: string) => (number | string)[], serviceDays: { key: number | string, before: number | string }[], ownDates: string[] }} Calendar
+ */
+/**
+ * @param {{ dir: string, tram: any, metroStations: Record<string, { lines: string[] }>, calendar: Calendar }} options
  * @returns {Promise<{ data: import('../../types/data.js').Tram, warnings: string[] }>}
  */
-export async function buildTram({ dir, tram, metroStations }) {
+export async function buildTram({ dir, tram, metroStations, calendar }) {
     const file = name => join(dir, name);
     const warnings = [];
 
@@ -34,10 +50,10 @@ export async function buildTram({ dir, tram, metroStations }) {
         [id, Object.fromEntries(Object.entries(line.directions).map(([key, d]) => [d.gtfsDirection, key]))]));
 
     const trips = new Map();
-    for (const t of await readCsvAll(file('trips.txt'), { required: ['route_id', 'trip_id', 'direction_id'] })) {
+    for (const t of await readCsvAll(file('trips.txt'), { required: ['route_id', 'service_id', 'trip_id', 'direction_id'] })) {
         const line = routeLine.get(t.route_id);
         const dirKey = line && dirKeyOf[line][t.direction_id];
-        if (dirKey) trips.set(t.trip_id, { line, dirKey });
+        if (dirKey) trips.set(t.trip_id, { line, dirKey, service: t.service_id });
     }
 
     const stopOfCode = new Map();
@@ -56,26 +72,34 @@ export async function buildTram({ dir, tram, metroStations }) {
     // Each trip's stops in order
     const tripStops = new Map();
     const unknown = new Set();
-    for await (const st of readCsv(file('stop_times.txt'), { required: ['trip_id', 'stop_id', 'stop_sequence'] })) {
+    for await (const st of readCsv(file('stop_times.txt'), { required: ['trip_id', 'departure_time', 'stop_id', 'stop_sequence'] })) {
         if (!trips.has(st.trip_id)) continue;
         const code = stopById.get(st.stop_id);
         const id = stopOfCode.get(code);
         if (!id) { unknown.add(code ?? st.stop_id); continue; }
         if (!tripStops.has(st.trip_id)) tripStops.set(st.trip_id, []);
-        tripStops.get(st.trip_id).push([+st.stop_sequence, id]);
+        tripStops.get(st.trip_id).push([+st.stop_sequence, id, toSeconds(st.departure_time || st.arrival_time)]);
     }
     if (unknown.size) warnings.push(`tram.json: tram stops not on the map (add them to a stop's "gtfs" list): ${[...unknown].sort().join(', ')}`);
 
-    // How many trips run each stop pattern, per line and direction
+    // How many trips run each stop pattern, per line and direction, and what
+    // each direction runs on the days the timetable keeps
     const counts = new Map();
+    const runs = new Map();
     for (const [tripId, list] of tripStops) {
-        const { line, dirKey } = trips.get(tripId);
-        const ids = list.sort((a, b) => a[0] - b[0]).map(s => s[1]).filter((id, i, all) => id !== all[i - 1]);
+        const { line, dirKey, service } = trips.get(tripId);
+        // Two platforms of a stop in a row are one call, left at the last one's time
+        const calls = list.sort((a, b) => a[0] - b[0]).filter((call, i, all) => call[1] !== all[i + 1]?.[1]);
+        const stations = calls.map(c => c[1]);
         const key = `${line}/${dirKey}`;
         if (!counts.has(key)) counts.set(key, new Map());
         const perPattern = counts.get(key);
-        const pattern = ids.join(' ');
+        const pattern = stations.join(' ');
         perPattern.set(pattern, (perPattern.get(pattern) ?? 0) + 1);
+        const days = calendar.daysOf(service);
+        if (!days.length) continue;
+        if (!runs.has(key)) runs.set(key, []);
+        runs.get(key).push({ stations, times: calls.map(c => c[2]), days });
     }
 
     const lines = {};
@@ -93,7 +117,11 @@ export async function buildTram({ dir, tram, metroStations }) {
                 if (!stopLines.has(id)) stopLines.set(id, new Set());
                 stopLines.get(id).add(lineId);
             }
-            directions[dirKey] = { toward: dir.toward, stops: main.ids.map(station => ({ station })) };
+            directions[dirKey] = {
+                toward: dir.toward,
+                stops: main.ids.map(station => ({ station })),
+                timetable: directionTimetable(runs.get(`${lineId}/${dirKey}`) ?? [], main.ids, calendar, `${lineId}/${dirKey}`, warnings),
+            };
         }
         // Other runs may end elsewhere (T7 trams from Voula that end at SEF,
         // on the way out), but a stop no main pattern calls at isn't drawn
@@ -110,15 +138,35 @@ export async function buildTram({ dir, tram, metroStations }) {
         if (!stopLines.has(id)) { warnings.push(`tram.json: ${id} is not served by any tram`); continue; }
         const metro = s.metro && metroStations[s.metro];
         if (s.metro && !metro) warnings.push(`tram.json: ${id} changes to ${s.metro}, which isn't a metro station in rail.json`);
+        const walks = (s.walks ?? []).filter(walk => walk.metro ? metroStations[walk.metro] : stopLines.has(walk.stop));
+        if (walks.length !== (s.walks ?? []).length) warnings.push(`tram.json: ${id} has a walk to a stop that isn't in rail.json`);
         stations[id] = {
             name: s.name,
             coords: [round(sum.lat / sum.n), round(sum.lng / sum.n)],
             lines: [...stopLines.get(id)].sort(),
             ...(metro && { metro: { station: s.metro, lines: metro.lines } }),
+            ...(walks.length && { walks }),
         };
     }
 
     return { data: { stations, lines }, warnings };
+}
+
+// A direction's timetable, on its stops only: a tram's calls anywhere else are
+// left out, so T7's from Voula that end at SEF, which the way to Piraeus doesn't
+// reach, count as ending at Neo Faliro
+function directionTimetable(runs, stops, calendar, label, warnings) {
+    const indexOf = new Map(stops.map((id, i) => [id, i]));
+    const off = new Set();
+    const onStops = runs.flatMap(({ stations, times, days }) => {
+        const kept = stations.flatMap((id, i) => indexOf.has(id) ? [i] : []);
+        stations.filter(id => !indexOf.has(id)).forEach(id => off.add(id));
+        return kept.length > 1 ? [{ stations: kept.map(i => stations[i]), times: kept.map(i => times[i]), days }] : [];
+    });
+    if (off.size) warnings.push(`${label}: trams call at stops off this direction, left out of its timetable: ${[...off].sort().join(', ')}`);
+    if (!onStops.length) warnings.push(`${label}: no tram trips in the chosen week`);
+    dropCopies(onStops, calendar.serviceDays, label, warnings);
+    return buildTimetable(onStops, indexOf, calendar.ownDates, label);
 }
 
 const round = n => Math.round(n * 1e5) / 1e5;

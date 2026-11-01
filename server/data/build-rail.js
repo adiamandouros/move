@@ -41,7 +41,7 @@ const DAY = 86_400;
 /**
  * stasy: the copy of STASY's timetables (stasy.js, stasyTables), or null
  * @param {{ dir: string, curated: any, today: string, stasy?: any }} options
- * @returns {Promise<{ data: import('../../types/data.js').Rail, warnings: string[], notes: string[] }>}
+ * @returns {Promise<{ data: import('../../types/data.js').Rail, warnings: string[], notes: string[], calendar: import('./build-tram.js').Calendar }>}
  */
 export async function buildRail({ dir, curated, today, stasy = null }) {
     const { stations, lines, positions, airport = null } = curated;
@@ -96,6 +96,11 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
         ...DAY_NAMES.map((_, wd) => ({ key: wd, before: (wd + 6) % 7 })),
         ...dates.map(d => ({ key: d, before: addDays(d, -1) })),
     ];
+    // Which of those days a service runs on
+    const daysOf = service => [
+        ...weekServices.flatMap((s, wd) => s.has(service) ? [wd] : []),
+        ...dates.filter(d => dateServices.get(d).has(service)),
+    ];
 
     // ── Stops → curated stations ────────────────────────────────────────────
     const stationOfCode = new Map();
@@ -141,14 +146,10 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
     for (const [tripId, stopList] of tripStops) {
         const { line, dirKey, service } = trips.get(tripId);
         stopList.sort((a, b) => a[0] - b[0]);
-        const days = [
-            ...weekServices.flatMap((s, wd) => s.has(service) ? [wd] : []),
-            ...dates.filter(d => dateServices.get(d).has(service)),
-        ];
         ((byDirection[line] ??= {})[dirKey] ??= []).push({
             stations: stopList.map(s => s[1]),
             times: stopList.map(s => s[2]),
-            days,
+            days: daysOf(service),
         });
     }
 
@@ -221,6 +222,8 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
         warnings,
         // For the nightly checks (rail-checks.js)
         notes,
+        // For the tram, on the same week and dates (build-tram.js)
+        calendar: { daysOf, serviceDays, ownDates },
     };
 }
 
@@ -244,7 +247,7 @@ function stopPositions(positions, lineId, dirKey, station, warnings) {
 // day: each weekday of the typical week, and the dates (`ownDates`,
 // 'YYYYMMDD') whose trains differ from their weekday's. Each distinct day is
 // stored once; `days` maps weekday → pattern, `dates` ISO date → pattern.
-function buildTimetable(dirTrips, indexOf, ownDates, label) {
+export function buildTimetable(dirTrips, indexOf, ownDates, label) {
     // Run-time profiles by key, in the order trips first use them
     const shapes = new Map();
     const week = Array.from({ length: 7 }, () => []);
@@ -299,7 +302,7 @@ const COPY_SECONDS = 90;
 
 // serviceDays: [{ key, before }], each day (a weekday or a date) and the one before it.
 // The warning counts the typical week's.
-function dropCopies(dirTrips, serviceDays, label, warnings) {
+export function dropCopies(dirTrips, serviceDays, label, warnings) {
     const isCopy = (trip, of, shift) => trip.stations.length === of.stations.length
         && trip.stations.every((s, i) => s === of.stations[i] && Math.abs(trip.times[i] - (of.times[i] - shift)) <= COPY_SECONDS);
     const dropped = [];
