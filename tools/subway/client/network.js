@@ -135,7 +135,9 @@ const walksFrom = (rail, id) => Object.entries(rail.walks?.[id] ?? {});
 // again: from Acropolis to Faliro by Attiki goes through Omonia on both
 // lines.) It may use a line twice, though not the same direction twice in a
 // row: round T7's one-way loop in Piraeus, the way from Evangelistria to
-// Skylitsi is on to the end of the line and back out.
+// Skylitsi is on to the end of the line and back out. But it doesn't ride back
+// over the same line: nobody takes M3 to Piraeus to come back through where
+// they started.
 /** @param {Rail} rail @param {string} from @param {string} to @param {number} limit @returns {Route[]} */
 function routesWithin(rail, from, to, limit) {
     const { calls, changes } = calling(rail);
@@ -144,9 +146,12 @@ function routesWithin(rail, from, to, limit) {
     const rideFrom = (at, seen, legs, walkFirst) => {
         for (const { line, dir, stops, index } of calls.get(at) ?? []) {
             if (legs.at(-1)?.line === line && legs.at(-1).dir === dir) continue;
+            const ridden = new Set(legs.filter(leg => leg.line === line)
+                .flatMap(leg => rail.lines[line].directions[leg.dir].stops.slice(leg.fromIndex, leg.toIndex + 1).map(stop => stop.station)));
             const passed = new Set(seen);
             for (let i = index + 1; i < stops.length; i++) {
                 const { station } = stops[i];
+                if (ridden.has(station)) break;
                 if (seen.has(station)) continue;
                 passed.add(station);
                 const leg = { line, dir, from: at, to: station, fromIndex: index, toIndex: i };
@@ -257,23 +262,21 @@ function planRoute(rail, route, now, ownDay = false) {
 }
 
 // Plan every route and keep the few that arrive first, fewer changes first
-// when they arrive together. A route with more changes than the fewest stays
-// only if it gets there WORTH_A_CHANGE sooner than every route with fewer. Of
-// trips with a tram that take the same lines the same way, only the first
-// stays: the same trams, changing a stop sooner or later, aren't another way
-// to go.
+// when they arrive together; those arriving much later start closed
+// (SLOWER_MINUTES in render.js). A trip with a tram offers its other ways like
+// that, whatever their changes. Metro trains alone don't: a route with more
+// changes than the fewest stays only if it gets there WORTH_A_CHANGE sooner
+// than every route with fewer, so a direct train stays the only answer.
 /** @param {Rail} rail @param {string} from @param {string} to @param {AthensTime} now @param {boolean} [ownDay] @returns {PlannedRoute[]} */
 export function planJourney(rail, from, to, now, ownDay = false) {
     const plans = findRoutes(rail, from, to).map(route => planRoute(rail, route, now, ownDay));
     const fewest = Math.min(...plans.map(plan => plan.legs.length));
-    const worthIt = plan => plan.legs.length === fewest || (plan.arrives !== null
-        && plans.every(other => other.legs.length >= plan.legs.length || (other.arrives ?? Infinity) - plan.arrives >= WORTH_A_CHANGE));
-    const way = plan => plan.legs.map(leg => `${leg.line}/${leg.dir}`).join();
     const hasTram = plan => plan.legs.some(leg => rail.lines[leg.line].tram);
+    const worthIt = plan => plan.legs.length === fewest || hasTram(plan) || (plan.arrives !== null
+        && plans.every(other => other.legs.length >= plan.legs.length || (other.arrives ?? Infinity) - plan.arrives >= WORTH_A_CHANGE));
     return plans
         .filter(worthIt)
         .sort((a, b) => (a.arrives ?? Infinity) - (b.arrives ?? Infinity) || a.legs.length - b.legs.length)
-        .filter((plan, i, all) => !hasTram(plan) || all.findIndex(other => way(other) === way(plan)) === i)
         .slice(0, MAX_OPTIONS);
 }
 
