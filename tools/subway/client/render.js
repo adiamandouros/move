@@ -162,7 +162,8 @@ function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, op
     // the same line, but not a heading. What doesn't fit ends in "…" on the
     // left (the card names the station too), never in the arrival.
     const trip = tripTotal(time);
-    const via = route.via ? html`${t('subway.via')} ${stationName(rail, route.via)}` : t('subway.no-transfers');
+    const changes = route.legs.slice(0, -1).map(leg => stationName(rail, leg.to));
+    const via = changes.length ? `${t('subway.via')} ${changes.join(', ')}` : t('subway.no-transfers');
     const line = html`<span class="route-via">${via}</span>${trip && html`<span class="sr-only">, </span><span class="route-total">${trip}</span>`}`;
     const header = total > 1
         ? html`<h2 class="route-option-label"><span class="sr-only">${t('subway.option')} ${index + 1}, </span>${line}</h2>`

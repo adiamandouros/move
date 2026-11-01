@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
-import { athensNow, planTrip } from '../tools/subway/client/network.js';
+import { athensNow, planTrip, withTram } from '../tools/subway/client/network.js';
 import { browserModule, strings } from './support/browser-modules.js';
 import { markupProblems, spoken } from './support/markup.js';
 import { clockTime } from '../public/js/core/metro.js';
@@ -197,6 +197,16 @@ test('the one-sentence summary for screen readers', async () => {
     assert.equal(render.routeSummary(rail, [], NOON), String(render.renderResult(rail, [], NOON, {})).replace(/<[^>]+>/g, ''));
 });
 
+test('each option\'s line names every change', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    const network = withTram(rail);
+    const { plans, now } = planTrip(network, 'kifisia', 'zappeio', NOON);
+    const html = String(render.renderResult(network, plans, now, { expired: false }));
+    const changes = plans[0].legs.slice(0, -1).map(leg => network.stations[leg.to].name.en);
+    assert.equal(changes.length, 2);
+    assert.match(html, new RegExp(`<span class="route-via">Via ${changes.join(', ')}</span>`));
+});
+
 test('each option\'s line: where to change, when it arrives and how long the whole trip takes', async () => {
     const render = await browserModule('tools/subway/client/render.js', 'en');
     const { trip, html } = draw(render, TRIPS['a change of line']);
@@ -208,7 +218,7 @@ test('each option\'s line: where to change, when it arrives and how long the who
         const [first, second] = plan.legs.map(leg => leg.departures[0]);
         const minutes = Math.round((second.arrives - first.departs) / 60);
         assert.ok(second.departs >= first.arrives + 180, 'time to change');
-        const via = rail.stations[plan.via].name.en;
+        const via = rail.stations[plan.legs[0].to].name.en;
         // Short on screen (it has to fit one line), in full for screen readers
         assert.equal(spoken(headings[i]), `Option ${i + 1}, Via ${via}, Arrive about ${clockTime(plan.arrives)} · ${minutes} minutes`);
         // On screen: where to change, then (on the right) the arrival

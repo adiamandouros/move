@@ -51,10 +51,52 @@ const rail = {
 test('findRoutes prefers direct routes and otherwise changes at interchanges', () => {
     assert.deepEqual(findRoutes(rail, 'a', 'b'), [{ legs: [{ line: 'L1', dir: 'east', from: 'a', to: 'b', fromIndex: 0, toIndex: 2 }] }]);
     const [route] = findRoutes(rail, 'a', 'c');
-    assert.equal(route.via, 'x');
     assert.deepEqual(route.legs.map(l => `${l.line}:${l.from}-${l.to}`), ['L1:a-x', 'L2:x-c']);
     assert.deepEqual(findRoutes(rail, 'b', 'a'), []); // only one direction in the fixture
     assert.deepEqual(findRoutes(rail, 'a', 'a'), []);
+});
+
+// From s to e: slowly on one line, or changing at k and at m, each ride as
+// quick as `quick` makes it
+function shortcut(arrivesVia, arrivesViaTwo) {
+    const line = (stations, ...trips) => ({
+        directions: {
+            only: {
+                stops: stations.map(station => ({ station, exits: [] })),
+                timetable: {
+                    profiles: trips.map(([, offset]) => ({ stops: [0, stations.length - 1], offsets: [0, offset] })),
+                    patterns: [trips.map(([start], i) => [start, i])],
+                    days: everyDay(0),
+                },
+            },
+        },
+    });
+    const at = minutes => 8 * H + minutes * 60;
+    return {
+        stations: Object.fromEntries(['s', 'k', 'm', 'e'].map(id => [id, { lines: id === 's' || id === 'e' ? ['Slow'] : ['A', 'B'], coords: [38, 23] }])),
+        lines: {
+            Slow: line(['s', 'e'], [at(0), 60 * 60]),
+            A: line(['s', 'k'], [at(0), 5 * 60]),
+            B: line(['k', 'e'], [at(10), (arrivesVia - 10) * 60]),
+            C: line(['k', 'm'], [at(10), 5 * 60]),
+            D: line(['m', 'e'], [at(20), (arrivesViaTwo - 20) * 60]),
+        },
+    };
+}
+const EIGHT = { weekday: 3, seconds: 8 * H, date: '2026-08-05' };
+const lines = plan => plan.legs.map(leg => leg.line).join();
+
+test('a route with another change stays only if it gets there 5 minutes sooner', () => {
+    assert.deepEqual(planJourney(shortcut(50, 59), 's', 'e', EIGHT).map(lines), ['A,B', 'Slow']);
+    // 4 minutes sooner isn't worth a change
+    assert.deepEqual(planJourney(shortcut(56, 59), 's', 'e', EIGHT).map(lines), ['Slow']);
+    assert.deepEqual(planJourney(shortcut(55, 59), 's', 'e', EIGHT).map(lines), ['A,B', 'Slow']);
+});
+
+test('only one change more than the fewest is looked at', () => {
+    // The two-change route would be quickest, but the trip takes none
+    assert.deepEqual(planJourney(shortcut(59, 30), 's', 'e', EIGHT).map(lines), ['Slow']);
+    assert.deepEqual(findRoutes(shortcut(59, 30), 's', 'e').map(lines), ['Slow', 'A,B']);
 });
 
 test('departures skip near-duplicates, short trips and past trains, and flag the last ones', () => {

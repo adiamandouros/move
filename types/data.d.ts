@@ -57,6 +57,8 @@ export interface Station {
     coords: [number, number];
     /** Line ids */
     lines: string[];
+    /** A tram stop, in the planner's network (withTram in tools/subway/client/network.js) */
+    tram?: boolean;
 }
 
 export interface Line {
@@ -65,6 +67,8 @@ export interface Line {
     color: string;
     /** By direction id, e.g. "kifisia" */
     directions: Record<string, Direction>;
+    /** A tram line, in the planner's network (withTram in tools/subway/client/network.js) */
+    tram?: boolean;
 }
 
 export interface Direction {
