@@ -11,7 +11,8 @@ Moving it into the app comes with its decision record.
 | `raptor.js` | The search: earliest arrivals by number of rides, walks at the changes |
 | `ways.js` | From what the search finds to the ways a rider could choose from |
 | `network.js` | Metro and tram from `rail.json`, buses and trolleys from the file below |
-| `build-buses.js` | One day of the bus feed in `data/raw/bus`, small enough to search |
+| `build-buses.js` | One day of buses, small enough to search |
+| `live-routes.js` | Puts the feed's times on the routes of OASA's live network |
 | `trip.js` | Tries one trip from the command line |
 | `rush-test.js` | One test of OASA's predictions in the rush hour |
 
@@ -49,9 +50,15 @@ doesn't fail the checks. When a change gets one right, take its `todo` off.
   way: a bus in traffic is worth less than a train, and a walk least of all.
 - **The ticket and the airport.** Neither is considered: a way can run past 90
   minutes, or use an airport bus, which the ordinary ticket doesn't cover.
-- **Lines.** The search leaves out what it finds no better, so it can miss a
-  real choice: that's the `todo` about the 750. `bus-lines.json` is no help, as
-  it keeps 415 of OASA's 706 routes; `data/raw/oasa/network.json` has them all.
+- **Routes without times.** `data/raw/oasa/network.json` has all 706 of OASA's
+  routes, up to date, and says where buses go; the feed only says when. 558 of
+  them get its times, a stop that's moved mended from its neighbours. The other
+  148 have none to get, so the search can't use them, and `build-buses.js`
+  lists them: 117 variants in brackets (market days, short workings), 26 on
+  lines newer than the feed (204, 250, 320…) and 5 plain routes (221, 314, 836,
+  868) whose times the feed only has for another route of the line. 5 of the feed's stop lists are of lines gone
+  since (122Θ, Χ23). Reading the network asks OASA for nothing: the nightly
+  data build keeps it, every route.
 
 ## The rush-hour test
 
