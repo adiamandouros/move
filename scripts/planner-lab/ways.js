@@ -1,7 +1,8 @@
 // From what the search finds to the ways a rider could choose from. RAPTOR
 // only gives the best with each number of rides, and a rider's choices are
 // more than that (decision: routes are offered, slower ones hidden, never
-// dropped), so it's asked again without what it found.
+// dropped), so it's asked again without what it found, and every line that
+// runs from a change to the door is looked up.
 
 import { MAX_RIDES } from './raptor.js';
 
@@ -38,6 +39,20 @@ function withWalk(planner, stop, rides, at, access, egress) {
     return { ...journey, at, walk: secondsTo(access, journey.legs[0].board) + journey.walked + secondsTo(egress, stop) };
 }
 
+// The way's rides up to each change, then each line from there to the door:
+// the 750 from Aigaleo is hidden behind the same bus from Korydallos
+function everyLastRide(planner, way, access, egress, walkLimit) {
+    return way.legs.slice(0, -1).flatMap((leg, i) => {
+        const before = way.legs.slice(0, i + 1);
+        const except = new Set(before.map(({ line }) => line));
+        return planner.onwardRides(leg.alight, leg.arrives, egress, { except, walkLimit }).map(({ leg: last, at, stop }) => {
+            const legs = [...before, last];
+            const walked = legs.reduce((sum, { walkBefore }) => sum + walkBefore, 0);
+            return { legs, walked, at, walk: secondsTo(access, legs[0].board) + walked + secondsTo(egress, stop) };
+        });
+    });
+}
+
 // Lines and where they change: the same lines changing elsewhere are another way
 /** @param {Planner} planner @param {Way} way */
 export const wayKey = ({ stops }, way) => way.legs.map((leg, i) => (i ? `${stops[leg.board].name} ` : '') + leg.line).join(' ');
@@ -46,7 +61,8 @@ export const wayKey = ({ stops }, way) => way.legs.map((leg, i) => (i ? `${stops
  * The ways from `access` to `egress`, those that arrive first first: the best
  * with each number of rides, then the best without each line and each change
  * of what's been found, and so on from the earliest arrival, so that a way
- * behind two better lines still comes up.
+ * behind two better lines still comes up. Then, from each change of those
+ * close enough to the first, every line that goes on to the door.
  * @param {Planner} planner @param {number[]} access @param {number[]} egress @param {number} now
  * @param {{ budget?: number, slack?: number, walkLimit?: number }} [options]
  * @returns {Way[]}
@@ -74,7 +90,10 @@ export function findWays(planner, access, egress, now, { budget = BUDGET, slack 
     }
 
     const found = new Map();
-    const keep = way => { if (!found.has(wayKey(planner, way))) found.set(wayKey(planner, way), way); };
+    const keep = way => {
+        const key = wayKey(planner, way);
+        if (!found.has(key) || way.at < found.get(key).at) found.set(key, way);
+    };
     while (pending.length && asked.size < budget) {
         pending.sort((a, b) => a.way.at - b.way.at);
         const { way, lines, places } = pending.shift();
@@ -92,6 +111,9 @@ export function findWays(planner, access, egress, now, { budget = BUDGET, slack 
         }
     }
     for (const { way } of pending) keep(way);
+    for (const way of [...found.values()]) {
+        if (way.at <= first.at + slack) everyLastRide(planner, way, access, egress, walkLimit).forEach(keep);
+    }
     return [...found.values()].sort((a, b) => a.at - b.at);
 }
 

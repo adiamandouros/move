@@ -55,6 +55,18 @@ function withoutOvertaking(route) {
     }));
 }
 
+// The first trip of a route that leaves `position` at `from` or later
+function firstTrip({ trips, width, times }, position, from) {
+    let low = 0;
+    let high = trips;
+    while (low < high) {
+        const middle = (low + high) >> 1;
+        if (times[middle * width + position] >= from) high = middle;
+        else low = middle + 1;
+    }
+    return low;
+}
+
 /** @param {{ stops: Stop[], routes: Route[] }} network */
 export function createPlanner({ stops, routes: given }) {
     const count = stops.length;
@@ -162,13 +174,7 @@ export function createPlanner({ stops, routes: given }) {
                     }
                     const can = banBoard && k > 1 && banBoard[stop] ? INF : ready[k - 1][stop];
                     if (can < INF && (trip < 0 || can <= times[trip * width + i])) {
-                        let low = 0;
-                        let high = trips;
-                        while (low < high) {
-                            const middle = (low + high) >> 1;
-                            if (times[middle * width + i] >= can) high = middle;
-                            else low = middle + 1;
-                        }
+                        const low = firstTrip(routes[r], i, can);
                         if (low < trips && (trip < 0 || low < trip)) {
                             trip = low;
                             board = i;
@@ -250,5 +256,50 @@ export function createPlanner({ stops, routes: given }) {
         }
     }
 
-    return { stops, near, search, arrival, journey };
+    /**
+     * Every line, but those in `except`, that goes from `stop` or a stop in
+     * walking distance, for someone there at `at`, to a stop of `egress`: its
+     * ride with the earliest arrival at the door, and the least walking for that.
+     * The search can't give this: it only keeps what's better than the rest.
+     * @param {number} stop @param {number} at @param {number[]} egress
+     * @param {{ except?: Set<string>, walkLimit?: number }} [options]
+     * @returns {{ leg: Leg, at: number, stop: number }[]}
+     */
+    function onwardRides(stop, at, egress, { except = new Set(), walkLimit = CHANGE_WALK_SECONDS } = {}) {
+        const toDoor = new Map();
+        for (let i = 0; i < egress.length; i += 2) {
+            if (!toDoor.has(egress[i]) || egress[i + 1] < toDoor.get(egress[i])) toDoor.set(egress[i], egress[i + 1]);
+        }
+        const best = new Map();
+        const from = (board, ready, walkBefore) => {
+            const through = serving[board];
+            for (let j = 0; j < through.length; j += 2) {
+                const route = routes[through[j]];
+                const position = through[j + 1];
+                if (except.has(route.line)) continue;
+                const trip = firstTrip(route, position, ready);
+                if (trip >= route.trips) continue;
+                for (let i = position + 1; i < route.width; i++) {
+                    const walk = toDoor.get(route.stops[i]);
+                    if (walk === undefined) continue;
+                    const arrives = route.times[trip * route.width + i];
+                    const there = arrives + walk;
+                    const held = best.get(route.line);
+                    if (held && (held.at < there || (held.at === there && held.leg.walkBefore + held.walk <= walkBefore + walk))) continue;
+                    best.set(route.line, {
+                        at: there, stop: route.stops[i], walk,
+                        leg: { line: route.line, mode: route.mode, board, alight: route.stops[i], boards: route.times[trip * route.width + position], arrives, walkBefore },
+                    });
+                }
+            }
+        };
+        from(stop, at + CHANGE_SECONDS, 0);
+        const onFoot = walks[stop];
+        for (let j = 0; j < onFoot.length; j += 2) {
+            if (onFoot[j + 1] <= walkLimit) from(onFoot[j], at + onFoot[j + 1] + AFTER_WALK_SECONDS, walkSeconds(stops[stop], stops[onFoot[j]]));
+        }
+        return [...best.values()].map(({ leg, at: there, stop: last }) => ({ leg, at: there, stop: last }));
+    }
+
+    return { stops, near, search, arrival, journey, onwardRides };
 }
