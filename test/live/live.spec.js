@@ -26,6 +26,12 @@ test('the planner finds a route in the real timetable', async ({ page }) => {
     await expect(page.locator('h1')).toContainText('Syntagma');
 });
 
+test('the planner finds a tram trip in the real timetable, without a train diagram', async ({ page }) => {
+    await page.goto('/subway?from=fix&to=zappeio');
+    await expect(page.locator('.result-card').first()).toContainText('T6');
+    await expect(page.locator('.train-diagram')).toHaveCount(0);
+});
+
 // STASY's lift page is read (server/info/lifts.js): its stations are ours,
 // and the page hasn't changed (or /api/lifts would answer 503)
 test('the lift status comes in', async ({ page }) => {

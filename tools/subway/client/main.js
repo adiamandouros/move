@@ -4,12 +4,15 @@ import { watchLifts } from '/js/core/lifts.js';
 import { legendOpen, liftsOpen } from '/js/core/metro.js';
 import { language, t } from '/js/core/i18n.js';
 import { remember } from '/js/core/remember.js';
-import { athensNow, closestStation, isTimetableExpired, planTrip } from './network.js';
+import { athensNow, closestStation, isTimetableExpired, planTrip, withTram } from './network.js';
 import { stationSearch } from './search.js';
-import { renderIntro, renderMessage, renderResult, routeSummary, walkingUrl } from './render.js';
+import { renderIntro, renderMessage, renderResult, renderWalkOnly, routeSummary, walkOnly, walkingUrl } from './render.js';
 
 // Keeps the "in N minutes" chips current while the page is open
 const REFRESH_MS = 30_000;
+// Kept on the device when the person hides the tram (localStorage can be
+// missing or blocked: then the tram stays shown)
+const TRAM_HIDDEN = 'tram-hidden';
 
 const result = document.getElementById('subway-result');
 
@@ -25,8 +28,19 @@ async function loadRail() {
     }
 }
 
-function start(rail) {
+function tramHidden() {
+    try { return localStorage.getItem(TRAM_HIDDEN) === '1'; } catch { return false; }
+}
+
+function start(metro) {
     const params = new URLSearchParams(location.search);
+
+    // What the page plans on: the metro and the tram, or the metro alone if
+    // the person hid the tram. An address naming a tram stop shows the tram for
+    // this visit, and leaves what's kept as it was.
+    const combined = withTram(metro);
+    const named = ['from', 'to'].some(key => combined.stations[params.get(key)]?.tram);
+    let rail = !tramHidden() || named ? combined : metro;
 
     // `speak`: also tell screen readers, when the user changed the stations
     // (not on the 30-second refresh)
@@ -63,11 +77,17 @@ function start(rail) {
             if (speak) announce(t('subway.same-station'));
             return;
         }
+        const walk = rail.walks?.[origin]?.[destination];
+        if (walk) {
+            setHtml(result, renderWalkOnly(walk));
+            if (speak) announce(walkOnly(walk));
+            return;
+        }
         const today = athensNow();
         // After the last train, tomorrow's first ones
         const { plans, now, tomorrow } = planTrip(rail, origin, destination, today);
         const focus = focused();
-        setHtml(result, renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow, open: opened, stations: stationsOpen, legend: legendOpen(), lifts: known, liftsOpen: liftsOpen() }));
+        setHtml(result, renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow, open: opened, stations: stationsOpen, legend: legendOpen(), lifts: known, liftsOpen: liftsOpen(), to: destination }));
         refocus(focus);
         if (speak) announce(routeSummary(rail, plans, now, tomorrow, known));
     };
@@ -161,6 +181,24 @@ function start(rail) {
     changed();
 
     document.getElementById('subway-form').addEventListener('submit', e => e.preventDefault());
+
+    // Show the tram stops or not: on when there's a tram to show (the switch
+    // is hidden otherwise). A tram stop picked goes when they're hidden.
+    const tramSwitch = /** @type {HTMLInputElement} */ (document.getElementById('show-tram'));
+    document.getElementById('tram-switch').hidden = combined === metro;
+    tramSwitch.checked = rail === combined;
+    tramSwitch.addEventListener('change', () => {
+        try {
+            if (tramSwitch.checked) localStorage.removeItem(TRAM_HIDDEN);
+            else localStorage.setItem(TRAM_HIDDEN, '1');
+        } catch { /* not kept: shown next time */ }
+        rail = tramSwitch.checked ? combined : metro;
+        from.setRail(rail);
+        to.setRail(rail);
+        const last = followLocation && lastPosition();
+        if (last) setNearest(last);
+        changed();
+    });
 
     document.getElementById('swap-stations').addEventListener('click', () => {
         follow(false);

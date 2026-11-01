@@ -34,6 +34,19 @@ const TRIPS = {
     'a slower option': ['kifisia', 'syntagma', NOON],
     'lifts out of service on the way': ['kifisia', 'aigaleo', NOON, { lifts: LIFTS }],
 };
+// With the tram: from, to, what it shows
+const network = withTram(rail);
+const TRAM_TRIPS = [
+    ['kifisia', 'zappeio', 'two changes'],
+    ['syntagma', 'zappeio', 'a walk first'],
+    ['kifisia', 'neo-faliro', 'a walk last'],
+    ['kifisia', 'evangelistria', 'a change on foot'],
+    ['zappeio', 'fix', 'by tram alone'],
+];
+const drawTram = (render, from, to, now = NOON) => {
+    const trip = planTrip(network, from, to, now);
+    return { trip, html: String(render.renderResult(network, trip.plans.slice(0, 1), trip.now, { expired: false, tomorrow: trip.tomorrow, to })) };
+};
 const draw = (render, [from, to, now, options = {}]) => {
     const trip = planTrip(rail, from, to, now);
     return { trip, html: String(render.renderResult(rail, trip.plans, trip.now, { expired: false, tomorrow: trip.tomorrow, ...options })) };
@@ -50,11 +63,19 @@ for (const lang of ['en', 'el']) {
             assert.deepEqual(markupProblems(`<p class="sr-only">${render.routeSummary(rail, plans, now, tomorrow)}</p>`, { keys }), []);
         });
     }
+    for (const [from, to, why] of TRAM_TRIPS) {
+        test(`${lang}: a trip with the tram (${why}) is accessible and fully translated`, () => {
+            const { plans, now, tomorrow } = planTrip(network, from, to, NOON);
+            assert.deepEqual(markupProblems(render.renderResult(network, plans, now, { expired: false, tomorrow, to }), { keys }), []);
+            assert.deepEqual(markupProblems(`<p class="sr-only">${render.routeSummary(network, plans, now, tomorrow)}</p>`, { keys }), []);
+        });
+    }
     test(`${lang}: no route, other messages and the intro`, () => {
         assert.deepEqual(markupProblems(render.renderResult(rail, [], NOON, { expired: false }), { keys }), []);
         assert.deepEqual(markupProblems(render.renderIntro(rail), { keys }), []);
         assert.deepEqual(markupProblems(render.renderIntro(rail, true, LIFTS, ['aigaleo']), { keys }), []);
         assert.deepEqual(markupProblems(render.renderMessage('subway.same-station'), { keys }), []);
+        assert.deepEqual(markupProblems(render.renderWalkOnly(8), { keys }), []);
     });
 }
 
@@ -97,7 +118,7 @@ test('after the last train: tomorrow\'s first trains, as clock times, in both la
     const el = await browserModule('tools/subway/client/render.js', 'el');
     const english = draw(en, TRIPS['tomorrow\'s first trains']);
     assert.equal(english.trip.tomorrow, true);
-    assert.match(spoken(english.html), /No more trains today\. These are tomorrow's first trains\./);
+    assert.match(spoken(english.html), /No more service today\. These are tomorrow's first departures\./);
     assert.match(spoken(english.html), /At\s*0[5-7]:\d\d/);
     assert.match(spoken(draw(el, TRIPS['tomorrow\'s first trains']).html).replace(/\s+/g, ' '), /πρώτα δρομολόγια της επόμενης ημέρας[\s\S]*Στις\s*0[5-7]:\d\d/);
 });
@@ -193,7 +214,7 @@ test('the one-sentence summary for screen readers', async () => {
     const render = await browserModule('tools/subway/client/render.js', 'en');
     const summary = trip => { const { plans, now, tomorrow } = draw(render, trip).trip; return render.routeSummary(rail, plans, now, tomorrow); };
     assert.match(summary(TRIPS['a direct trip']), /^M3 toward Airport, in \d+ minutes\. Arrive about \d\d:\d\d, \d+ minutes\.$/);
-    assert.match(summary(TRIPS['tomorrow\'s first trains']), /^No more trains today\. These are tomorrow's first trains\. M3 toward Airport, at 0[5-7]:\d\d\. Arrive about 0[6-8]:\d\d, \d+ minutes\.$/);
+    assert.match(summary(TRIPS['tomorrow\'s first trains']), /^No more service today\. These are tomorrow's first departures\. M3 toward Airport, at 0[5-7]:\d\d\. Arrive about 0[6-8]:\d\d, \d+ minutes\.$/);
     assert.equal(render.routeSummary(rail, [], NOON), String(render.renderResult(rail, [], NOON, {})).replace(/<[^>]+>/g, ''));
 });
 
@@ -407,4 +428,79 @@ test('before two stations are picked: what the planner does, and what the trains
     assert.match(String(render.renderResult(rail, trip.plans, trip.now, { expired: false, legend: false })), /<details class="diagram-legend">/);
     const greek = await browserModule('tools/subway/client/render.js', 'el');
     assert.match(String(greek.renderIntro(rail)), /^<div class="subway-intro"><p>Επιλέξτε πού επιβιβάζεστε[^]*<li>προειδοποιήσεις προσβασιμότητας<\/li><\/ul><\/div>/);
+});
+
+test('a tram has no train diagram and nothing about where to stand; a metro leg beside it keeps its own', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    const { trip, html } = drawTram(render, 'kifisia', 'zappeio');
+    const legs = trip.plans[0].legs;
+    const cards = html.split('class="card result-card"').slice(1);
+    assert.equal(cards.length, legs.length);
+    legs.forEach((leg, i) => {
+        const tram = Boolean(network.lines[leg.line].tram);
+        assert.equal(cards[i].includes('train-diagram'), !tram, leg.line);
+        assert.equal(cards[i].includes(strings('en')['subway.no-position-data']), false, leg.line);
+    });
+
+    const alone = drawTram(render, 'zappeio', 'fix').html;
+    assert.doesNotMatch(alone, /train-diagram|diagram-legend/);
+    assert.ok(!alone.includes(strings('en')['subway.no-position-data']));
+    assert.match(alone, /line-t6/);
+});
+
+test('tram stops are named, not linked: they have no page of their own', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    const { html } = drawTram(render, 'kifisia', 'zappeio');
+    assert.match(html, /href="\/subway\/stations\/kifisia"/);
+    assert.doesNotMatch(html, /stations\/zappeio|stations\/syntagma-tram|stations\/fix"/);
+    assert.match(spoken(html), /Exit at Zappio/);
+});
+
+test('walks: before the first leg, between two, and after the last', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    const first = drawTram(render, 'syntagma', 'zappeio').html;
+    assert.match(spoken(first), /Walk to Syntagma \(tram\) about 4 minutes/);
+    assert.ok(first.indexOf('Walk to') < first.indexOf('result-card'));
+
+    const last = drawTram(render, 'kifisia', 'neo-faliro').html;
+    assert.match(spoken(last), /Walk to Neo Faliro about 7 minutes/);
+    assert.ok(last.indexOf('Walk to') > last.indexOf('result-card'));
+
+    const middle = drawTram(render, 'kifisia', 'evangelistria').html;
+    assert.match(spoken(middle), /Transfer at Faliro[^]*Walk to Gipedo Karaiskaki about 3 minutes[^]*At Gipedo Karaiskaki:/);
+});
+
+test('a walk first is said to screen readers too', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    const { plans, now } = planTrip(network, 'syntagma', 'zappeio', NOON);
+    assert.match(render.routeSummary(network, plans, now), /Option 1: Walk to Syntagma \(tram\), about 4 minutes\. T6 toward Pikrodafni, in \d+ minutes\./);
+});
+
+test('a tram leg says trams and, in Greek, «στάσεις»; a metro leg stays as it was', async () => {
+    // 00:30 on a Thursday: the last T6 toward Syntagma, from Wednesday night
+    const night = athensNow(new Date('2026-10-21T21:30:00Z'));
+    const [en, el] = await Promise.all(['en', 'el'].map(lang => browserModule('tools/subway/client/render.js', lang)));
+    const english = spoken(drawTram(en, 'fix', 'zappeio', night).html);
+    assert.match(english, /Last tram/);
+    assert.doesNotMatch(english, /Last train/);
+    assert.match(spoken(drawTram(el, 'edem', 'zappeio').html), /\d+ στάσεις/);
+    assert.match(spoken(drawTram(el, 'kifisia', 'zappeio').html), /\d+ σταθμοί[^]*\d+ στάσ/);
+});
+
+test('a tram leg with nothing more today says trams', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    const { plans, now } = planTrip(network, 'zappeio', 'fix', NOON);
+    const stopped = { ...plans[0], arrives: null, legs: plans[0].legs.map(leg => ({ ...leg, departures: [] })) };
+    assert.match(String(render.renderResult(network, [stopped], now, { expired: false, to: 'fix' })), /No more trams today/);
+});
+
+test('two stops a short walk apart are one message, not a route', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    assert.equal(render.walkOnly(8), 'These two are a short walk apart: about 8 minutes.');
+    assert.match(String(render.renderWalkOnly(8)), /notice-info[^]*about 8 minutes/);
+});
+
+test('each line, the tram\'s too, has its strip under a leg\'s stations', () => {
+    const css = readFileSync(new URL('../public/css/style.css', import.meta.url), 'utf8');
+    for (const id of Object.keys(network.lines)) assert.ok(css.includes(`.strip-${id.toLowerCase()} {`), id);
 });

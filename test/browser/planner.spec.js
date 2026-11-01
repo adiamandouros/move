@@ -17,7 +17,7 @@ test.describe('23:55 on a Wednesday, after the airport branch has stopped', () =
 
     test('tomorrow\'s first trains, as clock times', async ({ page }) => {
         await page.goto('/subway?from=syntagma&to=airport');
-        await expect(content(page)).toContainText('No more trains today. These are tomorrow\'s first trains.');
+        await expect(content(page)).toContainText('No more service today. These are tomorrow\'s first departures.');
         await expect(content(page)).toContainText(/At\s*0[5-7]:\d\d/);
         expect(await axe(page)).toEqual([]);
     });
@@ -310,6 +310,7 @@ test('tapping a suggestion picks it and leaves the field, so the phone\'s keyboa
 });
 
 test('tapping an empty field lists stations to start from: the interchanges, then the ends of the lines', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('tram-hidden', '1'));
     await page.goto('/subway?from=syntagma');
     const list = page.locator('#stop-suggestions-to');
     await page.locator('#stop-search-to').tap();

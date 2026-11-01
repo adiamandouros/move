@@ -232,6 +232,17 @@ pages use.
   `html.js`, `metro.js` and `network.js` are also used by the server (the
   station pages), so they only import other files by relative path, which
   works in both.
+- **The tram in the planner** ([decision 25](docs/decisions/0025-trams-in-the-planner.md)):
+  `rail.stations` and `rail.lines` are the metro alone, and that's what the
+  station pages, the checks and the Trip page read. `withTram(rail)` in
+  `network.js` joins the tram to them in the same shape, each stop a station
+  (marked `tram`, with an id of its own when it has a metro station's), with the
+  walks between them in `walks`. The subway page plans on that network, or on
+  `rail` while its switch hides the tram (`tram-hidden`, on the device).
+  `findRoutes` works on either: it looks for the fewest changes a trip takes,
+  and times those routes and the ones with one change more. `planJourney` keeps
+  the 3 that arrive first. Beside a tram leg those can have more changes; metro
+  trains alone only do if they get there 5 minutes sooner.
 
 ## Offline
 
@@ -343,10 +354,12 @@ and last trains is a problem, and fails `/api/health`; first or last trains off 
 trains), how often trains run against STASY's frequency tables, the dates
 with trains of their own and dates the GTFS lays two timetables over (those
 keep the typical week) are notes, on `/admin/diagnostics`. The same feed has
-the tram: `build-tram.js` adds its lines and stops to `rail.json` (`tram`, the
-shape of the metro part without timetables) for the Info page's tram map,
-with names and changes to the metro from `data/curated/tram.json`; a problem
-there is a warning and leaves the tram out, never the metro. The Info page
+the tram: `build-tram.js` adds its lines, stops and timetables to `rail.json`
+(`tram`, the shape of the metro part, on the metro's week and dates) for the
+Info page's tram map and the subway planner, with names, changes to the metro
+and walks between stops from `data/curated/tram.json`; a problem there is a
+warning and leaves the tram out, never the metro. The tram's times are the
+feed's, not held to STASY's. The Info page
 draws both maps with one drawer (`tools/info/client/map.js`), each from its
 own layout (`map-layout.js`, `tram-layout.js`). The buses come from OASA's
 live API instead ([decision 9](docs/decisions/0009-bus-network-from-live-api.md)):
