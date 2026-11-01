@@ -9,7 +9,7 @@ const rail = JSON.parse(readFileSync(new URL('data/rail.json', import.meta.url),
 test.beforeEach(onlyOn('phone'));
 test.use({ now: '2026-10-21T10:03:00+03:00' });
 
-const showTram = page => page.getByRole('switch', { name: 'Show tram stops' });
+const showTram = page => page.getByRole('switch', { name: 'Tram' });
 const suggestions = page => page.locator('#stop-suggestions-to .suggestion-name-en');
 const field = page => page.locator('#stop-search-to');
 
