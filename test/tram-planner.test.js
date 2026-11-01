@@ -65,7 +65,7 @@ test('there is a way between any two stops, two changes are always enough, and f
     const changes = ({ routes }) => Math.min(...routes.map(route => route.legs.length - 1));
     assert.deepEqual(found.filter(trip => !(changes(trip) <= 2)).map(({ trip }) => trip), []);
     const most = Math.max(...found.map(({ routes }) => routes.length));
-    assert.ok(most <= 110, `${most}`);
+    assert.ok(most <= 40, `${most}`);
 });
 
 test('two changes: a line away from both ends', () => {
@@ -132,12 +132,33 @@ test('a route never gets off at a station it has already been through, but a tra
     assert.ok(findRoutes(rail, 'acropolis', 'faliro').some(route => route.legs[0].to === 'attiki'));
 });
 
-test('trips with a tram on the same lines the same way show once, metro trips as they always have', () => {
-    const ways = planJourney(network, 'dafni', 'asklipieio-voulas', NOW).map(plan => plan.legs.map(leg => leg.line).join());
-    assert.deepEqual(ways, [...new Set(ways)]);
+test('a way with a tram is offered whatever its changes: slower ones start closed, they aren\'t dropped', () => {
+    const ways = when => planJourney(network, 'korydallos', 'agia-paraskevi-tram', { ...NOW, seconds: when * 3600 }).map(plan => plan.legs.map(leg => `${leg.line} ${leg.to}`).join());
+    // 10:03: both catch the same tram at Neos Kosmos. Fewer changes first, the M2 way still there
+    const tied = ways(10.05);
+    assert.equal(tied[0], 'M3 syntagma,T6 agia-paraskevi-tram');
+    assert.ok(tied.includes('M3 syntagma,M2 neos-kosmos,T6 agia-paraskevi-tram'), tied.join(' | '));
+    // 10:00: the M2 way catches the tram ahead, so it comes first
+    assert.ok(ways(10)[0].includes('M2'), ways(10).join(' | '));
+    assert.ok(planJourney(network, 'korydallos', 'agia-paraskevi-tram', NOW).length <= 3);
+});
+
+test('metro trains alone stay as they were beside the tram', () => {
     // Attiki and Omonia, one M1 and one M2 train: both, as today
-    const metro = planJourney(network, 'kifisia', 'syntagma', NOW).map(plan => plan.legs[0].to);
-    assert.deepEqual(metro, planJourney(rail, 'kifisia', 'syntagma', NOW).map(plan => plan.legs[0].to));
+    const metro = planJourney(network, 'kifisia', 'syntagma', NOW).filter(plan => plan.legs.every(leg => leg.line[0] === 'M')).map(plan => plan.legs[0].to);
+    assert.deepEqual(metro, planJourney(rail, 'kifisia', 'syntagma', NOW).map(plan => plan.legs[0].to).slice(0, metro.length));
+    // A direct train doesn't gain a metro detour
+    assert.deepEqual(planJourney(network, 'syntagma', 'monastiraki', NOW).map(legs), planJourney(rail, 'syntagma', 'monastiraki', NOW).map(legs));
+});
+
+test('a route doesn\'t ride back over the line it came on', () => {
+    const lines = route => route.legs.map(leg => leg.line).join();
+    // M3 out to Piraeus, then M3 back through Korydallos
+    assert.deepEqual(findRoutes(network, 'korydallos', 'agia-paraskevi-tram').filter(route => lines(route).startsWith('M3,M3')), []);
+    // On past Neo Faliro to Edem on T7, then back through Neo Faliro on T7
+    const routes = findRoutes(network, 'skylitsi', 'evangelistria');
+    assert.ok(routes.some(route => route.legs[0].to === 'neo-faliro'));
+    assert.deepEqual(routes.filter(route => route.legs.some(leg => leg.line === 'T7' && ['edem', 'pikrodafni'].includes(leg.to))), []);
 });
 
 // The route finder as it was before the tram: direct routes if there are any,
