@@ -45,6 +45,12 @@
                 <span id="stop-suggestions-to-hint" hidden>{{t "favourites.key-hint"}}</span>
             </div>
         </div>
+
+        {{!-- Shown by the page's script when there's a tram to show --}}
+        <div id="tram-switch" class="form-check form-switch tram-switch" hidden>
+            <input id="show-tram" class="form-check-input" type="checkbox" role="switch" checked>
+            <label class="form-check-label" for="show-tram">{{t "subway.show-tram"}}</label>
+        </div>
     </form>
 
     <div id="subway-result"></div>

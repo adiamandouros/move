@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
+import { withTram } from '../tools/subway/client/network.js';
 import { browserModule } from './support/browser-modules.js';
 
 // Finding a station by typing part of its name (tools/subway/client/search.js),
@@ -46,6 +47,22 @@ test('at most eight suggestions; nothing for an empty or unknown name', () => {
     assert.deepEqual(en.matchStations(rail.stations, ''), []);
     assert.deepEqual(en.matchStations(rail.stations, '   '), []);
     assert.deepEqual(en.matchStations(rail.stations, 'zzz'), []);
+});
+
+test('with the tram: a stop and a metro station of the same name are two rows, the metro\'s first when they tie', () => {
+    const network = withTram(rail);
+    const found = en.matchStations(network.stations, 'Elliniko');
+    assert.deepEqual(found.toSorted(), ['elliniko', 'elliniko-tram']);
+    assert.deepEqual(en.matchStations(network.stations, 'zappio'), ['zappeio']);
+    assert.deepEqual(el.matchStations(network.stations, 'Ζάππειο'), ['zappeio']);
+    assert.deepEqual(en.matchStations(rail.stations, 'zappio'), [], 'the tram hidden');
+    assert.deepEqual(en.matchStations(rail.stations, 'Elliniko'), ['elliniko']);
+});
+
+test('with the tram: starting points have its changes and the ends of its lines too', () => {
+    const network = withTram(rail);
+    const ids = en.startingStations(network, []);
+    for (const id of ['pikrodafni', 'edem', 'asklipieio-voulas', 'akti-poseidonos', 'syntagma-tram', 'attiki']) assert.ok(ids.includes(id), id);
 });
 
 test('before anything is typed: the stations picked lately, then the interchanges, then the ends of the lines', () => {

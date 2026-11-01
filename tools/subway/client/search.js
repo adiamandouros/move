@@ -104,6 +104,14 @@ export function stationSearch({ input, list, rail, onChange, announce, lifts = (
         if (notify) onChange(selected);
     }
 
+    // The stations on offer change (the tram shown or hidden): one picked
+    // that's gone goes with them
+    function setRail(next) {
+        rail = next;
+        hide();
+        if (selected && !Object.hasOwn(rail.stations, selected)) set(null, { notify: false });
+    }
+
     // A station the person chose themselves, so it's offered again later
     function pick(id) {
         set(id);
@@ -198,5 +206,6 @@ export function stationSearch({ input, list, rail, onChange, announce, lifts = (
     return {
         get: () => selected,
         set,
+        setRail,
     };
 }

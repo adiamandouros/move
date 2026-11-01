@@ -1740,6 +1740,8 @@ body {
 .strip-m1 { --strip: var(--wh-line-m1); }
 .strip-m2 { --strip: var(--wh-line-m2); }
 .strip-m3 { --strip: var(--wh-line-m3); }
+.strip-t6 { --strip: var(--wh-line-t6); }
+.strip-t7 { --strip: var(--wh-line-t7); }
 
 .leg-stations li {
     position: relative;
@@ -1811,6 +1813,30 @@ body {
 
 .transfer-connector .icon {
     font-size: var(--wh-fs-lg);
+}
+
+/* Show the tram stops or not: a switch in the site's blue, Bootstrap's being
+   fixed, big enough to tap on its own */
+.tram-switch {
+    display: flex;
+    align-items: center;
+    gap: var(--wh-space-2);
+    min-height: 2.75rem;
+    margin: 0;
+    padding: 0;
+}
+
+.tram-switch .form-check-input {
+    flex: none;
+    float: none;
+    width: 2.75rem;
+    height: 1.5rem;
+    margin: 0;
+}
+
+.tram-switch .form-check-input:checked {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
 }
 
 /* Divider between alternative route options */

@@ -42,6 +42,16 @@ test('offline: the planner works, other pages show the offline page', async ({ p
 // worker's own requests, which page.route() doesn't see
 const noSignal = context => context.route('**/*', () => {});
 
+test('offline: trips with the tram work too, and the switch', async ({ page, context }) => {
+    await installed(page);
+    await context.setOffline(true);
+
+    await page.goto('/subway?from=kifisia&to=zappeio');
+    await expect(page.locator('.result-card .line-t6').first()).toBeVisible();
+    await page.getByRole('switch', { name: 'Show tram stops' }).uncheck();
+    await expect(page.locator('#stop-search-to')).toHaveValue('');
+});
+
 test('no signal: the app opens at once, in both languages', async ({ page, context }) => {
     await installed(page);
     await noSignal(context);

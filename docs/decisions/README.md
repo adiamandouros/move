@@ -36,3 +36,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 22 | [Address search from OpenStreetMap, built on GitHub](0022-address-search.md) | In force |
 | 23 | [The trip page: door to door, beside Subway and Buses](0023-trip-page.md) | In force |
 | 24 | [Offline, and opening at once with no signal](0024-opening-without-signal.md) | In force |
+| 25 | [Trams in the subway planner](0025-trams-in-the-planner.md) | In force |

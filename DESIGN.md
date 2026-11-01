@@ -277,6 +277,13 @@ A stop, an arrival and a search result each end in the same quiet line
 18em wide) stacks: the stop's band runs the whole width, the next bus under
 it, the time and the walking directions on a line of their own under that.
 
+### Switch
+
+For a setting that stays until it's changed, like showing the tram stops, in
+words on one line: Bootstrap's switch with its label, in `--bs-primary` when on
+(Bootstrap's own blue is fixed), and the whole row at least 2.75rem high. What
+acts on the page right now stays a button, like Nearest.
+
 ## Tests
 
 - `test/design.test.js`: the tokens are the scale; sizes, corners, shadows,
