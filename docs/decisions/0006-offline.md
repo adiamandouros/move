@@ -1,6 +1,6 @@
 # 6. Offline: what is kept, and updates that never reload a page
 
-Decided 2026-10-21 · In force
+Decided 2026-10-21 · Replaced by [24](0024-opening-without-signal.md)
 
 ## Situation
 

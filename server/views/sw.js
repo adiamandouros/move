@@ -9,6 +9,11 @@ const PRECACHE = {{precache}};
 const PRECACHE_DATA = {{precacheData}};
 // Pages that must open instantly even with a bad connection (e.g. underground)
 const OFFLINE_PAGES = {{offlinePages}};
+// How long a page waits for the network. With no signal requests often don't
+// fail, they hang. With a copy saved that's soon enough to show it; without
+// one, a slow connection gets longer before the offline page takes over.
+const WAIT_WITH_COPY_MS = 3_000;
+const WAIT_WITHOUT_COPY_MS = 8_000;
 // Sent when fetching a page because it was opened, not to cache it, so the
 // server counts it (server/pages/index.js)
 const OPENED = {{opened}};
@@ -43,7 +48,7 @@ self.addEventListener('fetch', e => {
         const key = new Request(url.pathname, { headers: { [OPENED]: '1' } });
         e.respondWith(OFFLINE_PAGES.includes(url.pathname)
             ? staleWhileRevalidate(e, key, true)
-            : networkFirst(key));
+            : networkFirst(e, key));
         return;
     }
 
@@ -70,15 +75,18 @@ async function staleWhileRevalidate(e, request, isPage = false) {
     return network.catch(() => isPage ? offlinePage(request) : Response.error());
 }
 
-async function networkFirst(request) {
+async function networkFirst(e, request) {
     const cache = await caches.open(CACHE);
-    try {
-        const res = await fetch(request);
+    const cached = await cache.match(request);
+    const network = fetch(request).then(res => {
         if (res.ok) cache.put(request, res.clone());
         return res;
-    } catch {
-        return (await cache.match(request)) ?? offlinePage(request);
-    }
+    });
+    // Carries on after the time is up: a late answer is saved for next time
+    e.waitUntil(network.catch(() => {}));
+    const timeUp = new Promise(resolve => setTimeout(resolve, cached ? WAIT_WITH_COPY_MS : WAIT_WITHOUT_COPY_MS));
+    const res = await Promise.race([network, timeUp]).catch(() => {});
+    return res ?? cached ?? offlinePage(request);
 }
 
 // Static files. Stylesheets and scripts get a new ?v= when they change, and

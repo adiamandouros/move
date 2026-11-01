@@ -17,7 +17,7 @@ decisions, or makes one of the same weight, comes with its page.
 | 3 | [Every page in each language, rendered on the server](0003-languages.md) | In force |
 | 4 | [One process and no database](0004-one-process-no-database.md) | In force |
 | 5 | [Metro trips worked out in the browser](0005-trips-in-the-browser.md) | In force |
-| 6 | [Offline: what is kept, and updates that never reload a page](0006-offline.md) | In force |
+| 6 | [Offline: what is kept, and updates that never reload a page](0006-offline.md) | Replaced by 24 |
 | 7 | [Our load on OASA and STASY: our own numbers, agreed before they change](0007-load-on-oasa.md) | Replaced by 21 |
 | 8 | [Reaching OASA and STASY from a server abroad](0008-routes-and-relays.md) | In force |
 | 9 | [Bus lines and stops from OASA's live service](0009-bus-network-from-live-api.md) | In force |
@@ -35,3 +35,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 21 | [Our load on OASA and STASY, with the bus trip finder](0021-load-on-oasa-with-trips.md) | In force |
 | 22 | [Address search from OpenStreetMap, built on GitHub](0022-address-search.md) | In force |
 | 23 | [The trip page: door to door, beside Subway and Buses](0023-trip-page.md) | In force |
+| 24 | [Offline, and opening at once with no signal](0024-opening-without-signal.md) | In force |

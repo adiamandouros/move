@@ -238,15 +238,17 @@ pages use.
 `server/views/sw.js` is the service worker; `service-worker.js` fills in its
 version and what it caches at install: the home and offline pages, the files
 every page needs, and the tools with `"offline": true` in `tool.json`
-(Subway and Info) with their data (`rail.json`). Pages come from the network
-first, except those tools, which open from the cache at once and update in
-the background. A page fetched because it was opened carries a
+(Subway and Info) with their data (`rail.json`). The home page and those
+tools open from the cache at once and update in the background. Other pages
+come from the network first, for 3 seconds if there's a saved copy to fall
+back on and 8 if there's only the offline page, because with no signal
+requests hang instead of failing. A page fetched because it was opened carries a
 `Wayhop-Opened` header, so the server counts it and not the copies cached at
 install. `/api` and `/admin` are never cached. Each deploy changes
 the version, which replaces the whole cache. A new version installs in the
 background and waits (no `skipWaiting`, no reload): open pages keep the
 version they started with, and it takes over once they're closed
-([decision 6](docs/decisions/0006-offline.md)).
+([decision 24](docs/decisions/0024-opening-without-signal.md)).
 
 ## Live bus times and the load on OASA
 
