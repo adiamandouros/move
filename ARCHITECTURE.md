@@ -417,6 +417,13 @@ is what uses it. `client/picker.js` finds places as they're typed,
 `client/render.js` draws it. Addresses aren't kept, and never go in the page's
 address.
 
+## The planner lab
+
+[scripts/planner-lab/](scripts/planner-lab/README.md) is a trial of how version
+1 could plan across every mode. Pages and the server don't load it: it's there
+so the trial can be repeated, and trips riders know can be tested as it improves
+(`test/planner-lab.test.js`).
+
 ## Monitoring
 
 `/api/health` (`server/health.js`) says whether the live site works:
