@@ -36,7 +36,10 @@ the street, open along their length.
 - **The tram's times are the feed's**, on the metro's week and dates. Unlike the
   metro's ([10](0010-metro-timetable.md)) they aren't held to STASY's: checked
   by hand on 1 November 2026, its first and last trams agree with STASY's tram
-  page in all four directions, Fridays included. A later feed isn't checked.
+  page in all four directions, Fridays included. STASY's table has a fifth row
+  the feed doesn't: the last trams from Akti Posidonos to 2nd Agiou Kosma, 00:50
+  and 02:02 on Fridays, so the planner doesn't know them. A later feed isn't
+  checked.
 - **The walks are in `tram.json`, in minutes.** They're first guesses (the
   straight line × 1.3 at 80 m a minute, plus 2 to reach the platform) until
   someone times them. Three aren't official changes, so the map doesn't draw

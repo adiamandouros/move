@@ -48,7 +48,7 @@ test('offline: trips with the tram work too, and the switch', async ({ page, con
 
     await page.goto('/subway?from=kifisia&to=zappeio');
     await expect(page.locator('.result-card .line-t6').first()).toBeVisible();
-    await page.getByRole('switch', { name: 'Show tram stops' }).uncheck();
+    await page.getByRole('switch', { name: 'Tram' }).uncheck();
     await expect(page.locator('#stop-search-to')).toHaveValue('');
 });
 
