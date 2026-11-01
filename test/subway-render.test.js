@@ -473,7 +473,7 @@ test('walks: before the first leg, between two, and after the last', async () =>
 test('a walk first is said to screen readers too', async () => {
     const render = await browserModule('tools/subway/client/render.js', 'en');
     const { plans, now } = planTrip(network, 'syntagma', 'zappeio', NOON);
-    assert.match(render.routeSummary(network, plans, now), /^Walk to Syntagma \(tram\), about 4 minutes\. T6 toward Pikrodafni, in \d+ minutes\./);
+    assert.match(render.routeSummary(network, plans, now), /Option 1: Walk to Syntagma \(tram\), about 4 minutes\. T6 toward Pikrodafni, in \d+ minutes\./);
 });
 
 test('a tram leg says trams and, in Greek, «στάσεις»; a metro leg stays as it was', async () => {

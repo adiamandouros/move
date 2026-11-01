@@ -240,8 +240,9 @@ pages use.
   walks between them in `walks`. The subway page plans on that network, or on
   `rail` while its switch hides the tram (`tram-hidden`, on the device).
   `findRoutes` works on either: it looks for the fewest changes a trip takes,
-  and times those routes and the ones with one change more, and `planJourney`
-  keeps what's worth it.
+  and times those routes and the ones with one change more. `planJourney` keeps
+  the 3 that arrive first. Beside a tram leg those can have more changes; metro
+  trains alone only do if they get there 5 minutes sooner.
 
 ## Offline
 

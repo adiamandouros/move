@@ -25,8 +25,13 @@ the street, open along their length.
   problem with the tram still can't touch the metro.
 - **The route finder takes any number of changes, up to 3**, and walks between
   stops. Two are always enough today. It only times routes with the fewest
-  changes or one more, and one with more changes has to arrive 5 minutes sooner
-  to stay.
+  changes or one more.
+- **A trip with a tram offers its other ways**: the 3 that arrive first, fewer
+  changes first when they tie, and those over 5 minutes slower start closed, as
+  the metro's always have. Nothing is dropped for having more changes: riders
+  know things the timetable doesn't, like a tram stuck in traffic. Metro trains
+  alone stay as they were: a route with more changes than the fewest has to
+  arrive 5 minutes sooner to stay, so a direct train is still the only answer.
 - **A tram leg has no train diagram**, nor any word about where to stand.
 - **The tram's times are the feed's**, on the metro's week and dates. Unlike the
   metro's ([10](0010-metro-timetable.md)) they aren't held to STASY's: checked

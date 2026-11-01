@@ -7,6 +7,7 @@ import { axe, expect, onlyOn, test } from './fixtures.js';
 const rail = JSON.parse(readFileSync(new URL('data/rail.json', import.meta.url), 'utf8'));
 
 test.beforeEach(onlyOn('phone'));
+test.use({ now: '2026-10-21T10:03:00+03:00' });
 
 const showTram = page => page.getByRole('switch', { name: 'Show tram stops' });
 const suggestions = page => page.locator('#stop-suggestions-to .suggestion-name-en');
@@ -51,15 +52,29 @@ test('from a metro station to its tram stop\'s line: the walk first, then the tr
 test('round T7\'s loop: a change at the end of the line, on the same line', async ({ page }) => {
     await page.goto('/subway?from=evangelistria&to=skylitsi');
     const cards = page.locator('.result-card');
-    await expect(cards).toHaveCount(2);
     await expect(cards.nth(0)).toContainText('Transfer at Akti Posidonos');
     await expect(cards.nth(1).locator('.leg-title .line-t7')).toBeVisible();
+});
+
+test('every way is on the page: the tied one open, the much slower one closed behind its row', async ({ page }) => {
+    // 10:03, when the M2 way catches the same tram as staying on T6
+    await page.goto('/subway?from=korydallos&to=agia-paraskevi-tram');
+    await expect(page.locator('.route-via')).toHaveText(['Via Syntagma', /Via Syntagma, /, /Via Syntagma, /]);
+    await expect(page.locator('details.route-details')).toHaveCount(0);
+
+    await page.goto('/subway?from=kifisia&to=piraeus');
+    await expect(page.locator('.route-via').first()).toHaveText('No transfers');
+    const slower = page.locator('details.route-details').first();
+    await expect(slower.locator('summary')).toContainText('slower');
+    await expect(slower.locator('.result-card').first()).toBeHidden();
+    await slower.locator('summary').tap();
+    await expect(slower.locator('.result-card .line-t7').first()).toBeVisible();
 });
 
 test('a stop\'s stations open on a strip in the tram\'s colour', async ({ page }) => {
     await page.goto('/subway?from=fix&to=zappeio');
     await page.locator('.leg-stops-toggle').first().tap();
-    await expect(page.locator('.leg-stations.strip-t6')).toBeVisible();
+    await expect(page.locator('.leg-stations.strip-t6').first()).toBeVisible();
     await expect(page.locator('.leg-stations li').first()).toContainText('Fix');
 });
 
