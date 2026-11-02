@@ -3,7 +3,7 @@
 // feed stopped in August 2026 and spreads each trip's time evenly along its
 // route, so its times are stand-ins (README.md).
 //
-//   node scripts/planner-lab/build-buses.js <out.json> [--box south,west,north,east]
+//   node scripts/planner-lab/build-buses.js <out.json> [--box south,west,north,east] [--rides bus-rides.json]
 //
 // With --box only the stops inside it are kept. The test data is made with
 // --box 37.94,23.63,38.02,23.75
@@ -14,6 +14,7 @@ import { createInterface } from 'readline';
 import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
 import { onLiveRoutes } from './live-routes.js';
+import { withRides } from './rides.js';
 
 // The feed's service for a Wednesday
 const WEDNESDAY = 3;
@@ -98,13 +99,16 @@ export function cutToBox(buses, [south, west, north, east]) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-    const { values, positionals } = parseArgs({ allowPositionals: true, options: { box: { type: 'string' } } });
+    const { values, positionals } = parseArgs({ allowPositionals: true, options: { box: { type: 'string' }, rides: { type: 'string' } } });
     const raw = join(fileURLToPath(new URL('../../', import.meta.url)), 'data/raw');
     const read = name => readFileSync(join(raw, 'bus', name), 'utf8');
     const lines = createInterface({ input: createReadStream(join(raw, 'bus/stop_times.txt')) });
     const feed = await compactBuses({ routes: read('routes.txt'), trips: read('trips.txt'), stops: read('stops.txt') }, lines);
     const { buses, gone, untimed } = onLiveRoutes(feed, JSON.parse(readFileSync(join(raw, 'oasa/network.json'), 'utf8')));
-    const out = values.box ? cutToBox(buses, values.box.split(',').map(Number)) : buses;
+    // Measured ride times where there are enough (rides.js)
+    const measured = values.rides ? withRides(buses, JSON.parse(readFileSync(values.rides, 'utf8'))) : { buses, retimed: 0 };
+    if (values.rides) console.log(`${measured.retimed} trips with measured ride times`);
+    const out = values.box ? cutToBox(measured.buses, values.box.split(',').map(Number)) : measured.buses;
     writeFileSync(positionals[0], `${JSON.stringify(out)}\n`);
     console.log(`${positionals[0]}: ${Object.keys(out.stops).length} stops, ${out.routes.length} routes`);
     console.log(`Lines of the feed that are gone: ${gone.join(', ') || 'none'}`);

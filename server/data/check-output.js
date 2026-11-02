@@ -21,14 +21,15 @@ const MAX_PROBLEMS = 10;
 
 /** @param {string} name @param {any} data @returns {string[]} */
 export function checkOutput(name, data) {
-    const check = { 'rail.json': checkRail, 'bus-stops.json': checkBus, 'bus-lines.json': checkBusLines }[name];
+    const check = { 'rail.json': checkRail, 'bus-stops.json': checkBus, 'bus-lines.json': checkBusLines, 'bus-rides.json': checkBusRides }[name];
     const problems = check ? check(data) : [`${name}: no checks for this file`];
     return problems.length > MAX_PROBLEMS ? [...problems.slice(0, MAX_PROBLEMS), `… and ${problems.length - MAX_PROBLEMS} more`] : problems;
 }
 
 /** @param {string} name @param {any} data @param {any} previous @returns {string[]} */
 export function shrinkage(name, data, previous) {
-    if (!previous) return [];
+    // Ride times come and go with the days of passes kept (build-rides.js)
+    if (!previous || name === 'bus-rides.json') return [];
     const [count, what] = {
         'rail.json': [d => Object.keys(d?.stations ?? {}).length, 'stations'],
         'bus-lines.json': [d => d?.lines?.length ?? 0, 'lines'],
@@ -172,6 +173,21 @@ function checkBusLines(bus) {
             if (stops.length < 2) problems.push(`${which}, direction ${i}: fewer than two stops`);
             if (stops.some(code => typeof code !== 'string' || !STOP_CODE.test(code))) problems.push(`${which}, direction ${i}: stop codes must be numeric`);
         });
+    }
+    return problems;
+}
+
+/** @param {any} data @returns {string[]} */
+function checkBusRides(data) {
+    if (typeof data?.schema !== 'number') return ['bus-rides.json: wrong schema number'];
+    if (!Array.isArray(data.rides)) return ['bus-rides.json: no rides list'];
+    const problems = [];
+    for (const r of data.rides) {
+        const where = `bus-rides.json: route ${r?.route} ${r?.from}→${r?.to}`;
+        if (!/^\d+$/.test(r?.route ?? '') || !STOP_CODE.test(r?.from ?? '') || !STOP_CODE.test(r?.to ?? '')) problems.push(`${where}: bad route or stop code`);
+        else if (!Object.values(r.times ?? {}).length || !Object.values(r.times).every(t => Array.isArray(t) && t.length === 3 && t.every(n => Number.isInteger(n) && n > 0))) {
+            problems.push(`${where}: times must be [rides, median, slowest tenth] in whole seconds`);
+        }
     }
     return problems;
 }

@@ -306,7 +306,8 @@ test('a live route with the same stops keeps the feed\'s times exactly', () => {
         [feed('040', ['1', '2', '3'], [0, 100, 250], H8, H8 + 600)],
         liveNetwork(['040', 'r', 'Α - Β', ['1', '2', '3'].map((code, i) => place(code, i))]),
     );
-    assert.deepEqual(out.routes, [{ line: '040', mode: 'bus', stops: ['1', '2', '3'], profiles: [[0, 100, 250]], trips: [[H8, 0], [H8 + 600, 0]] }]);
+    // With the OASA route it's on, for measured ride times (rides.js)
+    assert.deepEqual(out.routes, [{ line: '040', mode: 'bus', code: 'r', stops: ['1', '2', '3'], profiles: [[0, 100, 250]], trips: [[H8, 0], [H8 + 600, 0]] }]);
     assert.deepEqual(out.stops['2'], [37.98, 23.7, 'Στάση 2']);
     assert.deepEqual([untimed, gone], [[], []]);
 });
