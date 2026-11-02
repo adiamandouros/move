@@ -366,7 +366,13 @@ live API instead ([decision 9](docs/decisions/0009-bus-network-from-live-api.md)
 `oasa-network.js` fetches today's lines, their routes and each route's stops,
 and `build-bus.js` makes `data/build/bus-stops.json` (every stop on a route
 today, its names and lines) and `data/build/bus-lines.json` (each line's
-stops in order, there and back). The network is fetched at most once a day,
+stops in order, there and back). `build-rides.js` makes
+`data/build/bus-rides.json` from the buses the server saw pass
+(`server/oasa/passes.js`, the last 91 days): how long a bus really takes
+between two stops of its route, by route, kind of day and hour (rides,
+median, slowest tenth), for the planner (roadmap Plan 3); never from a
+route's first stop, where a bus is seen arriving rather than leaving. No bus
+numbers in it. The network is fetched at most once a day,
 one request a second through the same routes as the live times (about 600
 requests a night: the lines and their routes every night, a route's stops
 when it's new or about weekly), and kept in `data/raw/oasa/`. A failed

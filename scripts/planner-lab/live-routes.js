@@ -111,7 +111,7 @@ export function onLiveRoutes(buses, network) {
         const along = route.stops.map((stop, i) => (walked += i ? meters(route.stops[i - 1], stop) : 0));
         const onRoute = profiles.map(offsets => retimed(offsets, pairs, along));
         routes.push({
-            line: line.trim(), mode, stops: route.stops.map(stop => stop.code),
+            line: line.trim(), mode, code: route.code, stops: route.stops.map(stop => stop.code),
             profiles: onRoute.map(offsets => offsets.map(offset => offset - offsets[0])),
             trips: trips.map(([start, profile]) => /** @type {[number, number]} */ ([start + onRoute[profile][0], profile])),
         });

@@ -13,6 +13,7 @@ Moving it into the app comes with its decision record.
 | `network.js` | Metro and tram from `rail.json`, buses and trolleys from the file below |
 | `build-buses.js` | One day of buses, small enough to search |
 | `live-routes.js` | Puts the feed's times on the routes of OASA's live network |
+| `rides.js` | Puts measured ride times (`bus-rides.json`) in place of the feed's, where there are enough |
 | `trip.js` | Tries one trip from the command line |
 | `rush-test.js` | One test of OASA's predictions in the rush hour |
 
@@ -21,6 +22,14 @@ Moving it into the app comes with its decision record.
 ```
 node scripts/planner-lab/build-buses.js data/local/planner-lab/buses.json
 node scripts/planner-lab/trip.js "Πατησίων 100" "Σύνταγμα" 08:30
+```
+
+With the ride times the site has measured so far (decision 26), where a
+stretch has at least 3 rides at that hour of a weekday:
+
+```
+curl -o data/local/planner-lab/bus-rides.json https://wayhop.gr/data/bus-rides.json
+node scripts/planner-lab/build-buses.js data/local/planner-lab/buses.json --rides data/local/planner-lab/bus-rides.json
 ```
 
 It prints the ways for that departure, on a Wednesday, and which one is the
@@ -42,7 +51,10 @@ doesn't fail the checks. When a change gets one right, take its `todo` off.
   of the distance takes 49 to 54% of the time): it gives Syntagma to Syggrou 2.6
   minutes where riders see 10 to 30. No general rule makes up for that: doubling
   all buses, or slowing a circle around the centre, each gets real trips wrong.
-  It takes real times by stretch of road and hour.
+  It takes real times by stretch of road and hour: `rides.js` puts in the
+  site's measured ones where there are enough (decision 26), and the rest stay
+  the feed's. On the morning of 2 November 2026 the A2 took about 6 minutes
+  from Syntagma to Fix and 12 to Efesou.
 - **Walks.** The straight line times 1.4, as 200 walks came out at 1.38 against a
   street router. Typical errors are under a minute in the city, but some are
   much longer, and walks don't count stairs, ramps or the way to a platform.

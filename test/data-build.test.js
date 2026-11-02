@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'child_process';
 import { createHash } from 'crypto';
-import { cpSync, existsSync, readFileSync, statSync, writeFileSync } from 'fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { builderFingerprint, runBuild } from '../server/data/index.js';
 import { checkOutput } from '../server/data/check-output.js';
@@ -58,17 +58,38 @@ function fakeStasy() {
 test('a first build publishes every file, which pass their checks', async () => {
     const { build, served, dataDir } = setup();
     const meta = await build();
-    assert.deepEqual(Object.fromEntries(Object.entries(meta.outputs).map(([k, o]) => [k, o.ok])), { 'rail.json': true, 'bus-stops.json': true, 'bus-lines.json': true });
+    assert.deepEqual(Object.fromEntries(Object.entries(meta.outputs).map(([k, o]) => [k, o.ok])), { 'rail.json': true, 'bus-stops.json': true, 'bus-lines.json': true, 'bus-rides.json': true });
     assert.deepEqual(checkOutput('rail.json', served('rail.json')), []);
     // rail.json's nightly checks (rail-checks.js): without STASY's copy, nothing to compare
     assert.deepEqual(meta.outputs['rail.json'].checks, { problems: [], notes: [] });
     assert.deepEqual(checkOutput('bus-stops.json', served('bus-stops.json')), []);
     assert.deepEqual(checkOutput('bus-lines.json', served('bus-lines.json')), []);
     assert.deepEqual(served('bus-lines.json').lines.map(l => l.line), ['040', '830', 'Α10']);
+    // No buses seen passing yet: a table with no rides, and a warning
+    assert.deepEqual(served('bus-rides.json'), { schema: 1, from: null, to: null, days: 0, rides: [] });
+    assert.deepEqual(meta.outputs['bus-rides.json'].warnings, ['No buses seen passing yet: no ride times']);
     assert.equal(served('bus-stops.json').stops.length, 1500);
     assert.deepEqual(served('meta.json').fingerprint.today, '20260805');
     assert.equal(served('meta.json').fingerprint.sources.network, '2026-08-05T01:30:00.000Z');
     for (const leftover of ['build.next', '.build.lock']) assert.ok(!existsSync(join(dataDir, leftover)), `${leftover} is cleaned up`);
+});
+
+test('buses seen passing become ride times the next night: by route, stretch and hour', async () => {
+    const { build, nextNight, served, dataDir } = setup();
+    await build();
+    const network = JSON.parse(readFileSync(join(dataDir, 'raw', 'oasa', 'network.json'), 'utf8'));
+    const [, second, , fourth] = network.stops['3922'].stops.map(s => s.code);
+    // One 040 seen at the second stop and then the fourth, 6 minutes later, at 08:10 Athens time
+    const at = Date.parse('2026-08-05T05:10:00Z') / 1000;
+    const pass = (stop, t) => JSON.stringify({ at: t, stop, route: '3922', line: '040', vehicle: '9' });
+    mkdirSync(join(dataDir, 'local', 'bus-passes'), { recursive: true });
+    writeFileSync(join(dataDir, 'local', 'bus-passes', '2026-08-05.jsonl'), `${pass(second, at)}\n${pass(fourth, at + 360)}\n`);
+    const meta = await nextNight();
+    assert.equal(meta.outputs['bus-rides.json'].ok, true);
+    assert.deepEqual(served('bus-rides.json'), {
+        schema: 1, from: '2026-08-05', to: '2026-08-05', days: 1,
+        rides: [{ route: '3922', line: '040', from: second, to: fourth, times: { 'wd 8': [1, 360, 360] } }],
+    });
 });
 
 test('nothing changed: no rebuild; a new day: rebuilt without downloading', async () => {

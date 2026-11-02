@@ -7,9 +7,10 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { loadConfig, userAgentFor } from '../config.js';
 import { readJson } from '../files.js';
-import { athensToday } from './calendar.js';
+import { athensToday, isoDate } from './calendar.js';
 import { buildBusLines, buildBusStops } from './build-bus.js';
 import { buildRail } from './build-rail.js';
+import { buildBusRides, readPasses } from './build-rides.js';
 import { buildTram } from './build-tram.js';
 import { checkOutput, shrinkage } from './check-output.js';
 import { createOasaClient } from '../oasa/client.js';
@@ -82,6 +83,11 @@ const OUTPUTS = {
         sources: ['network'],
         build: src => buildBusLines(src.network.data),
     },
+    // How long buses really take, from the buses the server saw pass (build-rides.js)
+    'bus-rides.json': {
+        sources: ['network', 'passes'],
+        build: src => buildBusRides(src.passes.data, src.network.data),
+    },
 };
 
 // Fetch any changed feeds and rebuild data/build. Outputs are rebuilt when a
@@ -128,6 +134,9 @@ export async function runBuild({
         sources.network = { data: network.network, modified: network.network?.fetched ?? null, error: network.error };
         const timetables = await stasyTables({ rawDir: dirs.raw, client: stasy, stations: curated.data.stations.stations, offline, now, sleep, log });
         sources.stasy = { data: timetables.copy, modified: timetables.copy?.fetched ?? null, error: timetables.error };
+        // The buses the server saw pass (server/oasa/passes.js), up to today's
+        const passes = readPasses(join(dirs.data, 'local', 'bus-passes'), isoDate(today));
+        sources.passes = { data: passes, modified: passes.days.at(-1) ?? null, error: null };
         // Weekly: has STASY's airport timetable changed since airport.json? (only reported)
         await checkAirport({ rawDir: dirs.raw, client: stasy, airport: curated.data.airport, offline, now, sleep, log });
         const fingerprint = {
