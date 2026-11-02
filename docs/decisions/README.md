@@ -32,8 +32,9 @@ decisions, or makes one of the same weight, comes with its page.
 | 18 | [The information is given as it is, and says so](0018-information-as-it-is.md) | In force |
 | 19 | [Privacy: kept on the device; on the server, counts only](0019-privacy-counts-only.md) | In force |
 | 20 | [Tests with every change, no flaky tests, and when each kind runs](0020-tests-and-when-they-run.md) | In force |
-| 21 | [Our load on OASA and STASY, with the bus trip finder](0021-load-on-oasa-with-trips.md) | In force |
+| 21 | [Our load on OASA and STASY, with the bus trip finder](0021-load-on-oasa-with-trips.md) | Replaced by 26 |
 | 22 | [Address search from OpenStreetMap, built on GitHub](0022-address-search.md) | In force |
 | 23 | [The trip page: door to door, beside Subway and Buses](0023-trip-page.md) | In force |
 | 24 | [Offline, and opening at once with no signal](0024-opening-without-signal.md) | In force |
 | 25 | [Trams in the subway planner](0025-trams-in-the-planner.md) | In force |
+| 26 | [Our load on OASA and STASY, with the bus-pass collector](0026-bus-pass-collector.md) | In force |

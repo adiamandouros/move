@@ -7,6 +7,7 @@ import { BUILD_DIR, loadCurated, rebuildSoon } from './data/index.js';
 import { runDiagnostics } from './diagnostics.js';
 import { createBusApi } from './oasa/index.js';
 import { createOasaClient } from './oasa/client.js';
+import { createCollector } from './oasa/collector.js';
 import { createUsage } from './oasa/usage.js';
 import { lastFetchFile } from './data/oasa-network.js';
 import { VENDOR, staticFiles } from './pages/assets.js';
@@ -38,6 +39,8 @@ const DATA_DIR = path.join(ROOT, 'data');
 //             and the address index (data/cache)
 //   usageFile: the days of OASA's usage (server/oasa/usage.js), kept for
 //             months (data/local); null counts in memory only
+//   passesDir: the buses seen passing a stop, a file a day (server/oasa/passes.js,
+//             data/local/bus-passes); null keeps none
 //   fetch:    how OASA, STASY and the relays are reached
 //   oasaClient, limiter: stand-ins for OASA and the per-visitor limit (oasa/index.js), for tests
 //   logError: where failed requests are logged (server/errors.js)
@@ -45,7 +48,7 @@ const DATA_DIR = path.join(ROOT, 'data');
 //             server.js starts it
 /**
  * @param {{
- *   config?: import('../types/config.js').Config, buildDir?: string, cacheDir?: string, usageFile?: string | null,
+ *   config?: import('../types/config.js').Config, buildDir?: string, cacheDir?: string, usageFile?: string | null, passesDir?: string | null,
  *   fetch?: typeof globalThis.fetch, usage?: ReturnType<typeof createUsage>, oasaClient?: ReturnType<typeof createOasaClient>,
  *   limiter?: { take(key: string, stops: number): number }, logError?: (message: string) => void,
  *   processGuard?: ReturnType<typeof createProcessGuard>,
@@ -56,6 +59,7 @@ export function createApp({
     buildDir = BUILD_DIR,
     cacheDir = path.join(DATA_DIR, 'cache'),
     usageFile = path.join(DATA_DIR, 'local', 'oasa-usage.json'),
+    passesDir = path.join(DATA_DIR, 'local', 'bus-passes'),
     fetch = globalThis.fetch,
     // With the nightly bus-network fetch's requests, from its record
     usage = createUsage({ file: usageFile, networkFile: lastFetchFile(path.join(path.dirname(buildDir), 'raw')) }),
@@ -84,6 +88,7 @@ export function createApp({
         routesFile: path.join(cacheDir, 'oasa-routes.json'),
         statusFile: path.join(cacheDir, 'oasa-status.json'),
         stopsFile: path.join(buildDir, 'bus-stops.json'),
+        passesDir,
         relays,
         usage,
         client: oasaClient,
@@ -105,6 +110,9 @@ export function createApp({
     // Before the bus API, which answers 404 for any other /api address.
     app.use(REPORT_PATH, cspReports.router);
     app.use('/api', busApi);
+    // Asks for a few stops in the weekday rush hours, so buses are seen
+    // passing them (server/oasa/collector.js); server.js starts it
+    app.locals.collector = createCollector({ ask: busApi.collect });
 
     // Pages, and station pages built from rail.json, so they follow its weekly rebuild
     app.use(pages.router);

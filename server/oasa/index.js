@@ -3,6 +3,7 @@ import express from 'express';
 import { writeFileAtomic } from '../files.js';
 import { createArrivals } from './arrivals.js';
 import { createOasaClient } from './client.js';
+import { createPasses } from './passes.js';
 import { clientKey, createClientLimiter } from './limits.js';
 import { createUsage } from './usage.js';
 import { STOP_CODE } from '../data/check-output.js';
@@ -31,9 +32,13 @@ const TRIP = new Set(['trip', 'trip-start']);
 //
 // `usage` counts what is asked of OASA and how it answers (usage.js); the
 // client is given the same one. Its days are saved once a minute.
+//
+// `passesDir`: where the buses seen passing a stop are kept, a file a day
+// (passes.js); none: not kept. `collect(stop)` asks for a stop as the
+// collector does (collector.js).
 /**
  * @param {{
- *   routesFile?: string, statusFile?: string, stopsFile?: string,
+ *   routesFile?: string, statusFile?: string, stopsFile?: string, passesDir?: string | null,
  *   relays?: { name: string, url: string, key: string }[],
  *   usage?: ReturnType<typeof createUsage>,
  *   client?: ReturnType<typeof createOasaClient>,
@@ -41,8 +46,9 @@ const TRIP = new Set(['trip', 'trip-start']);
  *   now?: () => number,
  * }} [options]
  */
-export function createBusApi({ routesFile, statusFile, stopsFile, relays = [], now = Date.now, usage = createUsage({ now }), client = createOasaClient({ relays, usage }), limiter } = {}) {
-    const arrivals = createArrivals({ client, routesFile, now, usage });
+export function createBusApi({ routesFile, statusFile, stopsFile, passesDir = null, relays = [], now = Date.now, usage = createUsage({ now }), client = createOasaClient({ relays, usage }), limiter } = {}) {
+    const passes = createPasses({ dir: passesDir, counted: usage.passes });
+    const arrivals = createArrivals({ client, routesFile, passes, now, usage });
     limiter ??= createClientLimiter({ now });
     const isKnown = knownStops(stopsFile, now);
     const status = () => ({ ...client.status(), usage: usage.status() });
@@ -84,7 +90,8 @@ export function createBusApi({ routesFile, statusFile, stopsFile, relays = [], n
 
     router.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 
-    return Object.assign(router, { status, usage });
+    const collect = stop => arrivals.stopArrivals(stop, { collect: true });
+    return Object.assign(router, { status, usage, collect });
 }
 
 // code → whether it's a stop in bus-stops.json. The file is checked for

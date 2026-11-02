@@ -1,6 +1,6 @@
 # 21. Our load on OASA and STASY, with the bus trip finder
 
-Decided 2026-10-29 · In force
+Decided 2026-10-29 · Replaced by [26](0026-bus-pass-collector.md)
 
 ## Situation
 

@@ -6,7 +6,7 @@
     <p class="small text-body-secondary">What Wayhop asked of OASA each day (Athens time) and how OASA answered, and the pages opened, as the running app counted it (<code>server/oasa/usage.js</code>), kept for {{keepDays}} days. Today's row is so far. Counts only: stop codes, routes and languages, nothing about who asked.</p>
 {{#if asked.length}}
     <h2 class="fs-6 mt-4" id="asked-title">What Wayhop asked for</h2>
-    <p class="small text-body-secondary">About {{stopsKeptFresh}} stops can be kept fresh at once. The nightly bus network is fetched by the data build, apart from the rest.</p>
+    <p class="small text-body-secondary">About {{stopsKeptFresh}} stops can be kept fresh at once. The nightly bus network is fetched by the data build, apart from the rest. The collector asks for a few stops through the weekday rush hours, last in the queue, and skips its turn when anyone is waiting; buses seen passing are kept by day in <code>data/local/bus-passes</code> (decision 26).</p>
     <div class="table-responsive usage-table-wrap" tabindex="0" role="region" aria-labelledby="asked-title">
         <table class="table table-sm usage-table">
             <caption class="sr-only">What Wayhop asked of OASA, per day</caption>
@@ -30,6 +30,9 @@
                     <th scope="col">Trip searches</th>
                     <th scope="col">Trip stops asked of OASA</th>
                     <th scope="col">Asked of OASA per trip search</th>
+                    <th scope="col">Collector requests</th>
+                    <th scope="col">Collector turns skipped</th>
+                    <th scope="col">Buses seen passing</th>
                 </tr>
             </thead>
             <tbody>
@@ -53,6 +56,9 @@
                     <td>{{tripSearches}}</td>
                     <td>{{tripAsked}}</td>
                     <td>{{tripPerSearch}}</td>
+                    <td>{{collector}}</td>
+                    <td>{{collectorSkipped}}</td>
+                    <td>{{passes}}</td>
                 </tr>
 {{/each}}
             </tbody>

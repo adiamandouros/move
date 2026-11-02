@@ -157,6 +157,21 @@ test('requests over the OASA budget or over a visitor\'s limit are reported', as
     assert.match(find(busy, 'Visitor limit').detail, /^2 requests .* more than 30 new stops/);
 });
 
+test('the collector\'s skipped turns aren\'t requests someone lost: no budget warning, said in the usage line', async () => {
+    const find = (r, t) => r.checks.find(c => c.title === t);
+    const usage = createUsage({ now: () => NOW });
+    usage.request('collector');
+    usage.dropped('collector');
+    usage.dropped('collector');
+    usage.passes(3);
+    const r = await run(world(), { appStatus: { at: NOW, routes: [], usage: usage.status() } });
+    assert.equal(find(r, 'Request budget').status, 'ok');
+    const line = r.checks.find(c => c.group === 'Use of OASA' && c.title === 'Today so far').detail;
+    assert.match(line, /^1 requests \(.*0 route tests, 1 for the collector\);/);
+    assert.match(line, /the collector skipped 2 turns while others waited; 3 buses seen passing a stop/);
+    assert.doesNotMatch(line, /dropped/);
+});
+
 test('what the running app asked of OASA, and how it answered: the past hour and today so far', async () => {
     let t = NOW;
     const usage = createUsage({ now: () => t });

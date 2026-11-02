@@ -6,7 +6,7 @@ import { REQUESTS_PER_SECOND } from './client.js';
 
 // How much Wayhop asks of OASA, and how OASA answers (roadmap item 39):
 // counted each minute, added up per day (Athens time) and kept for KEEP_DAYS,
-// so the limits of decision 21 can be judged by numbers. Counts only: stop
+// so the limits of decision 26 can be judged by numbers. Counts only: stop
 // codes and route names, nothing about who asked. Nothing here sends a request.
 //
 // What is counted (the OASA client, the arrivals cache and the bus API report it):
@@ -27,6 +27,9 @@ import { REQUESTS_PER_SECOND } from './client.js';
 //   trips     the bus trip finder's searches, and its stop answers by where
 //             they came from (also counted in `answers`): its load on OASA
 //             per search (item 13)
+//   passes    buses seen passing a stop (passes.js); the collector's requests
+//             are the kind 'collector', and its skipped turns are dropped
+//             requests of that kind (decision 26)
 // And, beside OASA's, the pages opened (server/pages/index.js), by the
 // language the browser asks for and the one served: which languages to add
 // next (item 43). A count per language, nothing about who opened them.
@@ -34,7 +37,7 @@ import { REQUESTS_PER_SECOND } from './client.js';
 // The file: { days: { "2026-10-30": summary, … }, today: { date, stops: [codes] } }.
 // Today's stop codes are kept so a restart doesn't count a stop twice.
 
-export const KINDS = ['arrivals-new', 'arrivals-refresh', 'route-names', 'route-test'];
+export const KINDS = ['arrivals-new', 'arrivals-refresh', 'route-names', 'route-test', 'collector'];
 // oasa: a request was made for it; cache: none was needed (cached, or already
 // being asked); old: OASA failed and an older answer was served; none: nothing
 export const SOURCES = ['oasa', 'cache', 'old', 'none'];
@@ -67,6 +70,7 @@ const emptySummary = () => ({
     horizon: {},
     trips: { searches: 0, answers: counts(SOURCES) },
     pages: { asked: {}, served: {} },
+    passes: 0,
 });
 
 const newMinute = at => ({ at, ...emptySummary(), stopCodes: new Set() });
@@ -75,8 +79,9 @@ const newMinute = at => ({ at, ...emptySummary(), stopCodes: new Set() });
 function addMinute(summary, minute) {
     const requests = Object.values(minute.requests).reduce((a, b) => a + b, 0);
     for (const k of KINDS) {
-        summary.requests[k] += minute.requests[k];
-        summary.dropped[k] += minute.dropped[k];
+        // (days kept before the collector have no count of its kind)
+        summary.requests[k] = (summary.requests[k] ?? 0) + minute.requests[k];
+        summary.dropped[k] = (summary.dropped[k] ?? 0) + minute.dropped[k];
     }
     for (const s of SOURCES) summary.answers[s] += minute.answers[s];
     for (const [name, r] of Object.entries(minute.routes)) {
@@ -92,7 +97,7 @@ function addMinute(summary, minute) {
     summary.peaks.stops = Math.max(summary.peaks.stops, minute.stopCodes.size);
     summary.peaks.waitMs = Math.max(summary.peaks.waitMs, minute.peaks.waitMs);
     for (const ms of BUSY_WAITS_MS) if (minute.peaks.waitMs > ms) summary.busyMinutes[ms]++;
-    if (Object.values(minute.dropped).some(Boolean)) summary.dropMinutes++;
+    if (visitorsDropped(minute.dropped)) summary.dropMinutes++;
     // (days kept before the horizon was counted have none)
     summary.horizon ??= {};
     for (const [line, minutes] of Object.entries(minute.horizon)) summary.horizon[line] = Math.max(summary.horizon[line] ?? 0, minutes);
@@ -105,6 +110,7 @@ function addMinute(summary, minute) {
     for (const part of ['asked', 'served']) {
         for (const [lang, n] of Object.entries(minute.pages[part])) summary.pages[part][lang] = (summary.pages[part][lang] ?? 0) + n;
     }
+    summary.passes = (summary.passes ?? 0) + minute.passes;
     return summary;
 }
 
@@ -112,6 +118,8 @@ function addMinute(summary, minute) {
 
 // All of a summary's counts of one thing (its requests, its answers…)
 export const total = counts => Object.values(counts).reduce((a, b) => a + b, 0);
+// Requests dropped that someone was waiting for: the collector's skipped turns aren't
+export const visitorsDropped = dropped => total(dropped) - (dropped.collector ?? 0);
 export const secondsText = ms => `${Math.round(ms / 100) / 10} s`;
 // An answer time from answerTime: "under 500 ms", "over 8 s"; null: no answers
 export const answerTimeText = ms => ms === null ? '–'
@@ -228,6 +236,8 @@ export function createUsage({ file = null, networkFile = null, now = Date.now, k
         // The trip finder: a new search, and a stop's answer to it (by where it came from)
         tripSearch() { current().trips.searches++; },
         tripAnswer(source) { current().trips.answers[source]++; },
+        // Buses seen passing a stop (passes.js)
+        passes(n) { current().passes += n; },
         // A bus of this line OASA predicted this many minutes ahead
         horizon(line, minutes) { const m = current(); m.horizon[line] = Math.max(m.horizon[line] ?? 0, minutes); },
         // A page opened in `served` (en, el) by a browser asking for `asked` (askedLanguage in server/pages/i18n.js)
