@@ -26,10 +26,12 @@ test('the planner finds a route in the real timetable', async ({ page }) => {
     await expect(page.locator('h1')).toContainText('Syntagma');
 });
 
+// The tram's card only: the other options can go by metro, with their diagrams
 test('the planner finds a tram trip in the real timetable, without a train diagram', async ({ page }) => {
     await page.goto('/subway?from=fix&to=zappeio');
-    await expect(page.locator('.result-card').first()).toContainText('T6');
-    await expect(page.locator('.train-diagram')).toHaveCount(0);
+    const tram = page.locator('.result-card').first();
+    await expect(tram).toContainText('T6');
+    await expect(tram.locator('.train-diagram')).toHaveCount(0);
 });
 
 // STASY's lift page is read (server/info/lifts.js): its stations are ours,
