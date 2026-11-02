@@ -1,4 +1,4 @@
-import { answerTime, answerTimeText, BUSY_WAITS_MS, KEEP_DAYS, secondsText, STOPS_KEPT_FRESH, total } from '../oasa/usage.js';
+import { answerTime, answerTimeText, BUSY_WAITS_MS, KEEP_DAYS, secondsText, STOPS_KEPT_FRESH, total, visitorsDropped } from '../oasa/usage.js';
 
 // How far ahead OASA predicts is shown over this many of the newest days
 const HORIZON_DAYS = 7;
@@ -21,7 +21,8 @@ export function usageView(days) {
         busyWaits: BUSY_WAITS_MS.map(secondsText).join(' / '),
         asked: dates.map(date => {
             const d = days[date];
-            const dropped = total(d.dropped);
+            // Visitors' requests dropped; the collector's skipped turns apart
+            const dropped = visitorsDropped(d.dropped);
             return {
                 date,
                 requests: total(d.requests),
@@ -42,6 +43,10 @@ export function usageView(days) {
                 tripSearches: d.trips?.searches ?? '–',
                 tripAsked: d.trips ? d.trips.answers.oasa : '–',
                 tripPerSearch: d.trips?.searches ? (d.trips.answers.oasa / d.trips.searches).toFixed(1) : '–',
+                // (nor the collector)
+                collector: d.requests.collector ?? '–',
+                collectorSkipped: d.dropped.collector ?? '–',
+                passes: d.passes ?? '–',
             };
         }),
         answered: dates.flatMap(date => Object.entries(days[date].routes).map(([route, r]) => ({

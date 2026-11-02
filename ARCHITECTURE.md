@@ -294,6 +294,14 @@ version they started with, and it takes over once they're closed
   `&for=trip` (`trip-start` for a new search's first);
   `test/browser/bus-trips.spec.js` writes down every one of a scripted search.
 - `limits.js`: each visitor may ask for 30 stops a minute that aren't cached.
+- `passes.js`: from every fresh answer, the buses that passed a stop (one 3
+  minutes away or less, gone from the next answer), a line each in the day's
+  file in `data/local/bus-passes/`, for ride times by stretch and hour
+  (roadmap Plan 3). `collector.js` asks for one stop every 6 s in the
+  weekday rush hours so there are some: 30 stops a week, a new set each
+  week (`collector-stops.json`, made by `scripts/collector-stops.js`), last
+  in `client.js`'s queue (its 'low' lane) and skipped when anyone waits.
+  server.js starts it; the app alone (tests) never collects.
 - `index.js`: `/api/arrivals`, for stops in `bus-stops.json` only.
 - `usage.js`: counts what is asked of OASA and how it answers, each minute
   and per day, kept for 120 days in `data/local/oasa-usage.json`: requests
@@ -306,7 +314,7 @@ version they started with, and it takes over once they're closed
 
 These numbers set our load on OASA, and so do the ones for STASY and the
 bus network below; changes to any of them are agreed first
-([decision 21](docs/decisions/0021-load-on-oasa-with-trips.md), which replaced 7).
+([decision 26](docs/decisions/0026-bus-pass-collector.md), which replaced 21 and 7).
 
 Announcements ([server/info/announcements.js](server/info/announcements.js))
 are fetched from OASA's RSS and STASY's news page at most every 15 minutes,

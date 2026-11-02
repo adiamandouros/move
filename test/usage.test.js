@@ -40,8 +40,8 @@ test('each minute is added to its day: sums, the busiest minute, minutes waiting
     c.advance(MIN);
 
     const day = usage.days()['2026-10-29'];
-    assert.deepEqual(day.requests, { 'arrivals-new': 1, 'arrivals-refresh': 1, 'route-names': 1, 'route-test': 1 });
-    assert.deepEqual(day.dropped, { 'arrivals-new': 0, 'arrivals-refresh': 1, 'route-names': 0, 'route-test': 0 });
+    assert.deepEqual(day.requests, { 'arrivals-new': 1, 'arrivals-refresh': 1, 'route-names': 1, 'route-test': 1, collector: 0 });
+    assert.deepEqual(day.dropped, { 'arrivals-new': 0, 'arrivals-refresh': 1, 'route-names': 0, 'route-test': 0, collector: 0 });
     assert.deepEqual([day.limited, day.paused], [1, 1]);
     assert.deepEqual(day.peaks, { requests: 3, stops: 0, waitMs: 2_500 });
     assert.deepEqual(day.busyMinutes, { 2000: 1, 5000: 0 });
@@ -126,7 +126,7 @@ test('the past hour forgets what is older than an hour', () => {
     usage.request('arrivals-refresh');
     assert.equal(usage.status().hour.requests['arrivals-new'], 1);
     c.advance(31 * MIN);
-    assert.deepEqual(usage.status().hour.requests, { 'arrivals-new': 0, 'arrivals-refresh': 1, 'route-names': 0, 'route-test': 0 });
+    assert.deepEqual(usage.status().hour.requests, { 'arrivals-new': 0, 'arrivals-refresh': 1, 'route-names': 0, 'route-test': 0, collector: 0 });
 });
 
 test('the days are kept in the file: a restart carries on with today, and counts no stop twice', () => {
@@ -214,7 +214,7 @@ test('the usage page: a day per row, newest first, and each route\'s answers per
     assert.deepEqual(view.asked[1], {
         date: '2026-10-30', requests: 2, firstLooks: 1, refreshes: 1, routeNames: 0, routeTests: 0, network: '–',
         fromCache: '67%', stops: 2, mostAtOnce: 2, longestWait: '2.4 s', busyMinutes: '1 / 0', dropped: '1 (in 1 min)', paused: 0, limited: 0,
-        tripSearches: 0, tripAsked: 0, tripPerSearch: '–',
+        tripSearches: 0, tripAsked: 0, tripPerSearch: '–', collector: 0, collectorSkipped: 0, passes: 0,
     });
     assert.deepEqual(view.answered, [
         { date: '2026-10-31', route: 'home relay', ok: 0, failed: 1, half: 'over 8 s', most: 'over 8 s', downMinutes: 1 },

@@ -451,7 +451,7 @@ test('the client counts each request by kind, each call by route and its time, a
     await assert.rejects(client.request('getStopArrivals', '1'), /paused/);
 
     const { hour } = usage.status();
-    assert.deepEqual(hour.requests, { 'arrivals-new': 1, 'arrivals-refresh': 6, 'route-names': 1, 'route-test': 0 });
+    assert.deepEqual(hour.requests, { 'arrivals-new': 1, 'arrivals-refresh': 6, 'route-names': 1, 'route-test': 0, collector: 0 });
     assert.deepEqual([hour.routes.direct.ok, hour.routes.direct.failed], [3, 5]);
     assert.equal(hour.routes.direct.ms[1], 8, 'each under 500 ms');
     assert.equal(hour.paused, 1);
@@ -476,7 +476,7 @@ test('a route\'s background test is counted as one', async () => {
     await settle();
     await client.request('getStopArrivals', '1');
     const { hour } = usage.status();
-    assert.deepEqual(hour.requests, { 'arrivals-new': 0, 'arrivals-refresh': 1, 'route-names': 0, 'route-test': 1 });
+    assert.deepEqual(hour.requests, { 'arrivals-new': 0, 'arrivals-refresh': 1, 'route-names': 0, 'route-test': 1, collector: 0 });
     assert.equal(hour.routes.direct.ok, 2);
 });
 
@@ -499,7 +499,7 @@ test('each stop answer is counted by where it came from', async () => {
     assert.deepEqual(today.answers, { oasa: 1, cache: 2, old: 1, none: 1 });
     assert.equal(today.stops, 2);
     // A first look and its route names, then a refresh and a first look that both failed
-    assert.deepEqual(today.requests, { 'arrivals-new': 2, 'arrivals-refresh': 1, 'route-names': 1, 'route-test': 0 });
+    assert.deepEqual(today.requests, { 'arrivals-new': 2, 'arrivals-refresh': 1, 'route-names': 1, 'route-test': 0, collector: 0 });
 });
 
 test('counting changes nothing that is asked of OASA, or when', async () => {

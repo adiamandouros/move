@@ -16,5 +16,6 @@ app.listen(config.port, () => {
     console.log(`Wayhop running at http://localhost:${config.port}`);
     for (const r of config.relays) console.log(`[oasa] Fallback ${r.name}: ${new URL(r.url).host}`);
     startScheduler({ refreshPlaces: app.locals.places.refreshIfDue });
+    app.locals.collector.start();
     processGuard.start();
 });

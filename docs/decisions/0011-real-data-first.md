@@ -24,7 +24,7 @@ already on the road.
   is an estimate. It shows as a clock time with "~", and the warning is in
   words, not colour alone ([13](0013-accessibility.md)).
 - Reading OASA's schedules adds to our load on OASA
-  ([21](0021-load-on-oasa-with-trips.md)) and needs new relay calls
+  ([26](0026-bus-pass-collector.md)) and needs new relay calls
   ([8](0008-routes-and-relays.md)).
 - Nothing reads a bus timetable yet.
 

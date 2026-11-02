@@ -11,6 +11,9 @@ import { writeFileAtomic } from '../files.js';
 //   - simultaneous requests for the same stop share one upstream call
 //   - when OASA can't be reached, the last answer is served (marked stale)
 //     for up to STALE_MAX_MS
+//   - every fresh answer is shown to `passes` (passes.js), which notes the
+//     buses that passed; the collector (collector.js) asks with { collect:
+//     true }: last in OASA's queue, and not counted as a visitor's answer
 // Arrivals only carry OASA's internal route code, so line numbers and
 // destinations come from a route table filled from webRoutesForStop and kept
 // on disk; route codes rarely change, so each is looked up about once a week.
@@ -26,7 +29,7 @@ const STALE_MAX_MS = 5 * 60_000;
 const ROUTES_TTL_MS = 7 * 86_400_000;
 const MAX_CACHED_STOPS = 5000;
 
-export function createArrivals({ client, routesFile, now = Date.now, log = console.warn, usage = /** @type {Pick<import('./usage.js').Usage, 'answer' | 'horizon'>} */ ({ answer() {}, horizon() {} }) }) {
+export function createArrivals({ client, routesFile, passes = null, now = Date.now, log = console.warn, usage = /** @type {Pick<import('./usage.js').Usage, 'answer' | 'horizon'>} */ ({ answer() {}, horizon() {} }) }) {
     const cache = new Map();      // stop → { at, arrivals }
     const inflight = new Map();   // stop → Promise
     const routeLookups = new Map();
@@ -109,19 +112,21 @@ export function createArrivals({ client, routesFile, now = Date.now, log = conso
     };
 
     // → { arrivals: [...], updated: ms | null, stale: boolean, unavailable?: true }
-    function stopArrivals(stop) {
+    function stopArrivals(stop, { collect = false } = {}) {
+        // A visitor's answer, by where it came from (the collector's aren't counted)
+        const answer = source => { if (!collect) usage.answer(stop, source); };
         const hit = cache.get(stop);
         if (hit && now() - hit.at < freshFor()) {
-            usage.answer(stop, 'cache');
+            answer('cache');
             return Promise.resolve(served(hit));
         }
         // Already being asked for: this answer shares that request
         if (inflight.has(stop)) {
-            usage.answer(stop, 'cache');
+            answer('cache');
             return inflight.get(stop);
         }
         // Nobody has looked at this stop lately: a newcomer, who goes first
-        const lane = hit && now() - hit.at < STALE_MAX_MS ? 'normal' : 'high';
+        const lane = collect ? 'low' : hit && now() - hit.at < STALE_MAX_MS ? 'normal' : 'high';
 
         const pending = (async () => {
             // Age answers from when we asked, so a slow reply (e.g. queued behind
@@ -131,16 +136,17 @@ export function createArrivals({ client, routesFile, now = Date.now, log = conso
                 const raw = await client.request('getStopArrivals', stop, { lane });
                 const arrivals = await describe(stop, Array.isArray(raw) ? raw : []);
                 remember(stop, arrivals, asked);
-                usage.answer(stop, 'oasa');
+                passes?.seen(stop, arrivals, asked);
+                answer('oasa');
                 // How far ahead OASA predicts, per line (its fresh answers only)
                 for (const a of arrivals) if (a.line && Number.isFinite(a.minutes)) usage.horizon(a.line, a.minutes);
                 return { arrivals, updated: asked, stale: false };
             } catch {
                 if (hit && now() - hit.at < STALE_MAX_MS) {
-                    usage.answer(stop, 'old');
+                    answer('old');
                     return { arrivals: countDown(hit.arrivals, now() - hit.at), updated: hit.at, stale: true };
                 }
-                usage.answer(stop, 'none');
+                answer('none');
                 return { arrivals: [], updated: null, stale: false, unavailable: true };
             } finally {
                 inflight.delete(stop);
