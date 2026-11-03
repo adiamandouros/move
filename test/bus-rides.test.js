@@ -110,6 +110,11 @@ test('a measured stretch takes its median, and the stops after it move with it',
     assert.equal(retimed, 1);
 });
 
+test('a bad day takes the slowest tenth instead of the median', () => {
+    const [route] = withRides(BUSES, table('2', '4', { 'wd 8': [MIN_RIDES, 600, 900] }), { badDay: true }).buses.routes;
+    assert.deepEqual(route.profiles[route.trips[0][1]], [0, 120, 570, 1020]);
+});
+
 test('too few rides, another kind of day, or another route: the feed\'s times stay', () => {
     for (const times of [{ 'wd 8': [MIN_RIDES - 1, 600, 900] }, { 'sa 8': [9, 600, 900] }]) {
         assert.deepEqual(withRides(BUSES, table('2', '4', times)).buses, BUSES);

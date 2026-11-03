@@ -1,7 +1,9 @@
 // Measured ride times in the lab's timetable: where bus-rides.json (the
 // nightly build's, server/data/build-rides.js) has enough rides for a
 // stretch at that hour, a trip takes that long between its two stops, and the
-// stops after it move with it. The feed's times stay everywhere else.
+// stops after it move with it. The feed's times stay everywhere else. Its
+// median is a usual day; with badDay, its slowest tenth, which the planner
+// ranks ways by (weights.js).
 //
 //   curl -o data/local/planner-lab/bus-rides.json https://wayhop.gr/data/bus-rides.json
 //   node scripts/planner-lab/build-buses.js data/local/planner-lab/buses.json --rides data/local/planner-lab/bus-rides.json
@@ -13,9 +15,11 @@ const KINDS = ['su', 'wd', 'wd', 'wd', 'wd', 'wd', 'sa'];
 /**
  * @param {import('./network.js').Buses} buses
  * @param {{ rides: { route: string, from: string, to: string, times: Record<string, [number, number, number]> }[] }} table
+ * @param {{ minRides?: number, badDay?: boolean }} [options]
  * @returns {{ buses: import('./network.js').Buses, retimed: number }} retimed: trips with a measured stretch
  */
-export function withRides(buses, table, { minRides = MIN_RIDES } = {}) {
+export function withRides(buses, table, { minRides = MIN_RIDES, badDay = false } = {}) {
+    const column = badDay ? 2 : 1;
     const byRoute = new Map();
     for (const ride of table.rides) (byRoute.get(ride.route) ?? byRoute.set(ride.route, []).get(ride.route)).push(ride);
     const kind = KINDS[buses.day];
@@ -37,13 +41,13 @@ export function withRides(buses, table, { minRides = MIN_RIDES } = {}) {
                 const time = times[`${kind} ${Math.floor((start + offsets[i]) / 3600) % 24}`];
                 if (!time || time[0] < minRides) continue;
                 const was = offsets[j] - offsets[i];
-                const scale = was > 0 ? time[1] / was : 1;
-                const shift = time[1] - was;
+                const scale = was > 0 ? time[column] / was : 1;
+                const shift = time[column] - was;
                 for (let k = i + 1; k < offsets.length; k++) {
                     offsets[k] = k <= j ? Math.round(offsets[i] + (route.profiles[profile][k] - route.profiles[profile][i]) * scale) : offsets[k] + shift;
                 }
                 // (an empty stretch in the feed: the time goes on its last stop)
-                if (was <= 0) offsets[j] = offsets[i] + time[1];
+                if (was <= 0) offsets[j] = offsets[i] + time[column];
                 done = j;
             }
             const key = offsets.join();

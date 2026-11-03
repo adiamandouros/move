@@ -8,6 +8,7 @@
 
 import { AFTER_WALK_SECONDS, CHANGE_SECONDS } from './raptor.js';
 import { findWays, fold, wayKey } from './ways.js';
+import { cost } from './weights.js';
 
 // The window, from the time you leave, and how often it's tried
 export const WINDOW_SECONDS = 1800;
@@ -27,15 +28,17 @@ const LATENESS = [[15 * 60, 60], [20 * 60, 90], [30 * 60, 150], [45 * 60, 210], 
 const ON_THE_ROAD = new Set(['bus', 'trolley']);
 
 /** @typedef {ReturnType<typeof import('./raptor.js').createPlanner>} Planner */
-/** @typedef {import('./ways.js').Way} Way */
+/** @typedef {import('./ways.js').Way & { cost: number }} Way what it costs a rider by the weights (weights.js), seconds */
 /**
  * One row of an answer: a way, its last stretch by bus as a bundle of lines.
  * onward: the lines of its second ride. best: its earliest arrival for each
  * departure, null where it isn't found. range: minutes, quickest to slowest
  * but a tenth at each end. every: seconds between buses of the bundle, null
  * when fewer than two come. first, close: the share of departures it's the
- * fastest on (a tie too), and within a tie of it.
- * @typedef {{ key: string, way: Way, lines: string[], onward: string[], bundle: boolean, best: (Way | null)[], range: [number, number], every: number | null, first: number, close: number }} Row
+ * fastest on (a tie too), and within a tie of it. cost: the median over the
+ * departures of what it costs by the weights, Infinity where it isn't found, which only puts rows in order (agreed 3 Nov): real
+ * times decide what kind of answer it is.
+ * @typedef {{ key: string, way: Way, lines: string[], onward: string[], bundle: boolean, best: (Way | null)[], range: [number, number], every: number | null, first: number, close: number, cost: number }} Row
  */
 /**
  * stop: where the onward bus is caught. ready: the earliest the rider is
@@ -60,18 +63,20 @@ export function rowKey(planner, way) {
 const quantile = (sorted, q) => sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))];
 
 /**
- * The rows of every departure from `now` to the end of the window, the
- * quickest first, and what kind of answer they make
+ * The rows of every departure from `now` to the end of the window, the best
+ * by the weights first, and what kind of answer their real times make. badDay: the same
+ * stops with buses' slowest tenth, where measured, to rank by (weights.js)
  * @param {Planner} planner @param {number[]} access @param {number[]} egress @param {number} now
- * @param {{ window?: number, step?: number, walkLimit?: number }} [options]
+ * @param {{ window?: number, step?: number, walkLimit?: number, badDay?: Planner }} [options]
  * @returns {Answer}
  */
-export function answer(planner, access, egress, now, { window = WINDOW_SECONDS, step = STEP_SECONDS, walkLimit } = {}) {
+export function answer(planner, access, egress, now, { window = WINDOW_SECONDS, step = STEP_SECONDS, walkLimit, badDay = planner } = {}) {
     const departures = [];
     for (let at = now; at <= now + window; at += step) departures.push(at);
     const byKey = new Map();
     departures.forEach((at, d) => {
-        for (const way of fold(findWays(planner, access, egress, at, { walkLimit }))) {
+        for (const found of fold(findWays(planner, access, egress, at, { walkLimit }))) {
+            const way = { ...found, cost: cost(badDay, found, at, access, egress) };
             const key = rowKey(planner, way);
             if (!byKey.has(key)) byKey.set(key, { key, best: departures.map(() => null), lines: new Set(), onward: new Set(), buses: new Set() });
             const row = byKey.get(key);
@@ -89,6 +94,8 @@ export function answer(planner, access, egress, now, { window = WINDOW_SECONDS, 
     /** @type {Row[]} */
     const rows = [...byKey.values()].map(({ key, best, lines, onward, buses }) => {
         const found = best.map((way, d) => way && way.at - departures[d]).filter(seconds => seconds !== null).sort((a, b) => a - b);
+        // A departure it isn't found for costs all there is: one that's rarely there sinks
+        const costs = best.map(way => way?.cost ?? Infinity).sort((a, b) => a - b);
         const leaving = [...buses].map(bus => Number(bus.split(' ')[1])).sort((a, b) => a - b);
         return {
             key, best, lines: [...lines].sort(), onward: [...onward].sort(), bundle: lines.size > 1,
@@ -97,13 +104,15 @@ export function answer(planner, access, egress, now, { window = WINDOW_SECONDS, 
             every: leaving.length > 1 ? Math.round((leaving.at(-1) - leaving[0]) / (leaving.length - 1)) : null,
             first: best.filter((way, d) => way?.at === fastest[d]).length / departures.length,
             close: best.filter((way, d) => way && way.at <= fastest[d] + TIE_SECONDS).length / departures.length,
+            cost: quantile(costs, 0.5),
         };
-    }).sort((a, b) => b.close - a.close || a.range[0] - b.range[0]);
+    }).sort((a, b) => a.cost - b.cost || b.close - a.close);
     if (!rows.length) return { kind: 'none', rows, departures };
 
     const decision = decisionIn(rows, departures);
     if (decision) return { kind: 'decision', rows, departures, decision };
-    if (rows[0].close >= CLEAR_SHARE) return { kind: 'clear', rows, departures, clear: rows[0] };
+    const clear = rows.reduce((most, row) => row.close > most.close ? row : most);
+    if (clear.close >= CLEAR_SHARE) return { kind: 'clear', rows, departures, clear };
     return { kind: 'depends', rows, departures };
 }
 

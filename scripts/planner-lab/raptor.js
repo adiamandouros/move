@@ -301,5 +301,44 @@ export function createPlanner({ stops, routes: given }) {
         return [...best.values()].map(({ leg, at: there, stop: last }) => ({ leg, at: there, stop: last }));
     }
 
-    return { stops, near, search, arrival, journey, onwardRides };
+    /**
+     * The same rides on this timetable, for someone at the first stop at
+     * `start`: each the first trip of its line from where it boards, once in
+     * from the ride before and walked from it, to where it gets off. next:
+     * when the line's trip after it boards there, null if there's none. Null
+     * if a ride can't be made. The timetable can be another than the search's,
+     * with the same stops.
+     * @param {Leg[]} legs @param {number} start
+     * @returns {(Leg & { next: number | null })[] | null}
+     */
+    function ride(legs, start) {
+        const timed = [];
+        let ready = start;
+        for (const leg of legs) {
+            if (timed.length) ready = timed.at(-1).arrives + (leg.walkBefore ? leg.walkBefore + AFTER_WALK_SECONDS : CHANGE_SECONDS);
+            const through = serving[leg.board];
+            let best = null;
+            const taking = [];
+            for (let j = 0; j < through.length; j += 2) {
+                const route = routes[through[j]];
+                const position = through[j + 1];
+                const to = route.stops.indexOf(leg.alight, position + 1);
+                if (route.line !== leg.line || to < 0) continue;
+                taking.push([route, position]);
+                const trip = firstTrip(route, position, ready);
+                if (trip >= route.trips) continue;
+                const arrives = route.times[trip * route.width + to];
+                if (!best || arrives < best.arrives) best = { ...leg, boards: route.times[trip * route.width + position], arrives, next: null };
+            }
+            if (!best) return null;
+            for (const [route, position] of taking) {
+                const trip = firstTrip(route, position, best.boards + 1);
+                if (trip < route.trips) best.next = Math.min(best.next ?? Infinity, route.times[trip * route.width + position]);
+            }
+            timed.push(best);
+        }
+        return timed;
+    }
+
+    return { stops, near, search, arrival, journey, onwardRides, ride };
 }
