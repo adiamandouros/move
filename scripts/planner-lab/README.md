@@ -10,6 +10,7 @@ Moving it into the app comes with its decision record.
 |---|---|
 | `raptor.js` | The search: earliest arrivals by number of rides, walks at the changes |
 | `ways.js` | From what the search finds to the ways a rider could choose from |
+| `weights.js` | What a way costs a rider, to put ways in order: a bad day for buses, walking at 1.5, 3 minutes a change |
 | `answer.js` | Every departure in the next half hour: one clear way, a decision on the way, or it depends; buses from one change as one row |
 | `network.js` | Metro and tram from `rail.json`, buses and trolleys from the file below |
 | `build-buses.js` | One day of buses, small enough to search |
@@ -31,7 +32,12 @@ stretch has at least 3 rides at that hour of a weekday:
 ```
 curl -o data/local/planner-lab/bus-rides.json https://wayhop.gr/data/bus-rides.json
 node scripts/planner-lab/build-buses.js data/local/planner-lab/buses.json --rides data/local/planner-lab/bus-rides.json
+node scripts/planner-lab/build-buses.js data/local/planner-lab/buses-bad-day.json --rides data/local/planner-lab/bus-rides.json --bad-day
 ```
+
+The second is a bad day, each measured stretch's slowest tenth: when it's
+there, `trip.js` ranks ways by it (`weights.js`), and shows the usual day's
+times.
 
 It prints the ways for that departure, on a Wednesday, and which one is the
 fastest over the next 90 minutes of departures. Then the answer for the next half
@@ -61,8 +67,14 @@ doesn't fail the checks. When a change gets one right, take its `todo` off.
 - **Walks.** The straight line times 1.4, as 200 walks came out at 1.38 against a
   street router. Typical errors are under a minute in the city, but some are
   much longer, and walks don't count stairs, ramps or the way to a platform.
-- **Weights.** Every minute counts the same, so far. Riders don't see it that
-  way: a bus in traffic is worth less than a train, and a walk least of all.
+- **Weights.** Agreed on 3 November 2026 (`weights.js`): ways are put in
+  order by their arrival on a bad day for buses (the slowest tenth of
+  measured rides, the feed's time where none are), a minute on foot counting
+  as 1.5, 3 minutes a change, and half the wait for the next departure when a
+  change with a walk has under a minute to spare. They only put ways in
+  order: real times say what kind of answer it is and what's offered on the
+  way, and the times shown are real. With no rides yet, a bad day is the
+  feed's.
 - **What makes an answer clear, or a decision.** Agreed on 3 November 2026,
   from three trips: a way is clear when it's within 3 minutes of the fastest
   on 80% of the half hour's departures; a decision is two ways on the same

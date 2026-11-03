@@ -3,8 +3,10 @@
 // feed stopped in August 2026 and spreads each trip's time evenly along its
 // route, so its times are stand-ins (README.md).
 //
-//   node scripts/planner-lab/build-buses.js <out.json> [--box south,west,north,east] [--rides bus-rides.json]
+//   node scripts/planner-lab/build-buses.js <out.json> [--box south,west,north,east] [--rides bus-rides.json [--bad-day]]
 //
+// With --bad-day the measured stretches take their slowest tenth, not their
+// median: the timetable ways are ranked by (weights.js).
 // With --box only the stops inside it are kept. The test data is made with
 // --box 37.94,23.63,38.02,23.75
 
@@ -99,14 +101,14 @@ export function cutToBox(buses, [south, west, north, east]) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-    const { values, positionals } = parseArgs({ allowPositionals: true, options: { box: { type: 'string' }, rides: { type: 'string' } } });
+    const { values, positionals } = parseArgs({ allowPositionals: true, options: { box: { type: 'string' }, rides: { type: 'string' }, 'bad-day': { type: 'boolean' } } });
     const raw = join(fileURLToPath(new URL('../../', import.meta.url)), 'data/raw');
     const read = name => readFileSync(join(raw, 'bus', name), 'utf8');
     const lines = createInterface({ input: createReadStream(join(raw, 'bus/stop_times.txt')) });
     const feed = await compactBuses({ routes: read('routes.txt'), trips: read('trips.txt'), stops: read('stops.txt') }, lines);
     const { buses, gone, untimed } = onLiveRoutes(feed, JSON.parse(readFileSync(join(raw, 'oasa/network.json'), 'utf8')));
     // Measured ride times where there are enough (rides.js)
-    const measured = values.rides ? withRides(buses, JSON.parse(readFileSync(values.rides, 'utf8'))) : { buses, retimed: 0 };
+    const measured = values.rides ? withRides(buses, JSON.parse(readFileSync(values.rides, 'utf8')), { badDay: values['bad-day'] }) : { buses, retimed: 0 };
     if (values.rides) console.log(`${measured.retimed} trips with measured ride times`);
     const out = values.box ? cutToBox(measured.buses, values.box.split(',').map(Number)) : measured.buses;
     writeFileSync(positionals[0], `${JSON.stringify(out)}\n`);

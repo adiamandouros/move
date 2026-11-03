@@ -3,10 +3,13 @@
 //   node scripts/planner-lab/build-buses.js data/local/planner-lab/buses.json   (once)
 //   node scripts/planner-lab/trip.js "Πατησίων 100" "Σύνταγμα" [08:30]
 //
+// Ways are put in order by the weights (weights.js), with buses' slowest
+// tenth from buses-bad-day.json beside it where it's been built (README.md).
+//
 // Addresses are looked up in the local index and go nowhere: nothing is sent
 // or written. Keep real addresses out of the repository too, as it's public.
 
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
 import { load, search as lookUp } from '../../server/places/search.js';
 import { joinNetwork } from './network.js';
@@ -34,7 +37,10 @@ const place = query => {
     return first;
 };
 
-const planner = createPlanner(joinNetwork(json('data/build/rail.json'), json('data/local/planner-lab/buses.json'), WEDNESDAY));
+const network = buses => createPlanner(joinNetwork(json('data/build/rail.json'), json(buses), WEDNESDAY));
+const planner = network('data/local/planner-lab/buses.json');
+const badDayFile = 'data/local/planner-lab/buses-bad-day.json';
+const badDay = existsSync(inRepo(badDayFile)) ? network(badDayFile) : planner;
 const access = planner.near(place(from), END_WALK_SECONDS);
 const egress = planner.near(place(to), END_WALK_SECONDS);
 const [h, m] = time.split(':').map(Number);
@@ -51,12 +57,12 @@ for (const { way } of departures) {
 console.log(`\nThe fastest over the next ${WINDOW_SECONDS / 60} minutes of departures:`);
 for (const [key, count] of [...counts].sort((a, b) => b[1] - a[1])) console.log(`  ${Math.round(100 * count / departures.length)}% ${key}`);
 
-const { kind, rows, decision } = answer(planner, access, egress, now);
+const { kind, rows, decision } = answer(planner, access, egress, now, { badDay });
 const clock = seconds => `${String(Math.floor(seconds / 3600) % 24).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;
-console.log(`\nThe answer for the next half hour: ${kind}`);
+console.log(`\nThe answer for the next half hour: ${kind}${badDay === planner ? '' : ', buses ranked by a bad day'}`);
 for (const row of rows.slice(0, SHOWN)) {
     const bus = row.lines.length ? ` (${row.lines.join(', ')}${row.every ? `, one every ${Math.round(row.every / 60)} min` : ''})` : '';
-    console.log(`  ${row.range.join('–')} min, first on ${Math.round(100 * row.first)}%: ${row.key}${bus}`);
+    console.log(`  ${row.range.join('–')} min, costs ${Math.round(row.cost / 60)}, first on ${Math.round(100 * row.first)}%: ${row.key}${bus}`);
 }
 if (decision) {
     const where = planner.stops[decision.stop].name;
