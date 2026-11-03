@@ -64,15 +64,16 @@ doesn't fail the checks. When a change gets one right, take its `todo` off.
 - **Weights.** Every minute counts the same, so far. Riders don't see it that
   way: a bus in traffic is worth less than a train, and a walk least of all.
 - **What makes an answer clear, or a decision.** Agreed on 3 November 2026,
-  from three trips: a way is clear when it's within 3 minutes of the fastest on 80% of
-  the half hour's departures; a decision is two ways on the same train, one
-  getting off for a bus, each beating the other by 3 minutes or more on 15%.
-  A train onward is never a decision on the way: the timetable has it. A
-  decision's directions stay on the train and don't mention it; the bus is
-  offered, for the rider to take or not, only when OASA has it coming in time
-  and it saves 3 minutes or more. How
-  much later than OASA says a bus comes is the rush-hour test's median, from
-  one morning.
+  from three trips: a way is clear when it's within 3 minutes of the fastest
+  on 80% of the half hour's departures; a decision is two ways on the same
+  first ride, train or bus, one getting off for a bus, each beating the other
+  by 3 minutes or more on 15%. A train onward is never a decision on the way:
+  the timetable has it. A decision's directions stay on and don't mention it;
+  the bus is offered, for the rider to take or not, only when OASA has it
+  coming in time and it saves 3 minutes or more. When the first ride is a
+  bus, how late the rider's own bus is counts too, from OASA's time for it at
+  the change. How much later than OASA says a bus comes is the rush-hour
+  test's median, from one morning.
 - **The ticket and the airport.** Neither is considered: a way can run past 90
   minutes, or use an airport bus, which the ordinary ticket doesn't cover.
 - **Routes without times.** `data/raw/oasa/network.json` has all 706 of OASA's

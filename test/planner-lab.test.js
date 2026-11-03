@@ -275,8 +275,8 @@ test('two ways each first often enough, on different first rides: it depends', (
 
 // The M3 from A every 10 minutes, on to C, where the M2 goes to D. At B, a
 // bus to D is quicker for the first train only
-const decisionAt = (busLine = '420', mode = 'bus', [leaves, arrives] = [9, 19]) => createPlanner({ stops, routes: [
-    ride('M3', [A, B, C], ...[0, 10, 20].map(t => [minutes(t), minutes(t + 5), minutes(t + 10)])),
+const decisionAt = (busLine = '420', mode = 'bus', [leaves, arrives] = [9, 19], first = ride('M3', [A, B, C], ...[0, 10, 20].map(t => [minutes(t), minutes(t + 5), minutes(t + 10)]))) => createPlanner({ stops, routes: [
+    first,
     ride('M2', [C, D], ...[0, 10, 20].map(t => [minutes(t + 13), minutes(t + 23)])),
     { ...ride(busLine, [B, D], [minutes(leaves), minutes(arrives)]), mode },
 ] });
@@ -291,6 +291,15 @@ test('the same train, and a bus that\'s sometimes much quicker: a decision on th
     assert.equal(decision.ready, minutes(5) + CHANGE_SECONDS);
     // The bus takes 10 minutes and staying on gets there at 08:23
     assert.equal(decision.latest, minutes(13));
+});
+
+test('the same bus can be the first ride of a decision too', () => {
+    const bus = { ...ride('750', [A, B, C], ...[0, 10, 20].map(t => [minutes(t), minutes(t + 5), minutes(t + 10)])), mode: 'bus' };
+    const { kind, decision } = answer(decisionAt('420', 'bus', [9, 19], bus), from(A), to(D), H8, FIVE);
+    assert.equal(kind, 'decision');
+    assert.equal(decision.stayOn.key, '750 C M2');
+    assert.equal(decision.getOff.key, '750 at B, a bus');
+    assert.equal(decision.reaches, minutes(5));
 });
 
 test('a way never much worse needs no decision, and a train onward is decided before leaving', () => {
@@ -319,6 +328,18 @@ test('a quicker way is offered only for a bus that comes in time and saves a tie
     const far = { lines: ['420'], ready: minutes(10), latest: minutes(24) };
     assert.equal(quickerWay(far, [bus(minutes(20))], H8).offer, false);
     assert.equal(quickerWay(far, [bus(minutes(20))], minutes(10)).offer, true, 'asked again nearer the time');
+});
+
+test('on a bus, how late your own bus is counts: later to the change, and later staying on', () => {
+    // By the timetable the 750 reaches the change at 08:05
+    const decision = { lines: ['420'], ready: minutes(8), latest: minutes(15), reaches: minutes(5) };
+    const bus = at => ({ line: '420', at });
+    assert.equal(quickerWay(decision, [bus(minutes(10))], H8).offer, true, 'by the timetable, it\'s caught');
+    // OASA has the 750 there at 08:07, so 08:08 as a rule: 3 minutes late
+    const here = minutes(7);
+    assert.deepEqual(quickerWay(decision, [bus(minutes(10))], H8, { here }), { offer: false, why: 'missed' });
+    assert.deepEqual(quickerWay(decision, [bus(minutes(12))], H8, { here }), { offer: true, why: 'quicker', line: '420', at: minutes(12), sooner: 300 }, 'staying on is late too');
+    assert.equal(quickerWay(decision, [bus(minutes(10))], H8, { here: minutes(4) }).sooner, 240, 'on time, or early, is the timetable');
 });
 
 test('the network joins rail.json and the buses, each stop findable', () => {
