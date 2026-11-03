@@ -1,6 +1,8 @@
 // What kind of answer a trip has, from every departure in a window: one
 // instant can't tell a clear answer from a lucky connection. The answer is
-// one clear way, a decision on the way, or "it depends". Apart from that, a
+// one clear way, a decision on the way, or "it depends". A decision gives the
+// directions that stay on the train, and offers the quicker way only if it
+// comes up, for the rider to take or not. Apart from that, a
 // way's last stretch by bus is a bundle: any of the lines from that change
 // to the door, as the first to come is what counts.
 
@@ -10,10 +12,11 @@ import { findWays, fold, wayKey } from './ways.js';
 // The window, from the time you leave, and how often it's tried
 export const WINDOW_SECONDS = 1800;
 const STEP_SECONDS = 60;
-// A way this close to the fastest is as good as it, to a rider
-const TIE_SECONDS = 180;
+// A way this close to the fastest is as good as it, to a rider, and isn't
+// worth changing to on the way
+export const TIE_SECONDS = 180;
 // The share of departures that makes a way clear. A decision is worth it
-// when each choice beats the other by a tie or more this often
+// when each choice beats the other by a tie or more this often (agreed 3 Nov)
 const CLEAR_SHARE = 0.8;
 const DECISION_SHARE = 0.15;
 // The range shown leaves out the quickest and the slowest tenth
@@ -105,7 +108,8 @@ export function answer(planner, access, egress, now, { window = WINDOW_SECONDS, 
 
 // Two rows on the same first train, leaving it at different stops for a bus
 // and staying on, each beating the other by more than a tie often enough: the
-// rider can be told on the way which to take, from OASA's times for that bus.
+// directions stay on, and the rider is offered the bus when OASA has it coming
+// in time (quickerWay).
 // One that's never much worse needs no decision, and a train onward is in the
 // timetable, so the search decides that before anyone leaves
 /** @param {Row[]} rows @param {number[]} departures @returns {Decision | null} */
@@ -141,21 +145,24 @@ const byBus = (a, b) => ON_THE_ROAD.has((a.legs[0].arrives < b.legs[0].arrives ?
 export const lateness = ahead => LATENESS.find(([upTo]) => ahead <= upTo)[1];
 
 /**
- * Get off for the onward bus, or stay on: from what OASA predicts at the
- * decision's stop, asked at `asked`. Only a bus that comes in time, late as
- * buses are that far out, is reason to get off: no prediction doesn't mean no
- * bus, but it isn't one to wait for either.
+ * Whether to offer the rider a quicker way: the directions stay on the train,
+ * and say nothing of the decision. Only a bus that comes in time, late as
+ * buses are that far out, and saves a tie or more is offered, for the rider to
+ * take or not; no prediction doesn't mean no bus, but it isn't one to wait for.
+ * From what OASA predicts at the decision's stop, asked at `asked`.
+ * sooner: seconds it saves on staying on.
  * @param {Decision} decision
  * @param {{ line: string, at: number }[]} predictions when each bus is due at the stop, seconds from midnight
  * @param {number} asked
- * @returns {{ getOff: boolean, why: 'due' | 'too-late' | 'missed' | 'none', line?: string, at?: number }}
+ * @returns {{ offer: boolean, why: 'quicker' | 'not-quicker' | 'missed' | 'none', line?: string, at?: number, sooner?: number }}
  */
-export function decide({ lines, ready, latest }, predictions, asked) {
+export function quickerWay({ lines, ready, latest }, predictions, asked) {
     const ours = predictions.filter(({ line }) => lines.includes(line)).sort((a, b) => a.at - b.at);
-    if (!ours.length) return { getOff: false, why: 'none' };
+    if (!ours.length) return { offer: false, why: 'none' };
     const caught = ours.filter(({ at }) => at >= ready);
-    if (!caught.length) return { getOff: false, why: 'missed' };
+    if (!caught.length) return { offer: false, why: 'missed' };
     const [bus] = caught;
-    if (bus.at + lateness(bus.at - asked) > latest) return { getOff: false, why: 'too-late', ...bus };
-    return { getOff: true, why: 'due', ...bus };
+    // Staying on gets there `latest` plus the ride; so does this bus, leaving when it's due
+    const sooner = latest - (bus.at + lateness(bus.at - asked));
+    return { offer: sooner >= TIE_SECONDS, why: sooner >= TIE_SECONDS ? 'quicker' : 'not-quicker', ...bus, sooner };
 }

@@ -10,7 +10,7 @@ import { readFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
 import { load, search as lookUp } from '../../server/places/search.js';
 import { joinNetwork } from './network.js';
-import { answer } from './answer.js';
+import { answer, TIE_SECONDS } from './answer.js';
 import { createPlanner } from './raptor.js';
 import { acrossWindow, describeWay, findWays, fold, spine } from './ways.js';
 
@@ -60,5 +60,5 @@ for (const row of rows.slice(0, SHOWN)) {
 }
 if (decision) {
     const where = planner.stops[decision.stop].name;
-    console.log(`On the way: get off for ${decision.lines.join(' or ')} at ${where} if it leaves ${clock(decision.ready)} to ${clock(decision.latest)}, else ${decision.stayOn.key}`);
+    console.log(`The directions: ${decision.stayOn.key}. On the way, ${decision.lines.join(' or ')} at ${where} is offered if it leaves ${clock(decision.ready)} to ${clock(decision.latest - TIE_SECONDS)}`);
 }

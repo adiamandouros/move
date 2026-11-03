@@ -35,8 +35,8 @@ node scripts/planner-lab/build-buses.js data/local/planner-lab/buses.json --ride
 
 It prints the ways for that departure, on a Wednesday, and which one is the
 fastest over the next 90 minutes of departures. Then the answer for the next half
-hour: one clear way, a decision to make on the way (get off for a bus only if
-OASA has it coming in time), or it depends. Addresses stay on your
+hour: one clear way, a decision on the way (stay on, and a bus offered if OASA
+has it coming in time), or it depends. Addresses stay on your
 computer, and shouldn't go in the repository: it's public, so the trips in the
 tests go to public stops.
 
@@ -63,11 +63,14 @@ doesn't fail the checks. When a change gets one right, take its `todo` off.
   much longer, and walks don't count stairs, ramps or the way to a platform.
 - **Weights.** Every minute counts the same, so far. Riders don't see it that
   way: a bus in traffic is worth less than a train, and a walk least of all.
-- **What makes an answer clear, or a decision.** First guesses, from three
-  trips: a way is clear when it's within 3 minutes of the fastest on 80% of
+- **What makes an answer clear, or a decision.** Agreed on 3 November 2026,
+  from three trips: a way is clear when it's within 3 minutes of the fastest on 80% of
   the half hour's departures; a decision is two ways on the same train, one
   getting off for a bus, each beating the other by 3 minutes or more on 15%.
-  A train onward is never a decision on the way: the timetable has it. How
+  A train onward is never a decision on the way: the timetable has it. A
+  decision's directions stay on the train and don't mention it; the bus is
+  offered, for the rider to take or not, only when OASA has it coming in time
+  and it saves 3 minutes or more. How
   much later than OASA says a bus comes is the rush-hour test's median, from
   one morning.
 - **The ticket and the airport.** Neither is considered: a way can run past 90
