@@ -10,6 +10,7 @@ import { readFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
 import { load, search as lookUp } from '../../server/places/search.js';
 import { joinNetwork } from './network.js';
+import { answer } from './answer.js';
 import { createPlanner } from './raptor.js';
 import { acrossWindow, describeWay, findWays, fold, spine } from './ways.js';
 
@@ -49,3 +50,15 @@ for (const { way } of departures) {
 }
 console.log(`\nThe fastest over the next ${WINDOW_SECONDS / 60} minutes of departures:`);
 for (const [key, count] of [...counts].sort((a, b) => b[1] - a[1])) console.log(`  ${Math.round(100 * count / departures.length)}% ${key}`);
+
+const { kind, rows, decision } = answer(planner, access, egress, now);
+const clock = seconds => `${String(Math.floor(seconds / 3600) % 24).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;
+console.log(`\nThe answer for the next half hour: ${kind}`);
+for (const row of rows.slice(0, SHOWN)) {
+    const bus = row.lines.length ? ` (${row.lines.join(', ')}${row.every ? `, one every ${Math.round(row.every / 60)} min` : ''})` : '';
+    console.log(`  ${row.range.join('–')} min, first on ${Math.round(100 * row.first)}%: ${row.key}${bus}`);
+}
+if (decision) {
+    const where = planner.stops[decision.stop].name;
+    console.log(`On the way: get off for ${decision.lines.join(' or ')} at ${where} if it leaves ${clock(decision.ready)} to ${clock(decision.latest)}, else ${decision.stayOn.key}`);
+}

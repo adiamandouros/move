@@ -10,6 +10,7 @@ Moving it into the app comes with its decision record.
 |---|---|
 | `raptor.js` | The search: earliest arrivals by number of rides, walks at the changes |
 | `ways.js` | From what the search finds to the ways a rider could choose from |
+| `answer.js` | Every departure in the next half hour: one clear way, a decision on the way, or it depends; buses from one change as one row |
 | `network.js` | Metro and tram from `rail.json`, buses and trolleys from the file below |
 | `build-buses.js` | One day of buses, small enough to search |
 | `live-routes.js` | Puts the feed's times on the routes of OASA's live network |
@@ -33,7 +34,9 @@ node scripts/planner-lab/build-buses.js data/local/planner-lab/buses.json --ride
 ```
 
 It prints the ways for that departure, on a Wednesday, and which one is the
-fastest over the next 90 minutes of departures. Addresses stay on your
+fastest over the next 90 minutes of departures. Then the answer for the next half
+hour: one clear way, a decision to make on the way (get off for a bus only if
+OASA has it coming in time), or it depends. Addresses stay on your
 computer, and shouldn't go in the repository: it's public, so the trips in the
 tests go to public stops.
 
@@ -60,6 +63,13 @@ doesn't fail the checks. When a change gets one right, take its `todo` off.
   much longer, and walks don't count stairs, ramps or the way to a platform.
 - **Weights.** Every minute counts the same, so far. Riders don't see it that
   way: a bus in traffic is worth less than a train, and a walk least of all.
+- **What makes an answer clear, or a decision.** First guesses, from three
+  trips: a way is clear when it's within 3 minutes of the fastest on 80% of
+  the half hour's departures; a decision is two ways on the same train, one
+  getting off for a bus, each beating the other by 3 minutes or more on 15%.
+  A train onward is never a decision on the way: the timetable has it. How
+  much later than OASA says a bus comes is the rush-hour test's median, from
+  one morning.
 - **The ticket and the airport.** Neither is considered: a way can run past 90
   minutes, or use an airport bus, which the ordinary ticket doesn't cover.
 - **Routes without times.** `data/raw/oasa/network.json` has all 706 of OASA's

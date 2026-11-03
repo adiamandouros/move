@@ -10,9 +10,9 @@ import { meters } from '../../server/places/search.js';
 const INF = 2 ** 30;
 export const MAX_RIDES = 6;
 // From getting off to being ready for a ride from the same stop
-const CHANGE_SECONDS = 180;
+export const CHANGE_SECONDS = 180;
 // The same after a walk to another stop, on top of the walk
-const AFTER_WALK_SECONDS = 60;
+export const AFTER_WALK_SECONDS = 60;
 // How far a change may walk. Five minutes hid the 420 from Aigaleo
 const CHANGE_WALK_SECONDS = 600;
 // Walks are the straight line with the streets added: 200 walks checked
