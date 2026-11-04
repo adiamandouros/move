@@ -83,6 +83,9 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
     // Requests waiting for a slot, per lane: { go(ok), since }
     const lanes = { high: [], normal: [], low: [] };
     let pumping = false;
+    // When OASA was last needed, whether or not it was asked: a quiet night
+    // isn't an outage (server/health.js). Route tests don't count
+    let lastAsked = null;
 
     // Per route: consecutive failures, and while resting, the time it may be
     // tried again. `working`: a route with a fallback has passed its test.
@@ -217,6 +220,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
     // 'low' for the collector.
     async function request(act, p1, { lane = 'normal' } = {}) {
         const kind = kindOf(act, lane);
+        lastAsked = now();
         testDue();
         if (!routes.some(usable)) {
             // (the collector's own aren't refused visitors)
@@ -253,6 +257,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
     function status() {
         return {
             at: now(),
+            lastAsked,
             queueWaitMs: queueWait(),
             routes: routes.map(r => ({
                 name: r.name,

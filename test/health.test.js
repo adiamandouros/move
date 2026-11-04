@@ -6,6 +6,7 @@ import { dirname, join } from 'path';
 import express from 'express';
 import { RELAY_VERSION } from '../proxy/worker.js';
 import { createHealth } from '../server/health.js';
+import { createUsage } from '../server/oasa/usage.js';
 import { securityHeaders } from '../server/security.js';
 import { report, runChecks } from '../scripts/health-check.js';
 import { listen } from './support/listen.js';
@@ -42,10 +43,12 @@ const relayFetch = versions => async url => {
     return Response.json({ version: versions[name] });
 };
 
-function health({ lastOk = NOW - 2 * MINUTE, sources = { oasaEl: true, stasy: true }, dir = buildDir(), versions = { 'pi.example': RELAY_VERSION }, places = undefined } = {}) {
+// lastAsked: when OASA was last needed; a minute ago by default, as the
+// scheduled check asks for a stop first. hour: the past hour's counts (pastHour)
+function health({ lastOk = NOW - 2 * MINUTE, lastAsked = NOW - MINUTE, hour = undefined, sources = { oasaEl: true, stasy: true }, dir = buildDir(), versions = { 'pi.example': RELAY_VERSION }, places = undefined } = {}) {
     return createHealth({
         placesStatus: places && (() => places),
-        busStatus: () => ({ routes: [{ name: 'direct', lastOk: null }, { name: 'home relay', lastOk }] }),
+        busStatus: () => ({ lastAsked, routes: [{ name: 'direct', lastOk: null }, { name: 'home relay', lastOk }], usage: hour && { hour, today: hour } }),
         announcementStatus: () => Object.fromEntries(Object.entries(sources).map(([k, ok]) => [k, { ok, error: 'secret detail' }])),
         buildDir: dir,
         relays: Object.keys(versions).map(host => ({ name: host === 'pi.example' ? 'home relay' : 'relay', url: `https://${host}/`, key: 'k3y' })),
@@ -53,6 +56,99 @@ function health({ lastOk = NOW - 2 * MINUTE, sources = { oasaEl: true, stasy: tr
         now: () => NOW,
     });
 }
+
+// The past hour's counts, as server/oasa/usage.js keeps them: `count` is
+// called for each of that many minutes, with the usage to count into
+function pastHour(minutes, count) {
+    let t = NOW - 50 * MINUTE;
+    const usage = createUsage({ now: () => t });
+    for (let minute = 0; minute < minutes; minute++) {
+        count(usage, minute);
+        t += MINUTE;
+    }
+    t = NOW;
+    return usage.status().hour;
+}
+const times = (n, each) => { for (let i = 0; i < n; i++) each(i); };
+
+test('a quiet night isn\'t an outage: nothing asked of OASA in 10 minutes is healthy', async () => {
+    for (const lastAsked of [null, NOW - 11 * MINUTE]) {
+        const result = await health({ lastOk: null, lastAsked }).check();
+        assert.deepEqual(result.problems, []);
+        assert.deepEqual(result.arrivals, { ok: true, asked: false, route: null, lastOk: null });
+    }
+    const asked = await health({ lastOk: NOW - 30 * MINUTE, lastAsked: NOW - 5 * MINUTE }).check();
+    assert.deepEqual(asked.problems, ['Live arrivals: no route to OASA has answered in the past 10 minutes']);
+    assert.equal(asked.arrivals.asked, true);
+});
+
+test('what OASA answered shows at once, though the relays are asked at most once a minute', async () => {
+    // 1 Nov: the page read at 18:22, a bus at 18:23, and the page kept saying no route had answered
+    let t = NOW;
+    let lastOk = NOW - 30 * MINUTE;
+    let relaysAsked = 0;
+    const page = createHealth({
+        busStatus: () => ({ lastAsked: t, routes: [{ name: 'home relay', lastOk }] }),
+        announcementStatus: () => ({}), buildDir: buildDir(),
+        relays: [{ name: 'home relay', url: 'https://pi.example/', key: 'k' }],
+        fetch: async () => { relaysAsked++; return Response.json({ version: RELAY_VERSION }); },
+        now: () => t,
+    });
+    const server = await listen(express().use('/h', page));
+    try {
+        assert.equal((await fetch(`${server.url}/h`)).status, 503);
+        t += 30_000;
+        lastOk = t;
+        t += 10_000;
+        const res = await fetch(`${server.url}/h`);
+        assert.equal(res.status, 200);
+        assert.equal((await res.json()).arrivals.route, 'home relay');
+        assert.equal(relaysAsked, 1);
+    } finally {
+        server.close();
+    }
+});
+
+test('OASA failing: 10 or more stop answers older or none in the past hour, a tenth of those that needed it', async () => {
+    // 10 of 101 that needed OASA, beside answers the cache gave, which didn't
+    const answers = (failed, fresh) => pastHour(1, usage => {
+        times(failed, i => usage.answer(`s${i % 5}`, i % 2 ? 'old' : 'none'));
+        times(fresh, i => usage.answer(`s${i % 5}`, 'oasa'));
+        times(500, () => usage.answer('c', 'cache'));
+    });
+    assert.deepEqual((await health({ hour: answers(10, 91) }).check()).problems, []);
+    assert.deepEqual((await health({ hour: answers(9, 10) }).check()).problems, []);
+    const failing = await health({ hour: answers(10, 90) }).check();
+    assert.deepEqual(failing.problems, ['OASA: 10 of 100 stop answers in the past hour were older ones or none, as OASA didn\'t answer (details on /admin/usage)']);
+    assert.equal(failing.oasa.failed, 10);
+});
+
+test('OASA slow: 95% of the busiest route\'s answers in the past hour not under 4 s, from 30 or more', async () => {
+    const calls = (quick, slow) => pastHour(1, usage => {
+        times(quick, () => usage.call('home relay', true, 1500));
+        times(slow, () => usage.call('home relay', true, 5000));
+        // Direct's daily test, timing out: not the route answering
+        usage.call('direct', false, 3000);
+    });
+    assert.deepEqual((await health({ hour: calls(29, 1) }).check()).problems, []);
+    assert.deepEqual((await health({ hour: calls(0, 29) }).check()).problems, [], 'too few to tell');
+    const slow = await health({ hour: calls(28, 2) }).check();
+    assert.deepEqual(slow.problems, ['OASA: 95% of its answers through the home relay in the past hour took 4 s or more (details on /admin/usage)']);
+    assert.equal(slow.oasa.answers95, 'under 8 s');
+});
+
+test('the request budget: visitors\' requests dropped in 5 minutes of the past hour, or 45 stops in one minute', async () => {
+    const dropped = minutes => pastHour(10, (usage, minute) => {
+        if (minute < minutes) usage.dropped('arrivals-refresh');
+        // The collector skipping its turn is what it should do
+        usage.dropped('collector');
+    });
+    assert.deepEqual((await health({ hour: dropped(4) }).check()).problems, []);
+    assert.deepEqual((await health({ hour: dropped(5) }).check()).problems, ['Request budget: visitors\' requests to OASA didn\'t fit it in 5 minutes of the past hour, so they saw older arrivals (details on /admin/usage)']);
+    const stops = n => pastHour(1, usage => times(n, i => usage.answer(`s${i}`, 'cache')));
+    assert.deepEqual((await health({ hour: stops(44) }).check()).problems, []);
+    assert.deepEqual((await health({ hour: stops(45) }).check()).problems, ['Request budget: 45 different stops were asked for in one minute in the past hour, close to the about 60 that can be kept fresh (details on /admin/usage)']);
+});
 
 test('an address index that went stale or never came is a problem, and says which', async () => {
     assert.deepEqual((await health({ places: { ok: true, built: '2026-10-11' } }).check()).problems, []);

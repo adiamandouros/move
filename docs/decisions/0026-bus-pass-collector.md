@@ -77,7 +77,11 @@ proposed and agreed before it is built.
   as it already does for the bus page.
 - The numbers are our guess, not an agreement. What we can measure is how
   much we need; OASA's own answers (their times and errors) are the only
-  sign of what it can take.
+  sign of what it can take. `/api/health` warns, from the past hour, when
+  10 or more stop answers (a tenth of those that needed OASA) were older ones
+  or none, when 95% of the busiest route's answers took 4 seconds or more,
+  when visitors' requests didn't fit the budget in 5 minutes, and when 45
+  stops were asked for in one minute (agreed 4 November 2026).
 - The collector takes up to a twelfth of the budget in the rush hours, and
   none of it when someone is waiting. It never asks in a burst: a queue makes
   the cache keep everyone's answers longer (the 12 stops asked at once in
