@@ -4,12 +4,17 @@ import { RELAY_VERSION } from '../proxy/worker.js';
 import { STALE_AFTER_DAYS } from './places/index.js';
 import { BUILD_MAX_MS, THREADS_WARN } from './processes.js';
 import { AIRPORT_STALE_DAYS, BUILD_MAX_AGE_MS, dataStatus, STASY_STALE_DAYS, TIMETABLE_WARN_DAYS } from './data/status.js';
+import { answerTime, answerTimeText, secondsText, STOPS_KEPT_FRESH, total } from './oasa/usage.js';
 
 // GET /api/health: whether the live site works, for the scheduled check in
 // .github/workflows/health.yml (and any uptime monitor). 200 when it's
 // healthy, 503 with the problems listed when it isn't:
-//   - live arrivals: a route to OASA answered in the past ARRIVALS_FRESH_MS
-//     (the scheduled check asks for a stop first, so this is current)
+//   - live arrivals: a route to OASA answered in the past ARRIVALS_FRESH_MS,
+//     or nothing needed OASA in that time, as on a quiet night or after a
+//     restart (the scheduled check asks for a stop first, so it always needs it)
+//   - OASA's use in the past hour (server/oasa/usage.js): answers that failed
+//     or came slowly, visitors' requests that didn't fit the budget, and how
+//     close the most stops in a minute came to what can be kept fresh
 //   - announcements: every source loaded on its last try (or, not tried yet
 //     since the server started, has announcements kept from before)
 //   - lifts: STASY's lift page loaded on its last try (not tried yet since
@@ -26,13 +31,25 @@ import { AIRPORT_STALE_DAYS, BUILD_MAX_AGE_MS, dataStatus, STASY_STALE_DAYS, TIM
 // Nothing here asks OASA: relays are only asked for their version.
 
 const ARRIVALS_FRESH_MS = 10 * 60_000;
+// OASA's use in the past hour, agreed on 4 November 2026 (roadmap item 39).
+// Failing: this many stop answers older or none, and this share of those that needed OASA
+const FAILED_ANSWERS = 10;
+const FAILED_SHARE = 0.1;
+// Slow: 95% of the busiest route's answers not under this (one of ANSWER_MS), from this many
+const SLOW_MS = 4_000;
+const SLOW_MIN_ANSWERS = 30;
+// The budget full: visitors' requests dropped in this many minutes
+const DROP_MINUTES = 5;
+// Close to the limit: this many different stops in one minute, of about STOPS_KEPT_FRESH
+const PEAK_STOPS = 45;
 const RELAY_TIMEOUT_MS = 5_000;
-// Answers are kept this long, so the page can't be used to load the relays
+// The relays' versions are kept this long, so the page can't be used to load
+// the relays; the rest is local, and worked out on each request
 const CACHE_MS = 60_000;
 
 /**
  * @param {{
- *   busStatus: () => { routes: { name: string, lastOk: number | null }[] },
+ *   busStatus: () => { lastAsked?: number | null, routes: { name: string, lastOk: number | null }[], usage?: ReturnType<import('./oasa/usage.js').Usage['status']> },
  *   announcementStatus: () => Record<string, { ok?: boolean, items?: number }>,
  *   liftStatus?: () => { ok?: boolean, updated: string | null },
  *   placesStatus?: () => { ok: boolean, built: string | null },
@@ -45,12 +62,33 @@ const CACHE_MS = 60_000;
  */
 export function createHealth({ busStatus, announcementStatus, liftStatus = () => ({ updated: null }), placesStatus = () => ({ ok: true, built: null }), buildDir, rawDir = join(dirname(buildDir), 'raw'), relays = [], processes = () => null, fetch = globalThis.fetch, now = Date.now }) {
     function arrivals() {
-        const working = busStatus().routes.filter(r => r.lastOk && now() - r.lastOk < ARRIVALS_FRESH_MS);
-        const last = Math.max(0, ...busStatus().routes.map(r => r.lastOk ?? 0));
+        const { routes, lastAsked } = busStatus();
+        const working = routes.filter(r => r.lastOk && now() - r.lastOk < ARRIVALS_FRESH_MS);
+        const last = Math.max(0, ...routes.map(r => r.lastOk ?? 0));
+        const asked = Boolean(lastAsked && now() - lastAsked < ARRIVALS_FRESH_MS);
         return {
-            ok: working.length > 0,
+            ok: working.length > 0 || !asked,
+            asked,
             route: working.sort((a, b) => b.lastOk - a.lastOk)[0]?.name ?? null,
             lastOk: last ? new Date(last).toISOString() : null,
+        };
+    }
+
+    // What the past hour's counts say; null when there are none
+    function oasaUse() {
+        const hour = busStatus().usage?.hour;
+        if (!hour) return null;
+        const failed = hour.answers.old + hour.answers.none;
+        const needed = hour.answers.oasa + failed;
+        const [route, busiest] = Object.entries(hour.routes).sort(([, a], [, b]) => b.ok - a.ok)[0] ?? [null, null];
+        const most = busiest && total(busiest.ms) >= SLOW_MIN_ANSWERS ? answerTime(busiest.ms, 0.95) : null;
+        return {
+            failed, needed,
+            failing: failed >= FAILED_ANSWERS && failed >= FAILED_SHARE * needed,
+            route, answers95: most === null ? null : answerTimeText(most),
+            slow: most !== null && most > SLOW_MS,
+            dropMinutes: hour.dropMinutes,
+            peakStops: hour.peaks.stops,
         };
     }
 
@@ -64,7 +102,13 @@ export function createHealth({ busStatus, announcementStatus, liftStatus = () =>
         return { ok: s.ok ?? true, updated: s.updated };
     }
 
-    async function relayVersions() {
+    let kept = null;
+    function relayVersions() {
+        if (!kept || now() - kept.at >= CACHE_MS) kept = { at: now(), versions: askRelays() };
+        return kept.versions;
+    }
+
+    async function askRelays() {
         return Object.fromEntries(await Promise.all(relays.map(async relay => {
             let version = null;
             try {
@@ -86,9 +130,14 @@ export function createHealth({ busStatus, announcementStatus, liftStatus = () =>
 
     async function check() {
         const { build: data, stasy, airport } = dataStatus({ buildDir, rawDir, now });
-        const result = { arrivals: arrivals(), announcements: announcements(), lifts: lifts(), places: placesStatus(), data, stasy, airport, relays: await relayVersions(), server: server() };
+        const result = { arrivals: arrivals(), oasa: oasaUse(), announcements: announcements(), lifts: lifts(), places: placesStatus(), data, stasy, airport, relays: await relayVersions(), server: server() };
         const problems = [];
         if (!result.arrivals.ok) problems.push(`Live arrivals: no route to OASA has answered in the past ${ARRIVALS_FRESH_MS / 60_000} minutes`);
+        const { oasa } = result;
+        if (oasa?.failing) problems.push(`OASA: ${oasa.failed} of ${oasa.needed} stop answers in the past hour were older ones or none, as OASA didn't answer (details on /admin/usage)`);
+        if (oasa?.slow) problems.push(`OASA: 95% of its answers through the ${oasa.route} in the past hour took ${secondsText(SLOW_MS)} or more (details on /admin/usage)`);
+        if (oasa && oasa.dropMinutes >= DROP_MINUTES) problems.push(`Request budget: visitors' requests to OASA didn't fit it in ${oasa.dropMinutes} minutes of the past hour, so they saw older arrivals (details on /admin/usage)`);
+        if (oasa && oasa.peakStops >= PEAK_STOPS) problems.push(`Request budget: ${oasa.peakStops} different stops were asked for in one minute in the past hour, close to the about ${STOPS_KEPT_FRESH} that can be kept fresh (details on /admin/usage)`);
         for (const [name, ok] of Object.entries(result.announcements.sources)) {
             if (!ok) problems.push(`Announcements: ${name} didn't load on its last try`);
         }
@@ -124,11 +173,9 @@ export function createHealth({ busStatus, announcementStatus, liftStatus = () =>
         return { ok: problems.length === 0, checked: new Date(now()).toISOString(), problems, ...result };
     }
 
-    let cached = null;
     const router = express.Router();
     router.get('/', async (_req, res) => {
-        if (!cached || now() - cached.at >= CACHE_MS) cached = { at: now(), result: check() };
-        const result = await cached.result;
+        const result = await check();
         res.status(result.ok ? 200 : 503).set('Cache-Control', 'no-store').json(result);
     });
     return Object.assign(router, { check });

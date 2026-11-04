@@ -433,6 +433,22 @@ test('the last route rests only a minute, since nothing comes after it', async (
     assert.match(logs.join('\n'), /5 home relay failures in a row \(last: home down\); resting it for 60 s$/m);
 });
 
+test('OASA counts as needed when anything asks for it, refused or not, but not for a route\'s test', async () => {
+    const c = clock();
+    const { fetch } = chainFetch({ direct: false, relay: false, home: false });
+    const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: quiet, relays: [RELAY, HOME] });
+    await settle();
+    assert.equal(client.status().lastAsked, null, 'the tests at startup');
+    for (let i = 0; i < 5; i++) await assert.rejects(client.request('getStopArrivals', '1'));
+    c.advance(5_000);
+    // Every route resting: refused without a call, but someone needed it
+    await assert.rejects(client.request('getStopArrivals', '1'), /paused/);
+    assert.equal(client.status().lastAsked, c.now());
+    c.advance(5_000);
+    await assert.rejects(client.request('getStopArrivals', '2', { lane: 'low' }));
+    assert.equal(client.status().lastAsked, c.now(), 'the collector too');
+});
+
 // ── What is counted (server/oasa/usage.js) ──────────────────────────────────
 
 test('the client counts each request by kind, each call by route and its time, and what didn\'t go ahead', async () => {

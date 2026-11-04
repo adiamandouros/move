@@ -441,7 +441,11 @@ so the trial can be repeated, and trips riders know can be tested as it improves
 ## Monitoring
 
 `/api/health` (`server/health.js`) says whether the live site works:
-- live arrivals have come in recently;
+- live arrivals have come in recently, or nothing needed them (a quiet
+  night, a restart);
+- OASA answered and fast enough over the past hour, and the request budget
+  held, with room to spare ([decision 26](docs/decisions/0026-bus-pass-collector.md)
+  has the numbers);
 - every announcement source loaded;
 - last night's data build worked, and its checks of the metro timetable
   found no problems;
