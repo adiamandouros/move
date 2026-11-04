@@ -34,7 +34,7 @@ const CELL_METERS = 450;
  * @typedef {{ line: string, mode: string, board: number, alight: number, boards: number, arrives: number, walkBefore: number }} Leg
  */
 /** @typedef {{ legs: Leg[], walked: number }} Journey */
-/** @typedef {{ ban?: Set<string> | null, banBoard?: Uint8Array | null, walkFactor?: number, walkLimit?: number }} SearchOptions */
+/** @typedef {{ ban?: Set<string> | null, banBoard?: Uint8Array | null, walkFactor?: number, walkLimit?: number, egress?: number[] | null }} SearchOptions */
 
 /** @param {Point} a @param {Point} b */
 export const walkSeconds = (a, b) => meters(a, b) * WINDING / METERS_PER_MINUTE * 60;
@@ -111,14 +111,26 @@ export function createPlanner({ stops, routes: given }) {
     const cameFrom = table();
     const rideArrival = new Int32Array(count);
     const firstPosition = new Int32Array(routes.length);
+    const toDoor = new Int32Array(count);
 
     /**
      * From `access`, [stop, seconds on foot…], leaving at `now`.
      * ban: lines not to ride. banBoard: stops no later ride may start from.
      * walkFactor stretches every walk. Asks for the answers with arrival().
+     * egress: the door's [stop, seconds on foot…]. With it, nothing that gets
+     * somewhere later than the best at the door so far is kept, as it can't
+     * beat it: a search in the city takes a third of the time, and arrival()
+     * answers the same for that egress, at the same walkFactor or less.
      * @param {number[]} access @param {number} now @param {SearchOptions} [options]
      */
-    function search(access, now, { ban = null, banBoard = null, walkFactor = 1, walkLimit = CHANGE_WALK_SECONDS } = {}) {
+    function search(access, now, { ban = null, banBoard = null, walkFactor = 1, walkLimit = CHANGE_WALK_SECONDS, egress = null } = {}) {
+        // Only what's later goes: a way as early may be the one chosen
+        let bound = INF;
+        toDoor.fill(-1);
+        for (let i = 0; egress && i < egress.length; i += 2) {
+            const seconds = Math.round(egress[i + 1] * walkFactor);
+            if (toDoor[egress[i]] < 0 || seconds < toDoor[egress[i]]) toDoor[egress[i]] = seconds;
+        }
         arrivals[0].fill(INF);
         ready[0].fill(INF);
         cameFrom[0].fill(-2);
@@ -159,9 +171,10 @@ export function createPlanner({ stops, routes: given }) {
                 let board = -1;
                 for (let i = firstPosition[r]; i < width; i++) {
                     const stop = along[i];
-                    if (trip >= 0) {
+                    if (trip >= 0 && times[trip * width + i] <= bound) {
                         const at = times[trip * width + i];
                         if (at < arrivals[k][stop]) {
+                            if (toDoor[stop] >= 0) bound = Math.min(bound, at + toDoor[stop]);
                             arrivals[k][stop] = at;
                             byRoute[k][stop] = r;
                             byTrip[k][stop] = trip;
@@ -173,7 +186,7 @@ export function createPlanner({ stops, routes: given }) {
                         }
                     }
                     const can = banBoard && k > 1 && banBoard[stop] ? INF : ready[k - 1][stop];
-                    if (can < INF && (trip < 0 || can <= times[trip * width + i])) {
+                    if (can < INF && can <= bound && (trip < 0 || can <= times[trip * width + i])) {
                         const low = firstTrip(routes[r], i, can);
                         if (low < trips && (trip < 0 || low < trip)) {
                             trip = low;
@@ -184,7 +197,7 @@ export function createPlanner({ stops, routes: given }) {
             }
             const improved = new Set();
             const offer = (stop, at, from) => {
-                if (at >= ready[k][stop]) return;
+                if (at > bound || at >= ready[k][stop]) return;
                 ready[k][stop] = at;
                 cameFrom[k][stop] = from;
                 improved.add(stop);

@@ -84,6 +84,24 @@ test('a line can be banned, and a stop for every ride but the first', () => {
     assert.equal(planner.arrival(to(D)).at, minutes(15));
 });
 
+test('with the door given, what gets somewhere after its best is left out, and the door\'s answers stay', () => {
+    const planner = createPlanner({ stops, routes: [
+        ride('M1', [A, B], [minutes(0), minutes(5)]),
+        ride('Bus', [B, D], [minutes(10), minutes(15)]),
+        ride('Same', [A, D], [minutes(2), minutes(15)]),
+        ride('Late', [A, E], [minutes(5), minutes(40)]),
+    ] });
+    const door = [D, 60];
+    planner.search(from(A), H8);
+    const without = [1, 2].map(rides => planner.arrival(door, rides));
+    const way = fastest(planner, from(A), door);
+    assert.equal(planner.arrival(to(E)).at, minutes(40));
+    planner.search(from(A), H8, { egress: door });
+    assert.equal(planner.arrival(to(E)).at, null, 'past 08:16 at the door: no use');
+    assert.deepEqual([1, 2].map(rides => planner.arrival(door, rides)), without);
+    assert.deepEqual(fastest(planner, from(A), door), way, 'as early with one ride: the same way is chosen');
+});
+
 test('trips that overtake each other are all found', () => {
     const planner = createPlanner({ stops, routes: [
         ride('Bus', [A, D], [minutes(0), minutes(40)], [minutes(5), minutes(20)]),
@@ -658,6 +676,25 @@ test('to Peristeri: every line from Aigaleo that reaches the door is offered', (
     const fromAigaleo = waysAt(PERISTERI, 8.5 * 3600).filter(way => way.legs[0].line === 'M3' && way.legs.length === 2 && at('rail:aigaleo') === lab.stops[way.legs[0].alight]);
     const offered = new Set(fromAigaleo.map(way => way.legs[1].line));
     for (const line of ['703', '891', '845', '750']) assert.ok(offered.has(line), `${line} of ${[...offered]}`);
+});
+
+test('with the door given, the search answers the same on the real network, lines banned too', () => {
+    const answers = (egress, now, ban, door) => {
+        lab.search(start, now, { ban, egress: door });
+        const way = fastest(lab, start, egress);
+        return { rides: [1, 2, 3, 4, 5, 6].map(rides => lab.arrival(egress, rides)), way };
+    };
+    for (const id of [KALLITHEA, KOLONOS, PERISTERI]) {
+        const egress = towards(id);
+        for (const now of [7.5, 8.5, 13, 23].map(hour => hour * 3600)) {
+            const plain = answers(egress, now, new Set(), null);
+            assert.deepEqual(answers(egress, now, new Set(), egress), plain, `${id} at ${now}`);
+            for (const leg of plain.way?.legs ?? []) {
+                const ban = new Set([leg.line]);
+                assert.deepEqual(answers(egress, now, ban, egress), answers(egress, now, ban, null), `${id} at ${now} without ${leg.line}`);
+            }
+        }
+    }
 });
 
 // Each trip's answer for 30 minutes of departures from 08:30, worked out once
