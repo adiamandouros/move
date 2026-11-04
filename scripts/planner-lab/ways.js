@@ -77,7 +77,7 @@ export function findWays(planner, access, egress, now, { budget = BUDGET, slack 
         asked.add(signature);
         const banBoard = new Uint8Array(planner.stops.length);
         for (const stop of places) banBoard[stop] = 1;
-        planner.search(access, now, { ban: new Set(lines), banBoard, walkLimit });
+        planner.search(access, now, { ban: new Set(lines), banBoard, walkLimit, egress });
         return fastest(planner, access, egress);
     };
 
@@ -155,7 +155,7 @@ export function describeWay({ stops }, way, now) {
 export function acrossWindow(planner, access, egress, { from, to, step = 60, walkLimit }) {
     const departures = [];
     for (let now = from; now <= to; now += step) {
-        planner.search(access, now, { walkLimit });
+        planner.search(access, now, { walkLimit, egress });
         departures.push({ now, way: fastest(planner, access, egress) });
     }
     return departures;
