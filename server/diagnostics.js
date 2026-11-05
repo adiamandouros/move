@@ -223,7 +223,7 @@ function dataChecks(dataDir, now) {
         const { timetableEnds: ends, timetableDaysLeft: left } = status.build;
         if (ends) {
             out.push(left < TIMETABLE_WARN_DAYS
-                ? check('Data', 'Metro timetable', 'warn', `Ends on ${ends} (in ${left} days), and no newer one has been published yet`,
+                ? check('Data', 'Metro timetable', 'warn', `${left < 0 ? `Ended on ${ends}` : `Ends on ${ends} (in ${left} days)`}, and no newer one has been published yet`,
                     'A new feed is picked up by the nightly build as soon as OASA publishes it. After the last day, the planner uses the feed\'s last full week.')
                 : check('Data', 'Metro timetable', 'ok', `Runs until ${ends} (in ${left} days)`));
         }

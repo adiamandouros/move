@@ -44,7 +44,7 @@ const STASY_OK = { last: { at: '2026-10-01T02:30:00.000Z', ok: true, route: 'hom
 
 // airportCheck: the last check of STASY's airport timetable (null: none yet)
 const AIRPORT_OK = { at: '2026-10-14T02:30:00.000Z', checked: '2026-10-14T02:30:00.000Z', changes: [], route: 'home relay' };
-function dataDir({ hoursAgo = 2, failed = null, lastFetch = null, stasy = STASY_OK, airportCheck = AIRPORT_OK } = {}) {
+function dataDir({ hoursAgo = 2, failed = null, lastFetch = null, stasy = STASY_OK, airportCheck = AIRPORT_OK, validTo = null } = {}) {
     const dir = mkdtempSync(join(tmpdir(), 'move-diag-'));
     mkdirSync(join(dir, 'build'));
     if (lastFetch) {
@@ -59,7 +59,7 @@ function dataDir({ hoursAgo = 2, failed = null, lastFetch = null, stasy = STASY_
         mkdirSync(join(dir, 'raw', 'stasy'), { recursive: true });
         writeFileSync(join(dir, 'raw', 'stasy', 'airport-check.json'), JSON.stringify(airportCheck));
     }
-    writeFileSync(join(dir, 'build', 'rail.json'), JSON.stringify(stasy.fetched ? { hours: { fetched: stasy.fetched } } : {}));
+    writeFileSync(join(dir, 'build', 'rail.json'), JSON.stringify({ ...(stasy.fetched && { hours: { fetched: stasy.fetched } }), ...(validTo && { feed: { validTo } }) }));
     writeFileSync(join(dir, 'build', 'meta.json'), JSON.stringify({
         generated: new Date(NOW - hoursAgo * 3_600_000).toISOString(),
         outputs: { 'rail.json': failed ? { ok: false, error: failed, keptPrevious: true } : { ok: true, warnings: stasy.warnings ?? [], checks: stasy.checks } },
@@ -225,6 +225,13 @@ test('the bus network\'s last fetch: how far a stopped one got, as a bar; a fini
 
     // Never fetched: nothing to say (the bus files' own rows say if they're missing)
     assert.equal(await network(null), undefined);
+});
+
+test('the metro timetable: how long it runs, and once its last day has passed, that it ended', async () => {
+    const row = async validTo => (await run(world(), { dataDir: dataDir({ validTo }) })).checks.find(c => c.title === 'Metro timetable');
+    assert.deepEqual([(await row('2026-10-31')).status, (await row('2026-10-31')).detail], ['ok', 'Runs until 2026-10-31 (in 28 days)']);
+    assert.deepEqual([(await row('2026-10-06')).status, (await row('2026-10-06')).detail], ['warn', 'Ends on 2026-10-06 (in 3 days), and no newer one has been published yet']);
+    assert.deepEqual([(await row('2026-10-01')).status, (await row('2026-10-01')).detail], ['warn', 'Ended on 2026-10-01, and no newer one has been published yet']);
 });
 
 test('STASY\'s timetables: the copy the pages use, and what went wrong with the last fetch', async () => {

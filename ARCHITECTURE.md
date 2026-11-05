@@ -461,8 +461,10 @@ error details. Every 30 minutes, `.github/workflows/health.yml` runs
 `scripts/health-check.js` against wayhop.gr. It asks what a visitor would
 (the home pages, one stop's arrivals, the announcements), then reads the
 health page, and rechecks a problem after 2 minutes. While the site is
-unhealthy, an issue labelled `health` stays open; GitHub emails it.
-`/admin/diagnostics` has the details. How the data stands (the build's age
+unhealthy, an issue labelled `health` stays open; GitHub emails it. A run
+fails, and comments on the issue, only when the problems change (the
+report's mark: which problems, without their numbers), so a known problem
+doesn't send an email every half hour. `/admin/diagnostics` has the details. How the data stands (the build's age
 and parts, the timetable's end, STASY's copy, the airport check) is judged
 once, in `server/data/status.js`, so the two always agree.
 

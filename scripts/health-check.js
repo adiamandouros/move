@@ -2,12 +2,15 @@
 // site what a visitor would, then reads its health page (server/health.js).
 // A problem is checked again RECHECK_MS later before it counts, so a blip
 // doesn't raise an alarm. Prints a report (Markdown) and exits 1 on problems.
+// The report ends with a mark of which problems there are, so the workflow
+// can tell when they change (problemsMark).
 //
 //   node scripts/health-check.js [https://wayhop.gr]
 //
 // Each run asks for one stop's live arrivals, so OASA gets at most one
 // request (none if the stop is cached), two when a problem is rechecked.
 
+import { createHash } from 'crypto';
 import { appendFileSync } from 'fs';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
@@ -52,6 +55,15 @@ export async function runChecks(site, fetch = globalThis.fetch) {
     return { problems, health };
 }
 
+// Which problems there are, without their numbers: counts and days left
+// change from run to run, the trouble doesn't. The workflow comments on the
+// open issue, and fails, only when this changes. An HTML comment, so it
+// doesn't show
+export function problemsMark(problems) {
+    const kinds = [...new Set(problems.map(p => p.replace(/\d+/g, '#')))].toSorted();
+    return `<!-- problems: ${createHash('sha256').update(kinds.join('\n')).digest('hex').slice(0, 16)} -->`;
+}
+
 export function report(site, { problems, health }, at = new Date()) {
     const lines = [
         problems.length ? `## ${site}: ${problems.length} problem${problems.length === 1 ? '' : 's'}` : `## ${site}: healthy`,
@@ -61,6 +73,7 @@ export function report(site, { problems, health }, at = new Date()) {
         `Checked ${at.toISOString()}. Details: ${site}/admin/diagnostics`,
     ];
     if (health) lines.push('', '<details><summary>Health page</summary>', '', '```json', JSON.stringify(health, null, 2), '```', '', '</details>');
+    lines.push('', problemsMark(problems));
     return lines.join('\n');
 }
 

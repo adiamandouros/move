@@ -1,7 +1,10 @@
 # Checks wayhop.gr every 30 minutes (scripts/health-check.js). When it's
 # unhealthy, an issue labelled "health" is opened, which GitHub emails to the
 # repository's watchers; it's closed when the site is healthy again. One
-# issue per outage: later failures don't add to it.
+# issue per outage. A later run comments on it, and fails, only when the
+# problems change (the report's mark, problemsMark): while they stay the same
+# the run passes, so a known problem, such as a timetable OASA hasn't
+# renewed yet, doesn't send an email about a failed run every half hour.
 # (GitHub may run scheduled jobs a few minutes late, and pauses them after
 # 60 days without activity in the repository.)
 name: Health
@@ -30,7 +33,7 @@ jobs:
         id: check
         continue-on-error: true
         run: node scripts/health-check.js https://wayhop.gr > report.md
-      - name: Open or close the health issue
+      - name: Open, update or close the health issue
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -39,8 +42,14 @@ jobs:
             if [ -z "$open" ]; then
               gh label create health --color B60205 --description "wayhop.gr health check" 2>/dev/null || true
               gh issue create --title "wayhop.gr health check is failing" --label health --body-file report.md
+              exit 1
             fi
-            exit 1
+            # The problems the issue last reported, against today's
+            said=$(gh issue view "$open" --json body,comments --jq '[.body, .comments[].body] | map(capture("(?<m><!-- problems: [0-9a-f]+ -->)").m) | last // ""')
+            if [ "$(grep -o '<!-- problems: [0-9a-f]* -->' report.md)" != "$said" ]; then
+              gh issue comment "$open" --body-file report.md
+              exit 1
+            fi
           elif [ -n "$open" ]; then
             gh issue close "$open" --comment "Healthy again. $(head -1 report.md)"
           fi

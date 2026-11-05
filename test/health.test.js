@@ -8,7 +8,7 @@ import { RELAY_VERSION } from '../proxy/worker.js';
 import { createHealth } from '../server/health.js';
 import { createUsage } from '../server/oasa/usage.js';
 import { securityHeaders } from '../server/security.js';
-import { report, runChecks } from '../scripts/health-check.js';
+import { problemsMark, report, runChecks } from '../scripts/health-check.js';
 import { listen } from './support/listen.js';
 
 // The health page (server/health.js), the security headers, and the
@@ -184,6 +184,11 @@ test('each kind of trouble is named', async () => {
     ]) assert.match(text, expected);
 });
 
+test('a metro timetable that has ended says so, without counting days', async () => {
+    const ended = await health({ dir: buildDir({ validTo: '2026-10-15' }) }).check();
+    assert.deepEqual(ended.problems, ['Timetable: the metro timetable ended on 2026-10-15 and no newer one has been published yet']);
+});
+
 test('STASY\'s timetables: pages that couldn\'t be read on the last try, or a copy over 45 days old', async () => {
     assert.deepEqual((await health().check()).stasy, { ok: true, fetched: '2026-10-10', daysOld: 8, unreadable: false });
     // Not fetched yet (the relays' versions say why): the pages use the GTFS's times meanwhile
@@ -296,6 +301,19 @@ test('the check collects every problem, its own and the health page\'s', async (
     const text = report('https://wayhop.example', result, new Date(NOW));
     assert.match(text, /^## https:\/\/wayhop\.example: 3 problems\n\n- Page \/el: HTTP timeout\n/);
     assert.match(report('https://wayhop.example', { problems: [], health: null }), /: healthy/);
+});
+
+test('the report ends with a mark of which problems there are, which their numbers don\'t change', () => {
+    const failing = n => `OASA: ${n} of ${n * 10} stop answers in the past hour were older ones or none, as OASA didn't answer (details on /admin/usage)`;
+    const ended = 'Timetable: the metro timetable ended on 2026-10-31 and no newer one has been published yet';
+    // The same trouble, other counts, another order: no news, so the scheduled run passes
+    assert.equal(problemsMark([failing(12), ended]), problemsMark([ended, failing(40)]));
+    assert.match(problemsMark([ended]), /^<!-- problems: [0-9a-f]{16} -->$/);
+    // A problem more or less is news: the run comments on the open issue and fails
+    assert.notEqual(problemsMark([ended]), problemsMark([ended, failing(12)]));
+    assert.notEqual(problemsMark([ended, failing(12)]), problemsMark([failing(12)]));
+    const text = report('https://wayhop.example', { problems: [ended], health: { ok: false } }, new Date(NOW));
+    assert.equal(text.split('\n').at(-1), problemsMark([ended]));
 });
 
 test('STASY\'s airport timetable: a change since airport.json, or no check for over 21 days, is a problem', async () => {
