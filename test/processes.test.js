@@ -200,8 +200,10 @@ test('the deploy script stops old copies after restarting the app', () => {
     for (const f of ['scripts/cpanel-deploy.sh', 'scripts/stop-old-copies.js', 'server/processes.js']) copyFileSync(f, join(app, f));
     writeFileSync(join(bin, 'cloudlinux-selector'), `#!/bin/sh\necho "selector $1" >> "${home}/calls"\n`);
     chmodSync(join(bin, 'cloudlinux-selector'), 0o755);
+    // Node hands its coverage on to every child, even one with an environment
+    // of its own: empty, so this copy isn't counted beside the app's own code
     const out = execFileSync('bash', [join(app, 'scripts/cpanel-deploy.sh')], {
-        env: { HOME: home, PATH: `${bin}:${join(process.execPath, '..')}:/usr/bin:/bin` }, encoding: 'utf8',
+        env: { HOME: home, PATH: `${bin}:${join(process.execPath, '..')}:/usr/bin:/bin`, NODE_V8_COVERAGE: '' }, encoding: 'utf8',
     });
     assert.match(out, /No copies left from before the restart\n\[deploy\] Done\./);
 });
