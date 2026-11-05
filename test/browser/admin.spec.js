@@ -273,6 +273,25 @@ test.describe('saved underground', () => {
     });
 });
 
+test('the station editor fills in STASY\'s elevators toward the platform\'s direction, leaving where each is', async ({ page }) => {
+    await openEditor(page);
+    await page.getByRole('button', { name: 'M2', exact: true }).click();
+    await page.getByRole('button', { name: '→ Elliniko' }).click();
+    await page.getByLabel('Station', { exact: true }).selectOption('omonia');
+    await page.getByRole('radio', { name: 'Elevators', exact: true }).check();
+    // Of Omonia's two, «Προς Ανθούπολη» is the other platform's
+    const first = page.getByRole('group', { name: 'Elevator 1' });
+    await expect(first.getByLabel('Name', { exact: true })).toHaveValue('Προς Ελληνικό');
+    await expect(first.getByLabel('Where')).toHaveValue('');
+    await expect(page.getByRole('group', { name: 'Elevator 2' })).toHaveCount(0);
+    expect(await axe(page)).toEqual([]);
+    // Not over one already listed: back to "not known", and the row stays as it was
+    await first.getByLabel('Where').selectOption('back');
+    await page.getByRole('radio', { name: 'Not known yet' }).check();
+    await page.getByRole('radio', { name: 'Elevators', exact: true }).check();
+    await expect(first.getByLabel('Where')).toHaveValue('back');
+});
+
 test('the station editor: an elevator needs to say where it is; "no elevator", or a platform reached by a ramp, isn\'t marked missing', async ({ page }) => {
     const saved = await fakeSaves(page);
     await openEditor(page);
