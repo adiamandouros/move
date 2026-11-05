@@ -35,12 +35,10 @@ see open today on 4,344 of the 15,732 trips at 13:00.
   the quickest way with each number of rides, up to 3 changes. The options
   are chosen from all of them as before, so today's stay, and the quickest
   way is always among them.
-- **A trip never rides out and back only to walk on.** The search never walks
-  on, to another stop or to the door, from a stop it could have walked to from
-  the start sooner: that ride would only join two walks, which the planner
-  doesn't do. And none of its routes gets off at a station it has already been
-  through, as today's never do: a ride out and back in the middle of a trip,
-  rare, is left out.
+- **A route never gets off at a station it has already been through**, the
+  search's as today's: the search alone would sometimes ride out and back only
+  to join two walks, which the planner doesn't do, and such a route is left
+  out.
 - **The tram is in the Subway tool, in the same list.** Every tram stop is a
   row of its own, even one with a metro station's name, as those may be far
   apart: tram Agia Paraskevi is 12 km from the metro station. Those six say

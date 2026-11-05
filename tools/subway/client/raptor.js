@@ -27,10 +27,8 @@ export const CHANGE_SECONDS = 180;
 /**
  * afterWalk: seconds after a walk before the next ride, on top of the walk.
  * walkSeconds: how long a walk between two stops is said to take (the walks'
- * own seconds if not given). walkOnAgain: false never walks on, to a ride
- * or to the door, from a stop it could have walked to from the start sooner:
- * a ride out and back to it would only join two walks
- * @typedef {{ afterWalk?: number, walkSeconds?: ((from: number, to: number) => number) | null, walkOnAgain?: boolean }} PlannerOptions
+ * own seconds if not given)
+ * @typedef {{ afterWalk?: number, walkSeconds?: ((from: number, to: number) => number) | null }} PlannerOptions
  */
 
 // A route's trips, in as many routes as it takes for none to overtake another:
@@ -66,7 +64,7 @@ function firstTrip({ trips, width, times }, position, from) {
  * @param {{ stops: unknown[], routes: Route[], walks: number[][] }} network
  * @param {PlannerOptions} [options]
  */
-export function createPlanner({ stops, routes: given, walks }, { afterWalk = 0, walkSeconds = null, walkOnAgain = true } = {}) {
+export function createPlanner({ stops, routes: given, walks }, { afterWalk = 0, walkSeconds = null } = {}) {
     const count = stops.length;
     const routes = given.flatMap(withoutOvertaking);
     const serving = stops.map(() => []);
@@ -89,8 +87,6 @@ export function createPlanner({ stops, routes: given, walks }, { afterWalk = 0, 
     const rideArrival = new Int32Array(count);
     const firstPosition = new Int32Array(routes.length);
     const toDoor = new Int32Array(count);
-    // When each stop can be reached on foot from the start
-    const fromStart = new Int32Array(count);
 
     /**
      * From `access`, [stop, seconds on foot…], leaving at `now`.
@@ -113,14 +109,12 @@ export function createPlanner({ stops, routes: given, walks }, { afterWalk = 0, 
         arrivals[0].fill(INF);
         ready[0].fill(INF);
         cameFrom[0].fill(-2);
-        fromStart.fill(INF);
         let marked = [];
         for (let i = 0; i < access.length; i += 2) {
             const stop = access[i];
             const at = now + Math.round(access[i + 1] * walkFactor);
             if (at < ready[0][stop]) {
                 ready[0][stop] = at;
-                fromStart[stop] = at;
                 marked.push(stop);
             }
         }
@@ -186,7 +180,6 @@ export function createPlanner({ stops, routes: given, walks }, { afterWalk = 0, 
             for (const stop of reached) {
                 const at = rideArrival[stop];
                 offer(stop, at + CHANGE_SECONDS, stop);
-                if (!walkOnAgain && fromStart[stop] <= at) continue;
                 const near = walks[stop];
                 for (let j = 0; j < near.length; j += 2) {
                     if (near[j + 1] <= walkLimit) offer(near[j], at + Math.round(near[j + 1] * walkFactor) + afterWalk, stop);
@@ -211,7 +204,7 @@ export function createPlanner({ stops, routes: given, walks }, { afterWalk = 0, 
         let stop = -1;
         for (let i = 0; i < egress.length; i += 2) {
             const at = arrivals[rides][egress[i]];
-            if (at >= INF || (!walkOnAgain && egress[i + 1] > 0 && fromStart[egress[i]] <= at)) continue;
+            if (at >= INF) continue;
             const there = at + Math.round(egress[i + 1] * walkFactor);
             if (there < best) {
                 best = there;

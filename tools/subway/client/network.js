@@ -302,16 +302,14 @@ function searchFor(rail, now, ownDay) {
         }
     }
     const walks = ids.map(id => walksFrom(rail, id).flatMap(([to, minutes]) => [index.get(to), minutes * 60]));
-    // Never back to a station already reached on foot, to walk on from it
-    const search = { ids, index, routes, planner: createPlanner({ stops: ids, routes, walks }, { walkOnAgain: false }) };
+    const search = { ids, index, routes, planner: createPlanner({ stops: ids, routes, walks }) };
     made.set(key, search);
     return search;
 }
 
 // Whether a route gets off where it has already been: where it starts, where
 // it walks to first, or a station a train took it through. findRoutes' never
-// do; one of the search's could, riding out and back in the middle of a trip
-// to join two walks
+// do; one of the search's could, riding out and back only to join two walks
 /** @param {Rail} rail @param {string} from @param {Route} route */
 function comesBack(rail, from, route) {
     const been = new Set([from, route.legs[0].from]);
