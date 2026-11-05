@@ -25,7 +25,7 @@ import { readCsv, readCsvAll } from './csv.js';
 // The timetable is the feed's, on the metro's week and dates (`calendar`, from
 // buildRail). Unlike the metro's it isn't held to STASY's: its first and last
 // trams agree with STASY's tram page, but for the last trams to 2nd Agiou
-// Kosma, which only STASY has (checked by hand, record 25).
+// Kosma, which only STASY has (checked by hand, record 28).
 //
 // A problem here is a warning, never a failed rail.json: a stop the curated
 // file doesn't know is left out, and without the tram the metro still works.

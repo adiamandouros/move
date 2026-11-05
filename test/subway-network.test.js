@@ -93,10 +93,33 @@ test('a route with another change stays only if it gets there 5 minutes sooner',
     assert.deepEqual(planJourney(shortcut(55, 59), 's', 'e', EIGHT).map(lines), ['A,B', 'Slow']);
 });
 
-test('only one change more than the fewest is looked at', () => {
-    // The two-change route would be quickest, but the trip takes none
-    assert.deepEqual(planJourney(shortcut(59, 30), 's', 'e', EIGHT).map(lines), ['Slow']);
+test('the quickest route is found with more changes than the fewest and one more', () => {
+    // The trip takes no change, and the two-change route is half an hour sooner.
+    // The one-change route is a minute sooner than Slow: not worth it
+    assert.deepEqual(planJourney(shortcut(59, 30), 's', 'e', EIGHT).map(lines), ['A,C,D', 'Slow']);
+    // findRoutes alone lists the fewest changes and one more; the search adds the quickest
     assert.deepEqual(findRoutes(shortcut(59, 30), 's', 'e').map(lines), ['Slow', 'A,B']);
+});
+
+test('a trip never rides out and back to walk on from where it already was on foot', () => {
+    // s is a walk from f, and f a walk from t, but s isn't one from t. Out to q
+    // on M and back to f would get to t at 8:22, for the 8:25 tram to e at 8:30;
+    // the trip is the slow line from s instead, at 8:40
+    const at = minutes => 8 * H + minutes * 60;
+    const line = (stops, trips) => ({
+        directions: {
+            only: {
+                stops: stops.map(station => ({ station, exits: [] })),
+                timetable: { profiles: [{ stops: [0, 1], offsets: [0, 5 * 60] }], patterns: [trips.map(start => [at(start), 0])], days: everyDay(0) },
+            },
+        },
+    });
+    const walked = {
+        stations: Object.fromEntries(['s', 'f', 'q', 't', 'e'].map(id => [id, { lines: [], coords: [38, 23] }])),
+        lines: { M: line(['f', 'q'], [4]), Back: line(['q', 'f'], [12]), T: line(['t', 'e'], [25]), Slow: line(['s', 'e'], [35]) },
+        walks: { s: { f: 3 }, f: { s: 3, t: 5 }, t: { f: 5 } },
+    };
+    assert.deepEqual(planJourney(walked, 's', 'e', EIGHT).map(lines), ['Slow']);
 });
 
 test('departures skip near-duplicates, short trips and past trains, and flag the last ones', () => {

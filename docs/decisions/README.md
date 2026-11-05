@@ -36,6 +36,7 @@ decisions, or makes one of the same weight, comes with its page.
 | 22 | [Address search from OpenStreetMap, built on GitHub](0022-address-search.md) | In force |
 | 23 | [The trip page: door to door, beside Subway and Buses](0023-trip-page.md) | In force |
 | 24 | [Offline, and opening at once with no signal](0024-opening-without-signal.md) | In force |
-| 25 | [Trams in the subway planner](0025-trams-in-the-planner.md) | In force |
+| 25 | [Trams in the subway planner](0025-trams-in-the-planner.md) | Replaced by 28 |
 | 26 | [Our load on OASA and STASY, with the bus-pass collector](0026-bus-pass-collector.md) | In force |
 | 27 | [Reaching OASA and STASY: direct first, now that OASA answers from abroad](0027-oasa-direct-first.md) | In force |
+| 28 | [Trams in the subway planner, and the trip search behind it](0028-trip-search.md) | In force |

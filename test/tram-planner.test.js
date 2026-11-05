@@ -151,6 +151,43 @@ test('metro trains alone stay as they were beside the tram', () => {
     assert.deepEqual(planJourney(network, 'syntagma', 'monastiraki', NOW).map(legs), planJourney(rail, 'syntagma', 'monastiraki', NOW).map(legs));
 });
 
+test('the quickest way can take three changes: from Zappeio to Evangelistria, the metro beats two trams', () => {
+    const answer = now => planJourney(network, 'zappeio', 'evangelistria', now);
+    // 24 minutes sooner than T6 and T7, which still follow it
+    const [quickest, ...others] = answer(NOW);
+    assert.deepEqual(legs(quickest), ['T6 zappeio>syntagma-tram', 'M2 syntagma>omonia', 'M1 omonia>faliro', 'T7 gipedo-karaiskaki>evangelistria']);
+    assert.deepEqual(others.map(plan => plan.legs.map(leg => leg.line).join()), ['T6,T7', 'T6,T7']);
+    assert.equal(Math.round((others[0].arrives - quickest.arrives) / 60), 24);
+    // At 23:30 the trams can't make it tonight; the metro still can
+    const late = answer({ ...NOW, seconds: 23.5 * 3600 });
+    assert.notEqual(late[0].arrives, null);
+    assert.ok(late.slice(1).every(plan => plan.arrives === null), late.map(legs).join(' | '));
+});
+
+// Every option of a sample of trips: none gets off where it has already been,
+// on foot or by train, the start and the station walked to first included.
+// Late at night a ride out and back would join two walks: at the start from
+// Gipedo Karaiskaki, in the middle on M1 from Faliro on a Friday
+for (const [when, now] of [
+    ['a morning', NOW],
+    ['a Wednesday night', { ...NOW, seconds: 23.5 * 3600 }],
+    ['a Friday night', { weekday: 5, seconds: 23.83 * 3600, date: '2026-10-23' }],
+]) {
+    test(`no option gets off where it has already been, on ${when}`, () => {
+        const pairs = everyPair(stations).filter(([from, to], i) => i % 11 === 0 && !network.walks[from]?.[to]);
+        pairs.push(['gipedo-karaiskaki', 'agia-skepi'], ['34ou-syntagmatos', 'gipedo-karaiskaki']);
+        for (const [from, to] of pairs) {
+            for (const plan of planJourney(network, from, to, now)) {
+                const been = new Set([from, plan.legs[0].from]);
+                for (const leg of plan.legs) {
+                    assert.ok(!been.has(leg.to), `${from}>${to}: ${legs(plan)}`);
+                    network.lines[leg.line].directions[leg.dir].stops.slice(leg.fromIndex, leg.toIndex + 1).forEach(stop => been.add(stop.station));
+                }
+            }
+        }
+    });
+}
+
 test('a route doesn\'t ride back over the line it came on', () => {
     const lines = route => route.legs.map(leg => leg.line).join();
     // M3 out to Piraeus, then M3 back through Korydallos
