@@ -5,7 +5,10 @@
 //   node test/browser/data/update.js
 //
 // rail.json is copied whole (the real network, so tests can plan real
-// routes). bus-stops.json keeps only the stops around Syntagma and Omonia,
+// routes). It has to be built as of the tests' day, Wednesday 21 October 2026
+// (fixtures.js): a later build leaves out the dates before it, such as the
+// holiday on the 28th. runBuild({ offline: true, today: '20261021' }) in
+// server/data/index.js builds it so. bus-stops.json keeps only the stops around Syntagma and Omonia,
 // where the tests stand, to stay small, plus every stop of the few lines
 // bus-lines.json keeps (LINES), so their whole routes can be looked up.
 import { readFileSync, writeFileSync } from 'fs';

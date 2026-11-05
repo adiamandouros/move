@@ -386,7 +386,7 @@ test('under the trip, what the train shows: open, in words, and closes with the 
     await page.goto('/subway?from=syntagma&to=airport');
     const legend = page.locator('.diagram-legend');
     await expect(legend).toHaveAttribute('open', '');
-    await expect(legend.getByRole('listitem')).toContainText(['Ride in this part of the train', 'The way up from the platform', 'An elevator']);
+    await expect(legend.getByRole('listitem')).toContainText(['Ride in this part of the train', 'An escalator up', 'An elevator']);
     expect(await axe(page)).toEqual([]);
     await legend.locator('summary').focus();
     await page.keyboard.press('Enter');
