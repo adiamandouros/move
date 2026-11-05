@@ -328,9 +328,8 @@ function comesBack(rail, from, route) {
 function fastestRoutes(rail, from, to, now, ownDay) {
     const { ids, index, routes, planner } = searchFor(rail, now, ownDay);
     if (!index.has(from) || !index.has(to)) return [];
-    const around = id => [index.get(id), 0, ...walksFrom(rail, id).flatMap(([stop, minutes]) => [index.get(stop), minutes * 60])];
-    const egress = around(to);
-    planner.search(around(from), now.seconds, { egress });
+    const egress = around(rail, index, to);
+    planner.search(around(rail, index, from), now.seconds, { egress });
     const found = [];
     let best = Infinity;
     for (let rides = 1; rides <= MAX_CHANGES + 1; rides++) {
@@ -348,6 +347,22 @@ function fastestRoutes(rail, from, to, now, ownDay) {
         found.push(route);
     }
     return found;
+}
+
+// A station and those a walk from it, as the search takes them: [stop, seconds…]
+/** @param {Rail} rail @param {Map<string, number>} index @param {string} id */
+const around = (rail, index, id) => [index.get(id), 0, ...walksFrom(rail, id).flatMap(([stop, minutes]) => [index.get(stop), minutes * 60])];
+
+// When the search gets to each of `ends` from `from`, leaving at `now`, with
+// up to MAX_CHANGES changes: seconds from that day's midnight, or null if not
+// today. Quick, for weighing many pairs of stations before planning the few
+// that get there first (the Trip page)
+/** @param {Rail} rail @param {string} from @param {string[]} ends @param {AthensTime} now @returns {(number | null)[]} */
+export function arrivalsFrom(rail, from, ends, now) {
+    const { index, planner } = searchFor(rail, now, false);
+    if (!index.has(from)) return ends.map(() => null);
+    planner.search(around(rail, index, from), now.seconds);
+    return ends.map(end => index.has(end) ? planner.arrival(around(rail, index, end), MAX_CHANGES + 1).at : null);
 }
 
 /** @param {Route} route */
@@ -426,11 +441,13 @@ export function legPositions(rail, leg, next) {
     return { stop, exits, elevators: stop.elevators ?? [], escalators: next ? [] : stop.escalators ?? [], stairs: next ? [] : stop.stairs ?? [] };
 }
 
-/** @param {Rail} rail @param {number} lat @param {number} lng @returns {string} */
-export function closestStation(rail, lat, lng) {
+// tram: true for the nearest tram stop, false for the nearest metro station
+/** @param {Rail} rail @param {number} lat @param {number} lng @param {boolean} [tram] @returns {string} */
+export function closestStation(rail, lat, lng, tram) {
     let best = null;
     let bestDist = Infinity;
-    for (const [id, { coords }] of Object.entries(rail.stations)) {
+    for (const [id, { coords, tram: isTram }] of Object.entries(rail.stations)) {
+        if (tram !== undefined && Boolean(isTram) !== tram) continue;
         // Equirectangular approximation — plenty for picking the nearest station
         const x = (coords[1] - lng) * Math.cos((lat * Math.PI) / 180);
         const y = coords[0] - lat;

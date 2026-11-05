@@ -96,6 +96,23 @@ test.describe('the trip page', () => {
         await expect(from(page)).toHaveValue('');
     });
 
+    test('the tram, unless it\'s hidden on the Subway page: then the metro alone', async ({ page }) => {
+        const trip = async () => {
+            await page.goto('/trip');
+            await from(page).fill('Σταύρου 1');
+            await list(page, 'from').first().click();
+            await to(page).fill('Άλσος');
+            await list(page, 'to').first().click();
+            await expect(page.locator('.trip-card').first()).toBeVisible();
+        };
+        await trip();
+        await expect(page.locator('#trip-result .line-t6').first()).toBeVisible();
+        await page.evaluate(() => localStorage.setItem('tram-hidden', '1'));
+        await trip();
+        await expect(page.locator('#trip-result .line-m2').first()).toBeVisible();
+        await expect(page.locator('#trip-result .line-t6')).toHaveCount(0);
+    });
+
     test.describe('with search down', () => {
         test.use({ allowErrors: [/status of 503/] });
 

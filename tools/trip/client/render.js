@@ -48,9 +48,11 @@ function distance(meters) {
 
 const step = (when, content) => html`<li class="trip-step"><span class="trip-step-when">${when}</span><div class="trip-step-what">${content}</div></li>`;
 
+// A walk to `place`: from the door, or between two stations or stops, whose
+// minutes are the tram's walks (decision 28) and have no distance
 function walkStep(walk, words, place) {
     return step(`${walk.minutes}′`, html`${externalLink({ href: walkingUrl(place.lat, place.lng) }, words, t('shell.new-tab'))}
-        <div class="trip-step-note">${distance(walk.meters)}</div>`);
+        ${walk.meters !== undefined && html`<div class="trip-step-note">${distance(walk.meters)}</div>`}`);
 }
 
 function legStep(rail, leg) {
@@ -63,17 +65,23 @@ function legStep(rail, leg) {
 }
 
 const stationPlace = (rail, id) => ({ lat: rail.stations[id].coords[0], lng: rail.stations[id].coords[1] });
+const walkToStation = (rail, id, minutes) => walkStep({ minutes }, format(t('trip.walk-to'), { place: stationName(rail, id) }), stationPlace(rail, id));
+
+// The walk to where the first ride leaves: to the station, and on to a stop
+// beside it, if the trip starts there
+const walkToFirst = o => (o.start.walk?.minutes ?? 0) + (o.plan.walkFirst ?? 0);
 
 const standHref = (start, end) => `${localHref('/subway')}?${new URLSearchParams({ from: start.station, to: end.station })}`;
 
 function when(o) {
     const time = clockTime(o.arrives);
     if (!o.morning) return format(t('trip.arrive'), { time });
-    const leave = clockTime(o.plan.legs[0].departures[0].departs - (o.start.walk?.minutes ?? 0) * 60);
+    const leave = clockTime(o.plan.legs[0].departures[0].departs - walkToFirst(o) * 60);
     return format(t('trip.morning'), { leave, time });
 }
 
-// The fastest way, step by step
+// The fastest way, step by step. Where to stand is for the metro: a tram has
+// no front or back
 function tripCard(rail, o, to) {
     return html`<div class="trip-card result-card">
         <div class="trip-card-head">
@@ -82,10 +90,15 @@ function tripCard(rail, o, to) {
         </div>
         <ol class="trip-steps">
             ${o.start.walk && walkStep(o.start.walk, format(t('trip.walk-to'), { place: stationName(rail, o.start.station) }), stationPlace(rail, o.start.station))}
-            ${o.plan.legs.map(leg => legStep(rail, leg))}
+            ${o.plan.walkFirst && walkToStation(rail, o.plan.legs[0].from, o.plan.walkFirst)}
+            ${o.plan.legs.map((leg, i) => {
+                const before = o.plan.legs[i - 1];
+                return html`${before && before.to !== leg.from && walkToStation(rail, leg.from, rail.walks[before.to][leg.from])}${legStep(rail, leg)}`;
+            })}
+            ${o.plan.walkLast && walkToStation(rail, o.end.station, o.plan.walkLast)}
             ${o.end.walk && walkStep(o.end.walk, format(t('trip.walk-to'), { place: to.title }), to)}
         </ol>
-        <a class="btn btn-sm locate-btn trip-stand" href="${standHref(o.start, o.end)}">${t('trip.where-to-stand')}</a>
+        ${o.plan.legs.some(leg => !rail.lines[leg.line].tram) && html`<a class="btn btn-sm locate-btn trip-stand" href="${standHref(o.start, o.end)}">${t('trip.where-to-stand')}</a>`}
     </div>`;
 }
 
@@ -97,7 +110,7 @@ function otherCard(rail, o) {
             ${!o.morning && html`<h3 class="trip-total trip-total-small">${format(t('trip.minutes'), { minutes: o.minutes })}</h3>`}
             <span class="trip-arrives">${when(o)}</span>
         </div>
-        <p class="trip-other">${o.start.walk && html`${format(t('trip.walk-short'), { minutes: o.start.walk.minutes })} · `}${pills} ${format(t('trip.from-station'), { station: stationName(rail, o.start.station) })}</p>
+        <p class="trip-other">${walkToFirst(o) > 0 && html`${format(t('trip.walk-short'), { minutes: walkToFirst(o) })} · `}${pills} ${format(t('trip.from-station'), { station: stationName(rail, o.plan.legs[0].from) })}</p>
     </div>`;
 }
 

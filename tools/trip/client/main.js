@@ -1,7 +1,8 @@
 import { announce, html, localName, setHtml } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
 import { onLocation, onLocationProblem, startLocation, lastPosition } from '/js/core/location.js';
-import { athensNow, closestStation, isTimetableExpired } from '/tools/subway/network.js';
+import { athensNow, closestStation, isTimetableExpired, withTram } from '/tools/subway/network.js';
+import { tramHidden } from '/tools/subway/tram-switch.js';
 import { doorToDoor } from './plan.js';
 import { placePicker } from './picker.js';
 import { howExact, placeTitle, renderChosen, renderTrip, routeSummary } from './render.js';
@@ -27,12 +28,14 @@ async function loadRail() {
     }
 }
 
-// What a place found means for a trip: a metro station is that station, so
-// there's no walk to it, and it goes by the page's language
+// What a place found means for a trip: a metro station is that station, and
+// so is a tram stop when the tram is planned on, so there's no walk to it, and
+// it goes by the page's language
 function chosenPlace(rail, found) {
     const place = { lat: found.lat, lng: found.lng, title: placeTitle(found), exact: howExact(found)?.words ?? null };
-    if (found.placeKind !== 'metro') return place;
-    const station = closestStation(rail, found.lat, found.lng);
+    const tram = { metro: false, tram: true }[found.placeKind];
+    if (tram === undefined || (tram && !Object.values(rail.stations).some(station => station.tram))) return place;
+    const station = closestStation(rail, found.lat, found.lng, tram);
     return { ...place, station, title: localName(rail.stations[station].name, language) };
 }
 
@@ -107,5 +110,7 @@ function start(rail) {
     render();
 }
 
-const rail = await loadRail();
-if (rail) start(rail);
+// The metro and the tram, or the metro alone when the tram is hidden on the
+// Subway page (decision 29)
+const metro = await loadRail();
+if (metro) start(tramHidden() ? metro : withTram(metro));
