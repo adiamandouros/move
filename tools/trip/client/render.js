@@ -1,9 +1,15 @@
 import { externalLink, format, html, localName, notice, walkingUrl } from '/js/core/html.js';
 import { language, localHref, t } from '/js/core/i18n.js';
-import { linePill } from '/js/core/lines.js';
+import { busPlate, linePill, pillList } from '/js/core/lines.js';
 import { clockTime, lineEnd } from '/js/core/metro.js';
+import { latinName } from '/js/core/text.js';
 
 const stationName = (rail, id) => localName(rail.stations[id].name, language);
+// A stop of the city's search (buses.js): a station by its name, a bus stop
+// in Greek, or in Latin letters where OASA's English is just that
+const ON_THE_ROAD = new Set(['bus', 'trolley']);
+const stopName = (rail, stop) => stop.station ? stationName(rail, stop.station) : cityName(stop.names);
+const cityName = names => localName({ el: names.el, en: names.en || latinName(names.el) }, language);
 
 // What a place found is called, with its house number
 export const placeTitle = found => found.n ? `${found.name} ${found.n}` : found.name;
@@ -69,7 +75,36 @@ const walkToStation = (rail, id, minutes) => walkStep({ minutes }, format(t('tri
 
 // The walk to where the first ride leaves: to the station, and on to a stop
 // beside it, if the trip starts there
-const walkToFirst = o => (o.start.walk?.minutes ?? 0) + (o.plan.walkFirst ?? 0);
+const walkToFirst = o => o.city ? o.firstWalk?.minutes ?? 0 : (o.start.walk?.minutes ?? 0) + (o.plan.walkFirst ?? 0);
+const hasBus = o => o.city && o.rides.some(ride => ON_THE_ROAD.has(ride.mode));
+
+// A ride of a way with a bus: a bus's time is the timetable's, an estimate
+// (decision 11), so it says "~"
+function rideStep(rail, ride) {
+    const bus = ON_THE_ROAD.has(ride.mode);
+    const place = stopName(rail, ride.alight);
+    return step(bus ? `~${clockTime(ride.boards)}` : clockTime(ride.boards), html`
+        <div>${pill(rail, ride)}${ride.lines.length === 1 && html` ${format(t('trip.towards'), { end: cityName(ride.toward) })}`}</div>
+        <div class="trip-step-note">${ride.stops === 1 ? format(t('trip.stop'), { place }) : format(t('trip.stops'), { count: ride.stops, place })}</div>`);
+}
+// Every bus line that rides it, the first to come first
+const pill = (rail, ride) => ON_THE_ROAD.has(ride.mode) ? pillList(ride.lines.map(line => busPlate(line, 's'))) : linePill(ride.line, rail.lines[ride.line].name, 's');
+
+// A way with a bus, step by step: there's no "where to stand" for it yet
+function cityCard(rail, o, to) {
+    const walkTo = (walk, stop) => walk && walkStep(walk, format(t('trip.walk-to'), { place: stopName(rail, stop) }), stop);
+    return html`<div class="trip-card result-card">
+        <div class="trip-card-head">
+            <h2 class="trip-total">${format(t('trip.minutes'), { minutes: o.minutes })}</h2>
+            <span class="trip-arrives">${format(t('trip.arrive'), { time: clockTime(o.arrives) })}</span>
+        </div>
+        <ol class="trip-steps">
+            ${walkTo(o.firstWalk, o.rides[0].board)}
+            ${o.rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board)}${rideStep(rail, ride)}`)}
+            ${o.lastWalk && walkStep(o.lastWalk, format(t('trip.walk-to'), { place: to.title }), to)}
+        </ol>
+    </div>`;
+}
 
 const standHref = (start, end) => `${localHref('/subway')}?${new URLSearchParams({ from: start.station, to: end.station })}`;
 
@@ -80,9 +115,10 @@ function when(o) {
     return format(t('trip.morning'), { leave, time });
 }
 
-// The fastest way, step by step. Where to stand is for the metro: a tram has
+// The best way, step by step. Where to stand is for the metro: a tram has
 // no front or back
 function tripCard(rail, o, to) {
+    if (o.city) return cityCard(rail, o, to);
     return html`<div class="trip-card result-card">
         <div class="trip-card-head">
             ${!o.morning && html`<h2 class="trip-total">${format(t('trip.minutes'), { minutes: o.minutes })}</h2>`}
@@ -102,15 +138,16 @@ function tripCard(rail, o, to) {
     </div>`;
 }
 
-// A slower way, on one line
+// Another way, on one line
 function otherCard(rail, o) {
-    const pills = o.plan.legs.map(leg => linePill(leg.line, rail.lines[leg.line].name, 's'));
+    const pills = o.city ? o.rides.map(ride => pill(rail, ride)) : o.plan.legs.map(leg => linePill(leg.line, rail.lines[leg.line].name, 's'));
+    const from = o.city ? stopName(rail, o.rides[0].board) : stationName(rail, o.plan.legs[0].from);
     return html`<div class="trip-card">
         <div class="trip-card-head">
             ${!o.morning && html`<h3 class="trip-total trip-total-small">${format(t('trip.minutes'), { minutes: o.minutes })}</h3>`}
             <span class="trip-arrives">${when(o)}</span>
         </div>
-        <p class="trip-other">${walkToFirst(o) > 0 && html`${format(t('trip.walk-short'), { minutes: walkToFirst(o) })} · `}${pills} ${format(t('trip.from-station'), { station: stationName(rail, o.plan.legs[0].from) })}</p>
+        <p class="trip-other">${walkToFirst(o) > 0 && html`${format(t('trip.walk-short'), { minutes: walkToFirst(o) })} · `}${pills} ${format(t('trip.from-station'), { station: from })}</p>
     </div>`;
 }
 
@@ -125,19 +162,21 @@ function walkCard(walk, to) {
 // For a screen reader, and for naming a card
 export const routeSummary = o => format(t('trip.summary'), { minutes: o.minutes, time: clockTime(o.arrives) });
 
-// The answer: what `doorToDoor` found, drawn
-export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { expired = false } = {}) {
+// The answer: what `doorToDoor` found, drawn. noBuses: the buses' times
+// couldn't be loaded, so it's by metro and tram alone
+export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { expired = false, noBuses = false } = {}) {
     const [best, ...others] = options;
     const trainsStopped = best?.morning;
     return html`
         ${expired && notice('warn', 'warning', t('trip.timetable-ended'))}
+        ${noBuses && notice('info', 'bus', t('trip.buses-error'))}
         ${trainsStopped && notice('info', 'night', t('trip.no-trains'))}
         ${walkFirst && !trainsStopped && walkCard(walk, to)}
         ${best && (walkFirst && !trainsStopped ? html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>${otherCard(rail, best)}` : tripCard(rail, best, to))}
         ${longWalk && !walkFirst && notice('info', 'bus', html`${t('trip.long-walk')} <a href="${localHref('/buses')}">${t('trip.look-for-buses')}</a>`)}
         ${others.length > 0 && !(walkFirst && !trainsStopped) && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
         ${others.map(o => otherCard(rail, o))}
-        <p class="trip-estimates">${t('trip.estimates')}</p>`;
+        <p class="trip-estimates">${t('trip.estimates')}${options.some(hasBus) && html` ${t('trip.bus-estimates')}`}</p>`;
 }
 
 // What's been chosen, above the answer

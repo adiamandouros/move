@@ -8,8 +8,8 @@ const from = page => page.getByRole('combobox', { name: 'From' });
 const to = page => page.getByRole('combobox', { name: 'To' });
 const list = (page, name) => page.locator(`#trip-${name}-list [role="option"]`);
 
-async function pickBoth(page) {
-    await page.goto('/trip');
+async function pickBoth(page, url = '/trip') {
+    await page.goto(url);
     await from(page).fill('Μενελάου 45');
     await list(page, 'from').first().click();
     await to(page).fill('Συγγρού-Φιξ');
@@ -130,6 +130,58 @@ test.describe('the trip page', () => {
         await trip();
         await expect(page.locator('#trip-result .line-m2').first()).toBeVisible();
         await expect(page.locator('#trip-result .line-t6')).toHaveCount(0);
+    });
+
+    test('buses only with the switch: without it the page doesn\'t ask for their times', async ({ page }) => {
+        const asked = [];
+        page.on('request', request => { if (request.url().includes('/data/buses.json')) asked.push(request.url()); });
+        await pickBoth(page);
+        await expect(page.locator('.trip-card').first()).toBeVisible();
+        await expect(page.locator('#trip-result .bus-plate')).toHaveCount(0);
+        expect(asked).toEqual([]);
+    });
+
+    test('with the switch, a way by bus: its stop, its plate, its time with "~", and why it\'s an estimate', async ({ page }) => {
+        await pickBoth(page, '/trip?buses');
+        const best = page.locator('.trip-card').first();
+        await expect(best.locator('.bus-plate').first()).toBeVisible();
+        await expect(best.locator('.trip-step-when').filter({ hasText: /^~\d\d:\d\d$/ }).first()).toBeVisible();
+        await expect(page.locator('.trip-estimates')).toContainText('Bus times are estimates from OASA\'s timetable of August 2026');
+        await expect(page.locator('#trip-timing')).toHaveCount(0);
+        expect(await axe(page), 'axe-core violations').toEqual([]);
+        const walk = await keyboardWalk(page);
+        expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
+    });
+
+    test('in Greek too', async ({ page }) => {
+        await page.goto('/el/trip?buses');
+        await page.getByRole('combobox', { name: 'Από' }).fill('Μενελάου 45');
+        await list(page, 'from').first().click();
+        await page.getByRole('combobox', { name: 'Προς' }).fill('Συγγρού-Φιξ');
+        await list(page, 'to').first().click();
+        await expect(page.locator('.trip-card').first().locator('.bus-plate').first()).toBeVisible();
+        await expect(page.locator('.trip-estimates')).toContainText('Οι ώρες των λεωφορείων είναι εκτιμήσεις');
+    });
+
+    test('?timing: how long the buses took here, and a half hour timed on demand', async ({ page }) => {
+        await pickBoth(page, '/trip?timing');
+        const box = page.locator('#trip-timing');
+        await expect(box).toContainText(/Buses ready in \d+ ms · This answer in \d+ ms/);
+        await box.getByRole('button', { name: 'Time a half hour' }).click();
+        await expect(box.getByRole('status')).toHaveText(/A half hour, a departure every 2 minutes: \d+ ms; every minute: \d+ ms/);
+        expect(await axe(page), 'axe-core violations').toEqual([]);
+    });
+
+    test.describe('with the buses\' times not loading', () => {
+        test.use({ allowErrors: [/status of 503/] });
+
+        test('it says so, and plans by metro and tram', async ({ page }) => {
+            await page.route('**/data/buses.json', route => route.fulfill({ status: 503, body: '' }));
+            await pickBoth(page, '/trip?buses');
+            await expect(page.locator('.trip-card').first()).toBeVisible();
+            await expect(page.getByText('The bus times couldn\'t be loaded, so these ways are by metro and tram only.')).toBeVisible();
+            await expect(page.locator('#trip-result .bus-plate')).toHaveCount(0);
+        });
     });
 
     test.describe('with search down', () => {

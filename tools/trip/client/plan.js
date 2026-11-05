@@ -1,10 +1,13 @@
 import { distanceMeters } from '/js/core/geo.js';
 import { arrivalsFrom, nextDay, planTrip } from '/tools/subway/network.js';
+import { weighed } from '/tools/subway/weights.js';
+import { busOptions } from './buses.js';
 
-// From one place to another on foot, by metro and by tram: `rail` is the metro
-// alone or with the tram (withTram, decision 29). No DOM, so it's tested in
-// Node. A place is { lat, lng, station? }: with `station` (an id in `rail`)
-// it's that station or stop, and there's no walk to it.
+// From one place to another on foot, by metro, by tram and by bus: `rail` is
+// the metro alone or with the tram (withTram, decision 29), and the ways with
+// a bus come from the city's search (buses.js, decision 31). No DOM, so it's
+// tested in Node. A place is { lat, lng, station? }: with `station` (an id in
+// `rail`) it's that station or stop, and there's no walk to it.
 
 // Walks are worked out from the straight line, as we have no street map:
 // streets add about a third, at an ordinary pace. Shown as estimates.
@@ -24,6 +27,7 @@ const LONGEST_WAIT = 3600;
 
 /** @typedef {import('../../../types/data.js').Rail} Rail */
 /** @typedef {{ lat: number, lng: number, station?: string }} Place */
+/** @typedef {import('./buses.js').BusOption} BusOption */
 
 /** @param {Place} from @param {Place} to */
 export function walkBetween(from, to) {
@@ -53,6 +57,12 @@ function later(now, minutes) {
     return seconds < DAY ? { ...now, seconds } : { ...nextDay(now), seconds: seconds - DAY };
 }
 
+// The minutes on foot of a metro or tram option: to the station and from the
+// last, to and from a stop beside one, and between stations on the way
+const walkedMinutes = (rail, start, end, plan) => (start.walk?.minutes ?? 0) + (end.walk?.minutes ?? 0)
+    + (plan.walkFirst ?? 0) + (plan.walkLast ?? 0)
+    + plan.legs.reduce((sum, leg, i) => sum + (i && plan.legs[i - 1].to !== leg.from ? rail.walks[plan.legs[i - 1].to][leg.from] : 0), 0);
+
 function option(rail, start, end, now) {
     const leave = later(now, start.walk?.minutes ?? 0);
     const { plans, now: day, tomorrow } = planTrip(rail, start.station, end.station, leave);
@@ -61,7 +71,12 @@ function option(rail, start, end, now) {
     // Seconds from the midnight of `now`, whichever day the train runs on
     const arrives = plan.arrives + (day.date === now.date ? 0 : DAY) + (end.walk?.minutes ?? 0) * 60;
     const morning = tomorrow || plan.legs[0].departures[0].departs - leave.seconds > LONGEST_WAIT;
-    return { start, end, plan, morning, arrives, minutes: Math.round((arrives - now.seconds) / 60), changes: plan.legs.length - 1 };
+    const changes = plan.legs.length - 1;
+    return {
+        start, end, plan, morning, arrives, changes,
+        minutes: Math.round((arrives - now.seconds) / 60),
+        cost: weighed(arrives - now.seconds, walkedMinutes(rail, start, end, plan) * 60, changes),
+    };
 }
 
 // The trips the search gets to the door soonest, soonest first: for each
@@ -80,33 +95,43 @@ function soonest(rail, pairs, now) {
 
 const linesOf = o => o.plan.legs.map(leg => leg.line).join();
 // From the same station or stop on the same lines, however it's walked to
-const sameWay = (a, b) => a.plan.legs[0].from === b.plan.legs[0].from && linesOf(a) === linesOf(b);
+// (the city's search keeps its ways apart itself)
+const sameWay = (a, b) => !a.city && !b.city && a.plan.legs[0].from === b.plan.legs[0].from && linesOf(a) === linesOf(b);
+// An option's walk from the door and to it, in minutes
+const endWalks = o => o.city ? [o.firstWalk?.minutes ?? 0, o.lastWalk?.minutes ?? 0] : [o.start.walk?.minutes ?? 0, o.end.walk?.minutes ?? 0];
 
-// The trip, door to door: `options`, what gets there first first, and `walk`,
-// on foot. `walkFirst`: walking gets there sooner, or there's no train to
-// take. `longWalk`: the best option's walk at either end is a long one.
-/** @param {Rail} rail @param {Place} from @param {Place} to @param {{ weekday: number, seconds: number, date: string }} now */
-export function doorToDoor(rail, from, to, now) {
+// The trip, door to door: `options`, in order by what they cost a rider
+// (weights.js: what gets there first, walking counting 1.5 and 3 minutes a
+// change), and `walk`, on foot. `city`: the city's search (buses.js), for
+// the ways with a bus; without it, the metro and tram alone. `walkFirst`:
+// walking gets there sooner than any option, or there's none to take.
+// `longWalk`: the first option's walk at either end is a long one.
+/**
+ * @param {Rail} rail @param {Place} from @param {Place} to @param {{ weekday: number, seconds: number, date: string }} now
+ * @param {{ city?: import('./buses.js').Planner | null }} [options]
+ */
+export function doorToDoor(rail, from, to, now, { city = null } = {}) {
     const pairs = stationsNear(rail, from).flatMap(start => stationsNear(rail, to).map(end => ({ start, end })))
         .filter(({ start, end }) => start.station !== end.station);
     // Every trip between the nearest stations, and the quickest few others
     const nearest = pairs.filter(({ start, end }) => start.nearest && end.nearest);
     const tried = [...nearest, ...soonest(rail, pairs.filter(pair => !nearest.includes(pair)), now).slice(0, SEARCHED_PAIRS)];
-    const found = tried
-        .map(({ start, end }) => option(rail, start, end, now))
-        .filter(Boolean);
+    const found = [
+        ...tried.map(({ start, end }) => option(rail, start, end, now)).filter(Boolean),
+        ...city ? busOptions(city, from, to, now) : [],
+    ];
     // The morning's first trains only if no trip can be made tonight
     const tonight = found.filter(o => !o.morning);
     const options = (tonight.length ? tonight : found)
-        .sort((a, b) => a.arrives - b.arrives || a.changes - b.changes)
+        .sort((a, b) => a.cost - b.cost || a.arrives - b.arrives || a.changes - b.changes)
         // Ways that read the same: the first
-        .filter((o, i, all) => all.findIndex(other => sameWay(other, o)) === i)
+        .filter((o, i, all) => !all.slice(0, i).some(other => sameWay(other, o)))
         .slice(0, MAX_OPTIONS);
     const walk = walkBetween(from, to);
     const best = options[0];
     return {
         options, walk,
-        walkFirst: !best || best.morning || walk.minutes <= best.minutes,
-        longWalk: Boolean(best) && Math.max(best.start.walk?.minutes ?? 0, best.end.walk?.minutes ?? 0) >= LONG_WALK_MINUTES,
+        walkFirst: !best || best.morning || walk.minutes <= Math.min(...options.map(o => o.minutes)),
+        longWalk: Boolean(best) && Math.max(...endWalks(best)) >= LONG_WALK_MINUTES,
     };
 }

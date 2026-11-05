@@ -44,8 +44,7 @@ the week, in a file small enough for a phone.
 
 ## What follows
 
-- Nothing on the site reads it yet: the trip page's search takes it next
-  (roadmap Plan 7).
+- The trip page's search reads it, behind a switch for now ([31](0031-trip-page-buses.md)).
 - It asks OASA for nothing new: the network is the one fetched each night,
   and the rides come from the stops visitors and the collector already ask
   for.
