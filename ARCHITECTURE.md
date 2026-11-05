@@ -383,7 +383,12 @@ stops in order, there and back). `build-rides.js` makes
 between two stops of its route, by route, kind of day and hour (rides,
 median, slowest tenth), for the planner (roadmap Plan 3); never from a
 route's first stop, where a bus is seen arriving rather than leaving. No bus
-numbers in it. The network is fetched at most once a day,
+numbers in it. `bus-timetable.js` makes `data/build/buses.json`, the buses'
+timetable for the trip search ([decision 30](docs/decisions/0030-bus-timetable.md)):
+OASA's last open-data feed, of August 2026, kept in the repository
+(`data/oasa/bus-timetable.json`, converted by `scripts/bus-feed.js`), put on
+today's live routes and given the measured ride times where a stretch has
+enough. The network is fetched at most once a day,
 one request a second through the same routes as the live times (about 600
 requests a night: the lines and their routes every night, a route's stops
 when it's new or about weekly), and kept in `data/raw/oasa/`. A failed

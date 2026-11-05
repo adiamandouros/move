@@ -26,7 +26,8 @@ already on the road.
 - Reading OASA's schedules adds to our load on OASA
   ([26](0026-bus-pass-collector.md)) and needs new relay calls
   ([27](0027-oasa-direct-first.md)).
-- Nothing reads a bus timetable yet.
+- The trip search's bus timetable is the open data's last feed, of August
+  2026 ([30](0030-bus-timetable.md)), not OASA's schedules.
 
 ## Look again when
 

@@ -28,6 +28,11 @@ licenses.
   downloads it, converts it and combines it with its own data (see
   [ARCHITECTURE.md](ARCHITECTURE.md)). Station names and platform codes in
   `data/curated/` come from it too.
+- **Bus timetable**: OASA's open data on <https://catalog.growthfund.gr/>,
+  under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): its last
+  feed, of August 2026, converted in `data/oasa/` and changed each night
+  (put on today's routes, with ride times Wayhop measures) for
+  `/data/buses.json`.
 - **Addresses, streets and places**: © [OpenStreetMap](https://www.openstreetmap.org/copyright)
   contributors, under the [Open Database License 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
   Wayhop builds an index from it each week (`scripts/places/`) and publishes

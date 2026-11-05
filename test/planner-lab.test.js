@@ -1,8 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
-import { compactBuses, cutToBox } from '../scripts/planner-lab/build-buses.js';
-import { liveRoutes, onLiveRoutes, retimed, shared } from '../scripts/planner-lab/live-routes.js';
+import { cutToBox, dayOf } from '../scripts/planner-lab/build-buses.js';
 import { joinNetwork } from '../scripts/planner-lab/network.js';
 import { AFTER_WALK_SECONDS, CHANGE_SECONDS, createPlanner, walkSeconds } from '../scripts/planner-lab/raptor.js';
 import { askOnce, rushTest, STOPS } from '../scripts/planner-lab/rush-test.js';
@@ -455,27 +454,6 @@ test('the network joins rail.json and the buses, each stop findable', () => {
     assert.ok(routes.some(route => route.mode === 'metro' && route.trips.some(trip => trip[0] < 0)));
 });
 
-test('a day of the bus feed comes out small: its routes, trips and stops', async () => {
-    const files = {
-        routes: 'route_id,route_short_name,route_long_name,route_type\n1,040,ΠΕΙΡΑΙΑΣ,3\n2,12,ΟΜΟΝΟΙΑ,11\n',
-        trips: 'route_id,service_id,trip_id\n1,day_3,a\n1,day_3,b\n1,day_4,thursday\n2,day_3,c\n',
-        stops: 'stop_id,stop_code,stop_name,stop_lat,stop_lon,stop_url\n10,10,"Πλ, Κάνιγγος",37.98,23.73,x\n20,20,Β,37.99,23.73,x\n30,30,Γ,38.5,23.73,x\n',
-    };
-    const lines = [
-        'trip_id,arrival_time,departure_time,stop_id,stop_sequence',
-        'a,08:00:00,08:00:00,10,1', 'a,08:05:00,08:05:00,20,2', 'a,08:30:00,08:30:00,30,3',
-        'b,09:00:00,09:00:00,10,1', 'b,09:05:00,09:05:00,20,2', 'b,09:30:00,09:30:00,30,3',
-        'thursday,10:00:00,10:00:00,10,1', 'thursday,10:05:00,10:05:00,20,2',
-        'c,08:00:00,08:00:00,10,1', 'c,08:06:00,08:06:00,99,2', 'c,08:09:00,08:09:00,20,3',
-    ];
-    const whole = await compactBuses(files, lines);
-    assert.deepEqual(whole.routes.map(r => [r.line, r.mode, r.stops.length]), [['040', 'bus', 3], ['12', 'trolley', 2]]);
-    assert.deepEqual(whole.routes[0].profiles, [[0, 300, 1800]], 'trips with the same times share a profile');
-    assert.deepEqual(whole.routes[0].trips, [[H8, 0], [9 * 3600, 0]]);
-    assert.deepEqual(whole.stops['10'], [37.98, 23.73, '"Πλ, Κάνιγγος"']);
-
-});
-
 test('a box keeps the stops inside it, and each trip\'s time from the first of them', () => {
     const buses = {
         day: 3,
@@ -490,91 +468,17 @@ test('a box keeps the stops inside it, and each trip\'s time from the first of t
     assert.deepEqual(Object.keys(kept), ['2', '3']);
 });
 
-// Stops 1.1 km apart along a road, as OASA's live network has them
-const place = (code, n) => ({ code, el: `Στάση ${code}`, en: '', lat: 37.97 + n * 0.01, lng: 23.7 });
-const liveNetwork = (...routes) => ({
-    fetched: '2026-11-01T00:00:00Z',
-    lines: [...new Set(routes.map(([line]) => line))].map(line => ({ code: `L${line}`, line, name: { el: line, en: line } })),
-    routes: Object.fromEntries([...new Set(routes.map(([line]) => line))].map(line => [`L${line}`,
-        routes.filter(([other]) => other === line).map(([, code, name]) => ({ code, type: '1', name: { el: name, en: name } }))])),
-    stops: Object.fromEntries(routes.map(([, code, , stops]) => [code, { at: '', stops }])),
-});
-const feed = (line, codes, offsets, ...starts) => ({ line, mode: 'bus', stops: codes, profiles: [offsets], trips: starts.map(start => [start, 0]) });
-const onLive = (routes, network) => onLiveRoutes({ day: 3, stops: {}, routes }, network);
-
-test('every live route is read, its stops in order, without codes the live times can\'t use', () => {
-    const network = liveNetwork(
-        ['040 ', '1', 'Α - Β', [place('1', 0), { ...place('X9', 1) }, place('2', 2)]],
-        ['12', '2', 'Γ', [place('3', 0)]],
-    );
-    assert.deepEqual(liveRoutes(network).map(({ line, code, stops: along }) => [line, code, along.map(stop => stop.code)]), [['040', '1', ['1', '2']]]);
-});
-
-test('stops shared with a route count in order, so the way back isn\'t the same route', () => {
-    assert.deepEqual(shared(['1', '2', '3'], ['1', '9', '3']), [[0, 0], [2, 2]]);
-    assert.equal(shared(['1', '2', '3'], ['3', '2', '1']).length, 1);
-});
-
-test('a live route with the same stops keeps the feed\'s times exactly', () => {
-    const { buses: out, untimed, gone } = onLive(
-        [feed('040', ['1', '2', '3'], [0, 100, 250], H8, H8 + 600)],
-        liveNetwork(['040', 'r', 'Α - Β', ['1', '2', '3'].map((code, i) => place(code, i))]),
-    );
-    // With the OASA route it's on, for measured ride times (rides.js)
-    assert.deepEqual(out.routes, [{ line: '040', mode: 'bus', code: 'r', stops: ['1', '2', '3'], profiles: [[0, 100, 250]], trips: [[H8, 0], [H8 + 600, 0]] }]);
-    assert.deepEqual(out.stops['2'], [37.98, 23.7, 'Στάση 2']);
-    assert.deepEqual([untimed, gone], [[], []]);
-});
-
-test('a stop that\'s moved is mended, the rest of the row stays', () => {
-    const { buses: out } = onLive(
-        [feed('750', ['1', '8', '3', '4'], [0, 100, 400, 500], H8)],
-        liveNetwork(['750', 'r', 'Α - Β', [place('1', 0), place('9', 1), place('3', 2), place('4', 3)]]),
-    );
-    const [route] = out.routes;
-    assert.deepEqual(route.stops, ['1', '9', '3', '4']);
-    assert.deepEqual(route.profiles, [[0, 200, 400, 500]], 'halfway between its neighbours, by the road');
-    assert.equal(out.stops['8'], undefined);
-});
-
-test('a live route that starts earlier gets a stop before the feed\'s first, at the trip\'s speed', () => {
-    const { buses: out } = onLive(
-        [feed('750', ['2', '3', '4'], [0, 300, 600], H8)],
-        liveNetwork(['750', 'r', 'Α - Β', ['1', '2', '3', '4'].map((code, i) => place(code, i))]),
-    );
-    assert.deepEqual(out.routes[0].profiles, [[0, 300, 600, 900]]);
-    assert.deepEqual(out.routes[0].trips, [[H8 - 300, 0]]);
-});
-
-test('a time past the feed\'s last stop goes on at the trip\'s speed, and one shared stop has none', () => {
-    assert.deepEqual(retimed([0, 300], [[0, 0], [1, 1]], [0, 1000, 2000]), [0, 300, 600]);
-    assert.deepEqual(retimed([500], [[0, 1]], [0, 1000, 2000]), [500, 500, 500]);
-});
-
-test('a list of the feed goes on the route of its line it fits best, the plain one if a variant fits as well', () => {
-    const stopsOf = (...codes) => codes.map((code, i) => place(code, i));
-    const network = liveNetwork(
-        ['822', 'market', 'Α - Β [Λαϊκή κάθε Πέμπτη]', stopsOf('1', '2', '3', '4')],
-        ['822', 'plain', 'Α - Β', stopsOf('1', '2', '3', '4')],
-        ['822', 'short', 'Α - Β [ΕΩΣ Γ]', stopsOf('1', '2')],
-        ['822', 'back', 'Β - Α', stopsOf('4', '3', '2', '1')],
-    );
-    const { buses: out, untimed } = onLive([
-        feed('822', ['1', '2', '3', '4'], [0, 100, 200, 300], H8),
-        feed('822', ['1', '2'], [0, 100], H8),
-    ], network);
-    assert.deepEqual(out.routes.map(route => route.stops.length), [4, 2]);
-    assert.deepEqual(untimed.map(route => route.code), ['market', 'back'], 'no times are made up for these');
-});
-
-test('a line the live network no longer has is gone, and a route too different isn\'t its stand-in', () => {
-    const { buses: out, gone, untimed } = onLive([
-        feed('122Θ', ['1', '2'], [0, 100], H8),
-        feed('836', ['1', '2', '3', '4', '5'], [0, 100, 200, 300, 400], H8),
-    ], liveNetwork(['836', 'r', 'Α - Β', ['1', '7', '8', '9'].map((code, i) => place(code, i))]));
-    assert.deepEqual(out.routes, []);
-    assert.deepEqual(gone, ['122Θ', '836']);
-    assert.deepEqual(untimed.map(route => route.code), ['r']);
+test('the lab searches a day of the app\'s bus week, with the live network\'s stops', () => {
+    const network = { stops: { r: { stops: [{ code: '1', el: 'Α', lat: 37.98, lng: 23.7 }, { code: '2', el: 'Β', lat: 37.99, lng: 23.7 }] } } };
+    const routes = [
+        { line: '040', mode: 'bus', code: 'r', stops: ['1', '2'], profiles: [[0, 300]], patterns: [[], [[H8, 0]]], days: [0, 1, 1, 1, 1, 1, 0] },
+        { line: 'Χ95', mode: 'bus', code: 's', stops: ['1', '2'], profiles: [[0, 60]], patterns: [[[H8, 0]], []], days: [0, 1, 1, 1, 1, 1, 0] },
+    ];
+    assert.deepEqual(dayOf(routes, network, 3), {
+        day: 3,
+        stops: { 1: [37.98, 23.7, 'Α'], 2: [37.99, 23.7, 'Β'] },
+        routes: [{ line: '040', mode: 'bus', code: 'r', stops: ['1', '2'], profiles: [[0, 300]], trips: [[H8, 0]] }],
+    }, 'a route with no trips that day is left out');
 });
 
 const response = (status, body) => ({ ok: status === 200, status, json: async () => body });

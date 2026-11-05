@@ -17,6 +17,13 @@ import { stasyPage, stasyTable } from './fixtures/stasy.js';
 
 const DAY = 86_400_000;
 
+// OASA's bus timetable (server/data/bus-timetable.js), with one route of the
+// fake network's: the Α10 from Larissis (6052), at 08:00 every day
+const BUS_WEEK = {
+    schema: 1, feed: { modified: '2026-08-06', validFrom: '2026-08-03', validTo: '2026-08-24' },
+    routes: [{ line: 'Α10', mode: 'bus', stops: ['10007', '10006', '10005'], profiles: [[0, 60, 120]], patterns: [[[28_800, 0]]], days: [0, 0, 0, 0, 0, 0, 0] }],
+};
+
 function setup({ busStops = 1500, curated = undefined } = {}) {
     const portal = fakePortal();
     portal.publish(SOURCES.rail.dataset, railFeed());
@@ -24,16 +31,18 @@ function setup({ busStops = 1500, curated = undefined } = {}) {
     // The build's clock: the bus network is fetched at most once a day
     const clock = { now: Date.parse('2026-08-05T01:30:00Z') };
     const dataDir = tempDir();
+    const busTimetable = join(dataDir, 'bus-timetable.json');
+    writeFileSync(busTimetable, JSON.stringify(BUS_WEEK));
     const logs = [];
     const options = {
         dataDir, curatedDir: curatedDir(curated), overlayDir: join(dataDir, 'local'), fetch: portal.fetch, today: '20260805', log: m => logs.push(m),
-        oasa: oasa.request, now: () => clock.now, sleep: async () => {},
+        oasa: oasa.request, now: () => clock.now, sleep: async () => {}, busTimetable,
     };
     const build = (more = {}) => runBuild({ ...options, ...more });
     const served = name => JSON.parse(readFileSync(join(dataDir, 'build', name), 'utf8'));
     // The next night: a day later, a new day for the timetable
     const nextNight = (more = {}) => { clock.now += DAY; return build({ today: '20260806', ...more }); };
-    return { portal, oasa, dataDir, logs, build, nextNight, served, clock };
+    return { portal, oasa, dataDir, logs, build, nextNight, served, clock, busTimetable };
 }
 
 // STASY's site, as server/stasy.js's client, with pages the build can read
@@ -58,7 +67,7 @@ function fakeStasy() {
 test('a first build publishes every file, which pass their checks', async () => {
     const { build, served, dataDir } = setup();
     const meta = await build();
-    assert.deepEqual(Object.fromEntries(Object.entries(meta.outputs).map(([k, o]) => [k, o.ok])), { 'rail.json': true, 'bus-stops.json': true, 'bus-lines.json': true, 'bus-rides.json': true });
+    assert.deepEqual(Object.fromEntries(Object.entries(meta.outputs).map(([k, o]) => [k, o.ok])), { 'rail.json': true, 'bus-stops.json': true, 'bus-lines.json': true, 'bus-rides.json': true, 'buses.json': true });
     assert.deepEqual(checkOutput('rail.json', served('rail.json')), []);
     // rail.json's nightly checks (rail-checks.js): without STASY's copy, nothing to compare
     assert.deepEqual(meta.outputs['rail.json'].checks, { problems: [], notes: [] });
@@ -68,6 +77,10 @@ test('a first build publishes every file, which pass their checks', async () => 
     // No buses seen passing yet: a table with no rides, and a warning
     assert.deepEqual(served('bus-rides.json'), { schema: 1, from: null, to: null, days: 0, rides: [] });
     assert.deepEqual(meta.outputs['bus-rides.json'].warnings, ['No buses seen passing yet: no ride times']);
+    // The timetable on the live route it fits, the others left out of the search
+    assert.deepEqual(checkOutput('buses.json', served('buses.json')), []);
+    assert.deepEqual(served('buses.json').routes.map(r => [r.line, r.code, r.runs]), [['Α10', '6052', [[60, 60]]]]);
+    assert.deepEqual(meta.outputs['buses.json'].warnings, ['6 of OASA\'s routes have no times in the feed, so the search leaves them out']);
     assert.equal(served('bus-stops.json').stops.length, 1500);
     assert.deepEqual(served('meta.json').fingerprint.today, '20260805');
     assert.equal(served('meta.json').fingerprint.sources.network, '2026-08-05T01:30:00.000Z');
@@ -225,11 +238,25 @@ test('without any network yet (OASA can\'t be asked), the bus files aren\'t publ
     const { build, oasa, dataDir } = setup();
     oasa.down();
     const meta = await build();
-    for (const name of ['bus-stops.json', 'bus-lines.json']) {
+    for (const name of ['bus-stops.json', 'bus-lines.json', 'buses.json']) {
         assert.deepEqual(meta.outputs[name], { ok: false, error: 'source unavailable: network (the lines: fake OASA: down (4 tries))', keptPrevious: false });
         assert.ok(!existsSync(join(dataDir, 'build', name)));
     }
     assert.equal(meta.outputs['rail.json'].ok, true);
+});
+
+test('the bus timetable: without it buses.json isn\'t published, and a new copy is built the same night', async () => {
+    const { build, served, busTimetable, logs } = setup();
+    const missing = await build({ busTimetable: `${busTimetable}.gone` });
+    assert.equal(missing.outputs['buses.json'].ok, false);
+    assert.match(missing.outputs['buses.json'].error, /^source unavailable: busTimetable \(ENOENT/);
+    assert.equal(missing.outputs['bus-stops.json'].ok, true, 'the other files are unaffected');
+    await build();
+    assert.equal(served('buses.json').routes[0].patterns[0][0][0], 28_800);
+    writeFileSync(busTimetable, JSON.stringify({ ...BUS_WEEK, routes: [{ ...BUS_WEEK.routes[0], patterns: [[[32_400, 0]]] }] }));
+    await build();
+    assert.ok(!logs.includes('[data] Build is up to date'));
+    assert.equal(served('buses.json').routes[0].patterns[0][0][0], 32_400);
 });
 
 test('a network that suddenly shrinks is held back, unless forced', async () => {

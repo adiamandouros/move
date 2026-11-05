@@ -9,6 +9,7 @@ import { loadConfig, userAgentFor } from '../config.js';
 import { readJson } from '../files.js';
 import { athensToday, isoDate } from './calendar.js';
 import { buildBusLines, buildBusStops } from './build-bus.js';
+import { buildBuses } from './bus-timetable.js';
 import { buildRail } from './build-rail.js';
 import { buildBusRides, readPasses } from './build-rides.js';
 import { buildTram } from './build-tram.js';
@@ -29,6 +30,8 @@ const CURATED_DIR = join(DATA_DIR, 'curated');
 // like each one it edits (positions.json, street.json)
 const OVERLAY_DIR = join(DATA_DIR, 'local');
 export const BUILD_DIR = join(DATA_DIR, 'build');
+// OASA's bus timetable of August 2026, kept in the repository (bus-timetable.js)
+const BUS_TIMETABLE = join(DATA_DIR, 'oasa', 'bus-timetable.json');
 
 // Where a build keeps its files, under a data folder (data/, or a test's own)
 const foldersIn = dataDir => ({
@@ -88,6 +91,11 @@ const OUTPUTS = {
         sources: ['network', 'passes'],
         build: src => buildBusRides(src.passes.data, src.network.data),
     },
+    // The buses' timetable for the trip search, on today's routes, with those ride times
+    'buses.json': {
+        sources: ['busTimetable', 'network', 'passes'],
+        build: src => buildBuses(src.busTimetable.data, src.network.data, buildBusRides(src.passes.data, src.network.data).data),
+    },
 };
 
 // Fetch any changed feeds and rebuild data/build. Outputs are rebuilt when a
@@ -101,7 +109,7 @@ const OUTPUTS = {
 // without it, the kept copy and no check). The other options are for tests:
 // their own data folder and curated files, a fake portal (`fetch`), a fixed
 // day (`today`, 'YYYYMMDD'), the clock and pause between OASA requests
-// (`now`, `sleep`) and the builder's fingerprint.
+// (`now`, `sleep`), the bus timetable and the builder's fingerprint.
 export async function runBuild({
     force = false,
     offline = false,
@@ -116,6 +124,7 @@ export async function runBuild({
     now = Date.now,
     sleep = undefined,
     log = console.log,
+    busTimetable = BUS_TIMETABLE,
     builder = builderFingerprint(),
 } = {}) {
     const dirs = foldersIn(dataDir);
@@ -137,6 +146,7 @@ export async function runBuild({
         // The buses the server saw pass (server/oasa/passes.js), up to today's
         const passes = readPasses(join(dirs.data, 'local', 'bus-passes'), isoDate(today));
         sources.passes = { data: passes, modified: passes.days.at(-1) ?? null, error: null };
+        sources.busTimetable = readTimetable(busTimetable);
         // Weekly: has STASY's airport timetable changed since airport.json? (only reported)
         await checkAirport({ rawDir: dirs.raw, client: stasy, airport: curated.data.airport, offline, now, sleep, log });
         const fingerprint = {
@@ -291,6 +301,17 @@ export function loadCurated({ curatedDir = CURATED_DIR, overlayDir = OVERLAY_DIR
         edits[kind.name] = { committed, overlay, file };
     }
     return { data, edits, hash: hash.digest('hex') };
+}
+
+// The bus timetable as a source: its `modified` is a hash of the file, so a
+// new copy rebuilds buses.json
+function readTimetable(path) {
+    try {
+        const raw = readFileSync(path, 'utf8');
+        return { data: JSON.parse(raw), modified: createHash('sha256').update(raw).digest('hex').slice(0, 12), error: null };
+    } catch (err) {
+        return { data: null, modified: null, error: err.message };
+    }
 }
 
 function acquireLock(dirs) {

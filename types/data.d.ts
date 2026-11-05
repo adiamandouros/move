@@ -147,3 +147,26 @@ export interface BusLines {
         directions: { to: Names; route: string; stops: string[] }[];
     }[];
 }
+
+/** data/build/buses.json, built by server/data/bus-timetable.js: OASA's bus timetable of August 2026 on today's routes, for the trip search */
+export interface Buses {
+    schema: number;
+    /** When OASA published the timetable, and the dates it was for (YYYY-MM-DD): it stopped in August 2026 */
+    feed: { modified: string; validFrom: string; validTo: string };
+    /** [code, lat, lng, Greek name, English name ('' where it's the Greek in Latin letters: latinName)] */
+    stops: [string, number, number, string, string][];
+    routes: {
+        line: string;
+        mode: 'bus' | 'trolley';
+        /** The OASA route, as live arrivals and bus-rides.json name it */
+        code: string;
+        /** Indexes into `stops`, in order */
+        stops: number[];
+        /** Ways of running the route: the seconds from each stop to the next, to the 10 s */
+        runs: number[][];
+        /** One list of trips per distinct day: [seconds after the trip before it (the first, after midnight), run index] */
+        patterns: [number, number][][];
+        /** Pattern index for each weekday, 0 = Sunday */
+        days: number[];
+    }[];
+}
