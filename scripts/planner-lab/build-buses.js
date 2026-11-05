@@ -25,7 +25,7 @@ const round = n => Math.round(n * 1e5) / 1e5;
  * One weekday (0 = Sunday) of the week's routes, as the lab searches it, with
  * the live network's stops
  * @param {import('../../server/data/bus-timetable.js').WeekRoute[]} routes @param {any} network @param {number} day
- * @returns {import('./network.js').Buses}
+ * @returns {import('../../tools/subway/client/city.js').Buses}
  */
 export function dayOf(routes, network, day) {
     const place = new Map();
@@ -41,8 +41,8 @@ export function dayOf(routes, network, day) {
 
 /**
  * What's left of a day's buses inside a box: south, west, north, east
- * @param {import('./network.js').Buses} buses @param {number[]} box
- * @returns {import('./network.js').Buses}
+ * @param {import('../../tools/subway/client/city.js').Buses} buses @param {number[]} box
+ * @returns {import('../../tools/subway/client/city.js').Buses}
  */
 export function cutToBox(buses, [south, west, north, east]) {
     const inside = code => {

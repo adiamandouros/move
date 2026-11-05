@@ -6,9 +6,9 @@
 // way's last stretch by bus is a bundle: any of the lines from that change
 // to the door, as the first to come is what counts.
 
-import { AFTER_WALK_SECONDS, CHANGE_SECONDS } from './raptor.js';
-import { findWays, fold, wayKey } from './ways.js';
-import { cost } from './weights.js';
+import { AFTER_WALK_SECONDS, CHANGE_SECONDS } from '../../tools/subway/client/city.js';
+import { findWays, fold, wayKey } from '../../tools/subway/client/ways.js';
+import { cost } from '../../tools/subway/client/weights.js';
 
 // The window, from the time you leave, and how often it's tried
 export const WINDOW_SECONDS = 1800;
@@ -27,8 +27,8 @@ const RANGE_TAIL = 0.1;
 const LATENESS = [[15 * 60, 60], [20 * 60, 90], [30 * 60, 150], [45 * 60, 210], [Infinity, 420]];
 const ON_THE_ROAD = new Set(['bus', 'trolley']);
 
-/** @typedef {ReturnType<typeof import('./raptor.js').createPlanner>} Planner */
-/** @typedef {import('./ways.js').Way & { cost: number }} Way what it costs a rider by the weights (weights.js), seconds */
+/** @typedef {ReturnType<typeof import('../../tools/subway/client/city.js').createPlanner>} Planner */
+/** @typedef {import('../../tools/subway/client/ways.js').Way & { cost: number }} Way what it costs a rider by the weights (weights.js), seconds */
 /**
  * One row of an answer: a way, its last stretch by bus as a bundle of lines.
  * onward: the lines of its second ride. best: its earliest arrival for each

@@ -2,7 +2,8 @@
 // Agreed on 3 November 2026 (roadmap Plan 6). The times a rider is shown stay
 // real ones; this only puts ways in order, and drops none.
 //
-// - Buses take their slowest tenth (a bad day, rides.js with badDay), where
+// - Buses take their slowest tenth (a bad day, withRides' badDay in
+//   server/data/bus-timetable.js), where
 //   there are enough rides measured: a bus that's often stuck ranks lower.
 //   So a change after a bus that only works on a usual day is the next
 //   departure here.
@@ -12,7 +13,7 @@
 //   as walks are estimates: half the wait for the next departure is added.
 //   A change at the same stop has the search's margin already.
 
-import { AFTER_WALK_SECONDS } from './raptor.js';
+import { AFTER_WALK_SECONDS } from './city.js';
 import { secondsTo } from './ways.js';
 
 const WALK_WEIGHT = 1.5;
@@ -22,7 +23,7 @@ const MISS_CHANCE = 0.5;
 // Missing the last trip of a line: as bad as an hour's wait
 const NO_NEXT_SECONDS = 3600;
 
-/** @typedef {ReturnType<typeof import('./raptor.js').createPlanner>} Planner */
+/** @typedef {ReturnType<typeof import('./city.js').createPlanner>} Planner */
 /** @typedef {import('./ways.js').Way} Way */
 
 /**

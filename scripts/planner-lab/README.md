@@ -1,20 +1,20 @@
 # The planner lab
 
 A trial of how version 1's planner could find a trip across every mode, from
-any point to any point. **The app doesn't use any of this yet**: nothing here is
-loaded by a page or the server. It's here so the trial can be repeated and
-trips can be tested as the model gets better, before anything is decided.
-Moving it into the app comes with its decision record. The search itself has
-moved already: it's the Subway planner's, `tools/subway/client/raptor.js`
-(decision 28), and `raptor.js` here gives it the lab's walks.
+any point to any point. It's here so the trial can be repeated and trips can
+be tested as the model gets better, before anything is decided. What's been
+decided has moved into the app, and the lab uses it from there:
 
-| File | What it is |
+| In `tools/subway/client/` | What it is |
 |---|---|
-| `raptor.js` | The app's search (earliest arrivals by number of rides), with walks from the straight line |
+| `raptor.js` | The search (earliest arrivals by number of rides), the Subway planner's since decision 28 |
+| `city.js` | The whole city for it: metro and tram from `rail.json`, a day of buses from `buses.json` (decision 30) or from `build-buses.js` below, and walks from the straight line |
 | `ways.js` | From what the search finds to the ways a rider could choose from |
 | `weights.js` | What a way costs a rider, to put ways in order: a bad day for buses, walking at 1.5, 3 minutes a change |
+
+| Here | What it is |
+|---|---|
 | `answer.js` | Every departure in the next half hour: one clear way, a decision on the way, or it depends; buses from one change as one row |
-| `network.js` | Metro and tram from `rail.json`, buses and trolleys from the file below |
 | `build-buses.js` | One day of buses, small enough to search: the app's bus timetable (`server/data/bus-timetable.js`, decision 30) on the routes of OASA's live network, with measured ride times (`bus-rides.json`) where there are enough |
 | `trip.js` | Tries one trip from the command line |
 | `rush-test.js` | One test of OASA's predictions in the rush hour |
