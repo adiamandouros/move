@@ -1,6 +1,6 @@
 # 25. Trams in the subway planner
 
-Decided 2026-11-01 · In force
+Decided 2026-11-01 · Replaced by [28](0028-trip-search.md)
 
 ## Situation
 

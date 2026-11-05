@@ -1,6 +1,8 @@
 // Route finding and departure times over rail.json (see server/data/build-rail.js
 // for the format). No DOM access, so it can be unit-tested in Node.
 
+import { createPlanner } from './raptor.js';
+
 /**
  * rail.json's metro, or the metro and the tram together (withTram). `walks`:
  * the stations a short walk from each other, with the minutes it takes
@@ -21,6 +23,7 @@
  */
 /** @typedef {Route & { legs: (Leg & { departures: Departure[] })[], arrives: number | null }} PlannedRoute */
 /** @typedef {{ weekday: number, seconds: number, date: string }} AthensTime */
+/** @typedef {import('../../../types/data.js').Timetable} Timetable */
 
 const DAY = 86_400;
 // Minimum time to change trains at an interchange
@@ -193,6 +196,15 @@ function addDays(date, days) {
     return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
 
+// A direction's trains, [start, profile]…, on the service day `dayOffset`
+// days from `weekday`. With `date` (that weekday's, ISO), a day the timetable
+// has its own trains for (a holiday) uses them; otherwise its weekday's.
+/** @param {Timetable} timetable @param {number} weekday @param {string | undefined} date @param {number} dayOffset */
+function trainsOn(timetable, weekday, date, dayOffset) {
+    const own = date ? timetable.dates?.[addDays(date, dayOffset)] : undefined;
+    return timetable.patterns[own ?? timetable.days[(weekday + dayOffset + 7) % 7]];
+}
+
 // Upcoming departures for one leg at or after `after` seconds (relative to
 // today's midnight). Includes yesterday's trips that run past midnight,
 // unless ownDay (only the day's own service). With `date` (today's, ISO), a
@@ -212,10 +224,8 @@ export function departures(rail, leg, { weekday, after, count = 2, ownDay = fals
     const found = [];
     for (const dayOffset of ownDay ? [0] : [-1, 0]) {
         const serviceDay = (weekday + dayOffset + 7) % 7;
-        const own = date ? timetable.dates?.[addDays(date, dayOffset)] : undefined;
-        const pattern = timetable.patterns[own ?? timetable.days[serviceDay]];
         const trains = [];
-        for (const [start, p] of pattern) {
+        for (const [start, p] of trainsOn(timetable, weekday, date, dayOffset)) {
             const { stops, offsets } = timetable.profiles[p];
             const i = stops.indexOf(leg.fromIndex);
             const j = stops.indexOf(leg.toIndex);
@@ -261,15 +271,104 @@ function planRoute(rail, route, now, ownDay = false) {
     return { ...route, legs, arrives: reachable && last ? last.arrives + (route.walkLast ?? 0) * 60 : null };
 }
 
-// Plan every route and keep the few that arrive first, fewer changes first
-// when they arrive together; those arriving much later start closed
-// (SLOWER_MINUTES in render.js). A trip with a tram offers its other ways like
-// that, whatever their changes. Metro trains alone don't: a route with more
-// changes than the fewest stays only if it gets there WORTH_A_CHANGE sooner
-// than every route with fewer, so a direct train stays the only answer.
+// The trip search (raptor.js) over one day's trains, made once per network
+// and day: its stops are rail.stations, its walks rail.walks. Its routes say
+// which line and direction they are, and `along`, which of the direction's
+// stops each of theirs is. ownDay: only the day's own trains (see departures)
+const searches = new WeakMap();
+
+/** @param {Rail} rail @param {AthensTime} now @param {boolean} ownDay */
+function searchFor(rail, now, ownDay) {
+    if (!searches.has(rail)) searches.set(rail, new Map());
+    const made = searches.get(rail);
+    const key = `${now.weekday} ${now.date} ${ownDay}`;
+    if (made.has(key)) return made.get(key);
+    const ids = Object.keys(rail.stations);
+    const index = new Map(ids.map((id, i) => [id, i]));
+    const routes = [];
+    for (const [line, { directions, tram }] of Object.entries(rail.lines)) {
+        for (const [dir, { stops, timetable }] of Object.entries(directions)) {
+            const byProfile = new Map();
+            for (const dayOffset of ownDay ? [0] : [-1, 0]) {
+                for (const [start, p] of trainsOn(timetable, now.weekday, now.date, dayOffset)) {
+                    if (!byProfile.has(p)) byProfile.set(p, []);
+                    byProfile.get(p).push(timetable.profiles[p].offsets.map(offset => start + offset + dayOffset * DAY));
+                }
+            }
+            for (const [p, trips] of byProfile) {
+                const along = timetable.profiles[p].stops;
+                routes.push({ line, dir, along, mode: tram ? 'tram' : 'metro', stops: along.map(i => index.get(stops[i].station)), trips });
+            }
+        }
+    }
+    const walks = ids.map(id => walksFrom(rail, id).flatMap(([to, minutes]) => [index.get(to), minutes * 60]));
+    // Never back to a station already reached on foot, to walk on from it
+    const search = { ids, index, routes, planner: createPlanner({ stops: ids, routes, walks }, { walkOnAgain: false }) };
+    made.set(key, search);
+    return search;
+}
+
+// Whether a route gets off where it has already been: where it starts, where
+// it walks to first, or a station a train took it through. findRoutes' never
+// do; one of the search's could, riding out and back in the middle of a trip
+// to join two walks
+/** @param {Rail} rail @param {string} from @param {Route} route */
+function comesBack(rail, from, route) {
+    const been = new Set([from, route.legs[0].from]);
+    return route.legs.some(leg => {
+        if (been.has(leg.to)) return true;
+        rail.lines[leg.line].directions[leg.dir].stops.slice(leg.fromIndex, leg.toIndex + 1).forEach(stop => been.add(stop.station));
+        return false;
+    });
+}
+
+// The fastest route with each number of rides, up to MAX_CHANGES changes, in
+// findRoutes' shape: the search isn't held to the fewest changes or one more,
+// so it finds what's quicker with another change or two (decision 28). One
+// that gets off where it has already been is left out
+/** @param {Rail} rail @param {string} from @param {string} to @param {AthensTime} now @param {boolean} ownDay @returns {Route[]} */
+function fastestRoutes(rail, from, to, now, ownDay) {
+    const { ids, index, routes, planner } = searchFor(rail, now, ownDay);
+    if (!index.has(from) || !index.has(to)) return [];
+    const around = id => [index.get(id), 0, ...walksFrom(rail, id).flatMap(([stop, minutes]) => [index.get(stop), minutes * 60])];
+    const egress = around(to);
+    planner.search(around(from), now.seconds, { egress });
+    const found = [];
+    let best = Infinity;
+    for (let rides = 1; rides <= MAX_CHANGES + 1; rides++) {
+        const { at, stop } = planner.arrival(egress, rides);
+        if (at === null || at >= best) continue;
+        const legs = planner.journey(stop, rides).legs.map(leg => {
+            const { line, dir, along } = routes[leg.route];
+            return { line, dir, from: ids[leg.board], to: ids[leg.alight], fromIndex: along[leg.boardIndex], toIndex: along[leg.alightIndex] };
+        });
+        const walkFirst = legs[0].from === from ? 0 : rail.walks[from][legs[0].from];
+        const walkLast = legs.at(-1).to === to ? 0 : rail.walks[legs.at(-1).to][to];
+        const route = { legs, ...(walkFirst && { walkFirst }), ...(walkLast && { walkLast }) };
+        if (comesBack(rail, from, route)) continue;
+        best = at;
+        found.push(route);
+    }
+    return found;
+}
+
+/** @param {Route} route */
+const routeKey = route => JSON.stringify([route.walkFirst ?? 0, route.legs.map(leg => [leg.line, leg.dir, leg.fromIndex, leg.toIndex]), route.walkLast ?? 0]);
+
+// Plan every route, findRoutes' and the search's fastest, and keep the few
+// that arrive first, fewer changes first when they arrive together; those
+// arriving much later start closed (SLOWER_MINUTES in render.js). A trip with a
+// tram offers its other ways like that, whatever their changes. Metro trains
+// alone don't: a route with more changes than the fewest stays only if it gets
+// there WORTH_A_CHANGE sooner than every route with fewer, so a direct train
+// stays the only answer.
 /** @param {Rail} rail @param {string} from @param {string} to @param {AthensTime} now @param {boolean} [ownDay] @returns {PlannedRoute[]} */
 export function planJourney(rail, from, to, now, ownDay = false) {
-    const plans = findRoutes(rail, from, to).map(route => planRoute(rail, route, now, ownDay));
+    if (!from || !to || from === to) return [];
+    const routes = findRoutes(rail, from, to);
+    const known = new Set(routes.map(routeKey));
+    routes.push(...fastestRoutes(rail, from, to, now, ownDay).filter(route => !known.has(routeKey(route))));
+    const plans = routes.map(route => planRoute(rail, route, now, ownDay));
     const fewest = Math.min(...plans.map(plan => plan.legs.length));
     const hasTram = plan => plan.legs.some(leg => rail.lines[leg.line].tram);
     const worthIt = plan => plan.legs.length === fewest || hasTram(plan) || (plan.arrives !== null

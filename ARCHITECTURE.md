@@ -232,7 +232,7 @@ pages use.
   `html.js`, `metro.js` and `network.js` are also used by the server (the
   station pages), so they only import other files by relative path, which
   works in both.
-- **The tram in the planner** ([decision 25](docs/decisions/0025-trams-in-the-planner.md)):
+- **The tram in the planner** ([decision 28](docs/decisions/0028-trip-search.md)):
   `rail.stations` and `rail.lines` are the metro alone, and that's what the
   station pages, the checks and the Trip page read. `withTram(rail)` in
   `network.js` joins the tram to them in the same shape, each stop a station
@@ -240,8 +240,10 @@ pages use.
   walks between them in `walks`. The subway page plans on that network, or on
   `rail` while its switch hides the tram (`tram-hidden`, on the device).
   `findRoutes` works on either: it looks for the fewest changes a trip takes,
-  and times those routes and the ones with one change more. `planJourney` keeps
-  the 3 that arrive first. Beside a tram leg those can have more changes; metro
+  and lists those routes and the ones with one change more. `planJourney`
+  times them and the trip search's quickest way with each number of rides, up
+  to 3 changes (`raptor.js`, made once for each day's trains), and keeps the 3
+  that arrive first. Beside a tram leg those can have more changes; metro
   trains alone only do if they get there 5 minutes sooner.
 
 ## Offline
@@ -436,7 +438,8 @@ address.
 [scripts/planner-lab/](scripts/planner-lab/README.md) is a trial of how version
 1 could plan across every mode. Pages and the server don't load it: it's there
 so the trial can be repeated, and trips riders know can be tested as it improves
-(`test/planner-lab.test.js`).
+(`test/planner-lab.test.js`). Its search is the app's,
+`tools/subway/client/raptor.js`, with walks worked out from the straight line.
 
 ## Monitoring
 

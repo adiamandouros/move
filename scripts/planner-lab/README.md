@@ -4,11 +4,13 @@ A trial of how version 1's planner could find a trip across every mode, from
 any point to any point. **The app doesn't use any of this yet**: nothing here is
 loaded by a page or the server. It's here so the trial can be repeated and
 trips can be tested as the model gets better, before anything is decided.
-Moving it into the app comes with its decision record.
+Moving it into the app comes with its decision record. The search itself has
+moved already: it's the Subway planner's, `tools/subway/client/raptor.js`
+(decision 28), and `raptor.js` here gives it the lab's walks.
 
 | File | What it is |
 |---|---|
-| `raptor.js` | The search: earliest arrivals by number of rides, walks at the changes |
+| `raptor.js` | The app's search (earliest arrivals by number of rides), with walks from the straight line |
 | `ways.js` | From what the search finds to the ways a rider could choose from |
 | `weights.js` | What a way costs a rider, to put ways in order: a bad day for buses, walking at 1.5, 3 minutes a change |
 | `answer.js` | Every departure in the next half hour: one clear way, a decision on the way, or it depends; buses from one change as one row |
