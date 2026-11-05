@@ -4,12 +4,17 @@ import { readFileSync } from 'fs';
 import { browserModule } from './support/browser-modules.js';
 
 // The trip page's door-to-door trip (tools/trip/client/plan.js), over the
-// test data's real metro, and with the tram. What's drawn: trip-render.test.js.
+// test data's real metro, with the tram, and with the buses between Kallithea
+// and Syntagma (tools/trip/client/buses.js). What's drawn: trip-render.test.js.
 
 const rail = JSON.parse(readFileSync(new URL('browser/data/rail.json', import.meta.url), 'utf8'));
+const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.meta.url), 'utf8'));
 const { doorToDoor, stationsNear, walkBetween } = await browserModule('tools/trip/client/plan.js');
+const { busOptions, cityPlanner, timeHalfHour } = await browserModule('tools/trip/client/buses.js');
 const { withTram } = await browserModule('tools/subway/client/network.js');
 const network = withTram(rail);
+// rail.json as it is: the city's search joins the tram itself
+const city = cityPlanner(rail, buses, 3);
 
 // A Wednesday in the timetable, 10:00
 const NOW = { weekday: 3, seconds: 10 * 3600, date: '2026-10-21' };
@@ -66,13 +71,15 @@ test('the same way is offered once, however it\'s walked to: from the stop, or f
     }
 });
 
-test('door to door: walk, ride, and the first to arrive first', () => {
+test('door to door: walk, ride, and in order by what they cost a rider', () => {
     const { options, walkFirst, longWalk } = doorToDoor(rail, menelaou, syntagma, NOW);
     assert.equal(walkFirst, false);
     assert.equal(longWalk, false);
     assert.ok(options.length >= 2 && options.length <= 3);
-    const arrivals = options.map(o => o.arrives);
-    assert.deepEqual(arrivals, [...arrivals].sort((a, b) => a - b));
+    // The weights (weights.js): the minutes to the door and more for each one on foot and each change
+    const costs = options.map(o => o.cost);
+    assert.deepEqual(costs, [...costs].sort((a, b) => a - b));
+    for (const o of options) assert.ok(o.cost >= o.arrives - NOW.seconds + o.changes * 180);
     const [best] = options;
     assert.ok(best.plan.legs[0].departures[0].departs >= NOW.seconds + best.start.walk.minutes * 60, 'catches a train after the walk');
     assert.equal(best.minutes, Math.round((best.arrives - NOW.seconds) / 60));
@@ -124,4 +131,47 @@ test('late at night, the next day\'s trains count from today\'s midnight', () =>
 test('a walk that runs past midnight catches the next day\'s trains', () => {
     const lastMinute = { ...NOW, seconds: 86_000 };
     assert.ok(doorToDoor(rail, far, syntagma, lastMinute).options.length > 0);
+});
+
+// ── With the buses (decision 31) ────────────────────────────────────────────
+
+test('with the buses, a way by bus that costs less comes first: Menelaou to Syntagma by the 040', () => {
+    const { options } = doorToDoor(network, menelaou, syntagma, NOW, { city });
+    const [best] = options;
+    assert.equal(best.city, true);
+    assert.deepEqual(best.rides.map(ride => ride.lines), [['040']]);
+    assert.ok(best.minutes < doorToDoor(network, menelaou, syntagma, NOW).options[0].minutes, 'sooner than the tram, on the August timetable');
+    assert.deepEqual(options.map(o => o.cost), options.map(o => o.cost).sort((a, b) => a - b), 'all of them in order by the weights');
+    // From the door to the first stop, and from the last to Syntagma
+    assert.ok(best.firstWalk.minutes > 0 && best.firstWalk.meters > 0);
+    assert.ok(best.rides[0].boards >= NOW.seconds + best.firstWalk.minutes * 60 - 60, 'caught after the walk');
+    // There when the last ride gets in, and the walk is done (its minutes are rounded)
+    assert.ok(Math.abs(best.arrives - (best.rides.at(-1).arrives + best.lastWalk.minutes * 60)) <= 30);
+    assert.equal(best.minutes, Math.round((best.arrives - NOW.seconds) / 60));
+});
+
+test('the same ride on different buses is one option, with each line, and no two options ride between the same stops', () => {
+    const options = busOptions(city, menelaou, syntagma, NOW);
+    const both = options.find(o => o.rides[0].lines.includes('550'));
+    assert.ok(both.rides[0].lines.includes('10'), 'the 550 or the 10 from Efesou');
+    const rides = options.map(o => o.rides.map(ride => `${ride.mode === 'bus' ? 'bus' : ride.line} ${ride.board.id} ${ride.alight.id}`).join());
+    assert.deepEqual(rides, [...new Set(rides)]);
+});
+
+test('every option the buses add has one, and a ride names its stops and where it goes', () => {
+    const options = busOptions(city, menelaou, syntagma, NOW);
+    assert.ok(options.length > 0);
+    for (const o of options) assert.ok(o.rides.some(ride => ['bus', 'trolley'].includes(ride.mode)));
+    const [ride] = options[0].rides;
+    assert.ok(ride.board.names.el && ride.alight.names.el && ride.toward.el);
+    assert.ok(ride.stops > 0 && ride.arrives > ride.boards);
+});
+
+test('without the buses, the metro and the tram, as before', () => {
+    assert.ok(doorToDoor(network, menelaou, syntagma, NOW).options.every(o => !o.city));
+});
+
+test('a half hour of departures is timed, for the phone test', () => {
+    const ms = timeHalfHour(city, menelaou, syntagma, NOW, 900);
+    assert.ok(Number.isInteger(ms) && ms >= 0);
 });

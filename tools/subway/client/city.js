@@ -25,15 +25,21 @@ const M_LAT = 111_320;
 const M_LNG = 111_320 * Math.cos(37.97 * Math.PI / 180);
 
 /** @typedef {{ lat: number, lng: number }} Point */
-/** @typedef {Point & { id: string, name: string }} Stop */
-/** @typedef {import('./raptor.js').Route} Route */
+/** @typedef {{ el: string, en: string }} Names */
+/**
+ * A stop: name, Greek, for the lab; names, as the page shows them (`en` ''
+ * for a bus stop whose English is its Greek in Latin letters, as in
+ * bus-stops.json); station, a rail stop's id in rail.json
+ * @typedef {Point & { id: string, name: string, names?: Names, station?: string }} Stop
+ */
+/** @typedef {import('./raptor.js').Route & { toward?: Names }} Route where it goes: a rail line's direction, a bus's last stop */
 /** @typedef {import('./raptor.js').Leg} Leg */
 /** @typedef {import('./raptor.js').Journey} Journey */
 /**
  * A day of buses. A route's trips are [start, profile], and a profile the
  * seconds from the start at each of its stops. `code`: the OASA route it's
- * on, for measured ride times.
- * @typedef {{ day: number, stops: Record<string, [number, number, string]>,
+ * on, for measured ride times. A stop's English name, where there is one, after its Greek.
+ * @typedef {{ day: number, stops: Record<string, [number, number, string] | [number, number, string, string]>,
  *   routes: { line: string, mode: string, code?: string, stops: string[], profiles: number[][], trips: [number, number][] }[] }} Buses
  */
 
@@ -65,7 +71,7 @@ export function busDay({ stops, routes }, weekday) {
     });
     return {
         day: weekday,
-        stops: Object.fromEntries([...used].map(i => [stops[i][0], [stops[i][1], stops[i][2], stops[i][3]]])),
+        stops: Object.fromEntries([...used].map(i => [stops[i][0], [stops[i][1], stops[i][2], stops[i][3], stops[i][4]]])),
         routes: day,
     };
 }
@@ -73,22 +79,23 @@ export function busDay({ stops, routes }, weekday) {
 /**
  * The stops and routes of one weekday (0 = Sunday), last night's trains that
  * run past midnight included. `index` finds a stop: rail:korydallos, bus:70040.
+ * Each route says where it goes (`toward`): a rail line's direction, a bus's last stop.
  * @param {import('../../../types/data.js').Rail} rail @param {Buses} buses @param {number} weekday
  */
 export function joinNetwork(rail, buses, weekday) {
     const net = withTram(rail);
     const stops = [];
     const index = new Map();
-    const add = (id, lat, lng, name) => {
+    const add = (id, lat, lng, names, more = {}) => {
         index.set(id, stops.length);
-        stops.push({ id, lat, lng, name });
+        stops.push({ id, lat, lng, name: names.el, names, ...more });
     };
-    for (const [id, { coords, name }] of Object.entries(net.stations)) add(`rail:${id}`, coords[0], coords[1], name.el);
-    for (const [code, [lat, lng, name]] of Object.entries(buses.stops)) add(`bus:${code}`, lat, lng, name);
+    for (const [id, { coords, name }] of Object.entries(net.stations)) add(`rail:${id}`, coords[0], coords[1], name, { station: id });
+    for (const [code, [lat, lng, el, en = '']] of Object.entries(buses.stops)) add(`bus:${code}`, lat, lng, { el, en });
 
     const routes = [];
     for (const [line, { directions, tram }] of Object.entries(net.lines)) {
-        for (const { stops: calls, timetable } of Object.values(directions)) {
+        for (const { stops: calls, timetable, toward } of Object.values(directions)) {
             const byProfile = new Map();
             for (const dayOffset of [-1, 0]) {
                 const pattern = timetable.patterns[timetable.days[(weekday + dayOffset + 7) % 7]];
@@ -99,24 +106,25 @@ export function joinNetwork(rail, buses, weekday) {
             }
             for (const [profile, trips] of byProfile) {
                 const along = timetable.profiles[profile].stops.map(i => index.get(`rail:${calls[i].station}`));
-                routes.push({ line, mode: tram ? 'tram' : 'metro', stops: along, trips });
+                routes.push({ line, mode: tram ? 'tram' : 'metro', stops: along, trips, toward });
             }
         }
     }
     for (const { line, mode, stops: calls, profiles, trips } of buses.routes) {
+        const along = calls.map(code => index.get(`bus:${code}`));
         routes.push({
-            line, mode,
-            stops: calls.map(code => index.get(`bus:${code}`)),
+            line, mode, stops: along,
             trips: trips.map(([start, profile]) => profiles[profile].map(offset => start + offset)),
+            toward: stops[along.at(-1)].names,
         });
     }
     return { stops, routes, index };
 }
 
 /**
- * The search over these stops and routes, with every walk of up to 10
- * minutes between stops for changes, and `near`: the stops within `limit`
- * seconds on foot of a point, [stop, seconds, stop, seconds…]
+ * The search over these stops and routes (a leg's `route` is one of them),
+ * with every walk of up to 10 minutes between stops for changes, and `near`:
+ * the stops within `limit` seconds on foot of a point, [stop, seconds, stop, seconds…]
  * @param {{ stops: Stop[], routes: Route[] }} network
  */
 export function createPlanner({ stops, routes }) {
@@ -148,5 +156,5 @@ export function createPlanner({ stops, routes }) {
         afterWalk: AFTER_WALK_SECONDS,
         walkSeconds: (from, to) => walkSeconds(stops[from], stops[to]),
     });
-    return { ...planner, stops, near };
+    return { ...planner, stops, routes, near };
 }

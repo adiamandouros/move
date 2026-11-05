@@ -1,6 +1,6 @@
 # 29. The trip page: door to door by metro and tram, beside Subway and Buses
 
-Decided 2026-11-05 · In force
+Decided 2026-11-05 · Replaced by [31](0031-trip-page-buses.md)
 
 ## Situation
 

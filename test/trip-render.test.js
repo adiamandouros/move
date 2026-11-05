@@ -16,6 +16,10 @@ const street = (kind, more = {}) => ({ type: 'street', name: 'Μενελάου',
 
 const { withTram } = await browserModule('tools/subway/client/network.js');
 const network = withTram(rail);
+const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.meta.url), 'utf8'));
+const { cityPlanner } = await browserModule('tools/trip/client/buses.js');
+const city = cityPlanner(rail, buses, 3);
+const { latinName: latin } = await browserModule('public/js/core/text.js');
 
 for (const lang of ['en', 'el']) {
     const r = await browserModule('tools/trip/client/render.js', lang);
@@ -104,6 +108,40 @@ for (const lang of ['en', 'el']) {
         assert.ok(last.indexOf('line-m2') < last.indexOf(walkTo('neos-kosmos-tram')), 'after the last train');
     });
 
+    test(`${lang}: a way by bus: the walk to its stop, its plate, its time with "~", where it goes, and why it's an estimate`, () => {
+        const trip = doorToDoor(network, menelaou, syntagma, NOW, { city });
+        const view = String(r.renderTrip(network, trip, syntagma));
+        check(view);
+        const card = view.slice(view.indexOf('trip-card'), view.indexOf(s['trip.other-ways']));
+        const [ride] = trip.options[0].rides;
+        const stop = lang === 'el' ? ride.board.names.el : ride.board.names.en || latin(ride.board.names.el);
+        assert.ok(card.includes(s['trip.walk-to'].replace('{place}', stop)), 'the walk to its stop, by name');
+        assert.match(card, /<span class="bus-plate pill-s">040<\/span>/);
+        assert.match(card, /trip-step-when">~\d\d:\d\d</, 'its time an estimate');
+        assert.ok(card.includes(s['trip.towards'].split('{end}')[0]), 'where it goes');
+        assert.equal(card.includes('/subway?from='), false, 'nowhere to stand on a bus');
+        assert.ok(view.includes(`${s['trip.estimates']} ${s['trip.bus-estimates']}`.replace(/'/g, '&#39;')), 'in words, not only "~"');
+    });
+
+    test(`${lang}: the same ride on two buses shows both, and doesn't say where one of them goes`, () => {
+        const trip = doorToDoor(network, menelaou, { lat: 37.9686, lng: 23.7295, title: 'Ακρόπολη', exact: null }, NOW, { city });
+        const both = trip.options.find(o => o.city && o.rides.some(ride => ride.lines.length > 1));
+        const ride = both.rides.find(one => one.lines.length > 1);
+        const view = String(r.renderTrip(network, { ...trip, options: [both] }, syntagma));
+        check(view);
+        for (const line of ride.lines) assert.ok(view.includes(`<span class="bus-plate pill-s">${line}</span>`), line);
+        const steps = view.slice(view.indexOf('trip-steps'));
+        const towards = s['trip.towards'].split('{end}')[0];
+        assert.equal(steps.split(towards).length - 1, both.rides.filter(one => one.lines.length === 1).length);
+    });
+
+    test(`${lang}: without the buses' times, it says the trip is by metro and tram`, () => {
+        const view = String(r.renderTrip(network, doorToDoor(network, menelaou, syntagma, NOW), syntagma, { noBuses: true }));
+        check(view);
+        assert.ok(view.includes(s['trip.buses-error'].replace(/'/g, '&#39;')));
+        assert.equal(view.includes(s['trip.bus-estimates'].replace(/'/g, '&#39;')), false);
+    });
+
     test(`${lang}: to an address, the last walk is there too`, () => {
         const trip = doorToDoor(rail, syntagma, menelaou, NOW);
         const view = String(r.renderTrip(rail, trip, menelaou));
@@ -124,7 +162,7 @@ for (const lang of ['en', 'el']) {
         assert.ok(view.indexOf(s['trip.walk-quicker']) < view.indexOf(s['trip.other-ways']) || !view.includes(s['trip.other-ways']));
     });
 
-    test(`${lang}: a long walk says a bus may be better, and points to them`, () => {
+    test(`${lang}: a long walk says so, and points to the buses nearby`, () => {
         const far = { lat: 37.97805, lng: 23.62674 };
         const view = String(r.renderTrip(rail, doorToDoor(rail, far, syntagma, NOW), syntagma));
         check(view);

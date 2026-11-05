@@ -26,6 +26,12 @@ const NO_NEXT_SECONDS = 3600;
 /** @typedef {ReturnType<typeof import('./city.js').createPlanner>} Planner */
 /** @typedef {import('./ways.js').Way} Way */
 
+// The weights on a way's own times: seconds to the door, `walk` of them on
+// foot, and its changes. Also for ways the search didn't find (the Trip page's
+// metro options)
+/** @param {number} seconds @param {number} walk @param {number} changes */
+export const weighed = (seconds, walk, changes) => seconds + (WALK_WEIGHT - 1) * walk + CHANGE_COST_SECONDS * changes;
+
 /**
  * What `way` costs, in seconds from `now`, timed on `badDay` (a planner over
  * the same stops, or the way's own one when nothing is measured): Infinity if
@@ -43,5 +49,5 @@ export function cost(badDay, way, now, access, egress) {
         const spare = leg.boards - (legs[i - 1].arrives + leg.walkBefore + AFTER_WALK_SECONDS);
         if (spare < TIGHT_SECONDS) risk += MISS_CHANCE * (leg.next === null ? NO_NEXT_SECONDS : leg.next - leg.boards);
     });
-    return at - now + (WALK_WEIGHT - 1) * way.walk + CHANGE_COST_SECONDS * (legs.length - 1) + risk;
+    return weighed(at - now, way.walk, legs.length - 1) + risk;
 }

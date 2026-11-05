@@ -1,6 +1,6 @@
 // Refreshes the browser tests' data from the real build (data/build/, made by
-// `npm run build:data`). Run it when rail.json's, bus-stops.json's or
-// bus-lines.json's format changes, then check the tests still pass and commit
+// `npm run build:data`). Run it when rail.json's, bus-stops.json's,
+// bus-lines.json's or buses.json's format changes, then check the tests still pass and commit
 // the result:
 //   node test/browser/data/update.js
 //
@@ -11,6 +11,8 @@
 // server/data/index.js builds it so. bus-stops.json keeps only the stops around Syntagma and Omonia,
 // where the tests stand, to stay small, plus every stop of the few lines
 // bus-lines.json keeps (LINES), so their whole routes can be looked up.
+// buses.json, the trip search's bus timetable, keeps the part of each route
+// between Kallithea and Syntagma (BUSES_BOX), where the trip page's tests go.
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
@@ -19,6 +21,8 @@ const HERE = fileURLToPath(new URL('.', import.meta.url));
 const BUILD = join(HERE, '..', '..', '..', 'data', 'build');
 const AROUND = [[37.9755, 23.7348], [37.9842, 23.7281]]; // Syntagma, Omonia
 const RADIUS_M = 1200;
+// South, west, north, east
+const BUSES_BOX = [37.94, 23.69, 37.99, 23.75];
 // The 040 and the Χ95 both stop at Syntagma; the Χ95 also has a Latin look-alike name ("X95")
 const LINES = ['040', 'Χ95'];
 
@@ -41,5 +45,30 @@ bus.stops = bus.stops.filter(s => onLines.has(s[code]) || AROUND.some(p => metre
 writeFileSync(join(HERE, 'bus-stops.json'), JSON.stringify(bus));
 writeFileSync(join(HERE, 'bus-lines.json'), JSON.stringify(lines));
 
+// Each route's stops inside the box, its trips timed from the first of them
+const buses = JSON.parse(readFileSync(join(BUILD, 'buses.json'), 'utf8'));
+const [south, west, north, east] = BUSES_BOX;
+const inBox = ([, la, ln]) => la >= south && la <= north && ln >= west && ln <= east;
+const sum = list => list.reduce((offsets, seconds) => [...offsets, offsets.at(-1) + seconds], [0]);
+const kept = new Map();
+buses.routes = buses.routes.flatMap(route => {
+    const inside = route.stops.flatMap((stop, i) => inBox(buses.stops[stop]) ? [i] : []);
+    if (inside.length < 2) return [];
+    const profiles = route.runs.map(sum);
+    const patterns = route.patterns.map(trips => {
+        let start = 0;
+        const moved = trips.map(([after, run]) => [(start += after) + profiles[run][inside[0]], run]).sort((a, b) => a[0] - b[0]);
+        return moved.map(([at, run], i) => [at - (moved[i - 1]?.[0] ?? 0), run]);
+    });
+    for (const i of inside) if (!kept.has(route.stops[i])) kept.set(route.stops[i], kept.size);
+    return [{
+        ...route, patterns,
+        stops: inside.map(i => kept.get(route.stops[i])),
+        runs: profiles.map(offsets => inside.slice(1).map((i, k) => offsets[i] - offsets[inside[k]])),
+    }];
+});
+buses.stops = [...kept.keys()].map(i => buses.stops[i]);
+writeFileSync(join(HERE, 'buses.json'), JSON.stringify(buses));
+
 writeFileSync(join(HERE, 'meta.json'), readFileSync(join(BUILD, 'meta.json')));
-console.log(`rail.json: ${Object.keys(rail.stations).length} stations; bus-stops.json: ${bus.stops.length} stops; bus-lines.json: ${lines.lines.length} lines`);
+console.log(`rail.json: ${Object.keys(rail.stations).length} stations; bus-stops.json: ${bus.stops.length} stops; bus-lines.json: ${lines.lines.length} lines; buses.json: ${buses.routes.length} routes`);

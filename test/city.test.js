@@ -28,7 +28,8 @@ const buses = buildBuses(week, network, { rides: [] }).data;
 test('a day of buses.json is the day it was built from, to the 10 s', () => {
     assert.deepEqual(busDay(buses, 3), {
         day: 3,
-        stops: { 1: [37.97, 23.7, 'Στάση 1'], 2: [37.98, 23.7, 'Στάση 2'], 3: [37.99, 23.7, 'Στάση 3'] },
+        // With each stop's English, '' where it's the Greek in Latin letters
+        stops: { 1: [37.97, 23.7, 'Στάση 1', ''], 2: [37.98, 23.7, 'Στάση 2', ''], 3: [37.99, 23.7, 'Στάση 3', ''] },
         routes: [{ line: '040', mode: 'bus', code: '3922', stops: ['1', '2', '3'], profiles: [[0, 120, 1200]], trips: [[H8, 0], [H8 + 600, 0]] }],
     });
 });
@@ -45,6 +46,12 @@ test('after midnight, last night\'s buses still on the road come first, at times
 test('a route with no trips that day isn\'t in it, nor are stops only it calls at', () => {
     const quiet = { ...buses, routes: [{ ...buses.routes[0], days: [0, 0, 0, 0, 0, 0, 0] }] };
     assert.deepEqual(busDay(quiet, 3), { day: 3, stops: {}, routes: [] });
+});
+
+test('each stop has its names and each route where it goes: a bus\'s last stop', () => {
+    const { stops, routes } = joinNetwork({ schema: 1, stations: {}, lines: {} }, busDay(buses, 3), 3);
+    assert.deepEqual(stops.map(stop => [stop.id, stop.names]), [1, 2, 3].map(n => [`bus:${n}`, { el: `Στάση ${n}`, en: '' }]));
+    assert.deepEqual(routes[0].toward, { el: 'Στάση 3', en: '' });
 });
 
 test('the search rides the day\'s buses, from the stops a walk away', () => {

@@ -253,8 +253,8 @@ pages use.
   straight line (× 1.4, measured against a street router); `ways.js` finds the
   ways a rider could choose from, beyond the search's best with each number
   of rides; `weights.js` puts them in order by what they cost a rider (agreed
-  on 3 November 2026: walking counts 1.5, 3 minutes a change). No page uses
-  them yet.
+  on 3 November 2026: walking counts 1.5, 3 minutes a change). The trip page
+  uses them.
 
 ## Offline
 
@@ -441,14 +441,17 @@ in the body, so it stays out of the host's logs. The index is loaded for the
 first search and dropped for a new one, and `/api/health` warns when it's
 over three weeks old.
 
-The trip page (`tools/trip/`, [decision 29](docs/decisions/0029-trip-page-tram.md))
+The trip page (`tools/trip/`, [decision 31](docs/decisions/0031-trip-page-buses.md))
 is what uses it. `client/picker.js` finds places as they're typed,
 `client/plan.js` works out the trip in the browser from the Subway's
 `network.js`, on the metro and the tram unless the Subway page's switch hides
 the tram (`tram-switch.js`). It tries the three metro stations nearest each
 end and every station or stop within 15 minutes' walk: every trip between the
 nearest is planned, and the search (`arrivalsFrom`) picks the 6 quickest of
-the rest. `client/render.js` draws it. Addresses aren't kept, and never go in the page's
+the rest. On `/trip?buses` (and `?timing`, which times them on the device),
+`client/buses.js` adds the ways with a bus from the city's search (`city.js`,
+`ways.js`), the same ride on different buses as one; all of them go in order
+by `weights.js`. `client/render.js` draws it. Addresses aren't kept, and never go in the page's
 address.
 
 ## The planner lab
@@ -456,8 +459,8 @@ address.
 [scripts/planner-lab/](scripts/planner-lab/README.md) is a trial of how version
 1 could plan across every mode. Pages and the server don't load it: it's there
 so the trial can be repeated, and trips riders know can be tested as it improves
-(`test/planner-lab.test.js`). Its search is the app's,
-`tools/subway/client/raptor.js`, with walks worked out from the straight line.
+(`test/planner-lab.test.js`). Its search, network, ways and weights are the
+app's, in `tools/subway/client/`.
 
 ## Monitoring
 
