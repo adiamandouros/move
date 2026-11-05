@@ -11,10 +11,13 @@ const LATIN_PAIRS = [['ph', 'f'], ['ch', 'h'], ['kh', 'h'], ['dh', 'd'], ['gh', 
     ['eu', 'ev'], ['au', 'av'], ['ef', 'ev'], ['af', 'av'], ['mp', 'b'], ['nt', 'd'], ['gk', 'g'], ['ng', 'g'], ['gg', 'g'],
     ['x', 'ks'], ['y', 'i'], ['w', 'o'], ['c', 'k'], ['j', 'g']];
 
+// Small letters, no accents
+const plain = text => text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ς/g, 'σ');
+
 // Greek and Latin spellings of a word end up the same:
 // 'Μενελάου', 'Menelaou' and 'menelaoy' are all 'menelau'
 export function fold(text) {
-    let s = text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ς/g, 'σ');
+    let s = plain(text);
     s = s.replace(/(\d+)(?:ησ|ασ|ου|οσ|η|α|ο|th|st|nd|rd)(?![\p{L}])/gu, '$1');
     for (const [a, b] of GREEK_PAIRS) s = s.replaceAll(a, b);
     s = s.replace(/[α-ω]/g, c => GREEK[c]);
@@ -216,14 +219,38 @@ function match(db, words) {
     return found ?? new Map();
 }
 
-// Every way of mending a misspelt word by one letter; the town then picks among them
-function corrected(db, words) {
+const LETTERS = { greek: 'αβγδεζηθικλμνξοπρστυφχψω', latin: 'abcdefghijklmnopqrstuvwxyz' };
+// Every way of writing a word with one letter changed, added or dropped, past
+// its first. In the letters typed, as the fold can make one letter two: it
+// merges doubled letters, so «Μεελάου» is 'melau', two from 'menelau'
+function respellings(word) {
+    const letters = /[α-ω]/.test(word) ? LETTERS.greek : LETTERS.latin;
+    const out = new Set();
+    for (let i = 1; i <= word.length; i++) {
+        const head = word.slice(0, i), tail = word.slice(i);
+        if (tail) out.add(head + tail.slice(1));
+        for (const c of letters) {
+            out.add(head + c + tail);
+            if (tail) out.add(head + c + tail.slice(1));
+        }
+    }
+    return out;
+}
+
+// Every way of mending a misspelt word by one letter; the town then picks among them.
+// typed: each word's fold, and how it was typed
+function corrected(db, words, typed) {
     let changed = false;
     const fixed = words.map(w => {
-        if (w.length < 5 || db.postings.has(w) || wordRange(db.vocabulary, w).length) return [w];
-        const close = db.vocabulary.filter(v => v[0] === w[0] && editOne(v, w));
-        if (close.length) changed = true;
-        return close.length ? close : [w];
+        if (w.length < 4 || db.postings.has(w) || wordRange(db.vocabulary, w).length) return [w];
+        const close = new Set(db.vocabulary.filter(v => v[0] === w[0] && editOne(v, w)));
+        const respelt = new Set([...respellings(typed.get(w))].map(fold).filter(f => db.postings.has(f)));
+        // One letter off both as typed and folded beats one way only:
+        // «Νικοάου» is 'nikolau' both ways, and 'nikiu' only as «Νικοιου»
+        const both = [...close].filter(f => respelt.has(f));
+        const mended = both.length ? both : [...new Set([...close, ...respelt])];
+        if (mended.length) changed = true;
+        return mended.length ? mended : [w];
     });
     return changed ? fixed : null;
 }
@@ -301,6 +328,8 @@ const KIND_ORDER = { exact: 0, range: 1, between: 2, beyond: 3, nearest: 4, stre
 export function search(db, query, limit = 10) {
     const out = { results: [], notInTown: null, corrected: false };
     if (!query.trim()) return out;
+    // Each word's fold, and the word as typed
+    const typed = new Map(plain(query).split(/[^\p{L}\p{N}]+/u).flatMap(t => fold(t).split(' ').map(w => [w, t])));
     let elsewhere = null;
     // A town after a comma can be cut short at once; one with no comma only
     // once nothing else has made sense of the words
@@ -320,7 +349,7 @@ export function search(db, query, limit = 10) {
         let words = reading.words, found = match(db, words);
         let fixed = false;
         if (!found.size) {
-            const mended = corrected(db, words);
+            const mended = corrected(db, words, typed);
             if (mended) { found = match(db, mended); fixed = found.size > 0; words = mended; }
         }
         if (!found.size) continue;

@@ -13,6 +13,8 @@ const first = query => search(db, query).results[0];
 const line = [{ lat: 37.955, lng: 23.70 }, { lat: 37.955, lng: 23.72 }];
 const house = (n, lng, range = false) => ({ n, lng, lat: 37.955, range });
 const street = (...pts) => ({ lines: [line], pts });
+// A street of Καλλιθέα added to the fixture in a test, so the shared one stays as it is
+const road = (name, lat) => ({ type: 'way', tags: { highway: 'residential', name }, geometry: [{ lat, lon: 23.701 }, { lat, lon: 23.703 }] });
 
 test('Greek and Latin spellings of a name fold to the same thing', () => {
     for (const spelling of ['Μενελάου', 'ΜΕΝΕΛΑΟΥ', 'Menelaou', 'menelaoy']) assert.equal(fold(spelling), 'menelau', spelling);
@@ -123,6 +125,28 @@ test('a letter missing beside -άου is one letter, not two', () => {
     const { results, corrected } = search(db, 'Μενελου 45');
     assert.deepEqual([results[0]?.name, results[0]?.kind], ['Μενελάου', 'exact']);
     assert.equal(corrected, true);
+});
+
+test('a letter dropped is one letter as typed, though the fold makes it more', () => {
+    const more = [road('Αγησιλάου', 37.959), road('Μπιζανίου', 37.958)];
+    const withMore = load(buildIndex({ ...raw, streets: [...raw.streets, ...more] }, rail).index);
+    // Doubled letters merge ('melau'), in Latin too; αη reads as αι ('esilau'); a μ
+    // without its π is another first letter ('mizaniu', not 'bizaniu')
+    for (const [query, name] of [['Μεελάου 45', 'Μενελάου'], ['Meelaou 45', 'Μενελάου'], ['Αησιλάου', 'Αγησιλάου'], ['Μιζανίου', 'Μπιζανίου']]) {
+        const { results, corrected } = search(withMore, query);
+        assert.deepEqual([results[0]?.name, corrected], [name, true], query);
+    }
+});
+
+test('a short word is mended too', () => {
+    const { results, corrected } = search(db, 'Κύρου');
+    assert.deepEqual([results[0]?.name, corrected], ['Κύπρου', true]);
+});
+
+test('a mending one letter off both as typed and folded beats one that is only one way', () => {
+    // «Νικοιου», one letter from «Νικοάου» as typed, folds to Νικίου's 'nikiu'
+    const withBoth = load(buildIndex({ ...raw, streets: [...raw.streets, road('Νικολάου', 37.959), road('Νικίου', 37.958)] }, rail).index);
+    assert.deepEqual(search(withBoth, 'Νικοάου').results.map(result => result.name), ['Νικολάου']);
 });
 
 test('a mended name ranks as if it had been typed right, not by the letters typed', () => {
