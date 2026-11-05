@@ -21,9 +21,10 @@ function feedDir() {
     const files = {
         'routes.txt': 'route_id,route_short_name,route_long_name,route_type\n1,040 ,ΠΕΙΡΑΙΑΣ,3\n2,12,ΟΜΟΝΟΙΑ,11\n',
         'calendar.txt': 'service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date\n'
-            + 'day_1,1,0,0,0,0,0,0,20260803,20260824\nday_3,0,0,1,0,0,0,0,20260804,20260824\nday_7,0,0,0,0,0,0,1,20260803,20260823\n',
+            + 'day_1,1,0,0,0,0,0,0,20260803,20260824\nday_3,0,0,1,0,0,0,0,20260804,20260824\nday_7,0,0,0,0,0,0,1,20260803,20260823\n'
+            + 'extra,0,0,0,0,0,0,0,20260101,20261231\n',
         // Monday and Wednesday the same, Sunday another; a trip of a service that isn't a day is left out
-        'trips.txt': 'route_id,service_id,trip_id\n1,day_1,mon8\n1,day_1,mon9\n1,day_3,wed8\n1,day_3,wed9\n1,day_7,sun10\n2,day_3,trolley\n1,extra,x\n',
+        'trips.txt': 'route_id,service_id,trip_id\n1,day_1,mon8\n1,day_1,mon9\n1,day_3,wed8\n1,day_3,wed9\n1,day_7,sun10\n1,day_7,sun10b\n2,day_3,trolley\n2,day_3,lone\n1,extra,x\n',
         'stop_times.txt': ['trip_id,arrival_time,departure_time,stop_id,stop_sequence',
             'mon8,08:00:00,08:00:00,10,1', 'mon8,08:05:00,08:05:00,20,2', 'mon8,08:30:00,08:30:00,30,3',
             'mon9,09:00:00,09:00:00,10,1', 'mon9,09:05:00,09:05:00,20,2', 'mon9,09:30:00,09:30:00,30,3',
@@ -31,6 +32,9 @@ function feedDir() {
             'wed9,09:30:00,09:30:00,30,3', 'wed9,09:00:00,09:00:00,10,1', 'wed9,09:05:00,09:05:00,20,2',
             'wed8,08:00:00,08:00:00,10,1', 'wed8,08:05:00,08:05:00,20,2', 'wed8,08:30:00,08:30:00,30,3',
             'sun10,24:10:00,24:10:00,10,1', 'sun10,24:20:00,24:20:00,20,2', 'sun10,24:40:00,24:40:00,30,3',
+            'sun10b,24:10:00,24:10:00,10,1', 'sun10b,24:15:00,24:15:00,20,2', 'sun10b,24:40:00,24:40:00,30,3',
+            // A trip that calls at one stop isn't a ride
+            'lone,08:00:00,08:00:00,10,1',
             'trolley,08:00:00,08:00:00,10,1', 'trolley,08:09:00,08:09:00,20,2',
             'x,08:00:00,08:00:00,10,1', 'x,08:01:00,08:01:00,20,2', 'x,08:02:00,08:02:00,30,3',
         ].join('\n'),
@@ -46,7 +50,7 @@ test('the feed comes out as a week: each route\'s trips, the days with the same 
     assert.deepEqual(week.routes.map(r => [r.line, r.mode, r.stops]), [['040', 'bus', ['10', '20', '30']], ['12', 'trolley', ['10', '20']]]);
     const [bus] = week.routes;
     assert.deepEqual(bus.profiles, [[0, 300, 1800], [0, 600, 1800]], 'trips with the same times share a profile');
-    assert.deepEqual(bus.patterns, [[[87_000, 1]], [[H8, 0], [9 * 3600, 0]], []], 'past midnight stays on its day');
+    assert.deepEqual(bus.patterns, [[[87_000, 0], [87_000, 1]], [[H8, 0], [9 * 3600, 0]], []], 'past midnight stays on its day');
     assert.deepEqual(bus.days, [0, 1, 2, 1, 2, 2, 2], 'Sunday, Monday = Wednesday; days without trips share an empty list');
 });
 
@@ -71,6 +75,8 @@ test('every live route is read, its stops in order, without codes the live times
         ['040 ', '1', 'Α - Β', [place('1', 0), { ...place('X9', 1) }, place('2', 2)]],
         ['12', '2', 'Γ', [place('3', 0)]],
     );
+    network.lines.push({ code: 'none', line: '999', name: { el: '999', en: '999' } });
+    network.routes.L12.push({ code: 'unknown', type: '1', name: { el: 'Δ', en: 'Δ' } });
     assert.deepEqual(liveRoutes(network).map(({ line, code, stops: along }) => [line, code, along.map(stop => stop.code)]), [['040', '1', ['1', '2']]]);
 });
 
@@ -169,6 +175,8 @@ test('too few rides, another kind of day, or another route: the feed\'s times st
         assert.deepEqual(route.profiles, ROUTE.profiles);
     }
     assert.deepEqual(withRides([ROUTE], { rides: [{ route: '999', from: '2', to: '4', times: { 'wd 8': [9, 600, 900] } }] }).routes, [ROUTE]);
+    const { code, ...noCode } = ROUTE;
+    assert.deepEqual(withRides([noCode], table('2', '4', { 'wd 8': [9, 600, 900] })).routes, [noCode], `no OASA route, as ${code} would be: no rides`);
 });
 
 test('Saturday\'s rides time Saturday only', () => {
@@ -198,7 +206,7 @@ test('buses.json: the live stops by index, each run to the 10 s, and each trip a
         ['040', '3922', 'Α - Β', [{ ...place('1', 0), en: 'SYNTAGMA' }, { ...place('2', 1), el: 'ΣΥΝΤΑΓΜΑ', en: 'SYNTAGMA' }, place('3', 2)]],
         ['999', '7', 'Γ - Δ', [place('8', 0), place('9', 1)]],
     );
-    const { data, warnings } = buildBuses(week([feed('040', ['1', '2', '3'], [0, 104, 251], H8, H8 + 605)]), network, { rides: [] });
+    const { data, warnings } = buildBuses(week([feed('040', ['1', '2', '3'], [0, 104, 251], H8, H8 + 605), feed('Χ80', ['1', '2'], [0, 60], H8)]), network, { rides: [] });
     assert.deepEqual(data, {
         schema: BUSES_SCHEMA,
         feed: { modified: '2026-08-06', validFrom: '2026-08-03', validTo: '2026-08-24' },
@@ -206,7 +214,7 @@ test('buses.json: the live stops by index, each run to the 10 s, and each trip a
         stops: [['1', 37.97, 23.7, 'Στάση 1', 'SYNTAGMA'], ['2', 37.98, 23.7, 'ΣΥΝΤΑΓΜΑ', ''], ['3', 37.99, 23.7, 'Στάση 3', '']],
         routes: [{ line: '040', mode: 'bus', code: '3922', stops: [0, 1, 2], runs: [[100, 150]], patterns: [[[H8, 0], [605, 0]]], days: [0, 0, 0, 0, 0, 0, 0] }],
     });
-    assert.deepEqual(warnings, ['1 of OASA\'s routes have no times in the feed, so the search leaves them out']);
+    assert.deepEqual(warnings, ['1 of OASA\'s routes have no times in the feed, so the search leaves them out', 'Lines of the feed OASA no longer runs: Χ80']);
     assert.deepEqual(checkOutput('buses.json', data), []);
 });
 
@@ -224,4 +232,11 @@ test('the checks catch a broken buses.json', () => {
     broken(data => { data.stops[0][1] = 0; return data; }, /stop 0 must be/);
     broken(data => { data.routes = []; return data; }, /no stops or no routes/);
     broken(data => { data.feed.validTo = 'soon'; return data; }, /validFrom and validTo/);
+    broken(data => { data.routes[0].mode = 'boat'; return data; }, /needs its line, bus or trolley, and its OASA route code/);
+    broken(data => { data.routes[0].stops = [0]; return data; }, /needs two stops or more, from the list/);
+    broken(data => { data.routes[0].runs = null; data.routes[0].patterns = null; data.routes[0].days = null; return data; },
+        /each run needs.*needs a pattern for each weekday/);
+    broken(data => { data.stops = [null]; return data; }, /stop 0 must be/);
+    broken(data => { data.stops = null; return data; }, /no stops or no routes/);
+    broken(() => ({}), /wrong schema number/);
 });
