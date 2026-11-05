@@ -90,6 +90,20 @@ for (const lang of ['en', 'el']) {
         assert.equal(card.includes('/subway?from='), false, 'no "where to stand" for a tram');
     });
 
+    test(`${lang}: a change on foot and a last walk to a stop are steps, each in its place`, () => {
+        const named = id => lang === 'el' ? network.stations[id].name.el : network.stations[id].name.en;
+        const walkTo = id => s['trip.walk-to'].replace('{place}', named(id));
+        const station = id => ({ lat: network.stations[id].coords[0], lng: network.stations[id].coords[1], station: id, title: named(id), exact: null });
+        // M1 to Faliro, on foot to Gipedo Karaiskaki, T7
+        const change = String(r.renderTrip(network, doorToDoor(network, station('kifisia'), station('evangelistria'), NOW), station('evangelistria')));
+        check(change);
+        assert.ok(change.indexOf('line-m1') < change.indexOf(walkTo('gipedo-karaiskaki')) && change.indexOf(walkTo('gipedo-karaiskaki')) < change.indexOf('line-t7'), 'between the trains');
+        // M1 and M2 to Neos Kosmos, then on foot to its tram stop
+        const last = String(r.renderTrip(network, doorToDoor(network, station('kifisia'), station('neos-kosmos-tram'), NOW), station('neos-kosmos-tram')));
+        check(last);
+        assert.ok(last.indexOf('line-m2') < last.indexOf(walkTo('neos-kosmos-tram')), 'after the last train');
+    });
+
     test(`${lang}: to an address, the last walk is there too`, () => {
         const trip = doorToDoor(rail, syntagma, menelaou, NOW);
         const view = String(r.renderTrip(rail, trip, menelaou));

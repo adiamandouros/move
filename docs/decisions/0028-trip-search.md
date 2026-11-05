@@ -46,7 +46,7 @@ see open today on 4,344 of the 15,732 trips at 13:00.
   or hides the tram, stops and routes together, and it's kept on the device.
   Hidden, the planner is the metro's.
 - **`rail.stations` and `rail.lines` stay the metro's alone**, as the station
-  pages, the checks and the Trip page read them. `withTram` joins the two in
+  pages and the checks read them. `withTram` joins the two in
   the browser, in the same shape, so one planner serves both, and a problem
   with the tram still can't touch the metro.
 - **A trip with a tram offers its other ways**: the 3 that arrive first, fewer
@@ -85,13 +85,11 @@ see open today on 4,344 of the 15,732 trips at 13:00.
 - Tram stops have no page of their own, so their names aren't links.
 - Trams share the road, so their times are less sure than the metro's. The note
   under every trip already says times are approximate.
-- The Trip page and the bus trip finder stay on the metro for now.
+- The bus trip finder stays on the metro for now. The Trip page has the tram
+  since [29](0029-trip-page-tram.md).
 
 ## Look again when
 
-- The Trip page gets the tram: the 3 stations it tries could then all be tram
-  stops, and hide a better metro station. The search can try every stop near
-  each end instead.
 - The search finds the options on its own as well as today's routes do: then
   `findRoutes` can go.
 - The walks have been timed, or riders say a change is missed.
