@@ -15,7 +15,9 @@ const house = (n, lng, range = false) => ({ n, lng, lat: 37.955, range });
 const street = (...pts) => ({ lines: [line], pts });
 
 test('Greek and Latin spellings of a name fold to the same thing', () => {
-    for (const spelling of ['Μενελάου', 'ΜΕΝΕΛΑΟΥ', 'Menelaou', 'menelaoy']) assert.equal(fold(spelling), 'menelav', spelling);
+    for (const spelling of ['Μενελάου', 'ΜΕΝΕΛΑΟΥ', 'Menelaou', 'menelaoy']) assert.equal(fold(spelling), 'menelau', spelling);
+    // The αυ of Παύλου is 'av'; the αου of Μενελάου keeps its u
+    for (const spelling of ['Παύλου', 'Pavlou', 'Paulou']) assert.equal(fold(spelling), 'pavlu', spelling);
     assert.equal(fold('Χαλάνδρι'), fold('Chalandri'));
     assert.equal(fold('Κηφισσίας'), fold('Kifisias'));
     assert.equal(fold('28ης Οκτωβρίου'), fold('28 Οκτωβρίου'));
@@ -23,7 +25,7 @@ test('Greek and Latin spellings of a name fold to the same thing', () => {
 
 test('words that only say what kind of street it is don\'t count', () => {
     assert.deepEqual(wordsOf('Λεωφόρος Κηφισίας'), ['kifisias']);
-    assert.equal(keyOf('Οδός Μενελάου'), 'menelav');
+    assert.equal(keyOf('Οδός Μενελάου'), 'menelau');
     assert.deepEqual(wordsOf('Οδός'), ['odos'], 'unless that\'s all there is');
 });
 
@@ -115,6 +117,20 @@ test('one letter wrong is mended, and says so', () => {
     const { results, corrected } = search(db, 'Ομήριου 4');
     assert.equal(results[0].name, 'Ομήρου');
     assert.equal(corrected, true);
+});
+
+test('a letter missing beside -άου is one letter, not two', () => {
+    const { results, corrected } = search(db, 'Μενελου 45');
+    assert.deepEqual([results[0]?.name, results[0]?.kind], ['Μενελάου', 'exact']);
+    assert.equal(corrected, true);
+});
+
+test('a mended name ranks as if it had been typed right, not by the letters typed', () => {
+    // A street named short, whose start the misspelling shares: 'Μενλάου' starts like 'Μεν.'
+    const short = { type: 'way', tags: { highway: 'residential', name: 'Μεν. Λουντέμη', alt_name: 'Menelaou Lountemi' }, geometry: [{ lat: 37.959, lon: 23.701 }, { lat: 37.959, lon: 23.703 }] };
+    const withShort = load(buildIndex({ ...raw, streets: [...raw.streets, short] }, rail).index);
+    for (const query of ['Μενλάου', 'Μεναλάου 45']) assert.equal(search(withShort, query).results[0]?.name, 'Μενελάου', query);
+    assert.equal(search(withShort, 'Μεν. Λουντέμη').results[0]?.name, 'Μεν. Λουντέμη', 'typed right, the short name still comes first');
 });
 
 test('a street that isn\'t in that town says so, and never jumps next door silently', () => {
