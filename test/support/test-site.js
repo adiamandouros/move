@@ -149,8 +149,9 @@ export const scenarios = () => ({
     'lifts-down': site({ fetch: fakeNetwork({ lifts: null }) }),
     // Before the first data build: no rail.json or bus-stops.json
     'no-data': site({ buildDir: mkdtempSync(join(tmpdir(), 'wayhop-nodata-')) }),
-    // With the admin pages, behind this password (test/browser/admin.spec.js)
-    admin: site({ env: { ADMIN_PASSWORD: ADMIN_TEST_PASSWORD } }),
+    // With the admin pages, behind this password (test/browser/admin.spec.js);
+    // Omonia's lifts on M2 by STASY's names for them, for the station editor
+    admin: site({ env: { ADMIN_PASSWORD: ADMIN_TEST_PASSWORD }, fetch: fakeNetwork({ lifts: LIFTS_OUT }) }),
     // Omonia's page can't be drawn: the error page (its failure isn't logged here)
     'broken-data': site({ buildDir: brokenData(), logError: () => {} }),
 });

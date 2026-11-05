@@ -2,6 +2,7 @@
 // server, so saving works underground; the queue is flushed whenever the
 // connection comes back.
 import { distanceMeters } from '/js/core/geo.js';
+import { namesToward } from './lift-names.js';
 import { checks, field, rowList } from './lists.js';
 import { missing, missingAtStation } from './missing.js';
 import { here, placeField } from './place.js';
@@ -174,7 +175,11 @@ function showElevatorList() {
     const list = elevatorsKnown() === 'list';
     $('elevator-list').hidden = !list;
     $('elevator-list').disabled = !list;
-    if (list && !elevatorRows.size) elevatorRows.add();
+    if (!list || elevatorRows.size) return;
+    // STASY's lifts toward this platform's direction, so only where each is is left to choose
+    const named = namesToward(stasyNames(selection.station), state.lines[selection.line].directions[selection.dir].toward.el);
+    if (named.length) elevatorRows.set(named.map(name => ({ name })));
+    else elevatorRows.add();
 }
 
 // An elevator's name, STASY's offered
