@@ -21,7 +21,7 @@ const MAX_PROBLEMS = 10;
 
 /** @param {string} name @param {any} data @returns {string[]} */
 export function checkOutput(name, data) {
-    const check = { 'rail.json': checkRail, 'bus-stops.json': checkBus, 'bus-lines.json': checkBusLines, 'bus-rides.json': checkBusRides }[name];
+    const check = { 'rail.json': checkRail, 'bus-stops.json': checkBus, 'bus-lines.json': checkBusLines, 'bus-rides.json': checkBusRides, 'buses.json': checkBuses }[name];
     const problems = check ? check(data) : [`${name}: no checks for this file`];
     return problems.length > MAX_PROBLEMS ? [...problems.slice(0, MAX_PROBLEMS), `… and ${problems.length - MAX_PROBLEMS} more`] : problems;
 }
@@ -188,6 +188,44 @@ function checkBusRides(data) {
         else if (!Object.values(r.times ?? {}).length || !Object.values(r.times).every(t => Array.isArray(t) && t.length === 3 && t.every(n => Number.isInteger(n) && n > 0))) {
             problems.push(`${where}: times must be [rides, median, slowest tenth] in whole seconds`);
         }
+    }
+    return problems;
+}
+
+// The buses' timetable for the trip search (bus-timetable.js)
+/** @param {any} data @returns {string[]} */
+function checkBuses(data) {
+    if (typeof data?.schema !== 'number') return ['buses.json: wrong schema number'];
+    const problems = [];
+    checkFeed(data.feed, problems);
+    const stops = Array.isArray(data.stops) ? data.stops : [];
+    const routes = Array.isArray(data.routes) ? data.routes : [];
+    if (!stops.length || !routes.length) return [...problems, 'buses.json: no stops or no routes'];
+    stops.forEach((stop, i) => {
+        const [code, lat, lng, el, en] = Array.isArray(stop) ? stop : [];
+        if (!STOP_CODE.test(code ?? '') || !inAttica(lat, lng) || typeof el !== 'string' || !el || typeof en !== 'string') {
+            problems.push(`buses.json: stop ${i} must be [numeric code, lat, lng in Attica, Greek name, English name or '']`);
+        }
+    });
+    const index = (n, length) => Number.isInteger(n) && n >= 0 && n < length;
+    const seconds = n => Number.isInteger(n) && n >= 0;
+    for (const route of routes) {
+        const where = `buses.json: line ${route?.line} route ${route?.code}`;
+        if (typeof route?.line !== 'string' || !route.line || !['bus', 'trolley'].includes(route.mode) || !/^\d+$/.test(route.code ?? '')) {
+            problems.push(`${where}: needs its line, bus or trolley, and its OASA route code`);
+            continue;
+        }
+        const along = Array.isArray(route.stops) ? route.stops : [];
+        if (along.length < 2 || !along.every(stop => index(stop, stops.length))) problems.push(`${where}: needs two stops or more, from the list`);
+        const runs = Array.isArray(route.runs) ? route.runs : [];
+        if (!runs.length || !runs.every(run => Array.isArray(run) && run.length === along.length - 1 && run.every(seconds))) {
+            problems.push(`${where}: each run needs a time in whole seconds to each next stop`);
+        }
+        const patterns = Array.isArray(route.patterns) ? route.patterns : [];
+        if (!patterns.every(trips => Array.isArray(trips) && trips.every(trip => Array.isArray(trip) && seconds(trip[0]) && index(trip[1], runs.length)))) {
+            problems.push(`${where}: each trip needs its seconds after the one before and a run`);
+        }
+        if (!Array.isArray(route.days) || route.days.length !== 7 || !route.days.every(day => index(day, patterns.length))) problems.push(`${where}: needs a pattern for each weekday`);
     }
     return problems;
 }

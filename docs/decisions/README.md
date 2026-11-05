@@ -41,3 +41,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 27 | [Reaching OASA and STASY: direct first, now that OASA answers from abroad](0027-oasa-direct-first.md) | In force |
 | 28 | [Trams in the subway planner, and the trip search behind it](0028-trip-search.md) | In force |
 | 29 | [The trip page: door to door by metro and tram, beside Subway and Buses](0029-trip-page-tram.md) | In force |
+| 30 | [The buses' timetable: OASA's last feed, on today's routes, with the rides we measure](0030-bus-timetable.md) | In force |

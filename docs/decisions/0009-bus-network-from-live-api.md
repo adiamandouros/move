@@ -22,8 +22,9 @@ longer matched the buses that OASA's live times report.
 ## What follows
 
 - The stops and lines are the ones OASA's live times use.
-- Wayhop reads no bus timetable so far; [11](0011-real-data-first.md) says
-  how one may be used.
+- The trip search's bus timetable is the open data's last feed, put on these
+  routes every night ([30](0030-bus-timetable.md));
+  [11](0011-real-data-first.md) says how its times may be shown.
 - The nightly fetch is part of our load on OASA ([26](0026-bus-pass-collector.md)).
 
 ## Look again when

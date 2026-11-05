@@ -15,9 +15,7 @@ moved already: it's the Subway planner's, `tools/subway/client/raptor.js`
 | `weights.js` | What a way costs a rider, to put ways in order: a bad day for buses, walking at 1.5, 3 minutes a change |
 | `answer.js` | Every departure in the next half hour: one clear way, a decision on the way, or it depends; buses from one change as one row |
 | `network.js` | Metro and tram from `rail.json`, buses and trolleys from the file below |
-| `build-buses.js` | One day of buses, small enough to search |
-| `live-routes.js` | Puts the feed's times on the routes of OASA's live network |
-| `rides.js` | Puts measured ride times (`bus-rides.json`) in place of the feed's, where there are enough |
+| `build-buses.js` | One day of buses, small enough to search: the app's bus timetable (`server/data/bus-timetable.js`, decision 30) on the routes of OASA's live network, with measured ride times (`bus-rides.json`) where there are enough |
 | `trip.js` | Tries one trip from the command line |
 | `rush-test.js` | One test of OASA's predictions in the rush hour |
 
@@ -62,9 +60,9 @@ doesn't fail the checks. When a change gets one right, take its `todo` off.
   of the distance takes 49 to 54% of the time): it gives Syntagma to Syggrou 2.6
   minutes where riders see 10 to 30. No general rule makes up for that: doubling
   all buses, or slowing a circle around the centre, each gets real trips wrong.
-  It takes real times by stretch of road and hour: `rides.js` puts in the
-  site's measured ones where there are enough (decision 26), and the rest stay
-  the feed's. On the morning of 2 November 2026 the A2 took about 6 minutes
+  It takes real times by stretch of road and hour: `build-buses.js --rides` puts
+  in the site's measured ones where there are enough (decision 26), and the
+  rest stay the feed's. On the morning of 2 November 2026 the A2 took about 6 minutes
   from Syntagma to Fix and 12 to Efesou.
 - **Walks.** The straight line times 1.4, as 200 walks came out at 1.38 against a
   street router. Typical errors are under a minute in the city, but some are

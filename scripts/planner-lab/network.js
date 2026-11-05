@@ -8,7 +8,7 @@ const DAY = 86_400;
 /**
  * A day's buses, as build-buses.js writes them. A route's trips are [start,
  * profile], and a profile the seconds from the start at each of its stops.
- * `code`: the OASA route it's on (live-routes.js), for measured ride times.
+ * `code`: the OASA route it's on (server/data/bus-timetable.js), for measured ride times.
  * @typedef {{ day: number, stops: Record<string, [number, number, string]>,
  *   routes: { line: string, mode: string, code?: string, stops: string[], profiles: number[][], trips: [number, number][] }[] }} Buses
  */
