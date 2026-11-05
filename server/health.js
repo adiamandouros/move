@@ -150,7 +150,8 @@ export function createHealth({ busStatus, announcementStatus, liftStatus = () =>
         if (!result.data.built) problems.push('Data: no build yet (data/build/meta.json is missing)');
         else if (!result.data.ok) problems.push(`Data: the last build (${result.data.built}) is over ${BUILD_MAX_AGE_MS / 3_600_000} h old or has failed parts`);
         if (result.data.timetableDaysLeft !== null && result.data.timetableDaysLeft < TIMETABLE_WARN_DAYS) {
-            problems.push(`Timetable: the metro timetable ends on ${result.data.timetableEnds} (in ${result.data.timetableDaysLeft} days) and no newer one has been published yet`);
+            const { timetableEnds: ends, timetableDaysLeft: left } = result.data;
+            problems.push(`Timetable: the metro timetable ${left < 0 ? `ended on ${ends}` : `ends on ${ends} (in ${left} days)`} and no newer one has been published yet`);
         }
         if (result.data.problems) problems.push(`Rail data: ${result.data.problems} thing${result.data.problems === 1 ? '' : 's'} the timetable code relies on no longer hold${result.data.problems === 1 ? 's' : ''} (details on /admin/diagnostics)`);
         if (result.stasy.unreadable) problems.push('STASY timetables: STASY\'s pages changed and couldn\'t be read on the last try; the last copy is used');
