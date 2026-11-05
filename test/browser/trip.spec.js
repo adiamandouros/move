@@ -87,6 +87,25 @@ test.describe('the trip page', () => {
         await expect(page.getByRole('button', { name: 'My location' })).toHaveAttribute('aria-pressed', 'true');
     });
 
+    test('what is typed before the train times have loaded is kept, and searched', async ({ page }) => {
+        let release;
+        const held = new Promise(resolve => { release = resolve; });
+        await page.route('**/data/rail.json', async route => { await held; await route.continue(); });
+        await page.goto('/trip');
+        await from(page).fill('Μενελάου 45');
+        await to(page).fill('Συγγρού-Φιξ');
+        release();
+        await expect(from(page)).toHaveValue('Μενελάου 45');
+        await expect(list(page, 'from').first()).toContainText('Μενελάου 45');
+        await expect(list(page, 'to').first()).toContainText('Συγγρού Φιξ');
+        await expect(page.locator('.trip-intro')).toBeVisible();
+        expect(await axe(page), 'axe-core violations').toEqual([]);
+        // Enter, as a tap on one list closes the other
+        await to(page).press('Enter');
+        await list(page, 'from').first().click();
+        await expect(page.locator('.trip-card').first()).toBeVisible();
+    });
+
     test('swap turns the trip around', async ({ page }) => {
         await page.goto('/trip');
         await from(page).fill('Μενελάου 45');
