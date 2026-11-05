@@ -71,6 +71,12 @@ function start(rail) {
     const fromPicker = placePicker({ input: fromInput, list: $('trip-from-list'), status: $('trip-from-status'), rail, onChange: chooser(fromInput, place => { from = place; locate.setAttribute('aria-pressed', 'false'); }) });
     placePicker({ input: toInput, list: $('trip-to-list'), status: $('trip-to-status'), rail, onChange: chooser(toInput, place => { to = place; }) });
 
+    // What was typed before the train times had loaded is replayed as
+    // typing, so it's searched
+    [fromInput, toInput].forEach(input => {
+        if (input.value) input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     $('trip-swap').addEventListener('click', () => {
         [from, to] = [to, from];
         [fromInput.value, toInput.value] = [toInput.value, fromInput.value];
