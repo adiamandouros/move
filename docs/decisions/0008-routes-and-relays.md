@@ -1,6 +1,6 @@
 # 8. Reaching OASA and STASY from a server abroad
 
-Decided 2026-10-14 · In force
+Decided 2026-10-14 · Replaced by [27](0027-oasa-direct-first.md)
 
 ## Situation
 

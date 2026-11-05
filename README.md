@@ -37,8 +37,9 @@ cp .env.example .env
 
 Every setting in `.env` is optional and explained in `.env.example`
 (`server/config.js` reads and checks them). Without
-any, the app runs locally with everything except live bus times, which need
-a Greek IP address or a relay (see [proxy/README.md](proxy/README.md)).
+any, the app runs locally with everything; if OASA's live API blocks your
+address, as it blocked addresses outside Greece in October 2026, live bus
+times need a relay (see [proxy/README.md](proxy/README.md)).
 
 ## Running
 
@@ -57,8 +58,8 @@ npm run diagnose     # check that the server can reach OASA, the relays and the 
 On the first start the app builds `data/build/`, which takes a little while;
 the subway and bus pages need it. It downloads the metro and tram timetable
 from OASA's open data, STASY's first and last trains, and the bus lines and
-stops from OASA's live service (which, like live bus times, needs a Greek IP
-address or a relay). Then it checks them every night and rebuilds only what
+stops from OASA's live service (through a relay too, when one is needed
+for live bus times). Then it checks them every night and rebuilds only what
 changed.
 
 ## Deploying

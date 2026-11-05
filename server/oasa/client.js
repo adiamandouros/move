@@ -13,18 +13,19 @@ import { userAgentFor } from '../config.js';
 // Callers fall back to cached data when a request is refused or fails.
 //
 // Optionally, relays (proxy/) are used when OASA can't be reached directly:
-// its live API only accepts Greek IPs and the server is in Germany. Routes are
-// tried in order (direct, then each relay in config.relays, server/config.js),
-// and a failed request moves on to the next one.
+// until November 2026 its live API only accepted Greek IPs, and the server is
+// in Germany. Routes are tried in order (direct, then each relay in
+// config.relays, server/config.js), and a failed request moves on to the next one.
 //
 // A route with another route behind it is only used once it's known to work:
 // it's tested in the background with one request of our own (at startup, and
 // again when a rest ends), and until the test answers, visitors' requests go
-// to the routes behind it. So nobody waits on a blocked route (OASA drops
+// to the routes behind it. So nobody waits on a blocked route (OASA dropped
 // connections from abroad without answering, which costs a whole timeout),
 // and those routes get FALLBACK_TIMEOUT_MS instead of TIMEOUT_MS. A route
 // that fails its test, or FAILURES_TO_OPEN requests in a row, rests for
-// FALLBACK_REST_MS (a day: the geo-block isn't expected to change quickly).
+// FALLBACK_REST_MS: short, so a moment of trouble at OASA doesn't leave the
+// routes behind it carrying everything for long (decision 27).
 // The last route has nothing behind it: it's always tried, and after
 // repeated failures only rests for LAST_REST_MS.
 //
@@ -41,7 +42,7 @@ const TIMEOUT_MS = 8_000;
 // OASA answers in well under a second when it can be reached
 const FALLBACK_TIMEOUT_MS = 3_000;
 const FAILURES_TO_OPEN = 5;
-const FALLBACK_REST_MS = 24 * 3_600_000;
+export const FALLBACK_REST_MS = 10 * 60_000;
 const LAST_REST_MS = 60_000;
 // A 'low' request is skipped when the queue would make it wait longer: no one
 // else is waiting beyond the slot being spaced out
@@ -52,7 +53,7 @@ export const TEST_STOP = '10361';
 
 export class OasaUnavailable extends Error {}
 
-const duration = ms => ms >= 3_600_000 ? `${ms / 3_600_000} h` : `${ms / 1000} s`;
+const duration = ms => ms >= 3_600_000 ? `${ms / 3_600_000} h` : ms >= 60_000 ? `${ms / 60_000} min` : `${ms / 1000} s`;
 
 const realSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 

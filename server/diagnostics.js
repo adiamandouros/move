@@ -9,7 +9,7 @@ import { STASY_MAX_AGE_MS, stasyFetchFile } from './data/stasy.js';
 import { AIRPORT_STALE_DAYS, BUILD_MAX_AGE_MS, dataStatus, STASY_STALE_DAYS, TIMETABLE_WARN_DAYS } from './data/status.js';
 import { readJson } from './files.js';
 import { RELAY_VERSION } from '../proxy/worker.js';
-import { OASA_API, REQUESTS_PER_SECOND, TEST_STOP } from './oasa/client.js';
+import { FALLBACK_REST_MS, OASA_API, REQUESTS_PER_SECOND, TEST_STOP } from './oasa/client.js';
 import { NEW_STOPS_PER_MINUTE } from './oasa/limits.js';
 import { answerTime, answerTimeText, BUSY_WAITS_MS, secondsText, STOPS_KEPT_FRESH, total, visitorsDropped } from './oasa/usage.js';
 import { BUILD_MAX_MS, THREAD_LIMIT, THREADS_WARN } from './processes.js';
@@ -123,9 +123,10 @@ async function internetCheck(fetch) {
     return { result: check('Network', 'Internet access', 'ok', `Public IP ${fields.ip ?? '?'}${fields.loc ? ` (${fields.loc})` : ''}, ${p.ms} ms`), ip: fields.ip ?? null, loc: fields.loc ?? null };
 }
 
-// OASA's live API silently drops connections from outside Greece (checked
-// from 8 countries in October 2026), so a timeout from abroad means the geo-block
-const GEO_BLOCK = 'OASA\'s live API only accepts connections from Greece';
+// OASA's live API silently dropped connections from outside Greece from
+// October to November 2026 (checked from 8 countries), so a timeout from
+// abroad most likely means that block is back
+const GEO_BLOCK = 'OASA\'s live API seems to accept connections only from Greece again';
 
 const probeOasa = fetch => probe(fetch, `${OASA_API}?act=getStopArrivals&p1=${TEST_STOP}`);
 
@@ -538,7 +539,7 @@ function verdict({ internet, ip, loc, dns, oasa, relays, appStatus }) {
         return { status: 'fail', text: 'DNS isn\'t working on the server: it can\'t look up any address. Contact Mediahost support.' };
     }
     if (oasa.result.status === 'ok') {
-        if (directResting) return { status: 'warn', text: 'OASA is reachable again. The app is still resting direct access after earlier failures and will try it again on its own within a day (or restart the app to try now).' };
+        if (directResting) return { status: 'warn', text: `OASA is reachable again. The app is still resting direct access after earlier failures and will try it again on its own within ${FALLBACK_REST_MS / 60_000} minutes (or restart the app to try now).` };
         return { status: 'ok', text: 'Everything needed for live bus times is working.' };
     }
     if (!relays.length) {
@@ -572,8 +573,9 @@ function verdict({ internet, ip, loc, dns, oasa, relays, appStatus }) {
 }
 
 // A relay that OASA blocks from abroad is expected while another relay
-// carries the traffic (today: the Cloudflare Worker, with the home relay
-// behind it), so it is reported as information rather than a failure
+// carries the traffic (as from October to November 2026: the Cloudflare
+// Worker, with the home relay behind it), so it is reported as information
+// rather than a failure
 function expectBlockedRelays(relays) {
     const working = relays.find(r => r.result.status === 'ok');
     if (!working) return;
@@ -581,7 +583,7 @@ function expectBlockedRelays(relays) {
         if (r.info !== 'oasa-from-relay' || !r.location || r.location.loc === 'GR') continue;
         for (const c of r.results.slice(1)) {
             c.status = 'info';
-            c.hint = `Expected while OASA's live API only accepts Greek IPs: the ${working.name} carries the traffic.`;
+            c.hint = `Expected while OASA's live API accepts only Greek IPs: the ${working.name} carries the traffic.`;
         }
     }
 }

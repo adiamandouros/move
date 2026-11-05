@@ -11,8 +11,9 @@
 // Response: OASA's response body and status, unchanged.
 //
 // GET /?act=whereami (with the key) reports where the Worker's own outgoing
-// requests come from. OASA's live API only accepts connections from Greece,
-// so this should say loc=GR; the diagnostics page shows it.
+// requests come from. While OASA's live API only accepted connections from
+// Greece (October to November 2026), this had to say loc=GR; the diagnostics
+// page shows it.
 //
 // GET /?act=version (with the key) answers { version: RELAY_VERSION }, so the
 // server's health check can tell a relay that runs older code (a relay from

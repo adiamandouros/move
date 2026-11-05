@@ -1,7 +1,8 @@
 // Runs the OASA relay (worker.js, unchanged) as a plain Node.js server, for
 // an always-on machine with a Greek IP address such as a Raspberry Pi at home.
-// OASA's live API only accepts connections from Greece, so this is the relay
-// to use when the Cloudflare Worker can't run there. Setup: README.md, "Home relay".
+// From October to November 2026 OASA's live API only accepted connections
+// from Greece, so this is the relay to use if it blocks addresses abroad again
+// and the Cloudflare Worker can't run there. Setup: README.md, "Home relay".
 //
 //   RELAY_KEY=... node proxy/node.js
 //

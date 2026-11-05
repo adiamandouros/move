@@ -19,7 +19,7 @@ decisions, or makes one of the same weight, comes with its page.
 | 5 | [Metro trips worked out in the browser](0005-trips-in-the-browser.md) | In force |
 | 6 | [Offline: what is kept, and updates that never reload a page](0006-offline.md) | Replaced by 24 |
 | 7 | [Our load on OASA and STASY: our own numbers, agreed before they change](0007-load-on-oasa.md) | Replaced by 21 |
-| 8 | [Reaching OASA and STASY from a server abroad](0008-routes-and-relays.md) | In force |
+| 8 | [Reaching OASA and STASY from a server abroad](0008-routes-and-relays.md) | Replaced by 27 |
 | 9 | [Bus lines and stops from OASA's live service](0009-bus-network-from-live-api.md) | In force |
 | 10 | [The metro timetable: the open data, held to STASY's](0010-metro-timetable.md) | In force |
 | 11 | [Real data first; timetable times marked](0011-real-data-first.md) | In force |
@@ -38,3 +38,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 24 | [Offline, and opening at once with no signal](0024-opening-without-signal.md) | In force |
 | 25 | [Trams in the subway planner](0025-trams-in-the-planner.md) | In force |
 | 26 | [Our load on OASA and STASY, with the bus-pass collector](0026-bus-pass-collector.md) | In force |
+| 27 | [Reaching OASA and STASY: direct first, now that OASA answers from abroad](0027-oasa-direct-first.md) | In force |
