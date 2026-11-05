@@ -3,20 +3,22 @@
 A fallback route to OASA's live-arrivals API for when the server can't reach
 it directly.
 
-OASA's live API only accepts connections from Greek IP addresses (in October
-2026 it timed out from Germany, the Netherlands, France, Italy, Cyprus,
-Bulgaria and the US, while OASA's website answered everywhere). The Wayhop
-server is in Germany, so live bus times only work through a relay whose
-requests come from Greece.
+From October to November 2026 OASA's live API only accepted connections from
+Greek IP addresses (it timed out from Germany, the Netherlands, France,
+Italy, Cyprus, Bulgaria and the US, while OASA's website answered
+everywhere). The Wayhop server is in Germany, so live bus times only worked
+through a relay whose requests came from Greece. On 4 November 2026 OASA
+answered the server directly again, and from 30 countries
+([decision 27](../docs/decisions/0027-oasa-direct-first.md)).
 
 There are two relays, and the server tries the routes in this order:
 
-1. **Direct** to OASA, in case the geo-block is lifted one day.
-2. **[Cloudflare Worker](#cloudflare-worker)**: free, no hardware. Today
-   Cloudflare runs it in Frankfurt for a server in Germany, so OASA blocks it
-   too. It stays in place in case Cloudflare starts running it in Greece.
+1. **Direct** to OASA: what carries the traffic today.
+2. **[Cloudflare Worker](#cloudflare-worker)**: free, no hardware. It
+   carries the traffic while direct access fails.
 3. **[Home relay](#home-relay)**: an always-on machine at home, e.g. a
-   Raspberry Pi. Its requests come from a Greek connection, so it works.
+   Raspberry Pi. Its requests come from a Greek connection, so it still
+   works if OASA blocks addresses abroad again.
 
 The relays also carry **STASY's pages** (its news page and posts, for the
 metro and tram announcements on the home and info pages, and its timetable
@@ -31,12 +33,13 @@ home relay gzips large answers (STASY's news page: 1.1 MB → about 110 KB).
 **STASY** on `/admin/diagnostics` shows the route it came through.
 
 A failed request moves on to the next route. After 5 failures in a row a
-route rests for a day while the routes after it carry the traffic, then one
-request tries it again. So today requests go straight to the home relay, and
-once a day one request first retries direct and the Worker (it takes up to
-14 s). Right after the app starts, the first few requests are slow until the
-blocked routes are put to rest. To retry them sooner, restart the app. The last route only rests for
-a minute, as nothing comes after it. Switches are logged as `[oasa] …` lines.
+route rests for 10 minutes while the routes after it carry the traffic, then
+one request tries it again in the background. So after a moment of trouble
+at OASA, direct is back in use within about 10 minutes; while OASA blocked
+the server, requests went straight to the home relay and every 10 minutes
+one request retried direct and the Worker. To retry them sooner, restart the
+app. The last route only rests for a minute, as nothing comes after it.
+Switches are logged as `[oasa] …` lines.
 The 2-requests-per-second limit covers all routes together, so the relays
 never add load on OASA.
 
@@ -213,8 +216,10 @@ update both relays: the home relay as above, and the Worker with
 
 ### If the home connection goes down
 
-Live bus times stop until it's back. The rest of the site isn't affected. The
-bus page shows its last cached times as usual.
+Direct access and the Worker carry live bus times, and the Worker carries
+STASY's pages (it got them in November 2026). While OASA blocked addresses
+abroad, live bus times stopped until the home relay was back; the rest of the
+site wasn't affected, and the bus page showed its last cached times as usual.
 
 ## Cloudflare Worker
 
@@ -261,10 +266,10 @@ day, far more than the relay will normally see.
    On startup the log shows `[oasa] Fallback relay: move-oasa-relay…`.
 
 A Worker normally runs in the Cloudflare data centre closest to whoever calls
-it, so for a server in Germany it runs in Frankfurt and OASA blocks it.
-`wrangler.toml` asks Cloudflare to run it near OASA instead (a "placement
-hint", only applied by `npx wrangler deploy`, not by dashboard edits). The
-feature is experimental and didn't place it in Greece in October 2026.
+it, so for a server in Germany it runs in Frankfurt, which OASA blocked in
+October 2026. `wrangler.toml` asks Cloudflare to run it near OASA instead (a
+"placement hint", only applied by `npx wrangler deploy`, not by dashboard
+edits). The feature is experimental and didn't place it in Greece then.
 `/admin/diagnostics` shows where it runs under **Relay location**.
 
 ## Changing the key

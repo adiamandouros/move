@@ -268,8 +268,8 @@ version they started with, and it takes over once they're closed
 - `client.js`: at most 2 requests a second, in two lanes: someone's first
   look at a stop goes ahead of refreshes. Routes are tried in order:
   direct, the Cloudflare Worker, the home relay ([proxy/README.md](proxy/README.md);
-  [decision 8](docs/decisions/0008-routes-and-relays.md)). A route that keeps
-  failing rests for a day.
+  [decision 27](docs/decisions/0027-oasa-direct-first.md)). A route that keeps
+  failing rests for 10 minutes.
 - `arrivals.js`: each stop's arrivals are shared by everyone for 30 s; while
   requests queue for OASA (over 2 s, over 5 s), for 60 s or 90 s, counted
   down and marked stale from a minute old. When OASA can't be reached, the

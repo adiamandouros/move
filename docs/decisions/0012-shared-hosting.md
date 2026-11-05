@@ -43,4 +43,4 @@ Wayhop fits the host:
 
 - One of the account's limits is reached.
 - A host with Greek addresses, at a price that makes sense, would also make
-  the relays unnecessary ([8](0008-routes-and-relays.md)).
+  the relays unnecessary ([27](0027-oasa-direct-first.md)).

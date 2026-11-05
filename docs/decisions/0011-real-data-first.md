@@ -25,7 +25,7 @@ already on the road.
   words, not colour alone ([13](0013-accessibility.md)).
 - Reading OASA's schedules adds to our load on OASA
   ([26](0026-bus-pass-collector.md)) and needs new relay calls
-  ([8](0008-routes-and-relays.md)).
+  ([27](0027-oasa-direct-first.md)).
 - Nothing reads a bus timetable yet.
 
 ## Look again when

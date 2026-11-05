@@ -199,7 +199,7 @@ test('at startup a route with a fallback is tested in the background; visitors u
     assert.deepEqual(await client.request('getStopArrivals', '1'), []);
     await settle();
     assert.deepEqual(calls, ['direct', 'relay(k)'], 'the test, then the visitor\'s request through the relay');
-    assert.match(logs.join('\n'), /^\[oasa\] direct can't reach OASA \(blocked\); using the relay — testing it again in 24 h$/m);
+    assert.match(logs.join('\n'), /^\[oasa\] direct can't reach OASA \(blocked\); using the relay — testing it again in 10 min$/m);
     calls.length = 0;
     await client.request('getStopArrivals', '1');
     assert.deepEqual(calls, ['relay(k)']);
@@ -235,7 +235,7 @@ test('a working route that fails a request falls through to the next one', async
     assert.deepEqual(calls, ['direct', 'relay(k)']);
 });
 
-test('after 5 failures in a row a route rests a day, then is tested again in the background', async () => {
+test('after 5 failures in a row a route rests 10 minutes, then is tested again in the background', async () => {
     const c = clock();
     let up = true;
     const logs = [];
@@ -244,10 +244,10 @@ test('after 5 failures in a row a route rests a day, then is tested again in the
     await settle();
     up = false;
     for (let i = 0; i < 5; i++) await client.request('getStopArrivals', '1');
-    assert.match(logs.join(), /5 direct failures in a row.*resting it for 24 h — using the relay meanwhile/);
+    assert.match(logs.join(), /5 direct failures in a row.*resting it for 10 min — using the relay meanwhile/);
 
     calls.length = 0;
-    c.advance(23 * 3_600_000 + 59 * 60_000);
+    c.advance(9 * 60_000);
     await client.request('getStopArrivals', '1');
     assert.deepEqual(calls, ['relay(k)']);
 
@@ -265,13 +265,13 @@ test('after 5 failures in a row a route rests a day, then is tested again in the
     assert.deepEqual(calls, ['direct']);
 });
 
-test('a route that fails its test is tested again a day later, quietly', async () => {
+test('a route that fails its test is tested again 10 minutes later, quietly', async () => {
     const c = clock();
     const logs = [];
     const { fetch, calls } = routedFetch({ directUp: () => false });
     const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: m => logs.push(m), relays: [RELAY] });
     await settle();
-    c.advance(24 * 3_600_000 + 1);
+    c.advance(10 * 60_000 + 1);
     calls.length = 0;
     await client.request('getStopArrivals', '1');
     await settle();
@@ -400,7 +400,7 @@ test('routes are used in order once their tests pass: direct, the relay, then th
     assert.deepEqual(calls, ['relay']);
 });
 
-// Today's production: OASA blocks both the server and the Worker
+// Production from October to November 2026: OASA blocks both the server and the Worker
 test('with direct and the relay blocked, no visitor ever waits on them', async () => {
     const c = clock();
     const logs = [];
@@ -408,15 +408,15 @@ test('with direct and the relay blocked, no visitor ever waits on them', async (
     const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: m => logs.push(m), relays: [RELAY, HOME] });
     await settle();
     assert.match(logs.join('\n'), /direct can't reach OASA \(direct down\); using the relay/);
-    assert.match(logs.join('\n'), /relay can't reach OASA \(relay down\); using the home relay — testing it again in 24 h/);
+    assert.match(logs.join('\n'), /relay can't reach OASA \(relay down\); using the home relay — testing it again in 10 min/);
 
     // Every visitor's request goes straight to the home relay
     calls.length = 0;
     for (let i = 0; i < 5; i++) await client.request('getStopArrivals', '1');
     assert.deepEqual(calls, Array(5).fill('home'));
 
-    // A day later both are tested again in the background; the visitor still goes home
-    c.advance(24 * 3_600_000 + 1);
+    // 10 minutes later both are tested again in the background; the visitor still goes home
+    c.advance(10 * 60_000 + 1);
     calls.length = 0;
     await client.request('getStopArrivals', '1');
     await settle();
@@ -430,7 +430,33 @@ test('the last route rests only a minute, since nothing comes after it', async (
     const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: m => logs.push(m), relays: [RELAY, HOME] });
     await settle();
     for (let i = 0; i < 5; i++) await assert.rejects(client.request('getStopArrivals', '1'), OasaUnavailable);
-    assert.match(logs.join('\n'), /5 home relay failures in a row \(last: home down\); resting it for 60 s$/m);
+    assert.match(logs.join('\n'), /5 home relay failures in a row \(last: home down\); resting it for 1 min$/m);
+});
+
+// What the short rest is for (decision 27): OASA itself fails for a moment
+test('after a moment of trouble at OASA, direct is back in use 10 minutes later', async () => {
+    const c = clock();
+    const up = { direct: true, relay: true, home: true };
+    const { fetch, calls } = chainFetch(up);
+    const client = createOasaClient({ fetch, now: c.now, sleep: c.sleep, log: quiet, relays: [RELAY, HOME] });
+    await settle();
+    up.direct = up.relay = up.home = false;
+    for (let i = 0; i < 5; i++) await assert.rejects(client.request('getStopArrivals', '1'), OasaUnavailable);
+
+    // OASA is back: the home relay carries the traffic while the others rest
+    up.direct = up.relay = up.home = true;
+    c.advance(2 * 60_000);
+    calls.length = 0;
+    await client.request('getStopArrivals', '1');
+    assert.deepEqual(calls, ['home']);
+
+    // Their rest is over: they're tested in the background, and direct is used again
+    c.advance(8 * 60_000 + 1);
+    await client.request('getStopArrivals', '1');
+    await settle();
+    calls.length = 0;
+    await client.request('getStopArrivals', '1');
+    assert.deepEqual(calls, ['direct']);
 });
 
 test('OASA counts as needed when anything asks for it, refused or not, but not for a route\'s test', async () => {

@@ -138,7 +138,7 @@ test('data and running-app problems are reported', async () => {
     assert.match(find('rail.json').detail, /feed changed.*previous version is still served/);
     assert.match(find('Route: direct').detail, /Resting until 2026-10-03 12:05 UTC.*HTTP 403/);
     // OASA answers now, but the app hasn't noticed yet
-    assert.match(r.summary.text, /reachable again.*within a day/);
+    assert.match(r.summary.text, /reachable again.*within 10 minutes/);
 });
 
 test('requests over the OASA budget or over a visitor\'s limit are reported', async () => {
@@ -279,8 +279,8 @@ test('server abroad and relay running abroad: the geo-block is named', async () 
                 : new Response('Upstream error: The operation was aborted due to timeout', { status: 502 }),
     }));
     assert.equal(r.summary.status, 'fail');
-    assert.match(r.summary.text, /only accepts connections from Greece\. This server is in DE and the relay runs in FRA \(DE\)/);
-    assert.match(r.checks.find(c => c.title.startsWith('OASA live API')).detail, /only accepts connections from Greece, and this server is in DE/);
+    assert.match(r.summary.text, /accept connections only from Greece again\. This server is in DE and the relay runs in FRA \(DE\)/);
+    assert.match(r.checks.find(c => c.title.startsWith('OASA live API')).detail, /accept connections only from Greece again, and this server is in DE/);
     assert.equal(r.checks.find(c => c.title === 'Relay location').status, 'warn');
 });
 
@@ -320,7 +320,7 @@ function withHome(home, overrides = {}) {
 }
 const homeUp = (h, url) => h['X-Relay-Key'] !== 'h' ? new Response('Unauthorized', { status: 401 })
     : url.includes('act=whereami') ? json({ colo: 'ATH', loc: 'GR' }) : json([]);
-// Production today: the server and the Worker are outside Greece
+// Production from October to November 2026: the server and the Worker are outside Greece
 const abroad = {
     internet: () => new Response('ip=157.90.210.32\nloc=DE\n'),
     oasa: () => Object.assign(new Error('timeout'), { name: 'TimeoutError' }),
