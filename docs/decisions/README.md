@@ -34,9 +34,10 @@ decisions, or makes one of the same weight, comes with its page.
 | 20 | [Tests with every change, no flaky tests, and when each kind runs](0020-tests-and-when-they-run.md) | In force |
 | 21 | [Our load on OASA and STASY, with the bus trip finder](0021-load-on-oasa-with-trips.md) | Replaced by 26 |
 | 22 | [Address search from OpenStreetMap, built on GitHub](0022-address-search.md) | In force |
-| 23 | [The trip page: door to door, beside Subway and Buses](0023-trip-page.md) | In force |
+| 23 | [The trip page: door to door, beside Subway and Buses](0023-trip-page.md) | Replaced by 29 |
 | 24 | [Offline, and opening at once with no signal](0024-opening-without-signal.md) | In force |
 | 25 | [Trams in the subway planner](0025-trams-in-the-planner.md) | Replaced by 28 |
 | 26 | [Our load on OASA and STASY, with the bus-pass collector](0026-bus-pass-collector.md) | In force |
 | 27 | [Reaching OASA and STASY: direct first, now that OASA answers from abroad](0027-oasa-direct-first.md) | In force |
 | 28 | [Trams in the subway planner, and the trip search behind it](0028-trip-search.md) | In force |
+| 29 | [The trip page: door to door by metro and tram, beside Subway and Buses](0029-trip-page-tram.md) | In force |

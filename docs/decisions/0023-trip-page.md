@@ -1,6 +1,6 @@
 # 23. The trip page: door to door, beside Subway and Buses
 
-Decided 2026-10-31 · In force
+Decided 2026-10-31 · Replaced by [29](0029-trip-page-tram.md)
 
 ## Situation
 

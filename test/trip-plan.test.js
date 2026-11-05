@@ -4,10 +4,12 @@ import { readFileSync } from 'fs';
 import { browserModule } from './support/browser-modules.js';
 
 // The trip page's door-to-door trip (tools/trip/client/plan.js), over the
-// test data's real metro. What's drawn: trip-render.test.js.
+// test data's real metro, and with the tram. What's drawn: trip-render.test.js.
 
 const rail = JSON.parse(readFileSync(new URL('browser/data/rail.json', import.meta.url), 'utf8'));
 const { doorToDoor, stationsNear, walkBetween } = await browserModule('tools/trip/client/plan.js');
+const { withTram } = await browserModule('tools/subway/client/network.js');
+const network = withTram(rail);
 
 // A Wednesday in the timetable, 10:00
 const NOW = { weekday: 3, seconds: 10 * 3600, date: '2026-10-21' };
@@ -28,8 +30,40 @@ test('tries the three nearest stations, nearest first', () => {
     assert.deepEqual(walks, [...walks].sort((a, b) => a - b));
 });
 
+test('with the tram, a stop within 15 minutes is tried too, and the three nearest metro stations still are', () => {
+    assert.deepEqual(stationsNear(network, menelaou).map(s => [s.station, s.walk.minutes, s.nearest]),
+        [['aigaiou', 15, false], ['tavros', 17, true], ['kallithea', 21, true], ['petralona', 25, true]]);
+});
+
 test('a station is that station, with no walk', () => {
-    assert.deepEqual(stationsNear(rail, syntagma), [{ station: 'syntagma', walk: null }]);
+    assert.deepEqual(stationsNear(rail, syntagma), [{ station: 'syntagma', walk: null, nearest: true }]);
+    assert.deepEqual(stationsNear(network, { lat: 0, lng: 0, station: 'kasomouli' }), [{ station: 'kasomouli', walk: null, nearest: true }]);
+});
+
+test('a tram stop beyond the nearest metro stations, when it gets there first', () => {
+    const [best, ...others] = doorToDoor(network, menelaou, { lat: 0, lng: 0, station: 'kasomouli' }, NOW).options;
+    assert.deepEqual([best.start.station, best.plan.legs.map(leg => leg.line).join()], ['aigaiou', 'T6']);
+    assert.ok(others.every(o => o.arrives > best.arrives + 20 * 60), 'the metro takes 20 minutes more');
+});
+
+test('along the coast, the tram instead of an hour\'s walk to the metro', () => {
+    const near = (id, lat = 0.003, lng = 0.002) => ({ lat: network.stations[id].coords[0] + lat, lng: network.stations[id].coords[1] + lng });
+    const [from, to] = [near('floisvos'), near('kalamaki')];
+    const tram = doorToDoor(network, from, to, NOW);
+    assert.equal(tram.walkFirst, false);
+    assert.deepEqual(tram.options[0].plan.legs.map(leg => leg.line), ['T7']);
+    assert.ok(tram.options[0].minutes <= 30, `${tram.options[0].minutes}`);
+    // The metro alone, as when the tram is hidden: walk to the metro for most of an hour
+    const metro = doorToDoor(rail, from, to, NOW);
+    assert.ok(metro.options.every(o => o.plan.legs.every(leg => !network.lines[leg.line].tram)));
+    assert.ok(metro.options[0].start.walk.minutes > 45);
+});
+
+test('the same way is offered once, however it\'s walked to: from the stop, or from the station beside it', () => {
+    for (const [from, to] of [[menelaou, syntagma], [syntagma, { lat: 0, lng: 0, station: 'kasomouli' }], [{ lat: 37.958, lng: 23.73 }, { lat: 37.9595, lng: 23.7185 }]]) {
+        const ways = doorToDoor(network, from, to, NOW).options.map(o => `${o.plan.legs[0].from} ${o.plan.legs.map(leg => leg.line)}`);
+        assert.deepEqual(ways, [...new Set(ways)]);
+    }
 });
 
 test('door to door: walk, ride, and the first to arrive first', () => {

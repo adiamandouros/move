@@ -7,12 +7,10 @@ import { remember } from '/js/core/remember.js';
 import { athensNow, closestStation, isTimetableExpired, planTrip, withTram } from './network.js';
 import { stationSearch } from './search.js';
 import { renderIntro, renderMessage, renderResult, renderWalkOnly, routeSummary, walkOnly, walkingUrl } from './render.js';
+import { TRAM_HIDDEN, tramHidden } from './tram-switch.js';
 
 // Keeps the "in N minutes" chips current while the page is open
 const REFRESH_MS = 30_000;
-// Kept on the device when the person hides the tram (localStorage can be
-// missing or blocked: then the tram stays shown)
-const TRAM_HIDDEN = 'tram-hidden';
 
 const result = document.getElementById('subway-result');
 
@@ -26,10 +24,6 @@ async function loadRail() {
         setHtml(result, renderMessage('subway.data-error'));
         return null;
     }
-}
-
-function tramHidden() {
-    try { return localStorage.getItem(TRAM_HIDDEN) === '1'; } catch { return false; }
 }
 
 function start(metro) {

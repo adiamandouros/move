@@ -234,11 +234,12 @@ pages use.
   works in both.
 - **The tram in the planner** ([decision 28](docs/decisions/0028-trip-search.md)):
   `rail.stations` and `rail.lines` are the metro alone, and that's what the
-  station pages, the checks and the Trip page read. `withTram(rail)` in
+  station pages and the checks read. `withTram(rail)` in
   `network.js` joins the tram to them in the same shape, each stop a station
   (marked `tram`, with an id of its own when it has a metro station's), with the
   walks between them in `walks`. The subway page plans on that network, or on
-  `rail` while its switch hides the tram (`tram-hidden`, on the device).
+  `rail` while its switch hides the tram (`tram-hidden`, on the device, read
+  by `tram-switch.js`); the Trip page follows the same switch.
   `findRoutes` works on either: it looks for the fewest changes a trip takes,
   and lists those routes and the ones with one change more. `planJourney`
   times them and the trip search's quickest way with each number of rides, up
@@ -426,11 +427,14 @@ in the body, so it stays out of the host's logs. The index is loaded for the
 first search and dropped for a new one, and `/api/health` warns when it's
 over three weeks old.
 
-The trip page (`tools/trip/`, [decision 23](docs/decisions/0023-trip-page.md))
+The trip page (`tools/trip/`, [decision 29](docs/decisions/0029-trip-page-tram.md))
 is what uses it. `client/picker.js` finds places as they're typed,
 `client/plan.js` works out the trip in the browser from the Subway's
-`network.js`, trying the three stations nearest each end, and
-`client/render.js` draws it. Addresses aren't kept, and never go in the page's
+`network.js`, on the metro and the tram unless the Subway page's switch hides
+the tram (`tram-switch.js`). It tries the three metro stations nearest each
+end and every station or stop within 15 minutes' walk: every trip between the
+nearest is planned, and the search (`arrivalsFrom`) picks the 6 quickest of
+the rest. `client/render.js` draws it. Addresses aren't kept, and never go in the page's
 address.
 
 ## The planner lab
