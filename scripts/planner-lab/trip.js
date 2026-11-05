@@ -12,10 +12,9 @@
 import { existsSync, readFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
 import { load, search as lookUp } from '../../server/places/search.js';
-import { joinNetwork } from './network.js';
+import { createPlanner, joinNetwork } from '../../tools/subway/client/city.js';
+import { acrossWindow, describeWay, findWays, fold, spine } from '../../tools/subway/client/ways.js';
 import { answer, TIE_SECONDS } from './answer.js';
-import { createPlanner } from './raptor.js';
-import { acrossWindow, describeWay, findWays, fold, spine } from './ways.js';
 
 const WEDNESDAY = 3;
 const END_WALK_SECONDS = 1200;

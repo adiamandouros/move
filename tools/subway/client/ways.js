@@ -13,7 +13,7 @@ const SLACK_SECONDS = 1800;
 // A change and the stops around it count as one place
 const SAME_PLACE_SECONDS = 300;
 
-/** @typedef {ReturnType<typeof import('./raptor.js').createPlanner>} Planner */
+/** @typedef {ReturnType<typeof import('./city.js').createPlanner>} Planner */
 /** @typedef {import('./raptor.js').Journey & { at: number, walk: number }} Way */
 
 // The seconds on foot to `stop` in an [stop, seconds…] list

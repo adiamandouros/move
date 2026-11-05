@@ -246,6 +246,15 @@ pages use.
   to 3 changes (`raptor.js`, made once for each day's trains), and keeps the 3
   that arrive first. Beside a tram leg those can have more changes; metro
   trains alone only do if they get there 5 minutes sooner.
+- **The whole city for the search**, buses too, beside `raptor.js` so the
+  browser and the planner lab share them: `city.js` joins the metro, the tram
+  and a day of `buses.json` ([decision 30](docs/decisions/0030-bus-timetable.md))
+  into one network, with walks of up to 10 minutes between stops from the
+  straight line (× 1.4, measured against a street router); `ways.js` finds the
+  ways a rider could choose from, beyond the search's best with each number
+  of rides; `weights.js` puts them in order by what they cost a rider (agreed
+  on 3 November 2026: walking counts 1.5, 3 minutes a change). No page uses
+  them yet.
 
 ## Offline
 
