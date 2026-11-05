@@ -2,22 +2,24 @@
 // the build and the checks before publishing use it too. How exactly it
 // answers, and why: decision 22.
 
-const GREEK_PAIRS = [['ου', 'u'], ['αι', 'e'], ['ει', 'i'], ['οι', 'i'], ['υι', 'i'], ['ευ', 'ev'], ['αυ', 'av'], ['ηυ', 'iv'],
+// The u of ου is held as 'U' until the end, so the αου of Μενελάου isn't
+// taken for the αυ of Παύλου ('av')
+const GREEK_PAIRS = [['ου', 'U'], ['αι', 'e'], ['ει', 'i'], ['οι', 'i'], ['υι', 'i'], ['ευ', 'ev'], ['αυ', 'av'], ['ηυ', 'iv'],
     ['μπ', 'b'], ['ντ', 'd'], ['γκ', 'g'], ['γγ', 'g'], ['γχ', 'h']];
 const GREEK = { α: 'a', β: 'v', γ: 'g', δ: 'd', ε: 'e', ζ: 'z', η: 'i', θ: 'th', ι: 'i', κ: 'k', λ: 'l', μ: 'm', ν: 'n', ξ: 'ks', ο: 'o', π: 'p', ρ: 'r', σ: 's', τ: 't', υ: 'i', φ: 'f', χ: 'h', ψ: 'ps', ω: 'o' };
-const LATIN_PAIRS = [['ph', 'f'], ['ch', 'h'], ['kh', 'h'], ['dh', 'd'], ['gh', 'g'], ['ou', 'u'], ['oy', 'u'], ['ai', 'e'], ['ei', 'i'], ['oi', 'i'],
+const LATIN_PAIRS = [['ph', 'f'], ['ch', 'h'], ['kh', 'h'], ['dh', 'd'], ['gh', 'g'], ['ou', 'U'], ['oy', 'U'], ['ai', 'e'], ['ei', 'i'], ['oi', 'i'],
     ['eu', 'ev'], ['au', 'av'], ['ef', 'ev'], ['af', 'av'], ['mp', 'b'], ['nt', 'd'], ['gk', 'g'], ['ng', 'g'], ['gg', 'g'],
     ['x', 'ks'], ['y', 'i'], ['w', 'o'], ['c', 'k'], ['j', 'g']];
 
 // Greek and Latin spellings of a word end up the same:
-// 'Μενελάου', 'Menelaou' and 'menelaoy' are all 'menelav'
+// 'Μενελάου', 'Menelaou' and 'menelaoy' are all 'menelau'
 export function fold(text) {
     let s = text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ς/g, 'σ');
     s = s.replace(/(\d+)(?:ησ|ασ|ου|οσ|η|α|ο|th|st|nd|rd)(?![\p{L}])/gu, '$1');
     for (const [a, b] of GREEK_PAIRS) s = s.replaceAll(a, b);
     s = s.replace(/[α-ω]/g, c => GREEK[c]);
     for (const [a, b] of LATIN_PAIRS) s = s.replaceAll(a, b);
-    return s.replace(/([a-z])\1/g, '$1').replace(/[^a-z0-9]+/g, ' ').trim();
+    return s.replaceAll('U', 'u').replace(/([a-z])\1/g, '$1').replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
 // Words that say what kind of street it is, not which one
@@ -253,8 +255,9 @@ const inside = (db, e, where) => {
 const KNOWN = new Set(['metro', 'tram', 'airport']);
 
 // The street's own name counts for more than an old or other name; so does a
-// name with nothing left over beside what was typed
-const covers = (name, words) => words.every(w => name.some(n => n.startsWith(w) || w.startsWith(n)));
+// name with nothing left over beside what was typed. A mended word is any of
+// its mendings
+const covers = (name, words) => words.every(w => [w].flat().some(f => name.some(n => n.startsWith(f) || f.startsWith(n))));
 function score(e, words, strength) {
     // A station's or airport's other names are as good as its first
     const names = KNOWN.has(e.kind) ? e.words.filter(n => covers(n, words)) : [e.words[0]].filter(n => covers(n, words));
@@ -314,14 +317,15 @@ export function search(db, query, limit = 10) {
         const where = growing || !whole?.towns.length ? cutShort ?? whole : whole;
         if (reading.town && !where && !reading.explicit) continue;
         const named = reading.explicit && reading.town;
-        let found = match(db, reading.words);
+        let words = reading.words, found = match(db, words);
         let fixed = false;
         if (!found.size) {
-            const words = corrected(db, reading.words);
-            if (words) { found = match(db, words); fixed = found.size > 0; }
+            const mended = corrected(db, words);
+            if (mended) { found = match(db, mended); fixed = found.size > 0; words = mended; }
         }
         if (!found.size) continue;
-        let list = [...found].map(([id, s]) => ({ e: db.entries[id], s: score(db.entries[id], reading.words, s) }));
+        // A mended word is scored as what it was mended to, not as typed
+        let list = [...found].map(([id, s]) => ({ e: db.entries[id], s: score(db.entries[id], words, s) }));
         if (reading.n !== null) list = list.filter(x => x.e.type === 'street');
         if (where || named) {
             const near = where ? list.filter(x => inside(db, x.e, where)) : [];
