@@ -5,7 +5,7 @@ import { airportCheckFile } from './airport-check.js';
 import { stasyFetchFile } from './stasy.js';
 
 // How the data stands, judged once here for both /api/health (server/health.js)
-// and /admin/diagnostics (server/diagnostics.js), so they never disagree:
+// and /admin/diagnostics (server/diagnostics/), so they never disagree:
 //   - build: the last build is under BUILD_MAX_AGE_MS old and every part of
 //     it worked; the metro timetable doesn't end within TIMETABLE_WARN_DAYS;
 //     its nightly checks found no problems (rail-checks.js)

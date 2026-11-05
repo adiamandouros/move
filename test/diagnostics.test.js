@@ -4,7 +4,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { loadConfig } from '../server/config.js';
-import { classifyError, formatReport, runDiagnostics } from '../server/diagnostics.js';
+import { formatReport, runDiagnostics } from '../server/diagnostics/index.js';
+import { classifyError } from '../server/diagnostics/probe.js';
 import { createUsage } from '../server/oasa/usage.js';
 import { browserModule } from './support/browser-modules.js';
 

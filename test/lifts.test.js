@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { stationNames } from '../server/data/stasy.js';
-import { liftChecks } from '../server/diagnostics.js';
+import { liftChecks } from '../server/diagnostics/stasy-oasa.js';
 import { createHealth } from '../server/health.js';
 import { createLifts, LIFTS_PAGE, parseLifts } from '../server/info/lifts.js';
 import { liftsPage, STASY_LINES } from './fixtures/stasy-lifts.js';

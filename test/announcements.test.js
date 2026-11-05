@@ -5,7 +5,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { createAnnouncements, decode, isDisruption, parseOasaFeed, parseStasyDate, parseStasyList } from '../server/info/announcements.js';
 import { browserModule } from './support/browser-modules.js';
-import { announcementChecks } from '../server/diagnostics.js';
+import { announcementChecks } from '../server/diagnostics/stasy-oasa.js';
 
 // Trimmed copies of the real OASA feed and STASY pages
 const rssItem = (title, date, categories) => `<item>

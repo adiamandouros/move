@@ -7,7 +7,7 @@ import express from 'express';
 import { formatJson } from '../data/format.js';
 import { EDITED, applyOverlay, entryAt, removeEntry, sameEntry, setEntry, writeOverlay } from '../data/overlay.js';
 import { ATHENS, CROSSING_WAYS, EXIT_WAYS, POSITIONS, validateCurated } from '../data/validate.js';
-import { formatReport } from '../diagnostics.js';
+import { formatReport } from '../diagnostics/index.js';
 import { sendFresh } from '../http.js';
 import { listFiles, shellFiles, shellUrls, urlPath } from '../pages/assets.js';
 import { fill, view } from '../pages/templates.js';
@@ -25,7 +25,7 @@ const require = createRequire(import.meta.url);
 //   loadCurated()  → { data, edits }   (see server/data/index.js)
 //   loadRail()     → the current rail.json, for station order and names
 //   rebuild()      → called after every change
-//   diagnose()     → runs the server health checks (server/diagnostics.js)
+//   diagnose()     → runs the server health checks (server/diagnostics/)
 //   usageDays()    → the days of OASA's usage (server/oasa/usage.js), for /admin/usage
 //   liftNames()    → STASY's names for each station's lifts (server/info/lifts.js)
 //   exportKey      → reads the export without a session (Authorization: Bearer <key>),

@@ -7,7 +7,7 @@ import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { loadConfig } from '../server/config.js';
-import { formatReport, runDiagnostics } from '../server/diagnostics.js';
+import { formatReport, runDiagnostics } from '../server/diagnostics/index.js';
 import { checkedFacts, loadTools } from '../server/pages/registry.js';
 import { createProcessGuard } from '../server/processes.js';
 

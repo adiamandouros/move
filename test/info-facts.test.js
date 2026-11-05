@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { safeUrl } from '../public/js/core/html.js';
-import { factsChecks, FACTS_MAX_AGE_DAYS } from '../server/diagnostics.js';
+import { factsChecks, FACTS_MAX_AGE_DAYS } from '../server/diagnostics/site.js';
 import { renderPages } from '../server/pages/index.js';
 import { checkedFacts, loadTools } from '../server/pages/registry.js';
 

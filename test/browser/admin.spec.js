@@ -1,5 +1,5 @@
 // The admin pages (server/admin/): the diagnostics page, its checks as the
-// server would send them (server/diagnostics.js), not run for real here
+// server would send them (server/diagnostics/), not run for real here
 import { ADMIN_TEST_PASSWORD } from '../support/test-site.js';
 import { axe, expect, keyboardWalk, onlyOn, test } from './fixtures.js';
 

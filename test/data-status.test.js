@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { AIRPORT_STALE_DAYS, BUILD_MAX_AGE_MS, dataStatus, STASY_STALE_DAYS, TIMETABLE_WARN_DAYS } from '../server/data/status.js';
-import { runDiagnostics } from '../server/diagnostics.js';
+import { runDiagnostics } from '../server/diagnostics/index.js';
 import { createHealth } from '../server/health.js';
 
 // How the data stands (server/data/status.js): judged once, so /api/health

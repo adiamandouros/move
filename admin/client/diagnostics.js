@@ -1,4 +1,4 @@
-// /admin/diagnostics: runs the server checks (server/diagnostics.js) and shows them
+// /admin/diagnostics: runs the server checks (server/diagnostics/) and shows them
 
 import { icon, setHtml } from '/js/core/html.js';
 import { progressBar } from './progress.js';

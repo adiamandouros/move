@@ -6,7 +6,7 @@
 // but there must be an answer.
 import { axe, expect, test } from '../browser/fixtures.js';
 import { hashOf, inlineScripts } from '../../server/csp.js';
-import { FACTS_MAX_AGE_DAYS } from '../../server/diagnostics.js';
+import { FACTS_MAX_AGE_DAYS } from '../../server/diagnostics/site.js';
 
 // The real time, not the browser tests' fixed one; the location stays Syntagma
 test.use({ now: null });
