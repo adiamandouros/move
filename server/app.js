@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createAdmin } from './admin/index.js';
 import { BUILD_DIR, loadCurated, rebuildSoon } from './data/index.js';
-import { runDiagnostics } from './diagnostics.js';
+import { runDiagnostics } from './diagnostics/index.js';
 import { createBusApi } from './oasa/index.js';
 import { createOasaClient } from './oasa/client.js';
 import { createCollector } from './oasa/collector.js';

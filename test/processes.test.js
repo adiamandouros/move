@@ -4,7 +4,7 @@ import { execFileSync } from 'child_process';
 import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { accountChecks } from '../server/diagnostics.js';
+import { accountChecks } from '../server/diagnostics/site.js';
 import { createHealth } from '../server/health.js';
 import { accountStatus, BUILD_MAX_MS, copiesBefore, createProcessGuard, readProcesses, STALE_MS, THREAD_LIMIT } from '../server/processes.js';
 import { stopOldCopies } from '../scripts/stop-old-copies.js';

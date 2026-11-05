@@ -1,4 +1,4 @@
-// A check's progress (server/diagnostics.js): how far something got, as a
+// A check's progress (server/diagnostics/): how far something got, as a
 // bar with its numbers
 import { html } from '/js/core/html.js';
 

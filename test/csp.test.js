@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'crypto';
 import { contentSecurityPolicy, cspHeaders, hashOf, inlineScripts } from '../server/csp.js';
 import { loadConfig } from '../server/config.js';
-import { cspChecks } from '../server/diagnostics.js';
+import { cspChecks } from '../server/diagnostics/site.js';
 import { createPages, renderPages } from '../server/pages/index.js';
 import { loadTools } from '../server/pages/registry.js';
 import { stationPage } from '../server/pages/stations.js';
