@@ -48,8 +48,8 @@
 
 .sync-status {
     font-size: 0.85rem;
-    color: var(--bs-warning);
-    border: 1px solid rgba(255, 193, 7, 0.35);
+    color: var(--wh-warn);
+    border: 1px solid var(--wh-warn-edge);
     border-radius: 8px;
     padding: 8px 12px;
     margin-bottom: 12px;
@@ -72,7 +72,7 @@
 
 .entry-state[data-state="edited"],
 .entry-state[data-state^="pending"] {
-    color: var(--bs-warning);
+    color: var(--wh-warn);
 }
 
 /* The form's two parts: this platform, and the whole station */
@@ -224,15 +224,15 @@
 
 .diag-title { font-weight: 600; font-size: 0.9rem; }
 .diag-detail { font-size: 0.85rem; color: var(--wh-text-strong); overflow-wrap: anywhere; }
-.diag-hint { font-size: 0.85rem; color: var(--bs-warning); margin-top: 2px; }
+.diag-hint { font-size: 0.85rem; color: var(--wh-warn); margin-top: 2px; }
 
 /* How far something got (a stopped fetch): a bar and its numbers */
 .diag-progress { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
-.diag-progress progress { flex: 1; height: 8px; accent-color: var(--bs-warning); }
+.diag-progress progress { flex: 1; height: 8px; accent-color: var(--wh-warn); }
 
 .diag-icon { flex-shrink: 0; margin-top: 2px; }
 .diag-ok { color: #3fb950; }
-.diag-warn { color: var(--bs-warning); }
+.diag-warn { color: var(--wh-warn); }
 .diag-fail { color: #f85149; }
 .diag-info { color: var(--bs-secondary-color); }
 
