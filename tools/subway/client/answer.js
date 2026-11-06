@@ -7,7 +7,7 @@
 // to the door, as the first to come is what counts.
 
 import { AFTER_WALK_SECONDS, CHANGE_SECONDS } from './city.js';
-import { findWays, fold, wayKey } from './ways.js';
+import { findWays, fold, secondsTo, wayKey } from './ways.js';
 import { cost } from './weights.js';
 
 // The window, from the time you leave, and how often it's tried: every 2
@@ -39,8 +39,11 @@ const ON_THE_ROAD = new Set(['bus', 'trolley']);
  * when fewer than two come. first, close: the share of departures it's the
  * fastest on (a tie too), and within a tie of it. cost: the median over the
  * departures of what it costs by the weights, Infinity where it isn't found, which only puts rows in order (agreed 3 Nov): real
- * times decide what kind of answer it is.
- * @typedef {{ key: string, way: Way, lines: string[], onward: string[], bundle: boolean, best: (Way | null)[], range: [number, number], every: number | null, first: number, close: number, cost: number }} Row
+ * times decide what kind of answer it is. stops: where its last bus is
+ * caught, nearest first, each with the walk to it (seconds, from the change
+ * or from the start) and its lines: a bundle's buses can leave from several.
+ * @typedef {{ key: string, way: Way, lines: string[], onward: string[], bundle: boolean, best: (Way | null)[], range: [number, number], every: number | null, first: number, close: number, cost: number,
+ *   stops: { stop: number, walk: number, lines: string[] }[] }} Row
  */
 /**
  * stop: where the onward bus is caught. ready: the earliest the rider is
@@ -94,13 +97,16 @@ export function* answering(planner, access, egress, now, { window = WINDOW_SECON
         for (const found of fold(findWays(planner, access, egress, at, { walkLimit }))) {
             const way = { ...found, cost: cost(badDay, found, at, access, egress) };
             const key = rowKey(planner, way);
-            if (!byKey.has(key)) byKey.set(key, { key, best: departures.map(() => null), lines: new Set(), onward: new Set(), buses: new Set() });
+            if (!byKey.has(key)) byKey.set(key, { key, best: departures.map(() => null), lines: new Set(), onward: new Set(), buses: new Set(), stops: new Map() });
             const row = byKey.get(key);
             const last = way.legs.at(-1);
             if (way.legs.length > 1) row.onward.add(way.legs[1].line);
             if (lastIsBus(way)) {
                 row.lines.add(last.line);
                 row.buses.add(`${last.line} ${last.boards}`);
+                const walk = way.legs.length > 1 ? last.walkBefore : secondsTo(access, last.board);
+                if (!row.stops.has(last.board)) row.stops.set(last.board, { stop: last.board, walk, lines: new Set() });
+                row.stops.get(last.board).lines.add(last.line);
             }
             if (!row.best[d] || way.at < row.best[d].at) row.best[d] = way;
         }
@@ -109,7 +115,7 @@ export function* answering(planner, access, egress, now, { window = WINDOW_SECON
     const fastest = departures.map((_, d) => Math.min(...[...byKey.values()].map(({ best }) => best[d]?.at ?? Infinity)));
 
     /** @type {Row[]} */
-    const rows = [...byKey.values()].map(({ key, best, lines, onward, buses }) => {
+    const rows = [...byKey.values()].map(({ key, best, lines, onward, buses, stops }) => {
         const found = best.map((way, d) => way && way.at - departures[d]).filter(seconds => seconds !== null).sort((a, b) => a - b);
         // A departure it isn't found for costs all there is: one that's rarely there sinks
         const costs = best.map(way => way?.cost ?? Infinity).sort((a, b) => a - b);
@@ -122,6 +128,7 @@ export function* answering(planner, access, egress, now, { window = WINDOW_SECON
             first: best.filter((way, d) => way?.at === fastest[d]).length / departures.length,
             close: best.filter((way, d) => way && way.at <= fastest[d] + TIE_SECONDS).length / departures.length,
             cost: quantile(costs, 0.5),
+            stops: [...stops.values()].map(({ stop, walk, lines: at }) => ({ stop, walk, lines: [...at].sort() })).sort((a, b) => a.walk - b.walk),
         };
     }).sort((a, b) => a.cost - b.cost || b.close - a.close);
     if (!rows.length) return { kind: 'none', rows, departures };

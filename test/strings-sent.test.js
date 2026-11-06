@@ -51,3 +51,18 @@ test('a page sends its own strings and the shared ones scripts use, in its langu
     assert.ok(Object.keys(buses).some(k => k.startsWith('buses.')), 'the tool\'s own');
     assert.equal(buses['location.try-again'], stringTables(tools)[0].el['location.try-again'], 'in Greek');
 });
+
+// JSON keeps the last of two keys that are the same, so a key written twice
+// silently loses its first text (a new string named as one already there).
+// Counted in the file as written: once parsed, the first is already gone
+test('no strings file has a key twice in a language', () => {
+    const files = ['server/views/strings.json', 'server/views/stations.json', ...tools.map(t => `tools/${t.id}/strings.json`)];
+    const twice = files.flatMap(file => {
+        const text = readFileSync(join(ROOT, file), 'utf8');
+        const languages = Object.keys(JSON.parse(text)).length;
+        const counts = new Map();
+        for (const [, key] of text.matchAll(/"([^"\\]+)"\s*:\s*"/g)) counts.set(key, (counts.get(key) ?? 0) + 1);
+        return [...counts].filter(([, n]) => n > languages).map(([key]) => `${file}: ${key}`);
+    });
+    assert.deepEqual(twice, []);
+});

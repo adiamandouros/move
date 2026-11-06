@@ -1,9 +1,9 @@
-import { busOptions, cityPlanner, halfHour } from './buses.js';
+import { busOptions, cityPlanner, halfHour, halfView } from './buses.js';
 
 // The Trip page's searches with a bus, away from the page (decision 32):
 // worker.js runs them in a worker, so typing and tapping never wait for them.
 // A trip is answered for leaving now, then, when the page asks, for the next
-// half hour (answer.js), a departure at a time. Only the latest trip is
+// half hour (answer.js, as the page shows it: halfView), a departure at a time. Only the latest trip is
 // answered, and a half hour stops for another trip's, not for the same trip
 // asked again (the page does that each minute). No DOM, so it's tested in Node.
 
@@ -19,11 +19,11 @@ import { busOptions, cityPlanner, halfHour } from './buses.js';
 /**
  * What it answers: the ways with a bus for leaving now, with how long they
  * took here (`city`: making the day's city for this trip, null when it was
- * made before); later, the half hour's kind of answer and how long it took;
+ * made before); later, the half hour's answer and how long it took;
  * or that there are no buses to be had, as their times couldn't be loaded or
  * the search failed
  * @typedef {{ id: number, options: BusOption[], timing: { city: number | null, answer: number } }
- *   | { id: number, half: { kind: string, ms: number } }
+ *   | { id: number, half: import('./buses.js').HalfView & { ms: number } }
  *   | { id: number, error: true }} Answered
  */
 
@@ -69,15 +69,16 @@ export function searcher({ loadBuses, post, pause = () => new Promise(resolve =>
             }
             if (!half || id !== latestHalf) return;
             cityOn(loaded, now.weekday);
+            const { planner } = city;
             const started = clock();
-            const steps = halfHour(city.planner, from, to, now);
+            const steps = halfHour(planner, from, to, now);
             let step = steps.next();
             while (!step.done) {
                 await pause();
                 if (id !== latestHalf) return;
                 step = steps.next();
             }
-            post({ id, half: { kind: step.value.kind, ms: Math.round(clock() - started) } });
+            post({ id, half: { ...halfView(planner, from, to, step.value), ms: Math.round(clock() - started) } });
         } catch {
             if (id === latest) post({ id, error: true });
         }
