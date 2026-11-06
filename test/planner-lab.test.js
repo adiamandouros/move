@@ -4,7 +4,7 @@ import { readFileSync } from 'fs';
 import { cutToBox, dayOf } from '../scripts/planner-lab/build-buses.js';
 import { AFTER_WALK_SECONDS, CHANGE_SECONDS, createPlanner, joinNetwork, walkSeconds } from '../tools/subway/client/city.js';
 import { askOnce, rushTest, STOPS } from '../scripts/planner-lab/rush-test.js';
-import { answer, lateness, quickerWay, rowKey } from '../scripts/planner-lab/answer.js';
+import { answer, lateness, quickerWay, rowKey } from '../tools/subway/client/answer.js';
 import { cost } from '../tools/subway/client/weights.js';
 import { acrossWindow, describeWay, fastest, findWays, fold, secondsTo, spine, wayKey } from '../tools/subway/client/ways.js';
 

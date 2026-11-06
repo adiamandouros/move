@@ -17,7 +17,7 @@ const street = (kind, more = {}) => ({ type: 'street', name: 'Μενελάου',
 const { withTram } = await browserModule('tools/subway/client/network.js');
 const network = withTram(rail);
 const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.meta.url), 'utf8'));
-const { cityPlanner } = await browserModule('tools/trip/client/buses.js');
+const { busOptions, cityPlanner } = await browserModule('tools/trip/client/buses.js');
 const city = cityPlanner(rail, buses, 3);
 const { latinName: latin } = await browserModule('public/js/core/text.js');
 
@@ -109,7 +109,7 @@ for (const lang of ['en', 'el']) {
     });
 
     test(`${lang}: a way by bus: the walk to its stop, its plate, its time with "~", where it goes, and why it's an estimate`, () => {
-        const trip = doorToDoor(network, menelaou, syntagma, NOW, { city });
+        const trip = doorToDoor(network, menelaou, syntagma, NOW, { buses: busOptions(city, menelaou, syntagma, NOW) });
         const view = String(r.renderTrip(network, trip, syntagma));
         check(view);
         const card = view.slice(view.indexOf('trip-card'), view.indexOf(s['trip.other-ways']));
@@ -124,7 +124,8 @@ for (const lang of ['en', 'el']) {
     });
 
     test(`${lang}: the same ride on two buses shows both, and doesn't say where one of them goes`, () => {
-        const trip = doorToDoor(network, menelaou, { lat: 37.9686, lng: 23.7295, title: 'Ακρόπολη', exact: null }, NOW, { city });
+        const acropolis = { lat: 37.9686, lng: 23.7295, title: 'Ακρόπολη', exact: null };
+        const trip = doorToDoor(network, menelaou, acropolis, NOW, { buses: busOptions(city, menelaou, acropolis, NOW) });
         const both = trip.options.find(o => o.city && o.rides.some(ride => ride.lines.length > 1));
         const ride = both.rides.find(one => one.lines.length > 1);
         const view = String(r.renderTrip(network, { ...trip, options: [both] }, syntagma));

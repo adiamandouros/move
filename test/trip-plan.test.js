@@ -10,11 +10,13 @@ import { browserModule } from './support/browser-modules.js';
 const rail = JSON.parse(readFileSync(new URL('browser/data/rail.json', import.meta.url), 'utf8'));
 const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.meta.url), 'utf8'));
 const { doorToDoor, stationsNear, walkBetween } = await browserModule('tools/trip/client/plan.js');
-const { busOptions, cityPlanner, timeHalfHour } = await browserModule('tools/trip/client/buses.js');
+const { busOptions, cityPlanner, halfHour } = await browserModule('tools/trip/client/buses.js');
+const { answer } = await browserModule('tools/subway/client/answer.js');
 const { withTram } = await browserModule('tools/subway/client/network.js');
 const network = withTram(rail);
 // rail.json as it is: the city's search joins the tram itself
 const city = cityPlanner(rail, buses, 3);
+const withBuses = (to, now = NOW) => ({ buses: busOptions(city, menelaou, to, now) });
 
 // A Wednesday in the timetable, 10:00
 const NOW = { weekday: 3, seconds: 10 * 3600, date: '2026-10-21' };
@@ -136,7 +138,7 @@ test('a walk that runs past midnight catches the next day\'s trains', () => {
 // ── With the buses (decision 31) ────────────────────────────────────────────
 
 test('with the buses, a way by bus that costs less comes first: Menelaou to Syntagma by the 040', () => {
-    const { options } = doorToDoor(network, menelaou, syntagma, NOW, { city });
+    const { options } = doorToDoor(network, menelaou, syntagma, NOW, withBuses(syntagma));
     const [best] = options;
     assert.equal(best.city, true);
     assert.deepEqual(best.rides.map(ride => ride.lines), [['040']]);
@@ -171,7 +173,21 @@ test('without the buses, the metro and the tram, as before', () => {
     assert.ok(doorToDoor(network, menelaou, syntagma, NOW).options.every(o => !o.city));
 });
 
-test('a half hour of departures is timed, for the phone test', () => {
-    const ms = timeHalfHour(city, menelaou, syntagma, NOW, 900);
-    assert.ok(Number.isInteger(ms) && ms >= 0);
+test('the half hour: a departure every 2 minutes, one at a time, and what kind of answer the trip has', () => {
+    const steps = halfHour(city, menelaou, syntagma, NOW);
+    let departures = 0;
+    let step = steps.next();
+    while (!step.done) {
+        departures++;
+        step = steps.next();
+    }
+    assert.equal(departures, 16, 'from now to 30 minutes on');
+    assert.deepEqual(step.value.departures, Array.from({ length: 16 }, (_, i) => NOW.seconds + i * 120));
+    assert.equal(step.value.kind, 'depends', 'by the 040, or by M2 from Syggrou-Fix');
+    assert.deepEqual(step.value, answer(city, city.near(menelaou, 900), city.near(syntagma, 900), NOW.seconds), 'the lab\'s answer, as it is');
+    const fix = { lat: rail.stations['syggrou-fix'].coords[0], lng: rail.stations['syggrou-fix'].coords[1] };
+    const noon = { ...NOW, seconds: 12 * 3600 };
+    const clear = answer(city, city.near(menelaou, 900), city.near(fix, 900), noon.seconds);
+    assert.equal(clear.kind, 'clear', 'to Syggrou-Fix at noon: any of the buses from the start');
+    assert.equal(clear.clear.key, 'a bus from the start');
 });

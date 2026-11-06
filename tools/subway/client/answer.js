@@ -6,13 +6,15 @@
 // way's last stretch by bus is a bundle: any of the lines from that change
 // to the door, as the first to come is what counts.
 
-import { AFTER_WALK_SECONDS, CHANGE_SECONDS } from '../../tools/subway/client/city.js';
-import { findWays, fold, wayKey } from '../../tools/subway/client/ways.js';
-import { cost } from '../../tools/subway/client/weights.js';
+import { AFTER_WALK_SECONDS, CHANGE_SECONDS } from './city.js';
+import { findWays, fold, wayKey } from './ways.js';
+import { cost } from './weights.js';
 
-// The window, from the time you leave, and how often it's tried
+// The window, from the time you leave, and how often it's tried: every 2
+// minutes since the phone test (6 Nov: every minute took twice as long, and
+// on 39 trips 2 minutes changed 2 answers and no top 5)
 export const WINDOW_SECONDS = 1800;
-const STEP_SECONDS = 60;
+const STEP_SECONDS = 120;
 // A way this close to the fastest is as good as it, to a rider, and isn't
 // worth changing to on the way
 export const TIE_SECONDS = 180;
@@ -27,8 +29,8 @@ const RANGE_TAIL = 0.1;
 const LATENESS = [[15 * 60, 60], [20 * 60, 90], [30 * 60, 150], [45 * 60, 210], [Infinity, 420]];
 const ON_THE_ROAD = new Set(['bus', 'trolley']);
 
-/** @typedef {ReturnType<typeof import('../../tools/subway/client/city.js').createPlanner>} Planner */
-/** @typedef {import('../../tools/subway/client/ways.js').Way & { cost: number }} Way what it costs a rider by the weights (weights.js), seconds */
+/** @typedef {ReturnType<typeof import('./city.js').createPlanner>} Planner */
+/** @typedef {import('./ways.js').Way & { cost: number }} Way what it costs a rider by the weights (weights.js), seconds */
 /**
  * One row of an answer: a way, its last stretch by bus as a bundle of lines.
  * onward: the lines of its second ride. best: its earliest arrival for each
@@ -62,19 +64,33 @@ export function rowKey(planner, way) {
 // The value a share `q` of the way up a sorted list
 const quantile = (sorted, q) => sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))];
 
+/** @typedef {{ window?: number, step?: number, walkLimit?: number, badDay?: Planner }} Options */
+
 /**
  * The rows of every departure from `now` to the end of the window, the best
  * by the weights first, and what kind of answer their real times make. badDay: the same
  * stops with buses' slowest tenth, where measured, to rank by (weights.js)
- * @param {Planner} planner @param {number[]} access @param {number[]} egress @param {number} now
- * @param {{ window?: number, step?: number, walkLimit?: number, badDay?: Planner }} [options]
+ * @param {Planner} planner @param {number[]} access @param {number[]} egress @param {number} now @param {Options} [options]
  * @returns {Answer}
  */
-export function answer(planner, access, egress, now, { window = WINDOW_SECONDS, step = STEP_SECONDS, walkLimit, badDay = planner } = {}) {
+export function answer(planner, access, egress, now, options) {
+    const steps = answering(planner, access, egress, now, options);
+    let step = steps.next();
+    while (!step.done) step = steps.next();
+    return step.value;
+}
+
+/**
+ * The same answer a departure at a time: it pauses after each, so the Trip
+ * page can stop it for another trip (tools/trip/client/searcher.js)
+ * @param {Planner} planner @param {number[]} access @param {number[]} egress @param {number} now @param {Options} [options]
+ * @returns {Generator<void, Answer>}
+ */
+export function* answering(planner, access, egress, now, { window = WINDOW_SECONDS, step = STEP_SECONDS, walkLimit, badDay = planner } = {}) {
     const departures = [];
     for (let at = now; at <= now + window; at += step) departures.push(at);
     const byKey = new Map();
-    departures.forEach((at, d) => {
+    for (const [d, at] of departures.entries()) {
         for (const found of fold(findWays(planner, access, egress, at, { walkLimit }))) {
             const way = { ...found, cost: cost(badDay, found, at, access, egress) };
             const key = rowKey(planner, way);
@@ -88,7 +104,8 @@ export function answer(planner, access, egress, now, { window = WINDOW_SECONDS, 
             }
             if (!row.best[d] || way.at < row.best[d].at) row.best[d] = way;
         }
-    });
+        yield;
+    }
     const fastest = departures.map((_, d) => Math.min(...[...byKey.values()].map(({ best }) => best[d]?.at ?? Infinity)));
 
     /** @type {Row[]} */

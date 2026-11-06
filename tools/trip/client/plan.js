@@ -1,11 +1,11 @@
 import { distanceMeters } from '/js/core/geo.js';
 import { arrivalsFrom, nextDay, planTrip } from '/tools/subway/network.js';
 import { weighed } from '/tools/subway/weights.js';
-import { busOptions } from './buses.js';
 
 // From one place to another on foot, by metro, by tram and by bus: `rail` is
 // the metro alone or with the tram (withTram, decision 29), and the ways with
-// a bus come from the city's search (buses.js, decision 31). No DOM, so it's
+// a bus come from the city's search (buses.js, in the background: searcher.js,
+// decision 32). No DOM, so it's
 // tested in Node. A place is { lat, lng, station? }: with `station` (an id in
 // `rail`) it's that station or stop, and there's no walk to it.
 
@@ -102,15 +102,15 @@ const endWalks = o => o.city ? [o.firstWalk?.minutes ?? 0, o.lastWalk?.minutes ?
 
 // The trip, door to door: `options`, in order by what they cost a rider
 // (weights.js: what gets there first, walking counting 1.5 and 3 minutes a
-// change), and `walk`, on foot. `city`: the city's search (buses.js), for
-// the ways with a bus; without it, the metro and tram alone. `walkFirst`:
+// change), and `walk`, on foot. `buses`: the ways with a bus (busOptions in
+// buses.js); without them, the metro and tram alone. `walkFirst`:
 // walking gets there sooner than any option, or there's none to take.
 // `longWalk`: the first option's walk at either end is a long one.
 /**
  * @param {Rail} rail @param {Place} from @param {Place} to @param {{ weekday: number, seconds: number, date: string }} now
- * @param {{ city?: import('./buses.js').Planner | null }} [options]
+ * @param {{ buses?: BusOption[] }} [options]
  */
-export function doorToDoor(rail, from, to, now, { city = null } = {}) {
+export function doorToDoor(rail, from, to, now, { buses = [] } = {}) {
     const pairs = stationsNear(rail, from).flatMap(start => stationsNear(rail, to).map(end => ({ start, end })))
         .filter(({ start, end }) => start.station !== end.station);
     // Every trip between the nearest stations, and the quickest few others
@@ -118,7 +118,7 @@ export function doorToDoor(rail, from, to, now, { city = null } = {}) {
     const tried = [...nearest, ...soonest(rail, pairs.filter(pair => !nearest.includes(pair)), now).slice(0, SEARCHED_PAIRS)];
     const found = [
         ...tried.map(({ start, end }) => option(rail, start, end, now)).filter(Boolean),
-        ...city ? busOptions(city, from, to, now) : [],
+        ...buses,
     ];
     // The morning's first trains only if no trip can be made tonight
     const tonight = found.filter(o => !o.morning);

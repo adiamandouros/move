@@ -58,6 +58,14 @@ self.addEventListener('fetch', e => {
         return;
     }
 
+    // A worker's own imports have no ?v=, as the page's import map doesn't
+    // reach a worker (tools/trip/client/worker.js): from the server, so they're
+    // the same deploy as the page, and from the cache only with no connection
+    if (url.pathname.endsWith('.js') && !url.searchParams.has('v')) {
+        e.respondWith(networkThenCache(e.request));
+        return;
+    }
+
     e.respondWith(cacheFirst(e.request));
 });
 
@@ -87,6 +95,17 @@ async function networkFirst(e, request) {
     const timeUp = new Promise(resolve => setTimeout(resolve, cached ? WAIT_WITH_COPY_MS : WAIT_WITHOUT_COPY_MS));
     const res = await Promise.race([network, timeUp]).catch(() => {});
     return res ?? cached ?? offlinePage(request);
+}
+
+async function networkThenCache(request) {
+    const cache = await caches.open(CACHE);
+    try {
+        const res = await fetch(request);
+        if (res.ok) cache.put(request, res.clone());
+        return res;
+    } catch {
+        return (await cache.match(request)) ?? Response.error();
+    }
 }
 
 // Static files. Stylesheets and scripts get a new ?v= when they change, and
