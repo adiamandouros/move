@@ -42,4 +42,5 @@ decisions, or makes one of the same weight, comes with its page.
 | 28 | [Trams in the subway planner, and the trip search behind it](0028-trip-search.md) | In force |
 | 29 | [The trip page: door to door by metro and tram, beside Subway and Buses](0029-trip-page-tram.md) | Replaced by 31 |
 | 30 | [The buses' timetable: OASA's last feed, on today's routes, with the rides we measure](0030-bus-timetable.md) | In force |
-| 31 | [The trip page: by metro, tram and bus, the buses behind a switch for now](0031-trip-page-buses.md) | In force |
+| 31 | [The trip page: by metro, tram and bus, the buses behind a switch for now](0031-trip-page-buses.md) | Replaced by 32 |
+| 32 | [The trip page: by metro, tram and bus, searched in the background, the buses behind a switch for now](0032-trip-searches-in-the-background.md) | In force |

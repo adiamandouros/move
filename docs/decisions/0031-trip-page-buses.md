@@ -1,6 +1,6 @@
 # 31. The trip page: by metro, tram and bus, the buses behind a switch for now
 
-Decided 2026-11-05 · In force
+Decided 2026-11-05 · Replaced by [32](0032-trip-searches-in-the-background.md)
 
 ## Situation
 

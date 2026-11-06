@@ -3,7 +3,6 @@ import { language, t } from '/js/core/i18n.js';
 import { onLocation, onLocationProblem, startLocation, lastPosition } from '/js/core/location.js';
 import { athensNow, closestStation, isTimetableExpired, withTram } from '/tools/subway/network.js';
 import { tramHidden } from '/tools/subway/tram-switch.js';
-import { cityPlanner, timeHalfHour } from './buses.js';
 import { doorToDoor } from './plan.js';
 import { placePicker } from './picker.js';
 import { howExact, placeTitle, renderChosen, renderTrip, routeSummary } from './render.js';
@@ -18,9 +17,10 @@ const locate = $('trip-locate');
 // Keeps the times current while the page is open
 const REFRESH_MS = 60_000;
 // Buses only on /trip?buses for now, and on /trip?timing, which also says how
-// long they take on this device (roadmap Plan 7, the phone test): their
-// August timetable is too quick in traffic until enough rides are measured
-// (decision 31). Not remembered, so nothing more is kept on the device.
+// long they take on this device and works out the next half hour (roadmap
+// Plan 7): their August timetable is too quick in traffic until enough rides
+// are measured (decision 31). Not remembered, so nothing more is kept on the
+// device.
 const asked = new URLSearchParams(location.search);
 const TIMING = asked.has('timing');
 const BUSES = TIMING || asked.has('buses');
@@ -40,16 +40,30 @@ async function loadRail() {
     }
 }
 
-// Without the buses' times the trip is planned by metro and tram, and says so
-const loadBuses = () => BUSES ? loadJson('/data/buses.json').catch(() => null) : Promise.resolve(null);
+// The searches with a bus run in the background (worker.js, decision 32),
+// started with the version the page's import map gives it. `rail` is what
+// the city is planned on. Null where a browser can't start it: then, as when
+// the buses' times can't be loaded, the trip is by metro and tram, and says so
+function startSearches(rail) {
+    try {
+        const worker = new Worker(import.meta.resolve('./worker.js'), { type: 'module' });
+        worker.postMessage({ rail });
+        return worker;
+    } catch {
+        return null;
+    }
+}
+
+// The half hour's kind of answer (answer.js), in words
+const KINDS = { clear: 'trip.half-clear', decision: 'trip.half-decision', depends: 'trip.half-depends', none: 'trip.half-none' };
+const halfWords = half => half ? format(t('trip.timing-half'), { ms: half.ms, kind: t(KINDS[half.kind]) }) : t('trip.timing-half-working');
 
 // The timing, under the answer
 function timingBox(timing) {
     return html`<div class="trip-card" id="trip-timing">
         <h2 class="route-option-label">${t('trip.timing-title')}</h2>
         <p class="trip-other">${timing.city !== null && html`${format(t('trip.timing-city'), { ms: timing.city })} · `}${format(t('trip.timing-answer'), { ms: timing.answer })}</p>
-        ${timing.city !== null && html`<button id="trip-time-half" type="button" class="btn btn-sm locate-btn">${t('trip.timing-half')}</button>
-        <p class="trip-other" id="trip-half-result" role="status"></p>`}
+        <p class="trip-other" id="trip-half" role="status">${halfWords(timing.half)}</p>
     </div>`;
 }
 
@@ -65,42 +79,27 @@ function chosenPlace(rail, found) {
 }
 
 // `metro`: rail.json, which the page plans on with its tram or without it
-function start(metro, buses) {
+function start(metro) {
     const hidden = tramHidden();
     const rail = hidden ? metro : withTram(metro);
     let from = null;
     let to = null;
     // The fields are back, with the answer still under them
     let changing = false;
-    // The city's search for the buses, made for each day when it's first needed
-    let city = null;
-    const timing = { city: null, answer: 0 };
+    let searches = BUSES ? startSearches(hidden ? { ...metro, tram: undefined } : metro) : null;
+    let noBuses = BUSES && !searches;
+    // What's been asked of the searches: the latest trip, and the latest half
+    // hour (only the latest of each is answered), and the trip of the latest
+    // answer, the ways with a bus for leaving at its `now`
+    let asked = null;
+    let askedHalf = 0;
+    let found = null;
+    const timing = { city: null, answer: 0, half: null };
 
-    const render = ({ speak = false } = {}) => {
-        const ready = from && to;
-        form.hidden = Boolean(ready) && !changing;
-        if (!ready) { setHtml(result, html`<p class="trip-intro">${t('trip.intro')}</p>`); return; }
-        const now = athensNow();
-        if (buses && city?.weekday !== now.weekday) {
-            // Its first trip of the day takes a moment: said, and drawn, before it starts
-            setHtml(result, html`<p class="trip-intro" role="status">${t('trip.working')}</p>`);
-            requestAnimationFrame(() => setTimeout(() => {
-                const started = performance.now();
-                city = { weekday: now.weekday, planner: cityPlanner(hidden ? { ...metro, tram: undefined } : metro, buses, now.weekday) };
-                timing.city = Math.round(performance.now() - started);
-                render({ speak });
-            }));
-            return;
-        }
-        const started = performance.now();
-        const trip = doorToDoor(rail, from, to, now, { city: city?.planner });
-        timing.answer = Math.round(performance.now() - started);
-        const answer = html`${renderTrip(rail, trip, to, { expired: isTimetableExpired(rail, now), noBuses: BUSES && !buses })}${TIMING && timingBox(timing)}`;
+    const draw = (now, buses, speak) => {
+        const trip = doorToDoor(rail, from, to, now, { buses });
+        const answer = html`${renderTrip(rail, trip, to, { expired: isTimetableExpired(rail, now), noBuses })}${TIMING && timingBox(timing)}`;
         setHtml(result, changing ? answer : html`${renderChosen(from, to)}${answer}`);
-        $('trip-time-half')?.addEventListener('click', () => {
-            const ms = step => timeHalfHour(city.planner, from, to, athensNow(), step);
-            $('trip-half-result').textContent = format(t('trip.timing-result'), { two: ms(120), one: ms(60) });
-        });
         $('trip-change')?.addEventListener('click', () => {
             changing = true;
             render();
@@ -109,6 +108,55 @@ function start(metro, buses) {
         });
         if (speak) announce(trip.options[0] ? routeSummary(trip.options[0]) : t('trip.walk-quicker'));
     };
+
+    // `refresh`: the same trip, for a later time
+    const render = ({ speak = false, refresh = false } = {}) => {
+        const ready = from && to;
+        form.hidden = Boolean(ready) && !changing;
+        if (!ready) { setHtml(result, html`<p class="trip-intro">${t('trip.intro')}</p>`); return; }
+        const now = athensNow();
+        if (!searches) { draw(now, [], speak); return; }
+        const same = found?.from === from && found?.to === to;
+        if (same && !refresh) { draw(found.now, found.options, speak); return; }
+        const id = (asked?.id ?? 0) + 1;
+        asked = { id, from, to, now, speak };
+        if (!same) {
+            // A new trip: said while it's worked out, the first of the day
+            // taking longest, as the day's city is made for it
+            setHtml(result, html`<p class="trip-intro" role="status">${t('trip.working')}</p>`);
+            if (TIMING) {
+                askedHalf = id;
+                timing.half = null;
+            }
+        }
+        searches.postMessage({ id, from, to, now, half: !same && TIMING });
+    };
+
+    // The searches can't be had: by metro and tram from now on
+    const fail = () => {
+        if (!searches) return;
+        searches.terminate();
+        searches = null;
+        noBuses = true;
+        found = null;
+        render({ speak: asked?.speak });
+    };
+    searches?.addEventListener('error', fail);
+    searches?.addEventListener('message', ({ data }) => {
+        if ('error' in data) { fail(); return; }
+        if ('half' in data) {
+            if (data.id !== askedHalf) return;
+            timing.half = data.half;
+            const box = $('trip-half');
+            if (box) box.textContent = halfWords(timing.half);
+            return;
+        }
+        if (data.id !== asked.id) return;
+        found = { from: asked.from, to: asked.to, now: asked.now, options: data.options };
+        timing.city = data.timing.city ?? timing.city;
+        timing.answer = data.timing.answer;
+        draw(asked.now, data.options, asked.speak);
+    });
 
     const chooser = (input, set) => found => {
         if (found) input.value = placeTitle(found);
@@ -159,12 +207,12 @@ function start(metro, buses) {
     });
 
     setInterval(() => {
-        if (from && to && !result.contains(document.activeElement)) render();
+        if (from && to && !result.contains(document.activeElement)) render({ refresh: true });
     }, REFRESH_MS);
     render();
 }
 
 // The metro and the tram, or the metro alone when the tram is hidden on the
-// Subway page (decision 29), and the buses
-const [metro, buses] = await Promise.all([loadRail(), loadBuses()]);
-if (metro) start(metro, buses);
+// Subway page (decision 29)
+const metro = await loadRail();
+if (metro) start(metro);

@@ -1,3 +1,4 @@
+import { answering } from '/tools/subway/answer.js';
 import { busDay, createPlanner, joinNetwork } from '/tools/subway/city.js';
 import { findWays, fold, secondsTo } from '/tools/subway/ways.js';
 import { cost } from '/tools/subway/weights.js';
@@ -88,14 +89,12 @@ export function busOptions(planner, from, to, now) {
 }
 
 /**
- * How long the half hour's answer would take here (roadmap Plan 7, the phone
- * test): the ways of every departure in the next 30 minutes, one every
- * `step` seconds, in milliseconds. Nearly all of the answer's time is in them.
- * @param {Planner} planner @param {Point} from @param {Point} to @param {{ seconds: number }} now @param {number} step
+ * The half hour's answer (answer.js): every departure in the next 30 minutes,
+ * one every 2, a departure at a time. What kind of answer the trip has: one
+ * clear way, a decision on the way, or it depends (roadmap Plan 7)
+ * @param {Planner} planner @param {Point} from @param {Point} to @param {{ seconds: number }} now
  */
-export function timeHalfHour(planner, from, to, now, step) {
+export function halfHour(planner, from, to, now) {
     const [access, egress] = ends(planner, from, to);
-    const started = performance.now();
-    for (let at = now.seconds; at <= now.seconds + 1800; at += step) findWays(planner, access, egress, at);
-    return Math.round(performance.now() - started);
+    return answering(planner, access, egress, now.seconds);
 }

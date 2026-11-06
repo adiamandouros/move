@@ -163,13 +163,22 @@ test.describe('the trip page', () => {
         await expect(page.locator('.trip-estimates')).toContainText('Οι ώρες των λεωφορείων είναι εκτιμήσεις');
     });
 
-    test('?timing: how long the buses took here, and a half hour timed on demand', async ({ page }) => {
+    test('?timing: how long the buses took here, then the next half hour, worked out after the answer', async ({ page }) => {
         await pickBoth(page, '/trip?timing');
         const box = page.locator('#trip-timing');
         await expect(box).toContainText(/Buses ready in \d+ ms · This answer in \d+ ms/);
-        await box.getByRole('button', { name: 'Time a half hour' }).click();
-        await expect(box.getByRole('status')).toHaveText(/A half hour, a departure every 2 minutes: \d+ ms; every minute: \d+ ms/);
+        await expect(box.getByRole('status')).toHaveText(/^The next half hour, a departure every 2 minutes: \d+ ms, one clear way$/);
         expect(await axe(page), 'axe-core violations').toEqual([]);
+    });
+
+    test('?timing: a trip changed while its half hour is worked out gets its own answer and half hour', async ({ page }) => {
+        await pickBoth(page, '/trip?timing');
+        await page.getByRole('button', { name: 'Change' }).click();
+        await to(page).fill('Άλσος');
+        await list(page, 'to').first().click();
+        await expect(page.locator('.trip-places')).toContainText('Άλσος');
+        await expect(page.locator('.trip-card').first()).toBeVisible();
+        await expect(page.locator('#trip-half')).toHaveText(/\d+ ms, (one clear way|a decision on the way|it depends|no way found)$/);
     });
 
     test.describe('with the buses\' times not loading', () => {

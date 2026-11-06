@@ -86,6 +86,20 @@ test('a slow connection: a page not saved yet still arrives', async ({ page, con
     await expect(page.locator('h1')).not.toHaveText('You\'re offline');
 });
 
+test('a worker\'s own scripts come from the server each time, not from an older copy in the cache', async ({ page, context }) => {
+    await installed(page);
+    // The trip page's worker imports it without a version (tools/trip/client/worker.js)
+    const asked = [];
+    await context.route('**/tools/trip/searcher.js', route => {
+        asked.push(route.request().url());
+        return route.continue();
+    });
+    await page.goto('/trip?buses');
+    await expect.poll(() => asked.length).toBe(1);
+    await page.goto('/trip?buses');
+    await expect.poll(() => asked.length).toBe(2);
+});
+
 test('a new version installs in the background: the open page is not reloaded', async ({ page }) => {
     await installed(page);
     await page.evaluate(() => { window.untouched = true; });

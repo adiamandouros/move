@@ -11,10 +11,10 @@ decided has moved into the app, and the lab uses it from there:
 | `city.js` | The whole city for it: metro and tram from `rail.json`, a day of buses from `buses.json` (decision 30) or from `build-buses.js` below, and walks from the straight line |
 | `ways.js` | From what the search finds to the ways a rider could choose from |
 | `weights.js` | What a way costs a rider, to put ways in order: a bad day for buses, walking at 1.5, 3 minutes a change |
+| `answer.js` | Every departure in the next half hour, one every 2 minutes: one clear way, a decision on the way, or it depends; buses from one change as one row |
 
 | Here | What it is |
 |---|---|
-| `answer.js` | Every departure in the next half hour: one clear way, a decision on the way, or it depends; buses from one change as one row |
 | `build-buses.js` | One day of buses, small enough to search: the app's bus timetable (`server/data/bus-timetable.js`, decision 30) on the routes of OASA's live network, with measured ride times (`bus-rides.json`) where there are enough |
 | `trip.js` | Tries one trip from the command line |
 | `rush-test.js` | One test of OASA's predictions in the rush hour |
