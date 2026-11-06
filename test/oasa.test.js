@@ -104,6 +104,13 @@ test('arrivals are cached for 30 s, shared by simultaneous requests and named', 
     assert.deepEqual(oasa.calls.slice(2), ['getStopArrivals:10361']);
 });
 
+test('OASA\'s codes, sent as numbers, go on as strings, as every route code of ours is', async () => {
+    // As OASA answered on 6 Nov 2026
+    const { arrivals } = setup({ ...routesAt, getStopArrivals: () => [{ route_code: 2052, veh_code: 44575, btime2: 2 }] });
+    const { arrivals: [bus] } = await arrivals.stopArrivals('10361');
+    assert.deepEqual([bus.route, bus.vehicle, bus.minutes, bus.line], ['2052', '44575', 2, 'Χ95']);
+});
+
 test('answers age from when OASA was asked, so a slow reply is not reused past 30 s', async () => {
     const c = clock();
     const oasa = fakeOasa({

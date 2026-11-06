@@ -37,7 +37,9 @@ export function readPasses(dir, today, keep = RIDE_DAYS) {
     const passes = days.flatMap(day => readFileSync(join(dir, `${day}.jsonl`), 'utf8').split('\n').flatMap(line => {
         try {
             const p = JSON.parse(line);
-            return Number.isFinite(p.at) && STOP_CODE.test(p.stop) && p.route && p.vehicle ? [p] : [];
+            // Passes from OASA's answers with numbers for codes (from 4 Nov
+            // 2026, until the server passed them on as strings) read as the rest
+            return Number.isFinite(p.at) && STOP_CODE.test(p.stop) && p.route && p.vehicle ? [{ ...p, route: String(p.route), vehicle: String(p.vehicle) }] : [];
         } catch {
             return [];
         }

@@ -91,3 +91,12 @@ test('the passes of the last RIDE_DAYS days are read; anything else in the folde
     assert.deepEqual(read.passes.map(p => p.at), [1, 2]);
     assert.deepEqual(readPasses(join(dir, 'none'), '2026-11-03'), { passes: [], days: [] });
 });
+
+test('passes kept with numbers for codes, as OASA sent them from 4 Nov, are rides all the same', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wayhop-rides-'));
+    const t = athens('2026-11-05', '08:00:00');
+    writeFileSync(join(dir, '2026-11-05.jsonl'), [{ at: t, stop: '2', route: 100, line: 'Α2', vehicle: 44575 }, { at: t + 600, stop: '4', route: 100, line: 'Α2', vehicle: 44575 }].map(p => `${JSON.stringify(p)}\n`).join(''));
+    const { passes } = readPasses(dir, '2026-11-05');
+    assert.deepEqual(passes.map(p => [p.route, p.vehicle]), [['100', '44575'], ['100', '44575']]);
+    assert.deepEqual(ridesFrom(passes, NET), [{ route: '100', line: 'Α2', from: '2', to: '4', left: t, seconds: 600 }]);
+});
