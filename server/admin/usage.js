@@ -5,9 +5,13 @@ const HORIZON_DAYS = 7;
 
 // The days of OASA's usage (server/oasa/usage.js) as /admin/usage shows them
 // (admin/usage.hbs), newest first: what Wayhop asked for each day, how each
-// route to OASA answered (and how much of it was the trip finder's), how far
-// ahead OASA predicts, per line, and the
+// route to OASA answered (and how much of it was the trip finder's and the
+// Trip page's), how far ahead OASA predicts, per line, and the
 // pages opened by browser language.
+
+// Searches of one kind (usage.js SEARCHES) in a day: how many, the stops they
+// asked of OASA, and that per search; days from before they were counted have none
+const searched = s => [s?.searches ?? '–', s ? s.answers.oasa : '–', s?.searches ? (s.answers.oasa / s.searches).toFixed(1) : '–'];
 /** @param {Record<string, any>} days */
 export function usageView(days) {
     const dates = Object.keys(days).sort().reverse();
@@ -23,6 +27,8 @@ export function usageView(days) {
             const d = days[date];
             // Visitors' requests dropped; the collector's skipped turns apart
             const dropped = visitorsDropped(d.dropped);
+            const [tripSearches, tripAsked, tripPerSearch] = searched(d.trips);
+            const [planSearches, planAsked, planPerSearch] = searched(d.plans);
             return {
                 date,
                 requests: total(d.requests),
@@ -39,10 +45,8 @@ export function usageView(days) {
                 dropped: dropped ? `${dropped} (in ${d.dropMinutes} min)` : 0,
                 paused: d.paused,
                 limited: d.limited,
-                // (days before the trip finder have none)
-                tripSearches: d.trips?.searches ?? '–',
-                tripAsked: d.trips ? d.trips.answers.oasa : '–',
-                tripPerSearch: d.trips?.searches ? (d.trips.answers.oasa / d.trips.searches).toFixed(1) : '–',
+                tripSearches, tripAsked, tripPerSearch,
+                planSearches, planAsked, planPerSearch,
                 // (nor the collector)
                 collector: d.requests.collector ?? '–',
                 collectorSkipped: d.dropped.collector ?? '–',

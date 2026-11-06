@@ -27,6 +27,7 @@ import { REQUESTS_PER_SECOND } from './client.js';
 //   trips     the bus trip finder's searches, and its stop answers by where
 //             they came from (also counted in `answers`): its load on OASA
 //             per search (item 13)
+//   plans     the same for the Trip page's live times (decision 34)
 //   passes    buses seen passing a stop (passes.js); the collector's requests
 //             are the kind 'collector', and its skipped turns are dropped
 //             requests of that kind (decision 26)
@@ -41,6 +42,8 @@ export const KINDS = ['arrivals-new', 'arrivals-refresh', 'route-names', 'route-
 // oasa: a request was made for it; cache: none was needed (cached, or already
 // being asked); old: OASA failed and an older answer was served; none: nothing
 export const SOURCES = ['oasa', 'cache', 'old', 'none'];
+// What's counted apart, by the searches asking: the bus trip finder's, the Trip page's
+export const SEARCHES = ['trips', 'plans'];
 // Answer times are counted under these (ms); the last bucket is anything longer, timeouts too
 export const ANSWER_MS = [250, 500, 1000, 2000, 4000, 8000];
 // The queue waits after which arrivals stay fresh longer (arrivals.js)
@@ -68,7 +71,7 @@ const emptySummary = () => ({
     dropMinutes: 0,
     network: null,
     horizon: {},
-    trips: { searches: 0, answers: counts(SOURCES) },
+    ...Object.fromEntries(SEARCHES.map(kind => [kind, { searches: 0, answers: counts(SOURCES) }])),
     pages: { asked: {}, served: {} },
     passes: 0,
 });
@@ -101,10 +104,12 @@ function addMinute(summary, minute) {
     // (days kept before the horizon was counted have none)
     summary.horizon ??= {};
     for (const [line, minutes] of Object.entries(minute.horizon)) summary.horizon[line] = Math.max(summary.horizon[line] ?? 0, minutes);
-    // (nor the trips, before the finder)
-    summary.trips ??= { searches: 0, answers: counts(SOURCES) };
-    summary.trips.searches += minute.trips.searches;
-    for (const s of SOURCES) summary.trips.answers[s] += minute.trips.answers[s];
+    // (nor the trips, before the finder, nor the Trip page's)
+    for (const kind of SEARCHES) {
+        summary[kind] ??= { searches: 0, answers: counts(SOURCES) };
+        summary[kind].searches += minute[kind].searches;
+        for (const s of SOURCES) summary[kind].answers[s] += minute[kind].answers[s];
+    }
     // (nor the pages, before they were counted)
     summary.pages ??= { asked: {}, served: {} };
     for (const part of ['asked', 'served']) {
@@ -233,9 +238,10 @@ export function createUsage({ file = null, networkFile = null, now = Date.now, k
         limited() { current().limited++; },
         // A stop's answer to a visitor, and where it came from
         answer(stop, source) { const m = current(); m.answers[source]++; m.stopCodes.add(stop); },
-        // The trip finder: a new search, and a stop's answer to it (by where it came from)
-        tripSearch() { current().trips.searches++; },
-        tripAnswer(source) { current().trips.answers[source]++; },
+        // The trip finder, or the Trip page (`kind`, SEARCHES): a new search,
+        // and a stop's answer to it (by where it came from)
+        tripSearch(kind = 'trips') { current()[kind].searches++; },
+        tripAnswer(source, kind = 'trips') { current()[kind].answers[source]++; },
         // Buses seen passing a stop (passes.js)
         passes(n) { current().passes += n; },
         // A bus of this line OASA predicted this many minutes ahead

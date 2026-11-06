@@ -1641,6 +1641,34 @@ body {
     min-width: 0;
 }
 
+/* OASA's live times on the trip page's way (decision 35): a bus's minutes
+   and the next one's, or each line's at a stop, beside its plate */
+.trip-live {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--wh-space-1) var(--wh-space-3);
+    margin-top: var(--wh-space-1);
+}
+
+.trip-live-bus {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wh-space-1);
+    white-space: nowrap;
+}
+
+/* Paused, unavailable or older live times, above the answer, as on the Buses page */
+.trip-live-status {
+    margin-bottom: var(--wh-space-3);
+}
+
+.trip-live-status button {
+    color: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
 /* "2 more stops": the rest of the stops a way's last bus leaves from (the
    trip page's half hour), blue as what can be pressed is, under the stops
    shown; opened, the rest line up with them */

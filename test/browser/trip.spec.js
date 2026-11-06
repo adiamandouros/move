@@ -2,6 +2,7 @@
 // cases, and search being down. What's worked out and drawn is tested in Node
 // (trip-plan.test.js, trip-render.test.js); here, that the page puts it
 // together. The addresses are test/fixtures/places.js.
+import { watchRequests } from './bus-requests.js';
 import { axe, expect, keyboardWalk, onlyOn, test } from './fixtures.js';
 
 const from = page => page.getByRole('combobox', { name: 'From' });
@@ -192,6 +193,103 @@ test.describe('the trip page', () => {
         await expect(page.locator('.trip-places')).toContainText('Άλσος');
         await expect(page.locator('.trip-card').first()).toBeVisible();
         await expect(page.locator('#trip-half')).toHaveText(/\d+ ms, (one clear way|a decision on the way|it depends|no way found)$/);
+    });
+
+    test.describe('with OASA\'s live times', () => {
+        test.use({ scenario: 'trip-live' });
+
+        // The minutes of the first bus at each stop of the way shown with one, in the order shown
+        const firstBuses = page => page.locator('.trip-card').first().locator('li.trip-step').evaluateAll(steps => steps
+            .map(step => step.querySelector('.trip-live .time-badge [aria-hidden="true"]')?.textContent)
+            .filter(Boolean)
+            .map(minutes => parseInt(minutes, 10)));
+        // The page out of sight, or back, as when the phone locks or the app is switched
+        const timeTravel = (page, hidden) => page.evaluate(hidden => {
+            Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+            document.dispatchEvent(new Event('visibilitychange'));
+        }, hidden);
+
+        test('the way shown has its buses\' minutes, the stops by when their bus comes, asked as the Trip page\'s, 10 stops at most', async ({ page }) => {
+            const { asks } = await watchRequests(page);
+            await pickBoth(page, '/trip?buses');
+            const best = page.locator('.trip-card').first();
+            await expect(best).toContainText('Any of these buses, whichever comes first:');
+            await expect(best.locator('.trip-live .time-badge').first()).toBeVisible();
+            await expect(page.locator('.trip-estimates')).toContainText('A bus with its minutes beside it is on OASA\'s live times.');
+            await expect.poll(() => firstBuses(page)).not.toEqual([]);
+            const minutes = await firstBuses(page);
+            expect(minutes).toEqual([...minutes].sort((a, b) => a - b));
+            // One request a stop, the first saying it starts a search
+            await page.waitForFunction(() => window.__pending === 0);
+            const asked = await asks();
+            expect(asked[0].for).toBe('plan-start');
+            expect(asked.slice(1).map(a => a.for)).toEqual(asked.slice(1).map(() => 'plan'));
+            expect(new Set(asked.map(a => a.code)).size).toBe(asked.length);
+            expect(asked.length).toBe(10);
+            await expect(page.locator('#trip-live-status')).toBeHidden();
+            expect(await axe(page), 'axe-core violations').toEqual([]);
+            const walk = await keyboardWalk(page);
+            expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
+        });
+
+        test('asked again as their buses near, nothing while out of sight, paused after 10 minutes untouched until a tap', async ({ page }) => {
+            const { asks, run } = await watchRequests(page);
+            await pickBoth(page, '/trip?buses');
+            await expect(page.locator('.trip-card').first().locator('.trip-live .time-badge').first()).toBeVisible();
+            await expect.poll(async () => (await asks()).length).toBe(10);
+            await page.waitForFunction(() => window.__pending === 0);
+            // A bus due within 10 minutes: its stop again after 30 s; none later than that
+            await run(35);
+            const again = (await asks()).length;
+            expect(again).toBeGreaterThan(10);
+            expect(again).toBeLessThan(20);
+            // Out of sight: nothing, however long; back: the stops due, at once.
+            // (Minutes at a time from here: a second at a time is for counting requests)
+            const skip = async seconds => {
+                await page.clock.runFor(seconds * 1000);
+                await page.waitForFunction(() => window.__pending === 0);
+            };
+            await timeTravel(page, true);
+            await skip(150);
+            expect((await asks()).length).toBe(again);
+            await timeTravel(page, false);
+            await expect.poll(async () => (await asks()).length).toBeGreaterThan(again);
+            // Untouched for 10 minutes: paused, and said
+            await skip(610);
+            await expect(page.locator('#trip-live-status')).toContainText('Live times paused to save data.');
+            const paused = (await asks()).length;
+            await skip(150);
+            expect((await asks()).length).toBe(paused);
+            // The clock runs again, for axe-core's own timers
+            await page.clock.resume();
+            expect(await axe(page), 'axe-core violations').toEqual([]);
+            await page.getByRole('button', { name: 'Tap to refresh' }).click();
+            await expect(page.locator('#trip-live-status')).toBeHidden();
+            await expect.poll(async () => (await asks()).length).toBeGreaterThan(paused);
+        });
+
+        test('in Greek too', async ({ page }) => {
+            await page.goto('/el/trip?buses');
+            await page.getByRole('combobox', { name: 'Από' }).fill('Μενελάου 45');
+            await list(page, 'from').first().click();
+            await page.getByRole('combobox', { name: 'Προς' }).fill('Συγγρού-Φιξ');
+            await list(page, 'to').first().click();
+            await expect(page.locator('.trip-card').first().locator('.trip-live .time-badge').first()).toBeVisible();
+            await expect(page.locator('.trip-estimates')).toContainText('Ένα λεωφορείο με τα λεπτά δίπλα του είναι από τις ώρες του ΟΑΣΑ σε πραγματικό χρόνο.');
+        });
+    });
+
+    test.describe('with OASA down', () => {
+        test.use({ scenario: 'oasa-down' });
+
+        test('the timetable\'s times stay, and the live times are said to be unavailable', async ({ page }) => {
+            await pickBoth(page, '/trip?buses');
+            await expect(page.locator('#trip-live-status')).toContainText('Live bus times are unavailable right now.');
+            await expect(page.locator('.trip-card').first().locator('.bus-plate').first()).toBeVisible();
+            await expect(page.locator('#trip-result .time-badge')).toHaveCount(0);
+            await expect(page.locator('.trip-estimates')).toContainText('Bus times are estimates from OASA\'s timetable of August 2026');
+            expect(await axe(page), 'axe-core violations').toEqual([]);
+        });
     });
 
     test.describe('with the buses\' times not loading', () => {

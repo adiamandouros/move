@@ -48,10 +48,12 @@ test('a route with no trips that day isn\'t in it, nor are stops only it calls a
     assert.deepEqual(busDay(quiet, 3), { day: 3, stops: {}, routes: [] });
 });
 
-test('each stop has its names and each route where it goes: a bus\'s last stop', () => {
+test('each stop has its names and each route where it goes: a bus\'s last stop, and which of OASA\'s routes it is', () => {
     const { stops, routes } = joinNetwork({ schema: 1, stations: {}, lines: {} }, busDay(buses, 3), 3);
     assert.deepEqual(stops.map(stop => [stop.id, stop.names]), [1, 2, 3].map(n => [`bus:${n}`, { el: `Στάση ${n}`, en: '' }]));
     assert.deepEqual(routes[0].toward, { el: 'Στάση 3', en: '' });
+    // As OASA's live times name it (the Trip page's live times, decision 35)
+    assert.equal(routes[0].code, '3922');
 });
 
 test('the search rides the day\'s buses, from the stops a walk away', () => {

@@ -16,7 +16,7 @@
         "noEmit": true,
         "strict": false,
         "skipLibCheck": true,
-        "paths": { "/js/*": ["./public/js/*"], "/tools/subway/*": ["./tools/subway/client/*"] }
+        "paths": { "/js/*": ["./public/js/*"], "/tools/subway/*": ["./tools/subway/client/*"], "/tools/buses/*": ["./tools/buses/client/*"] }
     },
     "include": ["server.js", "server/**/*.js", "tools/*/client/**/*.js", "public/js/**/*.js", "scripts/**/*.js", "proxy/*.js", "types/**/*.d.ts"],
     "exclude": ["server/views/sw.js"]

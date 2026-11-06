@@ -87,9 +87,24 @@ test('the trip finder\'s requests are counted apart: a search when it starts, ea
     // The bus page's own requests, and anything else said, aren't the finder's
     assert.equal((await get(`stops=${KNOWN[36]}`)).status, 200);
     assert.equal((await get(`stops=${KNOWN[37]}&for=other`)).status, 200);
+    assert.equal((await get(`stops=${KNOWN[37]}&for=__proto__`)).status, 200);
     const after = trips();
     assert.equal(after.searches - before.searches, 1);
     assert.equal(after.answers.oasa - before.answers.oasa, 2);
     assert.equal(after.answers.cache - before.answers.cache, 1);
+});
+
+test('the Trip page\'s live times are counted apart from the trip finder\'s, the same way', async () => {
+    const counted = () => structuredClone({ plans: api.status().usage.hour.plans, trips: api.status().usage.hour.trips });
+    const before = counted();
+    const get = (query, ip = '198.51.100.10') => fetch(`${base}/api/arrivals?${query}`, { headers: { 'X-Forwarded-For': ip } });
+    assert.equal((await get(`stops=${KNOWN[38]}&for=plan-start`)).status, 200);
+    assert.equal((await get(`stops=${KNOWN[39]}&for=plan`)).status, 200);
+    assert.equal((await get(`stops=${KNOWN[38]}&for=plan`)).status, 200);
+    const after = counted();
+    assert.equal(after.plans.searches - before.plans.searches, 1);
+    assert.equal(after.plans.answers.oasa - before.plans.answers.oasa, 2);
+    assert.equal(after.plans.answers.cache - before.plans.answers.cache, 1);
+    assert.deepEqual(after.trips, before.trips, 'none of it the trip finder\'s');
 });
 

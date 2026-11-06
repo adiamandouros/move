@@ -34,6 +34,24 @@ export function arrivalsAt(code) {
     return lines.length ? [first, first + 8, first + 17].map((minutes, i) => ({ route: `${code}${i % lines.length}`, minutes })) : [];
 }
 
+// OASA's answers named by the test timetable's routes (data/buses.json), so
+// the Trip page can tell which buses are its ways' (scenario 'trip-live'):
+// each route at a stop has two buses, the first 4 to 16 minutes away
+// depending on the stop's code and the route, the next 15 minutes later
+const timetable = JSON.parse(readFileSync(join(DATA, 'buses.json'), 'utf8'));
+const routesAt = new Map();
+for (const { line, code, stops: along } of timetable.routes) {
+    for (const i of along) {
+        const stop = timetable.stops[i][0];
+        if (!routesAt.has(stop)) routesAt.set(stop, []);
+        routesAt.get(stop).push({ line, route: code });
+    }
+}
+const timetableArrivalsAt = code => (routesAt.get(code) ?? []).flatMap(({ line, route }, i) => {
+    const first = (Number(code) + i) % 5 * 3 + 4;
+    return [first, first + 15].map((minutes, n) => ({ route, line, vehicle: `${route}-${n}`, minutes, to: { el: 'ΣΥΝΤΑΓΜΑ', en: 'SYNTAGMA' } }));
+});
+
 export const oasaClient = {
     async request(act, code) {
         // Its codes and minutes as numbers, as OASA sends them
@@ -137,6 +155,12 @@ export const scenarios = () => ({
         arrivals: arrivalsAt(code).map(a => ({ route: a.route, vehicle: '1', minutes: a.minutes, line: linesOf.get(code)?.[0] ?? null, to: { el: 'ΣΥΝΤΑΓΜΑ', en: 'SYNTAGMA' } })),
         updated: Date.now() - 2 * 60_000,
         stale: true,
+    }])) })),
+    // OASA's answers as the Trip page's ways can match them (timetableArrivalsAt)
+    'trip-live': withArrivals((req, res) => res.json({ stops: Object.fromEntries(codesOf(req).map(code => [code, {
+        arrivals: timetableArrivalsAt(code).sort((a, b) => a.minutes - b.minutes),
+        updated: Date.now(),
+        stale: false,
     }])) })),
     // Over the per-visitor limit (server/oasa/limits.js)
     'oasa-limited': withArrivals((_req, res) => res.status(429).set('Retry-After', '30').json({ error: 'Too many new stops; try again shortly' })),
