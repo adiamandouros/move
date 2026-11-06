@@ -30,10 +30,13 @@ the run's `playwright-report` artifact.
 
 - **data/**: the real `rail.json`, the bus stops around Syntagma and
   Omonia from `bus-stops.json`, and two lines from `bus-lines.json` (the 040
-  and the Χ95, with all their stops). `node test/browser/data/update.js` refreshes
+  and the Χ95, with all their stops); `buses.json` between Kallithea and
+  Syntagma, for the trip page, its stops in `bus-stops.json` too. `node test/browser/data/update.js` refreshes
   them from `data/build/` when their format changes.
 - **a fake OASA**: every stop has three buses, the first 1–19 minutes away
   depending on its code (`arrivalsAt()`), named after the stop's own lines.
+  The `trip-live` scenario names them by `buses.json`'s routes instead, so
+  the trip page can tell which are its ways' buses.
 - **fake announcement sources**: two OASA posts and one STASY post.
 
 It also builds the copies where something goes wrong (`scenarios()`), and

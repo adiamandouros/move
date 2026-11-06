@@ -37,11 +37,13 @@ decisions, or makes one of the same weight, comes with its page.
 | 23 | [The trip page: door to door, beside Subway and Buses](0023-trip-page.md) | Replaced by 29 |
 | 24 | [Offline, and opening at once with no signal](0024-opening-without-signal.md) | In force |
 | 25 | [Trams in the subway planner](0025-trams-in-the-planner.md) | Replaced by 28 |
-| 26 | [Our load on OASA and STASY, with the bus-pass collector](0026-bus-pass-collector.md) | In force |
+| 26 | [Our load on OASA and STASY, with the bus-pass collector](0026-bus-pass-collector.md) | Replaced by 34 |
 | 27 | [Reaching OASA and STASY: direct first, now that OASA answers from abroad](0027-oasa-direct-first.md) | In force |
 | 28 | [Trams in the subway planner, and the trip search behind it](0028-trip-search.md) | In force |
 | 29 | [The trip page: door to door by metro and tram, beside Subway and Buses](0029-trip-page-tram.md) | Replaced by 31 |
 | 30 | [The buses' timetable: OASA's last feed, on today's routes, with the rides we measure](0030-bus-timetable.md) | In force |
 | 31 | [The trip page: by metro, tram and bus, the buses behind a switch for now](0031-trip-page-buses.md) | Replaced by 32 |
 | 32 | [The trip page: by metro, tram and bus, searched in the background, the buses behind a switch for now](0032-trip-searches-in-the-background.md) | Replaced by 33 |
-| 33 | [The trip page: the next half hour's answer in place of the answer for leaving now, the buses behind a switch for now](0033-trip-half-hour-answer.md) | In force |
+| 33 | [The trip page: the next half hour's answer in place of the answer for leaving now, the buses behind a switch for now](0033-trip-half-hour-answer.md) | Replaced by 35 |
+| 34 | [Our load on OASA and STASY, with the Trip page's live times](0034-load-on-oasa-with-live-trips.md) | In force |
+| 35 | [The trip page: OASA's live times on the way shown in full, the buses behind a switch for now](0035-trip-live-times.md) | In force |

@@ -6,7 +6,7 @@ import { REQUESTS_PER_SECOND } from './client.js';
 
 // How much Wayhop asks of OASA, and how OASA answers (roadmap item 39):
 // counted each minute, added up per day (Athens time) and kept for KEEP_DAYS,
-// so the limits of decision 26 can be judged by numbers. Counts only: stop
+// so the limits of decision 34 can be judged by numbers. Counts only: stop
 // codes and route names, nothing about who asked. Nothing here sends a request.
 //
 // What is counted (the OASA client, the arrivals cache and the bus API report it):
