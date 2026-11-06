@@ -99,6 +99,9 @@ const linesOf = o => o.plan.legs.map(leg => leg.line).join();
 const sameWay = (a, b) => !a.city && !b.city && a.plan.legs[0].from === b.plan.legs[0].from && linesOf(a) === linesOf(b);
 // An option's walk from the door and to it, in minutes
 const endWalks = o => o.city ? [o.firstWalk?.minutes ?? 0, o.lastWalk?.minutes ?? 0] : [o.start.walk?.minutes ?? 0, o.end.walk?.minutes ?? 0];
+// An option's walk at either end is a long one
+/** @param {ReturnType<typeof option> | BusOption} o */
+export const isLongWalk = o => Math.max(...endWalks(o)) >= LONG_WALK_MINUTES;
 
 // The trip, door to door: `options`, in order by what they cost a rider
 // (weights.js: what gets there first, walking counting 1.5 and 3 minutes a
@@ -132,6 +135,6 @@ export function doorToDoor(rail, from, to, now, { buses = [] } = {}) {
     return {
         options, walk,
         walkFirst: !best || best.morning || walk.minutes <= Math.min(...options.map(o => o.minutes)),
-        longWalk: Boolean(best) && Math.max(...endWalks(best)) >= LONG_WALK_MINUTES,
+        longWalk: Boolean(best) && isLongWalk(best),
     };
 }

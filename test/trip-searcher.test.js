@@ -49,6 +49,10 @@ test('a trip is answered for leaving now, with how long it took, then its half h
     assert.equal(posted[1].id, 1);
     assert.equal(posted[1].half.kind, 'depends', 'by the 040, or by M2 from Syggrou-Fix');
     assert.ok(Number.isInteger(posted[1].half.ms));
+    // As the page shows it (halfView): the ways, each for every departure tried
+    assert.equal(posted[1].half.departures.length, 16);
+    assert.ok(posted[1].half.rows.length > 0 && posted[1].half.rows.every(row => row.options.length === 16));
+    assert.deepEqual(JSON.parse(JSON.stringify(posted[1].half)).rows, posted[1].half.rows, 'plain data, as a worker can send');
 });
 
 test('the city is made once a day: the next trip says so with no time for it', async () => {

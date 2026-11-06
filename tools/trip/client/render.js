@@ -90,19 +90,47 @@ function rideStep(rail, ride) {
 // Every bus line that rides it, the first to come first
 const pill = (rail, ride) => ON_THE_ROAD.has(ride.mode) ? pillList(ride.lines.map(line => busPlate(line, 's'))) : linePill(ride.line, rail.lines[ride.line].name, 's');
 
+// How many of the stops a way's last bus can be caught at are shown before
+// "N more stops"
+const STOPS_SHOWN = 3;
+
+// The stops a way's last bus can be caught at, nearest first, each with the
+// walk to it and its lines: any of them will do, so no time by the clock
+// (decision 33). `change`: after a ride, rather than from the door
+function busStops(rail, stops, change) {
+    const stopStep = ({ stop, walk, lines }) => step(walk ? `${walk.minutes}′` : '', html`
+        ${externalLink({ href: walkingUrl(stop.lat, stop.lng) }, stopName(rail, stop), t('shell.new-tab'))}
+        <div>${pillList(lines.map(line => busPlate(line, 's')))}</div>`);
+    const more = stops.slice(STOPS_SHOWN);
+    return html`${step('', t(change ? 'trip.any-bus-then' : 'trip.any-bus'))}
+        ${stops.slice(0, STOPS_SHOWN).map(stopStep)}
+        ${more.length > 0 && html`<li><details class="trip-more">
+            <summary>${format(t(more.length === 1 ? 'trip.more-stop' : 'trip.more-stops'), { count: more.length })}</summary>
+            <ol class="trip-steps">${more.map(stopStep)}</ol>
+        </details></li>`}`;
+}
+
+// A way of the city's search, step by step: its walks and rides, and for a
+// way of the half hour whose last bus can be any of several, the stops
+function citySteps(rail, o, to, row = null) {
+    const walkTo = (walk, stop) => walk && walkStep(walk, format(t('trip.walk-to'), { place: stopName(rail, stop) }), stop);
+    const rides = row?.bundle ? o.rides.slice(0, -1) : o.rides;
+    return html`<ol class="trip-steps">
+        ${rides.length > 0 && walkTo(o.firstWalk, o.rides[0].board)}
+        ${rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board)}${rideStep(rail, ride)}`)}
+        ${row?.bundle && busStops(rail, row.stops, rides.length > 0)}
+        ${o.lastWalk && walkStep(o.lastWalk, format(t('trip.walk-to'), { place: to.title }), to)}
+    </ol>`;
+}
+
 // A way with a bus, step by step: there's no "where to stand" for it yet
 function cityCard(rail, o, to) {
-    const walkTo = (walk, stop) => walk && walkStep(walk, format(t('trip.walk-to'), { place: stopName(rail, stop) }), stop);
     return html`<div class="trip-card result-card">
         <div class="trip-card-head">
             <h2 class="trip-total">${format(t('trip.minutes'), { minutes: o.minutes })}</h2>
             <span class="trip-arrives">${format(t('trip.arrive'), { time: clockTime(o.arrives) })}</span>
         </div>
-        <ol class="trip-steps">
-            ${walkTo(o.firstWalk, o.rides[0].board)}
-            ${o.rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board)}${rideStep(rail, ride)}`)}
-            ${o.lastWalk && walkStep(o.lastWalk, format(t('trip.walk-to'), { place: to.title }), to)}
-        </ol>
+        ${citySteps(rail, o, to)}
     </div>`;
 }
 
@@ -163,8 +191,9 @@ function walkCard(walk, to) {
 export const routeSummary = o => format(t('trip.summary'), { minutes: o.minutes, time: clockTime(o.arrives) });
 
 // The answer: what `doorToDoor` found, drawn. noBuses: the buses' times
-// couldn't be loaded, so it's by metro and tram alone
-export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { expired = false, noBuses = false } = {}) {
+// couldn't be loaded, so it's by metro and tram alone. checking: the next
+// half hour is being worked out, and may take its place (renderHalf)
+export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { expired = false, noBuses = false, checking = false } = {}) {
     const [best, ...others] = options;
     const trainsStopped = best?.morning;
     return html`
@@ -173,10 +202,76 @@ export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { e
         ${trainsStopped && notice('info', 'night', t('trip.no-trains'))}
         ${walkFirst && !trainsStopped && walkCard(walk, to)}
         ${best && (walkFirst && !trainsStopped ? html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>${otherCard(rail, best)}` : tripCard(rail, best, to))}
-        ${longWalk && !walkFirst && notice('info', 'bus', html`${t('trip.long-walk')} <a href="${localHref('/buses')}">${t('trip.look-for-buses')}</a>`)}
+        ${checking && html`<p class="trip-other" id="trip-checking">${t('trip.half-checking')}</p>`}
+        ${longWalk && !walkFirst && longWalkNotice()}
         ${others.length > 0 && !(walkFirst && !trainsStopped) && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
         ${others.map(o => otherCard(rail, o))}
         <p class="trip-estimates">${t('trip.estimates')}${options.some(hasBus) && html` ${t('trip.bus-estimates')}`}</p>`;
+}
+
+const longWalkNotice = () => notice('info', 'bus', html`${t('trip.long-walk')} <a href="${localHref('/buses')}">${t('trip.look-for-buses')}</a>`);
+
+// ── The next half hour's answer (decision 33) ───────────────────────────────
+
+// A departure tried up to a minute ago still counts: the page redraws each minute
+const LATE_SECONDS = 60;
+
+// A way's minutes over the half hour, the quickest and slowest tenth left out
+export const rangeText = ({ range: [low, high] }) => low === high ? format(t('trip.minutes'), { minutes: low }) : format(t('trip.range'), { low, high });
+
+// Each way the half hour's answer shows, as it is for the next departure
+// tried at `now` (seconds from midnight) or the first after it that has it
+/** @param {import('./buses.js').HalfView} view @param {number} now */
+export function halfWays(view, now) {
+    const next = view.departures.findIndex(at => at >= now - LATE_SECONDS);
+    if (next < 0) return [];
+    return view.rows.map(row => ({ row, o: row.options.slice(next).find(Boolean) })).filter(({ o }) => o);
+}
+
+// Where to stand is for a way by rail alone with a metro ride, as on tripCard
+const standFor = o => o.rides.every(ride => ride.board.station && ride.alight.station) && o.rides.some(ride => ride.mode === 'metro')
+    && standHref({ station: o.rides[0].board.station }, { station: o.rides.at(-1).alight.station });
+
+// The way the half hour stands for, step by step, with its range. best: it's
+// the clear way
+function halfCard(rail, { row, o }, to, best) {
+    const stand = standFor(o);
+    return html`<div class="trip-card result-card">
+        <div class="trip-card-head">
+            <h2 class="trip-total">${rangeText(row)}</h2>
+            ${best && html`<span class="trip-arrives">${t('trip.half-best')}</span>`}
+        </div>
+        ${citySteps(rail, o, to, row)}
+        ${stand && html`<a class="btn btn-sm locate-btn trip-stand" href="${stand}">${t('trip.where-to-stand')}</a>`}
+    </div>`;
+}
+
+// Another way of the half hour, on one line: a last bus that can be any of
+// several shows them all, and one caught from the door says so
+function halfOther(rail, { row, o }) {
+    const rides = row.bundle ? o.rides.slice(0, -1) : o.rides;
+    const pills = [...rides.map(ride => pill(rail, ride)), row.bundle && pillList(row.lines.map(line => busPlate(line, 's')))];
+    const fromDoor = row.bundle && !rides.length;
+    return html`<div class="trip-card">
+        <div class="trip-card-head"><h3 class="trip-total trip-total-small">${rangeText(row)}</h3></div>
+        <p class="trip-other">${!fromDoor && walkToFirst(o) > 0 && html`${format(t('trip.walk-short'), { minutes: walkToFirst(o) })} · `}${pills} ${fromDoor ? t('trip.from-stops-nearby') : format(t('trip.from-station'), { station: stopName(rail, o.rides[0].board) })}</p>
+    </div>`;
+}
+
+// The next half hour's answer, in place of the answer for leaving now: the
+// way it stands for first (the clear way, the directions that stay on, or
+// the first by the weights when it depends), then the others. `ways`: from
+// halfWays. longWalk: the first way's walk at either end is a long one
+export function renderHalf(rail, kind, ways, to, { expired = false, longWalk = false } = {}) {
+    const [first, ...others] = ways;
+    return html`
+        ${expired && notice('warn', 'warning', t('trip.timetable-ended'))}
+        ${kind === 'depends' && html`<p class="trip-intro">${t('trip.half-depends-intro')}</p>`}
+        ${halfCard(rail, first, to, kind === 'clear')}
+        ${longWalk && longWalkNotice()}
+        ${others.length > 0 && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
+        ${others.map(way => halfOther(rail, way))}
+        <p class="trip-estimates">${t('trip.estimates')}${ways.some(({ o }) => hasBus(o)) && html` ${t('trip.bus-estimates')}`} ${t('trip.range-note')}</p>`;
 }
 
 // What's been chosen, above the answer

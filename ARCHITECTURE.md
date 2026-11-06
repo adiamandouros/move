@@ -445,7 +445,7 @@ in the body, so it stays out of the host's logs. The index is loaded for the
 first search and dropped for a new one, and `/api/health` warns when it's
 over three weeks old.
 
-The trip page (`tools/trip/`, [decision 32](docs/decisions/0032-trip-searches-in-the-background.md))
+The trip page (`tools/trip/`, [decision 33](docs/decisions/0033-trip-half-hour-answer.md))
 is what uses it. `client/picker.js` finds places as they're typed,
 `client/plan.js` works out the trip in the browser from the Subway's
 `network.js`, on the metro and the tram unless the Subway page's switch hides
@@ -457,9 +457,12 @@ the rest. On `/trip?buses` (and `?timing`, which times them on the device),
 `ways.js`), the same ride on different buses as one; all of them go in order
 by `weights.js`. Those searches run in a worker (`client/worker.js`, its logic
 in `client/searcher.js`), which loads `buses.json` and makes the day's city:
-it answers each trip for leaving now, then, on `?timing`, for the next half
-hour (`answer.js`), a departure at a time, and only the latest trip is
-answered. `client/render.js` draws it. Addresses aren't kept, and never go in the page's
+it answers each trip for leaving now, then for the next half hour
+(`answer.js`, as the page shows it: `halfView`), a departure at a time, and
+only the latest trip is answered. Once the half hour comes, it takes the
+answer's place (`renderHalf`): the way it stands for with its range, a last
+bus that can be any of several as the stops it leaves from, and the others
+on a line each; worked out again every 10 minutes. `client/render.js` draws it. Addresses aren't kept, and never go in the page's
 address.
 
 ## The planner lab

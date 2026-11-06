@@ -141,12 +141,22 @@ test.describe('the trip page', () => {
         expect(asked).toEqual([]);
     });
 
-    test('with the switch, a way by bus: its stop, its plate, its time with "~", and why it\'s an estimate', async ({ page }) => {
+    test('with the switch, the next half hour takes the answer\'s place: its range, the stops and their buses, and why they\'re estimates', async ({ page }) => {
         await pickBoth(page, '/trip?buses');
+        // One clear way at noon: any of the buses from the stops near the door
         const best = page.locator('.trip-card').first();
+        await expect(best.locator('.trip-total')).toHaveText(/^\d+–\d+ min$/);
+        await expect(best).toContainText('Best on most departures');
+        await expect(best).toContainText('Any of these buses, whichever comes first:');
         await expect(best.locator('.bus-plate').first()).toBeVisible();
-        await expect(best.locator('.trip-step-when').filter({ hasText: /^~\d\d:\d\d$/ }).first()).toBeVisible();
+        await expect(page.locator('#trip-checking')).toHaveCount(0);
+        const more = best.locator('.trip-more');
+        await expect(more.locator('summary')).toHaveText(/^\d+ more stops$/);
+        await expect(more.locator('.trip-step').first()).toBeHidden();
+        await more.locator('summary').click();
+        await expect(more.locator('.trip-step').first()).toBeVisible();
         await expect(page.locator('.trip-estimates')).toContainText('Bus times are estimates from OASA\'s timetable of August 2026');
+        await expect(page.locator('.trip-estimates')).toContainText('A range covers the next half hour\'s departures');
         await expect(page.locator('#trip-timing')).toHaveCount(0);
         expect(await axe(page), 'axe-core violations').toEqual([]);
         const walk = await keyboardWalk(page);
@@ -159,7 +169,10 @@ test.describe('the trip page', () => {
         await list(page, 'from').first().click();
         await page.getByRole('combobox', { name: 'Προς' }).fill('Συγγρού-Φιξ');
         await list(page, 'to').first().click();
-        await expect(page.locator('.trip-card').first().locator('.bus-plate').first()).toBeVisible();
+        const best = page.locator('.trip-card').first();
+        await expect(best.locator('.trip-total')).toHaveText(/^\d+–\d+ λεπτά$/);
+        await expect(best).toContainText('Ο καλύτερος στις περισσότερες αναχωρήσεις');
+        await expect(best.locator('.bus-plate').first()).toBeVisible();
         await expect(page.locator('.trip-estimates')).toContainText('Οι ώρες των λεωφορείων είναι εκτιμήσεις');
     });
 

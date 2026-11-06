@@ -1,6 +1,6 @@
 # 32. The trip page: by metro, tram and bus, searched in the background, the buses behind a switch for now
 
-Decided 2026-11-06 · In force
+Decided 2026-11-06 · Replaced by [33](0033-trip-half-hour-answer.md)
 
 ## Situation
 

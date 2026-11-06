@@ -1641,6 +1641,22 @@ body {
     min-width: 0;
 }
 
+/* "2 more stops": the rest of the stops a way's last bus leaves from (the
+   trip page's half hour), blue as what can be pressed is, under the stops
+   shown; opened, the rest line up with them */
+.trip-more summary {
+    display: flex;
+    align-items: center;
+    min-height: 2rem;
+    margin-left: calc(3rem + var(--wh-space-3));
+    color: var(--bs-link-color);
+    cursor: pointer;
+}
+
+.trip-more > .trip-steps {
+    margin-top: var(--wh-space-2);
+}
+
 .trip-credit {
     margin-top: var(--wh-space-4);
     font-size: var(--wh-fs-xs);

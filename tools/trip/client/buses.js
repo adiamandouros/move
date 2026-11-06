@@ -5,7 +5,8 @@ import { cost } from '/tools/subway/weights.js';
 
 // The Trip page's ways with a bus (decision 31): the whole city's search
 // (city.js, decision 28) over OASA's timetable (buses.json, decision 30), for
-// leaving now. No DOM, so it's tested in Node.
+// leaving now, and the next half hour's answer as the page shows it
+// (decision 33). No DOM, so it's tested in Node.
 
 // How far from either end a stop is tried, as a station is (plan.js)
 const NEAR_SECONDS = 15 * 60;
@@ -29,9 +30,24 @@ const ON_THE_ROAD = new Set(['bus', 'trolley']);
  * from the door and to it (null when there's none), when it gets there
  * (seconds from now's midnight), its minutes, changes, and what it costs a
  * rider by the weights (weights.js), which puts it in order. It's never the
- * morning's first trip, as a metro option can be: it's for leaving now
+ * morning's first trip, as a metro option can be: it's for leaving now. In
+ * the half hour's answer, a way by rail alone has the same shape
  * @typedef {{ city: true, morning: false, rides: Ride[], firstWalk: Walk | null, lastWalk: Walk | null,
  *   arrives: number, minutes: number, changes: number, cost: number }} BusOption
+ */
+/**
+ * A way of the half hour's answer (answer.js): its range in minutes, the
+ * quickest and slowest tenth left out; its last bus's lines and the stops
+ * they leave from, nearest first, when any of several will do (`bundle`);
+ * and the way itself for each departure tried, null where it isn't found
+ * @typedef {{ range: [number, number], bundle: boolean, lines: string[],
+ *   stops: { stop: import('/tools/subway/city.js').Stop, walk: Walk | null, lines: string[] }[], options: (BusOption | null)[] }} HalfRow
+ */
+/**
+ * The half hour's answer as the page shows it: what kind it is, the
+ * departures tried (seconds from midnight), and its ways, the one it stands
+ * for first
+ * @typedef {{ kind: 'clear' | 'decision' | 'depends' | 'none', departures: number[], rows: HalfRow[] }} HalfView
  */
 
 /** @param {number} seconds @returns {Walk | null} */
@@ -70,22 +86,32 @@ export function busOptions(planner, from, to, now) {
         if (!bundles.has(key)) bundles.set(key, { way, lines: way.legs.map(() => new Set()) });
         way.legs.forEach((leg, i) => bundles.get(key).lines[i].add(leg.line));
     }
-    return [...bundles.values()]
-        .map(({ way, lines }) => ({
-            city: /** @type {true} */ (true),
-            morning: /** @type {false} */ (false),
-            rides: way.legs.map((leg, i) => ({
-                line: leg.line, lines: [...lines[i]], mode: leg.mode, board: planner.stops[leg.board], alight: planner.stops[leg.alight],
-                boards: leg.boards, arrives: leg.arrives, stops: leg.alightIndex - leg.boardIndex,
-                toward: planner.routes[leg.route].toward, walkBefore: walkOf(leg.walkBefore),
-            })),
-            firstWalk: walkOf(secondsTo(access, way.legs[0].board)),
-            lastWalk: walkOf(secondsTo(egress, way.legs.at(-1).alight)),
-            arrives: way.at,
-            minutes: Math.round((way.at - now.seconds) / 60),
-            changes: way.legs.length - 1,
-            cost: cost(planner, way, now.seconds, access, egress),
-        }));
+    return [...bundles.values()].map(({ way, lines }) => cityOption(planner, way, access, egress, now.seconds, lines.map(set => [...set])));
+}
+
+/**
+ * `way` as one of the page's options, leaving at `now` (seconds from
+ * midnight). `lines`: each ride's lines, its own one unless given
+ * @param {Planner} planner @param {import('/tools/subway/ways.js').Way} way @param {number[]} access @param {number[]} egress @param {number} now
+ * @param {string[][]} [lines]
+ * @returns {BusOption}
+ */
+function cityOption(planner, way, access, egress, now, lines = way.legs.map(leg => [leg.line])) {
+    return {
+        city: true,
+        morning: false,
+        rides: way.legs.map((leg, i) => ({
+            line: leg.line, lines: lines[i], mode: leg.mode, board: planner.stops[leg.board], alight: planner.stops[leg.alight],
+            boards: leg.boards, arrives: leg.arrives, stops: leg.alightIndex - leg.boardIndex,
+            toward: planner.routes[leg.route].toward, walkBefore: walkOf(leg.walkBefore),
+        })),
+        firstWalk: walkOf(secondsTo(access, way.legs[0].board)),
+        lastWalk: walkOf(secondsTo(egress, way.legs.at(-1).alight)),
+        arrives: way.at,
+        minutes: Math.round((way.at - now) / 60),
+        changes: way.legs.length - 1,
+        cost: cost(planner, way, now, access, egress),
+    };
 }
 
 /**
@@ -97,4 +123,33 @@ export function busOptions(planner, from, to, now) {
 export function halfHour(planner, from, to, now) {
     const [access, egress] = ends(planner, from, to);
     return answering(planner, access, egress, now.seconds);
+}
+
+// How many ways the half hour's answer shows, as the answer for leaving now does (plan.js)
+const SHOWN = 3;
+
+/**
+ * The half hour's answer as the page shows it (decision 33): the way it
+ * stands for first (the clear way, the directions that stay on, or the first
+ * by the weights when it depends), then the others by the weights, up to 3,
+ * leaving out any that's never within a tie of the quickest
+ * @param {Planner} planner @param {Point} from @param {Point} to @param {import('/tools/subway/answer.js').Answer} answer
+ * @returns {HalfView}
+ */
+export function halfView(planner, from, to, { kind, rows, departures, clear, decision }) {
+    const [access, egress] = ends(planner, from, to);
+    const first = clear ?? decision?.stayOn ?? rows[0];
+    const shown = [first, ...rows.filter(row => row !== first)].filter(row => row?.close > 0).slice(0, SHOWN);
+    return {
+        kind,
+        departures,
+        rows: shown.map(({ range, bundle, lines, stops, best }) => ({
+            range,
+            bundle,
+            lines,
+            stops: stops.map(({ stop, walk, lines: at }) => ({ stop: planner.stops[stop], walk: walkOf(walk), lines: at })),
+            options: best.map((way, d) => way && cityOption(planner, way, access, egress, departures[d],
+                way.legs.map((leg, i) => bundle && i === way.legs.length - 1 ? lines : [leg.line]))),
+        })),
+    };
 }
