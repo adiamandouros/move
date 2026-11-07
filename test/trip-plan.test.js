@@ -9,7 +9,8 @@ import { browserModule } from './support/browser-modules.js';
 
 const rail = JSON.parse(readFileSync(new URL('browser/data/rail.json', import.meta.url), 'utf8'));
 const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.meta.url), 'utf8'));
-const { doorToDoor, stationsNear, walkBetween } = await browserModule('tools/trip/client/plan.js');
+const { doorToDoor, NEAR_MINUTES, stationsNear, walkBetween } = await browserModule('tools/trip/client/plan.js');
+const { walkSeconds } = await browserModule('tools/subway/client/city.js');
 const { busOptions, cityPlanner, halfHour } = await browserModule('tools/trip/client/buses.js');
 const { answer } = await browserModule('tools/subway/client/answer.js');
 const { withTram } = await browserModule('tools/subway/client/network.js');
@@ -24,11 +25,18 @@ const menelaou = { lat: 37.95463, lng: 23.71049 };
 const syntagma = { lat: rail.stations.syntagma.coords[0], lng: rail.stations.syntagma.coords[1], station: 'syntagma' };
 const far = { lat: 37.97805, lng: 23.62674 };
 
-test('a walk is the straight line plus a third, at 80 m a minute, and at least a minute', () => {
+test('a walk is the straight line × 1.4, at 80 m a minute, and at least a minute', () => {
     const walk = walkBetween({ lat: 37.95, lng: 23.7 }, { lat: 37.959, lng: 23.7 });
-    assert.ok(Math.abs(walk.meters - 1302) < 5, `${walk.meters}`);
-    assert.equal(walk.minutes, 16);
+    assert.ok(Math.abs(walk.meters - 1403) < 5, `${walk.meters}`);
+    assert.equal(walk.minutes, 18);
     assert.equal(walkBetween(menelaou, menelaou).minutes, 1);
+});
+
+test('a walk to a station takes as long as the city\'s search says the same walk takes', () => {
+    for (const station of ['tavros', 'syntagma', 'aigaiou']) {
+        const at = { lat: network.stations[station].coords[0], lng: network.stations[station].coords[1] };
+        assert.equal(walkBetween(menelaou, at).minutes, Math.round(walkSeconds(menelaou, at) / 60), station);
+    }
 });
 
 test('tries the three nearest stations, nearest first', () => {
@@ -37,9 +45,10 @@ test('tries the three nearest stations, nearest first', () => {
     assert.deepEqual(walks, [...walks].sort((a, b) => a - b));
 });
 
-test('with the tram, a stop within 15 minutes is tried too, and the three nearest metro stations still are', () => {
+test('with the tram, a stop within 16 minutes is tried too, and the three nearest metro stations still are', () => {
+    assert.equal(NEAR_MINUTES, 16, 'as far as 15 minutes were at the straight line × 1.3');
     assert.deepEqual(stationsNear(network, menelaou).map(s => [s.station, s.walk.minutes, s.nearest]),
-        [['aigaiou', 15, false], ['tavros', 17, true], ['kallithea', 21, true], ['petralona', 25, true]]);
+        [['aigaiou', 16, false], ['tavros', 19, true], ['kallithea', 23, true], ['petralona', 27, true]]);
 });
 
 test('a station is that station, with no walk', () => {
@@ -184,10 +193,11 @@ test('the half hour: a departure every 2 minutes, one at a time, and what kind o
     assert.equal(departures, 16, 'from now to 30 minutes on');
     assert.deepEqual(step.value.departures, Array.from({ length: 16 }, (_, i) => NOW.seconds + i * 120));
     assert.equal(step.value.kind, 'depends', 'by the 040, or by M2 from Syggrou-Fix');
-    assert.deepEqual(step.value, answer(city, city.near(menelaou, 900), city.near(syntagma, 900), NOW.seconds), 'the lab\'s answer, as it is');
+    const near = NEAR_MINUTES * 60;
+    assert.deepEqual(step.value, answer(city, city.near(menelaou, near), city.near(syntagma, near), NOW.seconds), 'the lab\'s answer, as it is');
     const fix = { lat: rail.stations['syggrou-fix'].coords[0], lng: rail.stations['syggrou-fix'].coords[1] };
     const noon = { ...NOW, seconds: 12 * 3600 };
-    const clear = answer(city, city.near(menelaou, 900), city.near(fix, 900), noon.seconds);
+    const clear = answer(city, city.near(menelaou, near), city.near(fix, near), noon.seconds);
     assert.equal(clear.kind, 'clear', 'to Syggrou-Fix at noon: any of the buses from the start');
     assert.equal(clear.clear.key, 'a bus from the start');
 });

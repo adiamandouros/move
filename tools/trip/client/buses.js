@@ -1,7 +1,8 @@
 import { answering, quickerWay } from '/tools/subway/answer.js';
-import { AFTER_WALK_SECONDS, busDay, CHANGE_SECONDS, createPlanner, joinNetwork } from '/tools/subway/city.js';
+import { AFTER_WALK_SECONDS, busDay, CHANGE_SECONDS, createPlanner, joinNetwork, METERS_PER_MINUTE } from '/tools/subway/city.js';
 import { findWays, fold, secondsTo } from '/tools/subway/ways.js';
 import { cost } from '/tools/subway/weights.js';
+import { NEAR_MINUTES } from './plan.js';
 
 // The Trip page's ways with a bus (decision 31): the whole city's search
 // (city.js, decision 28) over OASA's timetable (buses.json, decision 30), for
@@ -10,10 +11,8 @@ import { cost } from '/tools/subway/weights.js';
 // quicker way on a decision when OASA has its bus coming in time (decision
 // 36). No DOM, so it's tested in Node.
 
-// How far from either end a stop is tried, as a station is (plan.js)
-const NEAR_SECONDS = 15 * 60;
-// A walk's length, as the search times it: the straight line × 1.4 at 80 m a minute
-const METERS_PER_SECOND = 80 / 60;
+// How far from either end a stop is tried, as a station is
+const NEAR_SECONDS = NEAR_MINUTES * 60;
 const ON_THE_ROAD = new Set(['bus', 'trolley']);
 
 /** @typedef {ReturnType<typeof createPlanner>} Planner */
@@ -88,8 +87,9 @@ const ON_THE_ROAD = new Set(['bus', 'trolley']);
  *   asks: { stop: string, at: number | null }[], offer: Offer | null }} LiveWay
  */
 
+// A walk's length, as the search times it (city.js)
 /** @param {number} seconds @returns {Walk | null} */
-const walkOf = seconds => seconds > 0 ? { minutes: Math.max(1, Math.round(seconds / 60)), meters: Math.round(seconds * METERS_PER_SECOND) } : null;
+const walkOf = seconds => seconds > 0 ? { minutes: Math.max(1, Math.round(seconds / 60)), meters: Math.round(seconds / 60 * METERS_PER_MINUTE) } : null;
 
 /**
  * The search over the city on `weekday` (0 = Sunday). `rail`: rail.json as

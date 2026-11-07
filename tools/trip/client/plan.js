@@ -1,4 +1,4 @@
-import { distanceMeters } from '/js/core/geo.js';
+import { METERS_PER_MINUTE, walkMeters } from '/tools/subway/city.js';
 import { arrivalsFrom, nextDay, planTrip } from '/tools/subway/network.js';
 import { weighed } from '/tools/subway/weights.js';
 
@@ -10,13 +10,13 @@ import { weighed } from '/tools/subway/weights.js';
 // `rail`) it's that station or stop, and there's no walk to it.
 
 // Walks are worked out from the straight line, as we have no street map:
-// streets add about a third, at an ordinary pace. Shown as estimates.
-const WINDING = 1.3;
-const METERS_PER_MINUTE = 80;
+// the city's search's walk (city.js), so a walk to a station is timed the
+// same in every option (decision 37). Shown as estimates.
 // The nearest station isn't always the best: the next one may be on a direct line
 const STATIONS_TRIED = 3;
-// Any other station or tram stop this close is tried too
-const NEAR_MINUTES = 15;
+// Any other station or tram stop this close is tried too, and any bus stop
+// (buses.js): as far as 15 minutes were at the straight line × 1.3 (decision 37)
+export const NEAR_MINUTES = 16;
 // Of the trips between those, how many more are planned: the search's quickest
 const SEARCHED_PAIRS = 6;
 const MAX_OPTIONS = 3;
@@ -31,7 +31,7 @@ const LONGEST_WAIT = 3600;
 
 /** @param {Place} from @param {Place} to */
 export function walkBetween(from, to) {
-    const meters = distanceMeters(from.lat, from.lng, to.lat, to.lng) * WINDING;
+    const meters = walkMeters(from, to);
     return { meters: Math.round(meters), minutes: Math.max(1, Math.round(meters / METERS_PER_MINUTE)) };
 }
 
