@@ -218,14 +218,19 @@ function walkCard(walk, to) {
 export const routeSummary = o => format(t('trip.summary'), { minutes: o.minutes, time: clockTime(o.arrives) });
 
 // The answer: what `doorToDoor` found, drawn. noBuses: the buses' times
-// couldn't be loaded, so it's by metro and tram alone. checking: the next
-// half hour is being worked out, and may take its place (renderHalf)
+// couldn't be loaded, so it's by metro and tram alone; 'updated': nor the
+// searches, with a newer Wayhop waiting to take over (main.js). checking: the
+// next half hour is being worked out, and may take its place (renderHalf)
+/**
+ * @param {import('../../../types/data.js').Rail} rail @param {ReturnType<typeof import('./plan.js').doorToDoor>} trip
+ * @param {import('./plan.js').Place} to @param {{ expired?: boolean, noBuses?: boolean | 'updated', checking?: boolean }} [shown]
+ */
 export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { expired = false, noBuses = false, checking = false } = {}) {
     const [best, ...others] = options;
     const trainsStopped = best?.morning;
     return html`
         ${expired && notice('warn', 'warning', t('trip.timetable-ended'))}
-        ${noBuses && notice('info', 'bus', t('trip.buses-error'))}
+        ${noBuses && notice('info', 'bus', t(noBuses === 'updated' ? 'trip.updated' : 'trip.buses-error'))}
         ${trainsStopped && notice('info', 'night', t('trip.no-trains'))}
         ${walkFirst && !trainsStopped && walkCard(walk, to)}
         ${best && (walkFirst && !trainsStopped ? html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>${otherCard(rail, best)}` : tripCard(rail, best, to))}

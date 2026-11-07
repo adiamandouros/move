@@ -143,6 +143,13 @@ for (const lang of ['en', 'el']) {
         assert.equal(view.includes(s['trip.bus-estimates'].replace(/'/g, '&#39;')), false);
     });
 
+    test(`${lang}: without the searches, with a newer Wayhop waiting, it says to close it and open it again, not that the times failed`, () => {
+        const view = String(r.renderTrip(network, doorToDoor(network, menelaou, syntagma, NOW), syntagma, { noBuses: 'updated' }));
+        check(view);
+        assert.ok(view.includes(s['trip.updated'].replace(/'/g, '&#39;')));
+        assert.equal(view.includes(s['trip.buses-error'].replace(/'/g, '&#39;')), false);
+    });
+
     test(`${lang}: to an address, the last walk is there too`, () => {
         const trip = doorToDoor(rail, syntagma, menelaou, NOW);
         const view = String(r.renderTrip(rail, trip, menelaou));
