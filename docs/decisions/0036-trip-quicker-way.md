@@ -56,7 +56,10 @@ Everything [35](0035-trip-live-times.md) decided stands, and on a decision:
   not for the train or bus the rider is on. The quicker way is right for the
   rider at the door, and goes on being worked out from there, so the
   decision's stop is asked as often as at the door, not more often as the
-  rider's ride nears it.
+  rider's ride nears it. The rider's call, 7 November: following the ride
+  will be switched on by "My location", the button beside From. A trip that
+  starts where the rider is gets followed, as the position changes along
+  the way; one from a typed start is planned ahead and isn't.
 - A trip whose directions had no bus asks OASA for one stop, about one
   request every 30 seconds to 2 minutes while it's open and in sight. A
   trip's most, 10 stops, is unchanged.
@@ -66,8 +69,9 @@ Everything [35](0035-trip-live-times.md) decided stands, and on a decision:
 
 ## Look again when
 
-- The page follows the rider's own ride once they've left: then the offer
-  is for their train or bus, and its stop is asked more often as it nears.
+- The page follows the rider's own ride once they've left, with "My
+  location" on: then the offer is for their train or bus, and its stop is
+  asked more often as it nears.
 - Riders find an offer that wasn't quicker, or a quicker way that wasn't
   offered.
 - Enough rides are measured: then buses for everyone, as
