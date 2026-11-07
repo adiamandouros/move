@@ -45,7 +45,9 @@ decisions, or makes one of the same weight, comes with its page.
 | 31 | [The trip page: by metro, tram and bus, the buses behind a switch for now](0031-trip-page-buses.md) | Replaced by 32 |
 | 32 | [The trip page: by metro, tram and bus, searched in the background, the buses behind a switch for now](0032-trip-searches-in-the-background.md) | Replaced by 33 |
 | 33 | [The trip page: the next half hour's answer in place of the answer for leaving now, the buses behind a switch for now](0033-trip-half-hour-answer.md) | Replaced by 35 |
-| 34 | [Our load on OASA and STASY, with the Trip page's live times](0034-load-on-oasa-with-live-trips.md) | In force |
+| 34 | [Our load on OASA and STASY, with the Trip page's live times](0034-load-on-oasa-with-live-trips.md) | Replaced by 38 |
 | 35 | [The trip page: OASA's live times on the way shown in full, the buses behind a switch for now](0035-trip-live-times.md) | Replaced by 36 |
 | 36 | [The trip page: the quicker way on a decision, offered from OASA's live times, the buses behind a switch for now](0036-trip-quicker-way.md) | Replaced by 37 |
-| 37 | [The trip page: one walking estimate, the straight line × 1.4, the buses behind a switch for now](0037-trip-one-walk.md) | In force |
+| 37 | [The trip page: one walking estimate, the straight line × 1.4, the buses behind a switch for now](0037-trip-one-walk.md) | Replaced by 39 |
+| 38 | [Our load on OASA and STASY, with buses for everyone on the Trip page](0038-load-on-oasa-buses-for-everyone.md) | In force |
+| 39 | [The trip page: buses for everyone, and the bus trip finder gone](0039-trip-buses-for-everyone.md) | In force |

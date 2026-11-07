@@ -6,7 +6,7 @@ import { REQUESTS_PER_SECOND } from './client.js';
 
 // How much Wayhop asks of OASA, and how OASA answers (roadmap item 39):
 // counted each minute, added up per day (Athens time) and kept for KEEP_DAYS,
-// so the limits of decision 34 can be judged by numbers. Counts only: stop
+// so the limits of decision 38 can be judged by numbers. Counts only: stop
 // codes and route names, nothing about who asked. Nothing here sends a request.
 //
 // What is counted (the OASA client, the arrivals cache and the bus API report it):
@@ -24,10 +24,10 @@ import { REQUESTS_PER_SECOND } from './client.js';
 //   horizon   per line, the most minutes ahead OASA predicted a bus, from
 //             fresh answers: how far ahead its predictions reach (for retries
 //             and scheduled times, items 37 and 13)
-//   trips     the bus trip finder's searches, and its stop answers by where
-//             they came from (also counted in `answers`): its load on OASA
-//             per search (item 13)
-//   plans     the same for the Trip page's live times (decision 34)
+//   plans     the Trip page's searches with live times, and its stop answers
+//             by where they came from (also counted in `answers`): its load
+//             on OASA per search (decision 38). Days from before decision 39
+//             also have `trips`, the bus trip finder's, no longer shown
 //   passes    buses seen passing a stop (passes.js); the collector's requests
 //             are the kind 'collector', and its skipped turns are dropped
 //             requests of that kind (decision 26)
@@ -42,8 +42,8 @@ export const KINDS = ['arrivals-new', 'arrivals-refresh', 'route-names', 'route-
 // oasa: a request was made for it; cache: none was needed (cached, or already
 // being asked); old: OASA failed and an older answer was served; none: nothing
 export const SOURCES = ['oasa', 'cache', 'old', 'none'];
-// What's counted apart, by the searches asking: the bus trip finder's, the Trip page's
-export const SEARCHES = ['trips', 'plans'];
+// What's counted apart, by the searches asking: the Trip page's
+export const SEARCHES = ['plans'];
 // Answer times are counted under these (ms); the last bucket is anything longer, timeouts too
 export const ANSWER_MS = [250, 500, 1000, 2000, 4000, 8000];
 // The queue waits after which arrivals stay fresh longer (arrivals.js)
@@ -104,7 +104,7 @@ function addMinute(summary, minute) {
     // (days kept before the horizon was counted have none)
     summary.horizon ??= {};
     for (const [line, minutes] of Object.entries(minute.horizon)) summary.horizon[line] = Math.max(summary.horizon[line] ?? 0, minutes);
-    // (nor the trips, before the finder, nor the Trip page's)
+    // (nor the Trip page's, before it was counted)
     for (const kind of SEARCHES) {
         summary[kind] ??= { searches: 0, answers: counts(SOURCES) };
         summary[kind].searches += minute[kind].searches;
@@ -238,10 +238,10 @@ export function createUsage({ file = null, networkFile = null, now = Date.now, k
         limited() { current().limited++; },
         // A stop's answer to a visitor, and where it came from
         answer(stop, source) { const m = current(); m.answers[source]++; m.stopCodes.add(stop); },
-        // The trip finder, or the Trip page (`kind`, SEARCHES): a new search,
-        // and a stop's answer to it (by where it came from)
-        tripSearch(kind = 'trips') { current()[kind].searches++; },
-        tripAnswer(source, kind = 'trips') { current()[kind].answers[source]++; },
+        // The Trip page (`kind`, SEARCHES): a new search, and a stop's answer
+        // to it (by where it came from)
+        tripSearch(kind = 'plans') { current()[kind].searches++; },
+        tripAnswer(source, kind = 'plans') { current()[kind].answers[source]++; },
         // Buses seen passing a stop (passes.js)
         passes(n) { current().passes += n; },
         // A bus of this line OASA predicted this many minutes ahead

@@ -27,6 +27,8 @@ import { view } from './templates.js';
 //   ad            where it has an ad slot (server/ads.js)
 //   rail          true when it's drawn from rail.json, so it's drawn again
 //                 when that changes (index.js)
+//   readyBuses    true to fetch the Trip page's buses.json in the background
+//                 (/js/core/ready-buses.js, decision 39)
 //
 // Pages that aren't in this list, of the same shape:
 //   - the station pages (STATION_PATHS), built on request from rail.json (stations.js, stationPage)
@@ -59,6 +61,7 @@ export function sitePages(tools, config = loadConfig({}), rail = () => null) {
             content: (lang, strings) => view('server/views/home.hbs')({ tiles: [...tools.map(toolTile), STATIONS_TILE] }, { lang, strings }),
             structuredData: (lang, s) => appData(s('home.description'), lang, config.siteUrl),
             scripts: ['/js/core/announcements.js', '/js/core/install.js'],
+            readyBuses: true,
             active: 'home',
             ad: 'home',
         },
@@ -88,6 +91,7 @@ export function sitePages(tools, config = loadConfig({}), rail = () => null) {
                 active: tool.id,
                 ad: tool.ad,
                 rail: tool.rail,
+                readyBuses: tool.readyBuses,
             };
         }),
         ...TEXT_PAGES.map(name => ({

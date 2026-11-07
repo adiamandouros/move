@@ -104,7 +104,7 @@ export const fakeNetwork = ({ calm = false, lifts = {} } = {}) => async url => {
 // coordinates), so its page fails: for the error page
 export function brokenData() {
     const dir = mkdtempSync(join(tmpdir(), 'wayhop-broken-'));
-    for (const name of ['bus-stops.json', 'meta.json']) copyFileSync(join(DATA, name), join(dir, name));
+    for (const name of ['bus-stops.json', 'buses.json', 'meta.json']) copyFileSync(join(DATA, name), join(dir, name));
     const rail = JSON.parse(readFileSync(join(DATA, 'rail.json'), 'utf8'));
     delete rail.stations.omonia.coords;
     writeFileSync(join(dir, 'rail.json'), JSON.stringify(rail));

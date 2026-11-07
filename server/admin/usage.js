@@ -5,8 +5,8 @@ const HORIZON_DAYS = 7;
 
 // The days of OASA's usage (server/oasa/usage.js) as /admin/usage shows them
 // (admin/usage.hbs), newest first: what Wayhop asked for each day, how each
-// route to OASA answered (and how much of it was the trip finder's and the
-// Trip page's), how far ahead OASA predicts, per line, and the
+// route to OASA answered (and how much of it was the Trip page's), how far
+// ahead OASA predicts, per line, and the
 // pages opened by browser language.
 
 // Searches of one kind (usage.js SEARCHES) in a day: how many, the stops they
@@ -27,7 +27,6 @@ export function usageView(days) {
             const d = days[date];
             // Visitors' requests dropped; the collector's skipped turns apart
             const dropped = visitorsDropped(d.dropped);
-            const [tripSearches, tripAsked, tripPerSearch] = searched(d.trips);
             const [planSearches, planAsked, planPerSearch] = searched(d.plans);
             return {
                 date,
@@ -45,7 +44,6 @@ export function usageView(days) {
                 dropped: dropped ? `${dropped} (in ${d.dropMinutes} min)` : 0,
                 paused: d.paused,
                 limited: d.limited,
-                tripSearches, tripAsked, tripPerSearch,
                 planSearches, planAsked, planPerSearch,
                 // (nor the collector)
                 collector: d.requests.collector ?? '–',

@@ -7,5 +7,6 @@
   "description": { "en": "Live arrivals at the bus stops around you", "el": "Αφίξεις σε πραγματικό χρόνο στις στάσεις γύρω σας" },
   "offline": false,
   "scripts": ["main.js"],
+  "readyBuses": true,
   "precache": []
 }

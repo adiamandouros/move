@@ -15,5 +15,7 @@ declare global {
     interface Navigator {
         /** iPhones: true when opened from the home screen */
         standalone?: boolean;
+        /** Chromium: the connection, and whether the browser asks to save data (core/ready-buses.js) */
+        connection?: { saveData?: boolean };
     }
 }

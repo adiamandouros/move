@@ -1,7 +1,8 @@
 // The live site with its real data (npm run test:live, nightly): the pages
 // load without errors, the planner finds a route in the real timetable, the
 // lift status and the announcements come in, the Info page's facts aren't
-// too old, the bus page gets live times from OASA and has the lines. Only
+// too old, the bus page gets live times from OASA and has the lines, and the
+// Trip page plans with the buses' times. Only
 // what breaks is checked, not what changes: at 3 a.m. there may be no buses,
 // but there must be an answer.
 import { axe, expect, test } from '../browser/fixtures.js';
@@ -88,6 +89,26 @@ test('the bus page has the lines, with their stops in order', async ({ page }) =
     await expect.poll(() => page.locator('.stop-item').count()).toBeGreaterThan(10);
     await page.getByLabel('Find a stop by name or code, or a line').fill('x95');
     await expect(page.locator('#search-results a[href*="?line="]').first()).toContainText('Χ95');
+});
+
+// The Trip page with the buses for everyone (decision 39): last night's
+// buses.json loads, and a trip from a station to a public place away from
+// the metro gets an answer. At night there may be no bus on it, but there
+// must be an answer, by metro, tram, bus or on foot
+test('the Trip page plans a trip with the buses\' times', async ({ page }) => {
+    const buses = page.waitForResponse(res => res.url().includes('/data/buses.json'));
+    await page.goto('/trip');
+    expect((await buses).status(), 'buses.json').toBe(200);
+    // Typing before the page has loaded its data is lost
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('combobox', { name: 'From' }).fill('Σύνταγμα');
+    await page.locator('#trip-from-list [role="option"]').first().click();
+    await page.getByRole('combobox', { name: 'To' }).fill('Ίδρυμα Σταύρος Νιάρχος');
+    await page.locator('#trip-to-list [role="option"]').first().click();
+    await expect(page.locator('.trip-card').first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('.trip-places')).toContainText('Σταύρος Νιάρχος');
+    await expect(page.getByText('The bus times couldn\'t be loaded')).toHaveCount(0);
+    await expect(page.getByText('Wayhop has been updated')).toHaveCount(0);
 });
 
 test('the Content-Security-Policy is sent and allows the page\'s own inline scripts', async ({ page }) => {

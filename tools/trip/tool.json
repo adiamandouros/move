@@ -4,7 +4,7 @@
   "icon": "trip",
   "title": { "en": "Plan a trip", "el": "Σχεδιασμός διαδρομής" },
   "shortTitle": { "en": "Trip", "el": "Διαδρομή" },
-  "description": { "en": "From one address to another: the walks and the metro, door to door", "el": "Από διεύθυνση σε διεύθυνση: τα περπατήματα και το μετρό, από πόρτα σε πόρτα" },
+  "description": { "en": "From one address to another: walks, the metro, the tram and buses, door to door", "el": "Από διεύθυνση σε διεύθυνση: περπάτημα, μετρό, τραμ και λεωφορεία, από πόρτα σε πόρτα" },
   "offline": false,
   "scripts": ["main.js"],
   "precache": []
