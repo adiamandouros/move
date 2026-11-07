@@ -122,17 +122,20 @@ test.describe('the trip page', () => {
         await expect(page.locator('#trip-result .line-t6')).toHaveCount(0);
     });
 
-    test('buses only with the switch: without it the page doesn\'t ask for their times', async ({ page }) => {
+    test('buses for everyone, with no Beta tag: the page asks for their times, and an old /trip?buses link is the same page', async ({ page }) => {
         const asked = [];
         page.on('request', request => { if (request.url().includes('/data/buses.json')) asked.push(request.url()); });
         await pickBoth(page);
-        await expect(page.locator('.trip-card').first()).toBeVisible();
-        await expect(page.locator('#trip-result .bus-plate')).toHaveCount(0);
-        expect(asked).toEqual([]);
+        await expect(page.locator('#trip-result .bus-plate').first()).toBeVisible();
+        expect(asked.length).toBeGreaterThan(0);
+        await expect(page.locator('.trip-heading .tag')).toHaveCount(0);
+        await expect(page.getByText('Beta')).toHaveCount(0);
+        await pickBoth(page, '/trip?buses');
+        await expect(page.locator('#trip-result .bus-plate').first()).toBeVisible();
     });
 
-    test('with the switch, the next half hour takes the answer\'s place: its range, the stops and their buses, and why they\'re estimates', async ({ page }) => {
-        await pickBoth(page, '/trip?buses');
+    test('the next half hour takes the answer\'s place: its range, the stops and their buses, and why they\'re estimates', async ({ page }) => {
+        await pickBoth(page);
         // One clear way at noon: any of the buses from the stops near the door
         const best = page.locator('.trip-card').first();
         await expect(best.locator('.trip-total')).toHaveText(/^\d+–\d+ min$/);
@@ -154,7 +157,7 @@ test.describe('the trip page', () => {
     });
 
     test('in Greek too', async ({ page }) => {
-        await page.goto('/el/trip?buses');
+        await page.goto('/el/trip');
         await page.getByRole('combobox', { name: 'Από' }).fill('Μενελάου 45');
         await list(page, 'from').first().click();
         await page.getByRole('combobox', { name: 'Προς' }).fill('Συγγρού-Φιξ');
@@ -200,7 +203,7 @@ test.describe('the trip page', () => {
 
         test('the way shown has its buses\' minutes, the stops by when their bus comes, asked as the Trip page\'s, 10 stops at most', async ({ page }) => {
             const { asks } = await watchRequests(page);
-            await pickBoth(page, '/trip?buses');
+            await pickBoth(page);
             const best = page.locator('.trip-card').first();
             await expect(best).toContainText('Any of these buses, whichever comes first:');
             await expect(best.locator('.trip-live .time-badge').first()).toBeVisible();
@@ -223,7 +226,7 @@ test.describe('the trip page', () => {
 
         test('asked again as their buses near, nothing while out of sight, paused after 10 minutes untouched until a tap', async ({ page }) => {
             const { asks, run } = await watchRequests(page);
-            await pickBoth(page, '/trip?buses');
+            await pickBoth(page);
             await expect(page.locator('.trip-card').first().locator('.trip-live .time-badge').first()).toBeVisible();
             await expect.poll(async () => (await asks()).length).toBe(10);
             await page.waitForFunction(() => window.__pending === 0);
@@ -258,7 +261,7 @@ test.describe('the trip page', () => {
         });
 
         test('in Greek too', async ({ page }) => {
-            await page.goto('/el/trip?buses');
+            await page.goto('/el/trip');
             await page.getByRole('combobox', { name: 'Από' }).fill('Μενελάου 45');
             await list(page, 'from').first().click();
             await page.getByRole('combobox', { name: 'Προς' }).fill('Συγγρού-Φιξ');
@@ -274,7 +277,7 @@ test.describe('the trip page', () => {
         // From Σταύρου 1 to Μενελάου 45 at noon: the directions stay on the T6
         // for a bus; the quicker way gets off sooner, at Agia Foteini, for one
         // there, the only stop with buses coming (decision 36)
-        async function pickDecision(page, url = '/trip?buses', [fromName, toName] = ['From', 'To']) {
+        async function pickDecision(page, url = '/trip', [fromName, toName] = ['From', 'To']) {
             await page.goto(url);
             await page.getByRole('combobox', { name: fromName }).fill('Σταύρου 1');
             await list(page, 'from').first().click();
@@ -329,7 +332,7 @@ test.describe('the trip page', () => {
         });
 
         test('in Greek too', async ({ page }) => {
-            await pickDecision(page, '/el/trip?buses', ['Από', 'Προς']);
+            await pickDecision(page, '/el/trip', ['Από', 'Προς']);
             await expect(offer(page)).toContainText('Γρηγορότερος δρόμος: περίπου');
             await expect(offer(page)).toContainText('στη στάση');
             await page.getByRole('button', { name: 'Πάρε τον γρηγορότερο' }).click();
@@ -342,7 +345,7 @@ test.describe('the trip page', () => {
         test.use({ scenario: 'oasa-down' });
 
         test('the timetable\'s times stay, and the live times are said to be unavailable', async ({ page }) => {
-            await pickBoth(page, '/trip?buses');
+            await pickBoth(page);
             await expect(page.locator('#trip-live-status')).toContainText('Live bus times are unavailable right now.');
             await expect(page.locator('.trip-card').first().locator('.bus-plate').first()).toBeVisible();
             await expect(page.locator('#trip-result .time-badge')).toHaveCount(0);
@@ -356,7 +359,7 @@ test.describe('the trip page', () => {
 
         test('it says so, and plans by metro and tram', async ({ page }) => {
             await page.route('**/data/buses.json', route => route.fulfill({ status: 503, body: '' }));
-            await pickBoth(page, '/trip?buses');
+            await pickBoth(page);
             await expect(page.locator('.trip-card').first()).toBeVisible();
             await expect(page.getByText('The bus times couldn\'t be loaded, so these ways are by metro and tram only.')).toBeVisible();
             await expect(page.locator('#trip-result .bus-plate')).toHaveCount(0);

@@ -49,6 +49,18 @@ for (const [url, heading, example] of [
     });
 }
 
+// The bus trip finder went with buses for everyone on the Trip page
+// (decision 39): no "Where to?", and an old link to it shows the stops nearby
+test('no trip finder: no "Where to?", and an old ?trip link shows the stops near you', async ({ page }) => {
+    await page.goto('/buses');
+    await expect(page.locator('.stop-item').first()).toBeVisible();
+    await expect(page.getByText('Where to?')).toHaveCount(0);
+    await page.goto('/buses?trip&to=station:syntagma&from=10341');
+    await expect(page.getByRole('heading', { name: 'Stops near you' })).toBeVisible();
+    await expect(page.locator('.stop-item').first()).toBeVisible();
+    await expect(page.getByRole('searchbox')).toBeVisible();
+});
+
 // After 10 minutes nobody touched the page, it stops asking for times and
 // says so, between the search and the stops, as much space above as below;
 // a tap brings the times back

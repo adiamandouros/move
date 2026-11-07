@@ -6,5 +6,6 @@
   "description": { "en": "Plan a metro or tram trip and see where to board for the exit", "el": "Σχεδιάστε μια διαδρομή με μετρό ή τραμ και δείτε πού να επιβιβαστείτε για την έξοδο" },
   "offline": true,
   "scripts": ["main.js"],
+  "readyBuses": true,
   "precache": ["/data/rail.json"]
 }

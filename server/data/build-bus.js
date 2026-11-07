@@ -25,7 +25,8 @@ import { STOP_CODE } from './check-output.js';
 //             directions: [{ to: { el: 'ΣΥΝΤΑΓΜΑ', en: 'SYNTAGMA' }, route: '3923', stops: ['…', …] }, …] }, …]
 // }
 // `route` is the OASA route the direction's stops are from: live arrivals
-// carry it, so a bus's direction can be told (the trip finder, item 13).
+// carry it, so a bus's direction can be told. The bus trip finder used it
+// (item 13); nothing reads it since that went (decision 39).
 // Neither says when the network was fetched (meta.json's fingerprint does):
 // a file that's the same as the night before stays as it was, so browsers
 // keep their copy (publish in index.js).

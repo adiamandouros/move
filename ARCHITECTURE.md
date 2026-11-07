@@ -224,8 +224,8 @@ pages use.
 - Logic without the DOM (route finding in `tools/subway/client/network.js`,
   nearest stops in `tools/buses/client/stops.js`, finding a stop or a line in
   `tools/buses/client/search.js`, which stops the bus page asks for in
-  `tools/buses/client/timing.js`, the trip finder's buses in
-  `tools/buses/client/trips.js`) is tested in Node. `/js/core/text.js` has
+  `tools/buses/client/timing.js`, the Trip page's ways in
+  `tools/trip/client/plan.js` and `buses.js`) is tested in Node. `/js/core/text.js` has
   `normalise()`, how both searches compare what's typed with names.
 - Trips are worked out in the browser
   ([decision 5](docs/decisions/0005-trips-in-the-browser.md)), but
@@ -305,14 +305,6 @@ version they started with, and it takes over once they're closed
   `dueStops` in `timing.js`, given what the page shows as data;
   `test/browser/bus-trace.spec.js` writes down every request of a scripted
   visit, second by second, so a change to them shows.
-- The trip finder (`?trip`, `views/trip.js`) finds direct buses from the
-  stops near you, or a stop you pick, to those near a stop or a metro
-  station, in the browser from `bus-lines.json` (`trips.js`). It asks only
-  for the two stops of each of at most 5 lines: the one you board at by its
-  line's next bus, the one you get off at once a minute, to tell the ride's
-  length from the same bus's two predictions. Its requests carry
-  `&for=trip` (`trip-start` for a new search's first);
-  `test/browser/bus-trips.spec.js` writes down every one of a scripted search.
 - The Trip page's way shown in full ([tools/trip/client/live.js](tools/trip/client/live.js))
   asks for at most 10 stops: where its rides by bus board, then the stops a
   last bus that can be any of several leaves from. Each is asked again on
@@ -334,15 +326,14 @@ version they started with, and it takes over once they're closed
   and per day, kept for 120 days in `data/local/oasa-usage.json`: requests
   by kind, the cache's share, stops watched at once, waits and drops, each
   route's answer times and failures, and how far ahead OASA predicts each
-  line's buses, and the trip finder's and the Trip page's searches and
-  their answers, apart. Beside them, the pages opened, by the language the browser
+  line's buses, and the Trip page's searches and their answers, apart. Beside them, the pages opened, by the language the browser
   asks for and the one served (`server/pages/index.js`, for item 43).
   Counts only; `/admin/diagnostics` shows the past hour and today,
   `/admin/usage` a row per day.
 
 These numbers set our load on OASA, and so do the ones for STASY and the
 bus network below; changes to any of them are agreed first
-([decision 34](docs/decisions/0034-load-on-oasa-with-live-trips.md), which replaced 26, 21 and 7).
+([decision 38](docs/decisions/0038-load-on-oasa-buses-for-everyone.md), which replaced 34, 26, 21 and 7).
 
 Announcements ([server/info/announcements.js](server/info/announcements.js))
 are fetched from OASA's RSS and STASY's news page at most every 15 minutes,
@@ -457,7 +448,7 @@ in the body, so it stays out of the host's logs. The index is loaded for the
 first search and dropped for a new one, and `/api/health` warns when it's
 over three weeks old.
 
-The trip page (`tools/trip/`, [decision 37](docs/decisions/0037-trip-one-walk.md))
+The trip page (`tools/trip/`, [decision 39](docs/decisions/0039-trip-buses-for-everyone.md))
 is what uses it. `client/picker.js` finds places as they're typed,
 `client/plan.js` works out the trip in the browser from the Subway's
 `network.js`, on the metro and the tram unless the Subway page's switch hides
@@ -465,11 +456,11 @@ the tram (`tram-switch.js`). Its walks are the city's (`walkMeters` in
 `city.js`, the straight line × 1.4). It tries the three metro stations nearest each
 end and every station or stop within 16 minutes' walk: every trip between the
 nearest is planned, and the search (`arrivalsFrom`) picks the 6 quickest of
-the rest. On `/trip?buses` (and `?timing`, which times them on the device),
-`client/buses.js` adds the ways with a bus from the city's search (`city.js`,
+the rest. `client/buses.js` adds the ways with a bus from the city's search (`city.js`,
 `ways.js`), the same ride on different buses as one; all of them go in order
 by `weights.js`. Those searches run in a worker (`client/worker.js`, its logic
-in `client/searcher.js`), which loads `buses.json` and makes the day's city:
+in `client/searcher.js`; `?timing` says how long they take on the device),
+which loads `buses.json` and makes the day's city:
 it answers each trip for leaving now, then for the next half hour
 (`answer.js`, as the page shows it: `halfView`), a departure at a time, and
 only the latest trip is answered. Once the half hour comes, it takes the
@@ -485,7 +476,11 @@ the quicker way (`quickerWay` in `answer.js`) is offered under them when
 OASA has its bus coming in time; taken, it's the way timed instead.
 `client/live.js` says which stops to ask for and when, and
 `client/main.js` asks. `client/render.js` draws it. Addresses aren't kept, and never go in the page's
-address.
+address. So that `buses.json` (about 325 KB over the wire) is usually there
+by the time a trip is planned, Home, Subway, Buses and the station pages
+fetch it in the background once they've loaded (`readyBuses`,
+`/js/core/ready-buses.js`), unless the browser asks to save data; the pages
+people only read don't.
 
 ## The planner lab
 
@@ -501,7 +496,7 @@ hour's answer are the app's, in `tools/subway/client/`.
 - live arrivals have come in recently, or nothing needed them (a quiet
   night, a restart);
 - OASA answered and fast enough over the past hour, and the request budget
-  held, with room to spare ([decision 34](docs/decisions/0034-load-on-oasa-with-live-trips.md)
+  held, with room to spare ([decision 38](docs/decisions/0038-load-on-oasa-buses-for-everyone.md)
   has the numbers);
 - every announcement source loaded;
 - last night's data build worked, and its checks of the metro timetable

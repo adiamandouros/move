@@ -65,7 +65,7 @@ export async function renderFavourites() {
 
 // ── Location ────────────────────────────────────────────────────────────────
 
-export function locate(again = false) {
+function locate(again = false) {
     state.locating = true;
     state.problem = null;
     showMessage('loading spin', t('buses.getting-location'));

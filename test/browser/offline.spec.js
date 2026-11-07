@@ -95,9 +95,9 @@ test('a worker\'s own scripts come from the server each time, not from an older 
         asked.push(route.request().url());
         return route.continue();
     });
-    await page.goto('/trip?buses');
+    await page.goto('/trip');
     await expect.poll(() => asked.length).toBe(1);
-    await page.goto('/trip?buses');
+    await page.goto('/trip');
     await expect.poll(() => asked.length).toBe(2);
 });
 
@@ -138,14 +138,14 @@ test('the Trip page\'s bus searches failing with a newer version waiting: it say
     const updated = text => text.getByText('Wayhop has been updated.');
 
     // Nothing newer: the times couldn't be loaded
-    await pickBoth(page, '/trip?buses');
+    await pickBoth(page);
     await expect(failed(page)).toBeVisible();
     await expect(updated(page)).toHaveCount(0);
 
     // A newer version waiting while this page is open, and the trip again on another
     await newVersionWaiting(page);
     const other = await context.newPage();
-    await pickBoth(other, '/trip?buses');
+    await pickBoth(other);
     await expect(updated(other)).toBeVisible();
     await expect(updated(other)).toContainText('Close it everywhere it\'s open, every tab and the app, then open it again for the buses.');
     await expect(failed(other)).toHaveCount(0);

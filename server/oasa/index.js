@@ -10,17 +10,18 @@ import { STOP_CODE } from '../data/check-output.js';
 
 // Most stops one request may ask for (the bus page shows 6 at a time)
 const MAX_STOPS = 12;
-// What the trip finder and the Trip page say they ask for (see below), and
-// where each is counted (usage.js SEARCHES)
-const SEARCHES = new Map([['trip', 'trips'], ['trip-start', 'trips'], ['plan', 'plans'], ['plan-start', 'plans']]);
+// What the Trip page says it asks for (see below), and where it's counted
+// (usage.js SEARCHES)
+const SEARCHES = new Map([['plan', 'plans'], ['plan-start', 'plans']]);
 
 // /api routes for the bus page.
 //   GET /api/arrivals?stops=10361,10341
 //   → { stops: { "10361": { arrivals: [{ line, to: { el, en }, minutes, route, vehicle }], updated, stale, unavailable? } } }
 //
-// The trip finder adds &for=trip (&for=trip-start on the first request of a
-// new search), and the Trip page's live times &for=plan (plan-start), so
-// their searches and their answers are counted apart (usage.js).
+// The Trip page's live times add &for=plan (&for=plan-start on the first
+// request of a new search), so its searches and their answers are counted
+// apart (usage.js). The bus trip finder's &for=trip went with it (decision 39)
+// and is counted as any request.
 //
 // Only stops in `stopsFile` (bus-stops.json, which the bus page picks from)
 // are accepted, and each visitor may ask for NEW_STOPS_PER_MINUTE stops that

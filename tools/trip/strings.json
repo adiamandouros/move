@@ -1,6 +1,5 @@
 {
   "en": {
-    "trip.beta": "Beta",
     "trip.from": "From",
     "trip.to": "To",
     "trip.placeholder": "An address, a place or a station",
@@ -92,7 +91,6 @@
     "trip.quicker-back": "Back to my route"
   },
   "el": {
-    "trip.beta": "Δοκιμαστικό",
     "trip.from": "Από",
     "trip.to": "Προς",
     "trip.placeholder": "Διεύθυνση, μέρος ή σταθμός",
