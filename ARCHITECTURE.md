@@ -453,7 +453,7 @@ in the body, so it stays out of the host's logs. The index is loaded for the
 first search and dropped for a new one, and `/api/health` warns when it's
 over three weeks old.
 
-The trip page (`tools/trip/`, [decision 35](docs/decisions/0035-trip-live-times.md))
+The trip page (`tools/trip/`, [decision 36](docs/decisions/0036-trip-quicker-way.md))
 is what uses it. `client/picker.js` finds places as they're typed,
 `client/plan.js` works out the trip in the browser from the Subway's
 `network.js`, on the metro and the tram unless the Subway page's switch hides
@@ -475,7 +475,10 @@ when it has a bus, is timed again in the worker with OASA's live times
 (`liveWay`), for leaving now: a bus OASA has coming that the rider can still
 catch, matched by OASA's route, boards then, and the rides after it follow;
 a last bus that can be any of several lists its stops by when their first
-bus comes. `client/live.js` says which stops to ask for and when, and
+bus comes. On a decision the way shown is the directions that stay on, and
+the quicker way (`quickerWay` in `answer.js`) is offered under them when
+OASA has its bus coming in time; taken, it's the way timed instead.
+`client/live.js` says which stops to ask for and when, and
 `client/main.js` asks. `client/render.js` draws it. Addresses aren't kept, and never go in the page's
 address.
 
