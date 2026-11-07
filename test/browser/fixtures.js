@@ -109,6 +109,17 @@ export async function openSection(page, toggle) {
     await expect(page.locator(String(await button.getAttribute('data-bs-target')))).toHaveClass(/\bshow\b/);
 }
 
+// Open or close a panel the pages remember (rememberClosed in
+// /js/core/metro.js) with a tap on its summary, and wait until it's
+// remembered. Its open attribute changes at once, but the browser fires
+// `toggle`, which keeps it, a task later: a page left before then forgets it
+// (Chromium in CI, 7 Nov 2026).
+export async function toggleKept(details) {
+    await details.evaluate(el => { el.toggled = new Promise(resolve => el.addEventListener('toggle', resolve, { once: true })); });
+    await details.locator('summary').click();
+    await details.evaluate(el => el.toggled);
+}
+
 // axe-core's violations on the page as it is now: ["rule-id (nodes): selector", …]
 export async function axe(page) {
     // Through the devtools, not a <script> element, which the Content-Security-Policy blocks
