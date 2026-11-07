@@ -4,7 +4,7 @@
 // it together, on one phone.
 import { readFileSync } from 'fs';
 import { planTrip } from '../../tools/subway/client/network.js';
-import { axe, expect, onlyOn, test } from './fixtures.js';
+import { axe, expect, onlyOn, test, toggleKept } from './fixtures.js';
 
 const rail = JSON.parse(readFileSync(new URL('data/rail.json', import.meta.url), 'utf8'));
 
@@ -409,7 +409,7 @@ test('entering the planner: what it does, and what the train shows, open', async
 test('a legend closed stays closed after a reload and on the station pages, until opened again', async ({ page }) => {
     await page.goto('/subway?from=syntagma&to=airport');
     const legend = page.locator('.diagram-legend');
-    await legend.locator('summary').click();
+    await toggleKept(legend);
     await expect(legend).not.toHaveAttribute('open', '');
     await page.reload();
     await expect(page.locator('.result-card').first()).toBeVisible();
@@ -421,7 +421,7 @@ test('a legend closed stays closed after a reload and on the station pages, unti
     await page.goto('/subway/stations/airport');
     await expect(legend).not.toHaveAttribute('open', '');
     // Opened there: open everywhere again
-    await legend.locator('summary').click();
+    await toggleKept(legend);
     await expect(legend).toHaveAttribute('open', '');
     await page.goto('/subway?from=syntagma&to=airport');
     await expect(page.locator('.result-card').first()).toBeVisible();

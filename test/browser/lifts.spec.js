@@ -5,7 +5,7 @@
 // In the 'lifts-out' scenario Kerameikos can't be reached step-free and one
 // of Omonia's lifts is out (test/support/test-site.js). What the notices say
 // is tested in Node (subway-render.test.js, lifts.test.js).
-import { axe, expect, onlyOn, test } from './fixtures.js';
+import { axe, expect, onlyOn, test, toggleKept } from './fixtures.js';
 
 test.beforeEach(onlyOn('phone'));
 
@@ -56,7 +56,7 @@ test.describe('lifts out of service', () => {
         await expect(status).not.toHaveAttribute('open', '');
 
         // Opened there: open everywhere again
-        await status.locator('summary').click();
+        await toggleKept(status);
         await expect(status).toHaveAttribute('open', '');
         await page.goto('/subway?from=kerameikos&to=syntagma');
         await expect(notice(page)).toHaveAttribute('open', '');
