@@ -1,6 +1,6 @@
 # 36. The trip page: the quicker way on a decision, offered from OASA's live times, the buses behind a switch for now
 
-Decided 2026-11-07 · In force
+Decided 2026-11-07 · Replaced by [37](0037-trip-one-walk.md)
 
 ## Situation
 

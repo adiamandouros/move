@@ -453,12 +453,13 @@ in the body, so it stays out of the host's logs. The index is loaded for the
 first search and dropped for a new one, and `/api/health` warns when it's
 over three weeks old.
 
-The trip page (`tools/trip/`, [decision 36](docs/decisions/0036-trip-quicker-way.md))
+The trip page (`tools/trip/`, [decision 37](docs/decisions/0037-trip-one-walk.md))
 is what uses it. `client/picker.js` finds places as they're typed,
 `client/plan.js` works out the trip in the browser from the Subway's
 `network.js`, on the metro and the tram unless the Subway page's switch hides
-the tram (`tram-switch.js`). It tries the three metro stations nearest each
-end and every station or stop within 15 minutes' walk: every trip between the
+the tram (`tram-switch.js`). Its walks are the city's (`walkMeters` in
+`city.js`, the straight line × 1.4). It tries the three metro stations nearest each
+end and every station or stop within 16 minutes' walk: every trip between the
 nearest is planned, and the search (`arrivalsFrom`) picks the 6 quickest of
 the rest. On `/trip?buses` (and `?timing`, which times them on the device),
 `client/buses.js` adds the ways with a bus from the city's search (`city.js`,

@@ -14,9 +14,10 @@ export const AFTER_WALK_SECONDS = 60;
 // How far a change may walk. Five minutes hid the 420 from Aigaleo
 const CHANGE_WALK_SECONDS = 600;
 // Walks are the straight line with the streets added: 200 walks checked
-// against a street router came out at 1.38 times it, at an ordinary pace
+// against a street router came out at 1.38 times it, at an ordinary pace.
+// The Trip page's walks to the metro and the tram are these too (decision 37)
 const WINDING = 1.4;
-const METERS_PER_MINUTE = 80;
+export const METERS_PER_MINUTE = 80;
 const CELL_LAT = 0.005;
 const CELL_LNG = 0.006;
 const CELL_METERS = 450;
@@ -46,7 +47,9 @@ const M_LNG = 111_320 * Math.cos(37.97 * Math.PI / 180);
 /** @param {Point} a @param {Point} b */
 export const meters = (a, b) => Math.hypot((a.lat - b.lat) * M_LAT, (a.lng - b.lng) * M_LNG);
 /** @param {Point} a @param {Point} b */
-export const walkSeconds = (a, b) => meters(a, b) * WINDING / METERS_PER_MINUTE * 60;
+export const walkMeters = (a, b) => meters(a, b) * WINDING;
+/** @param {Point} a @param {Point} b */
+export const walkSeconds = (a, b) => walkMeters(a, b) / METERS_PER_MINUTE * 60;
 
 /**
  * One weekday (0 = Sunday) of buses.json, with the trips of the day before
