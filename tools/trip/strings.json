@@ -70,7 +70,16 @@
     "trip.data-error": "The train times couldn't be loaded. Check your connection and try again.",
     "trip.morning": "Leave about {leave}, arrive about {time}",
     "trip.walk-short": "Walk {minutes}′",
-    "trip.from-station": "from {station}"
+    "trip.from-station": "from {station}",
+    "trip.live-minutes": "{minutes} minutes",
+    "trip.live-soon": "{minutes} minutes, arriving soon",
+    "trip.live-next": "next in {minutes}′",
+    "trip.live-none": "Not on live times yet",
+    "trip.live-paused": "Live times paused to save data.",
+    "trip.live-resume": "Tap to refresh",
+    "trip.live-unavailable": "Live bus times are unavailable right now.",
+    "trip.live-stale": "Live times may be a few minutes old.",
+    "trip.live-estimates": "A bus with its minutes beside it is on OASA's live times. Other bus times are estimates from OASA's timetable of August 2026, and buses rarely keep to it."
   },
   "el": {
     "trip.beta": "Δοκιμαστικό",
@@ -143,6 +152,15 @@
     "trip.data-error": "Οι ώρες των τρένων δεν φόρτωσαν. Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά.",
     "trip.morning": "Φύγετε περίπου {leave}, άφιξη περίπου {time}",
     "trip.walk-short": "Περπάτημα {minutes}′",
-    "trip.from-station": "από {station}"
+    "trip.from-station": "από {station}",
+    "trip.live-minutes": "{minutes} λεπτά",
+    "trip.live-soon": "{minutes} λεπτά, φτάνει σύντομα",
+    "trip.live-next": "το επόμενο σε {minutes}′",
+    "trip.live-none": "Δεν φαίνεται ακόμα στις ώρες σε πραγματικό χρόνο",
+    "trip.live-paused": "Οι ώρες σε πραγματικό χρόνο σε παύση για εξοικονόμηση δεδομένων.",
+    "trip.live-resume": "Πατήστε για ανανέωση",
+    "trip.live-unavailable": "Οι ώρες των λεωφορείων σε πραγματικό χρόνο δεν είναι διαθέσιμες αυτή τη στιγμή.",
+    "trip.live-stale": "Οι ώρες σε πραγματικό χρόνο μπορεί να είναι λίγα λεπτά παλιές.",
+    "trip.live-estimates": "Ένα λεωφορείο με τα λεπτά δίπλα του είναι από τις ώρες του ΟΑΣΑ σε πραγματικό χρόνο. Οι άλλες ώρες λεωφορείων είναι εκτιμήσεις από το δρομολόγιο του ΟΑΣΑ του Αυγούστου 2026, και τα λεωφορεία σπάνια το τηρούν."
   }
 }

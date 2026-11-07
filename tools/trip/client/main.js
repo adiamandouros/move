@@ -3,12 +3,15 @@ import { language, t } from '/js/core/i18n.js';
 import { onLocation, onLocationProblem, startLocation, lastPosition } from '/js/core/location.js';
 import { athensNow, closestStation, isTimetableExpired, withTram } from '/tools/subway/network.js';
 import { tramHidden } from '/tools/subway/tram-switch.js';
+import { isIdle } from '/tools/buses/timing.js';
+import { arrivalsUrl, dueStops, liveStatus, stopLive, unanswered } from './live.js';
 import { doorToDoor, isLongWalk } from './plan.js';
 import { placePicker } from './picker.js';
-import { halfWays, howExact, placeTitle, rangeText, renderChosen, renderHalf, renderTrip, routeSummary } from './render.js';
+import { halfWays, hasBus, howExact, liveNotice, placeTitle, rangeText, renderChosen, renderHalf, renderTrip, routeSummary } from './render.js';
 
 const $ = id => document.getElementById(id);
 const result = $('trip-result');
+const liveBox = $('trip-live-status');
 const form = $('trip-form');
 const fromInput = /** @type {HTMLInputElement} */ ($('trip-from'));
 const toInput = /** @type {HTMLInputElement} */ ($('trip-to'));
@@ -19,6 +22,8 @@ const REFRESH_MS = 60_000;
 // The next half hour is worked out again once it's this old, while the page
 // is open (decision 33)
 const HALF_REWORK_SECONDS = 600;
+// How often the live times' stops are checked for being due (live.js), as on the Buses page
+const TICK_MS = 1_000;
 // Buses only on /trip?buses for now, and on /trip?timing, which also says how
 // long they take on this device (roadmap Plan 7): their August timetable is
 // too quick in traffic until enough rides are measured (decision 31). Not
@@ -101,6 +106,78 @@ function start(metro) {
     const timing = { city: null, answer: 0, half: null };
     const forTrip = what => what?.from === from && what?.to === to;
 
+    // OASA's live times for the way shown in full (decision 35): which way
+    // that is (`wanted`: the half hour `id`'s `row`, for `departure`), the
+    // worker's latest timing of it with the live times there are (`way`), each
+    // stop's latest answer, when each was asked, those being asked, whether
+    // the trip's first request has gone, and whether asking is paused. `seq`
+    // counts what's asked of the worker, as only its latest answer counts;
+    // `trip`, each new trip, so an answer for an older one is dropped
+    const live = {
+        seq: 0, trip: 0, wanted: null, way: null,
+        /** @type {Map<string, import('./buses.js').StopLive>} */ answers: new Map(),
+        /** @type {Map<string, number>} */ asked: new Map(),
+        /** @type {Set<string>} */ asking: new Set(),
+        started: false, paused: false, touched: Date.now(),
+    };
+    const sameRow = (a, b) => a?.id === b?.id && a?.row === b?.row;
+
+    // The way shown in full, timed again by the worker with the live times
+    // there are, for leaving now; or nothing to time, as it has no bus
+    const retime = (want = live.wanted) => {
+        live.wanted = want;
+        if (!want || !searches) {
+            if (live.way) { live.way = null; showLive(); }
+            return;
+        }
+        searches.postMessage({ id: want.id, live: { seq: ++live.seq, row: want.row, departure: want.departure, now: athensNow(), stops: Object.fromEntries(live.answers) } });
+    };
+    const resetLive = () => {
+        Object.assign(live, { trip: live.trip + 1, wanted: null, way: null, answers: new Map(), asked: new Map(), asking: new Set(), started: false });
+        showLive();
+    };
+    // Paused, unavailable or older live times, said above the answer
+    const showLive = () => {
+        const shown = live.way ? liveNotice(liveStatus(live.way.way.asks, live.answers, live.paused)) : '';
+        setHtml(liveBox, shown);
+        liveBox.hidden = !shown;
+        liveBox.querySelector('button')?.addEventListener('click', interact);
+    };
+    // A stop's live times, one request each, so each shows as soon as it's in
+    const ask = async code => {
+        const trip = live.trip;
+        const first = !live.started;
+        live.started = true;
+        live.asking.add(code);
+        let answer;
+        try {
+            const response = await fetch(arrivalsUrl(code, first), { signal: AbortSignal.timeout(20_000) });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            answer = stopLive((await response.json()).stops[code], athensNow().seconds);
+        } catch {
+            answer = unanswered(live.answers.get(code));
+        }
+        if (trip !== live.trip) return;
+        live.answers.set(code, answer);
+        live.asked.set(code, Date.now());
+        live.asking.delete(code);
+        showLive();
+        retime();
+    };
+    // The stops that are due (live.js): nothing while paused or out of sight
+    const askDue = () => {
+        if (!live.way || live.paused || document.hidden) return;
+        for (const code of dueStops(live.way.way.asks, live, Date.now(), athensNow().seconds)) ask(code);
+    };
+    // Any tap or key press counts as someone looking at the page
+    const interact = () => {
+        live.touched = Date.now();
+        if (!live.paused) return;
+        live.paused = false;
+        showLive();
+        retime();
+    };
+
     // The answer for leaving at `now`, the ways with a bus being `buses`, or
     // in its place the next half hour's (decision 33), unless walking is
     // quicker, the trains have stopped for the night, or it has nothing to
@@ -109,8 +186,13 @@ function start(metro) {
         const trip = doorToDoor(rail, from, to, now, { buses });
         const expired = isTimetableExpired(rail, now);
         const ways = forTrip(half) && !trip.walkFirst && !trip.options[0]?.morning ? halfWays(half.view, now.seconds) : [];
+        // The way shown in full has OASA's live times when it has a bus: the
+        // worker's latest timing of its row, until the next comes
+        const [first] = ways;
+        const want = first && hasBus(first.o) ? { id: half.id, row: half.view.rows.indexOf(first.row), departure: first.departure } : null;
+        const timed = want && sameRow(live.way, want) ? { way: live.way.way, now: athensNow().seconds } : null;
         const shown = ways.length
-            ? renderHalf(rail, half.view.kind, ways, to, { expired, longWalk: isLongWalk(ways[0].o) })
+            ? renderHalf(rail, half.view.kind, ways, to, { expired, longWalk: isLongWalk(ways[0].o), live: timed })
             : renderTrip(rail, trip, to, { expired, noBuses, checking: Boolean(searches) && !forTrip(half) });
         const answer = html`${shown}${TIMING && timingBox(timing)}`;
         setHtml(result, changing ? answer : html`${renderChosen(from, to)}${answer}`);
@@ -121,6 +203,7 @@ function start(metro) {
             fromInput.select();
         });
         if (speak) announce(ways.length ? halfReady(ways) : trip.options[0] ? routeSummary(trip.options[0]) : t('trip.walk-quicker'));
+        if (!sameRow(live.wanted, want) || live.wanted?.departure !== want?.departure) retime(want);
         return ways;
     };
     const halfReady = ways => format(t('trip.half-ready'), { range: rangeText(ways[0].row) });
@@ -146,6 +229,7 @@ function start(metro) {
             // taking longest, as the day's city is made for it
             setHtml(result, html`<p class="trip-intro" role="status">${t('trip.working')}</p>`);
             timing.half = null;
+            resetLive();
         }
         searches.postMessage({ id, from, to, now, half: halfToo });
     };
@@ -157,14 +241,23 @@ function start(metro) {
         searches = null;
         noBuses = true;
         found = null;
+        resetLive();
         render({ speak: asked?.speak });
     };
     searches?.addEventListener('error', fail);
     searches?.addEventListener('message', ({ data }) => {
         if ('error' in data) { fail(); return; }
+        if ('live' in data) {
+            if (data.live.seq !== live.seq) return;
+            live.way = data.live.way && { ...live.wanted, way: data.live.way };
+            showLive();
+            askDue();
+            if (forTrip(found) && !result.contains(document.activeElement)) draw(found.now, found.options, false);
+            return;
+        }
         if ('half' in data) {
             if (data.id !== askedHalf?.id) return;
-            half = { from: askedHalf.from, to: askedHalf.to, view: data.half };
+            half = { id: data.id, from: askedHalf.from, to: askedHalf.to, view: data.half };
             timing.half = data.half;
             const box = $('trip-half');
             if (box) box.textContent = halfWords(timing.half);
@@ -231,8 +324,28 @@ function start(metro) {
     });
 
     setInterval(() => {
-        if (from && to && !result.contains(document.activeElement)) render({ refresh: true });
+        if (!from || !to || result.contains(document.activeElement)) return;
+        render({ refresh: true });
+        retime();
     }, REFRESH_MS);
+    // The live times: asked again when due, and paused, as on the Buses page,
+    // once nobody has touched the page for a while
+    setInterval(() => {
+        if (!live.way || live.paused || document.hidden) return;
+        if (isIdle(live.touched, Date.now())) {
+            live.paused = true;
+            showLive();
+            return;
+        }
+        askDue();
+    }, TICK_MS);
+    document.addEventListener('pointerdown', interact, { passive: true });
+    document.addEventListener('keydown', interact);
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) return;
+        interact();
+        askDue();
+    });
     render();
 }
 

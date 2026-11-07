@@ -12,7 +12,9 @@
 // where the tests stand, to stay small, plus every stop of the few lines
 // bus-lines.json keeps (LINES), so their whole routes can be looked up.
 // buses.json, the trip search's bus timetable, keeps the part of each route
-// between Kallithea and Syntagma (BUSES_BOX), where the trip page's tests go.
+// between Kallithea and Syntagma (BUSES_BOX), where the trip page's tests go;
+// bus-stops.json keeps its stops too, as the real ones do, so the trip page's
+// live times can be asked for them (the server takes only stops it lists).
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
@@ -34,16 +36,6 @@ const metres = ([lat1, lng1], [lat2, lng2]) => {
 
 const rail = JSON.parse(readFileSync(join(BUILD, 'rail.json'), 'utf8'));
 writeFileSync(join(HERE, 'rail.json'), JSON.stringify(rail));
-
-const bus = JSON.parse(readFileSync(join(BUILD, 'bus-stops.json'), 'utf8'));
-const lat = bus.fields.indexOf('lat'), lng = bus.fields.indexOf('lng');
-const lines = JSON.parse(readFileSync(join(BUILD, 'bus-lines.json'), 'utf8'));
-lines.lines = lines.lines.filter(l => LINES.includes(l.line));
-const onLines = new Set(lines.lines.flatMap(l => l.directions.flatMap(d => d.stops)));
-const code = bus.fields.indexOf('code');
-bus.stops = bus.stops.filter(s => onLines.has(s[code]) || AROUND.some(p => metres(p, [s[lat], s[lng]]) <= RADIUS_M));
-writeFileSync(join(HERE, 'bus-stops.json'), JSON.stringify(bus));
-writeFileSync(join(HERE, 'bus-lines.json'), JSON.stringify(lines));
 
 // Each route's stops inside the box, its trips timed from the first of them
 const buses = JSON.parse(readFileSync(join(BUILD, 'buses.json'), 'utf8'));
@@ -69,6 +61,17 @@ buses.routes = buses.routes.flatMap(route => {
 });
 buses.stops = [...kept.keys()].map(i => buses.stops[i]);
 writeFileSync(join(HERE, 'buses.json'), JSON.stringify(buses));
+
+const bus = JSON.parse(readFileSync(join(BUILD, 'bus-stops.json'), 'utf8'));
+const lat = bus.fields.indexOf('lat'), lng = bus.fields.indexOf('lng');
+const lines = JSON.parse(readFileSync(join(BUILD, 'bus-lines.json'), 'utf8'));
+lines.lines = lines.lines.filter(l => LINES.includes(l.line));
+const onLines = new Set(lines.lines.flatMap(l => l.directions.flatMap(d => d.stops)));
+const timed = new Set(buses.stops.map(([stop]) => stop));
+const code = bus.fields.indexOf('code');
+bus.stops = bus.stops.filter(s => onLines.has(s[code]) || timed.has(s[code]) || AROUND.some(p => metres(p, [s[lat], s[lng]]) <= RADIUS_M));
+writeFileSync(join(HERE, 'bus-stops.json'), JSON.stringify(bus));
+writeFileSync(join(HERE, 'bus-lines.json'), JSON.stringify(lines));
 
 writeFileSync(join(HERE, 'meta.json'), readFileSync(join(BUILD, 'meta.json')));
 console.log(`rail.json: ${Object.keys(rail.stations).length} stations; bus-stops.json: ${bus.stops.length} stops; bus-lines.json: ${lines.lines.length} lines; buses.json: ${buses.routes.length} routes`);

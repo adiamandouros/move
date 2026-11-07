@@ -309,6 +309,13 @@ version they started with, and it takes over once they're closed
   length from the same bus's two predictions. Its requests carry
   `&for=trip` (`trip-start` for a new search's first);
   `test/browser/bus-trips.spec.js` writes down every one of a scripted search.
+- The Trip page's way shown in full ([tools/trip/client/live.js](tools/trip/client/live.js))
+  asks for at most 10 stops: where its rides by bus board, then the stops a
+  last bus that can be any of several leaves from. Each is asked again on
+  the bus page's tiers, by the first bus the rider can still catch there,
+  so a change far down the trip is asked rarely until it nears; nothing
+  while out of sight, and it pauses after 10 minutes untouched, as the bus
+  page does. Its requests carry `&for=plan` (`plan-start`).
 - `limits.js`: each visitor may ask for 30 stops a minute that aren't cached.
 - `passes.js`: from every fresh answer, the buses that passed a stop (one 3
   minutes away or less, gone from the next answer), a line each in the day's
@@ -323,14 +330,15 @@ version they started with, and it takes over once they're closed
   and per day, kept for 120 days in `data/local/oasa-usage.json`: requests
   by kind, the cache's share, stops watched at once, waits and drops, each
   route's answer times and failures, and how far ahead OASA predicts each
-  line's buses, and the trip finder's searches and their answers. Beside them, the pages opened, by the language the browser
+  line's buses, and the trip finder's and the Trip page's searches and
+  their answers, apart. Beside them, the pages opened, by the language the browser
   asks for and the one served (`server/pages/index.js`, for item 43).
   Counts only; `/admin/diagnostics` shows the past hour and today,
   `/admin/usage` a row per day.
 
 These numbers set our load on OASA, and so do the ones for STASY and the
 bus network below; changes to any of them are agreed first
-([decision 26](docs/decisions/0026-bus-pass-collector.md), which replaced 21 and 7).
+([decision 34](docs/decisions/0034-load-on-oasa-with-live-trips.md), which replaced 26, 21 and 7).
 
 Announcements ([server/info/announcements.js](server/info/announcements.js))
 are fetched from OASA's RSS and STASY's news page at most every 15 minutes,
@@ -445,7 +453,7 @@ in the body, so it stays out of the host's logs. The index is loaded for the
 first search and dropped for a new one, and `/api/health` warns when it's
 over three weeks old.
 
-The trip page (`tools/trip/`, [decision 33](docs/decisions/0033-trip-half-hour-answer.md))
+The trip page (`tools/trip/`, [decision 35](docs/decisions/0035-trip-live-times.md))
 is what uses it. `client/picker.js` finds places as they're typed,
 `client/plan.js` works out the trip in the browser from the Subway's
 `network.js`, on the metro and the tram unless the Subway page's switch hides
@@ -462,7 +470,13 @@ it answers each trip for leaving now, then for the next half hour
 only the latest trip is answered. Once the half hour comes, it takes the
 answer's place (`renderHalf`): the way it stands for with its range, a last
 bus that can be any of several as the stops it leaves from, and the others
-on a line each; worked out again every 10 minutes. `client/render.js` draws it. Addresses aren't kept, and never go in the page's
+on a line each; worked out again every 10 minutes. The way shown in full,
+when it has a bus, is timed again in the worker with OASA's live times
+(`liveWay`), for leaving now: a bus OASA has coming that the rider can still
+catch, matched by OASA's route, boards then, and the rides after it follow;
+a last bus that can be any of several lists its stops by when their first
+bus comes. `client/live.js` says which stops to ask for and when, and
+`client/main.js` asks. `client/render.js` draws it. Addresses aren't kept, and never go in the page's
 address.
 
 ## The planner lab
@@ -479,7 +493,7 @@ hour's answer are the app's, in `tools/subway/client/`.
 - live arrivals have come in recently, or nothing needed them (a quiet
   night, a restart);
 - OASA answered and fast enough over the past hour, and the request budget
-  held, with room to spare ([decision 26](docs/decisions/0026-bus-pass-collector.md)
+  held, with room to spare ([decision 34](docs/decisions/0034-load-on-oasa-with-live-trips.md)
   has the numbers);
 - every announcement source loaded;
 - last night's data build worked, and its checks of the metro timetable

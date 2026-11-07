@@ -1,29 +1,37 @@
-import { busOptions, cityPlanner, halfHour, halfView } from './buses.js';
+import { busOptions, cityPlanner, halfHour, halfView, liveWay, shownRows } from './buses.js';
 
 // The Trip page's searches with a bus, away from the page (decision 32):
 // worker.js runs them in a worker, so typing and tapping never wait for them.
 // A trip is answered for leaving now, then, when the page asks, for the next
 // half hour (answer.js, as the page shows it: halfView), a departure at a time. Only the latest trip is
 // answered, and a half hour stops for another trip's, not for the same trip
-// asked again (the page does that each minute). No DOM, so it's tested in Node.
+// asked again (the page does that each minute). The latest half hour's way
+// shown in full is timed again with OASA's live times whenever the page asks
+// (liveWay, decision 35), without stopping a half hour being worked out. No
+// DOM, so it's tested in Node.
 
 /** @typedef {import('./buses.js').Point} Point */
 /** @typedef {import('./buses.js').BusOption} BusOption */
 /**
  * What the page asks: `rail` once, first, as the city is planned on (with its
  * tram or without it, decision 29); then each trip, `id` counting up, with
- * `half` when its half hour is wanted too
+ * `half` when its half hour is wanted too; and the way of the half hour `id`
+ * shown in full, its `row` for `departure`, timed with the live times `stops`
+ * for leaving `now` (`seq` counting up, as only the latest counts)
  * @typedef {{ rail: import('../../../types/data.js').Rail }
- *   | { id: number, from: Point, to: Point, now: { weekday: number, seconds: number }, half: boolean }} Asked
+ *   | { id: number, from: Point, to: Point, now: { weekday: number, seconds: number }, half: boolean }
+ *   | { id: number, live: { seq: number, row: number, departure: number, now: { seconds: number }, stops: Record<string, import('./buses.js').StopLive> } }} Asked
  */
 /**
  * What it answers: the ways with a bus for leaving now, with how long they
  * took here (`city`: making the day's city for this trip, null when it was
  * made before); later, the half hour's answer and how long it took;
  * or that there are no buses to be had, as their times couldn't be loaded or
- * the search failed
+ * the search failed; and the way shown in full timed with the live times,
+ * null when it can't be
  * @typedef {{ id: number, options: BusOption[], timing: { city: number | null, answer: number } }
  *   | { id: number, half: import('./buses.js').HalfView & { ms: number } }
+ *   | { id: number, live: { seq: number, way: import('./buses.js').LiveWay | null } }
  *   | { id: number, error: true }} Answered
  */
 
@@ -40,6 +48,8 @@ export function searcher({ loadBuses, post, pause = () => new Promise(resolve =>
     let city = null;
     let latest = 0;
     let latestHalf = 0;
+    // The latest half hour's answer, its rows as the page shows them, to time again with live times
+    let shown = null;
 
     // How long making it took, or null when it was made before
     const cityOn = (loaded, weekday) => {
@@ -53,6 +63,16 @@ export function searcher({ loadBuses, post, pause = () => new Promise(resolve =>
         if ('rail' in message) {
             rail = message.rail;
             buses = loadBuses().catch(() => null);
+            return;
+        }
+        if ('live' in message) {
+            const { id, live: { seq, row, departure, now, stops } } = message;
+            if (id !== shown?.id) return;
+            let way = null;
+            try {
+                way = shown.rows[row] ? liveWay(shown.planner, shown.from, shown.to, shown.rows[row], departure, now, stops) : null;
+            } catch { /* the way as the half hour has it */ }
+            post({ id, live: { seq, way } });
             return;
         }
         const { id, from, to, now, half } = message;
@@ -78,6 +98,7 @@ export function searcher({ loadBuses, post, pause = () => new Promise(resolve =>
                 if (id !== latestHalf) return;
                 step = steps.next();
             }
+            shown = { id, planner, from, to, rows: shownRows(step.value) };
             post({ id, half: { ...halfView(planner, from, to, step.value), ms: Math.round(clock() - started) } });
         } catch {
             if (id === latest) post({ id, error: true });

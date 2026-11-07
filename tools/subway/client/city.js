@@ -32,7 +32,7 @@ const M_LNG = 111_320 * Math.cos(37.97 * Math.PI / 180);
  * bus-stops.json); station, a rail stop's id in rail.json
  * @typedef {Point & { id: string, name: string, names?: Names, station?: string }} Stop
  */
-/** @typedef {import('./raptor.js').Route & { toward?: Names }} Route where it goes: a rail line's direction, a bus's last stop */
+/** @typedef {import('./raptor.js').Route & { toward?: Names, code?: string }} Route where it goes: a rail line's direction, a bus's last stop; code: a bus's OASA route, which its live times name */
 /** @typedef {import('./raptor.js').Leg} Leg */
 /** @typedef {import('./raptor.js').Journey} Journey */
 /**
@@ -79,7 +79,8 @@ export function busDay({ stops, routes }, weekday) {
 /**
  * The stops and routes of one weekday (0 = Sunday), last night's trains that
  * run past midnight included. `index` finds a stop: rail:korydallos, bus:70040.
- * Each route says where it goes (`toward`): a rail line's direction, a bus's last stop.
+ * Each route says where it goes (`toward`): a rail line's direction, a bus's last stop;
+ * a bus's also which of OASA's routes it is (`code`), as its live times say.
  * @param {import('../../../types/data.js').Rail} rail @param {Buses} buses @param {number} weekday
  */
 export function joinNetwork(rail, buses, weekday) {
@@ -110,10 +111,10 @@ export function joinNetwork(rail, buses, weekday) {
             }
         }
     }
-    for (const { line, mode, stops: calls, profiles, trips } of buses.routes) {
-        const along = calls.map(code => index.get(`bus:${code}`));
+    for (const { line, mode, code, stops: calls, profiles, trips } of buses.routes) {
+        const along = calls.map(stop => index.get(`bus:${stop}`));
         routes.push({
-            line, mode, stops: along,
+            line, mode, code, stops: along,
             trips: trips.map(([start, profile]) => profiles[profile].map(offset => start + offset)),
             toward: stops[along.at(-1)].names,
         });

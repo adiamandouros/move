@@ -1,6 +1,6 @@
 # 26. Our load on OASA and STASY, with the bus-pass collector
 
-Decided 2026-11-02 · In force
+Decided 2026-11-02 · Replaced by [34](0034-load-on-oasa-with-live-trips.md)
 
 ## Situation
 

@@ -5,12 +5,14 @@ import { browserModule } from './support/browser-modules.js';
 
 // The Trip page's searches with a bus, as its worker runs them
 // (tools/trip/client/searcher.js, decision 32): leaving now first, then the
-// half hour, and only for the latest trip. The page's side: test/browser/trip.spec.js.
+// half hour, and only for the latest trip; and the half hour's way shown in
+// full timed again with live times (decision 35). The page's side:
+// test/browser/trip.spec.js.
 
 const rail = JSON.parse(readFileSync(new URL('browser/data/rail.json', import.meta.url), 'utf8'));
 const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.meta.url), 'utf8'));
 const { searcher } = await browserModule('tools/trip/client/searcher.js');
-const { busOptions, cityPlanner } = await browserModule('tools/trip/client/buses.js');
+const { busOptions, cityPlanner, halfHour, liveWay, shownRows } = await browserModule('tools/trip/client/buses.js');
 
 // A Wednesday in the timetable, 10:00
 const NOW = { weekday: 3, seconds: 10 * 3600 };
@@ -100,4 +102,53 @@ test('a search that fails says so, rather than leave the page waiting', async ()
     const { handle, posted } = started();
     await handle(trip(1, { from: null }));
     assert.deepEqual(posted, [{ id: 1, error: true }]);
+});
+
+// The half hour's way shown in full, row `row` for departure 0, timed with `stops` at `now`
+const liveAsk = (id, seq, more = {}) => ({ id, live: { seq, row: 0, departure: 0, now: NOW, stops: {}, ...more } });
+
+test('the latest half hour\'s way shown in full is timed again with live times, as the page asks', async () => {
+    const { handle, posted, runOut } = started();
+    // Nothing to time before a half hour has come
+    await handle(liveAsk(1, 1));
+    assert.deepEqual(posted, []);
+    const done = handle(trip(1, { half: true }));
+    await new Promise(resolve => setImmediate(resolve));
+    await runOut();
+    await done;
+    posted.length = 0;
+    await handle(liveAsk(1, 2, { row: 1 }));
+    const planner = cityPlanner(rail, buses, 3);
+    const steps = halfHour(planner, menelaou, syntagma, NOW);
+    let step = steps.next();
+    while (!step.done) step = steps.next();
+    assert.deepEqual(posted, [{ id: 1, live: { seq: 2, way: liveWay(planner, menelaou, syntagma, shownRows(step.value)[1], 0, NOW, {}) } }]);
+    assert.ok(posted[0].live.way.asks.length > 0);
+    // A row there isn't, or a way that can't be made: nothing to time
+    posted.length = 0;
+    await handle(liveAsk(1, 3, { row: 9 }));
+    await handle(liveAsk(1, 4, { row: 1, now: { ...NOW, seconds: 27 * 3600 } }));
+    assert.deepEqual(posted, [{ id: 1, live: { seq: 3, way: null } }, { id: 1, live: { seq: 4, way: null } }]);
+});
+
+test('live times are only for the latest half hour, and timing them never stops one being worked out', async () => {
+    const { handle, posted, runOut } = started();
+    const first = handle(trip(1, { half: true }));
+    await new Promise(resolve => setImmediate(resolve));
+    await runOut();
+    await first;
+    // The next trip's half hour, under way
+    const second = handle(trip(2, { to: fix, now: { ...NOW, seconds: 12 * 3600 }, half: true }));
+    await new Promise(resolve => setImmediate(resolve));
+    posted.length = 0;
+    await handle(liveAsk(1, 1));
+    await handle(liveAsk(2, 2));
+    assert.deepEqual(posted.map(message => [message.id, message.live.seq]), [[1, 1]], 'trip 1\'s, as trip 2\'s hasn\'t come');
+    await runOut();
+    await second;
+    assert.deepEqual(posted.slice(1).map(message => [message.id, 'half' in message]), [[2, true]], 'trip 2\'s half hour came all the same');
+    posted.length = 0;
+    await handle(liveAsk(1, 3));
+    await handle(liveAsk(2, 4));
+    assert.deepEqual(posted.map(message => [message.id, message.live.seq]), [[2, 4]], 'now only trip 2\'s');
 });

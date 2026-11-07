@@ -1,6 +1,6 @@
 # 33. The trip page: the next half hour's answer in place of the answer for leaving now, the buses behind a switch for now
 
-Decided 2026-11-06 · In force
+Decided 2026-11-06 · Replaced by [35](0035-trip-live-times.md)
 
 ## Situation
 

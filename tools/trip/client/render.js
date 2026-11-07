@@ -3,6 +3,7 @@ import { language, localHref, t } from '/js/core/i18n.js';
 import { busPlate, linePill, pillList } from '/js/core/lines.js';
 import { clockTime, lineEnd } from '/js/core/metro.js';
 import { latinName } from '/js/core/text.js';
+import { soonTier, timeBadge } from '/js/core/times.js';
 
 const stationName = (rail, id) => localName(rail.stations[id].name, language);
 // A stop of the city's search (buses.js): a station by its name, a bus stop
@@ -76,15 +77,31 @@ const walkToStation = (rail, id, minutes) => walkStep({ minutes }, format(t('tri
 // The walk to where the first ride leaves: to the station, and on to a stop
 // beside it, if the trip starts there
 const walkToFirst = o => o.city ? o.firstWalk?.minutes ?? 0 : (o.start.walk?.minutes ?? 0) + (o.plan.walkFirst ?? 0);
-const hasBus = o => o.city && o.rides.some(ride => ON_THE_ROAD.has(ride.mode));
+export const hasBus = o => o.city && o.rides.some(ride => ON_THE_ROAD.has(ride.mode));
+
+// Whole minutes from `now` to `at` (seconds from midnight), as a live time counts down
+const minutesTo = (at, now) => Math.max(0, Math.floor((at - now) / 60));
+
+// A bus OASA has coming, in its minutes, as on the Buses page (DESIGN.md, "Time badge")
+function minutesBadge(at, now) {
+    const minutes = minutesTo(at, now);
+    const tier = soonTier(minutes);
+    const label = format(t(tier === 'due' ? 'trip.live-soon' : 'trip.live-minutes'), { minutes });
+    return timeBadge(tier, html`<span aria-hidden="true">${minutes}'</span><span class="sr-only">${label}</span>`);
+}
 
 // A ride of a way with a bus: a bus's time is the timetable's, an estimate
-// (decision 11), so it says "~"
-function rideStep(rail, ride) {
+// (decision 11), so it says "~", unless OASA has the bus coming (decision
+// 35): then its time, its minutes and the next one's. `now`: seconds from
+// midnight, for the minutes
+function rideStep(rail, ride, now) {
     const bus = ON_THE_ROAD.has(ride.mode);
     const place = stopName(rail, ride.alight);
-    return step(bus ? `~${clockTime(ride.boards)}` : clockTime(ride.boards), html`
+    const live = ride.live && 'at' in ride.live ? ride.live : null;
+    return step(bus && !live ? `~${clockTime(ride.boards)}` : clockTime(ride.boards), html`
         <div>${pill(rail, ride)}${ride.lines.length === 1 && html` ${format(t('trip.towards'), { end: cityName(ride.toward) })}`}</div>
+        ${live && html`<div class="trip-live">${minutesBadge(live.at, now)}${live.next !== null && html`<span class="trip-step-note">${format(t('trip.live-next'), { minutes: minutesTo(live.next, now) })}</span>`}</div>`}
+        ${ride.live && 'none' in ride.live && html`<div class="trip-step-note">${t('trip.live-none')}</div>`}
         <div class="trip-step-note">${ride.stops === 1 ? format(t('trip.stop'), { place }) : format(t('trip.stops'), { count: ride.stops, place })}</div>`);
 }
 // Every bus line that rides it, the first to come first
@@ -96,11 +113,20 @@ const STOPS_SHOWN = 3;
 
 // The stops a way's last bus can be caught at, nearest first, each with the
 // walk to it and its lines: any of them will do, so no time by the clock
-// (decision 33). `change`: after a ride, rather than from the door
-function busStops(rail, stops, change) {
-    const stopStep = ({ stop, walk, lines }) => step(walk ? `${walk.minutes}′` : '', html`
+// (decision 33). With OASA's live times (decision 35), those with a bus the
+// rider can catch first, by when it comes, each line with its minutes.
+// `change`: after a ride, rather than from the door. `now`: seconds from
+// midnight, for the minutes
+function busStops(rail, stops, change, now) {
+    const stopStep = ({ stop, walk, lines, buses = null }) => step(walk ? `${walk.minutes}′` : '', html`
         ${externalLink({ href: walkingUrl(stop.lat, stop.lng) }, stopName(rail, stop), t('shell.new-tab'))}
-        <div>${pillList(lines.map(line => busPlate(line, 's')))}</div>`);
+        ${buses?.length
+            ? html`<div class="trip-live">${pillList([
+                ...buses.map(bus => html`<span class="trip-live-bus">${busPlate(bus.line, 's')} ${minutesBadge(bus.at, now)}</span>`),
+                ...lines.filter(line => !buses.some(bus => bus.line === line)).map(line => busPlate(line, 's')),
+            ])}</div>`
+            : html`<div>${pillList(lines.map(line => busPlate(line, 's')))}</div>`}
+        ${buses?.length === 0 && html`<div class="trip-step-note">${t('trip.live-none')}</div>`}`);
     const more = stops.slice(STOPS_SHOWN);
     return html`${step('', t(change ? 'trip.any-bus-then' : 'trip.any-bus'))}
         ${stops.slice(0, STOPS_SHOWN).map(stopStep)}
@@ -111,14 +137,15 @@ function busStops(rail, stops, change) {
 }
 
 // A way of the city's search, step by step: its walks and rides, and for a
-// way of the half hour whose last bus can be any of several, the stops
-function citySteps(rail, o, to, row = null) {
+// way of the half hour whose last bus can be any of several, the stops.
+// live: the way timed with OASA's live times (buses.js liveWay), at `now`
+function citySteps(rail, o, to, row = null, live = null) {
     const walkTo = (walk, stop) => walk && walkStep(walk, format(t('trip.walk-to'), { place: stopName(rail, stop) }), stop);
     const rides = row?.bundle ? o.rides.slice(0, -1) : o.rides;
     return html`<ol class="trip-steps">
         ${rides.length > 0 && walkTo(o.firstWalk, o.rides[0].board)}
-        ${rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board)}${rideStep(rail, ride)}`)}
-        ${row?.bundle && busStops(rail, row.stops, rides.length > 0)}
+        ${rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board)}${rideStep(rail, ride, live?.now)}`)}
+        ${row?.bundle && busStops(rail, live?.way.stops ?? row.stops, rides.length > 0, live?.now)}
         ${o.lastWalk && walkStep(o.lastWalk, format(t('trip.walk-to'), { place: to.title }), to)}
     </ol>`;
 }
@@ -220,12 +247,16 @@ const LATE_SECONDS = 60;
 export const rangeText = ({ range: [low, high] }) => low === high ? format(t('trip.minutes'), { minutes: low }) : format(t('trip.range'), { low, high });
 
 // Each way the half hour's answer shows, as it is for the next departure
-// tried at `now` (seconds from midnight) or the first after it that has it
+// tried at `now` (seconds from midnight) or the first after it that has it,
+// and which departure that is
 /** @param {import('./buses.js').HalfView} view @param {number} now */
 export function halfWays(view, now) {
     const next = view.departures.findIndex(at => at >= now - LATE_SECONDS);
     if (next < 0) return [];
-    return view.rows.map(row => ({ row, o: row.options.slice(next).find(Boolean) })).filter(({ o }) => o);
+    return view.rows.map(row => {
+        const departure = row.options.findIndex((o, d) => d >= next && o);
+        return { row, o: row.options[departure], departure };
+    }).filter(({ o }) => o);
 }
 
 // Where to stand is for a way by rail alone with a metro ride, as on tripCard
@@ -233,15 +264,16 @@ const standFor = o => o.rides.every(ride => ride.board.station && ride.alight.st
     && standHref({ station: o.rides[0].board.station }, { station: o.rides.at(-1).alight.station });
 
 // The way the half hour stands for, step by step, with its range. best: it's
-// the clear way
-function halfCard(rail, { row, o }, to, best) {
-    const stand = standFor(o);
+// the clear way. live: the way timed with OASA's live times, in its place
+function halfCard(rail, { row, o }, to, best, live) {
+    const shown = live?.way.option ?? o;
+    const stand = standFor(shown);
     return html`<div class="trip-card result-card">
         <div class="trip-card-head">
             <h2 class="trip-total">${rangeText(row)}</h2>
             ${best && html`<span class="trip-arrives">${t('trip.half-best')}</span>`}
         </div>
-        ${citySteps(rail, o, to, row)}
+        ${citySteps(rail, shown, to, row, live)}
         ${stand && html`<a class="btn btn-sm locate-btn trip-stand" href="${stand}">${t('trip.where-to-stand')}</a>`}
     </div>`;
 }
@@ -258,20 +290,36 @@ function halfOther(rail, { row, o }) {
     </div>`;
 }
 
+// Whether the way shown has a bus on OASA's live times
+const onLive = ({ way }) => way.option.rides.some(ride => ride.live && 'at' in ride.live) || way.stops.some(({ buses }) => buses?.length);
+
 // The next half hour's answer, in place of the answer for leaving now: the
 // way it stands for first (the clear way, the directions that stay on, or
 // the first by the weights when it depends), then the others. `ways`: from
-// halfWays. longWalk: the first way's walk at either end is a long one
-export function renderHalf(rail, kind, ways, to, { expired = false, longWalk = false } = {}) {
+// halfWays. longWalk: the first way's walk at either end is a long one.
+// live: the first way timed with OASA's live times, at `now` (seconds from
+// midnight), in its place (decision 35)
+export function renderHalf(rail, kind, ways, to, { expired = false, longWalk = false, live = null } = {}) {
     const [first, ...others] = ways;
+    const busNote = live && onLive(live) ? t('trip.live-estimates') : t('trip.bus-estimates');
     return html`
         ${expired && notice('warn', 'warning', t('trip.timetable-ended'))}
         ${kind === 'depends' && html`<p class="trip-intro">${t('trip.half-depends-intro')}</p>`}
-        ${halfCard(rail, first, to, kind === 'clear')}
+        ${halfCard(rail, first, to, kind === 'clear', live)}
         ${longWalk && longWalkNotice()}
         ${others.length > 0 && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
         ${others.map(way => halfOther(rail, way))}
-        <p class="trip-estimates">${t('trip.estimates')}${ways.some(({ o }) => hasBus(o)) && html` ${t('trip.bus-estimates')}`} ${t('trip.range-note')}</p>`;
+        <p class="trip-estimates">${t('trip.estimates')}${ways.some(({ o }) => hasBus(o)) && html` ${busNote}`} ${t('trip.range-note')}</p>`;
+}
+
+// What's said of the live times above the answer (live.js liveStatus), as on
+// the Buses page; paused, with a button that asks again
+/** @param {'paused' | 'unavailable' | 'stale' | null} status */
+export function liveNotice(status) {
+    if (status === 'paused') return notice('warn', 'warning', html`${t('trip.live-paused')} <button type="button" class="btn btn-link btn-sm p-0 align-baseline">${t('trip.live-resume')}</button>`);
+    if (status === 'unavailable') return notice('danger', 'error', t('trip.live-unavailable'));
+    if (status === 'stale') return notice('warn', 'warning', t('trip.live-stale'));
+    return '';
 }
 
 // What's been chosen, above the answer
