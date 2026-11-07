@@ -188,7 +188,7 @@ export const lateness = ahead => LATENESS.find(([upTo]) => ahead <= upTo)[1];
  * change: as late as it is, getting there and staying on are both later.
  * Staying on may be later still, if it misses a train, so this can only offer
  * too little, never too much. sooner: seconds it saves on staying on.
- * @param {Decision} decision
+ * @param {Pick<Decision, 'lines' | 'ready' | 'latest'> & { reaches?: number }} decision
  * @param {{ line: string, at: number }[]} predictions when each bus is due at the stop, seconds from midnight
  * @param {number} asked
  * @param {{ here?: number }} [live]

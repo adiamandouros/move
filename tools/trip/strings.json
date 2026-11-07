@@ -79,7 +79,16 @@
     "trip.live-resume": "Tap to refresh",
     "trip.live-unavailable": "Live bus times are unavailable right now.",
     "trip.live-stale": "Live times may be a few minutes old.",
-    "trip.live-estimates": "A bus with its minutes beside it is on OASA's live times. Other bus times are estimates from OASA's timetable of August 2026, and buses rarely keep to it."
+    "trip.live-estimates": "A bus with its minutes beside it is on OASA's live times. Other bus times are estimates from OASA's timetable of August 2026, and buses rarely keep to it.",
+    "trip.quicker-title": "A quicker way: about {minutes} min sooner",
+    "trip.quicker-off": "Get off the {ride} at {change}:",
+    "trip.quicker-off-station": "Get off the {ride} at {change}:",
+    "trip.quicker-bus": "the {bus} is due at {stop} at {time}, a {minutes} min walk.",
+    "trip.quicker-bus-here": "the {bus} is due there at {time}.",
+    "trip.quicker-take": "Take the quicker way",
+    "trip.quicker-keep": "Keep my route",
+    "trip.quicker-taken": "The quicker way",
+    "trip.quicker-back": "Back to my route"
   },
   "el": {
     "trip.beta": "Δοκιμαστικό",
@@ -161,6 +170,15 @@
     "trip.live-resume": "Πατήστε για ανανέωση",
     "trip.live-unavailable": "Οι ώρες των λεωφορείων σε πραγματικό χρόνο δεν είναι διαθέσιμες αυτή τη στιγμή.",
     "trip.live-stale": "Οι ώρες σε πραγματικό χρόνο μπορεί να είναι λίγα λεπτά παλιές.",
-    "trip.live-estimates": "Ένα λεωφορείο με τα λεπτά δίπλα του είναι από τις ώρες του ΟΑΣΑ σε πραγματικό χρόνο. Οι άλλες ώρες λεωφορείων είναι εκτιμήσεις από το δρομολόγιο του ΟΑΣΑ του Αυγούστου 2026, και τα λεωφορεία σπάνια το τηρούν."
+    "trip.live-estimates": "Ένα λεωφορείο με τα λεπτά δίπλα του είναι από τις ώρες του ΟΑΣΑ σε πραγματικό χρόνο. Οι άλλες ώρες λεωφορείων είναι εκτιμήσεις από το δρομολόγιο του ΟΑΣΑ του Αυγούστου 2026, και τα λεωφορεία σπάνια το τηρούν.",
+    "trip.quicker-title": "Γρηγορότερος δρόμος: περίπου {minutes} λεπτά νωρίτερα",
+    "trip.quicker-off": "Κατέβα από το {ride} στη στάση {change}:",
+    "trip.quicker-off-station": "Κατέβα από το {ride} στον σταθμό {change}:",
+    "trip.quicker-bus": "το {bus} φτάνει στη στάση {stop} στις {time}, {minutes} λεπτά με τα πόδια.",
+    "trip.quicker-bus-here": "το {bus} φτάνει εκεί στις {time}.",
+    "trip.quicker-take": "Πάρε τον γρηγορότερο",
+    "trip.quicker-keep": "Κράτα τη διαδρομή μου",
+    "trip.quicker-taken": "Ο γρηγορότερος δρόμος",
+    "trip.quicker-back": "Πίσω στη διαδρομή μου"
   }
 }

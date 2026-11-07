@@ -19,12 +19,13 @@ export const arrivalsUrl = (code, first) => `/api/arrivals?stops=${code}&for=${f
 /**
  * A stop's answer from /api/arrivals, which came at `seconds` (from
  * midnight): each bus due at seconds from midnight, so it counts down by
- * itself
+ * itself, and when it was said, as how late a bus comes depends on how far
+ * ahead it was (answer.js lateness)
  * @param {StopAnswer} answer @param {number} seconds @returns {StopLive}
  */
 export function stopLive({ arrivals = [], stale = false, unavailable = false }, seconds) {
     const buses = arrivals.map(({ route, line, minutes }) => ({ route, line, at: seconds + minutes * 60 }));
-    return { buses, ...(stale && { stale }), ...(unavailable && { unavailable }) };
+    return { buses, asked: seconds, ...(stale && { stale }), ...(unavailable && { unavailable }) };
 }
 
 /**

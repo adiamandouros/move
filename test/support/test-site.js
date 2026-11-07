@@ -141,6 +141,7 @@ export const site = ({ env = {}, ...overrides } = {}) => createApp({
 });
 // The site with /api/arrivals answered by `handler` instead
 const withArrivals = handler => express().get('/api/arrivals', handler).use(site());
+const QUICKER_STOP = '340016';
 const codesOf = req => String(req.query.stops ?? '').split(',');
 export const down = async () => { throw new Error('fake OASA: down'); };
 
@@ -159,6 +160,14 @@ export const scenarios = () => ({
     // OASA's answers as the Trip page's ways can match them (timetableArrivalsAt)
     'trip-live': withArrivals((req, res) => res.json({ stops: Object.fromEntries(codesOf(req).map(code => [code, {
         arrivals: timetableArrivalsAt(code).sort((a, b) => a.minutes - b.minutes),
+        updated: Date.now(),
+        stale: false,
+    }])) })),
+    // As 'trip-live', but only the quicker way's stop has buses coming, on
+    // the way from Σταύρου 1 to Μενελάου 45 at noon (Agia Foteini, off the
+    // T6 sooner): the Trip page offers it (decision 36)
+    'trip-quicker': withArrivals((req, res) => res.json({ stops: Object.fromEntries(codesOf(req).map(code => [code, {
+        arrivals: code === QUICKER_STOP ? timetableArrivalsAt(code).sort((a, b) => a.minutes - b.minutes) : [],
         updated: Date.now(),
         stale: false,
     }])) })),

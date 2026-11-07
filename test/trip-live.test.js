@@ -7,7 +7,8 @@ import { markupProblems } from './support/markup.js';
 // OASA's live times on the Trip page's way shown in full (decision 35): the
 // way timed again with them in the worker (liveWay in
 // tools/trip/client/buses.js), which stops are asked for and when (live.js,
-// decision 34), and the way drawn with them (render.js), in both languages.
+// decision 34), and the way drawn with them (render.js), in both languages;
+// and on a decision, the quicker way offered and taken (decision 36).
 // Over the test data's metro, tram and the buses between Kallithea and
 // Syntagma, on a Wednesday. The page's side: test/browser/trip.spec.js.
 
@@ -16,6 +17,7 @@ const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.
 const { cityPlanner, halfHour, halfView, LIVE_STOPS, liveWay, routeCodes, shownRows } = await browserModule('tools/trip/client/buses.js');
 const live = await browserModule('tools/trip/client/live.js');
 const { withTram } = await browserModule('tools/subway/client/network.js');
+const { latinName } = await browserModule('public/js/core/text.js');
 const network = withTram(rail);
 const city = cityPlanner(rail, buses, 3);
 
@@ -160,12 +162,12 @@ test('a stop is asked for by itself, the trip\'s first request saying it starts 
     assert.equal(live.arrivalsUrl('240115', false), '/api/arrivals?stops=240115&for=plan');
 });
 
-test('an answer\'s buses are due at a time of day, so they count down by themselves; one that couldn\'t be had says so', () => {
+test('an answer\'s buses are due at a time of day, so they count down by themselves, and say when they were said; one that couldn\'t be had says so', () => {
     const came = 10 * 3600;
     assert.deepEqual(live.stopLive({ arrivals: [{ route: '3922', line: '040', minutes: 4 }, { route: '3922', line: null, minutes: 0 }] }, came),
-        { buses: [{ route: '3922', line: '040', at: came + 4 * MIN }, { route: '3922', line: null, at: came }] });
-    assert.deepEqual(live.stopLive({ arrivals: [], stale: true }, came), { buses: [], stale: true });
-    assert.deepEqual(live.stopLive({ arrivals: [], unavailable: true }, came), { buses: [], unavailable: true });
+        { buses: [{ route: '3922', line: '040', at: came + 4 * MIN }, { route: '3922', line: null, at: came }], asked: came });
+    assert.deepEqual(live.stopLive({ arrivals: [], stale: true }, came), { buses: [], asked: came, stale: true });
+    assert.deepEqual(live.stopLive({ arrivals: [], unavailable: true }, came), { buses: [], asked: came, unavailable: true });
     // Asking failed: the last answer, possibly old, or none
     const last = { buses: [{ route: '3922', line: '040', at: came }] };
     assert.deepEqual(live.unanswered(last), { ...last, stale: true });
@@ -194,6 +196,89 @@ test('how often a stop is asked: by the first bus the rider can catch there, on 
     assert.deepEqual(due(32_000), ['soon', 'new', 'down'], 'due within 10 minutes, and none to be had: every 30 s');
     assert.deepEqual(due(62_000), ['soon', 'later', 'new', 'down'], 'within 20: every minute');
     assert.deepEqual(due(122_000), ['soon', 'later', 'far', 'none', 'new', 'down'], 'later or none: every 2 minutes');
+});
+
+// ── The quicker way on a decision (decision 36) ─────────────────────────────
+
+// From Σταύρου 1 to Μενελάου 45 at noon: the directions stay on the T6 to
+// Megalou Alexandrou for any bus there; the quicker way gets off at Agia
+// Foteini for any of its buses
+const stavrou = { lat: 37.9535, lng: 23.7255 };
+const menelaou45 = { lat: 37.955, lng: 23.707 };
+const NOON = at(12);
+const decided = answered(stavrou, menelaou45, NOON);
+const { decision } = decided;
+const [directions] = shownRows(decided);
+const DEPARTURE = directions.best.findIndex(Boolean);
+const QUICKER = codeOf(city.stops[decision.stop]);
+const offered = (stops, more = {}) => liveWay(city, stavrou, menelaou45, directions, DEPARTURE, NOON, stops, { decision, ...more });
+// The quicker way's bus: its line, and a route of it that gets to where it's left
+const [, OFF_BUS] = decision.getOff.best.find(Boolean).legs;
+const [QUICKER_ROUTE] = routesOf(OFF_BUS.line, decision.stop, OFF_BUS.alight);
+// Every stop asked answered with no bus, but the quicker way's: its buses due `after` seconds from noon
+const quickerBus = (after, more = {}) => Object.fromEntries(offered({}).asks.map(({ stop }) => [stop, stop === QUICKER
+    ? { buses: after.map(seconds => ({ route: QUICKER_ROUTE, line: OFF_BUS.line, at: NOON.seconds + seconds })), asked: NOON.seconds, ...more }
+    : { buses: [], asked: NOON.seconds }]));
+
+test('a decision whose directions have no bus to ask for of their own: the quicker way\'s stop is asked first, nothing offered before it answers', () => {
+    assert.equal(decided.kind, 'decision');
+    assert.equal(directions, decision.stayOn);
+    const way = offered({});
+    assert.equal(way.offer, null);
+    assert.deepEqual(way.asks[0], { stop: QUICKER, at: null });
+    // Then the stops of the directions' last bus, nearest first, as without the decision
+    const own = directions.stops.map(({ stop }) => codeOf(city.stops[stop])).slice(0, LIVE_STOPS);
+    assert.deepEqual(liveWay(city, stavrou, menelaou45, directions, DEPARTURE, NOON, {}).asks.map(({ stop }) => stop), own);
+    assert.deepEqual(way.asks.slice(1).map(({ stop }) => stop), own.filter(stop => stop !== QUICKER));
+});
+
+test('OASA has the quicker way\'s bus coming in time, and nothing as quick staying on: offered, how much sooner, where to get off it, the walk', () => {
+    const way = offered(quickerBus([16 * MIN, 31 * MIN]));
+    const off = decision.getOff.best.find(Boolean);
+    assert.equal(way.offer.line, OFF_BUS.line);
+    assert.equal(way.offer.at, NOON.seconds + 16 * MIN);
+    assert.ok(way.offer.sooner >= 180, `${way.offer.sooner} s`);
+    assert.deepEqual(way.offer.ride, { line: 'T6', mode: 'tram' });
+    assert.equal(way.offer.change.id, city.stops[off.legs[0].alight].id);
+    assert.equal(way.offer.stop.id, city.stops[decision.stop].id);
+    assert.equal(way.offer.walk.minutes, Math.max(1, Math.round(off.legs[1].walkBefore / 60)));
+    assert.deepEqual(way.asks[0], { stop: QUICKER, at: NOON.seconds + 16 * MIN }, 'asked again by when that bus comes');
+    // The directions stay as they are
+    assert.deepEqual(way.option, offered({}).option);
+});
+
+test('not offered: a bus gone before the tram gets there, one as soon staying on, an older answer, or none to be had', () => {
+    assert.equal(offered(quickerBus([MIN])).offer, null, 'gone');
+    // Staying on, any of its buses will do: sooner than one of them by the timetable isn't enough
+    assert.ok(offered(quickerBus([22 * MIN])).offer);
+    assert.equal(offered(quickerBus([24 * MIN])).offer, null, 'no sooner than the first of the directions\' buses');
+    assert.equal(offered(quickerBus([16 * MIN], { stale: true })).offer, null, 'older');
+    assert.equal(offered(quickerBus([], { unavailable: true })).offer, null, 'none to be had');
+    // A bus at the directions' own stops as soon: staying on is as quick
+    const stops = quickerBus([16 * MIN]);
+    for (const { stop, lines } of directions.stops) {
+        const [route] = routeCodes(city, lines, stop, new Set(city.near(menelaou45, 15 * MIN).filter((_, i) => i % 2 === 0)));
+        stops[codeOf(city.stops[stop])] = { buses: [{ route: route[0], line: route[1], at: NOON.seconds + 16 * MIN }], asked: NOON.seconds };
+    }
+    assert.equal(offered(stops).offer, null, 'as soon');
+    // Its line the other way, or a bus of a route the timetable doesn't have, isn't the quicker way's
+    const away = city.routes.find(route => route.line === OFF_BUS.line && route.code !== QUICKER_ROUTE && !route.stops.includes(decision.stop));
+    const other = quickerBus([16 * MIN]);
+    other[QUICKER].buses = [away?.code ?? '99999', '99999'].map(route => ({ route, line: OFF_BUS.line, at: NOON.seconds + 16 * MIN }));
+    assert.equal(offered(other).offer, null, 'not its route');
+});
+
+test('the quicker way taken: it\'s the way timed, from the same tram, with its own stops asked, and nothing more offered', () => {
+    const stops = quickerBus([16 * MIN]);
+    const taken = offered(stops, { taken: true });
+    const directed = offered(stops);
+    assert.equal(taken.offer, null);
+    assert.deepEqual(taken.option.rides[0].alight, city.stops[decision.getOff.best.find(Boolean).legs[0].alight], 'off the tram sooner');
+    assert.equal(taken.option.rides[0].boards, directed.option.rides[0].boards, 'the same tram');
+    assert.ok(taken.stops.some(({ stop, buses }) => stop.id === city.stops[decision.stop].id && buses?.[0]?.at === NOON.seconds + 16 * MIN), 'its bus at its stop');
+    assert.ok(taken.asks.some(({ stop }) => stop === QUICKER));
+    // The directions' bus ride can't be left, so there's nothing to take
+    assert.equal(liveWay(city, stavrou, menelaou45, directions, DEPARTURE, NOON, stops, { decision: { ...decision, getOff: { ...decision.getOff, best: decision.getOff.best.map(() => null) } }, taken: true }), null);
 });
 
 test('what\'s said above the answer: paused, none to be had anywhere, or older times', () => {
@@ -269,6 +354,51 @@ for (const lang of ['en', 'el']) {
         assert.ok(first.includes(`<span class="trip-live-bus"><span class="bus-plate pill-s">${line}</span> <span class="time-badge time-later">`), first);
         assert.ok(next.includes(s['trip.live-none']));
         assert.ok(html.includes(escaped(s['trip.live-estimates'])));
+    });
+
+    // From Σταύρου 1 to Μενελάου 45 at noon, a decision (decision 36)
+    const decidedView = view(halfView(city, stavrou, menelaou45, decided));
+    const decidedWays = r.halfWays(decidedView, NOON.seconds);
+    const target = { ...menelaou45, title: 'Μενελάου 45', exact: null };
+    const drawnDecided = (way, more = {}) => String(r.renderHalf(network, decidedView.kind, decidedWays, target, { live: way && { way: view(way), now: NOON.seconds }, ...more }));
+    const stopNamed = stop => lang === 'el' ? stop.names.el : stop.names.en || latinName(stop.names.el);
+
+    test(`${lang}: the quicker way offered under the directions: how much sooner, where to get off the tram for which bus, the walk, the choice`, () => {
+        const way = offered(quickerBus([16 * MIN]));
+        const html = drawnDecided(way, { offer: true });
+        check(html);
+        const [directed, offer] = html.split('<div class="trip-card" id="trip-quicker">');
+        assert.ok(directed.includes('<h2 class="trip-total" tabindex="-1">'), 'the directions first');
+        assert.ok(offer.includes(`<h2 class="trip-total trip-total-small">${s['trip.quicker-title'].replace('{minutes}', Math.floor(way.offer.sooner / 60))}</h2>`));
+        // Off the T6 at its stop, a tram's ("στη στάση" in Greek, not a station's)
+        assert.ok(offer.includes('line-t6'));
+        const change = network.stations[way.offer.change.station].name[lang];
+        assert.ok(offer.includes(escaped(s['trip.quicker-off'].split('{ride}')[1].replace('{change}', change))), change);
+        // For the bus, at its stop, by OASA's time, after the walk
+        assert.ok(offer.includes(`<span class="bus-plate pill-s">${OFF_BUS.line}</span>`));
+        assert.ok(offer.includes(escaped(s['trip.quicker-bus'].split('{bus}')[1]
+            .replace('{stop}', stopNamed(way.offer.stop)).replace('{time}', clock(way.offer.at)).replace('{minutes}', way.offer.walk.minutes))));
+        assert.ok(offer.includes(`<button type="button" id="trip-quicker-take" class="btn btn-primary btn-sm rounded-pill px-4">${escaped(s['trip.quicker-take'])}</button>`));
+        assert.ok(offer.includes(`<button type="button" id="trip-quicker-keep" class="btn btn-sm locate-btn">${escaped(s['trip.quicker-keep'])}</button>`));
+        // Kept, or none in time: the directions alone
+        assert.ok(!drawnDecided(way, { offer: false }).includes('trip-quicker'));
+        assert.ok(!drawnDecided(offered({}), { offer: true }).includes('trip-quicker'));
+    });
+
+    test(`${lang}: the quicker way taken: its steps in the directions' place, said, with the way back; before its live times, the half hour's own`, () => {
+        const taken = offered(quickerBus([16 * MIN]), { taken: true });
+        const html = drawnDecided(taken, { offer: true, taken: decidedView.quicker });
+        check(html);
+        assert.ok(html.includes(`<h2 class="trip-total" tabindex="-1">${r.rangeText(decidedView.quicker)}</h2>`));
+        assert.ok(html.includes(`<span class="trip-arrives">${escaped(s['trip.quicker-taken'])}</span>`));
+        assert.ok(html.includes(`<button type="button" id="trip-quicker-back" class="btn btn-sm locate-btn trip-stand">${escaped(s['trip.quicker-back'])}</button>`));
+        assert.ok(!html.includes('trip-quicker-take'), 'nothing more offered');
+        assert.ok(html.includes(`<span class="bus-plate pill-s">${OFF_BUS.line}</span> <span class="time-badge`), 'its bus with its minutes');
+        assert.ok(html.includes(escaped(s['trip.live-estimates'])));
+        const waiting = drawnDecided(null, { taken: decidedView.quicker });
+        check(waiting);
+        assert.ok(waiting.includes(escaped(s['trip.quicker-back'])) && waiting.includes(escaped(s['trip.any-bus-then'])));
+        assert.ok(waiting.includes(escaped(s['trip.bus-estimates'])));
     });
 
     test(`${lang}: paused, unavailable or older live times, said above the answer; paused with a button`, () => {

@@ -1685,6 +1685,24 @@ body {
     margin-top: var(--wh-space-2);
 }
 
+/* The quicker way offered on a decision (decision 36), under the
+   directions: what to do in a sentence, then the rider's choice */
+.trip-quicker-what {
+    margin: 0;
+}
+
+.trip-quicker-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--wh-space-2);
+}
+
+.trip-quicker-actions .locate-btn {
+    border: 1px solid var(--wh-control-edge);
+    border-radius: var(--wh-radius-round);
+    padding-inline: var(--wh-space-3);
+}
+
 .trip-credit {
     margin-top: var(--wh-space-4);
     font-size: var(--wh-fs-xs);

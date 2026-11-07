@@ -279,6 +279,76 @@ test.describe('the trip page', () => {
         });
     });
 
+    test.describe('on a decision, with the quicker way\'s bus coming', () => {
+        test.use({ scenario: 'trip-quicker' });
+
+        // From Σταύρου 1 to Μενελάου 45 at noon: the directions stay on the T6
+        // for a bus; the quicker way gets off sooner, at Agia Foteini, for one
+        // there, the only stop with buses coming (decision 36)
+        async function pickDecision(page, url = '/trip?buses', [fromName, toName] = ['From', 'To']) {
+            await page.goto(url);
+            await page.getByRole('combobox', { name: fromName }).fill('Σταύρου 1');
+            await list(page, 'from').first().click();
+            await page.getByRole('combobox', { name: toName }).fill('Μενελάου 45');
+            await list(page, 'to').first().click();
+        }
+        const offer = page => page.locator('#trip-quicker');
+
+        test('offered under the directions; taken, in their place with the way back; kept, gone for the trip', async ({ page }) => {
+            const { asks } = await watchRequests(page);
+            await pickDecision(page);
+            await expect(offer(page)).toContainText('A quicker way: about');
+            await expect(offer(page)).toContainText('Get off the');
+            await expect(offer(page).locator('.line-t6')).toBeVisible();
+            await expect(offer(page).locator('.bus-plate').first()).toBeVisible();
+            // The quicker way's stop first, the trip's first request
+            await page.waitForFunction(() => window.__pending === 0);
+            expect((await asks())[0]).toMatchObject({ code: '340016', for: 'plan-start' });
+            expect(await axe(page), 'axe-core violations').toEqual([]);
+
+            await page.getByRole('button', { name: 'Take the quicker way' }).click();
+            const best = page.locator('.trip-card').first();
+            await expect(best).toContainText('The quicker way');
+            await expect(offer(page)).toHaveCount(0);
+            await expect(best.locator('.trip-live .time-badge').first()).toBeVisible();
+            expect(await axe(page), 'axe-core violations').toEqual([]);
+
+            await page.getByRole('button', { name: 'Back to my route' }).click();
+            await expect(offer(page)).toBeVisible();
+            await expect(best).not.toContainText('The quicker way');
+            await page.getByRole('button', { name: 'Keep my route' }).click();
+            await expect(offer(page)).toHaveCount(0);
+            // For the rest of the trip: its live times asked again, and still nothing offered
+            const before = (await asks()).length;
+            await page.clock.runFor(130_000);
+            await expect.poll(async () => (await asks()).length).toBeGreaterThan(before);
+            await page.waitForFunction(() => window.__pending === 0);
+            await expect(offer(page)).toHaveCount(0);
+        });
+
+        test('from the keyboard alone: taking it and going back leave the keyboard on the choice', async ({ page }) => {
+            await pickDecision(page);
+            const take = page.getByRole('button', { name: 'Take the quicker way' });
+            await take.focus();
+            await page.keyboard.press('Enter');
+            const back = page.getByRole('button', { name: 'Back to my route' });
+            await expect(back).toBeFocused();
+            await page.keyboard.press('Enter');
+            await expect(take).toBeFocused();
+            const walk = await keyboardWalk(page);
+            expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
+        });
+
+        test('in Greek too', async ({ page }) => {
+            await pickDecision(page, '/el/trip?buses', ['Από', 'Προς']);
+            await expect(offer(page)).toContainText('Γρηγορότερος δρόμος: περίπου');
+            await expect(offer(page)).toContainText('στη στάση');
+            await page.getByRole('button', { name: 'Πάρε τον γρηγορότερο' }).click();
+            await expect(page.locator('.trip-card').first()).toContainText('Ο γρηγορότερος δρόμος');
+            await expect(page.getByRole('button', { name: 'Πίσω στη διαδρομή μου' })).toBeVisible();
+        });
+    });
+
     test.describe('with OASA down', () => {
         test.use({ scenario: 'oasa-down' });
 

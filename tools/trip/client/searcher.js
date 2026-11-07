@@ -6,8 +6,9 @@ import { busOptions, cityPlanner, halfHour, halfView, liveWay, shownRows } from 
 // half hour (answer.js, as the page shows it: halfView), a departure at a time. Only the latest trip is
 // answered, and a half hour stops for another trip's, not for the same trip
 // asked again (the page does that each minute). The latest half hour's way
-// shown in full is timed again with OASA's live times whenever the page asks
-// (liveWay, decision 35), without stopping a half hour being worked out. No
+// shown in full is timed again with OASA's live times whenever the page asks,
+// with the quicker way on a decision, or that way once the rider takes it
+// (liveWay, decision 36), without stopping a half hour being worked out. No
 // DOM, so it's tested in Node.
 
 /** @typedef {import('./buses.js').Point} Point */
@@ -17,10 +18,11 @@ import { busOptions, cityPlanner, halfHour, halfView, liveWay, shownRows } from 
  * tram or without it, decision 29); then each trip, `id` counting up, with
  * `half` when its half hour is wanted too; and the way of the half hour `id`
  * shown in full, its `row` for `departure`, timed with the live times `stops`
- * for leaving `now` (`seq` counting up, as only the latest counts)
+ * for leaving `now` (`seq` counting up, as only the latest counts), or
+ * `taken`: the quicker way the rider took in its place
  * @typedef {{ rail: import('../../../types/data.js').Rail }
  *   | { id: number, from: Point, to: Point, now: { weekday: number, seconds: number }, half: boolean }
- *   | { id: number, live: { seq: number, row: number, departure: number, now: { seconds: number }, stops: Record<string, import('./buses.js').StopLive> } }} Asked
+ *   | { id: number, live: { seq: number, row: number, departure: number, now: { seconds: number }, stops: Record<string, import('./buses.js').StopLive>, taken?: boolean } }} Asked
  */
 /**
  * What it answers: the ways with a bus for leaving now, with how long they
@@ -48,7 +50,8 @@ export function searcher({ loadBuses, post, pause = () => new Promise(resolve =>
     let city = null;
     let latest = 0;
     let latestHalf = 0;
-    // The latest half hour's answer, its rows as the page shows them, to time again with live times
+    // The latest half hour's answer, its rows as the page shows them and its
+    // decision, to time again with live times
     let shown = null;
 
     // How long making it took, or null when it was made before
@@ -66,11 +69,14 @@ export function searcher({ loadBuses, post, pause = () => new Promise(resolve =>
             return;
         }
         if ('live' in message) {
-            const { id, live: { seq, row, departure, now, stops } } = message;
+            const { id, live: { seq, row, departure, now, stops, taken = false } } = message;
             if (id !== shown?.id) return;
             let way = null;
             try {
-                way = shown.rows[row] ? liveWay(shown.planner, shown.from, shown.to, shown.rows[row], departure, now, stops) : null;
+                const full = shown.rows[row];
+                // The quicker way goes with the decision's directions
+                const decision = full && full === shown.decision?.stayOn ? shown.decision : null;
+                way = full ? liveWay(shown.planner, shown.from, shown.to, full, departure, now, stops, { decision, taken }) : null;
             } catch { /* the way as the half hour has it */ }
             post({ id, live: { seq, way } });
             return;
@@ -98,7 +104,7 @@ export function searcher({ loadBuses, post, pause = () => new Promise(resolve =>
                 if (id !== latestHalf) return;
                 step = steps.next();
             }
-            shown = { id, planner, from, to, rows: shownRows(step.value) };
+            shown = { id, planner, from, to, rows: shownRows(step.value), decision: step.value.decision ?? null };
             post({ id, half: { ...halfView(planner, from, to, step.value), ms: Math.round(clock() - started) } });
         } catch {
             if (id === latest) post({ id, error: true });

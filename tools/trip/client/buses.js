@@ -1,4 +1,4 @@
-import { answering } from '/tools/subway/answer.js';
+import { answering, quickerWay } from '/tools/subway/answer.js';
 import { AFTER_WALK_SECONDS, busDay, CHANGE_SECONDS, createPlanner, joinNetwork } from '/tools/subway/city.js';
 import { findWays, fold, secondsTo } from '/tools/subway/ways.js';
 import { cost } from '/tools/subway/weights.js';
@@ -6,8 +6,9 @@ import { cost } from '/tools/subway/weights.js';
 // The Trip page's ways with a bus (decision 31): the whole city's search
 // (city.js, decision 28) over OASA's timetable (buses.json, decision 30), for
 // leaving now, the next half hour's answer as the page shows it
-// (decision 33), and its way timed again with OASA's live times (decision
-// 35). No DOM, so it's tested in Node.
+// (decision 33), and its way timed again with OASA's live times, with the
+// quicker way on a decision when OASA has its bus coming in time (decision
+// 36). No DOM, so it's tested in Node.
 
 // How far from either end a stop is tried, as a station is (plan.js)
 const NEAR_SECONDS = 15 * 60;
@@ -55,24 +56,36 @@ const ON_THE_ROAD = new Set(['bus', 'trolley']);
 /**
  * The half hour's answer as the page shows it: what kind it is, the
  * departures tried (seconds from midnight), and its ways, the one it stands
- * for first
- * @typedef {{ kind: 'clear' | 'decision' | 'depends' | 'none', departures: number[], rows: HalfRow[] }} HalfView
+ * for first. On a decision, `quicker` is the way that leaves the first ride
+ * sooner for a bus, offered when OASA has it coming in time (liveWay); one
+ * of `rows` when it's shown among them
+ * @typedef {{ kind: 'clear' | 'decision' | 'depends' | 'none', departures: number[], rows: HalfRow[], quicker: HalfRow | null }} HalfView
  */
 /**
  * A stop's live times, as the page passes them on (live.js): each bus OASA
- * has coming, by its route, due `at` (seconds from midnight); stale: an older
- * answer, as OASA couldn't be reached; unavailable: none to be had
- * @typedef {{ buses: { route: string, line: string | null, at: number }[], stale?: boolean, unavailable?: boolean }} StopLive
+ * has coming, by its route, due `at`, as said at `asked` (both seconds from
+ * midnight); stale: an older answer, as OASA couldn't be reached;
+ * unavailable: none to be had
+ * @typedef {{ buses: { route: string, line: string | null, at: number }[], asked?: number, stale?: boolean, unavailable?: boolean }} StopLive
+ */
+/**
+ * The quicker way offered on a decision (decision 36): leave the first ride,
+ * `ride`, at `change` for the bus `line`, due at `stop` at `at` (seconds from
+ * midnight), `walk` from where it's left (null: the same stop), and get
+ * there about `sooner` seconds sooner than staying on
+ * @typedef {{ line: string, at: number, sooner: number, ride: { line: string, mode: string }, change: import('/tools/subway/city.js').Stop,
+ *   stop: import('/tools/subway/city.js').Stop, walk: Walk | null }} Offer
  */
 /**
  * The way shown in full, timed with OASA's live times (liveWay): as one of the
  * page's options; for a last bus that can be any of several, each stop it
  * leaves from with the first bus of each line the rider can catch there
  * (`buses`, the first to come first; null when the stop isn't answered);
- * and the stops to ask OASA for, each with when the first bus the rider can
- * catch there comes (null: none yet), for how often it's asked again
+ * the stops to ask OASA for, each with when the first bus the rider can
+ * catch there comes (null: none yet), for how often it's asked again; and
+ * on a decision, the quicker way when OASA has its bus coming in time
  * @typedef {{ option: BusOption, stops: { stop: import('/tools/subway/city.js').Stop, walk: Walk | null, lines: string[], buses: { line: string, at: number }[] | null }[],
- *   asks: { stop: string, at: number | null }[] }} LiveWay
+ *   asks: { stop: string, at: number | null }[], offer: Offer | null }} LiveWay
  */
 
 /** @param {number} seconds @returns {Walk | null} */
@@ -157,25 +170,26 @@ const SHOWN = 3;
  * The half hour's answer as the page shows it (decision 33): the way it
  * stands for first (the clear way, the directions that stay on, or the first
  * by the weights when it depends), then the others by the weights, up to 3,
- * leaving out any that's never within a tie of the quickest
+ * leaving out any that's never within a tie of the quickest; on a decision,
+ * the way that leaves the first ride sooner too
  * @param {Planner} planner @param {Point} from @param {Point} to @param {import('/tools/subway/answer.js').Answer} answer
  * @returns {HalfView}
  */
 export function halfView(planner, from, to, answer) {
     const [access, egress] = ends(planner, from, to);
-    const { kind, departures } = answer;
+    const { kind, departures, decision } = answer;
     const shown = shownRows(answer);
-    return {
-        kind,
-        departures,
-        rows: shown.map(({ range, bundle, lines, stops, best }) => ({
-            range,
-            bundle,
-            lines,
-            stops: stops.map(({ stop, walk, lines: at }) => ({ stop: planner.stops[stop], walk: walkOf(walk), lines: at })),
-            options: best.map((way, d) => way && cityOption(planner, way, access, egress, departures[d], linesOf(way, bundle, lines))),
-        })),
-    };
+    /** @param {import('/tools/subway/answer.js').Row} row @returns {HalfRow} */
+    const halfRow = ({ range, bundle, lines, stops, best }) => ({
+        range,
+        bundle,
+        lines,
+        stops: stops.map(({ stop, walk, lines: at }) => ({ stop: planner.stops[stop], walk: walkOf(walk), lines: at })),
+        options: best.map((way, d) => way && cityOption(planner, way, access, egress, departures[d], linesOf(way, bundle, lines))),
+    });
+    const rows = shown.map(halfRow);
+    const quicker = decision ? rows[shown.indexOf(decision.getOff)] ?? halfRow(decision.getOff) : null;
+    return { kind, departures, rows, quicker };
 }
 
 /**
@@ -234,16 +248,25 @@ const catchable = (live, codes, ready) => (live?.buses ?? [])
  * for `departure`. A last bus that can be any of several isn't timed, as on
  * the page: its stops come with the buses the rider can catch at each, those
  * with one first, by when it comes, then the others, nearest first (the
- * rider's rule, 6 Nov). Asked for: the stops of the rides by bus, then of a
- * last bus that can be any of several, nearest first, at most LIVE_STOPS
+ * rider's rule, 6 Nov). On a `decision` whose directions `row` is, the
+ * quicker way is offered when OASA has its bus coming in time (quickerWay in
+ * answer.js), from the first ride as it's timed now; `taken`: the rider took
+ * it, so it's the way timed instead (decision 36). Asked for: the stops of
+ * the rides by bus, then the decision's bus stop, then those of a last bus
+ * that can be any of several, nearest first, at most LIVE_STOPS
  * @param {Planner} planner @param {Point} from @param {Point} to
  * @param {import('/tools/subway/answer.js').Row} row @param {number} departure
  * @param {{ seconds: number }} now @param {Record<string, StopLive>} live
+ * @param {{ decision?: import('/tools/subway/answer.js').Decision | null, taken?: boolean }} [options]
  * @returns {LiveWay | null}
  */
-export function liveWay(planner, from, to, row, departure, now, live) {
+export function liveWay(planner, from, to, row, departure, now, live, { decision = null, taken = false } = {}) {
     const way = row.best[departure];
     if (!way) return null;
+    if (decision && taken) {
+        const off = leavingSooner(decision, way, departure);
+        return off < 0 ? null : liveWay(planner, from, to, decision.getOff, off, now, live);
+    }
     const [access, egress] = ends(planner, from, to);
     const last = way.legs.length - 1;
     const asks = new Map();
@@ -276,6 +299,9 @@ export function liveWay(planner, from, to, row, departure, now, live) {
     option.rides.forEach((ride, i) => { if (said[i]) ride.live = said[i]; });
 
     const doors = new Set(egress.filter((_, i) => i % 2 === 0));
+    // On a decision, where the quicker way would catch its bus: asked before a last bus's stops
+    const quick = decision && quickerBus(planner, decision, way, departure, legs[0], doors);
+    if (quick) ask(quick.code, catchable(live[quick.code], quick.codes, quick.ready)[0]?.at ?? null);
     const stops = row.bundle ? row.stops.map(({ stop, walk, lines }) => {
         const ready = last ? legs[last - 1].arrives + (walk ? walk + AFTER_WALK_SECONDS : CHANGE_SECONDS) : now.seconds + walk;
         const code = codeOf(planner.stops[stop]);
@@ -291,5 +317,82 @@ export function liveWay(planner, from, to, row, departure, now, live) {
         option,
         stops: [...coming, ...stops.filter(stop => !coming.includes(stop))],
         asks: [...asks].map(([stop, at]) => ({ stop, at })),
+        offer: quick ? offerOf(quick, stayingOn(planner, row, legs, egress, stops, option.arrives), live[quick.code]) : null,
     };
+}
+
+/**
+ * When staying on gets to the door: as the way is timed now, `arrives`, or
+ * when its last bus can be any of several, with the first of them to get
+ * there from the change, by the timetable or by OASA's buses at its stops,
+ * `stops`, as liveWay has them. The earliest, so a quicker way is offered too
+ * rarely rather than too often
+ * @param {Planner} planner @param {import('/tools/subway/answer.js').Row} row @param {{ alight: number, arrives: number }[]} legs
+ * @param {number[]} egress @param {LiveWay['stops']} stops @param {number} arrives
+ */
+function stayingOn(planner, row, legs, egress, stops, arrives) {
+    if (!row.bundle || legs.length < 2) return arrives;
+    const change = legs.at(-2);
+    const rides = new Map(planner.onwardRides(change.alight, change.arrives, egress)
+        .filter(({ leg }) => row.lines.includes(leg.line))
+        .map(ride => [ride.leg.line, ride]));
+    // A bus OASA has coming takes as long to the door as its line's ride
+    const live = stops.flatMap(({ buses }) => buses ?? []).filter(bus => rides.has(bus.line))
+        .map(bus => bus.at + rides.get(bus.line).at - rides.get(bus.line).leg.boards);
+    return Math.min(arrives, ...[...rides.values()].map(ride => ride.at), ...live);
+}
+
+// Which departure of the decision's quicker way leaves the same first ride
+// as `way` sooner: `departure`'s, or else the first that does. -1 when none
+/** @param {import('/tools/subway/answer.js').Decision} decision @param {import('/tools/subway/ways.js').Way} way @param {number} departure */
+function leavingSooner({ getOff }, way, departure) {
+    const [first] = way.legs;
+    const same = off => off && off.legs[0].line === first.line && off.legs[0].board === first.board;
+    return same(getOff.best[departure]) ? departure : getOff.best.findIndex(same);
+}
+
+/**
+ * The bus the quicker way on `decision` would catch, for the directions
+ * `way` as their first ride, `first`, is timed now: where (`code`), OASA's
+ * routes of its lines that call there and later near the door or where the
+ * quicker way gets off (`codes`), and from when the rider can be there,
+ * `ready`. Null when the quicker way doesn't leave that ride
+ * @param {Planner} planner @param {import('/tools/subway/answer.js').Decision} decision
+ * @param {import('/tools/subway/ways.js').Way} way @param {number} departure
+ * @param {{ line: string, mode: string, board: number, boards: number }} first @param {Set<number>} doors
+ */
+function quickerBus(planner, decision, way, departure, first, doors) {
+    const off = decision.getOff.best[leavingSooner(decision, way, departure)];
+    if (!off) return null;
+    const [leave, onward] = off.legs;
+    // As long a ride to the change as the timetable's from when the first ride leaves
+    const [timed] = planner.ride([leave], first.boards) ?? [];
+    if (!timed) return null;
+    const reaches = first.boards + timed.arrives - timed.boards;
+    const gets = new Set([...doors, ...decision.getOff.best.flatMap(each => each ? [each.legs[1].alight] : [])]);
+    return {
+        decision, first, leave, onward, reaches,
+        ready: reaches + (onward.walkBefore ? onward.walkBefore + AFTER_WALK_SECONDS : CHANGE_SECONDS),
+        // From the bus leaving to the door takes the same whenever it leaves
+        rest: off.at - onward.boards,
+        code: codeOf(planner.stops[onward.board]),
+        codes: routeCodes(planner, decision.lines, onward.board, gets),
+        change: planner.stops[leave.alight],
+        stop: planner.stops[onward.board],
+    };
+}
+
+/**
+ * The quicker way offered (quickerWay in answer.js), from `quick`'s stop's
+ * live times, `answer`, against staying on to the door at `staying`; an
+ * older answer offers nothing
+ * @param {NonNullable<ReturnType<typeof quickerBus>>} quick @param {number} staying @param {StopLive | undefined} answer
+ * @returns {Offer | null}
+ */
+function offerOf({ decision, first, onward, reaches, ready, rest, codes, change, stop }, staying, answer) {
+    if (!answer || answer.stale) return null;
+    const predictions = answer.buses.filter(bus => codes.has(bus.route)).map(bus => ({ line: codes.get(bus.route), at: bus.at }));
+    const found = quickerWay({ lines: decision.lines, ready, latest: staying - rest, reaches }, predictions, answer.asked);
+    if (!found.offer) return null;
+    return { line: found.line, at: found.at, sooner: found.sooner, ride: { line: first.line, mode: first.mode }, change, stop, walk: walkOf(onward.walkBefore) };
 }
