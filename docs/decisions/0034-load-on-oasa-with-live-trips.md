@@ -1,6 +1,6 @@
 # 34. Our load on OASA and STASY, with the Trip page's live times
 
-Decided 2026-11-06 · In force
+Decided 2026-11-06 · Replaced by [38](0038-load-on-oasa-buses-for-everyone.md)
 
 ## Situation
 
@@ -44,7 +44,7 @@ proposed and agreed before it is built.
   asks only for the stops opened, and searching asks nothing.
 - **The trip finder** shows at most 5 lines, each from the stop nearest you
   where it calls to the stop nearest the destination after it: at most 10
-  stops ([trips.js](../../tools/buses/client/trips.js)). The stop you board
+  stops (`trips.js`, removed with [39](0039-trip-buses-for-everyone.md)). The stop you board
   at is refreshed by when that line's next bus comes, as on the bus page;
   the stop you get off at, only used to tell how long the ride is, once a
   minute. It stops after 10 minutes without a touch, like the bus page, and

@@ -278,7 +278,7 @@ function stationData(rail, id, lang, s, origin) {
  * @returns {import('../../types/pages.js').Page}
  */
 export function stationPage(rail, id, { tools, origin = '' }) {
-    const common = { active: 'subway', ad: 'station', strings: mergeStrings(STATION_STRINGS, tools.find(t => t.id === 'subway')?.strings ?? {}) };
+    const common = { active: 'subway', ad: 'station', readyBuses: true, strings: mergeStrings(STATION_STRINGS, tools.find(t => t.id === 'subway')?.strings ?? {}) };
     if (!id) {
         return {
             ...common, path: STATIONS_PATH, title: 'stations.title', description: 'stations.index-description',

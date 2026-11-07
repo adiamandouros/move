@@ -24,13 +24,9 @@ const REFRESH_MS = 60_000;
 const HALF_REWORK_SECONDS = 600;
 // How often the live times' stops are checked for being due (live.js), as on the Buses page
 const TICK_MS = 1_000;
-// Buses only on /trip?buses for now, and on /trip?timing, which also says how
-// long they take on this device (roadmap Plan 7): their August timetable is
-// too quick in traffic until enough rides are measured (decision 31). Not
-// remembered, so nothing more is kept on the device.
-const asked = new URLSearchParams(location.search);
-const TIMING = asked.has('timing');
-const BUSES = TIMING || asked.has('buses');
+// Buses for everyone (decision 39). /trip?timing also says how long their
+// searches take on this device, for phone tests (roadmap Plan 7)
+const TIMING = new URLSearchParams(location.search).has('timing');
 
 async function loadJson(url) {
     const response = await fetch(url);
@@ -104,9 +100,9 @@ function start(metro) {
     let to = null;
     // The fields are back, with the answer still under them
     let changing = false;
-    let searches = BUSES ? startSearches(hidden ? { ...metro, tram: undefined } : metro) : null;
+    let searches = startSearches(hidden ? { ...metro, tram: undefined } : metro);
     /** @type {boolean | 'updated'} */
-    let noBuses = BUSES && !searches;
+    let noBuses = !searches;
     // What's been asked of the searches: the latest trip, and the latest half
     // hour (only the latest of each is answered); the latest answer, the ways
     // with a bus for leaving at its `now`; and the latest half hour's answer.

@@ -214,7 +214,7 @@ test('the usage page: a day per row, newest first, and each route\'s answers per
     assert.deepEqual(view.asked[1], {
         date: '2026-10-30', requests: 2, firstLooks: 1, refreshes: 1, routeNames: 0, routeTests: 0, network: '–',
         fromCache: '67%', stops: 2, mostAtOnce: 2, longestWait: '2.4 s', busyMinutes: '1 / 0', dropped: '1 (in 1 min)', paused: 0, limited: 0,
-        tripSearches: 0, tripAsked: 0, tripPerSearch: '–', planSearches: 0, planAsked: 0, planPerSearch: '–', collector: 0, collectorSkipped: 0, passes: 0,
+        planSearches: 0, planAsked: 0, planPerSearch: '–', collector: 0, collectorSkipped: 0, passes: 0,
     });
     assert.deepEqual(view.answered, [
         { date: '2026-10-31', route: 'home relay', ok: 0, failed: 1, half: 'over 8 s', most: 'over 8 s', downMinutes: 1 },
@@ -229,49 +229,28 @@ test('the usage page: a day per row, newest first, and each route\'s answers per
     assert.match(view_(usageView({})), /<p>Nothing has been counted yet\.<\/p>/);
 });
 
-test('the trip finder: its searches and its stop answers by source, per day; days from before it show none', () => {
-    const c = clock(Date.parse('2026-10-30T10:00:00Z'));
-    const file = tempFile();
-    // A day kept before the trip finder
-    writeFileSync(file, JSON.stringify({ days: { '2026-10-29': { ...createUsage({ now: c.now }).status().today, trips: undefined } } }));
-    const usage = createUsage({ file, now: c.now });
-    usage.tripSearch();
-    for (const source of ['oasa', 'oasa', 'oasa', 'cache']) usage.tripAnswer(source);
-    c.advance(MIN);
-    usage.tripSearch();
-    usage.tripAnswer('oasa');
-    usage.tripAnswer('none');
-
-    assert.deepEqual(usage.status().hour.trips, { searches: 2, answers: { oasa: 4, cache: 1, old: 0, none: 1 } });
-    const view = usageView(usage.days());
-    assert.deepEqual(view.asked.map(d => [d.date, d.tripSearches, d.tripAsked, d.tripPerSearch]), [
-        ['2026-10-30', 2, 4, '2.0'],
-        ['2026-10-29', '–', '–', '–'],
-    ]);
-    assert.match(view_(view), /<th scope="col">Asked of OASA per trip finder search<\/th>/);
-});
-
-test('the Trip page\'s live times: counted apart from the trip finder\'s; days from before them show none', () => {
+test('the Trip page\'s live times: its searches and its stop answers by source, per day; days from before them show none, and the trip finder\'s aren\'t shown', () => {
     const c = clock(Date.parse('2026-11-06T10:00:00Z'));
     const file = tempFile();
-    // A day kept before the Trip page's live times
-    writeFileSync(file, JSON.stringify({ days: { '2026-11-05': { ...createUsage({ now: c.now }).status().today, plans: undefined } } }));
+    // A day kept before the Trip page's live times, with the bus trip
+    // finder's counts, from before decision 39
+    const finder = { searches: 4, answers: { oasa: 9, cache: 1, old: 0, none: 0 } };
+    writeFileSync(file, JSON.stringify({ days: { '2026-11-05': { ...createUsage({ now: c.now }).status().today, plans: undefined, trips: finder } } }));
     const usage = createUsage({ file, now: c.now });
-    usage.tripSearch('plans');
-    for (const source of ['oasa', 'oasa', 'oasa', 'cache', 'old']) usage.tripAnswer(source, 'plans');
     usage.tripSearch();
-    usage.tripAnswer('oasa');
+    for (const source of ['oasa', 'oasa', 'oasa', 'cache', 'old']) usage.tripAnswer(source);
 
     assert.deepEqual(usage.status().hour.plans, { searches: 1, answers: { oasa: 3, cache: 1, old: 1, none: 0 } });
-    assert.deepEqual(usage.status().hour.trips, { searches: 1, answers: { oasa: 1, cache: 0, old: 0, none: 0 } });
+    assert.equal(usage.status().hour.trips, undefined);
     const view = usageView(usage.days());
-    assert.deepEqual(view.asked.map(d => [d.date, d.planSearches, d.planAsked, d.planPerSearch, d.tripSearches]), [
-        ['2026-11-06', 1, 3, '3.0', 1],
-        ['2026-11-05', '–', '–', '–', 0],
+    assert.deepEqual(view.asked.map(d => [d.date, d.planSearches, d.planAsked, d.planPerSearch]), [
+        ['2026-11-06', 1, 3, '3.0'],
+        ['2026-11-05', '–', '–', '–'],
     ]);
     const html = view_(view);
     assert.match(html, /<th scope="col">Asked of OASA per Trip page search<\/th>/);
-    assert.match(html, /<td>1<\/td>\s*<td>1<\/td>\s*<td>1\.0<\/td>\s*<td>1<\/td>\s*<td>3<\/td>\s*<td>3\.0<\/td>/, 'the trip finder\'s columns, then the Trip page\'s');
+    assert.match(html, /<td>1<\/td>\s*<td>3<\/td>\s*<td>3\.0<\/td>/, 'the Trip page\'s columns');
+    assert.doesNotMatch(html, /trip finder/i);
 });
 
 test('how far ahead OASA predicts: per line, the most minutes in the day, across minutes and restarts', () => {

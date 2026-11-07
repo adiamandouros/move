@@ -15,6 +15,9 @@ import { robotsTxt, sitemapXml } from './seo.js';
 import { railReader } from './rail-file.js';
 import { createStationPages } from './stations.js';
 
+// Fetches the Trip page's buses.json in the background, on the pages marked readyBuses (decision 39)
+const READY_BUSES = '/js/core/ready-buses.js';
+
 // The public pages, and what goes with them: the service worker, robots.txt,
 // the sitemap and the tools' browser files. How it fits together:
 //   registry.js         the list of pages
@@ -55,9 +58,10 @@ export function renderPages(tools = loadTools(), config = loadConfig({}), rail =
             title: format(s(page.title), values),
             description: page.description ? format(s(page.description), values) : '',
             content: page.content(lang, strings),
-            // Its own strings go to the browser only for its own scripts
+            // Its own strings go to the browser only for its own scripts;
+            // ready-buses.js needs none
             strings: page.scripts?.length ? page.strings : undefined,
-            scripts: page.scripts,
+            scripts: [...page.scripts ?? [], ...page.readyBuses ? [READY_BUSES] : []],
             structuredData: page.structuredData?.(lang, s) ?? null,
             active: page.active,
             ad: page.ad,

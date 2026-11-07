@@ -3,7 +3,6 @@ import { html, icon, notice, setHtml } from '/js/core/html.js';
 import { t } from '/js/core/i18n.js';
 import { distance, message, patchStop, stopItem } from './render.js';
 import { countDown, dueStops, elapsedMinutes, isIdle } from './timing.js';
-import { tripDue, tripStops } from './trips.js';
 
 // What every view of the bus page shares (views/): the page's state, the
 // stop list drawn in it and the polling that keeps its live times up to date.
@@ -21,12 +20,10 @@ export const lineBar = $('line-bar');
 export const input = /** @type {HTMLInputElement} */ ($('bus-search-input'));
 
 // What the page shows, from its address: the stops nearby (/buses), one stop
-// (?stop=10341), a line's stops in order (?line=040, &dir=1 the other way) or
-// the trip finder (?trip, &to= a stop or "station:<id>", &from= a stop,
-// &pick=from while the start is being picked)
+// (?stop=10341) or a line's stops in order (?line=040, &dir=1 the other way).
+// A link to the trip finder (?trip, gone with decision 39) shows the stops nearby
 export function readView() {
     const params = new URLSearchParams(location.search);
-    if (params.has('trip')) return { kind: 'trip', to: params.get('to'), from: params.get('from'), pick: params.get('pick') };
     if (params.get('stop')) return { kind: 'stop', code: params.get('stop') };
     if (params.get('line')) return { kind: 'line', line: params.get('line'), direction: params.get('dir') === '1' ? 1 : 0 };
     return { kind: 'nearby' };
@@ -71,12 +68,7 @@ export const state = {
     shownResults: RESULTS_SIZE,
     // Each view drawn gets a number, so a line that loads late is drawn only if it's still wanted
     drawn: 0,
-    // The trip finder's options (views/trip.js), and whether its search's first request has gone
-    trip: { /** @type {import('./trips.js').TripOption[]} */ options: [], started: false },
 };
-
-// What the trip view draws when an answer comes in or a minute passes (set by views/trip.js)
-export const hooks = { drawTrip: () => {} };
 
 // ── Rendering ───────────────────────────────────────────────────────────────
 
@@ -128,8 +120,8 @@ export function applyFilter() {
     btn.querySelector('span').textContent = t(state.hideEmpty ? 'buses.show-all' : 'buses.hide-empty');
 }
 
-// The stops whose answers are on screen: the trip's, or those listed
-const shownCodes = () => state.view.kind === 'trip' ? tripStops(state.trip.options) : listed().map(s => s.code);
+// The stops whose answers are on screen
+const shownCodes = () => listed().map(s => s.code);
 
 function renderStatus() {
     const el = $('bus-status');
@@ -209,12 +201,6 @@ const watched = code => itemsOf(code).some(item => state.onScreen.has(item) || i
 // Ask for the stops that are due (dueStops in timing.js). Nothing while
 // paused, out of sight, or while a search covers them.
 export function poll() {
-    if (state.view.kind === 'trip') {
-        if (state.paused || document.hidden) return;
-        const { asking, asked, fetched, results } = state;
-        for (const code of tripDue({ options: state.trip.options, asking, asked, fetched, results }, Date.now())) ask(code);
-        return;
-    }
     const codes = listed().map(stop => stop.code);
     if (state.paused || document.hidden || !codes.length || busView.hidden) return;
     const { asking, asked, fetched, results } = state;
@@ -233,14 +219,8 @@ export function poll() {
 // second), so a single request for all of them waited for the slowest.
 async function ask(code) {
     state.asking.add(code);
-    // The trip finder's requests say so, the first of a search too (counted apart: server/oasa/usage.js)
-    let purpose = '';
-    if (state.view.kind === 'trip') {
-        purpose = state.trip.started ? '&for=trip' : '&for=trip-start';
-        state.trip.started = true;
-    }
     try {
-        const res = await fetch(`/api/arrivals?stops=${code}${purpose}`, { signal: AbortSignal.timeout(20_000) });
+        const res = await fetch(`/api/arrivals?stops=${code}`, { signal: AbortSignal.timeout(20_000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         Object.assign(state.results, (await res.json()).stops);
         state.fetched[code] = Date.now();
@@ -258,11 +238,6 @@ async function ask(code) {
     }
     state.asked[code] = Date.now();
     state.asking.delete(code);
-    if (state.view.kind === 'trip') {
-        hooks.drawTrip();
-        renderStatus();
-        return;
-    }
     const items = itemsOf(code);
     if (!items.length) return; // the stops changed meanwhile
     for (const item of items) patchStop(item, shown(code), { waiting: waiting(code) });
@@ -280,10 +255,6 @@ export function tick() {
     }
     poll();
     // A minute has passed for a stop: count its arrivals down
-    if (state.view.kind === 'trip') {
-        if (tripStops(state.trip.options).some(code => elapsed(code) !== state.drawnElapsed[code])) hooks.drawTrip();
-        return;
-    }
     if (listed().some(stop => elapsed(stop.code) !== state.drawnElapsed[stop.code])) patchAll();
 }
 

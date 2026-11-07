@@ -1,6 +1,6 @@
 # 37. The trip page: one walking estimate, the straight line × 1.4, the buses behind a switch for now
 
-Decided 2026-11-07 · In force
+Decided 2026-11-07 · Replaced by [39](0039-trip-buses-for-everyone.md)
 
 ## Situation
 

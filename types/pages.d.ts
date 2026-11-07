@@ -30,6 +30,8 @@ export interface Tool {
     ad?: string;
     /** Drawn from rail.json too: its data.json "lastTrains" rows get their times (server/pages/last-trains.js) */
     rail?: boolean;
+    /** Fetches the Trip page's buses.json in the background (/js/core/ready-buses.js) */
+    readyBuses?: boolean;
     /** Full path of page.hbs, its view (server/pages/templates.js) */
     view: string;
     /** strings.json */
@@ -64,6 +66,8 @@ export interface Page {
     ad?: string;
     /** Drawn from rail.json, so drawn again when that changes */
     rail?: boolean;
+    /** Fetches the Trip page's buses.json in the background (/js/core/ready-buses.js, decision 39) */
+    readyBuses?: boolean;
 }
 
 /** What render() (server/pages/layout.js) takes */

@@ -2,7 +2,7 @@ import { refreshEvery } from '/tools/buses/timing.js';
 
 // OASA's live times for the way the Trip page shows in full (decision 35):
 // how a stop is asked for, what its answer says, and when it's due again.
-// How often is agreed (6 Nov 2026, decision 34): the Buses page's tiers
+// How often is agreed (6 Nov 2026, decision 34; kept in 38): the Buses page's tiers
 // (timing.js), set by the first bus of the way's lines the rider can still
 // catch there, so a change far down the trip costs little until it nears.
 // No DOM, so it's tested in Node; main.js asks and draws.
