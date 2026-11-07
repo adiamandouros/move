@@ -36,7 +36,8 @@ export function arrivalsAt(code) {
 
 export const oasaClient = {
     async request(act, code) {
-        if (act === 'getStopArrivals') return arrivalsAt(code).map((a, i) => ({ route_code: a.route, veh_code: `${i}`, btime2: `${a.minutes}` }));
+        // Its codes and minutes as numbers, as OASA sends them
+        if (act === 'getStopArrivals') return arrivalsAt(code).map((a, i) => ({ route_code: Number(a.route), veh_code: i, btime2: a.minutes }));
         if (act === 'webRoutesForStop') {
             return (linesOf.get(code) ?? []).map((line, i) => ({
                 RouteCode: `${code}${i}`, LineID: line, RouteDescr: 'ΣΥΝΤΑΓΜΑ - ΚΗΦΙΣΙΑ', RouteDescrEng: 'SYNTAGMA - KIFISIA',

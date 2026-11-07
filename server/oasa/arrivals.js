@@ -17,6 +17,9 @@ import { writeFileAtomic } from '../files.js';
 // Arrivals only carry OASA's internal route code, so line numbers and
 // destinations come from a route table filled from webRoutesForStop and kept
 // on disk; route codes rarely change, so each is looked up about once a week.
+// OASA sends its route and vehicle codes as numbers (seen 6 Nov 2026); they
+// go on as strings, as every route code of ours is (bus-lines.json,
+// buses.json, the passes), so they can be compared.
 // Each answer is counted by where it came from (`usage`, server/oasa/usage.js).
 
 export const ARRIVALS_TTL_MS = 30_000;
@@ -80,8 +83,8 @@ export function createArrivals({ client, routesFile, passes = null, now = Date.n
             .map(a => {
                 const route = routes[a.route_code];
                 return {
-                    route: a.route_code,
-                    vehicle: a.veh_code,
+                    route: code(a.route_code),
+                    vehicle: code(a.veh_code),
                     minutes: Number(a.btime2),
                     line: route?.line ?? null,
                     to: route ? { el: route.el, en: route.en } : null,
@@ -161,6 +164,9 @@ export function createArrivals({ client, routesFile, passes = null, now = Date.n
 
     return { stopArrivals, isCached };
 }
+
+// One of OASA's codes as a string, whether it came as a number or not
+const code = value => value === null || value === undefined ? value : String(value);
 
 // Bring an old answer up to date: subtract the minutes that have passed since
 // it was fetched, and drop buses that should already have arrived
