@@ -4,6 +4,7 @@
 // hangs (underground, no signal: requests get no answer, not an error) doesn't
 // keep anyone waiting.
 import { axe, expect, test } from './fixtures.js';
+import { pickBoth } from './trip-page.js';
 
 test.use({ serviceWorkers: 'allow' });
 test.beforeEach(({}, { project }) => test.skip(project.name === 'iphone', 'Playwright drives service workers in Chromium only'));
@@ -100,12 +101,10 @@ test('a worker\'s own scripts come from the server each time, not from an older 
     await expect.poll(() => asked.length).toBe(2);
 });
 
-test('a new version installs in the background: the open page is not reloaded', async ({ page }) => {
-    await installed(page);
-    await page.evaluate(() => { window.untouched = true; });
-
-    // A worker from another address stands in for the one a deploy brings
-    const state = await page.evaluate(async () => {
+// The version a deploy brings, installed in the background from `page`: a
+// worker from another address stands in for it. It waits while `page` is open
+async function newVersionWaiting(page) {
+    return page.evaluate(async () => {
         const registration = await navigator.serviceWorker.register('/sw.js?next');
         const worker = registration.installing ?? registration.waiting;
         await new Promise(resolve => {
@@ -115,8 +114,41 @@ test('a new version installs in the background: the open page is not reloaded', 
         await new Promise(resolve => setTimeout(resolve, 500));
         return { waiting: registration.waiting?.state, active: registration.active?.scriptURL };
     });
+}
+
+test('a new version installs in the background: the open page is not reloaded', async ({ page }) => {
+    await installed(page);
+    await page.evaluate(() => { window.untouched = true; });
+
+    const state = await newVersionWaiting(page);
 
     expect(state.waiting).toBe('installed');
     expect(state.active).toMatch(/\/sw\.js$/);
     expect(await page.evaluate(() => window.untouched)).toBe(true);
+});
+
+// The Trip page's searches as an older copy kept by a service worker from
+// before they came from the server first (6 Nov 2026): they failed every trip
+const OLD_SEARCHER = 'export const searcher = ({ post }) => message => { if (\'from\' in message) post({ id: message.id, error: true }); };';
+
+test('the Trip page\'s bus searches failing with a newer version waiting: it says to close Wayhop and open it again', async ({ page, context }) => {
+    await installed(page);
+    await context.route('**/tools/trip/searcher.js', route => route.fulfill({ contentType: 'text/javascript', body: OLD_SEARCHER }));
+    const failed = text => text.getByText('The bus times couldn\'t be loaded');
+    const updated = text => text.getByText('Wayhop has been updated.');
+
+    // Nothing newer: the times couldn't be loaded
+    await pickBoth(page, '/trip?buses');
+    await expect(failed(page)).toBeVisible();
+    await expect(updated(page)).toHaveCount(0);
+
+    // A newer version waiting while this page is open, and the trip again on another
+    await newVersionWaiting(page);
+    const other = await context.newPage();
+    await pickBoth(other, '/trip?buses');
+    await expect(updated(other)).toBeVisible();
+    await expect(updated(other)).toContainText('Close it everywhere it\'s open, every tab and the app, then open it again for the buses.');
+    await expect(failed(other)).toHaveCount(0);
+    await expect(other.locator('.trip-card').first()).toBeVisible();
+    expect(await axe(other)).toEqual([]);
 });

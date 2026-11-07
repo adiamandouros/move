@@ -271,7 +271,11 @@ requests hang instead of failing. A page fetched because it was opened carries a
 `Wayhop-Opened` header, so the server counts it and not the copies cached at
 install. `/api` and `/admin` are never cached. Scripts asked for without a `?v=` (only a worker's imports are, as the
 page's import map doesn't reach a worker) come from the server first, so
-they're the same deploy as the page. Each deploy changes
+they're the same deploy as the page. A service worker from before that
+served them from its cache, so the Trip page's searches could be an older
+copy that fails: when they fail and a newer version waits, the page says to
+close Wayhop everywhere and open it again (`fail` in
+`tools/trip/client/main.js`). Each deploy changes
 the version, which replaces the whole cache. A new version installs in the
 background and waits (no `skipWaiting`, no reload): open pages keep the
 version they started with, and it takes over once they're closed

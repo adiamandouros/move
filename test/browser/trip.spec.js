@@ -4,18 +4,7 @@
 // together. The addresses are test/fixtures/places.js.
 import { watchRequests } from './bus-requests.js';
 import { axe, expect, keyboardWalk, onlyOn, test } from './fixtures.js';
-
-const from = page => page.getByRole('combobox', { name: 'From' });
-const to = page => page.getByRole('combobox', { name: 'To' });
-const list = (page, name) => page.locator(`#trip-${name}-list [role="option"]`);
-
-async function pickBoth(page, url = '/trip') {
-    await page.goto(url);
-    await from(page).fill('Μενελάου 45');
-    await list(page, 'from').first().click();
-    await to(page).fill('Συγγρού-Φιξ');
-    await list(page, 'to').first().click();
-}
+import { from, list, pickBoth, to } from './trip-page.js';
 
 test.describe('the trip page', () => {
     test.beforeEach(onlyOn('phone'));

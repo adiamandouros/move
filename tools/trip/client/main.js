@@ -61,6 +61,17 @@ function startSearches(rail) {
     }
 }
 
+// A newer Wayhop is installed, or being installed, and waits until every
+// page of the one in use is closed (shell.js, sw.js)
+async function updateWaiting() {
+    try {
+        const registration = await navigator.serviceWorker?.getRegistration();
+        return Boolean(navigator.serviceWorker.controller && (registration?.waiting || registration?.installing));
+    } catch {
+        return false;
+    }
+}
+
 // The half hour's kind of answer (answer.js), in words
 const KINDS = { clear: 'trip.half-clear', decision: 'trip.half-decision', depends: 'trip.half-depends', none: 'trip.half-none' };
 const halfWords = half => half ? format(t('trip.timing-half'), { ms: half.ms, kind: t(KINDS[half.kind]) }) : t('trip.timing-half-working');
@@ -94,6 +105,7 @@ function start(metro) {
     // The fields are back, with the answer still under them
     let changing = false;
     let searches = BUSES ? startSearches(hidden ? { ...metro, tram: undefined } : metro) : null;
+    /** @type {boolean | 'updated'} */
     let noBuses = BUSES && !searches;
     // What's been asked of the searches: the latest trip, and the latest half
     // hour (only the latest of each is answered); the latest answer, the ways
@@ -262,12 +274,15 @@ function start(metro) {
         searches.postMessage({ id, from, to, now, half: halfToo });
     };
 
-    // The searches can't be had: by metro and tram from now on
-    const fail = () => {
+    // The searches can't be had: by metro and tram from now on. With a newer
+    // Wayhop waiting, it's most likely an older copy of the searches, kept by
+    // a service worker from before they came from the server first (sw.js):
+    // it says so, as closing Wayhop everywhere brings the new one
+    const fail = async () => {
         if (!searches) return;
         searches.terminate();
         searches = null;
-        noBuses = true;
+        noBuses = await updateWaiting() ? 'updated' : true;
         found = null;
         resetLive();
         render({ speak: asked?.speak });
