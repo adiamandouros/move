@@ -1,4 +1,4 @@
-import { externalLink, format, html, localName, notice, walkingUrl } from '/js/core/html.js';
+import { externalLink, format, formatHtml, html, localName, notice, walkingUrl } from '/js/core/html.js';
 import { language, localHref, t } from '/js/core/i18n.js';
 import { busPlate, linePill, pillList } from '/js/core/lines.js';
 import { clockTime, lineEnd } from '/js/core/metro.js';
@@ -264,17 +264,50 @@ const standFor = o => o.rides.every(ride => ride.board.station && ride.alight.st
     && standHref({ station: o.rides[0].board.station }, { station: o.rides.at(-1).alight.station });
 
 // The way the half hour stands for, step by step, with its range. best: it's
-// the clear way. live: the way timed with OASA's live times, in its place
-function halfCard(rail, { row, o }, to, best, live) {
+// the clear way. live: the way timed with OASA's live times, in its place.
+// taken: it's the quicker way the rider took, with the way back to the
+// directions. The heading can take the keyboard after a choice (main.js)
+function halfCard(rail, { row, o }, to, best, live, taken = false) {
     const shown = live?.way.option ?? o;
     const stand = standFor(shown);
     return html`<div class="trip-card result-card">
         <div class="trip-card-head">
-            <h2 class="trip-total">${rangeText(row)}</h2>
+            <h2 class="trip-total" tabindex="-1">${rangeText(row)}</h2>
             ${best && html`<span class="trip-arrives">${t('trip.half-best')}</span>`}
+            ${taken && html`<span class="trip-arrives">${t('trip.quicker-taken')}</span>`}
         </div>
         ${citySteps(rail, shown, to, row, live)}
         ${stand && html`<a class="btn btn-sm locate-btn trip-stand" href="${stand}">${t('trip.where-to-stand')}</a>`}
+        ${taken && html`<button type="button" id="trip-quicker-back" class="btn btn-sm locate-btn trip-stand">${t('trip.quicker-back')}</button>`}
+    </div>`;
+}
+
+// A line on its own: a train's pill or a bus's plate
+const linePlate = (rail, { line, mode }) => ON_THE_ROAD.has(mode) ? busPlate(line, 's') : linePill(line, rail.lines[line].name, 's');
+
+// How much sooner the quicker way gets there, in words, as its heading and for a screen reader
+/** @param {import('./buses.js').Offer} offer */
+export const quickerSummary = offer => format(t('trip.quicker-title'), { minutes: Math.floor(offer.sooner / 60) });
+
+// The quicker way offered on a decision (decision 36), under the directions,
+// as OASA has its bus coming in time: how much sooner, where to get off the
+// first ride for which bus, and the rider's choice. The directions stay as
+// they are unless it's taken
+/** @param {import('./buses.js').Offer} offer */
+function quickerCard(rail, offer) {
+    const off = formatHtml(t(offer.ride.mode === 'metro' ? 'trip.quicker-off-station' : 'trip.quicker-off'), {
+        ride: linePlate(rail, offer.ride), change: stopName(rail, offer.change),
+    });
+    const bus = formatHtml(t(offer.walk ? 'trip.quicker-bus' : 'trip.quicker-bus-here'), {
+        bus: busPlate(offer.line, 's'), stop: stopName(rail, offer.stop), time: clockTime(offer.at), minutes: offer.walk?.minutes,
+    });
+    return html`<div class="trip-card" id="trip-quicker">
+        <h2 class="trip-total trip-total-small">${quickerSummary(offer)}</h2>
+        <p class="trip-quicker-what">${off} ${bus}</p>
+        <div class="trip-quicker-actions">
+            <button type="button" id="trip-quicker-take" class="btn btn-primary btn-sm rounded-pill px-4">${t('trip.quicker-take')}</button>
+            <button type="button" id="trip-quicker-keep" class="btn btn-sm locate-btn">${t('trip.quicker-keep')}</button>
+        </div>
     </div>`;
 }
 
@@ -293,23 +326,35 @@ function halfOther(rail, { row, o }) {
 // Whether the way shown has a bus on OASA's live times
 const onLive = ({ way }) => way.option.rides.some(ride => ride.live && 'at' in ride.live) || way.stops.some(({ buses }) => buses?.length);
 
+// The quicker way the rider took, for the departure shown: as OASA's live
+// times have it, or until they do, the half hour's own for that departure or
+// the first after it
+/** @param {import('./buses.js').HalfRow} row @param {number} departure */
+const takenOption = (row, departure) => row.options.find((o, d) => d >= departure && o) ?? row.options.find(Boolean);
+
 // The next half hour's answer, in place of the answer for leaving now: the
 // way it stands for first (the clear way, the directions that stay on, or
 // the first by the weights when it depends), then the others. `ways`: from
 // halfWays. longWalk: the first way's walk at either end is a long one.
 // live: the first way timed with OASA's live times, at `now` (seconds from
-// midnight), in its place (decision 35)
-export function renderHalf(rail, kind, ways, to, { expired = false, longWalk = false, live = null } = {}) {
-    const [first, ...others] = ways;
+// midnight), in its place (decision 35). On a decision (decision 36): with
+// `offer`, the quicker way the live times have, under the directions; or
+// `taken`, the quicker way's row, when the rider took it: in their place
+export function renderHalf(rail, kind, ways, to, { expired = false, longWalk = false, live = null, offer = false, taken = null } = {}) {
+    const [first, ...rest] = ways;
+    const others = taken ? rest.filter(({ row }) => row !== taken) : rest;
     const busNote = live && onLive(live) ? t('trip.live-estimates') : t('trip.bus-estimates');
     return html`
         ${expired && notice('warn', 'warning', t('trip.timetable-ended'))}
         ${kind === 'depends' && html`<p class="trip-intro">${t('trip.half-depends-intro')}</p>`}
-        ${halfCard(rail, first, to, kind === 'clear', live)}
+        ${taken
+            ? halfCard(rail, { row: taken, o: takenOption(taken, first.departure) }, to, false, live, true)
+            : halfCard(rail, first, to, kind === 'clear', live)}
+        ${offer && live?.way.offer && quickerCard(rail, live.way.offer)}
         ${longWalk && longWalkNotice()}
         ${others.length > 0 && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
         ${others.map(way => halfOther(rail, way))}
-        <p class="trip-estimates">${t('trip.estimates')}${ways.some(({ o }) => hasBus(o)) && html` ${busNote}`} ${t('trip.range-note')}</p>`;
+        <p class="trip-estimates">${t('trip.estimates')}${(taken || ways.some(({ o }) => hasBus(o))) && html` ${busNote}`} ${t('trip.range-note')}</p>`;
 }
 
 // What's said of the live times above the answer (live.js liveStatus), as on

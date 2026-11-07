@@ -1,6 +1,6 @@
 # 35. The trip page: OASA's live times on the way shown in full, the buses behind a switch for now
 
-Decided 2026-11-06 · In force
+Decided 2026-11-06 · Replaced by [36](0036-trip-quicker-way.md)
 
 ## Situation
 

@@ -68,12 +68,18 @@ test('it depends: the ways in order by the weights, and none that was never with
     assert.deepEqual(shown.map(row => row.range), never.filter(row => row.close > 0).slice(0, 3).map(row => row.range));
 });
 
-test('a decision: the directions that stay on come first, whatever the weights say', () => {
+test('a decision: the directions that stay on come first, whatever the weights say, and the quicker way goes with them', () => {
     const answer = answered(menelaou, syntagma, at(10));
-    const stayOn = answer.rows[2];
-    const view = viewOf(menelaou, syntagma, at(10), { ...answer, kind: 'decision', decision: /** @type {any} */ ({ stayOn }) });
+    assert.ok(answer.rows.length > 3, `${answer.rows.length} ways`);
+    const [getOff, , stayOn] = answer.rows;
+    const view = viewOf(menelaou, syntagma, at(10), { ...answer, kind: 'decision', decision: /** @type {any} */ ({ stayOn, getOff }) });
     assert.deepEqual(view.rows[0].range, stayOn.range);
     assert.equal(view.rows.length, 3);
+    assert.deepEqual(view.quicker, view.rows[1], 'one of the ways shown');
+    // One that isn't shown comes all the same
+    const hidden = answer.rows.at(-1);
+    assert.deepEqual(viewOf(menelaou, syntagma, at(10), { ...answer, kind: 'decision', decision: /** @type {any} */ ({ stayOn, getOff: hidden }) }).quicker.range, hidden.range);
+    assert.equal(clear.quicker, null, 'no decision, nothing quicker');
 });
 
 test('nothing found in the half hour: nothing to show', () => {
@@ -93,7 +99,7 @@ for (const lang of ['en', 'el']) {
         const view = String(r.renderHalf(network, clear.kind, ways, fix));
         check(view);
         const [first] = clear.rows;
-        assert.ok(view.includes(`<h2 class="trip-total">${range(first.range)}</h2>`));
+        assert.ok(view.includes(`<h2 class="trip-total" tabindex="-1">${range(first.range)}</h2>`));
         assert.ok(view.includes(s['trip.half-best']));
         assert.ok(view.includes(s['trip.any-bus']), 'from the door, so no "then"');
         // The bus has no time by the clock: any of them will do

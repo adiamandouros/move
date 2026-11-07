@@ -7,7 +7,7 @@ import { isIdle } from '/tools/buses/timing.js';
 import { arrivalsUrl, dueStops, liveStatus, stopLive, unanswered } from './live.js';
 import { doorToDoor, isLongWalk } from './plan.js';
 import { placePicker } from './picker.js';
-import { halfWays, hasBus, howExact, liveNotice, placeTitle, rangeText, renderChosen, renderHalf, renderTrip, routeSummary } from './render.js';
+import { halfWays, hasBus, howExact, liveNotice, placeTitle, quickerSummary, rangeText, renderChosen, renderHalf, renderTrip, routeSummary } from './render.js';
 
 const $ = id => document.getElementById(id);
 const result = $('trip-result');
@@ -112,15 +112,20 @@ function start(metro) {
     // stop's latest answer, when each was asked, those being asked, whether
     // the trip's first request has gone, and whether asking is paused. `seq`
     // counts what's asked of the worker, as only its latest answer counts;
-    // `trip`, each new trip, so an answer for an older one is dropped
+    // `trip`, each new trip, so an answer for an older one is dropped. On a
+    // decision (decision 36): the rider's choice of the quicker way, taken
+    // or kept for the rest of the trip; the directions' latest timing, drawn
+    // at once if the rider goes back to them; and whether a quicker way is
+    // offered, so it's said once
     const live = {
         seq: 0, trip: 0, wanted: null, way: null,
         /** @type {Map<string, import('./buses.js').StopLive>} */ answers: new Map(),
         /** @type {Map<string, number>} */ asked: new Map(),
         /** @type {Set<string>} */ asking: new Set(),
         started: false, paused: false, touched: Date.now(),
+        /** @type {'taken' | 'kept' | null} */ choice: null, directions: null, offered: false,
     };
-    const sameRow = (a, b) => a?.id === b?.id && a?.row === b?.row;
+    const sameRow = (a, b) => a?.id === b?.id && a?.row === b?.row && Boolean(a?.taken) === Boolean(b?.taken);
 
     // The way shown in full, timed again by the worker with the live times
     // there are, for leaving now; or nothing to time, as it has no bus
@@ -130,10 +135,10 @@ function start(metro) {
             if (live.way) { live.way = null; showLive(); }
             return;
         }
-        searches.postMessage({ id: want.id, live: { seq: ++live.seq, row: want.row, departure: want.departure, now: athensNow(), stops: Object.fromEntries(live.answers) } });
+        searches.postMessage({ id: want.id, live: { seq: ++live.seq, row: want.row, departure: want.departure, now: athensNow(), stops: Object.fromEntries(live.answers), taken: want.taken } });
     };
     const resetLive = () => {
-        Object.assign(live, { trip: live.trip + 1, wanted: null, way: null, answers: new Map(), asked: new Map(), asking: new Set(), started: false });
+        Object.assign(live, { trip: live.trip + 1, wanted: null, way: null, answers: new Map(), asked: new Map(), asking: new Set(), started: false, choice: null, directions: null, offered: false });
         showLive();
     };
     // Paused, unavailable or older live times, said above the answer
@@ -186,13 +191,21 @@ function start(metro) {
         const trip = doorToDoor(rail, from, to, now, { buses });
         const expired = isTimetableExpired(rail, now);
         const ways = forTrip(half) && !trip.walkFirst && !trip.options[0]?.morning ? halfWays(half.view, now.seconds) : [];
-        // The way shown in full has OASA's live times when it has a bus: the
-        // worker's latest timing of its row, until the next comes
+        // The way shown in full has OASA's live times when it has a bus, or
+        // when it's a decision's directions, for the quicker way's bus: the
+        // worker's latest timing of its row, until the next comes; the
+        // quicker way's in its place once the rider takes it (decision 36)
         const [first] = ways;
-        const want = first && hasBus(first.o) ? { id: half.id, row: half.view.rows.indexOf(first.row), departure: first.departure } : null;
-        const timed = want && sameRow(live.way, want) ? { way: live.way.way, now: athensNow().seconds } : null;
+        const directions = Boolean(first) && half.view.kind === 'decision' && first.row === half.view.rows[0];
+        const choice = directions ? live.choice : null;
+        const want = first && (hasBus(first.o) || directions)
+            ? { id: half.id, row: half.view.rows.indexOf(first.row), departure: first.departure, taken: choice === 'taken' }
+            : null;
+        const latest = [live.way, live.directions].find(way => want && sameRow(way, want));
+        const timed = latest ? { way: latest.way, now: athensNow().seconds } : null;
+        const offer = !choice && timed?.way.offer;
         const shown = ways.length
-            ? renderHalf(rail, half.view.kind, ways, to, { expired, longWalk: isLongWalk(ways[0].o), live: timed })
+            ? renderHalf(rail, half.view.kind, ways, to, { expired, longWalk: isLongWalk(ways[0].o), live: timed, offer: !choice, taken: choice === 'taken' ? half.view.quicker : null })
             : renderTrip(rail, trip, to, { expired, noBuses, checking: Boolean(searches) && !forTrip(half) });
         const answer = html`${shown}${TIMING && timingBox(timing)}`;
         setHtml(result, changing ? answer : html`${renderChosen(from, to)}${answer}`);
@@ -202,6 +215,21 @@ function start(metro) {
             fromInput.focus();
             fromInput.select();
         });
+        // The rider's choice redraws the answer at once. From the keyboard,
+        // the keyboard goes on to what's there now: the way back or the offer
+        // again, or the way shown. A tap leaves it, so the live times go on
+        // redrawing (they wait while the keyboard is in the answer)
+        const choose = (made, next) => event => {
+            live.choice = made;
+            draw(now, buses, false);
+            if (event.detail === 0) /** @type {HTMLElement | null} */ (result.querySelector(next) ?? result.querySelector('.trip-card h2'))?.focus();
+        };
+        $('trip-quicker-take')?.addEventListener('click', choose('taken', '#trip-quicker-back'));
+        $('trip-quicker-keep')?.addEventListener('click', choose('kept', '.trip-card h2'));
+        $('trip-quicker-back')?.addEventListener('click', choose(null, '#trip-quicker-take'));
+        // A quicker way coming up is said once, as it isn't where the keyboard is
+        if (offer && !live.offered) announce(quickerSummary(offer));
+        live.offered = Boolean(offer);
         if (speak) announce(ways.length ? halfReady(ways) : trip.options[0] ? routeSummary(trip.options[0]) : t('trip.walk-quicker'));
         if (!sameRow(live.wanted, want) || live.wanted?.departure !== want?.departure) retime(want);
         return ways;
@@ -250,6 +278,7 @@ function start(metro) {
         if ('live' in data) {
             if (data.live.seq !== live.seq) return;
             live.way = data.live.way && { ...live.wanted, way: data.live.way };
+            if (live.way && !live.way.taken) live.directions = live.way;
             showLive();
             askDue();
             if (forTrip(found) && !result.contains(document.activeElement)) draw(found.now, found.options, false);
