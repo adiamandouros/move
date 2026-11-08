@@ -179,7 +179,7 @@ for (const lang of ['en', 'el']) {
         assert.ok(ways.some(({ o }) => o.rides.some(ride => ride.mode === 'suburban')), 'a way by train is shown');
         const view = String(r.renderHalf(network, byTrain.kind, ways, airportStation));
         check(view);
-        assert.ok(view.includes(`line-p">${s['trip.suburban']}<`));
+        assert.ok(view.includes('line-a1">A1<'));
         assert.ok(view.includes(escaped(s['trip.train-estimates'])));
         assert.equal(view.includes(escaped(s['trip.no-trains-today'])), false);
         const none = String(r.renderHalf(network, clear.kind, r.halfWays(clear, at(12).seconds), fix, { noTrains: true }));

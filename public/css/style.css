@@ -75,7 +75,10 @@
     --wh-line-m3: #0057b8;
     --wh-line-t6: #b6d433;
     --wh-line-t7: #b6d433;
-    --wh-line-p: #6c4a9e;
+    --wh-line-a1: #ffcd00;
+    --wh-line-a2: #753bbd;
+    --wh-line-a3: #78be20;
+    --wh-line-a4: #00a3e0;
     /* A station sign's panel: off-white, as in the stations, in every colour mode */
     --wh-sign: #f4f5f7;
     /* The maps stay black: their lines are made for it */
@@ -2380,9 +2383,12 @@ body {
 .line-m3 { background-color: var(--wh-line-m3); color: #fff; }
 .line-t6 { background-color: var(--wh-line-t6); color: var(--wh-ink); }
 .line-t7 { background-color: var(--wh-line-t7); color: var(--wh-ink); }
-/* The suburban railway's one pill (suburban.json), a stand-in colour until
-   the Trip page is reworked */
-.line-p { background-color: var(--wh-line-p); color: #fff; }
+/* The suburban railway's lines (suburban.json, the rider's colours of
+   8 Nov 2026): dark text but on A2's purple */
+.line-a1 { background-color: var(--wh-line-a1); color: var(--wh-ink); }
+.line-a2 { background-color: var(--wh-line-a2); color: #fff; }
+.line-a3 { background-color: var(--wh-line-a3); color: var(--wh-ink); }
+.line-a4 { background-color: var(--wh-line-a4); color: var(--wh-ink); }
 
 .info-body ul.announcements,
 .disruption-banner ul {

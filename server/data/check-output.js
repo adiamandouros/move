@@ -241,6 +241,14 @@ function checkTrains(data) {
         const [lat, lng, el, en] = Array.isArray(station) ? station : [];
         if (!inAttica(lat, lng) || typeof el !== 'string' || !el || typeof en !== 'string' || !en) problems.push(`trains.json: station ${id} must be [lat, lng, Greek name, English name]`);
     }
+    const stop = id => typeof id === 'string' && (/^rail:./.test(id) || Object.hasOwn(stations, id.replace(/^train:/, '')) && id.startsWith('train:'));
+    for (const walk of Array.isArray(data.walks) ? data.walks : [null]) {
+        const [from, to, time, note] = Array.isArray(walk) ? walk : [];
+        if (!stop(from) || !stop(to) || !Number.isInteger(time) || time <= 0 || (note !== undefined && !names(note))) {
+            problems.push(`trains.json: walk ${JSON.stringify(walk)} must be [a station, a station or the metro's, seconds, a note in both languages or none]`);
+        }
+    }
+    if (!Array.isArray(data.outside) || !data.outside.every(id => Object.hasOwn(stations, id))) problems.push('trains.json: outside must list stations');
     const dates = data.dates && typeof data.dates === 'object' ? data.dates : {};
     const seconds = n => Number.isInteger(n) && n >= 0;
     for (const [date, routes] of Object.entries(dates)) {

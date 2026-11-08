@@ -30,8 +30,9 @@ const M_LNG = 111_320 * Math.cos(37.97 * Math.PI / 180);
 /**
  * A stop: name, Greek, for the lab; names, as the page shows them (`en` ''
  * for a bus stop whose English is its Greek in Latin letters, as in
- * bus-stops.json); station, a rail stop's id in rail.json
- * @typedef {Point & { id: string, name: string, names?: Names, station?: string }} Stop
+ * bus-stops.json); station, a rail stop's id in rail.json; oasaTicket: false
+ * at a suburban station OASA's ticket doesn't cover
+ * @typedef {Point & { id: string, name: string, names?: Names, station?: string, oasaTicket?: false }} Stop
  */
 /** @typedef {import('./raptor.js').Route & { toward?: Names, code?: string }} Route where it goes: a rail line's direction, a bus's last stop; code: a bus's OASA route, which its live times name */
 /** @typedef {import('./raptor.js').Leg} Leg */
@@ -45,9 +46,11 @@ const M_LNG = 111_320 * Math.cos(37.97 * Math.PI / 180);
  */
 
 /**
- * A day of trains: each station's [lat, lng, Greek, English], and routes as
- * a day of buses has them, a trip's start in seconds from the day's midnight
- * @typedef {{ stations: Record<string, [number, number, string, string]>,
+ * A day of trains: each station's [lat, lng, Greek, English], the walks
+ * known better than the straight line's and the stations outside OASA's
+ * ticket, as trains.json has them, and routes as a day of buses has them, a
+ * trip's start in seconds from the day's midnight
+ * @typedef {{ stations: Record<string, [number, number, string, string]>, walks: import('../../../types/data.js').Trains['walks'], outside: string[],
  *   routes: { line: string, stops: string[], profiles: number[][], trips: [number, number][] }[] }} Trains
  */
 
@@ -92,7 +95,7 @@ export function busDay({ stops, routes }, weekday) {
  * are none for the date: railway.gov.gr's board for it was never fetched
  * @param {import('../../../types/data.js').Trains} trains @param {string} date @returns {Trains | null}
  */
-export function trainDay({ stations, dates }, date) {
+export function trainDay({ stations, walks, outside, dates }, date) {
     if (!dates[date]) return null;
     const before = new Date(Date.parse(`${date}T00:00:00Z`) - DAY * 1000).toISOString().slice(0, 10);
     const late = (dates[before] ?? []).flatMap(route => {
@@ -100,15 +103,17 @@ export function trainDay({ stations, dates }, date) {
             .map(([start, profile]) => /** @type {[number, number]} */ ([start - DAY, profile]));
         return trips.length ? [{ ...route, trips }] : [];
     });
-    return { stations, routes: [...late, ...dates[date]] };
+    return { stations, walks, outside, routes: [...late, ...dates[date]] };
 }
 
 /**
  * The stops and routes of one weekday (0 = Sunday), last night's trains that
  * run past midnight included, and the suburban railway's day when there is
  * one (trainDay). `index` finds a stop: rail:korydallos, bus:70040, train:athens.
- * Each route says where it goes (`toward`): a rail line's direction, a bus's or train's last stop;
- * a bus's also which of OASA's routes it is (`code`), as its live times say.
+ * Each route says where it goes (`toward`): a rail line's direction, a bus's or train's last stop
+ * (decision 40: the train's own end, not its line's); a bus's also which of OASA's routes it is (`code`),
+ * as its live times say. `knownWalks`: the trains' walks known better than the
+ * straight line's, [stop, stop, seconds, note?], between stops the network has.
  * @param {import('../../../types/data.js').Rail} rail @param {Buses} buses @param {number} weekday @param {Trains | null} [trains]
  */
 export function joinNetwork(rail, buses, weekday, trains = null) {
@@ -121,7 +126,8 @@ export function joinNetwork(rail, buses, weekday, trains = null) {
     };
     for (const [id, { coords, name }] of Object.entries(net.stations)) add(`rail:${id}`, coords[0], coords[1], name, { station: id });
     for (const [code, [lat, lng, el, en = '']] of Object.entries(buses.stops)) add(`bus:${code}`, lat, lng, { el, en });
-    for (const [id, [lat, lng, el, en]] of Object.entries(trains?.stations ?? {})) add(`train:${id}`, lat, lng, { el, en });
+    const outside = new Set(trains?.outside ?? []);
+    for (const [id, [lat, lng, el, en]] of Object.entries(trains?.stations ?? {})) add(`train:${id}`, lat, lng, { el, en }, outside.has(id) ? { oasaTicket: false } : {});
 
     const routes = [];
     for (const [line, { directions, tram }] of Object.entries(net.lines)) {
@@ -152,16 +158,22 @@ export function joinNetwork(rail, buses, weekday, trains = null) {
         const along = calls.map(station => index.get(`train:${station}`));
         routes.push({ line, mode: 'suburban', stops: along, trips: trips.map(([start, profile]) => profiles[profile].map(offset => start + offset)), toward: stops[along.at(-1)].names });
     }
-    return { stops, routes, index };
+    const knownWalks = (trains?.walks ?? []).filter(([from, to]) => index.has(from) && index.has(to))
+        .map(([from, to, seconds, note]) => /** @type {KnownWalk} */ ([index.get(from), index.get(to), seconds, ...note ? [note] : []]));
+    return { stops, routes, index, knownWalks };
 }
+
+/** @typedef {[number, number, number] | [number, number, number, Names]} KnownWalk two stops, the seconds between them, and a note where the way needs one */
 
 /**
  * The search over these stops and routes (a leg's `route` is one of them),
- * with every walk of up to 10 minutes between stops for changes, and `near`:
- * the stops within `limit` seconds on foot of a point, [stop, seconds, stop, seconds…]
- * @param {{ stops: Stop[], routes: Route[] }} network
+ * with every walk of up to 10 minutes between stops for changes, the
+ * straight line's or, either way round, a known walk's, and `near`:
+ * the stops within `limit` seconds on foot of a point, [stop, seconds, stop,
+ * seconds…]; `walkNote`, a known walk's note between two stops, or null
+ * @param {{ stops: Stop[], routes: Route[], knownWalks?: KnownWalk[] }} network
  */
-export function createPlanner({ stops, routes }) {
+export function createPlanner({ stops, routes, knownWalks = [] }) {
     const cells = new Map();
     const cellOf = (y, x) => y * 100_000 + x;
     stops.forEach(({ lat, lng }, i) => {
@@ -186,9 +198,24 @@ export function createPlanner({ stops, routes }) {
         return found;
     };
     const walks = stops.map((stop, i) => near(stop, CHANGE_WALK_SECONDS, i));
+    const known = new Map();
+    const notes = new Map();
+    const pair = (from, to) => from * stops.length + to;
+    for (const [a, b, seconds, note] of knownWalks) {
+        for (const [from, to] of [[a, b], [b, a]]) {
+            known.set(pair(from, to), seconds);
+            if (note) notes.set(pair(from, to), note);
+            const list = walks[from];
+            const at = list.findIndex((stop, j) => j % 2 === 0 && stop === to);
+            if (at >= 0) list[at + 1] = seconds;
+            else list.push(to, seconds);
+        }
+    }
     const planner = search({ stops, routes, walks }, {
         afterWalk: AFTER_WALK_SECONDS,
-        walkSeconds: (from, to) => walkSeconds(stops[from], stops[to]),
+        walkSeconds: (from, to) => known.get(pair(from, to)) ?? walkSeconds(stops[from], stops[to]),
     });
-    return { ...planner, stops, routes, near };
+    /** @param {number} from @param {number} to @returns {Names | null} */
+    const walkNote = (from, to) => notes.get(pair(from, to)) ?? null;
+    return { ...planner, stops, routes, near, walkNote };
 }

@@ -132,23 +132,38 @@ a walk needs no `metro`, which is only the map's official change. The minutes
 are first guesses until checked on the spot: the straight line × 1.3 at 80 m a
 minute, plus 2 to reach the platform.
 
-## suburban.json — the suburban railway's stations
+## suburban.json — the suburban railway's lines and stations
 
 The suburban railway's timetable comes from railway.gov.gr, OSE's train site,
 every night (`server/data/railway.js`, decision 40), and goes to the Trip
 page's search as `trains.json` (`server/data/build-suburban.js`). The site
-names each station by an id of its own and in Greek only, and has no places
-for them, so they're here. `lines` has the one line, `P`, with its names, a
-colour (a stand-in until the Trip page is reworked; see style.css) and the
-`corridors` of railway.gov.gr's boards it takes: `PIRAIR` (Piraeus and Ano
-Liosia to the airport), `KIATO` and `CHALKIDA`. `stations` has each station
-on them by an id of ours, with its names (Greek as OSE writes it, English from
-OpenStreetMap, the metro's spelling where they share a station, or else
-written in Latin letters), `ose`, every id railway.gov.gr gives it (some have
-two), `coords`, where OpenStreetMap has it, and `metro`, the metro station in
-stations.json it shares, for the 8 that do. A train calling at an id that
-isn't here is left out, with a warning on `/admin/diagnostics`: add the
-station, its place from OpenStreetMap included.
+doesn't name the lines, names each station by an id of its own and in Greek
+only, and has no places for them, so they're here.
+
+`lines` has A1 to A4, each with its `name`, `color` (the rider's; dark text
+on the pills but A2's, see style.css) and the `corridor` of railway.gov.gr's
+boards it takes: A1 and A2 `PIRAIR`, A3 `CHALKIDA`, A4 `KIATO`. A line with
+`stopsAt` takes only the corridor's trains that stop there (A2: those at Ano
+Liosia), and its corridor's line without it takes the rest.
+
+`stations` has each station by an id of ours, with its names (Greek as OSE
+writes it, English from OpenStreetMap, the metro's spelling where they share
+a station, or else written in Latin letters), `ose`, every id railway.gov.gr
+gives it (some have two), `coords`, where OpenStreetMap has it, and `metro`,
+the metro station in stations.json it shares. Two stations with the same OSE
+id need `lines`, the lines each is for: SKA is A2's `ska` and A3's `ska-a3`.
+`walks` are as tram.json's: to a `metro` station or another `station` here,
+in whole `minutes`, with a `note` in both languages where the way needs
+saying (Piraeus's isn't signed; SKA's footbridge is easy to miss). A station
+with `metro` needs a walk to it. The minutes are first guesses until checked
+on the spot: the straight line × 1.3 at 80 m a minute, plus 2 to reach the
+platform. `oasaTicket: false` marks a station OASA's ticket doesn't cover
+(the airport, A3 past SKA, A4 past Magoula): a ride to or from it says it
+needs a Hellenic Train ticket.
+
+A train calling at an id that isn't here for its line is left out, with a
+warning on `/admin/diagnostics`: add the station, its place from
+OpenStreetMap included.
 
 ## airport.json — STASY's airport trains
 

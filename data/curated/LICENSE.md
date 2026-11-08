@@ -15,12 +15,14 @@ Station names and GTFS platform codes come from OASA's open data, under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 (<https://catalog.growthfund.gr/>).
 
-`suburban.json` holds the suburban railway's stations: their Greek names and
-ids as railway.gov.gr (OSE) has them, and their coordinates and some English
-names from OpenStreetMap, © OpenStreetMap contributors, available under the
+`suburban.json` holds the suburban railway's lines and stations: the
+stations' Greek names and ids as railway.gov.gr (OSE) has them, and their
+coordinates and some English names from OpenStreetMap, © OpenStreetMap
+contributors, available under the
 [Open Database License](https://opendatacommons.org/licenses/odbl/) (ODbL).
-Those stay under the ODbL; what Wayhop added to them (the ids of ours and the
-other English names) is under CC BY-SA 4.0, as above.
+Those stay under the ODbL; what Wayhop added (its ids, the other English
+names, the lines, the walks and their notes, which stations OASA's ticket
+covers) is under CC BY-SA 4.0, as above.
 
 The code that reads these files is under the GNU AGPL, like the rest of the
 project (see [LICENSE](../../LICENSE)).

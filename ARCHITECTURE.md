@@ -417,10 +417,13 @@ OSE's train site, as there's no open data for it
 ([decision 40](docs/decisions/0040-suburban-railway-timetable.md)): `railway.js`
 fetches its schedule boards once an Athens day, yesterday's to 4 days ahead,
 10 seconds apart, into `data/raw/railway/`, keeping the boards there are when
-it fails; `build-suburban.js` makes `data/build/trains.json` from them and the
-stations in `data/curated/suburban.json` (OSE's ids, the names, OpenStreetMap's
-places): each held date's trains by their stops, in seconds from that date's
-midnight in Athens. Its days move on every night, so it's a file of its own.
+it fails; `build-suburban.js` makes `data/build/trains.json` from them and
+`data/curated/suburban.json` (the lines A1–A4, which the boards don't name,
+and the stations: OSE's ids, the names, OpenStreetMap's places, the walks to
+the metro, and which OASA's ticket covers): each held date's trains by their
+line and stops, in seconds from that date's midnight in Athens. Its days move
+on every night, so it's a file of its own. The city's search uses its walks
+in place of the straight line's.
 The build runs when the server
 starts and daily at 04:30 Athens time, in a child process at low priority
 (`runBuildInChild`), so it doesn't slow the site or add to its memory. It

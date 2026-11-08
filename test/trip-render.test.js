@@ -22,11 +22,26 @@ const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.
 const { busOptions, cityPlanner } = await browserModule('tools/trip/client/buses.js');
 const city = cityPlanner(rail, buses, 3);
 // The suburban railway that Wednesday (decision 40): from Athens station to the airport every 15 minutes
-const { trainDay } = await browserModule('tools/subway/client/city.js');
+const { createPlanner, trainDay } = await browserModule('tools/subway/client/city.js');
 const trains = buildTrains({ [NOW.date]: { schedules: ['10:05', '10:20', '10:35'].map((at, i) => train(NOW.date, `12${i}`, [['o2', at], ['o3', `${10 + (i ? 1 : 0)}:${['45', '00', '15'][i]}`]])) } }, suburbanCurated()).data;
 const withTrains = cityPlanner(rail, buses, 3, trainDay(trains, NOW.date));
 const athensStation = { lat: 37.99284, lng: 23.72015, title: 'Αθήνα', exact: null };
 const airportStation = { lat: 37.93698, lng: 23.94481, title: 'Αεροδρόμιο', exact: null };
+// A bus, then the known walk to a station, with its note, then an A1 train
+// to a station outside OASA's ticket: a network of its own, so it's the way
+const changing = createPlanner({
+    stops: [
+        { id: 'bus:1', lat: 37.97, lng: 23.70, name: 'Στάση 1', names: { el: 'Στάση 1', en: '' } },
+        { id: 'bus:2', lat: 37.98, lng: 23.70, name: 'Στάση 2', names: { el: 'Στάση 2', en: '' } },
+        { id: 'train:athens', lat: 38.00, lng: 23.70, name: 'Αθήνα', names: { el: 'Αθήνα', en: 'Athens' } },
+        { id: 'train:airport', lat: 38.05, lng: 23.70, name: 'Αεροδρόμιο', names: { el: 'Αεροδρόμιο', en: 'Airport' }, oasaTicket: false },
+    ],
+    routes: [
+        { line: '040', mode: 'bus', stops: [0, 1], trips: [[36_000, 36_300]], toward: { el: 'Στάση 2', en: '' } },
+        { line: 'A1', mode: 'suburban', stops: [2, 3], trips: [[36_900, 38_700]], toward: { el: 'Αεροδρόμιο', en: 'Airport' } },
+    ],
+    knownWalks: [[1, 2, 240, { el: 'Απέναντι, χωρίς σήμανση', en: 'Across the road, with no signs' }]],
+});
 const { latinName: latin } = await browserModule('public/js/core/text.js');
 
 for (const lang of ['en', 'el']) {
@@ -151,13 +166,29 @@ for (const lang of ['en', 'el']) {
         const view = String(r.renderTrip(network, { ...trip, options: [way] }, airportStation));
         check(view);
         const ride = way.rides.find(one => one.mode === 'suburban');
-        assert.ok(view.includes(`<span class="line-pill pill-s line-p">${s['trip.suburban']}</span>`));
+        assert.ok(view.includes('<span class="line-pill pill-s line-a1">A1</span>'));
         // From the timetable, as the metro's: no "~"
         assert.ok(view.includes(`trip-step-when">${String(Math.floor(ride.boards / 3600)).padStart(2, '0')}:${String(Math.floor(ride.boards / 60) % 60).padStart(2, '0')}<`));
         assert.ok(view.includes(s['trip.towards'].replace('{end}', lang === 'el' ? 'Αεροδρόμιο' : 'Airport')));
         assert.ok(view.includes(`${s['trip.estimates']} ${s['trip.train-estimates']}`), 'railway.gov.gr named');
         assert.equal(view.includes(s['trip.bus-estimates'].replace(/'/g, '&#39;')), false, 'no bus, no word on buses');
         assert.equal(view.includes(s['trip.where-to-stand']), false, 'nowhere to stand on the suburban railway');
+        // The airport is outside OASA's ticket
+        assert.ok(view.includes(s['trip.train-ticket'].replace('{station}', lang === 'el' ? 'Αεροδρόμιο' : 'Airport').replace(/'/g, '&#39;')));
+    });
+
+    test(`${lang}: a change on foot to the suburban railway says what the way needs, and a train only within OASA's ticket says nothing of tickets`, () => {
+        const [way] = busOptions(changing, { lat: 37.9701, lng: 23.70 }, { lat: 38.0501, lng: 23.70 }, { weekday: 3, seconds: 35_900 });
+        assert.deepEqual(way.rides.map(ride => [ride.line, ride.walkNote]), [['040', null], ['A1', { el: 'Απέναντι, χωρίς σήμανση', en: 'Across the road, with no signs' }]]);
+        const view = String(r.renderTrip(network, { options: [way], walk: { meters: 9000, minutes: 112 }, walkFirst: false, longWalk: false }, airportStation));
+        check(view);
+        const walk = view.slice(view.indexOf(s['trip.walk-to'].replace('{place}', lang === 'el' ? 'Αθήνα' : 'Athens')));
+        assert.ok(walk.indexOf(lang === 'el' ? 'Απέναντι, χωρίς σήμανση' : 'Across the road, with no signs') < walk.indexOf('line-a1'), 'on the walk, before the train');
+        assert.ok(view.includes(s['trip.train-ticket'].split('{station}')[0].replace(/'/g, '&#39;')));
+        // Within the ticket, nothing
+        const inside = structuredClone(way);
+        delete inside.rides[1].alight.oasaTicket;
+        assert.equal(String(r.renderTrip(network, { options: [inside], walk: { meters: 9000, minutes: 112 }, walkFirst: false, longWalk: false }, airportStation)).includes(s['trip.train-ticket'].split('{station}')[0].replace(/'/g, '&#39;')), false);
     });
 
     test(`${lang}: when the suburban railway has no times for today, it says it's left out`, () => {

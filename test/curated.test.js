@@ -191,35 +191,52 @@ test('tram.json as it stands has a walk for every change to the metro', () => {
     }
 });
 
-test('suburban.json: a line with a colour and its corridors, stations with names, their own OSE ids, a place and metro stations that exist', () => {
+test('suburban.json: lines with a colour, each corridor with one line for its other trains, stations with names, their own OSE ids, a place and real walks', () => {
     const c = real();
-    c.suburban.lines.P.color = 'purple';
-    c.suburban.lines.Q = { name: { el: 'Κ', en: 'Q' }, color: '#000000', corridors: ['KIATO'] };
+    c.suburban.lines.A1.color = 'yellow';
+    c.suburban.lines.A5 = { name: 'A5', color: '#000000', corridor: 'KIATO' };
+    c.suburban.lines.A6 = { name: 'A6', color: '#000000', corridor: 'THESLAR', stopsAt: 'nowhere' };
     delete c.suburban.stations.athens.name.en;
     c.suburban.stations.rouf.ose.push(c.suburban.stations.tavros.ose[0]);
     c.suburban.stations.lefka.ose = [];
     // Latitude and longitude swapped
     c.suburban.stations.kiato.coords = [22.73498, 38.01403];
     c.suburban.stations.piraeus.metro = 'pireas';
+    c.suburban.stations.pallini.walks = [];
+    c.suburban.stations.ska.walks = [{ station: 'nowhere', minutes: 2.5, note: { el: 'Μόνο ελληνικά' } }];
+    c.suburban.stations['ska-a3'].lines = ['A2'];
+    c.suburban.stations.megara.oasaTicket = true;
     const { errors } = validateCurated(c);
     assert.deepEqual(errors.sort(), [
-        'suburban.json: P needs name.el, name.en and a #rrggbb color',
+        'suburban.json: A1 needs a name and a #rrggbb color',
+        'suburban.json: A6 stops at an unknown station "nowhere"',
+        'suburban.json: OSE id 6928c3c150ab5bc72b39d077 is used by both ska and ska-a3, with no lines to tell them apart',
+        `suburban.json: OSE id ${c.suburban.stations.tavros.ose[0]} is used by both rouf and tavros, with no lines to tell them apart`,
         'suburban.json: athens needs name.el and name.en',
-        'suburban.json: corridor KIATO is taken by two lines',
+        'suburban.json: corridor KIATO is taken by both A4 and A5',
+        'suburban.json: corridor THESLAR needs a line without stopsAt for its other trains, beside A6',
         'suburban.json: kiato.coords must be [latitude, longitude] between Kiato and Chalkida, like [37.99284, 23.72015]',
         'suburban.json: lefka has no OSE ids',
-        `suburban.json: OSE id ${c.suburban.stations.tavros.ose[0]} is used by both rouf and tavros`,
+        'suburban.json: megara.oasaTicket is false outside OASA\'s ticket, and left out inside it',
+        'suburban.json: pallini needs a walk to pallini, the metro station it shares',
         'suburban.json: piraeus shares an unknown metro station "pireas"',
+        'suburban.json: ska walks to an unknown station "nowhere"',
+        'suburban.json: ska\'s walk to nowhere needs its note in both languages',
+        'suburban.json: ska\'s walk to nowhere needs whole minutes',
     ].sort());
 });
 
-test('suburban.json as it stands: the Athens lines\' 45 stations, the 8 the metro shares each beside its metro station', () => {
+test('suburban.json as it stands: lines A1–A4 on the Athens corridors, SKA as two stations, the 8 the metro shares each beside its metro station with a walk, the ticket\'s zone', () => {
     const { suburban, stations } = real();
-    assert.deepEqual(suburban.lines.P.corridors, ['PIRAIR', 'KIATO', 'CHALKIDA']);
-    assert.equal(Object.keys(suburban.stations).length, 45);
+    assert.deepEqual(Object.entries(suburban.lines).map(([id, l]) => [id, l.corridor, l.stopsAt ?? null]), [['A1', 'PIRAIR', null], ['A2', 'PIRAIR', 'ano-liosia'], ['A3', 'CHALKIDA', null], ['A4', 'KIATO', null]]);
+    assert.equal(Object.keys(suburban.stations).length, 46);
+    // One OSE id for SKA's two, told apart by the line (the rider, 8 November 2026)
+    assert.deepEqual([suburban.stations.ska.lines, suburban.stations['ska-a3'].lines], [['A2'], ['A3']]);
+    assert.deepEqual(suburban.stations.ska.ose, suburban.stations['ska-a3'].ose);
+    assert.ok(suburban.stations.ska.walks.some(walk => walk.station === 'ska-a3' && walk.note));
     const shared = Object.entries(suburban.stations).filter(([, s]) => s.metro);
     assert.deepEqual(shared.map(([, s]) => s.metro).sort(), ['airport', 'doukissis-plakentias', 'koropi', 'larissa-station', 'nerantziotissa', 'paiania-kantza', 'pallini', 'piraeus']);
-    // OpenStreetMap's places, against the metro's: within 150 m (Piraeus's are 141 m apart)
+    // OpenStreetMap's places, against the metro's: within 150 m (Piraeus's are 141 m apart), and Piraeus's way not signed
     const rail = JSON.parse(readFileSync(new URL('./browser/data/rail.json', import.meta.url), 'utf8'));
     for (const [id, s] of shared) {
         const metro = rail.stations[s.metro].coords;
@@ -227,4 +244,10 @@ test('suburban.json as it stands: the Athens lines\' 45 stations, the 8 the metr
         assert.ok(meters < 150, `${id} is ${Math.round(meters)} m from the metro's ${s.metro}`);
         assert.ok(stations.stations[s.metro], s.metro);
     }
+    assert.ok(suburban.stations.piraeus.walks[0].note.en.includes('no signs'));
+    // OASA's ticket: Magoula to Koropi and Piraeus to SKA; the airport, A3 past SKA and A4 past Magoula outside. Pentelis inside (the rider, 8 November)
+    const outside = Object.keys(suburban.stations).filter(id => suburban.stations[id].oasaTicket === false);
+    assert.equal(outside.length, 22);
+    for (const id of ['airport', 'acharnai', 'chalkida', 'nea-peramos', 'kiato']) assert.ok(outside.includes(id), id);
+    for (const id of ['magoula', 'koropi', 'ska', 'ska-a3', 'pentelis', 'piraeus']) assert.ok(!outside.includes(id), id);
 });

@@ -198,7 +198,7 @@ test('the day\'s city has that date\'s trains, and the answer says so; without t
     await withTrains.handle({ id: 1, from: athensStation, to: airportStation, now: { ...NOW, date: DATE }, half: false });
     const [answer] = withTrains.posted;
     assert.equal(answer.trains, true);
-    assert.deepEqual(byTrain(answer.options).map(o => o.rides.map(ride => [ride.line, ride.board.id, ride.alight.id, ride.boards])), [[['P', 'train:athens', 'train:airport', 10 * 3600 + 300]]]);
+    assert.deepEqual(byTrain(answer.options).map(o => o.rides.map(ride => [ride.line, ride.board.id, ride.alight.id, ride.boards])), [[['A1', 'train:athens', 'train:airport', 10 * 3600 + 300]]]);
 
     // The next day: a city of its own, with no trains, as trains.json has none for it
     await withTrains.handle({ id: 2, from: athensStation, to: airportStation, now: { weekday: 4, seconds: 10 * 3600, date: '2026-10-22' }, half: false });

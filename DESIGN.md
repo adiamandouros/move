@@ -188,6 +188,10 @@ value outside those blocks.
   even when the next train turns back sooner: M3 toward the airport is
   "Airport", not "Doukissis / Airport" (`lineEnd` in `/js/core/metro.js`).
   So does "Changing to M3 toward …" and what screen readers hear.
+  The suburban railway is the exception: a train names where **it** ends,
+  as many end sooner than their line (A1 and A4 at Tavros, A3 at Afidnes or
+  Oinoi) and trains are rare, so the one that comes is the one to read
+  (decided 8 November 2026, decision 40).
 - In the page's language only, tight, one line where it fits (a name too
   long for the screen at large text wraps). A label, not a link. Change and
   get-off stations stay plain links. The name is centred top to bottom like

@@ -32,11 +32,13 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
 /**
  * One ride of a way, as the page draws it: its stops (city.js), when it
  * leaves and gets there, how many stops it rides, where its line goes, and
- * the walk to it from the ride before (null when it's the same stop).
+ * the walk to it from the ride before (null when it's the same stop), with
+ * the note that walk has (a suburban station's change, decision 40), or null.
  * `lines`: every bus line that rides it, the first to come first. `live`:
  * OASA's word on a bus of the way shown in full, once its stop is answered
  * @typedef {{ line: string, lines: string[], mode: string, board: import('/tools/subway/city.js').Stop, alight: import('/tools/subway/city.js').Stop,
- *   boards: number, arrives: number, stops: number, toward: { el: string, en: string }, walkBefore: Walk | null, live?: RideLive }} Ride
+ *   boards: number, arrives: number, stops: number, toward: { el: string, en: string }, walkBefore: Walk | null,
+ *   walkNote: { el: string, en: string } | null, live?: RideLive }} Ride
  */
 /**
  * A way with a bus, as one of the Trip page's options: `rides`, its walks
@@ -148,6 +150,7 @@ function cityOption(planner, way, access, egress, now, lines = way.legs.map(leg 
             line: leg.line, lines: lines[i], mode: leg.mode, board: planner.stops[leg.board], alight: planner.stops[leg.alight],
             boards: leg.boards, arrives: leg.arrives, stops: leg.alightIndex - leg.boardIndex,
             toward: planner.routes[leg.route].toward, walkBefore: walkOf(leg.walkBefore),
+            walkNote: i && leg.walkBefore ? planner.walkNote(way.legs[i - 1].alight, leg.board) : null,
         })),
         firstWalk: walkOf(secondsTo(access, way.legs[0].board)),
         lastWalk: walkOf(secondsTo(egress, way.legs.at(-1).alight)),

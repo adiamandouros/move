@@ -380,12 +380,13 @@ test.describe('the trip page', () => {
             await list(page, 'to').first().click();
         };
 
-        test('a way by train: its pill, where it goes, and where its times are from', async ({ page }) => {
+        test('a way by train: its line\'s pill, where it goes, the ticket it needs and where its times are from', async ({ page }) => {
             await toMegara(page, '/trip', { here: 'My location', there: 'To' });
             const best = page.locator('.trip-card').first();
             await expect(best.locator('.trip-total')).toHaveText(/^\d+–\d+ min$/);
-            await expect(best.locator('.line-pill.line-p').first()).toHaveText('Suburban');
+            await expect(best.locator('.line-pill.line-a4').first()).toHaveText('A4');
             await expect(best).toContainText('Megara');
+            await expect(best).toContainText('Needs a Hellenic Train ticket, as OASA\'s ticket doesn\'t cover Megara.');
             await expect(page.locator('.trip-estimates')).toContainText('Suburban railway times are from railway.gov.gr (OSE)');
             await expect(page.locator('.trip-estimates')).not.toContainText('left out');
             expect(await axe(page), 'axe-core violations').toEqual([]);
@@ -396,8 +397,9 @@ test.describe('the trip page', () => {
         test('in Greek too', async ({ page }) => {
             await toMegara(page, '/el/trip', { here: 'Η θέση μου', there: 'Προς' });
             const best = page.locator('.trip-card').first();
-            await expect(best.locator('.line-pill.line-p').first()).toHaveText('Προαστιακός');
+            await expect(best.locator('.line-pill.line-a4').first()).toHaveText('A4');
             await expect(best).toContainText('Μέγαρα');
+            await expect(best).toContainText('δεν καλύπτει τον σταθμό Μέγαρα');
             await expect(page.locator('.trip-estimates')).toContainText('Οι ώρες του Προαστιακού είναι από το railway.gov.gr (ΟΣΕ)');
         });
     });

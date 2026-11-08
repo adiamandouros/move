@@ -56,10 +56,12 @@ function distance(meters) {
 const step = (when, content) => html`<li class="trip-step"><span class="trip-step-when">${when}</span><div class="trip-step-what">${content}</div></li>`;
 
 // A walk to `place`: from the door, or between two stations or stops, whose
-// minutes are the tram's walks (decision 28) and have no distance
-function walkStep(walk, words, place) {
+// minutes are the tram's walks (decision 28) and have no distance. note: what
+// the way needs saying, a suburban station's change (decision 40)
+function walkStep(walk, words, place, note = null) {
     return step(`${walk.minutes}′`, html`${externalLink({ href: walkingUrl(place.lat, place.lng) }, words, t('shell.new-tab'))}
-        ${walk.meters !== undefined && html`<div class="trip-step-note">${distance(walk.meters)}</div>`}`);
+        ${walk.meters !== undefined && html`<div class="trip-step-note">${distance(walk.meters)}</div>`}
+        ${note && html`<div class="trip-step-note">${localName(note, language)}</div>`}`);
 }
 
 function legStep(rail, leg) {
@@ -94,21 +96,24 @@ function minutesBadge(at, now) {
 
 // A ride of a way with a bus: a bus's time is the timetable's, an estimate
 // (decision 11), so it says "~", unless OASA has the bus coming (decision
-// 35): then its time, its minutes and the next one's. `now`: seconds from
-// midnight, for the minutes
+// 35): then its time, its minutes and the next one's. A suburban train to or
+// from a station OASA's ticket doesn't cover says it needs Hellenic Train's
+// (decision 40). `now`: seconds from midnight, for the minutes
 function rideStep(rail, ride, now) {
     const bus = ON_THE_ROAD.has(ride.mode);
     const place = stopName(rail, ride.alight);
     const live = ride.live && 'at' in ride.live ? ride.live : null;
+    const beyond = [ride.board, ride.alight].find(stop => stop.oasaTicket === false);
     return step(bus && !live ? `~${clockTime(ride.boards)}` : clockTime(ride.boards), html`
         <div>${pill(rail, ride)}${ride.lines.length === 1 && html` ${format(t('trip.towards'), { end: cityName(ride.toward) })}`}</div>
         ${live && html`<div class="trip-live">${minutesBadge(live.at, now)}${live.next !== null && html`<span class="trip-step-note">${format(t('trip.live-next'), { minutes: minutesTo(live.next, now) })}</span>`}</div>`}
         ${ride.live && 'none' in ride.live && html`<div class="trip-step-note">${t('trip.live-none')}</div>`}
-        <div class="trip-step-note">${ride.stops === 1 ? format(t('trip.stop'), { place }) : format(t('trip.stops'), { count: ride.stops, place })}</div>`);
+        <div class="trip-step-note">${ride.stops === 1 ? format(t('trip.stop'), { place }) : format(t('trip.stops'), { count: ride.stops, place })}</div>
+        ${beyond && html`<div class="trip-step-note">${format(t('trip.train-ticket'), { station: stopName(rail, beyond) })}</div>`}`);
 }
-// A rail line's pill: the metro's and the tram's are in rail.json, the
-// suburban railway's is one for all its trains (decision 40)
-const railPill = (rail, line, mode) => linePill(line, mode === 'suburban' ? t('trip.suburban') : rail.lines[line].name, 's');
+// A rail line's pill: the metro's and the tram's are in rail.json; the
+// suburban railway's are named as their ids, A1 to A4 (decision 40)
+const railPill = (rail, line, mode) => linePill(line, mode === 'suburban' ? line : rail.lines[line].name, 's');
 // Every bus line that rides it, the first to come first
 const pill = (rail, ride) => ON_THE_ROAD.has(ride.mode) ? pillList(ride.lines.map(line => busPlate(line, 's'))) : railPill(rail, ride.line, ride.mode);
 
@@ -145,11 +150,11 @@ function busStops(rail, stops, change, now) {
 // way of the half hour whose last bus can be any of several, the stops.
 // live: the way timed with OASA's live times (buses.js liveWay), at `now`
 function citySteps(rail, o, to, row = null, live = null) {
-    const walkTo = (walk, stop) => walk && walkStep(walk, format(t('trip.walk-to'), { place: stopName(rail, stop) }), stop);
+    const walkTo = (walk, stop, note = null) => walk && walkStep(walk, format(t('trip.walk-to'), { place: stopName(rail, stop) }), stop, note);
     const rides = row?.bundle ? o.rides.slice(0, -1) : o.rides;
     return html`<ol class="trip-steps">
         ${rides.length > 0 && walkTo(o.firstWalk, o.rides[0].board)}
-        ${rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board)}${rideStep(rail, ride, live?.now)}`)}
+        ${rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board, ride.walkNote)}${rideStep(rail, ride, live?.now)}`)}
         ${row?.bundle && busStops(rail, live?.way.stops ?? row.stops, rides.length > 0, live?.now)}
         ${o.lastWalk && walkStep(o.lastWalk, format(t('trip.walk-to'), { place: to.title }), to)}
     </ol>`;

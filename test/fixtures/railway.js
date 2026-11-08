@@ -2,14 +2,24 @@
 // railway.gov.gr's schedule boards in its own shape (server/data/railway.js),
 // with a fake of the site that answers a board for any date.
 
-// Three stations on one line: Piraeus, Athens and the airport, as OSE's ids o1, o2 and o3
+// Piraeus, Athens (beside the fixture metro's B, a walk with a note) and the
+// airport (outside OASA's ticket) on A1, as OSE's ids o1, o2 and o3; Ano
+// Liosia (o4), where A2 trains stop; SKA, OSE's o5, as two stations, A2's and
+// A3's, a walk apart
 export function suburbanCurated() {
     return {
-        lines: { P: { name: { el: 'Προαστιακός', en: 'Suburban railway' }, color: '#6c4a9e', corridors: ['PIRAIR'] } },
+        lines: {
+            A1: { name: 'A1', color: '#ffcd00', corridor: 'PIRAIR' },
+            A2: { name: 'A2', color: '#753bbd', corridor: 'PIRAIR', stopsAt: 'liosia' },
+            A3: { name: 'A3', color: '#78be20', corridor: 'CHALKIDA' },
+        },
         stations: {
             piraeus: { name: { el: 'Πειραιάς', en: 'Piraeus' }, ose: ['o1'], coords: [37.94913, 23.64372] },
-            athens: { name: { el: 'Αθήνα', en: 'Athens' }, ose: ['o2'], coords: [37.99284, 23.72015], metro: 'b' },
-            airport: { name: { el: 'Αεροδρόμιο', en: 'Airport' }, ose: ['o3', 'o3b'], coords: [37.93698, 23.94481] },
+            athens: { name: { el: 'Αθήνα', en: 'Athens' }, ose: ['o2'], coords: [37.99284, 23.72015], metro: 'b', walks: [{ metro: 'b', minutes: 4, note: { el: 'Απέναντι', en: 'Across the road' } }] },
+            airport: { name: { el: 'Αεροδρόμιο', en: 'Airport' }, ose: ['o3', 'o3b'], coords: [37.93698, 23.94481], oasaTicket: false },
+            liosia: { name: { el: 'Άνω Λιόσια', en: 'Ano Liosia' }, ose: ['o4'], coords: [38.07077, 23.70985] },
+            ska2: { name: { el: 'ΣΚΑ-Αχαρναί', en: 'SKA-Acharnai' }, ose: ['o5'], lines: ['A2'], coords: [38.06565, 23.73777], walks: [{ station: 'ska3', minutes: 6 }] },
+            ska3: { name: { el: 'ΣΚΑ', en: 'SKA' }, ose: ['o5'], lines: ['A3'], coords: [38.06813, 23.73774] },
         },
     };
 }

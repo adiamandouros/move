@@ -240,33 +240,55 @@ function checkTram(tram, stationIds, metroCodes, errors) {
     }
 }
 
-// suburban.json: the suburban railway's line, with the corridors of
-// railway.gov.gr's boards it takes, and its stations (build-suburban.js):
-// each one's names, OSE's ids for it, where it is (OpenStreetMap's), and the
-// metro station it shares, if any
+// suburban.json: the suburban railway's lines and stations (build-suburban.js,
+// decision 40). A line takes the trains of one of railway.gov.gr's
+// corridors, or with `stopsAt`, those of its trains that stop there (A2,
+// the Piraeus–Airport corridor's trains at Ano Liosia): every corridor has
+// one line without. A station has its names, OSE's ids for it, where it is
+// (OpenStreetMap's), the metro station it shares, `walks` to stations a
+// short walk away (in whole minutes, with a note where the way needs one;
+// one to the metro station it shares), and oasaTicket: false outside OASA's
+// ticket. Two stations share an OSE id only with `lines` to tell them apart
+// (SKA's two)
 function checkSuburban(suburban, stationIds, errors) {
     const lines = Object.entries(suburban?.lines ?? {});
+    const stations = suburban?.stations ?? {};
     if (!lines.length) errors.push('suburban.json: no lines');
-    const corridors = new Set();
+    const plain = new Map();
     for (const [lineId, line] of lines) {
-        if (!line.name?.el || !line.name?.en || !/^#[0-9a-f]{6}$/i.test(line.color ?? '')) errors.push(`suburban.json: ${lineId} needs name.el, name.en and a #rrggbb color`);
-        if (!Array.isArray(line.corridors) || !line.corridors.length) errors.push(`suburban.json: ${lineId} needs the corridors it takes`);
-        for (const corridor of line.corridors ?? []) {
-            if (corridors.has(corridor)) errors.push(`suburban.json: corridor ${corridor} is taken by two lines`);
-            corridors.add(corridor);
+        if (typeof line.name !== 'string' || !line.name || !/^#[0-9a-f]{6}$/i.test(line.color ?? '')) errors.push(`suburban.json: ${lineId} needs a name and a #rrggbb color`);
+        if (typeof line.corridor !== 'string' || !line.corridor) errors.push(`suburban.json: ${lineId} needs the corridor it takes`);
+        if (line.stopsAt !== undefined && !Object.hasOwn(stations, line.stopsAt)) errors.push(`suburban.json: ${lineId} stops at an unknown station "${line.stopsAt}"`);
+        if (line.stopsAt === undefined) {
+            if (plain.has(line.corridor)) errors.push(`suburban.json: corridor ${line.corridor} is taken by both ${plain.get(line.corridor)} and ${lineId}`);
+            plain.set(line.corridor, lineId);
         }
     }
+    for (const [lineId, line] of lines) if (line.corridor && !plain.has(line.corridor)) errors.push(`suburban.json: corridor ${line.corridor} needs a line without stopsAt for its other trains, beside ${lineId}`);
     const seen = new Map();
     const inside = (n, [min, max]) => typeof n === 'number' && n >= min && n <= max;
-    for (const [id, s] of Object.entries(suburban?.stations ?? {})) {
+    const isNote = note => typeof note?.el === 'string' && note.el !== '' && typeof note?.en === 'string' && note.en !== '';
+    for (const [id, s] of Object.entries(stations)) {
         if (!s.name?.el || !s.name?.en) errors.push(`suburban.json: ${id} needs name.el and name.en`);
         if (!Array.isArray(s.ose) || !s.ose.length) errors.push(`suburban.json: ${id} has no OSE ids`);
+        if (s.lines !== undefined && (!Array.isArray(s.lines) || !s.lines.length || s.lines.some(line => !suburban.lines?.[line]))) errors.push(`suburban.json: ${id}.lines must be a list of its lines`);
         for (const ose of s.ose ?? []) {
-            if (seen.has(ose)) errors.push(`suburban.json: OSE id ${ose} is used by both ${seen.get(ose)} and ${id}`);
+            const other = seen.get(ose);
+            const apart = other && s.lines && stations[other].lines && !s.lines.some(line => stations[other].lines.includes(line));
+            if (other && !apart) errors.push(`suburban.json: OSE id ${ose} is used by both ${other} and ${id}, with no lines to tell them apart`);
             seen.set(ose, id);
         }
         const [lat, lng] = Array.isArray(s.coords) ? s.coords : [];
         if (s.coords?.length !== 2 || !inside(lat, SUBURBAN.lat) || !inside(lng, SUBURBAN.lng)) errors.push(`suburban.json: ${id}.coords must be [latitude, longitude] between Kiato and Chalkida, like [37.99284, 23.72015]`);
         if (s.metro !== undefined && !stationIds.has(s.metro)) errors.push(`suburban.json: ${id} shares an unknown metro station "${s.metro}"`);
+        else if (s.metro !== undefined && !s.walks?.some(walk => walk.metro === s.metro)) errors.push(`suburban.json: ${id} needs a walk to ${s.metro}, the metro station it shares`);
+        for (const walk of s.walks ?? []) {
+            const to = walk.metro ?? walk.station;
+            const known = walk.metro ? stationIds.has(walk.metro) : Object.hasOwn(stations, walk.station ?? '');
+            if (!known) errors.push(`suburban.json: ${id} walks to an unknown station "${to}"`);
+            if (!Number.isInteger(walk.minutes) || walk.minutes < 1) errors.push(`suburban.json: ${id}'s walk to ${to} needs whole minutes`);
+            if (walk.note !== undefined && !isNote(walk.note)) errors.push(`suburban.json: ${id}'s walk to ${to} needs its note in both languages`);
+        }
+        if (s.oasaTicket !== undefined && s.oasaTicket !== false) errors.push(`suburban.json: ${id}.oasaTicket is false outside OASA's ticket, and left out inside it`);
     }
 }
