@@ -98,7 +98,7 @@ const OUTPUTS = {
         sources: ['busTimetable', 'network', 'passes'],
         build: src => buildBuses(src.busTimetable.data, src.network.data, buildBusRides(src.passes.data, src.network.data).data),
     },
-    // The suburban railway's trains, by date, from railway.gov.gr (build-suburban.js, decision 40)
+    // The suburban railway's trains, by date, from railway.gov.gr (build-suburban.js, decision 41)
     'trains.json': {
         sources: ['railway'],
         build: (src, curated) => {

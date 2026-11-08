@@ -46,10 +46,16 @@
             </div>
         </div>
 
-        {{!-- Shown by the page's script when there's a tram to show --}}
-        <div id="tram-switch" class="form-check form-switch tram-switch" hidden>
-            <input id="show-tram" class="form-check-input" type="checkbox" role="switch" checked>
-            <label class="form-check-label" for="show-tram">{{t "subway.show-tram"}}</label>
+        {{!-- Each shown by the page's script when there's a tram, or a suburban railway, to show --}}
+        <div class="mode-switches">
+            <div id="tram-switch" class="form-check form-switch mode-switch" hidden>
+                <input id="show-tram" class="form-check-input" type="checkbox" role="switch" checked>
+                <label class="form-check-label" for="show-tram">{{t "subway.show-tram"}}</label>
+            </div>
+            <div id="suburban-switch" class="form-check form-switch mode-switch" hidden>
+                <input id="show-suburban" class="form-check-input" type="checkbox" role="switch" checked>
+                <label class="form-check-label" for="show-suburban">{{t "subway.show-suburban"}}</label>
+            </div>
         </div>
     </form>
 

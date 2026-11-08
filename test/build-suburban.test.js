@@ -5,7 +5,7 @@ import { checkOutput } from '../server/data/check-output.js';
 import { board, suburbanCurated, train } from './fixtures/railway.js';
 
 // trains.json from railway.gov.gr's boards (server/data/build-suburban.js,
-// decision 40): each date's trains by their stops, in seconds from that
+// decision 41): each date's trains by their stops, in seconds from that
 // date's midnight in Athens
 
 const H = 3600;

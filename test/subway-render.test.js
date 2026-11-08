@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
-import { athensNow, planTrip, withTram } from '../tools/subway/client/network.js';
+import { athensNow, planTrip, withSuburban, withTram } from '../tools/subway/client/network.js';
 import { browserModule, strings } from './support/browser-modules.js';
 import { markupProblems, spoken } from './support/markup.js';
 import { clockTime } from '../public/js/core/metro.js';
@@ -12,6 +12,7 @@ import { clockTime } from '../public/js/core/metro.js';
 // checked for accessibility and for strings shown as their keys.
 
 const rail = JSON.parse(readFileSync(new URL('./browser/data/rail.json', import.meta.url), 'utf8'));
+const trains = JSON.parse(readFileSync(new URL('./browser/data/trains.json', import.meta.url), 'utf8'));
 const NOON = athensNow(new Date('2026-10-21T09:00:00Z')); // Wednesday 12:00 in Athens
 const LATE = athensNow(new Date('2026-10-14T20:55:00Z')); // Wednesday 23:55
 
@@ -43,6 +44,13 @@ const TRAM_TRIPS = [
     ['kifisia', 'evangelistria', 'a change on foot'],
     ['zappeio', 'fix', 'by tram alone'],
 ];
+// With the suburban railway too (decision 41): from, to, what it shows
+const suburban = withSuburban(network, trains, NOON.date);
+const SUBURBAN_TRIPS = [
+    ['megara', 'syntagma', 'a change to the metro on foot, from a station OASA\'s ticket doesn\'t cover'],
+    ['piraeus-suburban', 'monastiraki', 'a walk first, with its note'],
+    ['ano-liosia', 'chalkida', 'a change across SKA\'s footbridge'],
+];
 const drawTram = (render, from, to, now = NOON) => {
     const trip = planTrip(network, from, to, now);
     return { trip, html: String(render.renderResult(network, trip.plans.slice(0, 1), trip.now, { expired: false, tomorrow: trip.tomorrow, to })) };
@@ -68,6 +76,13 @@ for (const lang of ['en', 'el']) {
             const { plans, now, tomorrow } = planTrip(network, from, to, NOON);
             assert.deepEqual(markupProblems(render.renderResult(network, plans, now, { expired: false, tomorrow, to }), { keys }), []);
             assert.deepEqual(markupProblems(`<p class="sr-only">${render.routeSummary(network, plans, now, tomorrow)}</p>`, { keys }), []);
+        });
+    }
+    for (const [from, to, why] of SUBURBAN_TRIPS) {
+        test(`${lang}: a trip by suburban train (${why}) is accessible and fully translated`, () => {
+            const { plans, now, tomorrow } = planTrip(suburban, from, to, NOON);
+            assert.deepEqual(markupProblems(render.renderResult(suburban, plans, now, { expired: false, tomorrow, from, to }), { keys }), []);
+            assert.deepEqual(markupProblems(`<p class="sr-only">${render.routeSummary(suburban, plans, now, tomorrow)}</p>`, { keys }), []);
         });
     }
     test(`${lang}: no route, other messages and the intro`, () => {
@@ -503,4 +518,37 @@ test('two stops a short walk apart are one message, not a route', async () => {
 test('each line, the tram\'s too, has its strip under a leg\'s stations', () => {
     const css = readFileSync(new URL('../public/css/style.css', import.meta.url), 'utf8');
     for (const id of Object.keys(network.lines)) assert.ok(css.includes(`.strip-${id.toLowerCase()} {`), id);
+});
+
+test('a trip by suburban train: its line toward where the train ends, as signed, no train diagram, the ticket it needs, its walks\' notes and where its times are from', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    const { plans, now, tomorrow } = planTrip(suburban, 'megara', 'syntagma', NOON);
+    const html = String(render.renderResult(suburban, plans.slice(0, 1), now, { expired: false, tomorrow, from: 'megara', to: 'syntagma' }));
+    const text = spoken(html).replace(/\s+/g, ' ');
+    // Toward Piraeus, not "Piraeus (suburban)", as the station list tells the two apart
+    assert.match(html, /<span class="line-pill pill-l line-a4">A4<\/span>\s*<span class="direction-text"><span aria-hidden="true">→ <\/span><span class="sr-only">toward <\/span><span class="station-sign sign-m">Piraeus<\/span>/);
+    assert.match(text, /Needs a Hellenic Train ticket, as OASA's ticket doesn't cover Megara\./);
+    assert.match(text, /Walk to Larissa Station about 4 minutes/);
+    // The M2's card has its train diagram, the A4's none; the suburban stations aren't links
+    assert.equal((html.match(/class="train-diagram/g) ?? []).length, 1);
+    assert.match(html, /At Megara:/);
+    assert.match(html, /Transfer at <strong>Athens<\/strong>/);
+    assert.match(html, /<a href="\/subway\/stations\/larissa-station">Larissa Station<\/a>/);
+    assert.match(text, /Suburban railway times are from railway\.gov\.gr \(OSE\), and its trains often arrive a few minutes late\./);
+    assert.match(render.routeSummary(suburban, plans, now, tomorrow), /A4 toward Piraeus/);
+    // From Piraeus's suburban station, the walk to the metro says it isn't signed; a metro trip doesn't mention the railway
+    const fromPiraeus = planTrip(suburban, 'piraeus-suburban', 'monastiraki', NOON);
+    const walk = spoken(String(render.renderResult(suburban, fromPiraeus.plans, fromPiraeus.now, { expired: false, from: 'piraeus-suburban', to: 'monastiraki' })));
+    assert.match(walk.replace(/\s+/g, ' '), /Walk to Piraeus about 4 minutes The suburban railway’s station isn’t in the metro’s building: about 2 minutes on foot, across a busy road, with no signs\./);
+    assert.doesNotMatch(walk, /railway\.gov\.gr/);
+});
+
+test('in Greek, the footbridge at SKA and the ticket beyond it', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'el');
+    const { plans, now } = planTrip(suburban, 'ano-liosia', 'chalkida', NOON);
+    const text = spoken(String(render.renderResult(suburban, plans.slice(0, 1), now, { expired: false, from: 'ano-liosia', to: 'chalkida' }))).replace(/\s+/g, ' ');
+    assert.match(text, /Περπάτημα ως Σιδηροδρομικό Κέντρο Αχαρνών περίπου 6 λεπτά Οι δύο σταθμοί του ΣΚΑ ενώνονται μόνο με μια στενή πεζογέφυρα/);
+    assert.match(text, /A3 προς Χαλκίδα/);
+    assert.match(text, /δεν καλύπτει τον σταθμό Χαλκίδα\./);
+    assert.match(text, /Οι ώρες του Προαστιακού είναι από το railway\.gov\.gr/);
 });

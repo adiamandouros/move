@@ -1,4 +1,4 @@
-// The suburban railway for tests (decision 40): a small suburban.json, and
+// The suburban railway for tests (decision 41): a small suburban.json, and
 // railway.gov.gr's schedule boards in its own shape (server/data/railway.js),
 // with a fake of the site that answers a board for any date.
 

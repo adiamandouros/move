@@ -20,7 +20,7 @@ const MINUTE = 60_000;
 // A data folder's build/ (its raw/ beside it, as data/ has them). hours: the
 // date of STASY's copy rail.json uses; stasyFetch: STASY's last fetch; airportCheck: the last airport timetable check
 // checks: rail.json's nightly checks (rail-checks.js); trainDates: the dates
-// trains.json has (decision 40); railwayFetch: the last fetch of railway.gov.gr's boards
+// trains.json has (decision 41); railwayFetch: the last fetch of railway.gov.gr's boards
 function buildDir({ generated = '2026-10-18T01:30:00Z', ok = true, validTo = '2026-10-31', hours = '2026-10-10', stasyFetch = null, airportCheck = null, checks = undefined, trainDates = null, railwayFetch = null } = {}) {
     const dir = join(mkdtempSync(join(tmpdir(), 'health-')), 'build');
     mkdirSync(dir);

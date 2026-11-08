@@ -41,7 +41,7 @@ const clear = viewOf(menelaou, fix, at(12));
 const depends = viewOf(menelaou, syntagma, at(10));
 const byRail = viewOf(syntagma, larissa, at(12));
 
-// The suburban railway that Wednesday (decision 40): from Athens station to the airport every 10 minutes, 40 minutes on the way
+// The suburban railway that Wednesday (decision 41): from Athens station to the airport every 10 minutes, 40 minutes on the way
 const { trainDay } = await browserModule('tools/subway/client/city.js');
 const DATE = '2026-10-21';
 const hhmm = minutes => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;

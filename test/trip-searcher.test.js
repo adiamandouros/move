@@ -24,11 +24,12 @@ const fix = { lat: rail.stations['syggrou-fix'].coords[0], lng: rail.stations['s
 const trip = (id, more = {}) => ({ id, from: menelaou, to: syntagma, now: NOW, half: false, ...more });
 
 // A searcher whose half hours wait between departures until `step` lets them on
-function started({ loadBuses = async () => buses, loadTrains = undefined } = {}) {
+// (`suburban`: false when the railway is hidden on the Subway page)
+function started({ loadBuses = async () => buses, loadTrains = undefined, suburban = undefined } = {}) {
     const posted = [];
     const waiting = [];
     const handle = searcher({ loadBuses, loadTrains, post: message => posted.push(message), pause: () => new Promise(resolve => waiting.push(resolve)) });
-    handle({ rail });
+    handle({ rail, ...(suburban !== undefined && { suburban }) });
     // Lets the half hours that are waiting go on, until none is
     const runOut = async () => {
         while (waiting.length) {
@@ -186,7 +187,7 @@ test('live times are only for the latest half hour, and timing them never stops 
     assert.deepEqual(posted.map(message => [message.id, message.live.seq]), [[2, 4]], 'now only trip 2\'s');
 });
 
-// The suburban railway (decision 40): on Wednesday 21 October, from Athens station to the airport
+// The suburban railway (decision 41): on Wednesday 21 October, from Athens station to the airport
 const DATE = '2026-10-21';
 const trains = buildTrains({ [DATE]: { schedules: [train(DATE, '1210', [['o2', '10:05'], ['o3', '10:45']])] } }, suburbanCurated()).data;
 const athensStation = { lat: 37.99284, lng: 23.72015 };
@@ -211,4 +212,18 @@ test('the day\'s city has that date\'s trains, and the answer says so; without t
     await failed.handle({ id: 1, from: menelaou, to: syntagma, now: { ...NOW, date: DATE }, half: false });
     assert.equal(failed.posted[0].trains, false);
     assert.deepEqual(failed.posted[0].options, busOptions(cityPlanner(rail, buses, 3), menelaou, syntagma, NOW));
+});
+
+test('with the suburban railway hidden on the Subway page, trains.json isn\'t loaded and the city has no trains (decision 41)', async () => {
+    let asked = 0;
+    const hidden = started({ loadTrains: async () => { asked++; return trains; }, suburban: false });
+    await hidden.handle({ id: 1, from: athensStation, to: airportStation, now: { ...NOW, date: DATE }, half: false });
+    assert.equal(asked, 0);
+    assert.equal(hidden.posted[0].trains, false);
+    assert.deepEqual(byTrain(hidden.posted[0].options), []);
+    // Shown, it's loaded
+    const shown = started({ loadTrains: async () => { asked++; return trains; }, suburban: true });
+    await shown.handle({ id: 1, from: athensStation, to: airportStation, now: { ...NOW, date: DATE }, half: false });
+    assert.equal(asked, 1);
+    assert.equal(shown.posted[0].trains, true);
 });

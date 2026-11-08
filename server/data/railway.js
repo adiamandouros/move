@@ -4,7 +4,7 @@ import { readJson, writeFileAtomic } from '../files.js';
 import { addDays, isoDate } from './calendar.js';
 
 // The suburban railway's timetable from railway.gov.gr, OSE's train site
-// (decision 40): every train of a day, with each stop's times, from the
+// (decision 41): every train of a day, with each stop's times, from the
 // schedule board its /schedules page reads. No terms, license or API are
 // published; Wayhop uses it as public data while OSE is asked to publish it
 // as open data. For trains.json (build-suburban.js). Fetched by the nightly

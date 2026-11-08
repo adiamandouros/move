@@ -30,11 +30,13 @@ export function matchStations(stations, query) {
 // What a field offers before anything is typed, to show what it takes: the
 // starred stations (`starred`, all of them), the stations picked lately
 // (`recent`, the last 3 not starred), then the interchanges, then the ends
-// of the lines, each A–Z
+// of the lines, each A–Z: the metro's and the tram's, as the suburban
+// railway's lines share track, so nearly every station of its would be one
+// (decision 41). Its stations come up when typed.
 export function startingStations(rail, recent, starred = []) {
     const byName = ids => [...ids].sort((a, b) => stationName(rail.stations[a]).localeCompare(stationName(rail.stations[b]), 'el'));
-    const interchanges = Object.keys(rail.stations).filter(id => rail.stations[id].lines.length > 1);
-    const ends = Object.values(rail.lines).flatMap(line => Object.values(line.directions)
+    const interchanges = Object.keys(rail.stations).filter(id => rail.stations[id].lines.length > 1 && !rail.stations[id].suburban);
+    const ends = Object.values(rail.lines).filter(line => !line.suburban).flatMap(line => Object.values(line.directions)
         .flatMap(({ stops }) => [stops[0].station, stops.at(-1).station]));
     const known = ids => ids.filter(id => Object.hasOwn(rail.stations, id));
     const favourite = known(starred);
@@ -104,12 +106,15 @@ export function stationSearch({ input, list, rail, onChange, announce, lifts = (
         if (notify) onChange(selected);
     }
 
-    // The stations on offer change (the tram shown or hidden): one picked
-    // that's gone goes with them
+    // The stations on offer change (the tram or the suburban railway shown or
+    // hidden, or the railway's timetable come late): one picked that's gone
+    // goes with them, and while the field is in use its list shows those on
+    // offer now, rather than close under what's being typed
     function setRail(next) {
         rail = next;
-        hide();
         if (selected && !Object.hasOwn(rail.stations, selected)) set(null, { notify: false });
+        if (document.activeElement === input) render(suggestions());
+        else hide();
     }
 
     // A station the person chose themselves, so it's offered again later

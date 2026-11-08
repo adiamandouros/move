@@ -106,6 +106,108 @@ export function withTram(rail) {
     return { ...rail, stations, lines, walks };
 }
 
+// The stops of trains that end at the same station, in one order: the
+// longest train's, with another's stations put in after the one they follow.
+// null when two of them pass stations in opposite orders
+/** @param {string[][]} sequences @returns {string[] | null} */
+function mergeStops(sequences) {
+    const [longest, ...others] = [...sequences].sort((a, b) => b.length - a.length);
+    const order = [...longest];
+    for (const stops of others) {
+        stops.forEach((station, i) => {
+            if (order.includes(station)) return;
+            const before = stops.slice(0, i).findLast(s => order.includes(s));
+            order.splice(before ? order.indexOf(before) + 1 : order.indexOf(stops.find(s => order.includes(s))), 0, station);
+        });
+        const at = stops.map(station => order.indexOf(station));
+        if (at.some((index, i) => i && index <= at[i - 1])) return null;
+    }
+    return order;
+}
+
+// The suburban railway joined to `rail` (the metro, or the metro and the
+// tram), in rail.json's shape, from trains.json (decision 41), so the planner
+// works on it as on the tram. A line's trains go in a direction for each
+// station they end at, as a train's direction names where it ends
+// (DESIGN.md): its stops are those of every train ending there, in order, and
+// each train's own stops a profile of them; each date trains.json holds has
+// its trains on that date, and any other day none. Every station a train
+// calls at is a row of its own; one with a metro station's or a tram stop's
+// id gets an id of its own and says "(suburban)" in its name. Its walks are
+// trains.json's, in minutes, and `walkNotes` the notes on them, both ways.
+// Without trains for `date` (or without trains.json), it's rail.
+/**
+ * @param {Rail} rail @param {import('../../../types/data.js').Trains | null} trains @param {string} date
+ * @returns {Rail & { walkNotes?: Record<string, Record<string, import('../../../types/data.js').Names>> }}
+ */
+export function withSuburban(rail, trains, date) {
+    if (!trains?.dates?.[date]?.length) return rail;
+    const stationId = id => Object.hasOwn(rail.stations, id) ? `${id}-suburban` : id;
+
+    // Each line's trains by where they end, and those that can't share an order apart
+    const groups = [];
+    for (const [day, routes] of Object.entries(trains.dates)) {
+        for (const route of routes) {
+            const end = route.stops.at(-1);
+            const mine = groups.filter(group => group.line === route.line && group.end === end);
+            let group = mine.find(g => mergeStops([...g.routes.map(r => r.stops), route.stops]));
+            if (!group) groups.push(group = { line: route.line, end, dir: mine.length ? `${end}-${mine.length + 1}` : end, routes: [] });
+            group.routes.push({ ...route, day });
+        }
+    }
+
+    const lines = {};
+    const calledAt = new Map();
+    for (const { line, end, dir, routes } of groups) {
+        const order = mergeStops(routes.map(route => route.stops));
+        const profiles = [];
+        const profileOf = new Map();
+        // Pattern 0, with no trains, for the days trains.json doesn't hold
+        const patterns = [[]];
+        const dates = {};
+        for (const { day, stops, profiles: offsets, trips } of routes) {
+            const along = stops.map(station => order.indexOf(station));
+            if (!(day in dates)) dates[day] = patterns.push([]) - 1;
+            for (const [start, p] of trips) {
+                const key = JSON.stringify([along, offsets[p]]);
+                if (!profileOf.has(key)) profileOf.set(key, profiles.push({ stops: along, offsets: offsets[p] }) - 1);
+                patterns[dates[day]].push([start, profileOf.get(key)]);
+            }
+        }
+        patterns.forEach(pattern => pattern.sort((a, b) => a[0] - b[0]));
+        for (const station of order) calledAt.set(station, new Set(calledAt.get(station)).add(line));
+        const [, , el, en] = trains.stations[end];
+        // Its colour is the style sheet's (.line-a1 and the others)
+        lines[line] ??= { name: line, color: '', suburban: true, directions: {} };
+        lines[line].directions[dir] = {
+            toward: { el, en },
+            stops: order.map(station => ({ station: stationId(station), exits: [] })),
+            timetable: { profiles, patterns, days: [0, 0, 0, 0, 0, 0, 0], dates },
+        };
+    }
+
+    const outside = new Set(trains.outside);
+    const stations = { ...rail.stations };
+    for (const [id, line] of calledAt) {
+        const [lat, lng, el, en] = trains.stations[id];
+        const clash = stationId(id) !== id;
+        stations[stationId(id)] = {
+            name: clash ? { el: `${el} (Προαστιακός)`, en: `${en} (suburban)` } : { el, en },
+            coords: [lat, lng], lines: [...line].sort(), suburban: true, ...(outside.has(id) && { oasaTicket: false }),
+        };
+    }
+    const walks = Object.fromEntries(Object.entries(rail.walks ?? {}).map(([id, near]) => [id, { ...near }]));
+    const walkNotes = {};
+    const both = (record, a, b, value) => { (record[a] ??= {})[b] = value; (record[b] ??= {})[a] = value; };
+    for (const [from, to, seconds, note] of trains.walks) {
+        const [a, b] = [from, to].map(stop => stop.startsWith('rail:') ? stop.slice(5) : stationId(stop.slice(6)));
+        if (!stations[a] || !stations[b]) continue;
+        both(walks, a, b, seconds / 60);
+        if (note) both(walkNotes, a, b, note);
+    }
+    return { ...rail, stations, lines: { ...rail.lines, ...lines }, walks, walkNotes };
+}
+
 // Worked out once per network: at each station, the directions that call there
 // and where it is among their stops, and the stations a route can change at
 // (on two lines or more, or a short walk from another)
@@ -140,7 +242,10 @@ const walksFrom = (rail, id) => Object.entries(rail.walks?.[id] ?? {});
 // row: round T7's one-way loop in Piraeus, the way from Evangelistria to
 // Skylitsi is on to the end of the line and back out. But it doesn't ride back
 // over the same line: nobody takes M3 to Piraeus to come back through where
-// they started.
+// they started. It doesn't change from one suburban train to another at the
+// same station: their lines share track, so every station they share would be
+// a change, and thousands of routes to time (decision 41). Those ways are the
+// search's (fastestRoutes). On foot it does, across SKA's footbridge.
 /** @param {Rail} rail @param {string} from @param {string} to @param {number} limit @returns {Route[]} */
 function routesWithin(rail, from, to, limit) {
     const { calls, changes } = calling(rail);
@@ -149,6 +254,7 @@ function routesWithin(rail, from, to, limit) {
     const rideFrom = (at, seen, legs, walkFirst) => {
         for (const { line, dir, stops, index } of calls.get(at) ?? []) {
             if (legs.at(-1)?.line === line && legs.at(-1).dir === dir) continue;
+            if (legs.at(-1)?.to === at && rail.lines[legs.at(-1).line].suburban && rail.lines[line].suburban) continue;
             const ridden = new Set(legs.filter(leg => leg.line === line)
                 .flatMap(leg => rail.lines[line].directions[leg.dir].stops.slice(leg.fromIndex, leg.toIndex + 1).map(stop => stop.station)));
             const passed = new Set(seen);
@@ -205,6 +311,28 @@ function trainsOn(timetable, weekday, date, dayOffset) {
     return timetable.patterns[own ?? timetable.days[(weekday + dayOffset + 7) % 7]];
 }
 
+// When the suburban line's trains that end elsewhere leave for the same
+// stretch as `leg`, on the service day `dayOffset` days from `weekday`: each
+// end is a direction of its own (withSuburban), but a train is only the last
+// if none of the line's leaves after it. None for the metro and the tram.
+/** @param {Rail} rail @param {Leg} leg @param {number} weekday @param {string | undefined} date @param {number} dayOffset */
+function othersOnLeg(rail, leg, weekday, date, dayOffset) {
+    const line = rail.lines[leg.line];
+    if (!line.suburban) return [];
+    const { stops } = line.directions[leg.dir];
+    const [from, to] = [stops[leg.fromIndex].station, stops[leg.toIndex].station];
+    return Object.entries(line.directions).filter(([dir]) => dir !== leg.dir).flatMap(([, direction]) => {
+        const i = direction.stops.findIndex(stop => stop.station === from);
+        const j = direction.stops.findIndex(stop => stop.station === to);
+        if (i === -1 || j <= i) return [];
+        return trainsOn(direction.timetable, weekday, date, dayOffset).flatMap(([start, p]) => {
+            const { stops: along, offsets } = direction.timetable.profiles[p];
+            const at = along.indexOf(i);
+            return at !== -1 && along.indexOf(j) > at ? [start + offsets[at] + dayOffset * DAY] : [];
+        });
+    });
+}
+
 // Upcoming departures for one leg at or after `after` seconds (relative to
 // today's midnight). Includes yesterday's trips that run past midnight,
 // unless ownDay (only the day's own service). With `date` (today's, ISO), a
@@ -213,7 +341,8 @@ function trainsOn(timetable, weekday, date, dayOffset) {
 // Each result: { departs, arrives, isLast, isSecondLast }. The last ones are
 // only flagged when STASY's last train agrees (the timetable misses the late
 // airport trains, and there's no last one when the trains run all night), or
-// when there are no STASY times.
+// when there are no STASY times; a suburban train, when none of its line's
+// leaves for the same stretch after it (othersOnLeg).
 /**
  * @param {Rail} rail @param {Leg} leg
  * @param {{ weekday: number, after: number, count?: number, ownDay?: boolean, date?: string }} when
@@ -237,9 +366,11 @@ export function departures(rail, leg, { weekday, after, count = 2, ownDay = fals
         const last = stasyLast(rail, leg, serviceDay);
         const lastKnown = last === undefined
             || (last !== null && unique.length > 0 && Math.abs(unique.at(-1).departs - dayOffset * DAY - last) <= LAST_TRAIN_LEEWAY);
+        const others = othersOnLeg(rail, leg, weekday, date, dayOffset);
         unique.forEach((d, k) => {
-            d.isLast = lastKnown && k === unique.length - 1;
-            d.isSecondLast = lastKnown && k === unique.length - 2;
+            const after = unique.length - 1 - k + others.filter(departs => departs > d.departs).length;
+            d.isLast = lastKnown && after === 0;
+            d.isSecondLast = lastKnown && after === 1;
         });
         found.push(...unique.filter(d => d.departs >= after));
     }
@@ -286,7 +417,7 @@ function searchFor(rail, now, ownDay) {
     const ids = Object.keys(rail.stations);
     const index = new Map(ids.map((id, i) => [id, i]));
     const routes = [];
-    for (const [line, { directions, tram }] of Object.entries(rail.lines)) {
+    for (const [line, { directions, tram, suburban }] of Object.entries(rail.lines)) {
         for (const [dir, { stops, timetable }] of Object.entries(directions)) {
             const byProfile = new Map();
             for (const dayOffset of ownDay ? [0] : [-1, 0]) {
@@ -297,7 +428,7 @@ function searchFor(rail, now, ownDay) {
             }
             for (const [p, trips] of byProfile) {
                 const along = timetable.profiles[p].stops;
-                routes.push({ line, dir, along, mode: tram ? 'tram' : 'metro', stops: along.map(i => index.get(stops[i].station)), trips });
+                routes.push({ line, dir, along, mode: tram ? 'tram' : suburban ? 'suburban' : 'metro', stops: along.map(i => index.get(stops[i].station)), trips });
             }
         }
     }
@@ -372,9 +503,12 @@ const routeKey = route => JSON.stringify([route.walkFirst ?? 0, route.legs.map(l
 // that arrive first, fewer changes first when they arrive together; those
 // arriving much later start closed (SLOWER_MINUTES in render.js). A trip with a
 // tram offers its other ways like that, whatever their changes. Metro trains
-// alone don't: a route with more changes than the fewest stays only if it gets
-// there WORTH_A_CHANGE sooner than every route with fewer, so a direct train
-// stays the only answer.
+// alone don't, nor with the suburban railway's: a route with more changes than
+// the fewest stays only if it gets there WORTH_A_CHANGE sooner than every
+// route with fewer, so a direct train stays the only answer. The same ride on
+// suburban trains that end elsewhere is offered once, on the train that gets
+// there first: each end is a direction of its own (withSuburban), and some
+// have only a few trains, or none some days.
 /** @param {Rail} rail @param {string} from @param {string} to @param {AthensTime} now @param {boolean} [ownDay] @returns {PlannedRoute[]} */
 export function planJourney(rail, from, to, now, ownDay = false) {
     if (!from || !to || from === to) return [];
@@ -386,9 +520,15 @@ export function planJourney(rail, from, to, now, ownDay = false) {
     const hasTram = plan => plan.legs.some(leg => rail.lines[leg.line].tram);
     const worthIt = plan => plan.legs.length === fewest || hasTram(plan) || (plan.arrives !== null
         && plans.every(other => other.legs.length >= plan.legs.length || (other.arrives ?? Infinity) - plan.arrives >= WORTH_A_CHANGE));
+    const rides = new Set();
+    const firstRide = plan => {
+        const ride = JSON.stringify([plan.walkFirst ?? 0, plan.legs.map(leg => [leg.line, leg.from, leg.to]), plan.walkLast ?? 0]);
+        return !rides.has(ride) && Boolean(rides.add(ride));
+    };
     return plans
         .filter(worthIt)
         .sort((a, b) => (a.arrives ?? Infinity) - (b.arrives ?? Infinity) || a.legs.length - b.legs.length)
+        .filter(firstRide)
         .slice(0, MAX_OPTIONS);
 }
 

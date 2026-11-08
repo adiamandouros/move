@@ -11,19 +11,20 @@ import { busOptions, cityPlanner, halfHour, halfView, liveWay, shownRows } from 
 // with the quicker way on a decision, or that way once the rider takes it
 // (liveWay, decision 36), without stopping a half hour being worked out.
 // The day's city has the suburban railway's trains of that date, when
-// trains.json has them (decision 40). No DOM, so it's tested in Node.
+// trains.json has them (decision 41). No DOM, so it's tested in Node.
 
 /** @typedef {import('./buses.js').Point} Point */
 /** @typedef {import('./buses.js').BusOption} BusOption */
 /**
  * What the page asks: `rail` once, first, as the city is planned on (with its
- * tram or without it, decision 29); then each trip, `id` counting up, leaving
+ * tram or without it, decision 29), and `suburban: false` when the suburban
+ * railway is hidden (decision 41); then each trip, `id` counting up, leaving
  * `now` (the date in Athens, 'YYYY-MM-DD', for its trains), with
  * `half` when its half hour is wanted too; and the way of the half hour `id`
  * shown in full, its `row` for `departure`, timed with the live times `stops`
  * for leaving `now` (`seq` counting up, as only the latest counts), or
  * `taken`: the quicker way the rider took in its place
- * @typedef {{ rail: import('../../../types/data.js').Rail }
+ * @typedef {{ rail: import('../../../types/data.js').Rail, suburban?: boolean }
  *   | { id: number, from: Point, to: Point, now: { weekday: number, seconds: number, date?: string }, half: boolean }
  *   | { id: number, live: { seq: number, row: number, departure: number, now: { seconds: number }, stops: Record<string, import('./buses.js').StopLive>, taken?: boolean } }} Asked
  */
@@ -75,7 +76,8 @@ export function searcher({ loadBuses, loadTrains = async () => null, post, pause
         if ('rail' in message) {
             rail = message.rail;
             buses = loadBuses().catch(() => null);
-            trains = loadTrains().catch(() => null);
+            // Not when the suburban railway is hidden on the Subway page (decision 41)
+            trains = message.suburban === false ? null : loadTrains().catch(() => null);
             return;
         }
         if ('live' in message) {

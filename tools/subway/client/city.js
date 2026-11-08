@@ -1,6 +1,6 @@
 // The whole city for the trip search (decision 28): the metro and the tram
 // from rail.json, a day of buses and trolleys from buses.json (decision 30),
-// a day of the suburban railway from trains.json (decision 40), and walks
+// a day of the suburban railway from trains.json (decision 41), and walks
 // between stops worked out from the straight line, as there's no street map. No DOM, and only relative imports, so the browser and the
 // planner lab (scripts/planner-lab/) share it.
 
@@ -111,7 +111,7 @@ export function trainDay({ stations, walks, outside, dates }, date) {
  * run past midnight included, and the suburban railway's day when there is
  * one (trainDay). `index` finds a stop: rail:korydallos, bus:70040, train:athens.
  * Each route says where it goes (`toward`): a rail line's direction, a bus's or train's last stop
- * (decision 40: the train's own end, not its line's); a bus's also which of OASA's routes it is (`code`),
+ * (decision 41: the train's own end, not its line's); a bus's also which of OASA's routes it is (`code`),
  * as its live times say. `knownWalks`: the trains' walks known better than the
  * straight line's, [stop, stop, seconds, note?], between stops the network has.
  * @param {import('../../../types/data.js').Rail} rail @param {Buses} buses @param {number} weekday @param {Trains | null} [trains]

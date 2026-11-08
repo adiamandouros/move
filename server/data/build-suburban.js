@@ -1,5 +1,5 @@
 // trains.json, the suburban railway's timetable for the Trip page's search
-// (decision 40), from railway.gov.gr's boards (railway.js) and the lines and
+// (decision 41), from railway.gov.gr's boards (railway.js) and the lines and
 // stations in data/curated/suburban.json. A train's line is the one of its
 // corridor whose `stopsAt` it stops at, or else its corridor's other one (the
 // boards don't name A1–A4); each of its stops is the station with that OSE

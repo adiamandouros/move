@@ -1,0 +1,199 @@
+# 41. The suburban railway on the trip page and in the subway planner, from railway.gov.gr's timetable
+
+Decided 2026-11-08 · In force
+
+## Situation
+
+The trip page plans by metro, tram, bus and on foot ([39](0039-trip-buses-for-everyone.md)),
+and since [40](0040-suburban-railway-timetable.md) by the suburban railway
+(Proastiakos) too, the only rail to much of west and north Attica, Megara,
+Kiato and Chalkida, and a second way to the airport. The subway planner has
+the metro and the tram ([28](0028-trip-search.md)), but not the railway: the
+rider asked for it there, the same way as the tram (8 November 2026).
+
+No one publishes its timetable as open data: Hellenic Train has no feed,
+and its terms forbid reuse without written consent; TrainOSE's old GTFS is
+gone; neither data.gov.gr nor nap.gov.gr has rail data. Volunteers for
+Transitous turn railway.gov.gr into GTFS, but with no license, and they
+can't license OSE's times anyway (looked into 7 November 2026).
+
+railway.gov.gr is OSE's train site (OSE is state-owned; the site is ©
+the Ministry of Infrastructure and Transport). Its /schedules page shows
+every train's timetable and its /train-tracker every train's position,
+from open but undocumented addresses on its own server, with no terms,
+license or API. Greek law (4727/2020, and the Digital Governance ministry's
+circular of 3 July 2026) has public bodies and state-owned transport
+companies make the data they hold open by default.
+
+Its schedule board (`/api/public/schedule-board?date=YYYY-MM-DD`) is every
+train of a day, with each stop's times in UTC: about 0.75 to 0.9 MB, sent
+uncompressed and never cached, from 2 days back to 30 ahead. Each
+train has a corridor (Piraeus–Airport, Kiato, Chalkida), its own stops, and
+a delay and actual times, filled in only once its trip is over:
+while it runs they read 0 everywhere, OSE's own page included (looked at
+in the day on 8 November 2026). On the Athens lines (about 134 to 170
+trains a day) trains leave on time and arrive a median 3.5 minutes late,
+35% of them 5 minutes or more (7 November). Stations have OSE's ids and
+Greek names only, spelled more than one way, and no places.
+
+How the railway works for a rider, from the rider's own trips (8 November
+2026), checked the same day against Wednesday's board and OpenStreetMap:
+four lines, A1 Piraeus–Athens–Airport, A2 Ano Liosia–Airport, A3
+Athens–Oinoi–Chalkida and A4 Piraeus–Athens–Kiato, which the data doesn't
+name (its Piraeus–Airport corridor holds A1 and A2); trains end sooner than
+their line and skip stations they pass; SKA (the Acharnai Railway Centre) is
+two stations, A2's and A3's, joined by a narrow, almost hidden footbridge,
+under one id; Piraeus's station is a road away from the metro's, with no
+signs; and OASA's ticket covers the suburban only from Magoula to Koropi and
+from Piraeus to SKA, Pentelis included.
+
+The subway planner works on `rail.json`'s shape: each line's directions go to
+one end, each train a profile of its stops. `trains.json`'s routes are each a
+list of stops of their own, and a line's trains end at several stations
+(Tavros on A1 and A4, Afidnes and Oinoi on A3). Its older route finder
+(`findRoutes`) lists every route with the fewest changes or one more: where
+the railway's lines share track, every station they share is a change, and
+it would list up to 2,177 routes for one trip, against at most 40 with the
+metro and the tram.
+
+## Decision
+
+The rider's call on 8 November 2026, and the numbers agreed that day:
+
+- **Two prongs**: OSE is asked to publish the timetable and positions as
+  open data, or to confirm Wayhop may use them; while it's asked, Wayhop
+  uses railway.gov.gr's schedule board, as public data that's meant to be
+  open. Not the volunteers' feed.
+- **The boards, once an Athens day** ([railway.js](../../server/data/railway.js)),
+  with the first data build of the day: yesterday's, today's and the next 4
+  days', one at a time, 10 seconds apart: 6 requests, about 4.5 MB. A
+  failed request is tried again after 10, 30 and 60 seconds; one still
+  failing stops the fetch until the next day, keeping the boards there are.
+  Wayhop says who it is (its User-Agent), as to OASA's portal. Yesterday's
+  board gives each train's real lateness, kept 91 days, a few KB a day, for
+  a train's usual lateness later.
+- **Five days held**: the railway stays on the trip page through 4 nights
+  of failures. With no board for today it leaves the page, which says so
+  under the answer, and `/api/health` warns, as it does when a fetch fails.
+- **The lines and stations are ours**: [suburban.json](../../data/curated/suburban.json)
+  has the lines A1 to A4 in the rider's colours, each taking a corridor's
+  trains, A2 those of the Piraeus–Airport corridor that stop at Ano Liosia;
+  and the 46 stations of the Athens lines, each with OSE's ids, its names in
+  both languages, where OpenStreetMap has it, and the metro station it
+  shares, for the 8 that do. SKA is two stations under OSE's one id, told
+  apart by the train's line. Each change to the metro, and SKA's footbridge,
+  has a walk in whole minutes, a first guess as the tram's were (the
+  straight line × 1.3 at 80 m a minute, plus 2 to reach the platform) until
+  field trips time them, with a note where the way needs one (Piraeus,
+  SKA); each station outside OASA's ticket is marked. A train at a station
+  that isn't there for its line is left out, with a warning.
+- **`trains.json`**, built every night ([build-suburban.js](../../server/data/build-suburban.js)):
+  the stations, the walks and the stations outside the ticket, and each held
+  date's trains by their line and stops, in seconds from that date's
+  midnight in Athens, as `buses.json` has its routes. About 1.2
+  KB over the wire a day held. A file of its own, not in `rail.json`, whose
+  days move on every night: `rail.json` stays the same night to night, so
+  browsers keep it.
+- **On the trip page** the city's search ([city.js](../../tools/subway/client/city.js))
+  has the day's trains with the buses, last night's still running after
+  midnight included; the worker loads `trains.json` beside `buses.json`, and
+  a trip without it still has its buses. Its walks are suburban.json's where
+  it has them, however far, and the straight line's elsewhere. A way by
+  train is one the metro planner can't find, so it comes with the ways by
+  bus. Its times are the timetable's, without "~", as the metro's; under the
+  answer, that they're railway.gov.gr's and that its trains often arrive a
+  few minutes late. Each train has its line's pill (A1 to A4) and goes
+  toward where **it** ends, not its line: DESIGN.md's rule for the metro
+  changes for the suburban (the rider's call, 8 November). A walk with a
+  note says it; a ride to or from a station outside OASA's ticket says it
+  needs a Hellenic Train ticket.
+- **In the subway planner, the same way as the tram.** `withSuburban` in
+  [network.js](../../tools/subway/client/network.js) joins the day's
+  `trains.json` to the metro and the tram in `rail.json`'s shape, in the
+  browser, so one planner serves all three and a problem with the railway
+  can't touch the metro. Every station a train calls at is a row of its own
+  in the same list; the 9 with a metro station's id (the 7 changes, Tavros
+  and Irakleio) say "(suburban)", "(Προαστιακός)" in Greek. A line's trains
+  go in a direction for each station they end at, so a leg says where its
+  train ends, as signed, without "(suburban)": its stops are those of every
+  train ending there, in order, and each train's own stops a profile of them.
+  Before anything is typed, a field still offers the metro's and the tram's
+  stations to start from: the railway's lines share track, so nearly every
+  station of its is on two lines. Its stations come up when typed, starred or
+  picked lately.
+- **Its routes**: the route finder doesn't change from one suburban train to
+  another at the same station, only on foot (SKA's footbridge); the trip
+  search (raptor.js) still finds those changes, as the quickest way with
+  each number of rides. The same ride on trains that end at different
+  stations is one option, on the train that gets there first. A train is
+  marked the last only when none of its line leaves for the same stretch
+  after it, whatever its end. A route with more changes stays only if it
+  gets there 5 minutes sooner, as the metro's: two trains on the same track
+  are no choice worth offering, unlike a tram beside the metro.
+- **A suburban leg has no train diagram**, nor any word about where to stand,
+  as its stations aren't recorded; its stations aren't links, having no
+  pages. A walk with a note says it, a leg to or from a station outside OASA's
+  ticket says it needs a Hellenic Train ticket, and a trip by suburban train
+  says under it that its times are railway.gov.gr's.
+- **A switch shows or hides the railway**, beside the tram's: its stations and
+  routes together, kept on the device (`suburban-hidden`). The trip page
+  follows it, as it does the tram's ([29](0029-trip-page-tram.md)): hidden,
+  its worker doesn't load `trains.json`, and the page doesn't say the railway
+  is missing. An address naming a suburban station shows it for that visit.
+- **The subway page doesn't wait for `trains.json`**: it plans on the metro
+  and the tram at once, and the railway joins when the file comes (with no
+  signal a request can hang rather than fail), a list being typed in staying
+  open with the railway's stations in it. It's kept for offline use with
+  `rail.json`. Without it, or without trains for today, there's no switch and
+  the planner is the metro's and the tram's.
+- **Credited** on the About page, with OpenStreetMap for the stations'
+  places, and under every answer with a train.
+
+## What follows
+
+- The walks are guesses until timed on the spot (SKA's footbridge, Piraeus,
+  Athens to Larissa Station, Neratziotissa, Doukissis Plakentias), and
+  SKA's A3 station is where OpenStreetMap's area for it centres, to be
+  checked there.
+- Trips to and from the railway's stations get it, by its timetable; on the
+  trip page, Megara, Kiato or Chalkida, outside the address index, only from
+  "My location" or a place near a station. The subway planner has them as
+  stations.
+- Planning a trip in the subway planner takes longer with the railway:
+  measured on a desktop over every pair of stations on Wednesday 11 November,
+  a median 1.7 ms against 0.8, and at most 37 ms against 8.5. A phone is a
+  few times slower, so the slowest trips (from a far tram stop to a station
+  in the middle of a suburban line) take a tenth of a second or two. The
+  route finder lists at most 300 routes for a trip with a suburban station,
+  where the metro and the tram alone stay within 40; a test keeps that true.
+  Metro and tram trips may now find a train quicker: from Syntagma to the
+  Airport at 12:00 on the tests' Wednesday, M3 to Doukissis Plakentias and
+  A1 get there at 12:51, against 13:10 by the next M3 that goes all the way.
+- A leg's times are its direction's: a short train to Tavros that would come
+  between two to Piraeus isn't among their chips. The search finds the
+  earliest arrival, not the latest departure: from Ano Liosia to Chalkida,
+  the first train is offered even when a later one makes the same A3.
+- Its times are the plan's. A late train isn't known until live times come,
+  in a pull request of their own, with numbers of their own: railway.gov.gr
+  publishes no lateness while a train runs, so Wayhop will work it out
+  itself from the trains' positions (its live stream, every train with GPS,
+  10 seconds late and marked, so OSE can tell where copies go): one look a
+  minute while someone has a train on screen, about 225 KB a look,
+  proposed on 8 November.
+- A cancelled train is left out of tomorrow's board, but not of today's:
+  until live times come, a train cancelled during the day is still offered.
+- The site can change or stop answering at any time. The boards held keep
+  the railway on the page for 4 nights; then it leaves, and the health page
+  has warned since the first failed night.
+- OSE sees the requests: one Athens day's worth a night, as Wayhop. The
+  subway planner asks it for nothing: `trains.json` is Wayhop's.
+
+## Look again when
+
+- OSE answers the request: yes, no, or open data on data.gov.gr, which
+  would replace the board.
+- railway.gov.gr changes its addresses or answers, or asks Wayhop to stop.
+- Live times are built (their own record), or the trip page is reworked
+  and the railway's pill with it.
+- The subway planner feels slow on a phone with the railway, or riders miss
+  a short train among a leg's times.

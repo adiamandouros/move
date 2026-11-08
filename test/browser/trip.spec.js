@@ -366,7 +366,7 @@ test.describe('the trip page', () => {
         });
     });
 
-    test.describe('the suburban railway (decision 40)', () => {
+    test.describe('the suburban railway (decision 41)', () => {
         // From Athens station, where the location is, to Megara, which only the
         // railway reaches. The address index of the tests has no such place, so
         // the place search's answer is the test's own
@@ -392,6 +392,18 @@ test.describe('the trip page', () => {
             expect(await axe(page), 'axe-core violations').toEqual([]);
             const walk = await keyboardWalk(page);
             expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
+        });
+
+        test('hidden on the Subway page, it\'s left out here too, and not said to be missing', async ({ page }) => {
+            await page.addInitScript(() => localStorage.setItem('suburban-hidden', '1'));
+            let asked = false;
+            page.on('request', request => { asked ||= request.url().includes('/data/trains.json'); });
+            await toMegara(page, '/trip', { here: 'My location', there: 'To' });
+            await expect(page.locator('.trip-estimates')).toBeVisible();
+            await expect(page.locator('#trip-result .line-a4')).toHaveCount(0);
+            await expect(page.locator('.trip-estimates')).not.toContainText('railway.gov.gr');
+            await expect(page.locator('.trip-estimates')).not.toContainText('left out');
+            expect(asked).toBe(false);
         });
 
         test('in Greek too', async ({ page }) => {

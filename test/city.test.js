@@ -68,7 +68,7 @@ test('the search rides the day\'s buses, from the stops a walk away', () => {
     assert.equal(planner.arrival(to).at < H8 + 1800, true, 'not the 08:10');
 });
 
-// trains.json (decision 40): Sunday the 8th as the fixture's board has it,
+// trains.json (decision 41): Sunday the 8th as the fixture's board has it,
 // with a train on Saturday the 7th that's still running after midnight
 const trains = buildTrains({
     '2026-11-07': { schedules: [train('2026-11-07', '1290', [['o1', '23:40'], ['o2', '23:55'], ['o3', '24:45']]), train('2026-11-07', '1288', [['o1', '20:00'], ['o3', '21:05']])] },

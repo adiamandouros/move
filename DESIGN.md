@@ -191,7 +191,9 @@ value outside those blocks.
   The suburban railway is the exception: a train names where **it** ends,
   as many end sooner than their line (A1 and A4 at Tavros, A3 at Afidnes or
   Oinoi) and trains are rare, so the one that comes is the one to read
-  (decided 8 November 2026, decision 40).
+  (decided 8 November 2026, decision 41), named as the train shows it,
+  without the "(suburban)" that tells its station apart in the subway
+  planner's list.
 - In the page's language only, tight, one line where it fits (a name too
   long for the screen at large text wraps). A label, not a link. Change and
   get-off stations stay plain links. The name is centred top to bottom like
@@ -283,8 +285,9 @@ it, the time and the walking directions on a line of their own under that.
 
 ### Switch
 
-For a setting that stays until it's changed, like showing the tram stops, in
-words on one line: Bootstrap's switch with its label, in `--bs-primary` when on
+For a setting that stays until it's changed, like showing the tram stops or
+the suburban railway's stations, in words on one line, side by side while they
+fit: Bootstrap's switch with its label, in `--bs-primary` when on
 (Bootstrap's own blue is fixed), and the whole row at least 2.75rem high. What
 acts on the page right now stays a button, like Nearest.
 

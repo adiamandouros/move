@@ -51,4 +51,5 @@ decisions, or makes one of the same weight, comes with its page.
 | 37 | [The trip page: one walking estimate, the straight line × 1.4, the buses behind a switch for now](0037-trip-one-walk.md) | Replaced by 39 |
 | 38 | [Our load on OASA and STASY, with buses for everyone on the Trip page](0038-load-on-oasa-buses-for-everyone.md) | In force |
 | 39 | [The trip page: buses for everyone, and the bus trip finder gone](0039-trip-buses-for-everyone.md) | In force |
-| 40 | [The suburban railway on the trip page, from railway.gov.gr's timetable](0040-suburban-railway-timetable.md) | In force |
+| 40 | [The suburban railway on the trip page, from railway.gov.gr's timetable](0040-suburban-railway-timetable.md) | Replaced by 41 |
+| 41 | [The suburban railway on the trip page and in the subway planner, from railway.gov.gr's timetable](0041-suburban-railway.md) | In force |

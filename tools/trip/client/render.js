@@ -57,7 +57,7 @@ const step = (when, content) => html`<li class="trip-step"><span class="trip-ste
 
 // A walk to `place`: from the door, or between two stations or stops, whose
 // minutes are the tram's walks (decision 28) and have no distance. note: what
-// the way needs saying, a suburban station's change (decision 40)
+// the way needs saying, a suburban station's change (decision 41)
 function walkStep(walk, words, place, note = null) {
     return step(`${walk.minutes}′`, html`${externalLink({ href: walkingUrl(place.lat, place.lng) }, words, t('shell.new-tab'))}
         ${walk.meters !== undefined && html`<div class="trip-step-note">${distance(walk.meters)}</div>`}
@@ -80,7 +80,7 @@ const walkToStation = (rail, id, minutes) => walkStep({ minutes }, format(t('tri
 // beside it, if the trip starts there
 const walkToFirst = o => o.city ? o.firstWalk?.minutes ?? 0 : (o.start.walk?.minutes ?? 0) + (o.plan.walkFirst ?? 0);
 export const hasBus = o => o.city && o.rides.some(ride => ON_THE_ROAD.has(ride.mode));
-// A way with a suburban train (decision 40), whose times come from railway.gov.gr
+// A way with a suburban train (decision 41), whose times come from railway.gov.gr
 const hasTrain = o => o.city && o.rides.some(ride => ride.mode === 'suburban');
 
 // Whole minutes from `now` to `at` (seconds from midnight), as a live time counts down
@@ -98,7 +98,7 @@ function minutesBadge(at, now) {
 // (decision 11), so it says "~", unless OASA has the bus coming (decision
 // 35): then its time, its minutes and the next one's. A suburban train to or
 // from a station OASA's ticket doesn't cover says it needs Hellenic Train's
-// (decision 40). `now`: seconds from midnight, for the minutes
+// (decision 41). `now`: seconds from midnight, for the minutes
 function rideStep(rail, ride, now) {
     const bus = ON_THE_ROAD.has(ride.mode);
     const place = stopName(rail, ride.alight);
@@ -112,7 +112,7 @@ function rideStep(rail, ride, now) {
         ${beyond && html`<div class="trip-step-note">${format(t('trip.train-ticket'), { station: stopName(rail, beyond) })}</div>`}`);
 }
 // A rail line's pill: the metro's and the tram's are in rail.json; the
-// suburban railway's are named as their ids, A1 to A4 (decision 40)
+// suburban railway's are named as their ids, A1 to A4 (decision 41)
 const railPill = (rail, line, mode) => linePill(line, mode === 'suburban' ? line : rail.lines[line].name, 's');
 // Every bus line that rides it, the first to come first
 const pill = (rail, ride) => ON_THE_ROAD.has(ride.mode) ? pillList(ride.lines.map(line => busPlate(line, 's'))) : railPill(rail, ride.line, ride.mode);
@@ -230,7 +230,7 @@ export const routeSummary = o => format(t('trip.summary'), { minutes: o.minutes,
 // Under the answer, what its times are: walks and the timetable's trains,
 // then `bus`, what its buses' are, where it has any, and where it has
 // suburban trains, theirs; when the suburban railway's times for today
-// couldn't be had, that it's left out (decision 40); and with `range`, what
+// couldn't be had, that it's left out (decision 41); and with `range`, what
 // the half hour's ranges are
 const estimates = (options, { bus = null, noTrains = false, range = false }) => html`<p class="trip-estimates">${t('trip.estimates')}${bus && html` ${bus}`}${options.some(hasTrain) && html` ${t('trip.train-estimates')}`}${noTrains && html` ${t('trip.no-trains-today')}`}${range && html` ${t('trip.range-note')}`}</p>`;
 
@@ -363,7 +363,7 @@ const takenOption = (row, departure) => row.options.find((o, d) => d >= departur
 // midnight), in its place (decision 35). On a decision (decision 36): with
 // `offer`, the quicker way the live times have, under the directions; or
 // `taken`, the quicker way's row, when the rider took it: in their place.
-// noTrains: the suburban railway has no times for today (decision 40)
+// noTrains: the suburban railway has no times for today (decision 41)
 export function renderHalf(rail, kind, ways, to, { expired = false, longWalk = false, live = null, offer = false, taken = null, noTrains = false } = {}) {
     const [first, ...rest] = ways;
     const others = taken ? rest.filter(({ row }) => row !== taken) : rest;

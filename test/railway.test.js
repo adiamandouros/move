@@ -8,7 +8,7 @@ import { tempDir } from './fixtures/gtfs.js';
 import { fakeRailway } from './fixtures/railway.js';
 
 // The suburban railway's boards from railway.gov.gr (server/data/railway.js),
-// and how gently they're asked for: the numbers agreed on 2026-11-08 (decision 40)
+// and how gently they're asked for: the numbers agreed on 2026-11-08 (decision 41)
 
 const T0 = Date.parse('2026-11-08T02:30:00Z');
 const WEEK = ['2026-11-07', '2026-11-08', '2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12'];

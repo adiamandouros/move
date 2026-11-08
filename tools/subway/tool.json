@@ -3,9 +3,9 @@
   "order": 1,
   "icon": "metro",
   "title": { "en": "Subway", "el": "Μετρό" },
-  "description": { "en": "Plan a metro or tram trip and see where to board for the exit", "el": "Σχεδιάστε μια διαδρομή με μετρό ή τραμ και δείτε πού να επιβιβαστείτε για την έξοδο" },
+  "description": { "en": "Plan a trip by metro, tram or suburban railway and see where to board for the exit", "el": "Σχεδιάστε μια διαδρομή με μετρό, τραμ ή Προαστιακό και δείτε πού να επιβιβαστείτε για την έξοδο" },
   "offline": true,
   "scripts": ["main.js"],
   "readyBuses": true,
-  "precache": ["/data/rail.json"]
+  "precache": ["/data/rail.json", "/data/trains.json"]
 }

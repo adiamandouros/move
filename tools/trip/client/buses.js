@@ -6,7 +6,7 @@ import { NEAR_MINUTES } from './plan.js';
 
 // The Trip page's ways with a bus (decision 31): the whole city's search
 // (city.js, decision 28) over OASA's timetable (buses.json, decision 30) and
-// the suburban railway's (trains.json, decision 40), for
+// the suburban railway's (trains.json, decision 41), for
 // leaving now, the next half hour's answer as the page shows it
 // (decision 33), and its way timed again with OASA's live times, with the
 // quicker way on a decision when OASA has its bus coming in time (decision
@@ -33,7 +33,7 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
  * One ride of a way, as the page draws it: its stops (city.js), when it
  * leaves and gets there, how many stops it rides, where its line goes, and
  * the walk to it from the ride before (null when it's the same stop), with
- * the note that walk has (a suburban station's change, decision 40), or null.
+ * the note that walk has (a suburban station's change, decision 41), or null.
  * `lines`: every bus line that rides it, the first to come first. `live`:
  * OASA's word on a bus of the way shown in full, once its stop is answered
  * @typedef {{ line: string, lines: string[], mode: string, board: import('/tools/subway/city.js').Stop, alight: import('/tools/subway/city.js').Stop,

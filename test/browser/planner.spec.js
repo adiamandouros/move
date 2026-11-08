@@ -1,7 +1,9 @@
 // The subway planner and the home page in a real browser. What the planner
 // works out and draws at each time of day is tested in Node
 // (subway-network.test.js, subway-render.test.js); here, that the page puts
-// it together, on one phone.
+// it together, on one phone. The metro's trips, as worked out here from
+// rail.json, so with the suburban railway hidden: a train of its can be
+// quicker (suburban.spec.js has it).
 import { readFileSync } from 'fs';
 import { planTrip } from '../../tools/subway/client/network.js';
 import { axe, expect, onlyOn, test, toggleKept } from './fixtures.js';
@@ -9,6 +11,7 @@ import { axe, expect, onlyOn, test, toggleKept } from './fixtures.js';
 const rail = JSON.parse(readFileSync(new URL('data/rail.json', import.meta.url), 'utf8'));
 
 test.beforeEach(onlyOn('phone'));
+test.beforeEach(({ page }) => page.addInitScript(() => localStorage.setItem('suburban-hidden', '1')));
 
 const content = page => page.locator('#app-content');
 
