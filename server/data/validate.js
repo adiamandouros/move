@@ -32,12 +32,15 @@ const CROSSING_KEYS = ['at', 'via', 'way'];
 // Outside it is a mistake (latitude and longitude swapped, a digit lost).
 /** @type {{ lat: [number, number], lng: [number, number] }} */
 export const ATHENS = { lat: [37.7, 38.3], lng: [23.4, 24.2] };
+// Where a suburban railway station can be: from Kiato to Chalkida, wide
+/** @type {{ lat: [number, number], lng: [number, number] }} */
+const SUBURBAN = { lat: [37.8, 38.6], lng: [22.6, 24.1] };
 
 // Check the hand-maintained files in data/curated for mistakes. Returns
 // { errors, warnings }; any error fails the build. Kept independent of the
 // GTFS feed so it can run in tests and before every build.
-/** @param {{ stations: any, lines: any, positions: any, airport?: any, tram?: any, street?: any }} curated */
-export function validateCurated({ stations, lines, positions, airport, tram, street }) {
+/** @param {{ stations: any, lines: any, positions: any, airport?: any, tram?: any, street?: any, suburban?: any }} curated */
+export function validateCurated({ stations, lines, positions, airport, tram, street, suburban }) {
     const errors = [];
     const warnings = [];
 
@@ -130,6 +133,7 @@ export function validateCurated({ stations, lines, positions, airport, tram, str
     if (airport !== undefined) checkAirport(airport, stationIds, lines, errors);
     if (tram !== undefined) checkTram(tram, stationIds, seenCodes, errors);
     if (street !== undefined) checkStreet(street, stationIds, errors);
+    if (suburban !== undefined) checkSuburban(suburban, stationIds, errors);
     return { errors, warnings };
 }
 
@@ -233,5 +237,36 @@ function checkTram(tram, stationIds, metroCodes, errors) {
             if (!known) errors.push(`tram.json: ${id} walks to an unknown station or stop "${walk.metro ?? walk.stop}"`);
             if (!Number.isInteger(walk.minutes) || walk.minutes < 1) errors.push(`tram.json: ${id}'s walk to ${walk.metro ?? walk.stop} needs whole minutes`);
         }
+    }
+}
+
+// suburban.json: the suburban railway's line, with the corridors of
+// railway.gov.gr's boards it takes, and its stations (build-suburban.js):
+// each one's names, OSE's ids for it, where it is (OpenStreetMap's), and the
+// metro station it shares, if any
+function checkSuburban(suburban, stationIds, errors) {
+    const lines = Object.entries(suburban?.lines ?? {});
+    if (!lines.length) errors.push('suburban.json: no lines');
+    const corridors = new Set();
+    for (const [lineId, line] of lines) {
+        if (!line.name?.el || !line.name?.en || !/^#[0-9a-f]{6}$/i.test(line.color ?? '')) errors.push(`suburban.json: ${lineId} needs name.el, name.en and a #rrggbb color`);
+        if (!Array.isArray(line.corridors) || !line.corridors.length) errors.push(`suburban.json: ${lineId} needs the corridors it takes`);
+        for (const corridor of line.corridors ?? []) {
+            if (corridors.has(corridor)) errors.push(`suburban.json: corridor ${corridor} is taken by two lines`);
+            corridors.add(corridor);
+        }
+    }
+    const seen = new Map();
+    const inside = (n, [min, max]) => typeof n === 'number' && n >= min && n <= max;
+    for (const [id, s] of Object.entries(suburban?.stations ?? {})) {
+        if (!s.name?.el || !s.name?.en) errors.push(`suburban.json: ${id} needs name.el and name.en`);
+        if (!Array.isArray(s.ose) || !s.ose.length) errors.push(`suburban.json: ${id} has no OSE ids`);
+        for (const ose of s.ose ?? []) {
+            if (seen.has(ose)) errors.push(`suburban.json: OSE id ${ose} is used by both ${seen.get(ose)} and ${id}`);
+            seen.set(ose, id);
+        }
+        const [lat, lng] = Array.isArray(s.coords) ? s.coords : [];
+        if (s.coords?.length !== 2 || !inside(lat, SUBURBAN.lat) || !inside(lng, SUBURBAN.lng)) errors.push(`suburban.json: ${id}.coords must be [latitude, longitude] between Kiato and Chalkida, like [37.99284, 23.72015]`);
+        if (s.metro !== undefined && !stationIds.has(s.metro)) errors.push(`suburban.json: ${id} shares an unknown metro station "${s.metro}"`);
     }
 }

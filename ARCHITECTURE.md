@@ -247,9 +247,10 @@ pages use.
   that arrive first. Beside a tram leg those can have more changes; metro
   trains alone only do if they get there 5 minutes sooner.
 - **The whole city for the search**, buses too, beside `raptor.js` so the
-  browser and the planner lab share them: `city.js` joins the metro, the tram
-  and a day of `buses.json` ([decision 30](docs/decisions/0030-bus-timetable.md))
-  into one network, with walks of up to 10 minutes between stops from the
+  browser and the planner lab share them: `city.js` joins the metro, the tram,
+  a day of `buses.json` ([decision 30](docs/decisions/0030-bus-timetable.md))
+  and a day of the suburban railway's `trains.json` (`trainDay`,
+  [decision 40](docs/decisions/0040-suburban-railway-timetable.md)) into one network, with walks of up to 10 minutes between stops from the
   straight line (× 1.4, measured against a street router); `ways.js` finds the
   ways a rider could choose from, beyond the search's best with each number
   of rides; `weights.js` puts them in order by what they cost a rider (agreed
@@ -411,7 +412,16 @@ when it's new or about weekly), and kept in `data/raw/oasa/`. A failed
 request is tried again up to 3 times (after 10, 30 and 60 s), and each failure
 is logged; each route's stops are saved as they arrive, so a fetch that still
 fails is picked up where it stopped by the next build, and meanwhile the last
-network is used. The build runs when the server
+network is used. The suburban railway's timetable comes from railway.gov.gr,
+OSE's train site, as there's no open data for it
+([decision 40](docs/decisions/0040-suburban-railway-timetable.md)): `railway.js`
+fetches its schedule boards once an Athens day, yesterday's to 4 days ahead,
+10 seconds apart, into `data/raw/railway/`, keeping the boards there are when
+it fails; `build-suburban.js` makes `data/build/trains.json` from them and the
+stations in `data/curated/suburban.json` (OSE's ids, the names, OpenStreetMap's
+places): each held date's trains by their stops, in seconds from that date's
+midnight in Athens. Its days move on every night, so it's a file of its own.
+The build runs when the server
 starts and daily at 04:30 Athens time, in a child process at low priority
 (`runBuildInChild`), so it doesn't slow the site or add to its memory. It
 downloads only what changed, and the site keeps serving the previous build
@@ -456,11 +466,11 @@ the tram (`tram-switch.js`). Its walks are the city's (`walkMeters` in
 `city.js`, the straight line × 1.4). It tries the three metro stations nearest each
 end and every station or stop within 16 minutes' walk: every trip between the
 nearest is planned, and the search (`arrivalsFrom`) picks the 6 quickest of
-the rest. `client/buses.js` adds the ways with a bus from the city's search (`city.js`,
+the rest. `client/buses.js` adds the ways with a bus or a suburban train from the city's search (`city.js`,
 `ways.js`), the same ride on different buses as one; all of them go in order
 by `weights.js`. Those searches run in a worker (`client/worker.js`, its logic
 in `client/searcher.js`; `?timing` says how long they take on the device),
-which loads `buses.json` and makes the day's city:
+which loads `buses.json` and `trains.json` and makes the day's city, with that date's trains (without `trains.json`, or a day it lacks, none, and the page says so):
 it answers each trip for leaving now, then for the next half hour
 (`answer.js`, as the page shows it: `halfView`), a departure at a time, and
 only the latest trip is answered. Once the half hour comes, it takes the
@@ -504,6 +514,8 @@ hour's answer are the app's, in `tools/subway/client/`.
 - the metro timetable doesn't end within a week;
 - STASY's timetable pages could be read, and its airport timetable hasn't
   changed since `airport.json` (checked weekly);
+- the suburban railway has trains for today, and railway.gov.gr's boards
+  were fetched on the last try;
 - each relay runs the current `RELAY_VERSION`;
 - the hosting account is well under its thread limit, and no app has old
   copies still running.

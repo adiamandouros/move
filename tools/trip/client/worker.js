@@ -5,12 +5,15 @@ import { searcher } from './searcher.js';
 // page's import map doesn't reach a worker, so the service worker fetches
 // them from the server first (sw.js).
 
+async function loadJson(url) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+}
+
 const handle = searcher({
-    loadBuses: async () => {
-        const response = await fetch('/data/buses.json');
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.json();
-    },
+    loadBuses: () => loadJson('/data/buses.json'),
+    loadTrains: () => loadJson('/data/trains.json'),
     post: message => postMessage(message),
 });
 

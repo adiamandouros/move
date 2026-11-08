@@ -2,6 +2,7 @@ import { join } from 'path';
 import { readJson } from '../files.js';
 import { athensDate } from '../../tools/subway/client/network.js';
 import { airportCheckFile } from './airport-check.js';
+import { railwayFetchFile } from './railway.js';
 import { stasyFetchFile } from './stasy.js';
 
 // How the data stands, judged once here for both /api/health (server/health.js)
@@ -14,6 +15,9 @@ import { stasyFetchFile } from './stasy.js';
 //   - airport: STASY's airport timetable is still as data/curated/airport.json
 //     has it, checked within AIRPORT_STALE_DAYS (airport-check.js); not
 //     checked yet counts as fine
+//   - railway: trains.json has today's suburban trains, and the last fetch of
+//     railway.gov.gr's boards worked (railway.js, decision 40); null before
+//     the first fetch, as there's nothing to judge
 
 // One missed night (builds run every night at 04:30)
 export const BUILD_MAX_AGE_MS = 36 * 3_600_000;
@@ -57,5 +61,18 @@ export function dataStatus({ buildDir, rawDir, now = Date.now }) {
     const changed = Boolean(last?.changes?.length);
     const airport = { ok: !changed && !(airportDays > AIRPORT_STALE_DAYS), checked, daysOld: airportDays, changed };
 
-    return { build, stasy, airport };
+    const trains = readJson(join(buildDir, 'trains.json'));
+    const fetch = readJson(railwayFetchFile(rawDir));
+    const todayIso = athensDate(new Date(now()));
+    // Today's and the days after it, as the Trip page can use them
+    const days = Object.keys(trains?.dates ?? {}).filter(date => date >= todayIso).length;
+    const railway = trains || fetch ? {
+        ok: Boolean(trains?.dates?.[todayIso]) && fetch?.ok !== false,
+        today: Boolean(trains?.dates?.[todayIso]),
+        days,
+        lastFetch: fetch ? { at: fetch.at, ok: Boolean(fetch.ok), ...(fetch.error ? { error: fetch.error } : {}) } : null,
+        fetched: fetch?.fetched ?? null,
+    } : null;
+
+    return { build, stasy, airport, railway };
 }

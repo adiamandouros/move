@@ -231,23 +231,24 @@ for (const mode of MODES) {
     });
 }
 
+const curatedLines = name => JSON.parse(readFileSync(new URL(`../data/curated/${name}.json`, import.meta.url), 'utf8'));
+// Every line: the metro's (lines.json), the tram's (tram.json) and the suburban railway's (suburban.json)
+const ALL_LINES = () => ({ ...curatedLines('lines'), ...curatedLines('tram').lines, ...curatedLines('suburban').lines });
+
 // The line colours in style.css (.line-m1 { background-color; color }), by line
 const LINE_COLOURS = (() => {
+    const ids = new Set(Object.keys(ALL_LINES()).map(id => id.toLowerCase()));
     const rules = {};
-    for (const [, selectors, body] of STYLE.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/((?:\s*\.line-[a-z]+\d+\s*,?)+)\{([^}]*)\}/g)) {
+    for (const [, selectors, body] of STYLE.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/((?:\s*\.line-[a-z]+\d*\s*,?)+)\{([^}]*)\}/g)) {
         const background = body.match(/background-color:\s*([^;]+);/)?.[1].trim();
         const color = body.match(/(?<![-\w])color:\s*([^;]+);/)?.[1].trim();
-        for (const [, id] of selectors.matchAll(/\.line-([a-z]+\d+)/g)) rules[id] = { background, color };
+        for (const [, id] of selectors.matchAll(/\.line-([a-z]+\d*)/g)) if (ids.has(id)) rules[id] = { background, color };
     }
     return rules;
 })();
 
-const curatedLines = name => JSON.parse(readFileSync(new URL(`../data/curated/${name}.json`, import.meta.url), 'utf8'));
-// Every line: the metro's (lines.json) and the tram's (tram.json)
-const ALL_LINES = () => ({ ...curatedLines('lines'), ...curatedLines('tram').lines });
-
 // The lines' colours are the same in every colour mode (they are the lines' own)
-test('every line\'s colour in style.css is its colour in lines.json or tram.json', () => {
+test('every line\'s colour in style.css is its colour in lines.json, tram.json or suburban.json', () => {
     const lines = ALL_LINES();
     for (const [id, line] of Object.entries(lines)) {
         for (const mode of MODES) assert.equal(resolve(LINE_COLOURS[id.toLowerCase()]?.background ?? '', mode), line.color.toLowerCase(), `.line-${id.toLowerCase()} in style.css`);

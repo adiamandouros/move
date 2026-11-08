@@ -45,9 +45,16 @@ const STASY_OK = { last: { at: '2026-10-01T02:30:00.000Z', ok: true, route: 'hom
 
 // airportCheck: the last check of STASY's airport timetable (null: none yet)
 const AIRPORT_OK = { at: '2026-10-14T02:30:00.000Z', checked: '2026-10-14T02:30:00.000Z', changes: [], route: 'home relay' };
-function dataDir({ hoursAgo = 2, failed = null, lastFetch = null, stasy = STASY_OK, airportCheck = AIRPORT_OK, validTo = null } = {}) {
+// trainDates: the dates trains.json has, and railwayFetch: the last fetch of
+// railway.gov.gr's boards (server/data/railway.js); neither: before the first
+function dataDir({ hoursAgo = 2, failed = null, lastFetch = null, stasy = STASY_OK, airportCheck = AIRPORT_OK, validTo = null, trainDates = null, railwayFetch = null } = {}) {
     const dir = mkdtempSync(join(tmpdir(), 'move-diag-'));
     mkdirSync(join(dir, 'build'));
+    if (trainDates) writeFileSync(join(dir, 'build', 'trains.json'), JSON.stringify({ schema: 1, stations: {}, dates: Object.fromEntries(trainDates.map(date => [date, []])) }));
+    if (railwayFetch) {
+        mkdirSync(join(dir, 'raw', 'railway'), { recursive: true });
+        writeFileSync(join(dir, 'raw', 'railway', 'last-fetch.json'), JSON.stringify(railwayFetch));
+    }
     if (lastFetch) {
         mkdirSync(join(dir, 'raw', 'oasa'), { recursive: true });
         writeFileSync(join(dir, 'raw', 'oasa', 'last-fetch.json'), JSON.stringify(lastFetch));
@@ -226,6 +233,23 @@ test('the bus network\'s last fetch: how far a stopped one got, as a bar; a fini
 
     // Never fetched: nothing to say (the bus files' own rows say if they're missing)
     assert.equal(await network(null), undefined);
+});
+
+test('the suburban railway: the days of trains kept, how the last fetch went, and when there are none for today', async () => {
+    const row = async more => (await run(world(), { dataDir: dataDir(more) })).checks.find(c => c.title === 'Suburban railway');
+    const fetch = { at: '2026-10-03T01:30:00.000Z', today: '20261003', ok: true, seconds: 52, boards: { done: 6, total: 6 }, fetched: '2026-10-03T01:30:00.000Z' };
+    const week = ['2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05', '2026-10-06', '2026-10-07'];
+    // Before the first fetch: nothing to say
+    assert.equal(await row({}), undefined);
+    const fine = await row({ trainDates: week, railwayFetch: fetch });
+    assert.deepEqual([fine.status, fine.detail], ['ok', 'Fetched 2026-10-03 01:30 UTC: 5 days of trains from today on']);
+    const failed = { ...fetch, ok: false, error: 'the board for 2026-10-04: HTTP 502 (4 tries)' };
+    const kept = await row({ trainDates: week, railwayFetch: failed });
+    assert.deepEqual([kept.status, kept.detail], ['warn', 'The fetch at 2026-10-03 01:30 UTC failed: the board for 2026-10-04: HTTP 502 (4 tries). 5 days of trains from today on are kept, from earlier fetches.']);
+    const gone = await row({ trainDates: ['2026-09-27', '2026-09-28'], railwayFetch: failed });
+    assert.equal(gone.status, 'fail');
+    assert.equal(gone.detail, 'No trains for today, so the Trip page leaves the railway out. Last fetch 2026-10-03 01:30 UTC, failed: the board for 2026-10-04: HTTP 502 (4 tries).');
+    assert.match(gone.hint, /"\[data\] railway\.gov\.gr" lines/);
 });
 
 test('the metro timetable: how long it runs, and once its last day has passed, that it ended', async () => {

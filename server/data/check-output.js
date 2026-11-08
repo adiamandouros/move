@@ -21,15 +21,16 @@ const MAX_PROBLEMS = 10;
 
 /** @param {string} name @param {any} data @returns {string[]} */
 export function checkOutput(name, data) {
-    const check = { 'rail.json': checkRail, 'bus-stops.json': checkBus, 'bus-lines.json': checkBusLines, 'bus-rides.json': checkBusRides, 'buses.json': checkBuses }[name];
+    const check = { 'rail.json': checkRail, 'bus-stops.json': checkBus, 'bus-lines.json': checkBusLines, 'bus-rides.json': checkBusRides, 'buses.json': checkBuses, 'trains.json': checkTrains }[name];
     const problems = check ? check(data) : [`${name}: no checks for this file`];
     return problems.length > MAX_PROBLEMS ? [...problems.slice(0, MAX_PROBLEMS), `… and ${problems.length - MAX_PROBLEMS} more`] : problems;
 }
 
 /** @param {string} name @param {any} data @param {any} previous @returns {string[]} */
 export function shrinkage(name, data, previous) {
-    // Ride times come and go with the days of passes kept (build-rides.js)
-    if (!previous || name === 'bus-rides.json') return [];
+    // Ride times come and go with the days of passes kept (build-rides.js),
+    // and the trains' days move on each night, fewer while railway.gov.gr fails (railway.js)
+    if (!previous || name === 'bus-rides.json' || name === 'trains.json') return [];
     const [count, what] = {
         'rail.json': [d => Object.keys(d?.stations ?? {}).length, 'stations'],
         'bus-lines.json': [d => d?.lines?.length ?? 0, 'lines'],
@@ -226,6 +227,40 @@ function checkBuses(data) {
             problems.push(`${where}: each trip needs its seconds after the one before and a run`);
         }
         if (!Array.isArray(route.days) || route.days.length !== 7 || !route.days.every(day => index(day, patterns.length))) problems.push(`${where}: needs a pattern for each weekday`);
+    }
+    return problems;
+}
+
+/** @param {any} data @returns {string[]} */
+function checkTrains(data) {
+    if (typeof data?.schema !== 'number') return ['trains.json: wrong schema number'];
+    const problems = [];
+    const stations = data.stations && typeof data.stations === 'object' ? data.stations : {};
+    if (!Object.keys(stations).length) problems.push('trains.json: no stations');
+    for (const [id, station] of Object.entries(stations)) {
+        const [lat, lng, el, en] = Array.isArray(station) ? station : [];
+        if (!inAttica(lat, lng) || typeof el !== 'string' || !el || typeof en !== 'string' || !en) problems.push(`trains.json: station ${id} must be [lat, lng, Greek name, English name]`);
+    }
+    const dates = data.dates && typeof data.dates === 'object' ? data.dates : {};
+    const seconds = n => Number.isInteger(n) && n >= 0;
+    for (const [date, routes] of Object.entries(dates)) {
+        if (!DATE.test(date) || !Array.isArray(routes)) { problems.push(`trains.json: ${date} must be YYYY-MM-DD with a list of routes`); continue; }
+        for (const route of routes) {
+            const where = `trains.json: ${date} line ${route?.line}`;
+            const along = Array.isArray(route?.stops) ? route.stops : [];
+            if (typeof route?.line !== 'string' || along.length < 2 || !along.every(stop => Object.hasOwn(stations, stop))) {
+                problems.push(`${where}: needs its line and two of the stations or more`);
+                continue;
+            }
+            const profiles = Array.isArray(route.profiles) ? route.profiles : [];
+            if (!profiles.length || !profiles.every(p => Array.isArray(p) && p.length === along.length && p[0] === 0 && p.every((t, i) => seconds(t) && (!i || t >= p[i - 1])))) {
+                problems.push(`${where}: each profile needs the seconds from its first stop to each, going forward`);
+            }
+            const trips = Array.isArray(route.trips) ? route.trips : [];
+            if (!trips.length || !trips.every(trip => Array.isArray(trip) && seconds(trip[0]) && Number.isInteger(trip[1]) && trip[1] >= 0 && trip[1] < profiles.length)) {
+                problems.push(`${where}: each trip needs its start in seconds and a profile`);
+            }
+        }
     }
     return problems;
 }

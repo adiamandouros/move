@@ -4,7 +4,7 @@ import { readFileSync } from 'fs';
 import { validateCurated } from '../server/data/validate.js';
 
 const load = name => JSON.parse(readFileSync(new URL(`../data/curated/${name}.json`, import.meta.url), 'utf8'));
-const real = () => ({ stations: load('stations'), lines: load('lines'), positions: load('positions'), airport: load('airport'), tram: load('tram'), street: load('street') });
+const real = () => ({ stations: load('stations'), lines: load('lines'), positions: load('positions'), airport: load('airport'), tram: load('tram'), street: load('street'), suburban: load('suburban') });
 
 test('the committed curated files are valid', () => {
     const { errors } = validateCurated(real());
@@ -191,3 +191,40 @@ test('tram.json as it stands has a walk for every change to the metro', () => {
     }
 });
 
+test('suburban.json: a line with a colour and its corridors, stations with names, their own OSE ids, a place and metro stations that exist', () => {
+    const c = real();
+    c.suburban.lines.P.color = 'purple';
+    c.suburban.lines.Q = { name: { el: 'Κ', en: 'Q' }, color: '#000000', corridors: ['KIATO'] };
+    delete c.suburban.stations.athens.name.en;
+    c.suburban.stations.rouf.ose.push(c.suburban.stations.tavros.ose[0]);
+    c.suburban.stations.lefka.ose = [];
+    // Latitude and longitude swapped
+    c.suburban.stations.kiato.coords = [22.73498, 38.01403];
+    c.suburban.stations.piraeus.metro = 'pireas';
+    const { errors } = validateCurated(c);
+    assert.deepEqual(errors.sort(), [
+        'suburban.json: P needs name.el, name.en and a #rrggbb color',
+        'suburban.json: athens needs name.el and name.en',
+        'suburban.json: corridor KIATO is taken by two lines',
+        'suburban.json: kiato.coords must be [latitude, longitude] between Kiato and Chalkida, like [37.99284, 23.72015]',
+        'suburban.json: lefka has no OSE ids',
+        `suburban.json: OSE id ${c.suburban.stations.tavros.ose[0]} is used by both rouf and tavros`,
+        'suburban.json: piraeus shares an unknown metro station "pireas"',
+    ].sort());
+});
+
+test('suburban.json as it stands: the Athens lines\' 45 stations, the 8 the metro shares each beside its metro station', () => {
+    const { suburban, stations } = real();
+    assert.deepEqual(suburban.lines.P.corridors, ['PIRAIR', 'KIATO', 'CHALKIDA']);
+    assert.equal(Object.keys(suburban.stations).length, 45);
+    const shared = Object.entries(suburban.stations).filter(([, s]) => s.metro);
+    assert.deepEqual(shared.map(([, s]) => s.metro).sort(), ['airport', 'doukissis-plakentias', 'koropi', 'larissa-station', 'nerantziotissa', 'paiania-kantza', 'pallini', 'piraeus']);
+    // OpenStreetMap's places, against the metro's: within 150 m (Piraeus's are 141 m apart)
+    const rail = JSON.parse(readFileSync(new URL('./browser/data/rail.json', import.meta.url), 'utf8'));
+    for (const [id, s] of shared) {
+        const metro = rail.stations[s.metro].coords;
+        const meters = Math.hypot((s.coords[0] - metro[0]) * 111_320, (s.coords[1] - metro[1]) * 111_320 * Math.cos(38 * Math.PI / 180));
+        assert.ok(meters < 150, `${id} is ${Math.round(meters)} m from the metro's ${s.metro}`);
+        assert.ok(stations.stations[s.metro], s.metro);
+    }
+});

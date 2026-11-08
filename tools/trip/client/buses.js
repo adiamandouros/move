@@ -5,7 +5,8 @@ import { cost } from '/tools/subway/weights.js';
 import { NEAR_MINUTES } from './plan.js';
 
 // The Trip page's ways with a bus (decision 31): the whole city's search
-// (city.js, decision 28) over OASA's timetable (buses.json, decision 30), for
+// (city.js, decision 28) over OASA's timetable (buses.json, decision 30) and
+// the suburban railway's (trains.json, decision 40), for
 // leaving now, the next half hour's answer as the page shows it
 // (decision 33), and its way timed again with OASA's live times, with the
 // quicker way on a decision when OASA has its bus coming in time (decision
@@ -14,6 +15,9 @@ import { NEAR_MINUTES } from './plan.js';
 // How far from either end a stop is tried, as a station is
 const NEAR_SECONDS = NEAR_MINUTES * 60;
 const ON_THE_ROAD = new Set(['bus', 'trolley']);
+// What only the city's search rides: the metro and the tram alone, the page
+// plans itself (plan.js)
+const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
 
 /** @typedef {ReturnType<typeof createPlanner>} Planner */
 /** @typedef {{ lat: number, lng: number }} Point */
@@ -92,12 +96,14 @@ const ON_THE_ROAD = new Set(['bus', 'trolley']);
 const walkOf = seconds => seconds > 0 ? { minutes: Math.max(1, Math.round(seconds / 60)), meters: Math.round(seconds / 60 * METERS_PER_MINUTE) } : null;
 
 /**
- * The search over the city on `weekday` (0 = Sunday). `rail`: rail.json as
- * the page plans on it, with its tram or without it (decision 29), never
- * already joined to it (city.js joins it)
+ * The search over the city on `weekday` (0 = Sunday), with the suburban
+ * railway's `trains` of the day when there are any (trainDay in city.js).
+ * `rail`: rail.json as the page plans on it, with its tram or without it
+ * (decision 29), never already joined to it (city.js joins it)
  * @param {import('../../../types/data.js').Rail} rail @param {import('../../../types/data.js').Buses} buses @param {number} weekday
+ * @param {import('/tools/subway/city.js').Trains | null} [trains]
  */
-export const cityPlanner = (rail, buses, weekday) => createPlanner(joinNetwork(rail, busDay(buses, weekday), weekday));
+export const cityPlanner = (rail, buses, weekday, trains = null) => createPlanner(joinNetwork(rail, busDay(buses, weekday), weekday, trains));
 
 /** @param {Planner} planner @param {Point} from @param {Point} to */
 const ends = (planner, from, to) => [planner.near(from, NEAR_SECONDS), planner.near(to, NEAR_SECONDS)];
@@ -106,7 +112,7 @@ const ends = (planner, from, to) => [planner.near(from, NEAR_SECONDS), planner.n
 const bundleKey = way => way.legs.map(leg => `${ON_THE_ROAD.has(leg.mode) ? 'bus' : leg.line} ${leg.board} ${leg.alight}`).join('|');
 
 /**
- * The ways with a bus for leaving at `now`: those the search finds, the same
+ * The ways with a bus or a train for leaving at `now`: those the search finds, the same
  * lines arriving together once (fold), and ways that only differ by which
  * bus rides between the same two stops as one, with each of its lines,
  * timed by the first to come (as Plan 5 bundles a last bus), as the Trip
@@ -119,7 +125,7 @@ export function busOptions(planner, from, to, now) {
     if (!access.length || !egress.length) return [];
     const bundles = new Map();
     for (const way of fold(findWays(planner, access, egress, now.seconds))) {
-        if (!way.legs.some(leg => ON_THE_ROAD.has(leg.mode))) continue;
+        if (!way.legs.some(leg => CITY_ONLY.has(leg.mode))) continue;
         const key = bundleKey(way);
         if (!bundles.has(key)) bundles.set(key, { way, lines: way.legs.map(() => new Set()) });
         way.legs.forEach((leg, i) => bundles.get(key).lines[i].add(leg.line));

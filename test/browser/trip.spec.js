@@ -366,6 +366,54 @@ test.describe('the trip page', () => {
         });
     });
 
+    test.describe('the suburban railway (decision 40)', () => {
+        // From Athens station, where the location is, to Megara, which only the
+        // railway reaches. The address index of the tests has no such place, so
+        // the place search's answer is the test's own
+        test.use({ location: { at: { lat: 37.9930, lng: 23.7203 } } });
+        const megara = { name: 'Μέγαρα', town: 'Μεγαρέων', type: 'place', placeKind: 'town', lineNames: [], n: null, lat: 37.9906, lng: 23.3609 };
+        const toMegara = async (page, path, { here, there }) => {
+            await page.route('**/api/places', route => route.fulfill({ json: { results: [megara], notInTown: null, noSuchTown: false } }));
+            await page.goto(path);
+            await page.getByRole('button', { name: here }).click();
+            await page.getByRole('combobox', { name: there }).fill('Μέγαρα');
+            await list(page, 'to').first().click();
+        };
+
+        test('a way by train: its pill, where it goes, and where its times are from', async ({ page }) => {
+            await toMegara(page, '/trip', { here: 'My location', there: 'To' });
+            const best = page.locator('.trip-card').first();
+            await expect(best.locator('.trip-total')).toHaveText(/^\d+–\d+ min$/);
+            await expect(best.locator('.line-pill.line-p').first()).toHaveText('Suburban');
+            await expect(best).toContainText('Megara');
+            await expect(page.locator('.trip-estimates')).toContainText('Suburban railway times are from railway.gov.gr (OSE)');
+            await expect(page.locator('.trip-estimates')).not.toContainText('left out');
+            expect(await axe(page), 'axe-core violations').toEqual([]);
+            const walk = await keyboardWalk(page);
+            expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
+        });
+
+        test('in Greek too', async ({ page }) => {
+            await toMegara(page, '/el/trip', { here: 'Η θέση μου', there: 'Προς' });
+            const best = page.locator('.trip-card').first();
+            await expect(best.locator('.line-pill.line-p').first()).toHaveText('Προαστιακός');
+            await expect(best).toContainText('Μέγαρα');
+            await expect(page.locator('.trip-estimates')).toContainText('Οι ώρες του Προαστιακού είναι από το railway.gov.gr (ΟΣΕ)');
+        });
+    });
+
+    test.describe('with the suburban railway\'s times not loading', () => {
+        test.use({ allowErrors: [/status of 404/] });
+
+        test('it\'s left out, and said under the answer', async ({ page }) => {
+            await page.route('**/data/trains.json', route => route.fulfill({ status: 404, body: '' }));
+            await pickBoth(page);
+            await expect(page.locator('.trip-card').first()).toBeVisible();
+            await expect(page.locator('.trip-estimates')).toContainText('The suburban railway is left out: its times for today couldn\'t be loaded.');
+            await expect(page.locator('#trip-result .bus-plate').first()).toBeVisible();
+        });
+    });
+
     test.describe('with search down', () => {
         test.use({ allowErrors: [/status of 503/] });
 

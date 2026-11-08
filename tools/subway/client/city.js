@@ -1,7 +1,7 @@
 // The whole city for the trip search (decision 28): the metro and the tram
 // from rail.json, a day of buses and trolleys from buses.json (decision 30),
-// and walks between stops worked out from the straight line, as there's no
-// street map. No DOM, and only relative imports, so the browser and the
+// a day of the suburban railway from trains.json (decision 40), and walks
+// between stops worked out from the straight line, as there's no street map. No DOM, and only relative imports, so the browser and the
 // planner lab (scripts/planner-lab/) share it.
 
 import { createPlanner as search, CHANGE_SECONDS, MAX_RIDES } from './raptor.js';
@@ -44,6 +44,13 @@ const M_LNG = 111_320 * Math.cos(37.97 * Math.PI / 180);
  *   routes: { line: string, mode: string, code?: string, stops: string[], profiles: number[][], trips: [number, number][] }[] }} Buses
  */
 
+/**
+ * A day of trains: each station's [lat, lng, Greek, English], and routes as
+ * a day of buses has them, a trip's start in seconds from the day's midnight
+ * @typedef {{ stations: Record<string, [number, number, string, string]>,
+ *   routes: { line: string, stops: string[], profiles: number[][], trips: [number, number][] }[] }} Trains
+ */
+
 /** @param {Point} a @param {Point} b */
 export const meters = (a, b) => Math.hypot((a.lat - b.lat) * M_LAT, (a.lng - b.lng) * M_LNG);
 /** @param {Point} a @param {Point} b */
@@ -80,13 +87,31 @@ export function busDay({ stops, routes }, weekday) {
 }
 
 /**
- * The stops and routes of one weekday (0 = Sunday), last night's trains that
- * run past midnight included. `index` finds a stop: rail:korydallos, bus:70040.
- * Each route says where it goes (`toward`): a rail line's direction, a bus's last stop;
- * a bus's also which of OASA's routes it is (`code`), as its live times say.
- * @param {import('../../../types/data.js').Rail} rail @param {Buses} buses @param {number} weekday
+ * The trains of `date` ('YYYY-MM-DD') in trains.json, with those of the day
+ * before still running after midnight, at times before it. Null when there
+ * are none for the date: railway.gov.gr's board for it was never fetched
+ * @param {import('../../../types/data.js').Trains} trains @param {string} date @returns {Trains | null}
  */
-export function joinNetwork(rail, buses, weekday) {
+export function trainDay({ stations, dates }, date) {
+    if (!dates[date]) return null;
+    const before = new Date(Date.parse(`${date}T00:00:00Z`) - DAY * 1000).toISOString().slice(0, 10);
+    const late = (dates[before] ?? []).flatMap(route => {
+        const trips = route.trips.filter(([start, profile]) => start + route.profiles[profile].at(-1) >= DAY)
+            .map(([start, profile]) => /** @type {[number, number]} */ ([start - DAY, profile]));
+        return trips.length ? [{ ...route, trips }] : [];
+    });
+    return { stations, routes: [...late, ...dates[date]] };
+}
+
+/**
+ * The stops and routes of one weekday (0 = Sunday), last night's trains that
+ * run past midnight included, and the suburban railway's day when there is
+ * one (trainDay). `index` finds a stop: rail:korydallos, bus:70040, train:athens.
+ * Each route says where it goes (`toward`): a rail line's direction, a bus's or train's last stop;
+ * a bus's also which of OASA's routes it is (`code`), as its live times say.
+ * @param {import('../../../types/data.js').Rail} rail @param {Buses} buses @param {number} weekday @param {Trains | null} [trains]
+ */
+export function joinNetwork(rail, buses, weekday, trains = null) {
     const net = withTram(rail);
     const stops = [];
     const index = new Map();
@@ -96,6 +121,7 @@ export function joinNetwork(rail, buses, weekday) {
     };
     for (const [id, { coords, name }] of Object.entries(net.stations)) add(`rail:${id}`, coords[0], coords[1], name, { station: id });
     for (const [code, [lat, lng, el, en = '']] of Object.entries(buses.stops)) add(`bus:${code}`, lat, lng, { el, en });
+    for (const [id, [lat, lng, el, en]] of Object.entries(trains?.stations ?? {})) add(`train:${id}`, lat, lng, { el, en });
 
     const routes = [];
     for (const [line, { directions, tram }] of Object.entries(net.lines)) {
@@ -121,6 +147,10 @@ export function joinNetwork(rail, buses, weekday) {
             trips: trips.map(([start, profile]) => profiles[profile].map(offset => start + offset)),
             toward: stops[along.at(-1)].names,
         });
+    }
+    for (const { line, stops: calls, profiles, trips } of trains?.routes ?? []) {
+        const along = calls.map(station => index.get(`train:${station}`));
+        routes.push({ line, mode: 'suburban', stops: along, trips: trips.map(([start, profile]) => profiles[profile].map(offset => start + offset)), toward: stops[along.at(-1)].names });
     }
     return { stops, routes, index };
 }

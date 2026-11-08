@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { browserModule, strings } from './support/browser-modules.js';
 import { markupProblems } from './support/markup.js';
+import { buildTrains } from '../server/data/build-suburban.js';
+import { suburbanCurated, train } from './fixtures/railway.js';
 
 // The next half hour's answer as the trip page shows it (decision 33): what
 // the worker picks from answer.js (halfView in tools/trip/client/buses.js),
@@ -38,6 +40,21 @@ const viewOf = (from, to, now, answer = answered(from, to, now)) => JSON.parse(J
 const clear = viewOf(menelaou, fix, at(12));
 const depends = viewOf(menelaou, syntagma, at(10));
 const byRail = viewOf(syntagma, larissa, at(12));
+
+// The suburban railway that Wednesday (decision 40): from Athens station to the airport every 10 minutes, 40 minutes on the way
+const { trainDay } = await browserModule('tools/subway/client/city.js');
+const DATE = '2026-10-21';
+const hhmm = minutes => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+const trains = buildTrains({ [DATE]: { schedules: Array.from({ length: 8 }, (_, i) => train(DATE, `12${i}`, [['o2', hhmm(600 + i * 10)], ['o3', hhmm(640 + i * 10)]])) } }, suburbanCurated()).data;
+const cityByTrain = cityPlanner(rail, buses, 3, trainDay(trains, DATE));
+const athensStation = { lat: 37.99284, lng: 23.72015, title: 'Αθήνα', exact: null };
+const airportStation = { lat: 37.93698, lng: 23.94481, title: 'Αεροδρόμιο', exact: null };
+const byTrain = (() => {
+    const steps = halfHour(cityByTrain, athensStation, airportStation, at(10));
+    let step = steps.next();
+    while (!step.done) step = steps.next();
+    return JSON.parse(JSON.stringify(halfView(cityByTrain, athensStation, airportStation, step.value)));
+})();
 
 test('one clear way comes first: to Syggrou-Fix at noon, any of the buses from the stops near the door', () => {
     assert.equal(clear.kind, 'clear');
@@ -155,6 +172,19 @@ for (const lang of ['en', 'el']) {
         const trip = doorToDoor(network, menelaou, syntagma, { ...at(10), date: '2026-10-21' });
         assert.ok(String(r.renderTrip(network, trip, syntagma, { checking: true })).includes(s['trip.half-checking']));
         assert.ok(!String(r.renderTrip(network, trip, syntagma)).includes(s['trip.half-checking']));
+    });
+
+    test(`${lang}: a way by suburban railway in the half hour's answer has its pill and names where its times are from; with no trains today, it says they're left out`, () => {
+        const ways = r.halfWays(byTrain, at(10).seconds);
+        assert.ok(ways.some(({ o }) => o.rides.some(ride => ride.mode === 'suburban')), 'a way by train is shown');
+        const view = String(r.renderHalf(network, byTrain.kind, ways, airportStation));
+        check(view);
+        assert.ok(view.includes(`line-p">${s['trip.suburban']}<`));
+        assert.ok(view.includes(escaped(s['trip.train-estimates'])));
+        assert.equal(view.includes(escaped(s['trip.no-trains-today'])), false);
+        const none = String(r.renderHalf(network, clear.kind, r.halfWays(clear, at(12).seconds), fix, { noTrains: true }));
+        check(none);
+        assert.ok(none.includes(escaped(s['trip.no-trains-today'])));
     });
 }
 

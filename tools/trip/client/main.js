@@ -103,6 +103,8 @@ function start(metro) {
     let searches = startSearches(hidden ? { ...metro, tram: undefined } : metro);
     /** @type {boolean | 'updated'} */
     let noBuses = !searches;
+    // The suburban railway has no times for today, so the searches leave it out (decision 40)
+    let noTrains = false;
     // What's been asked of the searches: the latest trip, and the latest half
     // hour (only the latest of each is answered); the latest answer, the ways
     // with a bus for leaving at its `now`; and the latest half hour's answer.
@@ -213,8 +215,8 @@ function start(metro) {
         const timed = latest ? { way: latest.way, now: athensNow().seconds } : null;
         const offer = !choice && timed?.way.offer;
         const shown = ways.length
-            ? renderHalf(rail, half.view.kind, ways, to, { expired, longWalk: isLongWalk(ways[0].o), live: timed, offer: !choice, taken: choice === 'taken' ? half.view.quicker : null })
-            : renderTrip(rail, trip, to, { expired, noBuses, checking: Boolean(searches) && !forTrip(half) });
+            ? renderHalf(rail, half.view.kind, ways, to, { expired, longWalk: isLongWalk(ways[0].o), live: timed, offer: !choice, taken: choice === 'taken' ? half.view.quicker : null, noTrains })
+            : renderTrip(rail, trip, to, { expired, noBuses, noTrains: noTrains && !noBuses, checking: Boolean(searches) && !forTrip(half) });
         const answer = html`${shown}${TIMING && timingBox(timing)}`;
         setHtml(result, changing ? answer : html`${renderChosen(from, to)}${answer}`);
         $('trip-change')?.addEventListener('click', () => {
@@ -310,6 +312,7 @@ function start(metro) {
         }
         if (data.id !== asked.id) return;
         found = { from: asked.from, to: asked.to, now: asked.now, options: data.options };
+        noTrains = data.trains === false;
         timing.city = data.timing.city ?? timing.city;
         timing.answer = data.timing.answer;
         draw(asked.now, data.options, asked.speak);

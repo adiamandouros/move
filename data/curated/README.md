@@ -9,8 +9,8 @@ After editing, run `npm test` (checks these files for mistakes) and
 downloaded). A file with errors fails the build, and the site keeps serving the
 previous build.
 
-These files are under CC BY-SA 4.0, not the code's license: see
-[LICENSE.md](LICENSE.md).
+These files are under CC BY-SA 4.0, not the code's license, apart from
+suburban.json's OpenStreetMap coordinates: see [LICENSE.md](LICENSE.md).
 
 ## Editing on the go: /admin/stations
 
@@ -131,6 +131,24 @@ stops, and works both ways. A stop with `metro` needs a walk to that station;
 a walk needs no `metro`, which is only the map's official change. The minutes
 are first guesses until checked on the spot: the straight line × 1.3 at 80 m a
 minute, plus 2 to reach the platform.
+
+## suburban.json — the suburban railway's stations
+
+The suburban railway's timetable comes from railway.gov.gr, OSE's train site,
+every night (`server/data/railway.js`, decision 40), and goes to the Trip
+page's search as `trains.json` (`server/data/build-suburban.js`). The site
+names each station by an id of its own and in Greek only, and has no places
+for them, so they're here. `lines` has the one line, `P`, with its names, a
+colour (a stand-in until the Trip page is reworked; see style.css) and the
+`corridors` of railway.gov.gr's boards it takes: `PIRAIR` (Piraeus and Ano
+Liosia to the airport), `KIATO` and `CHALKIDA`. `stations` has each station
+on them by an id of ours, with its names (Greek as OSE writes it, English from
+OpenStreetMap, the metro's spelling where they share a station, or else
+written in Latin letters), `ose`, every id railway.gov.gr gives it (some have
+two), `coords`, where OpenStreetMap has it, and `metro`, the metro station in
+stations.json it shares, for the 8 that do. A train calling at an id that
+isn't here is left out, with a warning on `/admin/diagnostics`: add the
+station, its place from OpenStreetMap included.
 
 ## airport.json — STASY's airport trains
 
