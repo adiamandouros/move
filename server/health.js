@@ -129,8 +129,8 @@ export function createHealth({ busStatus, announcementStatus, liftStatus = () =>
     }
 
     async function check() {
-        const { build: data, stasy, airport } = dataStatus({ buildDir, rawDir, now });
-        const result = { arrivals: arrivals(), oasa: oasaUse(), announcements: announcements(), lifts: lifts(), places: placesStatus(), data, stasy, airport, relays: await relayVersions(), server: server() };
+        const { build: data, stasy, airport, railway } = dataStatus({ buildDir, rawDir, now });
+        const result = { arrivals: arrivals(), oasa: oasaUse(), announcements: announcements(), lifts: lifts(), places: placesStatus(), data, stasy, airport, railway, relays: await relayVersions(), server: server() };
         const problems = [];
         if (!result.arrivals.ok) problems.push(`Live arrivals: no route to OASA has answered in the past ${ARRIVALS_FRESH_MS / 60_000} minutes`);
         const { oasa } = result;
@@ -158,6 +158,8 @@ export function createHealth({ busStatus, announcementStatus, liftStatus = () =>
         else if (!result.stasy.ok) problems.push(`STASY timetables: the copy in use is from ${result.stasy.fetched}, over ${STASY_STALE_DAYS} days old`);
         if (result.airport.changed) problems.push('Airport timetable: STASY\'s has changed since data/curated/airport.json was written (details on /admin/diagnostics); its trains are still added');
         else if (!result.airport.ok) problems.push(`Airport timetable: STASY's was last checked on ${result.airport.checked.slice(0, 10)}, over ${AIRPORT_STALE_DAYS} days ago`);
+        if (railway && !railway.today) problems.push(`Suburban railway: no trains for today, so the Trip page leaves it out; railway.gov.gr's boards ${railway.fetched ? `were last fetched on ${railway.fetched.slice(0, 10)}` : 'have never been fetched'} (details on /admin/diagnostics)`);
+        else if (railway?.lastFetch && !railway.lastFetch.ok) problems.push(`Suburban railway: railway.gov.gr's boards couldn't be fetched on the last try; ${railway.days} day${railway.days === 1 ? '' : 's'} of trains from today on are kept (details on /admin/diagnostics)`);
         for (const [name, r] of Object.entries(result.relays)) {
             if (!r.ok) problems.push(`Relay: the ${name} runs ${r.version === null ? 'an older version or is unreachable' : `version ${r.version}`}, not ${RELAY_VERSION}; update it (proxy/README.md)`);
         }

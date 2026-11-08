@@ -56,10 +56,12 @@ function distance(meters) {
 const step = (when, content) => html`<li class="trip-step"><span class="trip-step-when">${when}</span><div class="trip-step-what">${content}</div></li>`;
 
 // A walk to `place`: from the door, or between two stations or stops, whose
-// minutes are the tram's walks (decision 28) and have no distance
-function walkStep(walk, words, place) {
+// minutes are the tram's walks (decision 28) and have no distance. note: what
+// the way needs saying, a suburban station's change (decision 40)
+function walkStep(walk, words, place, note = null) {
     return step(`${walk.minutes}′`, html`${externalLink({ href: walkingUrl(place.lat, place.lng) }, words, t('shell.new-tab'))}
-        ${walk.meters !== undefined && html`<div class="trip-step-note">${distance(walk.meters)}</div>`}`);
+        ${walk.meters !== undefined && html`<div class="trip-step-note">${distance(walk.meters)}</div>`}
+        ${note && html`<div class="trip-step-note">${localName(note, language)}</div>`}`);
 }
 
 function legStep(rail, leg) {
@@ -78,6 +80,8 @@ const walkToStation = (rail, id, minutes) => walkStep({ minutes }, format(t('tri
 // beside it, if the trip starts there
 const walkToFirst = o => o.city ? o.firstWalk?.minutes ?? 0 : (o.start.walk?.minutes ?? 0) + (o.plan.walkFirst ?? 0);
 export const hasBus = o => o.city && o.rides.some(ride => ON_THE_ROAD.has(ride.mode));
+// A way with a suburban train (decision 40), whose times come from railway.gov.gr
+const hasTrain = o => o.city && o.rides.some(ride => ride.mode === 'suburban');
 
 // Whole minutes from `now` to `at` (seconds from midnight), as a live time counts down
 const minutesTo = (at, now) => Math.max(0, Math.floor((at - now) / 60));
@@ -92,20 +96,26 @@ function minutesBadge(at, now) {
 
 // A ride of a way with a bus: a bus's time is the timetable's, an estimate
 // (decision 11), so it says "~", unless OASA has the bus coming (decision
-// 35): then its time, its minutes and the next one's. `now`: seconds from
-// midnight, for the minutes
+// 35): then its time, its minutes and the next one's. A suburban train to or
+// from a station OASA's ticket doesn't cover says it needs Hellenic Train's
+// (decision 40). `now`: seconds from midnight, for the minutes
 function rideStep(rail, ride, now) {
     const bus = ON_THE_ROAD.has(ride.mode);
     const place = stopName(rail, ride.alight);
     const live = ride.live && 'at' in ride.live ? ride.live : null;
+    const beyond = [ride.board, ride.alight].find(stop => stop.oasaTicket === false);
     return step(bus && !live ? `~${clockTime(ride.boards)}` : clockTime(ride.boards), html`
         <div>${pill(rail, ride)}${ride.lines.length === 1 && html` ${format(t('trip.towards'), { end: cityName(ride.toward) })}`}</div>
         ${live && html`<div class="trip-live">${minutesBadge(live.at, now)}${live.next !== null && html`<span class="trip-step-note">${format(t('trip.live-next'), { minutes: minutesTo(live.next, now) })}</span>`}</div>`}
         ${ride.live && 'none' in ride.live && html`<div class="trip-step-note">${t('trip.live-none')}</div>`}
-        <div class="trip-step-note">${ride.stops === 1 ? format(t('trip.stop'), { place }) : format(t('trip.stops'), { count: ride.stops, place })}</div>`);
+        <div class="trip-step-note">${ride.stops === 1 ? format(t('trip.stop'), { place }) : format(t('trip.stops'), { count: ride.stops, place })}</div>
+        ${beyond && html`<div class="trip-step-note">${format(t('trip.train-ticket'), { station: stopName(rail, beyond) })}</div>`}`);
 }
+// A rail line's pill: the metro's and the tram's are in rail.json; the
+// suburban railway's are named as their ids, A1 to A4 (decision 40)
+const railPill = (rail, line, mode) => linePill(line, mode === 'suburban' ? line : rail.lines[line].name, 's');
 // Every bus line that rides it, the first to come first
-const pill = (rail, ride) => ON_THE_ROAD.has(ride.mode) ? pillList(ride.lines.map(line => busPlate(line, 's'))) : linePill(ride.line, rail.lines[ride.line].name, 's');
+const pill = (rail, ride) => ON_THE_ROAD.has(ride.mode) ? pillList(ride.lines.map(line => busPlate(line, 's'))) : railPill(rail, ride.line, ride.mode);
 
 // How many of the stops a way's last bus can be caught at are shown before
 // "N more stops"
@@ -140,11 +150,11 @@ function busStops(rail, stops, change, now) {
 // way of the half hour whose last bus can be any of several, the stops.
 // live: the way timed with OASA's live times (buses.js liveWay), at `now`
 function citySteps(rail, o, to, row = null, live = null) {
-    const walkTo = (walk, stop) => walk && walkStep(walk, format(t('trip.walk-to'), { place: stopName(rail, stop) }), stop);
+    const walkTo = (walk, stop, note = null) => walk && walkStep(walk, format(t('trip.walk-to'), { place: stopName(rail, stop) }), stop, note);
     const rides = row?.bundle ? o.rides.slice(0, -1) : o.rides;
     return html`<ol class="trip-steps">
         ${rides.length > 0 && walkTo(o.firstWalk, o.rides[0].board)}
-        ${rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board)}${rideStep(rail, ride, live?.now)}`)}
+        ${rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board, ride.walkNote)}${rideStep(rail, ride, live?.now)}`)}
         ${row?.bundle && busStops(rail, live?.way.stops ?? row.stops, rides.length > 0, live?.now)}
         ${o.lastWalk && walkStep(o.lastWalk, format(t('trip.walk-to'), { place: to.title }), to)}
     </ol>`;
@@ -217,15 +227,23 @@ function walkCard(walk, to) {
 // For a screen reader, and for naming a card
 export const routeSummary = o => format(t('trip.summary'), { minutes: o.minutes, time: clockTime(o.arrives) });
 
+// Under the answer, what its times are: walks and the timetable's trains,
+// then `bus`, what its buses' are, where it has any, and where it has
+// suburban trains, theirs; when the suburban railway's times for today
+// couldn't be had, that it's left out (decision 40); and with `range`, what
+// the half hour's ranges are
+const estimates = (options, { bus = null, noTrains = false, range = false }) => html`<p class="trip-estimates">${t('trip.estimates')}${bus && html` ${bus}`}${options.some(hasTrain) && html` ${t('trip.train-estimates')}`}${noTrains && html` ${t('trip.no-trains-today')}`}${range && html` ${t('trip.range-note')}`}</p>`;
+
 // The answer: what `doorToDoor` found, drawn. noBuses: the buses' times
 // couldn't be loaded, so it's by metro and tram alone; 'updated': nor the
-// searches, with a newer Wayhop waiting to take over (main.js). checking: the
-// next half hour is being worked out, and may take its place (renderHalf)
+// searches, with a newer Wayhop waiting to take over (main.js). noTrains:
+// the suburban railway has no times for today. checking: the next half hour
+// is being worked out, and may take its place (renderHalf)
 /**
  * @param {import('../../../types/data.js').Rail} rail @param {ReturnType<typeof import('./plan.js').doorToDoor>} trip
- * @param {import('./plan.js').Place} to @param {{ expired?: boolean, noBuses?: boolean | 'updated', checking?: boolean }} [shown]
+ * @param {import('./plan.js').Place} to @param {{ expired?: boolean, noBuses?: boolean | 'updated', noTrains?: boolean, checking?: boolean }} [shown]
  */
-export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { expired = false, noBuses = false, checking = false } = {}) {
+export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { expired = false, noBuses = false, noTrains = false, checking = false } = {}) {
     const [best, ...others] = options;
     const trainsStopped = best?.morning;
     return html`
@@ -238,7 +256,7 @@ export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { e
         ${longWalk && !walkFirst && longWalkNotice()}
         ${others.length > 0 && !(walkFirst && !trainsStopped) && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
         ${others.map(o => otherCard(rail, o))}
-        <p class="trip-estimates">${t('trip.estimates')}${options.some(hasBus) && html` ${t('trip.bus-estimates')}`}</p>`;
+        ${estimates(options, { bus: options.some(hasBus) && t('trip.bus-estimates'), noTrains })}`;
 }
 
 const longWalkNotice = () => notice('info', 'bus', html`${t('trip.long-walk')} <a href="${localHref('/buses')}">${t('trip.look-for-buses')}</a>`);
@@ -288,7 +306,7 @@ function halfCard(rail, { row, o }, to, best, live, taken = false) {
 }
 
 // A line on its own: a train's pill or a bus's plate
-const linePlate = (rail, { line, mode }) => ON_THE_ROAD.has(mode) ? busPlate(line, 's') : linePill(line, rail.lines[line].name, 's');
+const linePlate = (rail, { line, mode }) => ON_THE_ROAD.has(mode) ? busPlate(line, 's') : railPill(rail, line, mode);
 
 // How much sooner the quicker way gets there, in words, as its heading and for a screen reader
 /** @param {import('./buses.js').Offer} offer */
@@ -344,8 +362,9 @@ const takenOption = (row, departure) => row.options.find((o, d) => d >= departur
 // live: the first way timed with OASA's live times, at `now` (seconds from
 // midnight), in its place (decision 35). On a decision (decision 36): with
 // `offer`, the quicker way the live times have, under the directions; or
-// `taken`, the quicker way's row, when the rider took it: in their place
-export function renderHalf(rail, kind, ways, to, { expired = false, longWalk = false, live = null, offer = false, taken = null } = {}) {
+// `taken`, the quicker way's row, when the rider took it: in their place.
+// noTrains: the suburban railway has no times for today (decision 40)
+export function renderHalf(rail, kind, ways, to, { expired = false, longWalk = false, live = null, offer = false, taken = null, noTrains = false } = {}) {
     const [first, ...rest] = ways;
     const others = taken ? rest.filter(({ row }) => row !== taken) : rest;
     const busNote = live && onLive(live) ? t('trip.live-estimates') : t('trip.bus-estimates');
@@ -359,7 +378,7 @@ export function renderHalf(rail, kind, ways, to, { expired = false, longWalk = f
         ${longWalk && longWalkNotice()}
         ${others.length > 0 && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
         ${others.map(way => halfOther(rail, way))}
-        <p class="trip-estimates">${t('trip.estimates')}${(taken || ways.some(({ o }) => hasBus(o))) && html` ${busNote}`} ${t('trip.range-note')}</p>`;
+        ${estimates(ways.map(({ o }) => o), { bus: (taken || ways.some(({ o }) => hasBus(o))) && busNote, noTrains, range: true })}`;
 }
 
 // What's said of the live times above the answer (live.js liveStatus), as on

@@ -9,6 +9,7 @@ import { checkOutput } from '../server/data/check-output.js';
 import { SOURCES } from '../server/data/sources.js';
 import { curatedDir, fakePortal, railCurated, railFeed, tempDir } from './fixtures/gtfs.js';
 import { fakeOasa } from './fixtures/network.js';
+import { fakeRailway } from './fixtures/railway.js';
 import { stasyPage, stasyTable } from './fixtures/stasy.js';
 
 // The whole data build (runBuild in server/data/index.js), in a folder of
@@ -28,6 +29,7 @@ function setup({ busStops = 1500, curated = undefined } = {}) {
     const portal = fakePortal();
     portal.publish(SOURCES.rail.dataset, railFeed());
     const oasa = fakeOasa({ stops: busStops });
+    const railway = fakeRailway();
     // The build's clock: the bus network is fetched at most once a day
     const clock = { now: Date.parse('2026-08-05T01:30:00Z') };
     const dataDir = tempDir();
@@ -36,13 +38,13 @@ function setup({ busStops = 1500, curated = undefined } = {}) {
     const logs = [];
     const options = {
         dataDir, curatedDir: curatedDir(curated), overlayDir: join(dataDir, 'local'), fetch: portal.fetch, today: '20260805', log: m => logs.push(m),
-        oasa: oasa.request, now: () => clock.now, sleep: async () => {}, busTimetable,
+        oasa: oasa.request, railway: railway.fetch, now: () => clock.now, sleep: async () => {}, busTimetable,
     };
     const build = (more = {}) => runBuild({ ...options, ...more });
     const served = name => JSON.parse(readFileSync(join(dataDir, 'build', name), 'utf8'));
     // The next night: a day later, a new day for the timetable
     const nextNight = (more = {}) => { clock.now += DAY; return build({ today: '20260806', ...more }); };
-    return { portal, oasa, dataDir, logs, build, nextNight, served, clock, busTimetable };
+    return { portal, oasa, railway, dataDir, logs, build, nextNight, served, clock, busTimetable };
 }
 
 // STASY's site, as server/stasy.js's client, with pages the build can read
@@ -67,7 +69,7 @@ function fakeStasy() {
 test('a first build publishes every file, which pass their checks', async () => {
     const { build, served, dataDir } = setup();
     const meta = await build();
-    assert.deepEqual(Object.fromEntries(Object.entries(meta.outputs).map(([k, o]) => [k, o.ok])), { 'rail.json': true, 'bus-stops.json': true, 'bus-lines.json': true, 'bus-rides.json': true, 'buses.json': true });
+    assert.deepEqual(Object.fromEntries(Object.entries(meta.outputs).map(([k, o]) => [k, o.ok])), { 'rail.json': true, 'bus-stops.json': true, 'bus-lines.json': true, 'bus-rides.json': true, 'buses.json': true, 'trains.json': true });
     assert.deepEqual(checkOutput('rail.json', served('rail.json')), []);
     // rail.json's nightly checks (rail-checks.js): without STASY's copy, nothing to compare
     assert.deepEqual(meta.outputs['rail.json'].checks, { problems: [], notes: [] });
@@ -82,6 +84,10 @@ test('a first build publishes every file, which pass their checks', async () => 
     assert.deepEqual(served('buses.json').routes.map(r => [r.line, r.code, r.runs]), [['Α10', '6052', [[60, 60]]]]);
     assert.deepEqual(meta.outputs['buses.json'].warnings, ['6 of OASA\'s routes have no times in the feed, so the search leaves them out']);
     assert.equal(served('bus-stops.json').stops.length, 1500);
+    // The suburban railway's trains, yesterday's to 4 days from now (decision 40)
+    assert.deepEqual(checkOutput('trains.json', served('trains.json')), []);
+    assert.deepEqual(Object.keys(served('trains.json').dates), ['2026-08-04', '2026-08-05', '2026-08-06', '2026-08-07', '2026-08-08', '2026-08-09']);
+    assert.deepEqual(meta.outputs['trains.json'].warnings, []);
     assert.deepEqual(served('meta.json').fingerprint.today, '20260805');
     assert.equal(served('meta.json').fingerprint.sources.network, '2026-08-05T01:30:00.000Z');
     for (const leftover of ['build.next', '.build.lock']) assert.ok(!existsSync(join(dataDir, leftover)), `${leftover} is cleaned up`);
@@ -106,22 +112,26 @@ test('buses seen passing become ride times the next night: by route, stretch and
 });
 
 test('nothing changed: no rebuild; a new day: rebuilt without downloading', async () => {
-    const { build, portal, oasa, logs } = setup();
+    const { build, portal, oasa, railway, logs } = setup();
     const first = await build();
     const downloads = portal.downloads.length;
     const asked = oasa.calls.length;
+    assert.equal(railway.calls.length, 6);
 
-    // A restart the same night: OASA isn't asked again
+    // A restart the same night: OASA and railway.gov.gr aren't asked again
     const again = await build();
     assert.equal(again.generated, first.generated);
     assert.ok(logs.includes('[data] Build is up to date'));
     assert.equal(portal.downloads.length, downloads);
     assert.equal(oasa.calls.length, asked);
+    assert.equal(railway.calls.length, 6);
 
+    // A new Athens day: the trains' boards are, once (railway.js)
     const nextDay = await build({ today: '20260806' });
     assert.notEqual(nextDay.generated, first.generated);
     assert.equal(nextDay.fingerprint.today, '20260806');
     assert.equal(portal.downloads.length, downloads);
+    assert.equal(railway.calls.length, 12);
 });
 
 test('a change to the build\'s code rebuilds, with the same feeds on the same day', async () => {

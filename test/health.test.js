@@ -19,8 +19,9 @@ const MINUTE = 60_000;
 
 // A data folder's build/ (its raw/ beside it, as data/ has them). hours: the
 // date of STASY's copy rail.json uses; stasyFetch: STASY's last fetch; airportCheck: the last airport timetable check
-// checks: rail.json's nightly checks (rail-checks.js)
-function buildDir({ generated = '2026-10-18T01:30:00Z', ok = true, validTo = '2026-10-31', hours = '2026-10-10', stasyFetch = null, airportCheck = null, checks = undefined } = {}) {
+// checks: rail.json's nightly checks (rail-checks.js); trainDates: the dates
+// trains.json has (decision 40); railwayFetch: the last fetch of railway.gov.gr's boards
+function buildDir({ generated = '2026-10-18T01:30:00Z', ok = true, validTo = '2026-10-31', hours = '2026-10-10', stasyFetch = null, airportCheck = null, checks = undefined, trainDates = null, railwayFetch = null } = {}) {
     const dir = join(mkdtempSync(join(tmpdir(), 'health-')), 'build');
     mkdirSync(dir);
     writeFileSync(join(dir, 'meta.json'), JSON.stringify({ generated, outputs: { 'rail.json': { ok: true, checks }, 'bus-stops.json': { ok } } }));
@@ -32,6 +33,11 @@ function buildDir({ generated = '2026-10-18T01:30:00Z', ok = true, validTo = '20
     if (airportCheck) {
         mkdirSync(join(dirname(dir), 'raw', 'stasy'), { recursive: true });
         writeFileSync(join(dirname(dir), 'raw', 'stasy', 'airport-check.json'), JSON.stringify(airportCheck));
+    }
+    if (trainDates) writeFileSync(join(dir, 'trains.json'), JSON.stringify({ schema: 1, stations: {}, dates: Object.fromEntries(trainDates.map(date => [date, []])) }));
+    if (railwayFetch) {
+        mkdirSync(join(dirname(dir), 'raw', 'railway'), { recursive: true });
+        writeFileSync(join(dirname(dir), 'raw', 'railway', 'last-fetch.json'), JSON.stringify(railwayFetch));
     }
     return dir;
 }
@@ -337,4 +343,29 @@ test('the rail data\'s nightly checks: problems fail it, notes don\'t', async ()
     assert.deepEqual(one.problems, ['Rail data: 1 thing the timetable code relies on no longer holds (details on /admin/diagnostics)']);
     const two = await health({ dir: buildDir({ checks: { problems: ['a', 'b'], notes: [] } }) }).check();
     assert.deepEqual(two.problems, ['Rail data: 2 things the timetable code relies on no longer hold (details on /admin/diagnostics)']);
+});
+
+test('the suburban railway: no trains for today, or a failed fetch, is a problem; before the first fetch there\'s nothing to judge', async () => {
+    const week = ['2026-10-17', '2026-10-18', '2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22'];
+    const fetched = { at: '2026-10-18T01:30:00.000Z', today: '20261018', ok: true, seconds: 50, boards: { done: 6, total: 6 }, fetched: '2026-10-18T01:30:00.000Z' };
+    const before = await health().check();
+    assert.equal(before.railway, null);
+    assert.equal(before.ok, true);
+
+    const fine = await health({ dir: buildDir({ trainDates: week, railwayFetch: fetched }) }).check();
+    assert.deepEqual(fine.railway, { ok: true, today: true, days: 5, lastFetch: { at: '2026-10-18T01:30:00.000Z', ok: true }, fetched: '2026-10-18T01:30:00.000Z' });
+    assert.deepEqual(fine.problems, []);
+
+    // The last fetch failed, but earlier ones left today and the next two days
+    const failed = { ...fetched, ok: false, boards: { done: 0, total: 6 }, fetched: '2026-10-16T01:30:00.000Z', error: 'the board for 2026-10-17: fetch failed (4 tries)' };
+    const kept = await health({ dir: buildDir({ trainDates: ['2026-10-15', '2026-10-16', '2026-10-17', '2026-10-18', '2026-10-19', '2026-10-20'], railwayFetch: failed }) }).check();
+    assert.equal(kept.ok, false);
+    assert.deepEqual(kept.problems, ['Suburban railway: railway.gov.gr\'s boards couldn\'t be fetched on the last try; 3 days of trains from today on are kept (details on /admin/diagnostics)']);
+
+    // Five nights of failures: nothing for today, so the Trip page leaves the railway out
+    const gone = await health({ dir: buildDir({ trainDates: ['2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16', '2026-10-17'], railwayFetch: { ...failed, fetched: '2026-10-13T01:30:00.000Z' } }) }).check();
+    assert.deepEqual(gone.problems, ['Suburban railway: no trains for today, so the Trip page leaves it out; railway.gov.gr\'s boards were last fetched on 2026-10-13 (details on /admin/diagnostics)']);
+    // Never fetched, and no trains.json: the build couldn't get any
+    const never = await health({ dir: buildDir({ railwayFetch: { ...failed, fetched: null } }) }).check();
+    assert.deepEqual(never.problems, ['Suburban railway: no trains for today, so the Trip page leaves it out; railway.gov.gr\'s boards have never been fetched (details on /admin/diagnostics)']);
 });

@@ -3,6 +3,7 @@
 import { mkdtempSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { suburbanCurated } from './railway.js';
 
 // A tiny feed: line M9 with stations a–b–c, valid Mon 3 – Sun 9 Aug 2026.
 // X1 is a technical stop that stations.json tells the build to ignore.
@@ -86,6 +87,7 @@ export function railCurated(overrides = {}) {
                 south: { c: { exits: ['back'] }, b: { exits: ['center'] }, a: { exits: ['front'] } },
             },
         },
+        suburban: suburbanCurated(),
         ...overrides,
     };
 }
@@ -147,7 +149,7 @@ export function tramCurated() {
 // The curated files of railCurated(), written as data/curated/ has them
 export function curatedDir(curated = railCurated()) {
     const dir = mkdtempSync(join(tmpdir(), 'wayhop-curated-'));
-    for (const name of ['stations', 'lines', 'positions', 'airport', 'tram']) if (curated[name]) writeFileSync(join(dir, `${name}.json`), JSON.stringify(curated[name]));
+    for (const name of ['stations', 'lines', 'positions', 'airport', 'tram', 'suburban']) if (curated[name]) writeFileSync(join(dir, `${name}.json`), JSON.stringify(curated[name]));
     return dir;
 }
 

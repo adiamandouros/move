@@ -1,10 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildBuses, TIMETABLE_SCHEMA } from '../server/data/bus-timetable.js';
-import { busDay, createPlanner, joinNetwork } from '../tools/subway/client/city.js';
+import { buildTrains } from '../server/data/build-suburban.js';
+import { busDay, createPlanner, joinNetwork, MAX_RIDES, trainDay } from '../tools/subway/client/city.js';
+import { board, suburbanCurated, train } from './fixtures/railway.js';
 
 // The whole city for the trip search (tools/subway/client/city.js): a day of
-// buses.json as the search reads it. The search itself, its walks and the
+// buses.json and of trains.json as the search reads them. The search itself, its walks and the
 // ways it finds are tested on the planner lab's trips (planner-lab.test.js).
 
 const H8 = 8 * 3600;
@@ -64,4 +66,85 @@ test('the search rides the day\'s buses, from the stops a walk away', () => {
     planner.search(from, H8 - 120, { egress: to });
     assert.equal(planner.arrival(to).at > H8 + 1200, true, 'the 08:00 bus, then the walk to the door');
     assert.equal(planner.arrival(to).at < H8 + 1800, true, 'not the 08:10');
+});
+
+// trains.json (decision 40): Sunday the 8th as the fixture's board has it,
+// with a train on Saturday the 7th that's still running after midnight
+const trains = buildTrains({
+    '2026-11-07': { schedules: [train('2026-11-07', '1290', [['o1', '23:40'], ['o2', '23:55'], ['o3', '24:45']]), train('2026-11-07', '1288', [['o1', '20:00'], ['o3', '21:05']])] },
+    '2026-11-08': board('2026-11-08'),
+}, suburbanCurated()).data;
+
+test('a day of trains.json: its own trains, and the day before\'s still running after midnight at times before it', () => {
+    const day = trainDay(trains, '2026-11-08');
+    assert.equal(day.stations, trains.stations);
+    assert.equal(day.walks, trains.walks);
+    assert.deepEqual(day.outside, ['airport']);
+    assert.deepEqual(day.routes, [
+        // Saturday's 23:40 gets to the airport at 00:45, so it's still out; its 20:00 isn't
+        { line: 'A1', stops: ['piraeus', 'athens', 'airport'], profiles: [[0, 900, 3900]], trips: [[-1200, 0]] },
+        ...trains.dates['2026-11-08'],
+    ]);
+    // Saturday: the day before it wasn't fetched
+    assert.deepEqual(trainDay(trains, '2026-11-07').routes, trains.dates['2026-11-07']);
+    // A day with no board: no trains at all, so the Trip page can say so
+    assert.equal(trainDay(trains, '2026-11-09'), null);
+});
+
+test('the trains\' stations are stops with their names, their routes the suburban railway\'s, going where their last station is', () => {
+    const { stops, routes, index } = joinNetwork({ schema: 1, stations: {}, lines: {} }, busDay(buses, 0), 0, trainDay(trains, '2026-11-08'));
+    const station = stops[index.get('train:athens')];
+    assert.deepEqual([station.lat, station.lng, station.names], [37.99284, 23.72015, { el: 'Αθήνα', en: 'Athens' }]);
+    assert.equal(station.station, undefined, 'not a metro station');
+    // Outside OASA's ticket: the airport's
+    assert.equal(stops[index.get('train:airport')].oasaTicket, false);
+    assert.equal(station.oasaTicket, undefined);
+    const suburban = routes.filter(route => route.mode === 'suburban');
+    assert.deepEqual(suburban.map(route => [route.line, route.stops.map(i => stops[i].id), route.toward.en, route.trips.length]), [
+        ['A1', ['train:piraeus', 'train:athens', 'train:airport'], 'Airport', 1],
+        ['A1', ['train:piraeus', 'train:athens', 'train:airport'], 'Airport', 2],
+        ['A1', ['train:airport', 'train:athens', 'train:piraeus'], 'Piraeus', 1],
+    ]);
+    // Each trip's time at each station
+    assert.deepEqual(suburban[1].trips, [[8 * 3600, 8 * 3600 + 900, 8 * 3600 + 3900], [9 * 3600, 9 * 3600 + 900, 9 * 3600 + 3900]]);
+    // Without trains, no stations and no trains
+    assert.equal(joinNetwork({ schema: 1, stations: {}, lines: {} }, busDay(buses, 0), 0).routes.filter(route => route.mode === 'suburban').length, 0);
+});
+
+test('the search rides the day\'s trains, from the stations a walk away', () => {
+    const planner = createPlanner(joinNetwork({ schema: 1, stations: {}, lines: {} }, busDay(buses, 0), 0, trainDay(trains, '2026-11-08')));
+    // Near Athens station, to near the airport's
+    const from = planner.near({ lat: 37.9935, lng: 23.7205 }, 600);
+    const to = planner.near({ lat: 37.9372, lng: 23.9440 }, 600);
+    planner.search(from, 8 * 3600, { egress: to });
+    const [leg] = planner.journey(planner.arrival(to).stop, MAX_RIDES).legs;
+    assert.deepEqual([leg.mode, leg.line, planner.stops[leg.board].id, planner.stops[leg.alight].id, leg.boards], ['suburban', 'A1', 'train:athens', 'train:airport', 8 * 3600 + 900]);
+});
+
+test('a known walk is the search\'s, either way round and however far, with its note; one to a stop the network doesn\'t have is left out', () => {
+    const rail = { schema: 1, stations: {}, lines: {} };
+    const date = '2026-11-08';
+    // From the airport to Athens, then from Piraeus to Ano Liosia; Piraeus and Athens are 8 km apart, so it takes the walk between them
+    const day = {
+        ...trainDay(buildTrains({ [date]: { schedules: [
+            train(date, '1', [['o3', '08:00'], ['o2', '08:40']]),
+            train(date, '2', [['o1', '08:50'], ['o4', '09:30']]),
+        ] } }, suburbanCurated()).data, date),
+        walks: [['train:piraeus', 'train:athens', 300, { el: 'Σήμα', en: 'A note' }], ['train:athens', 'rail:b', 240]],
+    };
+    const network = joinNetwork(rail, busDay(buses, 0), 0, day);
+    const [piraeus, athens] = ['train:piraeus', 'train:athens'].map(id => network.index.get(id));
+    assert.deepEqual(network.knownWalks, [[piraeus, athens, 300, { el: 'Σήμα', en: 'A note' }]], 'rail:b isn\'t in this network');
+    const planner = createPlanner(network);
+    assert.deepEqual(planner.walkNote(athens, piraeus), { el: 'Σήμα', en: 'A note' });
+    assert.equal(planner.walkNote(athens, network.index.get('train:airport')), null);
+    const from = planner.near({ lat: 37.9372, lng: 23.9445 }, 300);
+    const to = planner.near({ lat: 38.0708, lng: 23.7099 }, 300);
+    planner.search(from, 7 * 3600 + 55 * 60, { egress: to });
+    const { legs } = planner.journey(planner.arrival(to).stop, MAX_RIDES);
+    assert.deepEqual(legs.map(leg => [planner.stops[leg.board].id, planner.stops[leg.alight].id, leg.boards, leg.walkBefore]), [
+        ['train:airport', 'train:athens', 8 * 3600, 0],
+        // Off at 08:40, 5 minutes on foot and the minute after a walk: the 08:50
+        ['train:piraeus', 'train:liosia', 8 * 3600 + 50 * 60, 300],
+    ]);
 });

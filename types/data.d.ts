@@ -170,3 +170,25 @@ export interface Buses {
         days: number[];
     }[];
 }
+
+/** data/build/trains.json, built by server/data/build-suburban.js: the suburban railway's trains by date, from railway.gov.gr (decision 40) */
+export interface Trains {
+    schema: number;
+    /** By id in data/curated/suburban.json: [lat, lng, Greek name, English name] */
+    stations: Record<string, [number, number, string, string]>;
+    /** suburban.json's walks, as the trip search names its stops ('train:piraeus', 'rail:piraeus'): [from, to, seconds, note where the way needs one] */
+    walks: ([string, string, number] | [string, string, number, Names])[];
+    /** The stations OASA's ticket doesn't cover: a Hellenic Train ticket */
+    outside: string[];
+    /** By date (YYYY-MM-DD): yesterday's, today's and the next days' trains, as many as were fetched */
+    dates: Record<string, {
+        /** The line in suburban.json ('A1'), from the train's corridor and stops */
+        line: string;
+        /** Station ids, in order */
+        stops: string[];
+        /** Ways of running these stops: the seconds from the first stop to each */
+        profiles: number[][];
+        /** [seconds from the date's midnight in Athens when it leaves its first stop (past 86,400 after midnight), profile index] */
+        trips: [number, number][];
+    }[]>;
+}

@@ -1,6 +1,7 @@
 // The data the site is built from: the last build, the timetable's end, the
 // bus network from OASA, STASY's first and last trains and airport
-// timetable, and the nightly checks of the timetable against STASY's.
+// timetable, the nightly checks of the timetable against STASY's, and the
+// suburban railway's boards from railway.gov.gr.
 
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
@@ -39,9 +40,27 @@ export function dataChecks(dataDir, now) {
     out.push(stasyCheck(dataDir, meta, status.stasy));
     out.push(...airportCheck(dataDir, meta, status.airport));
     out.push(...railChecks(meta));
+    out.push(...railwayCheck(status.railway));
     const lock = join(dataDir, '.build.lock');
     if (existsSync(lock)) out.push(check('Data', 'Build lock', 'info', `A build is running or was interrupted (process ${readFileSync(lock, 'utf8').trim()})`));
     return out;
+}
+
+// The suburban railway's boards from railway.gov.gr (server/data/railway.js):
+// how the last fetch went, and how many days of trains from today on are kept
+function railwayCheck(railway) {
+    if (!railway) return [];
+    const when = railway.lastFetch ? `${railway.lastFetch.at.slice(0, 16).replace('T', ' ')} UTC` : null;
+    const kept = `${railway.days} day${railway.days === 1 ? '' : 's'} of trains from today on`;
+    if (!railway.today) {
+        return [check('Data', 'Suburban railway', 'fail', `No trains for today, so the Trip page leaves the railway out. ${when ? `Last fetch ${when}${railway.lastFetch.ok ? '' : `, failed: ${railway.lastFetch.error}`}.` : 'Never fetched.'}`,
+            'The boards are fetched once a day, by the first build of the day. The app log\'s "[data] railway.gov.gr" lines say which request failed and why.')];
+    }
+    if (railway.lastFetch && !railway.lastFetch.ok) {
+        return [check('Data', 'Suburban railway', 'warn', `The fetch at ${when} failed: ${railway.lastFetch.error}. ${kept} are kept, from earlier fetches.`,
+            'The next try is with the first build of tomorrow (Athens time).')];
+    }
+    return [check('Data', 'Suburban railway', 'ok', `${when ? `Fetched ${when}` : 'Kept'}: ${kept}`)];
 }
 
 // The last fetch of the bus network from OASA (server/data/oasa-network.js):

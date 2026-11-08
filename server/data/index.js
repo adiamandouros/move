@@ -12,11 +12,13 @@ import { buildBusLines, buildBusStops } from './build-bus.js';
 import { buildBuses } from './bus-timetable.js';
 import { buildRail } from './build-rail.js';
 import { buildBusRides, readPasses } from './build-rides.js';
+import { buildTrains } from './build-suburban.js';
 import { buildTram } from './build-tram.js';
 import { checkOutput, shrinkage } from './check-output.js';
 import { createOasaClient } from '../oasa/client.js';
 import { EDITED, applyOverlay, pruneOverlay, readOverlay, writeOverlay } from './overlay.js';
 import { liveNetwork } from './oasa-network.js';
+import { railwayBoards } from './railway.js';
 import { fetchSources } from './sources.js';
 import { checkAirport } from './airport-check.js';
 import { checkRail } from './rail-checks.js';
@@ -96,6 +98,14 @@ const OUTPUTS = {
         sources: ['busTimetable', 'network', 'passes'],
         build: src => buildBuses(src.busTimetable.data, src.network.data, buildBusRides(src.passes.data, src.network.data).data),
     },
+    // The suburban railway's trains, by date, from railway.gov.gr (build-suburban.js, decision 40)
+    'trains.json': {
+        sources: ['railway'],
+        build: (src, curated) => {
+            if (!curated.suburban) throw new Error('no data/curated/suburban.json');
+            return buildTrains(src.railway.data, curated.suburban);
+        },
+    },
 };
 
 // Fetch any changed feeds and rebuild data/build. Outputs are rebuilt when a
@@ -106,7 +116,9 @@ const OUTPUTS = {
 // OASA's live API for the bus network (request(act, p1), server/oasa/client.js;
 // without it the kept network is used), and `stasy` STASY's site for its
 // timetables and the weekly check of its airport timetable (server/stasy.js;
-// without it, the kept copy and no check). The other options are for tests:
+// without it, the kept copy and no check), and `railway` is the fetch that
+// asks railway.gov.gr for the suburban railway's boards (railway.js; without
+// it, the kept boards). The other options are for tests:
 // their own data folder and curated files, a fake portal (`fetch`), a fixed
 // day (`today`, 'YYYYMMDD'), the clock and pause between OASA requests
 // (`now`, `sleep`), the bus timetable and the builder's fingerprint.
@@ -120,6 +132,7 @@ export async function runBuild({
     userAgent = userAgentFor(null),
     oasa = null,
     stasy = null,
+    railway = null,
     today = athensToday(),
     now = Date.now,
     sleep = undefined,
@@ -143,6 +156,9 @@ export async function runBuild({
         sources.network = { data: network.network, modified: network.network?.fetched ?? null, error: network.error };
         const timetables = await stasyTables({ rawDir: dirs.raw, client: stasy, stations: curated.data.stations.stations, offline, now, sleep, log });
         sources.stasy = { data: timetables.copy, modified: timetables.copy?.fetched ?? null, error: timetables.error };
+        // The suburban railway's boards from railway.gov.gr, once an Athens day (railway.js)
+        const boards = await railwayBoards({ rawDir: dirs.raw, today, fetch: railway, userAgent, offline, now, sleep, log });
+        sources.railway = { data: boards.boards, modified: boards.fetched, error: boards.error ?? null };
         // The buses the server saw pass (server/oasa/passes.js), up to today's
         const passes = readPasses(join(dirs.data, 'local', 'bus-passes'), isoDate(today));
         sources.passes = { data: passes, modified: passes.days.at(-1) ?? null, error: null };
@@ -268,9 +284,10 @@ function publish(dirs) {
     rmSync(dirs.next, { recursive: true, force: true });
 }
 
-// airport.json (STASY's airport trains), tram.json (the tram map's stops) and
-// street.json (the stations' exits and lifts on the street) can be missing
-const OPTIONAL_CURATED = ['airport', 'tram', 'street'];
+// airport.json (STASY's airport trains), tram.json (the tram map's stops),
+// street.json (the stations' exits and lifts on the street) and
+// suburban.json (the suburban railway's stations) can be missing
+const OPTIONAL_CURATED = ['airport', 'tram', 'street', 'suburban'];
 
 // Read the curated files and apply the editor's overlays on top of the ones
 // it edits (positions.json, street.json): `data` as the site uses it, and
@@ -278,8 +295,8 @@ const OPTIONAL_CURATED = ['airport', 'tram', 'street'];
 // committed file now matches are pruned.
 export function loadCurated({ curatedDir = CURATED_DIR, overlayDir = OVERLAY_DIR, log = console.log } = {}) {
     const hash = createHash('sha256');
-    const data = /** @type {{ stations: any, lines: any, positions: any, airport?: any, tram?: any, street?: any }} */ ({});
-    for (const name of ['stations', 'lines', 'positions', 'airport', 'tram', 'street']) {
+    const data = /** @type {{ stations: any, lines: any, positions: any, airport?: any, tram?: any, street?: any, suburban?: any }} */ ({});
+    for (const name of ['stations', 'lines', 'positions', 'airport', 'tram', 'street', 'suburban']) {
         if (OPTIONAL_CURATED.includes(name) && !existsSync(join(curatedDir, `${name}.json`))) continue;
         const raw = readFileSync(join(curatedDir, `${name}.json`), 'utf8');
         hash.update(raw);
@@ -356,7 +373,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     // its announcements do: directly, or through the relays
     const oasa = offline ? null : createOasaClient({ relays: config.relays, userAgent: config.userAgent }).request;
     const stasy = offline ? null : createStasyClient({ relays: config.relays, userAgent: config.userAgent });
-    runBuild({ force: args.has('--force'), offline, userAgent: config.userAgent, oasa, stasy })
+    runBuild({ force: args.has('--force'), offline, userAgent: config.userAgent, oasa, stasy, railway: offline ? null : globalThis.fetch })
         .then(meta => {
             const failed = meta && Object.values(meta.outputs).some(o => !o.ok);
             return meta === null ? BUSY_EXIT_CODE : failed ? 1 : 0;

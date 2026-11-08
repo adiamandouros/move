@@ -32,7 +32,9 @@ the run's `playwright-report` artifact.
   Omonia from `bus-stops.json`, and two lines from `bus-lines.json` (the 040
   and the Χ95, with all their stops); `buses.json` between Kallithea and
   Syntagma, for the trip page, its stops in `bus-stops.json` too. `node test/browser/data/update.js` refreshes
-  them from `data/build/` when their format changes.
+  them from `data/build/` when their format changes. `trains.json` has the
+  suburban railway's real trains put on the tests' week, Tuesday 20 to
+  Sunday 25 October; `node test/browser/data/update-trains.js` refreshes it.
 - **a fake OASA**: every stop has three buses, the first 1–19 minutes away
   depending on its code (`arrivalsAt()`), named after the stop's own lines.
   The `trip-live` scenario names them by `buses.json`'s routes instead, so
