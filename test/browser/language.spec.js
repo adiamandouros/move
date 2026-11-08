@@ -13,14 +13,14 @@ const languageLink = async (page, project) => {
 
 test('switching keeps the route and is remembered', async ({ page }, { project }) => {
     await page.goto('/subway?from=syntagma&to=airport');
-    await expect(page.locator('.result-card')).toBeVisible();
+    await expect(page.locator('.result-card').first()).toBeVisible();
 
     await (await languageLink(page, project.name)).click();
     await expect(page).toHaveURL(/:\d+\/el\/subway\?from=syntagma&to=airport$/);
     await expect(page.locator('html')).toHaveAttribute('lang', 'el');
     expect(await saved(page)).toBe('el');
     await expect(page.locator('#stop-search-from')).toHaveValue('Σύνταγμα');
-    await expect(page.locator('.result-card').first()).toContainText('Έξοδος σε');
+    await expect(page.locator('#subway-result')).toContainText('Έξοδος σε');
 
     // English addresses now open in Greek
     for (const url of ['/info', '/subway/stations/syntagma', '/nope']) {

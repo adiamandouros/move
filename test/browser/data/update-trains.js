@@ -1,5 +1,5 @@
 // Refreshes the browser tests' trains.json, the suburban railway's trains by
-// date (decision 40), from the real build's (data/build/, made by
+// date (decision 41), from the real build's (data/build/, made by
 // `npm run build:data`). Run it when trains.json's format changes, then check
 // the tests still pass and commit the result:
 //   node test/browser/data/update-trains.js

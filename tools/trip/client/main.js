@@ -2,7 +2,7 @@ import { announce, format, html, localName, setHtml } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
 import { onLocation, onLocationProblem, startLocation, lastPosition } from '/js/core/location.js';
 import { athensNow, closestStation, isTimetableExpired, withTram } from '/tools/subway/network.js';
-import { tramHidden } from '/tools/subway/tram-switch.js';
+import { suburbanHidden, tramHidden } from '/tools/subway/tram-switch.js';
 import { isIdle } from '/tools/buses/timing.js';
 import { arrivalsUrl, dueStops, liveStatus, stopLive, unanswered } from './live.js';
 import { doorToDoor, isLongWalk } from './plan.js';
@@ -47,10 +47,11 @@ async function loadRail() {
 // started with the version the page's import map gives it. `rail` is what
 // the city is planned on. Null where a browser can't start it: then, as when
 // the buses' times can't be loaded, the trip is by metro and tram, and says so
-function startSearches(rail) {
+// `suburban`: whether they have the suburban railway, unless it's hidden on the Subway page (decision 41)
+function startSearches(rail, suburban) {
     try {
         const worker = new Worker(import.meta.resolve('./worker.js'), { type: 'module' });
-        worker.postMessage({ rail });
+        worker.postMessage({ rail, suburban });
         return worker;
     } catch {
         return null;
@@ -100,10 +101,12 @@ function start(metro) {
     let to = null;
     // The fields are back, with the answer still under them
     let changing = false;
-    let searches = startSearches(hidden ? { ...metro, tram: undefined } : metro);
+    const noSuburban = suburbanHidden();
+    let searches = startSearches(hidden ? { ...metro, tram: undefined } : metro, !noSuburban);
     /** @type {boolean | 'updated'} */
     let noBuses = !searches;
-    // The suburban railway has no times for today, so the searches leave it out (decision 40)
+    // The suburban railway has no times for today, so the searches leave it out
+    // (decision 41); not said when it's hidden on the Subway page
     let noTrains = false;
     // What's been asked of the searches: the latest trip, and the latest half
     // hour (only the latest of each is answered); the latest answer, the ways
@@ -312,7 +315,7 @@ function start(metro) {
         }
         if (data.id !== asked.id) return;
         found = { from: asked.from, to: asked.to, now: asked.now, options: data.options };
-        noTrains = data.trains === false;
+        noTrains = data.trains === false && !noSuburban;
         timing.city = data.timing.city ?? timing.city;
         timing.answer = data.timing.answer;
         draw(asked.now, data.options, asked.speak);

@@ -246,11 +246,27 @@ pages use.
   to 3 changes (`raptor.js`, made once for each day's trains), and keeps the 3
   that arrive first. Beside a tram leg those can have more changes; metro
   trains alone only do if they get there 5 minutes sooner.
+- **The suburban railway in the planner** ([decision 41](docs/decisions/0041-suburban-railway.md)):
+  `withSuburban(rail, trains, date)` in `network.js` joins `trains.json` to
+  either network in the same shape, each station a station (marked
+  `suburban`, with an id of its own and "(suburban)" when it has a metro
+  station's), a line's trains in a direction for each station they end at
+  (each train's stops a profile of its direction's), the walks in `walks`
+  and their notes in `walkNotes`, and `oasaTicket: false` on the stations
+  OASA's ticket doesn't cover. The subway page loads `trains.json` beside
+  `rail.json` without waiting for it, and a second switch hides the railway
+  (`suburban-hidden`, read by `tram-switch.js`); the Trip page follows it too.
+  A field's stations to start from (`startingStations` in `search.js`) stay
+  the metro's and the tram's.
+  `findRoutes` doesn't change between two suburban trains at one station, as
+  their lines share track (the search does); `planJourney` offers the same
+  ride on trains ending elsewhere once, and `departures` marks a train the
+  last only when none of its line leaves for the same stretch after it.
 - **The whole city for the search**, buses too, beside `raptor.js` so the
   browser and the planner lab share them: `city.js` joins the metro, the tram,
   a day of `buses.json` ([decision 30](docs/decisions/0030-bus-timetable.md))
   and a day of the suburban railway's `trains.json` (`trainDay`,
-  [decision 40](docs/decisions/0040-suburban-railway-timetable.md)) into one network, with walks of up to 10 minutes between stops from the
+  [decision 41](docs/decisions/0041-suburban-railway.md)) into one network, with walks of up to 10 minutes between stops from the
   straight line (× 1.4, measured against a street router); `ways.js` finds the
   ways a rider could choose from, beyond the search's best with each number
   of rides; `weights.js` puts them in order by what they cost a rider (agreed
@@ -414,7 +430,7 @@ is logged; each route's stops are saved as they arrive, so a fetch that still
 fails is picked up where it stopped by the next build, and meanwhile the last
 network is used. The suburban railway's timetable comes from railway.gov.gr,
 OSE's train site, as there's no open data for it
-([decision 40](docs/decisions/0040-suburban-railway-timetable.md)): `railway.js`
+([decision 41](docs/decisions/0041-suburban-railway.md)): `railway.js`
 fetches its schedule boards once an Athens day, yesterday's to 4 days ahead,
 10 seconds apart, into `data/raw/railway/`, keeping the boards there are when
 it fails; `build-suburban.js` makes `data/build/trains.json` from them and
@@ -473,7 +489,7 @@ the rest. `client/buses.js` adds the ways with a bus or a suburban train from th
 `ways.js`), the same ride on different buses as one; all of them go in order
 by `weights.js`. Those searches run in a worker (`client/worker.js`, its logic
 in `client/searcher.js`; `?timing` says how long they take on the device),
-which loads `buses.json` and `trains.json` and makes the day's city, with that date's trains (without `trains.json`, or a day it lacks, none, and the page says so):
+which loads `buses.json` and `trains.json` and makes the day's city, with that date's trains (without `trains.json`, or a day it lacks, none, and the page says so; while the Subway page's switch hides the railway, it doesn't load it):
 it answers each trip for leaving now, then for the next half hour
 (`answer.js`, as the page shows it: `halfView`), a departure at a time, and
 only the latest trip is answered. Once the half hour comes, it takes the

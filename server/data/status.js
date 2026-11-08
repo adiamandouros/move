@@ -16,7 +16,7 @@ import { stasyFetchFile } from './stasy.js';
 //     has it, checked within AIRPORT_STALE_DAYS (airport-check.js); not
 //     checked yet counts as fine
 //   - railway: trains.json has today's suburban trains, and the last fetch of
-//     railway.gov.gr's boards worked (railway.js, decision 40); null before
+//     railway.gov.gr's boards worked (railway.js, decision 41); null before
 //     the first fetch, as there's nothing to judge
 
 // One missed night (builds run every night at 04:30)

@@ -45,7 +45,7 @@ export interface TramStop extends Station {
 
 export interface TramLine {
     name: string;
-    /** #rrggbb */
+    /** #rrggbb ('' for the suburban railway's) */
     color: string;
     /** By direction id, e.g. "voula"; the directions may call at different stops (T7's Piraeus loop) */
     directions: Record<string, { toward: Names; stops: { station: string }[]; timetable: Timetable }>;
@@ -59,6 +59,10 @@ export interface Station {
     lines: string[];
     /** A tram stop, in the planner's network (withTram in tools/subway/client/network.js) */
     tram?: boolean;
+    /** A suburban railway station, in the planner's network (withSuburban in tools/subway/client/network.js) */
+    suburban?: boolean;
+    /** A suburban railway station OASA's ticket doesn't cover (withSuburban) */
+    oasaTicket?: false;
 }
 
 export interface Line {
@@ -69,6 +73,8 @@ export interface Line {
     directions: Record<string, Direction>;
     /** A tram line, in the planner's network (withTram in tools/subway/client/network.js) */
     tram?: boolean;
+    /** A suburban railway line, in the planner's network (withSuburban; its colour is the style sheet's, so '') */
+    suburban?: boolean;
 }
 
 export interface Direction {
@@ -171,7 +177,7 @@ export interface Buses {
     }[];
 }
 
-/** data/build/trains.json, built by server/data/build-suburban.js: the suburban railway's trains by date, from railway.gov.gr (decision 40) */
+/** data/build/trains.json, built by server/data/build-suburban.js: the suburban railway's trains by date, from railway.gov.gr (decision 41) */
 export interface Trains {
     schema: number;
     /** By id in data/curated/suburban.json: [lat, lng, Greek name, English name] */

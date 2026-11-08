@@ -135,8 +135,9 @@ minute, plus 2 to reach the platform.
 ## suburban.json — the suburban railway's lines and stations
 
 The suburban railway's timetable comes from railway.gov.gr, OSE's train site,
-every night (`server/data/railway.js`, decision 40), and goes to the Trip
-page's search as `trains.json` (`server/data/build-suburban.js`). The site
+every night (`server/data/railway.js`, decision 41), and goes to the Trip
+page's search and the subway planner as `trains.json`
+(`server/data/build-suburban.js`). The site
 doesn't name the lines, names each station by an id of its own and in Greek
 only, and has no places for them, so they're here.
 

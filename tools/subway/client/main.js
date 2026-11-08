@@ -4,10 +4,10 @@ import { watchLifts } from '/js/core/lifts.js';
 import { legendOpen, liftsOpen } from '/js/core/metro.js';
 import { language, t } from '/js/core/i18n.js';
 import { remember } from '/js/core/remember.js';
-import { athensNow, closestStation, isTimetableExpired, planTrip, withTram } from './network.js';
+import { athensNow, closestStation, isTimetableExpired, planTrip, withSuburban, withTram } from './network.js';
 import { stationSearch } from './search.js';
 import { renderIntro, renderMessage, renderResult, renderWalkOnly, routeSummary, walkOnly, walkingUrl } from './render.js';
-import { TRAM_HIDDEN, tramHidden } from './tram-switch.js';
+import { SUBURBAN_HIDDEN, TRAM_HIDDEN, suburbanHidden, tramHidden } from './tram-switch.js';
 
 // Keeps the "in N minutes" chips current while the page is open
 const REFRESH_MS = 30_000;
@@ -26,15 +26,40 @@ async function loadRail() {
     }
 }
 
-function start(metro) {
+// trains.json, the suburban railway's timetable (decision 41). The page
+// doesn't wait for it, as with no signal a request can hang rather than fail:
+// until it comes, or without it, the planner is the metro's and the tram's
+async function loadTrains() {
+    try {
+        const res = await fetch('/data/trains.json');
+        return res.ok ? await res.json() : null;
+    } catch {
+        return null;
+    }
+}
+
+// `trains`: trains.json on its way (loadTrains)
+function start(metro, trains) {
     const params = new URLSearchParams(location.search);
 
-    // What the page plans on: the metro and the tram, or the metro alone if
-    // the person hid the tram. An address naming a tram stop shows the tram for
-    // this visit, and leaves what's kept as it was.
-    const combined = withTram(metro);
-    const named = ['from', 'to'].some(key => combined.stations[params.get(key)]?.tram);
-    let rail = !tramHidden() || named ? combined : metro;
+    // What the page plans on: the metro, with the tram and the suburban
+    // railway unless the person hid them. An address naming a tram stop or a
+    // suburban station shows it for this visit, and leaves what's kept as it
+    // was. Each network is made once, so its trip search is too (network.js).
+    let timetable = null;
+    const networks = new Map();
+    const network = (tram, suburban) => {
+        const key = `${tram} ${suburban && Boolean(timetable)}`;
+        if (!networks.has(key)) {
+            const rail = tram ? withTram(metro) : metro;
+            networks.set(key, suburban ? withSuburban(rail, timetable, athensNow().date) : rail);
+        }
+        return networks.get(key);
+    };
+    const named = mode => ['from', 'to'].some(key => network(true, true).stations[params.get(key)]?.[mode]);
+    let showTram = !tramHidden() || named('tram');
+    let showSuburban = !suburbanHidden();
+    let rail = network(showTram, showSuburban);
 
     // `speak`: also tell screen readers, when the user changed the stations
     // (not on the 30-second refresh)
@@ -81,7 +106,7 @@ function start(metro) {
         // After the last train, tomorrow's first ones
         const { plans, now, tomorrow } = planTrip(rail, origin, destination, today);
         const focus = focused();
-        setHtml(result, renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow, open: opened, stations: stationsOpen, legend: legendOpen(), lifts: known, liftsOpen: liftsOpen(), to: destination }));
+        setHtml(result, renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow, open: opened, stations: stationsOpen, legend: legendOpen(), lifts: known, liftsOpen: liftsOpen(), from: origin, to: destination }));
         refocus(focus);
         if (speak) announce(routeSummary(rail, plans, now, tomorrow, known));
     };
@@ -176,22 +201,59 @@ function start(metro) {
 
     document.getElementById('subway-form').addEventListener('submit', e => e.preventDefault());
 
-    // Show the tram stops or not: on when there's a tram to show (the switch
-    // is hidden otherwise). A tram stop picked goes when they're hidden.
-    const tramSwitch = /** @type {HTMLInputElement} */ (document.getElementById('show-tram'));
-    document.getElementById('tram-switch').hidden = combined === metro;
-    tramSwitch.checked = rail === combined;
-    tramSwitch.addEventListener('change', () => {
-        try {
-            if (tramSwitch.checked) localStorage.removeItem(TRAM_HIDDEN);
-            else localStorage.setItem(TRAM_HIDDEN, '1');
-        } catch { /* not kept: shown next time */ }
-        rail = tramSwitch.checked ? combined : metro;
+    // Plan on what's shown now: a station picked that's gone goes with it,
+    // and the nearest station is looked for again among those there are
+    const replan = () => {
+        rail = network(showTram, showSuburban);
         from.setRail(rail);
         to.setRail(rail);
         const last = followLocation && lastPosition();
         if (last) setNearest(last);
-        changed();
+    };
+
+    // Show the tram stops or not, and the suburban railway's stations: each
+    // switch on when there's something to show (hidden otherwise), and kept
+    // on the device. What's picked goes when it's hidden.
+    const switches = [
+        { id: 'tram', key: TRAM_HIDDEN, shown: () => showTram, show: on => { showTram = on; } },
+        { id: 'suburban', key: SUBURBAN_HIDDEN, shown: () => showSuburban, show: on => { showSuburban = on; } },
+    ];
+    const syncSwitches = () => switches.forEach(({ id, shown }) => {
+        document.getElementById(`${id}-switch`).hidden = id === 'tram' ? network(true, false) === metro : network(false, true) === metro;
+        /** @type {HTMLInputElement} */ (document.getElementById(`show-${id}`)).checked = shown();
+    });
+    syncSwitches();
+    for (const { id, key, show } of switches) {
+        const input = /** @type {HTMLInputElement} */ (document.getElementById(`show-${id}`));
+        input.addEventListener('change', () => {
+            try {
+                if (input.checked) localStorage.removeItem(key);
+                else localStorage.setItem(key, '1');
+            } catch { /* not kept: shown next time */ }
+            show(input.checked);
+            replan();
+            changed();
+        });
+    }
+
+    // The suburban railway joins when trains.json comes: a station of its in
+    // the address is picked then, unless something else was typed or picked
+    // since, and shows the railway for this visit
+    trains.then(loaded => {
+        timetable = loaded;
+        if (network(false, true) === metro) return;
+        showSuburban ||= named('suburban');
+        if (network(showTram, showSuburban) !== rail) replan();
+        for (const { key, field, input } of [{ key: 'from', field: from, input: fromInput }, { key: 'to', field: to, input: toInput }]) {
+            if (!field.get() && !input.value && rail.stations[params.get(key)]) {
+                field.set(params.get(key), { notify: false });
+                if (key === 'from') follow(false);
+            }
+        }
+        syncSwitches();
+        syncUrl();
+        syncWalk();
+        render();
     });
 
     document.getElementById('swap-stations').addEventListener('click', () => {
@@ -272,5 +334,6 @@ function start(metro) {
     }
 }
 
+const trains = loadTrains();
 const rail = await loadRail();
-if (rail) start(rail);
+if (rail) start(rail, trains);

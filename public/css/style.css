@@ -1815,6 +1815,10 @@ body {
 .strip-m3 { --strip: var(--wh-line-m3); }
 .strip-t6 { --strip: var(--wh-line-t6); }
 .strip-t7 { --strip: var(--wh-line-t7); }
+.strip-a1 { --strip: var(--wh-line-a1); }
+.strip-a2 { --strip: var(--wh-line-a2); }
+.strip-a3 { --strip: var(--wh-line-a3); }
+.strip-a4 { --strip: var(--wh-line-a4); }
 
 .leg-stations li {
     position: relative;
@@ -1888,9 +1892,27 @@ body {
     font-size: var(--wh-fs-lg);
 }
 
-/* Show the tram stops or not: a switch in the site's blue, Bootstrap's being
-   fixed, big enough to tap on its own */
-.tram-switch {
+.transfer-connector > span {
+    text-align: center;
+}
+
+/* A walk's note (the suburban railway's, at Piraeus and SKA), under its line */
+.transfer-connector .walk-note {
+    display: block;
+    font-weight: 400;
+    color: var(--bs-secondary-color);
+}
+
+/* Show the tram stops or not, and the suburban railway's stations: switches
+   in the site's blue, Bootstrap's being fixed, each big enough to tap on its
+   own, side by side while they fit */
+.mode-switches {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: var(--wh-space-4);
+}
+
+.mode-switch {
     display: flex;
     align-items: center;
     gap: var(--wh-space-2);
@@ -1899,7 +1921,7 @@ body {
     padding: 0;
 }
 
-.tram-switch .form-check-input {
+.mode-switch .form-check-input {
     flex: none;
     float: none;
     width: 2.75rem;
@@ -1907,7 +1929,7 @@ body {
     margin: 0;
 }
 
-.tram-switch .form-check-input:checked {
+.mode-switch .form-check-input:checked {
     background-color: var(--bs-primary);
     border-color: var(--bs-primary);
 }

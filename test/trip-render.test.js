@@ -21,7 +21,7 @@ const network = withTram(rail);
 const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.meta.url), 'utf8'));
 const { busOptions, cityPlanner } = await browserModule('tools/trip/client/buses.js');
 const city = cityPlanner(rail, buses, 3);
-// The suburban railway that Wednesday (decision 40): from Athens station to the airport every 15 minutes
+// The suburban railway that Wednesday (decision 41): from Athens station to the airport every 15 minutes
 const { createPlanner, trainDay } = await browserModule('tools/subway/client/city.js');
 const trains = buildTrains({ [NOW.date]: { schedules: ['10:05', '10:20', '10:35'].map((at, i) => train(NOW.date, `12${i}`, [['o2', at], ['o3', `${10 + (i ? 1 : 0)}:${['45', '00', '15'][i]}`]])) } }, suburbanCurated()).data;
 const withTrains = cityPlanner(rail, buses, 3, trainDay(trains, NOW.date));

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
-import { withTram } from '../tools/subway/client/network.js';
+import { withSuburban, withTram } from '../tools/subway/client/network.js';
 import { browserModule } from './support/browser-modules.js';
 
 // Finding a station by typing part of its name (tools/subway/client/search.js),
@@ -63,6 +63,16 @@ test('with the tram: starting points have its changes and the ends of its lines 
     const network = withTram(rail);
     const ids = en.startingStations(network, []);
     for (const id of ['pikrodafni', 'edem', 'asklipieio-voulas', 'akti-poseidonos', 'syntagma-tram', 'attiki']) assert.ok(ids.includes(id), id);
+});
+
+test('with the suburban railway: its stations are found by typing, but aren\'t starting points unless starred or picked lately (decision 41)', () => {
+    const trains = JSON.parse(readFileSync(new URL('./browser/data/trains.json', import.meta.url), 'utf8'));
+    const network = withSuburban(withTram(rail), trains, '2026-10-21');
+    assert.deepEqual(en.matchStations(network.stations, 'Piraeus'), ['piraeus', 'piraeus-suburban']);
+    assert.deepEqual(el.matchStations(network.stations, 'Μέγαρα'), ['megara']);
+    // Its lines share track, so nearly every station of its is on two lines: the starting points stay the metro's and the tram's
+    assert.deepEqual(en.startingStations(network, []), en.startingStations(withTram(rail), []));
+    assert.deepEqual(en.startingStations(network, ['megara'], ['ska']).slice(0, 2), ['ska', 'megara']);
 });
 
 test('before anything is typed: the stations picked lately, then the interchanges, then the ends of the lines', () => {

@@ -84,7 +84,7 @@ test('a first build publishes every file, which pass their checks', async () => 
     assert.deepEqual(served('buses.json').routes.map(r => [r.line, r.code, r.runs]), [['Α10', '6052', [[60, 60]]]]);
     assert.deepEqual(meta.outputs['buses.json'].warnings, ['6 of OASA\'s routes have no times in the feed, so the search leaves them out']);
     assert.equal(served('bus-stops.json').stops.length, 1500);
-    // The suburban railway's trains, yesterday's to 4 days from now (decision 40)
+    // The suburban railway's trains, yesterday's to 4 days from now (decision 41)
     assert.deepEqual(checkOutput('trains.json', served('trains.json')), []);
     assert.deepEqual(Object.keys(served('trains.json').dates), ['2026-08-04', '2026-08-05', '2026-08-06', '2026-08-07', '2026-08-08', '2026-08-09']);
     assert.deepEqual(meta.outputs['trains.json'].warnings, []);

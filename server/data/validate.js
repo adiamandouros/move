@@ -241,7 +241,7 @@ function checkTram(tram, stationIds, metroCodes, errors) {
 }
 
 // suburban.json: the suburban railway's lines and stations (build-suburban.js,
-// decision 40). A line takes the trains of one of railway.gov.gr's
+// decision 41). A line takes the trains of one of railway.gov.gr's
 // corridors, or with `stopsAt`, those of its trains that stop there (A2,
 // the Piraeus–Airport corridor's trains at Ano Liosia): every corridor has
 // one line without. A station has its names, OSE's ids for it, where it is
