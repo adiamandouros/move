@@ -9,7 +9,8 @@ import { busOptions, cityPlanner, halfHour, halfView, liveWay, shownRows } from 
 // asked again (the page does that each minute). The latest half hour's way
 // shown in full is timed again with OASA's live times whenever the page asks,
 // with the quicker way on a decision, or that way once the rider takes it
-// (liveWay, decision 36), without stopping a half hour being worked out.
+// (liveWay, decision 36), and with how late its suburban trains run
+// (decision 42), without stopping a half hour being worked out.
 // The day's city has the suburban railway's trains of that date, when
 // trains.json has them (decision 41). No DOM, so it's tested in Node.
 
@@ -23,10 +24,12 @@ import { busOptions, cityPlanner, halfHour, halfView, liveWay, shownRows } from 
  * `half` when its half hour is wanted too; and the way of the half hour `id`
  * shown in full, its `row` for `departure`, timed with the live times `stops`
  * for leaving `now` (`seq` counting up, as only the latest counts), or
- * `taken`: the quicker way the rider took in its place
+ * `taken`: the quicker way the rider took in its place; `trains`: how late
+ * the suburban trains run, by number (trains.js)
  * @typedef {{ rail: import('../../../types/data.js').Rail, suburban?: boolean }
  *   | { id: number, from: Point, to: Point, now: { weekday: number, seconds: number, date?: string }, half: boolean }
- *   | { id: number, live: { seq: number, row: number, departure: number, now: { seconds: number }, stops: Record<string, import('./buses.js').StopLive>, taken?: boolean } }} Asked
+ *   | { id: number, live: { seq: number, row: number, departure: number, now: { seconds: number }, stops: Record<string, import('./buses.js').StopLive>, taken?: boolean,
+ *     trains?: Record<string, import('./trains.js').TrainLate> | null } }} Asked
  */
 /**
  * What it answers: the ways with a bus or a train for leaving now, with how long they
@@ -81,14 +84,14 @@ export function searcher({ loadBuses, loadTrains = async () => null, post, pause
             return;
         }
         if ('live' in message) {
-            const { id, live: { seq, row, departure, now, stops, taken = false } } = message;
+            const { id, live: { seq, row, departure, now, stops, taken = false, trains = null } } = message;
             if (id !== shown?.id) return;
             let way = null;
             try {
                 const full = shown.rows[row];
                 // The quicker way goes with the decision's directions
                 const decision = full && full === shown.decision?.stayOn ? shown.decision : null;
-                way = full ? liveWay(shown.planner, shown.from, shown.to, full, departure, now, stops, { decision, taken }) : null;
+                way = full ? liveWay(shown.planner, shown.from, shown.to, full, departure, now, stops, { decision, taken, trains }) : null;
             } catch { /* the way as the half hour has it */ }
             post({ id, live: { seq, way } });
             return;

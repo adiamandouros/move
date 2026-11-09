@@ -22,7 +22,7 @@ test('a time in seconds from the midnight in Athens that starts the date, summer
     assert.equal(athensSeconds('2026-10-25T01:30:00.000Z', '2026-10-25'), 3 * H + 30 * 60);
 });
 
-test('each date\'s suburban trains by their stops: one route each way, its profiles and trips in order, times in Athens', () => {
+test('each date\'s suburban trains by their stops: one route each way, its profiles and trips in order, times in Athens, each with its train\'s number', () => {
     const { data, warnings } = buildTrains({ '2026-11-08': board('2026-11-08') }, suburbanCurated());
     assert.deepEqual(warnings, []);
     assert.equal(data.schema, SCHEMA);
@@ -39,8 +39,8 @@ test('each date\'s suburban trains by their stops: one route each way, its profi
     assert.deepEqual(data.outside, ['airport']);
     // The freight train is left out; the two to the airport run the same way
     assert.deepEqual(data.dates['2026-11-08'], [
-        { line: 'A1', stops: ['piraeus', 'athens', 'airport'], profiles: [[0, 15 * 60, 65 * 60]], trips: [[8 * H, 0], [9 * H, 0]] },
-        { line: 'A1', stops: ['airport', 'athens', 'piraeus'], profiles: [[0, 50 * 60, 65 * 60]], trips: [[8.5 * H, 0]] },
+        { line: 'A1', stops: ['piraeus', 'athens', 'airport'], profiles: [[0, 15 * 60, 65 * 60]], trips: [[8 * H, 0, '1200'], [9 * H, 0, '1202']] },
+        { line: 'A1', stops: ['airport', 'athens', 'piraeus'], profiles: [[0, 50 * 60, 65 * 60]], trips: [[8.5 * H, 0, '1201']] },
     ]);
     assert.deepEqual(checkOutput('trains.json', data), []);
 });
@@ -53,9 +53,9 @@ test('a train that runs differently on the same stops has a profile of its own; 
         train(date, '3', [['o1', '07:00'], ['o3', '07:50']]),
     ] } }, suburbanCurated());
     assert.deepEqual(data.dates[date], [
-        { line: 'A1', stops: ['piraeus', 'athens', 'airport'], profiles: [[0, 15 * 60, 65 * 60], [0, 20 * 60, 70 * 60]], trips: [[6 * H, 1], [23.5 * H, 0]] },
+        { line: 'A1', stops: ['piraeus', 'athens', 'airport'], profiles: [[0, 15 * 60, 65 * 60], [0, 20 * 60, 70 * 60]], trips: [[6 * H, 1, '2'], [23.5 * H, 0, '1']] },
         // Not stopping at Athens: other stops, another route
-        { line: 'A1', stops: ['piraeus', 'airport'], profiles: [[0, 50 * 60]], trips: [[7 * H, 0]] },
+        { line: 'A1', stops: ['piraeus', 'airport'], profiles: [[0, 50 * 60]], trips: [[7 * H, 0, '3']] },
     ]);
 });
 
@@ -63,7 +63,7 @@ test('every date fetched, in order; a station\'s second OSE id is the same stati
     const second = { schedules: [train('2026-11-09', '7', [['o2', '10:00'], ['o3b', '10:40']])] };
     const { data } = buildTrains({ '2026-11-09': second, '2026-11-08': board('2026-11-08') }, suburbanCurated());
     assert.deepEqual(Object.keys(data.dates), ['2026-11-08', '2026-11-09']);
-    assert.deepEqual(data.dates['2026-11-09'], [{ line: 'A1', stops: ['athens', 'airport'], profiles: [[0, 40 * 60]], trips: [[10 * H, 0]] }]);
+    assert.deepEqual(data.dates['2026-11-09'], [{ line: 'A1', stops: ['athens', 'airport'], profiles: [[0, 40 * 60]], trips: [[10 * H, 0, '7']] }]);
 });
 
 test('a train\'s line from its corridor and stops: A2 for the Piraeus–Airport trains at Ano Liosia; SKA is A2\'s station or A3\'s, by the train\'s line', () => {
@@ -96,7 +96,7 @@ test('left out: cancelled trains, other kinds and other lines; with a warning, t
         // Running late doesn't change its timetable
         train(date, '7', [['o1', '10:00'], ['o3', '11:00']], { status: 'completed', delay: 9 }),
     ] } }, suburbanCurated());
-    assert.deepEqual(data.dates[date], [{ line: 'A1', stops: ['piraeus', 'airport'], profiles: [[0, H]], trips: [[10 * H, 0]] }]);
+    assert.deepEqual(data.dates[date], [{ line: 'A1', stops: ['piraeus', 'airport'], profiles: [[0, H]], trips: [[10 * H, 0, '7']] }]);
     assert.deepEqual(warnings, [
         'Train 6 on 2026-11-08 left out: its times don\'t go forward',
         'A1 trains calling at "Σταθμός x9" (OSE x9) left out: data/curated/suburban.json has no station with that id for A1',
@@ -109,7 +109,7 @@ test('trains.json\'s checks catch a broken file', () => {
     broken.stations.athens = [0, 0, 'Αθήνα', ''];
     broken.dates['2026-11-08'][0].stops.push('nowhere');
     broken.dates['2026-11-08'][1].profiles = [[0, 600, 300]];
-    broken.dates['2026-11-08'][1].trips = [[100, 3]];
+    broken.dates['2026-11-08'][1].trips = [[100, 3, '1201']];
     broken.dates.tomorrow = [];
     broken.walks.push(['train:nowhere', 'rail:b', 60], ['train:athens', 'rail:b', 0], ['train:athens', 'train:ska2', 60, { el: 'Μόνο ελληνικά' }]);
     broken.outside.push('nowhere');
@@ -121,9 +121,13 @@ test('trains.json\'s checks catch a broken file', () => {
         'trains.json: outside must list stations',
         'trains.json: 2026-11-08 line A1: needs its line and two of the stations or more',
         'trains.json: 2026-11-08 line A1: each profile needs the seconds from its first stop to each, going forward',
-        'trains.json: 2026-11-08 line A1: each trip needs its start in seconds and a profile',
+        'trains.json: 2026-11-08 line A1: each trip needs its start in seconds, a profile and its train\'s number',
         'trains.json: tomorrow must be YYYY-MM-DD with a list of routes',
     ]);
+    // A trip without its train's number, which its live times need (decision 42)
+    const unnamed = structuredClone(good);
+    unnamed.dates['2026-11-08'][0].trips[1] = [9 * H, 0];
+    assert.deepEqual(checkOutput('trains.json', unnamed), ['trains.json: 2026-11-08 line A1: each trip needs its start in seconds, a profile and its train\'s number']);
     assert.deepEqual(checkOutput('trains.json', { schema: 1, stations: {}, walks: [], outside: [], dates: {} }), ['trains.json: no stations']);
     assert.deepEqual(checkOutput('trains.json', {}), ['trains.json: wrong schema number']);
 });

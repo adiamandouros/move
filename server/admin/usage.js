@@ -6,7 +6,7 @@ const HORIZON_DAYS = 7;
 // The days of OASA's usage (server/oasa/usage.js) as /admin/usage shows them
 // (admin/usage.hbs), newest first: what Wayhop asked for each day, how each
 // route to OASA answered (and how much of it was the Trip page's), how far
-// ahead OASA predicts, per line, and the
+// ahead OASA predicts, per line, the suburban railway's live times, and the
 // pages opened by browser language.
 
 // Searches of one kind (usage.js SEARCHES) in a day: how many, the stops they
@@ -65,6 +65,11 @@ export function usageView(days) {
         horizon: lines.map(line => {
             const daily = week.map(date => days[date].horizon?.[line]).filter(n => n !== undefined).sort((a, b) => a - b);
             return { line, most: daily.at(-1), typical: daily[Math.floor((daily.length - 1) / 2)], days: daily.length };
+        }),
+        // The suburban railway's live times (server/railway/), on the days they were asked for
+        trains: dates.filter(date => days[date].trains?.asked || days[date].trains?.looks).map(date => {
+            const { asked, looks, failed, bytes } = days[date].trains;
+            return { date, asked, looks, failed, mb: (bytes / 1_048_576).toFixed(1) };
         }),
         // (days kept before the pages were counted have none)
         pages: dates.filter(date => days[date].pages).map(date => {

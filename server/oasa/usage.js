@@ -55,6 +55,9 @@ const MINUTE_MS = 60_000;
 const HOUR_MS = 3_600_000;
 
 const counts = keys => Object.fromEntries(keys.map(k => [k, 0]));
+// The suburban railway's live times (server/railway/): visitors' requests, and
+// the looks at railway.gov.gr's stream, those that failed and the bytes they took
+const emptyTrains = () => ({ asked: 0, looks: 0, failed: 0, bytes: 0 });
 const emptyRoute = () => ({ ok: 0, failed: 0, ms: Array(ANSWER_MS.length + 1).fill(0), downMinutes: 0 });
 
 // An empty summary, of a day or of the past hour
@@ -74,6 +77,7 @@ const emptySummary = () => ({
     ...Object.fromEntries(SEARCHES.map(kind => [kind, { searches: 0, answers: counts(SOURCES) }])),
     pages: { asked: {}, served: {} },
     passes: 0,
+    trains: emptyTrains(),
 });
 
 const newMinute = at => ({ at, ...emptySummary(), stopCodes: new Set() });
@@ -116,6 +120,9 @@ function addMinute(summary, minute) {
         for (const [lang, n] of Object.entries(minute.pages[part])) summary.pages[part][lang] = (summary.pages[part][lang] ?? 0) + n;
     }
     summary.passes = (summary.passes ?? 0) + minute.passes;
+    // (nor the suburban railway's live times)
+    summary.trains ??= emptyTrains();
+    for (const [k, n] of Object.entries(minute.trains)) summary.trains[k] += n;
     return summary;
 }
 
@@ -244,6 +251,15 @@ export function createUsage({ file = null, networkFile = null, now = Date.now, k
         tripAnswer(source, kind = 'plans') { current()[kind].answers[source]++; },
         // Buses seen passing a stop (passes.js)
         passes(n) { current().passes += n; },
+        // The suburban railway's live times (server/railway/): a visitor's
+        // request, and a look at railway.gov.gr's stream, answered or not
+        trainAsk() { current().trains.asked++; },
+        trainLook(ok, bytes) {
+            const { trains } = current();
+            trains.looks++;
+            if (!ok) trains.failed++;
+            trains.bytes += bytes;
+        },
         // A bus of this line OASA predicted this many minutes ahead
         horizon(line, minutes) { const m = current(); m.horizon[line] = Math.max(m.horizon[line] ?? 0, minutes); },
         // A page opened in `served` (en, el) by a browser asking for `asked` (askedLanguage in server/pages/i18n.js)

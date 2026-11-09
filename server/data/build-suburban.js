@@ -6,9 +6,10 @@
 // id, the one for its line where two share an id (SKA's two). Each date's
 // trains go by their line and stops, as buses.json's routes do (city.js's
 // trainDay reads it): a route is a list of stations, its profiles the
-// seconds from its first stop to each, and its trips [start, profile], start
-// in seconds from that date's midnight in Athens (past 24:00 for a train
-// still running after midnight). A cancelled train is left out; one calling
+// seconds from its first stop to each, and its trips [start, profile, train],
+// start in seconds from that date's midnight in Athens (past 24:00 for a train
+// still running after midnight), train its number on railway.gov.gr, which
+// its live times name (decision 42). A cancelled train is left out; one calling
 // at a station suburban.json doesn't have for its line is left out with a
 // warning, as is one whose times go back.
 //
@@ -17,7 +18,7 @@
 //   stations: { piraeus: [lat, lng, Greek, English], … },
 //   walks: [['train:piraeus', 'rail:piraeus', 240, { el, en }], ['train:athens', 'rail:larissa-station', 240], …],
 //   outside: ['airport', …],
-//   dates: { '2026-11-08': [{ line: 'A1', stops: ['piraeus', …], profiles: [[0, 300, …]], trips: [[33_840, 0], …] }, …] }
+//   dates: { '2026-11-08': [{ line: 'A1', stops: ['piraeus', …], profiles: [[0, 300, …]], trips: [[33_840, 0, '1228'], …] }, …] }
 // }
 // walks: suburban.json's, both ways round in the search, in seconds, as the
 // search names its stops, each with its note where it has one; outside: the
@@ -94,7 +95,7 @@ export function buildTrains(boards, suburban) {
             const offsets = times.map(time => time - times[0]);
             let profile = route.profiles.findIndex(p => p.every((offset, i) => offset === offsets[i]));
             if (profile < 0) profile = route.profiles.push(offsets) - 1;
-            route.trips.push([times[0], profile]);
+            route.trips.push([times[0], profile, train.trainNumber]);
         }
         dates[date] = [...routes.values()].map(route => ({ ...route, trips: route.trips.sort((a, b) => a[0] - b[0] || a[1] - b[1]) }));
     }

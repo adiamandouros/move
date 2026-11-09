@@ -5,6 +5,7 @@ import { STALE_AFTER_DAYS } from './places/index.js';
 import { BUILD_MAX_MS, THREADS_WARN } from './processes.js';
 import { AIRPORT_STALE_DAYS, BUILD_MAX_AGE_MS, dataStatus, STASY_STALE_DAYS, TIMETABLE_WARN_DAYS } from './data/status.js';
 import { answerTime, answerTimeText, secondsText, STOPS_KEPT_FRESH, total } from './oasa/usage.js';
+import { FAILURES_TO_REST, REST_MS } from './railway/index.js';
 
 // GET /api/health: whether the live site works, for the scheduled check in
 // .github/workflows/health.yml (and any uptime monitor). 200 when it's
@@ -22,6 +23,8 @@ import { answerTime, answerTimeText, secondsText, STOPS_KEPT_FRESH, total } from
 //   - data, stasy, airport: as server/data/status.js judges them, the same
 //     as /admin/diagnostics (the rail checks' notes are only there)
 //   - places: the address index is recent (server/places/index.js)
+//   - trains: the suburban railway's live times aren't resting after
+//     failing while someone wants them (server/railway/index.js)
 //   - relays: each one runs the current RELAY_VERSION (proxy/worker.js)
 //   - server: the hosting account is well under its thread limit, no app
 //     has old copies still running, and no data build has run for over an
@@ -53,6 +56,7 @@ const CACHE_MS = 60_000;
  *   announcementStatus: () => Record<string, { ok?: boolean, items?: number }>,
  *   liftStatus?: () => { ok?: boolean, updated: string | null },
  *   placesStatus?: () => { ok: boolean, built: string | null },
+ *   trainStatus?: () => { ok: boolean, wanted: boolean, resting: boolean },
  *   buildDir: string, rawDir?: string,
  *   relays?: { name: string, url: string, key: string }[],
  *   processes?: () => ReturnType<typeof import('./processes.js').accountStatus> | null,
@@ -60,7 +64,7 @@ const CACHE_MS = 60_000;
  *   now?: () => number,
  * }} options
  */
-export function createHealth({ busStatus, announcementStatus, liftStatus = () => ({ updated: null }), placesStatus = () => ({ ok: true, built: null }), buildDir, rawDir = join(dirname(buildDir), 'raw'), relays = [], processes = () => null, fetch = globalThis.fetch, now = Date.now }) {
+export function createHealth({ busStatus, announcementStatus, liftStatus = () => ({ updated: null }), placesStatus = () => ({ ok: true, built: null }), trainStatus = () => ({ ok: true, wanted: false, resting: false }), buildDir, rawDir = join(dirname(buildDir), 'raw'), relays = [], processes = () => null, fetch = globalThis.fetch, now = Date.now }) {
     function arrivals() {
         const { routes, lastAsked } = busStatus();
         const working = routes.filter(r => r.lastOk && now() - r.lastOk < ARRIVALS_FRESH_MS);
@@ -130,7 +134,7 @@ export function createHealth({ busStatus, announcementStatus, liftStatus = () =>
 
     async function check() {
         const { build: data, stasy, airport, railway } = dataStatus({ buildDir, rawDir, now });
-        const result = { arrivals: arrivals(), oasa: oasaUse(), announcements: announcements(), lifts: lifts(), places: placesStatus(), data, stasy, airport, railway, relays: await relayVersions(), server: server() };
+        const result = { arrivals: arrivals(), oasa: oasaUse(), announcements: announcements(), lifts: lifts(), places: placesStatus(), trains: trainStatus(), data, stasy, airport, railway, relays: await relayVersions(), server: server() };
         const problems = [];
         if (!result.arrivals.ok) problems.push(`Live arrivals: no route to OASA has answered in the past ${ARRIVALS_FRESH_MS / 60_000} minutes`);
         const { oasa } = result;
@@ -142,6 +146,7 @@ export function createHealth({ busStatus, announcementStatus, liftStatus = () =>
             if (!ok) problems.push(`Announcements: ${name} didn't load on its last try`);
         }
         if (!result.lifts.ok) problems.push('Lifts: STASY\'s lift page didn\'t load on its last try (details on /admin/diagnostics)');
+        if (!result.trains.ok) problems.push(`Suburban live times: railway.gov.gr's train positions failed ${FAILURES_TO_REST} times in a row, so the Trip page has the timetable's times while they rest ${REST_MS / 60_000} minutes (details on /admin/usage)`);
         if (!result.places.ok) {
             problems.push(result.places.built
                 ? `Address search: the index is from ${result.places.built}, over ${STALE_AFTER_DAYS} days old; the weekly build may have stopped`

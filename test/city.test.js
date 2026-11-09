@@ -82,7 +82,7 @@ test('a day of trains.json: its own trains, and the day before\'s still running 
     assert.deepEqual(day.outside, ['airport']);
     assert.deepEqual(day.routes, [
         // Saturday's 23:40 gets to the airport at 00:45, so it's still out; its 20:00 isn't
-        { line: 'A1', stops: ['piraeus', 'athens', 'airport'], profiles: [[0, 900, 3900]], trips: [[-1200, 0]] },
+        { line: 'A1', stops: ['piraeus', 'athens', 'airport'], profiles: [[0, 900, 3900]], trips: [[-1200, 0, '1290']] },
         ...trains.dates['2026-11-08'],
     ]);
     // Saturday: the day before it wasn't fetched
@@ -107,6 +107,12 @@ test('the trains\' stations are stops with their names, their routes the suburba
     ]);
     // Each trip's time at each station
     assert.deepEqual(suburban[1].trips, [[8 * 3600, 8 * 3600 + 900, 8 * 3600 + 3900], [9 * 3600, 9 * 3600 + 900, 9 * 3600 + 3900]]);
+    // and its train, as live times name it (decision 42); a copy of trains.json from before has none
+    assert.deepEqual(suburban.map(route => route.numbers), [['1290'], ['1200', '1202'], ['1201']]);
+    const older = structuredClone(trains);
+    for (const routes of Object.values(older.dates)) for (const route of routes) route.trips = route.trips.map(([start, profile]) => [start, profile]);
+    assert.deepEqual(joinNetwork({ schema: 1, stations: {}, lines: {} }, busDay(buses, 0), 0, trainDay(older, '2026-11-08')).routes
+        .filter(route => route.mode === 'suburban').map(route => route.numbers), [[null], [null, null], [null]]);
     // Without trains, no stations and no trains
     assert.equal(joinNetwork({ schema: 1, stations: {}, lines: {} }, busDay(buses, 0), 0).routes.filter(route => route.mode === 'suburban').length, 0);
 });

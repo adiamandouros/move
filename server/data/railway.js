@@ -36,7 +36,7 @@ const LATENESS_DAYS = 91;
 
 // The last fetch: { at, today, ok, seconds, boards: { done, total }, error? }
 export const railwayFetchFile = rawDir => join(rawDir, 'railway', 'last-fetch.json');
-const boardsDir = rawDir => join(rawDir, 'railway', 'boards');
+export const boardsDir = rawDir => join(rawDir, 'railway', 'boards');
 const latenessDir = rawDir => join(rawDir, 'railway', 'lateness');
 
 const realSleep = ms => new Promise(resolve => setTimeout(resolve, ms));

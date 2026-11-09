@@ -1,6 +1,6 @@
 # 41. The suburban railway on the trip page and in the subway planner, from railway.gov.gr's timetable
 
-Decided 2026-11-08 · In force
+Decided 2026-11-08 · Replaced by [42](0042-suburban-railway-live-times.md)
 
 ## Situation
 

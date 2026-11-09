@@ -34,7 +34,7 @@ const M_LNG = 111_320 * Math.cos(37.97 * Math.PI / 180);
  * at a suburban station OASA's ticket doesn't cover
  * @typedef {Point & { id: string, name: string, names?: Names, station?: string, oasaTicket?: false }} Stop
  */
-/** @typedef {import('./raptor.js').Route & { toward?: Names, code?: string }} Route where it goes: a rail line's direction, a bus's last stop; code: a bus's OASA route, which its live times name */
+/** @typedef {import('./raptor.js').Route & { toward?: Names, code?: string, numbers?: (string | null)[] }} Route where it goes: a rail line's direction, a bus's last stop; code: a bus's OASA route, which its live times name; numbers: each suburban trip's train, which its live times name (decision 42) */
 /** @typedef {import('./raptor.js').Leg} Leg */
 /** @typedef {import('./raptor.js').Journey} Journey */
 /**
@@ -49,9 +49,10 @@ const M_LNG = 111_320 * Math.cos(37.97 * Math.PI / 180);
  * A day of trains: each station's [lat, lng, Greek, English], the walks
  * known better than the straight line's and the stations outside OASA's
  * ticket, as trains.json has them, and routes as a day of buses has them, a
- * trip's start in seconds from the day's midnight
+ * trip's start in seconds from the day's midnight, then its train's number
+ * (decision 42)
  * @typedef {{ stations: Record<string, [number, number, string, string]>, walks: import('../../../types/data.js').Trains['walks'], outside: string[],
- *   routes: { line: string, stops: string[], profiles: number[][], trips: [number, number][] }[] }} Trains
+ *   routes: { line: string, stops: string[], profiles: number[][], trips: [number, number, string?][] }[] }} Trains
  */
 
 /** @param {Point} a @param {Point} b */
@@ -100,7 +101,7 @@ export function trainDay({ stations, walks, outside, dates }, date) {
     const before = new Date(Date.parse(`${date}T00:00:00Z`) - DAY * 1000).toISOString().slice(0, 10);
     const late = (dates[before] ?? []).flatMap(route => {
         const trips = route.trips.filter(([start, profile]) => start + route.profiles[profile].at(-1) >= DAY)
-            .map(([start, profile]) => /** @type {[number, number]} */ ([start - DAY, profile]));
+            .map(([start, profile, train]) => /** @type {[number, number, string?]} */ ([start - DAY, profile, train]));
         return trips.length ? [{ ...route, trips }] : [];
     });
     return { stations, walks, outside, routes: [...late, ...dates[date]] };
@@ -156,7 +157,10 @@ export function joinNetwork(rail, buses, weekday, trains = null) {
     }
     for (const { line, stops: calls, profiles, trips } of trains?.routes ?? []) {
         const along = calls.map(station => index.get(`train:${station}`));
-        routes.push({ line, mode: 'suburban', stops: along, trips: trips.map(([start, profile]) => profiles[profile].map(offset => start + offset)), toward: stops[along.at(-1)].names });
+        routes.push({
+            line, mode: 'suburban', stops: along, trips: trips.map(([start, profile]) => profiles[profile].map(offset => start + offset)),
+            numbers: trips.map(([, , train]) => train ?? null), toward: stops[along.at(-1)].names,
+        });
     }
     const knownWalks = (trains?.walks ?? []).filter(([from, to]) => index.has(from) && index.has(to))
         .map(([from, to, seconds, note]) => /** @type {KnownWalk} */ ([index.get(from), index.get(to), seconds, ...note ? [note] : []]));

@@ -53,7 +53,7 @@ test('every page answers in both languages, as HTML that browsers revalidate', a
 test('every kind of answer carries the security headers', async () => {
     const answers = {
         'a page': '/subway', 'the 404 page': '/nope', 'a station page': '/el/subway/stations/omonia',
-        'an API answer': '/api/arrivals?stops=10157', 'an API refusal': '/api/arrivals', 'announcements': '/api/announcements', 'lifts': '/api/lifts',
+        'an API answer': '/api/arrivals?stops=10157', 'an API refusal': '/api/arrivals', 'announcements': '/api/announcements', 'lifts': '/api/lifts', 'train lateness': '/api/trains',
         'the health check': '/api/health', 'data': '/data/rail.json', 'a stylesheet': '/css/style.css', 'a script': '/js/core/html.js',
         'Bootstrap': '/vendor/bootstrap/css/bootstrap.min.css', 'the icons': '/icons.svg', 'the service worker': '/sw.js',
         'robots.txt': '/robots.txt', 'the sitemap': '/sitemap.xml', 'the app manifest': '/el/manifest.webmanifest',
@@ -222,6 +222,13 @@ test('announcements: never cached, and 503 when every source is down', async () 
     const refused = await sourcesDown('/api/announcements');
     assert.equal(refused.status, 503);
     assert.match((await refused.json()).error, /unavailable/);
+});
+
+test('train lateness: never cached, and unavailable when railway.gov.gr\'s stream doesn\'t answer (the test site has none)', async () => {
+    const res = await get('/api/trains');
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(await res.json(), { unavailable: true });
 });
 
 test('lifts: the stations with lifts out, never cached, and 503 when STASY\'s page is down', async () => {

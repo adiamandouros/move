@@ -81,7 +81,7 @@ const walkToStation = (rail, id, minutes) => walkStep({ minutes }, format(t('tri
 const walkToFirst = o => o.city ? o.firstWalk?.minutes ?? 0 : (o.start.walk?.minutes ?? 0) + (o.plan.walkFirst ?? 0);
 export const hasBus = o => o.city && o.rides.some(ride => ON_THE_ROAD.has(ride.mode));
 // A way with a suburban train (decision 41), whose times come from railway.gov.gr
-const hasTrain = o => o.city && o.rides.some(ride => ride.mode === 'suburban');
+export const hasTrain = o => o.city && o.rides.some(ride => ride.mode === 'suburban');
 
 // Whole minutes from `now` to `at` (seconds from midnight), as a live time counts down
 const minutesTo = (at, now) => Math.max(0, Math.floor((at - now) / 60));
@@ -98,14 +98,17 @@ function minutesBadge(at, now) {
 // (decision 11), so it says "~", unless OASA has the bus coming (decision
 // 35): then its time, its minutes and the next one's. A suburban train to or
 // from a station OASA's ticket doesn't cover says it needs Hellenic Train's
-// (decision 41). `now`: seconds from midnight, for the minutes
+// (decision 41), and one whose lateness is known says it (trainLate). `now`:
+// seconds from midnight, for the minutes
 function rideStep(rail, ride, now) {
     const bus = ON_THE_ROAD.has(ride.mode);
     const place = stopName(rail, ride.alight);
     const live = ride.live && 'at' in ride.live ? ride.live : null;
     const beyond = [ride.board, ride.alight].find(stop => stop.oasaTicket === false);
-    return step(bus && !live ? `~${clockTime(ride.boards)}` : clockTime(ride.boards), html`
+    const caught = ride.late?.timetable !== undefined;
+    return step((bus && !live) || caught ? `~${clockTime(ride.boards)}` : clockTime(ride.boards), html`
         <div>${pill(rail, ride)}${ride.lines.length === 1 && html` ${format(t('trip.towards'), { end: cityName(ride.toward) })}`}</div>
+        ${ride.late && trainLate(ride.late)}
         ${live && html`<div class="trip-live">${minutesBadge(live.at, now)}${live.next !== null && html`<span class="trip-step-note">${format(t('trip.live-next'), { minutes: minutesTo(live.next, now) })}</span>`}</div>`}
         ${ride.live && 'none' in ride.live && html`<div class="trip-step-note">${t('trip.live-none')}</div>`}
         <div class="trip-step-note">${ride.stops === 1 ? format(t('trip.stop'), { place }) : format(t('trip.stops'), { count: ride.stops, place })}</div>
@@ -227,12 +230,24 @@ function walkCard(walk, to) {
 // For a screen reader, and for naming a card
 export const routeSummary = o => format(t('trip.summary'), { minutes: o.minutes, time: clockTime(o.arrives) });
 
+// How late a suburban train runs (decision 42): measured at a station, or
+// at least so late on its way to the next; on time when measured under a
+// minute, and nothing said of one only known to be at least on time. A
+// train caught as it's late says its timetable's time too
+/** @param {import('./trains.js').RideLate} late */
+function trainLate({ minutes, exact, timetable }) {
+    if (!minutes && !exact) return '';
+    const said = !minutes ? t('trip.train-on-time') : format(t(exact ? 'trip.train-late' : 'trip.train-late-at-least'), { minutes });
+    return html`<div class="trip-step-note trip-train-late">${said}${timetable !== undefined && html` · ${format(t('trip.train-timetable'), { time: clockTime(timetable) })}`}</div>`;
+}
+
 // Under the answer, what its times are: walks and the timetable's trains,
 // then `bus`, what its buses' are, where it has any, and where it has
-// suburban trains, theirs; when the suburban railway's times for today
+// suburban trains, theirs, with `trainsLate`, that a train's lateness is
+// Wayhop's estimate (decision 42); when the suburban railway's times for today
 // couldn't be had, that it's left out (decision 41); and with `range`, what
 // the half hour's ranges are
-const estimates = (options, { bus = null, noTrains = false, range = false }) => html`<p class="trip-estimates">${t('trip.estimates')}${bus && html` ${bus}`}${options.some(hasTrain) && html` ${t('trip.train-estimates')}`}${noTrains && html` ${t('trip.no-trains-today')}`}${range && html` ${t('trip.range-note')}`}</p>`;
+const estimates = (options, { bus = null, noTrains = false, range = false, trainsLate = false }) => html`<p class="trip-estimates">${t('trip.estimates')}${bus && html` ${bus}`}${options.some(hasTrain) && html` ${t('trip.train-estimates')}`}${trainsLate && html` ${t('trip.train-late-estimates')}`}${noTrains && html` ${t('trip.no-trains-today')}`}${range && html` ${t('trip.range-note')}`}</p>`;
 
 // The answer: what `doorToDoor` found, drawn. noBuses: the buses' times
 // couldn't be loaded, so it's by metro and tram alone; 'updated': nor the
@@ -378,15 +393,17 @@ export function renderHalf(rail, kind, ways, to, { expired = false, longWalk = f
         ${longWalk && longWalkNotice()}
         ${others.length > 0 && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
         ${others.map(way => halfOther(rail, way))}
-        ${estimates(ways.map(({ o }) => o), { bus: (taken || ways.some(({ o }) => hasBus(o))) && busNote, noTrains, range: true })}`;
+        ${estimates(ways.map(({ o }) => o), { bus: (taken || ways.some(({ o }) => hasBus(o))) && busNote, noTrains, range: true, trainsLate: Boolean(live?.way.option.rides.some(ride => ride.late)) })}`;
 }
 
 // What's said of the live times above the answer (live.js liveStatus), as on
 // the Buses page; paused, with a button that asks again
-/** @param {'paused' | 'unavailable' | 'stale' | null} status */
+/** @param {ReturnType<typeof import('./live.js').liveStatus>} status */
 export function liveNotice(status) {
     if (status === 'paused') return notice('warn', 'warning', html`${t('trip.live-paused')} <button type="button" class="btn btn-link btn-sm p-0 align-baseline">${t('trip.live-resume')}</button>`);
     if (status === 'unavailable') return notice('danger', 'error', t('trip.live-unavailable'));
+    if (status === 'trains-unavailable') return notice('warn', 'warning', t('trip.trains-live-unavailable'));
+    if (status === 'all-unavailable') return notice('danger', 'error', t('trip.all-live-unavailable'));
     if (status === 'stale') return notice('warn', 'warning', t('trip.live-stale'));
     return '';
 }

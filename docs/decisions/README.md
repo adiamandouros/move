@@ -52,4 +52,5 @@ decisions, or makes one of the same weight, comes with its page.
 | 38 | [Our load on OASA and STASY, with buses for everyone on the Trip page](0038-load-on-oasa-buses-for-everyone.md) | In force |
 | 39 | [The trip page: buses for everyone, and the bus trip finder gone](0039-trip-buses-for-everyone.md) | In force |
 | 40 | [The suburban railway on the trip page, from railway.gov.gr's timetable](0040-suburban-railway-timetable.md) | Replaced by 41 |
-| 41 | [The suburban railway on the trip page and in the subway planner, from railway.gov.gr's timetable](0041-suburban-railway.md) | In force |
+| 41 | [The suburban railway on the trip page and in the subway planner, from railway.gov.gr's timetable](0041-suburban-railway.md) | Replaced by 42 |
+| 42 | [The suburban railway on the trip page and in the subway planner, from railway.gov.gr's timetable, with how late its trains run](0042-suburban-railway-live-times.md) | In force |
