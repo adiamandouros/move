@@ -129,6 +129,38 @@
     <p class="small">No predictions counted yet.</p>
 {{/if}}
 
+    <h2 class="fs-6 mt-4" id="trains-title">The suburban railway's live times</h2>
+    <p class="small text-body-secondary">Visitors' requests for how late the running trains are, and the looks at railway.gov.gr's live train stream they started: at most one a minute, only while someone has asked in the past 3 minutes, resting 10 minutes after 3 failures in a row (decision 42).</p>
+{{#if trains.length}}
+    <div class="table-responsive usage-table-wrap" tabindex="0" role="region" aria-labelledby="trains-title">
+        <table class="table table-sm usage-table">
+            <caption class="sr-only">The suburban railway's live times per day</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Day</th>
+                    <th scope="col">Visitors' requests</th>
+                    <th scope="col">Looks</th>
+                    <th scope="col">Failed</th>
+                    <th scope="col">MB received</th>
+                </tr>
+            </thead>
+            <tbody>
+{{#each trains}}
+                <tr>
+                    <th scope="row">{{date}}</th>
+                    <td>{{asked}}</td>
+                    <td>{{looks}}</td>
+                    <td>{{failed}}</td>
+                    <td>{{mb}}</td>
+                </tr>
+{{/each}}
+            </tbody>
+        </table>
+    </div>
+{{else}}
+    <p class="small">No live train times asked for yet.</p>
+{{/if}}
+
     <h2 class="fs-6 mt-4" id="pages-title">Pages opened, by browser language</h2>
     <p class="small text-body-secondary">Each public page sent because someone opened it (not the copies the service worker keeps for offline use), by the first language the browser asks for, and the language Wayhop served. "none": the browser asked for none, as most bots do. For choosing the next language (item 43).</p>
 {{#if pages.length}}

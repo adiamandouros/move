@@ -397,7 +397,7 @@ test.describe('the trip page', () => {
         test('hidden on the Subway page, it\'s left out here too, and not said to be missing', async ({ page }) => {
             await page.addInitScript(() => localStorage.setItem('suburban-hidden', '1'));
             let asked = false;
-            page.on('request', request => { asked ||= request.url().includes('/data/trains.json'); });
+            page.on('request', request => { asked ||= /\/data\/trains\.json|\/api\/trains/.test(request.url()); });
             await toMegara(page, '/trip', { here: 'My location', there: 'To' });
             await expect(page.locator('.trip-estimates')).toBeVisible();
             await expect(page.locator('#trip-result .line-a4')).toHaveCount(0);
@@ -413,6 +413,79 @@ test.describe('the trip page', () => {
             await expect(best).toContainText('Μέγαρα');
             await expect(best).toContainText('δεν καλύπτει τον σταθμό Μέγαρα');
             await expect(page.locator('.trip-estimates')).toContainText('Οι ώρες του Προαστιακού είναι από το railway.gov.gr (ΟΣΕ)');
+        });
+
+        // How late the trains run (decision 42), as Wayhop's server answers it;
+        // `answer.now` can change. Each request's time is kept
+        const lateness = async (page, answer) => {
+            const asked = [];
+            await page.route('**/api/trains', route => {
+                asked.push(Date.now());
+                return route.fulfill({ json: answer.now });
+            });
+            return asked;
+        };
+
+        test.describe('from Megara, where the location is, to Syntagma', () => {
+            // The A4 at 12:08 (train 1313), Athens at 12:51, the walk to Larissa Station and the M2 at 13:01
+            test.use({ location: { at: { lat: 37.99095, lng: 23.36107 } } });
+            const toSyntagma = async page => {
+                await page.goto('/trip');
+                await page.getByRole('button', { name: 'My location' }).click();
+                await to(page).fill('Syntagma');
+                await list(page, 'to').first().click();
+            };
+            // The time of the way shown's step with the M2
+            const metroTime = page => page.locator('.trip-card').first().locator('li.trip-step', { has: page.locator('.line-pill', { hasText: 'M2' }) }).locator('.trip-step-when').textContent();
+            const minutesOf = hhmm => hhmm.replace('~', '').split(':').reduce((h, m) => h * 60 + Number(m), 0);
+
+            test('how late its train runs: said at its timetable time, the M2 after it later, asked again on the tiers while in sight', async ({ page }) => {
+                const answer = { now: { at: '2026-10-21T09:00:00Z', trains: {} } };
+                const asked = await lateness(page, answer);
+                await toSyntagma(page);
+                const best = page.locator('.trip-card').first();
+                await expect(best.locator('.line-pill.line-a4').first()).toBeVisible();
+                await expect.poll(() => asked.length).toBe(1);
+                await expect(best).not.toContainText('late');
+                const onTime = minutesOf(await metroTime(page));
+
+                // 8 minutes late, as measured: said, and the M2 at 13:01 missed;
+                // asked again after 32 seconds, as the train leaves in under 10 minutes
+                answer.now = { at: '2026-10-21T09:01:00Z', trains: { 1313: { late: 480, exact: true } } };
+                await page.clock.runFor(31_000);
+                expect(asked.length).toBe(1);
+                await page.clock.runFor(3_000);
+                await expect(best).toContainText('Running about 8′ late');
+                expect(asked.length).toBe(2);
+                await expect(best.locator('li.trip-step', { has: page.locator('.line-pill.line-a4') }).locator('.trip-step-when')).toHaveText('12:08');
+                expect(minutesOf(await metroTime(page))).toBeGreaterThan(onTime);
+                await expect(page.locator('.trip-estimates')).toContainText('A train\'s lateness is Wayhop\'s estimate from where railway.gov.gr shows it');
+                await expect(page.locator('#trip-live-status')).toBeHidden();
+                // Out of sight: not asked, however long
+                await page.evaluate(() => {
+                    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+                    document.dispatchEvent(new Event('visibilitychange'));
+                });
+                await page.clock.runFor(300_000);
+                expect(asked.length).toBe(2);
+                await page.clock.resume();
+                expect(await axe(page), 'axe-core violations').toEqual([]);
+                const walk = await keyboardWalk(page);
+                expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
+            });
+        });
+
+        test('with no lateness to be had, said above the answer; the times the timetable\'s', async ({ page }) => {
+            await lateness(page, { now: { unavailable: true } });
+            await toMegara(page, '/trip', { here: 'My location', there: 'To' });
+            await expect(page.locator('#trip-live-status')).toContainText('How late the suburban trains run is unavailable right now, so their times are the timetable\'s.');
+            await expect(page.locator('.trip-card').first()).not.toContainText('late');
+        });
+
+        test('in Greek, how late its train runs', async ({ page }) => {
+            await lateness(page, { now: { at: '2026-10-21T09:00:00Z', trains: { 1314: { late: 240, exact: false } } } });
+            await toMegara(page, '/el/trip', { here: 'Η θέση μου', there: 'Προς' });
+            await expect(page.locator('.trip-card').first()).toContainText('Καθυστερεί τουλάχιστον 4′');
         });
     });
 

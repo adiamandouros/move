@@ -265,8 +265,8 @@ function checkTrains(data) {
                 problems.push(`${where}: each profile needs the seconds from its first stop to each, going forward`);
             }
             const trips = Array.isArray(route.trips) ? route.trips : [];
-            if (!trips.length || !trips.every(trip => Array.isArray(trip) && seconds(trip[0]) && Number.isInteger(trip[1]) && trip[1] >= 0 && trip[1] < profiles.length)) {
-                problems.push(`${where}: each trip needs its start in seconds and a profile`);
+            if (!trips.length || !trips.every(trip => Array.isArray(trip) && seconds(trip[0]) && Number.isInteger(trip[1]) && trip[1] >= 0 && trip[1] < profiles.length && typeof trip[2] === 'string' && trip[2])) {
+                problems.push(`${where}: each trip needs its start in seconds, a profile and its train's number`);
             }
         }
     }

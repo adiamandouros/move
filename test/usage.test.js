@@ -342,3 +342,36 @@ test('the usage page: pages opened per day, the browser languages most asked fir
     assert.match(html, /<th scope="row">2026-10-30<\/th>\s*<td>17<\/td>\s*<td>8<\/td>\s*<td>9<\/td>\s*<td class="text-start">el 9, none 4, de 2, fr 2<\/td>/);
     assert.match(view_(usageView({ '2026-10-29': { ...day(undefined), pages: undefined } })), /No pages counted yet\./);
 });
+
+test('the suburban railway\'s live times: visitors\' requests and the looks, failed ones and bytes, per day across restarts', () => {
+    const c = clock(Date.parse('2026-11-09T16:00:00Z'));
+    const file = tempFile();
+    // A day kept before they were counted
+    writeFileSync(file, JSON.stringify({ days: { '2026-11-09': { ...createUsage({ now: c.now }).status().today, trains: undefined } } }));
+    const usage = createUsage({ file, now: c.now });
+    usage.trainAsk();
+    usage.trainLook(true, 250_000);
+    c.advance(MIN);
+    usage.trainAsk();
+    usage.trainLook(false, 1_000);
+    c.advance(MIN);
+    usage.save();
+    const again = createUsage({ file, now: c.now });
+    again.trainLook(true, 240_000);
+    assert.deepEqual(again.days()['2026-11-09'].trains, { asked: 2, looks: 3, failed: 1, bytes: 491_000 });
+    assert.deepEqual(again.status().hour.trains, { asked: 0, looks: 1, failed: 0, bytes: 240_000 });
+});
+
+test('the usage page: the suburban railway\'s live times on the days they were asked for', () => {
+    const day = trains => ({ ...createUsage().status().today, trains });
+    const view = usageView({
+        '2026-11-08': { ...day(undefined), trains: undefined },
+        '2026-11-09': day({ asked: 30, looks: 12, failed: 1, bytes: 3_000_000 }),
+        '2026-11-10': day({ asked: 0, looks: 0, failed: 0, bytes: 0 }),
+    });
+    assert.deepEqual(view.trains, [{ date: '2026-11-09', asked: 30, looks: 12, failed: 1, mb: '2.9' }]);
+    const html = view_(view);
+    assert.match(html, /aria-labelledby="trains-title"/);
+    assert.match(html, /<th scope="row">2026-11-09<\/th>\s*<td>30<\/td>\s*<td>12<\/td>\s*<td>1<\/td>\s*<td>2\.9<\/td>/);
+    assert.match(view_(usageView({ '2026-11-08': day(undefined) })), /No live train times asked for yet\./);
+});

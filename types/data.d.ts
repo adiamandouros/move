@@ -194,7 +194,7 @@ export interface Trains {
         stops: string[];
         /** Ways of running these stops: the seconds from the first stop to each */
         profiles: number[][];
-        /** [seconds from the date's midnight in Athens when it leaves its first stop (past 86,400 after midnight), profile index] */
-        trips: [number, number][];
+        /** [seconds from the date's midnight in Athens when it leaves its first stop (past 86,400 after midnight), profile index, the train's number on railway.gov.gr (decision 42; not in copies built before it)] */
+        trips: [number, number, string?][];
     }[]>;
 }

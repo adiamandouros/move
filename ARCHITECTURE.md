@@ -22,6 +22,7 @@ browser ─► Express (server/app.js, started by server.js)
             ├─ /api/arrivals ─────── server/oasa/    live bus times from OASA
             ├─ /api/announcements ── server/info/    OASA's and STASY's announcements
             ├─ /api/lifts ────────── server/info/    metro lifts out of service, from STASY
+            ├─ /api/trains ───────── server/railway/ how late the suburban trains run, from railway.gov.gr
             ├─ /data/*.json ──────── data/build/     timetables and stops, built by server/data/
             ├─ /admin ────────────── server/admin/   private station editor and diagnostics
             └─ files ─────────────── public/, tools/<id>/client/, /vendor (node_modules)
@@ -246,7 +247,7 @@ pages use.
   to 3 changes (`raptor.js`, made once for each day's trains), and keeps the 3
   that arrive first. Beside a tram leg those can have more changes; metro
   trains alone only do if they get there 5 minutes sooner.
-- **The suburban railway in the planner** ([decision 41](docs/decisions/0041-suburban-railway.md)):
+- **The suburban railway in the planner** ([decision 42](docs/decisions/0042-suburban-railway-live-times.md)):
   `withSuburban(rail, trains, date)` in `network.js` joins `trains.json` to
   either network in the same shape, each station a station (marked
   `suburban`, with an id of its own and "(suburban)" when it has a metro
@@ -266,7 +267,7 @@ pages use.
   browser and the planner lab share them: `city.js` joins the metro, the tram,
   a day of `buses.json` ([decision 30](docs/decisions/0030-bus-timetable.md))
   and a day of the suburban railway's `trains.json` (`trainDay`,
-  [decision 41](docs/decisions/0041-suburban-railway.md)) into one network, with walks of up to 10 minutes between stops from the
+  [decision 42](docs/decisions/0042-suburban-railway-live-times.md)) into one network, with walks of up to 10 minutes between stops from the
   straight line (× 1.4, measured against a street router); `ways.js` finds the
   ways a rider could choose from, beyond the search's best with each number
   of rides; `weights.js` puts them in order by what they cost a rider (agreed
@@ -356,6 +357,21 @@ Announcements ([server/info/announcements.js](server/info/announcements.js))
 are fetched from OASA's RSS and STASY's news page at most every 15 minutes,
 only when someone asks, and kept on disk.
 
+How late the suburban railway's running trains are ([server/railway/](server/railway/),
+[decision 42](docs/decisions/0042-suburban-railway-live-times.md)) is Wayhop's own
+reckoning, as railway.gov.gr fills in a train's delay only once its trip is
+over: `stream.js` takes one look at its live stream (the first positions,
+then it hangs up, about 250 KB, the trains' history skipped as it comes),
+`lateness.js` compares each train's next station from one look to the next
+with its timetable on the boards the data build keeps (measured when it
+changes, at least so late on the way), and `index.js` serves
+`/api/trains`: looks once a minute only while someone has asked in the
+past 3 minutes, one look for everyone, a 10-minute rest after 3 failures.
+The Trip page's way shown in full asks for it while it has a train
+(`tools/trip/client/trains.js`), on the bus page's tiers. `usage.js`
+counts the requests and looks beside OASA's; `/api/health` warns while
+the looks rest and someone wants them.
+
 Lifts out of service ([server/info/lifts.js](server/info/lifts.js)) come from
 STASY's lift page (stasy.gr/elevators) at most every 10 minutes, only when
 someone asks, through the relays like its other pages, and are kept on disk; a
@@ -430,14 +446,15 @@ is logged; each route's stops are saved as they arrive, so a fetch that still
 fails is picked up where it stopped by the next build, and meanwhile the last
 network is used. The suburban railway's timetable comes from railway.gov.gr,
 OSE's train site, as there's no open data for it
-([decision 41](docs/decisions/0041-suburban-railway.md)): `railway.js`
+([decision 42](docs/decisions/0042-suburban-railway-live-times.md)): `railway.js`
 fetches its schedule boards once an Athens day, yesterday's to 4 days ahead,
 10 seconds apart, into `data/raw/railway/`, keeping the boards there are when
 it fails; `build-suburban.js` makes `data/build/trains.json` from them and
 `data/curated/suburban.json` (the lines A1–A4, which the boards don't name,
 and the stations: OSE's ids, the names, OpenStreetMap's places, the walks to
 the metro, and which OASA's ticket covers): each held date's trains by their
-line and stops, in seconds from that date's midnight in Athens. Its days move
+line and stops, in seconds from that date's midnight in Athens, each trip with
+its train's number for how late it runs. Its days move
 on every night, so it's a file of its own. The city's search uses its walks
 in place of the straight line's.
 The build runs when the server
@@ -534,7 +551,8 @@ hour's answer are the app's, in `tools/subway/client/`.
 - STASY's timetable pages could be read, and its airport timetable hasn't
   changed since `airport.json` (checked weekly);
 - the suburban railway has trains for today, and railway.gov.gr's boards
-  were fetched on the last try;
+  were fetched on the last try; how late its trains run isn't resting after
+  3 failed looks while someone wants it;
 - each relay runs the current `RELAY_VERSION`;
 - the hosting account is well under its thread limit, and no app has old
   copies still running.

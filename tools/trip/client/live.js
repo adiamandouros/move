@@ -60,13 +60,17 @@ export function dueStops(asks, { asking, asked, answers }, nowMs, seconds) {
 
 /**
  * What to say of the live times above the answer, as the Buses page does:
- * paused, none to be had at any stop asked, or some older than they look
+ * paused, none to be had at any stop asked, nor for the suburban trains
+ * when the way has one (`trains`, decision 42), or some older than they look
  * @param {{ stop: string }[]} asks @param {Map<string, StopLive>} answers @param {boolean} paused
- * @returns {'paused' | 'unavailable' | 'stale' | null}
+ * @param {import('./trains.js').TrainsLive | null} [trains] the trains' answer, when the way has a train
+ * @returns {'paused' | 'unavailable' | 'trains-unavailable' | 'all-unavailable' | 'stale' | null}
  */
-export function liveStatus(asks, answers, paused) {
+export function liveStatus(asks, answers, paused, trains = null) {
     if (paused) return 'paused';
     const shown = asks.map(({ stop }) => answers.get(stop)).filter(Boolean);
-    if (shown.length && shown.every(answer => answer.unavailable)) return 'unavailable';
-    return shown.some(answer => answer.stale) ? 'stale' : null;
+    const buses = shown.length > 0 && shown.every(answer => answer.unavailable);
+    if (trains?.unavailable) return buses ? 'all-unavailable' : 'trains-unavailable';
+    if (buses) return 'unavailable';
+    return shown.some(answer => answer.stale) || trains?.stale ? 'stale' : null;
 }

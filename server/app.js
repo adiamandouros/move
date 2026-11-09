@@ -10,6 +10,8 @@ import { createOasaClient } from './oasa/client.js';
 import { createCollector } from './oasa/collector.js';
 import { createUsage } from './oasa/usage.js';
 import { lastFetchFile } from './data/oasa-network.js';
+import { boardsDir } from './data/railway.js';
+import { createTrainTimes } from './railway/index.js';
 import { VENDOR, staticFiles } from './pages/assets.js';
 import { createPages } from './pages/index.js';
 import { checkedFacts, loadTools } from './pages/registry.js';
@@ -100,12 +102,22 @@ export function createApp({
     // Which metro lifts are out of service, from STASY's website
     const lifts = createLifts({ cacheFile: path.join(cacheDir, 'lifts.json'), relays, fetch, userAgent: config.userAgent });
     app.use('/api/lifts', lifts);
+    // How late the suburban railway's running trains are, from railway.gov.gr's
+    // live stream, looked at only while someone wants it (server/railway/)
+    const trains = createTrainTimes({
+        boardsDir: boardsDir(path.join(path.dirname(buildDir), 'raw')),
+        corridors: new Set(Object.values(readJson(path.join(DATA_DIR, 'curated', 'suburban.json'))?.lines ?? {}).map(line => line.corridor)),
+        fetch,
+        userAgent: config.userAgent,
+        usage,
+    });
+    app.use('/api/trains', trains);
     // Address search, from the index built on GitHub each week; server.js keeps it up to date
     const places = createPlaces({ dir: cacheDir, fetch, limiter, log: logError });
     app.locals.places = places;
     app.use('/api/places', places);
     // Whether the live site works, for the scheduled check (.github/workflows/health.yml)
-    app.use('/api/health', createHealth({ placesStatus: places.status, busStatus: busApi.status, announcementStatus: announcements.status, liftStatus: lifts.status, buildDir, relays, processes: processGuard.status, fetch }));
+    app.use('/api/health', createHealth({ placesStatus: places.status, trainStatus: trains.status, busStatus: busApi.status, announcementStatus: announcements.status, liftStatus: lifts.status, buildDir, relays, processes: processGuard.status, fetch }));
     // What the Content-Security-Policy blocked, as browsers report it (server/csp-reports.js).
     // Before the bus API, which answers 404 for any other /api address.
     app.use(REPORT_PATH, cspReports.router);

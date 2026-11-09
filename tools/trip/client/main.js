@@ -7,7 +7,8 @@ import { isIdle } from '/tools/buses/timing.js';
 import { arrivalsUrl, dueStops, liveStatus, stopLive, unanswered } from './live.js';
 import { doorToDoor, isLongWalk } from './plan.js';
 import { placePicker } from './picker.js';
-import { halfWays, hasBus, howExact, liveNotice, placeTitle, quickerSummary, rangeText, renderChosen, renderHalf, renderTrip, routeSummary } from './render.js';
+import { TRAINS_URL, trainsDue, trainsUnanswered } from './trains.js';
+import { halfWays, hasBus, hasTrain, howExact, liveNotice, placeTitle, quickerSummary, rangeText, renderChosen, renderHalf, renderTrip, routeSummary } from './render.js';
 
 const $ = id => document.getElementById(id);
 const result = $('trip-result');
@@ -129,7 +130,9 @@ function start(metro) {
     // decision (decision 36): the rider's choice of the quicker way, taken
     // or kept for the rest of the trip; the directions' latest timing, drawn
     // at once if the rider goes back to them; and whether a quicker way is
-    // offered, so it's said once
+    // offered, so it's said once. How late the suburban trains run (decision
+    // 42): the latest answer, for every train, so kept from trip to trip;
+    // when it was asked for, and whether it's being asked for
     const live = {
         seq: 0, trip: 0, wanted: null, way: null,
         /** @type {Map<string, import('./buses.js').StopLive>} */ answers: new Map(),
@@ -137,6 +140,7 @@ function start(metro) {
         /** @type {Set<string>} */ asking: new Set(),
         started: false, paused: false, touched: Date.now(),
         /** @type {'taken' | 'kept' | null} */ choice: null, directions: null, offered: false,
+        /** @type {import('./trains.js').TrainsLive | null} */ trains: null, trainsAsked: -Infinity, askingTrains: false,
     };
     const sameRow = (a, b) => a?.id === b?.id && a?.row === b?.row && Boolean(a?.taken) === Boolean(b?.taken);
 
@@ -148,7 +152,8 @@ function start(metro) {
             if (live.way) { live.way = null; showLive(); }
             return;
         }
-        searches.postMessage({ id: want.id, live: { seq: ++live.seq, row: want.row, departure: want.departure, now: athensNow(), stops: Object.fromEntries(live.answers), taken: want.taken } });
+        const trains = live.trains?.unavailable ? null : live.trains?.trains ?? null;
+        searches.postMessage({ id: want.id, live: { seq: ++live.seq, row: want.row, departure: want.departure, now: athensNow(), stops: Object.fromEntries(live.answers), taken: want.taken, trains } });
     };
     const resetLive = () => {
         Object.assign(live, { trip: live.trip + 1, wanted: null, way: null, answers: new Map(), asked: new Map(), asking: new Set(), started: false, choice: null, directions: null, offered: false });
@@ -156,7 +161,7 @@ function start(metro) {
     };
     // Paused, unavailable or older live times, said above the answer
     const showLive = () => {
-        const shown = live.way ? liveNotice(liveStatus(live.way.way.asks, live.answers, live.paused)) : '';
+        const shown = live.way ? liveNotice(liveStatus(live.way.way.asks, live.answers, live.paused, live.way.way.train === null ? null : live.trains)) : '';
         setHtml(liveBox, shown);
         liveBox.hidden = !shown;
         liveBox.querySelector('button')?.addEventListener('click', interact);
@@ -182,10 +187,29 @@ function start(metro) {
         showLive();
         retime();
     };
-    // The stops that are due (live.js): nothing while paused or out of sight
+    // How late the suburban trains run, all of them in one request
+    const askTrains = async () => {
+        live.askingTrains = true;
+        let answer;
+        try {
+            const response = await fetch(TRAINS_URL, { signal: AbortSignal.timeout(20_000) });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            answer = await response.json();
+        } catch {
+            answer = trainsUnanswered(live.trains);
+        }
+        Object.assign(live, { trains: answer, trainsAsked: Date.now(), askingTrains: false });
+        showLive();
+        retime();
+    };
+    // The stops that are due (live.js), and the trains when the way has one
+    // (trains.js): nothing while paused or out of sight
     const askDue = () => {
         if (!live.way || live.paused || document.hidden) return;
-        for (const code of dueStops(live.way.way.asks, live, Date.now(), athensNow().seconds)) ask(code);
+        const seconds = athensNow().seconds;
+        for (const code of dueStops(live.way.way.asks, live, Date.now(), seconds)) ask(code);
+        const { train } = live.way.way;
+        if (train !== null && trainsDue(train, { asking: live.askingTrains, asked: live.trainsAsked, answer: live.trains }, Date.now(), seconds)) askTrains();
     };
     // Any tap or key press counts as someone looking at the page
     const interact = () => {
@@ -205,13 +229,14 @@ function start(metro) {
         const expired = isTimetableExpired(rail, now);
         const ways = forTrip(half) && !trip.walkFirst && !trip.options[0]?.morning ? halfWays(half.view, now.seconds) : [];
         // The way shown in full has OASA's live times when it has a bus, or
-        // when it's a decision's directions, for the quicker way's bus: the
+        // when it's a decision's directions, for the quicker way's bus, and
+        // its trains' lateness when it has a train (decision 42): the
         // worker's latest timing of its row, until the next comes; the
         // quicker way's in its place once the rider takes it (decision 36)
         const [first] = ways;
         const directions = Boolean(first) && half.view.kind === 'decision' && first.row === half.view.rows[0];
         const choice = directions ? live.choice : null;
-        const want = first && (hasBus(first.o) || directions)
+        const want = first && (hasBus(first.o) || hasTrain(first.o) || directions)
             ? { id: half.id, row: half.view.rows.indexOf(first.row), departure: first.departure, taken: choice === 'taken' }
             : null;
         const latest = [live.way, live.directions].find(way => want && sameRow(way, want));

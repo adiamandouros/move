@@ -369,3 +369,18 @@ test('the suburban railway: no trains for today, or a failed fetch, is a problem
     const never = await health({ dir: buildDir({ railwayFetch: { ...failed, fetched: null } }) }).check();
     assert.deepEqual(never.problems, ['Suburban railway: no trains for today, so the Trip page leaves it out; railway.gov.gr\'s boards have never been fetched (details on /admin/diagnostics)']);
 });
+
+test('the suburban railway\'s live times: a problem only while they rest after failing and someone wants them', async () => {
+    const trains = status => createHealth({
+        busStatus: () => ({ lastAsked: NOW - MINUTE, routes: [{ name: 'direct', lastOk: NOW - MINUTE }] }),
+        announcementStatus: () => ({}),
+        trainStatus: () => status,
+        buildDir: buildDir(),
+        now: () => NOW,
+    }).check();
+    const problem = 'Suburban live times: railway.gov.gr\'s train positions failed 3 times in a row, so the Trip page has the timetable\'s times while they rest 10 minutes (details on /admin/usage)';
+    const resting = await trains({ ok: false, wanted: true, resting: true });
+    assert.ok(resting.problems.includes(problem));
+    assert.deepEqual(resting.trains, { ok: false, wanted: true, resting: true });
+    assert.ok(!(await trains({ ok: true, wanted: false, resting: true })).problems.includes(problem));
+});
