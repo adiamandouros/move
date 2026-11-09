@@ -70,6 +70,27 @@ test('rides of a stretch at an hour: how many, the median and the slowest tenth,
     assert.doesNotMatch(JSON.stringify(data), /"b\d"/);
 });
 
+test('a table of many rides makes no new date formatter for each one', () => {
+    // A formatter takes memory the garbage collector doesn't feel: one per
+    // ride's hour took the nightly build past the host's memory (9 Nov 2026)
+    const t = athens('2026-11-03', '08:00:00');
+    const passes = Array.from({ length: 200 }, (_, i) => [pass('2', t + i * 60, `b${i}`), pass('4', t + i * 60 + 600, `b${i}`)]).flat();
+    const { DateTimeFormat } = Intl;
+    let made = 0;
+    Intl.DateTimeFormat = new Proxy(DateTimeFormat, {
+        construct: (Format, args) => (made++, new Format(...args)),
+        apply: (Format, self, args) => (made++, Format(...args)),
+    });
+    let data;
+    try {
+        ({ data } = buildBusRides({ passes, days: ['2026-11-03'] }, NET));
+    } finally {
+        Intl.DateTimeFormat = DateTimeFormat;
+    }
+    assert.equal(made, 0);
+    assert.deepEqual(data.rides[0].times, { 'wd 8': [60, 600, 600], 'wd 9': [60, 600, 600], 'wd 10': [60, 600, 600], 'wd 11': [20, 600, 600] });
+});
+
 test('the checks catch a broken table, and a smaller one is never refused', () => {
     assert.deepEqual(checkOutput('bus-rides.json', { schema: 1 }), ['bus-rides.json: no rides list']);
     assert.match(checkOutput('bus-rides.json', { schema: 1, rides: [{ route: '1', from: '2', to: '3', times: { 'wd 8': [1, 0.5, 2] } }] })[0], /whole seconds/);

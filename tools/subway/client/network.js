@@ -51,19 +51,26 @@ function stasyLast(rail, leg, weekday) {
     return to ? to.last[weekday] : undefined;
 }
 
+// Made once: a new Intl.DateTimeFormat takes about 30 KB outside the
+// JavaScript heap, where the garbage collector doesn't feel it, and the
+// nightly build asks for every bus ride's hour (build-rides.js). With two
+// formatters a call, 10,000 rides took it past the host's memory (9 Nov 2026).
+const ATHENS_CLOCK = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Athens', weekday: 'short', hour: 'numeric', minute: 'numeric', second: 'numeric', hourCycle: 'h23',
+});
+const ATHENS_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Athens' });
+
 // Current weekday (0 = Sunday) and seconds since midnight in Athens, wherever
 // the device's clock is set.
 /** @returns {AthensTime} */
 export function athensNow(date = new Date()) {
-    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
-        timeZone: 'Europe/Athens', weekday: 'short', hour: 'numeric', minute: 'numeric', second: 'numeric', hourCycle: 'h23',
-    }).formatToParts(date).map(p => [p.type, p.value]));
+    const parts = Object.fromEntries(ATHENS_CLOCK.formatToParts(date).map(p => [p.type, p.value]));
     const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(parts.weekday);
     return { weekday, seconds: +parts.hour * 3600 + +parts.minute * 60 + +parts.second, date: athensDate(date) };
 }
 
 export function athensDate(date = new Date()) {
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Athens' }).format(date);
+    return ATHENS_DATE.format(date);
 }
 
 // The metro and the tram as one network, in rail.json's shape, so everything
