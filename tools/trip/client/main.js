@@ -2,11 +2,12 @@ import { announce, format, formatHtml, html, localName, notice, setHtml } from '
 import { language, t } from '/js/core/i18n.js';
 import { watchLifts } from '/js/core/lifts.js';
 import { liftsOpen } from '/js/core/metro.js';
-import { onLocation, onLocationProblem, startLocation, lastPosition } from '/js/core/location.js';
+import { lastPosition, locationPermission, onLocation, onLocationProblem, showFollowing, startLocation } from '/js/core/location.js';
 import { minutesMark } from '/js/core/times.js';
 import { athensNow, closestStation, isTimetableExpired, withTram } from '/tools/subway/network.js';
 import { suburbanHidden, tramHidden } from '/tools/subway/tram-switch.js';
 import { isIdle } from '/tools/buses/timing.js';
+import { replanDue } from './follow.js';
 import { arrivalsUrl, dueStops, liveStatus, stopLive, unanswered } from './live.js';
 import { doorToDoor, isLongWalk } from './plan.js';
 import { placePicker } from './picker.js';
@@ -123,12 +124,21 @@ function start(metro) {
     let half = null;
     const timing = { city: null, answer: 0, half: null };
     const forTrip = what => what?.from === from && what?.to === to;
+    // The trip as last planned, and when (decision 45: My location plans it
+    // again once the rider has moved far enough). While it's planned again
+    // from where they moved to, the answer shown stays until the new one's
+    // next half hour is in, so it doesn't change twice every 2 minutes
+    let planned = { from, to, at: 0 };
+    let moving = false;
+    const holding = () => moving && !forTrip(half);
 
     // OASA's live times for the way shown in full (decision 35): which way
     // that is (`wanted`: the half hour `id`'s `row`, for `departure`), the
     // worker's latest timing of it with the live times there are (`way`), each
-    // stop's latest answer, when each was asked, those being asked, whether
-    // the trip's first request has gone, and whether asking is paused. `seq`
+    // stop's latest answer, when each was asked, those being asked, what the
+    // next new stop's request says (`opening`: a new trip's first, or the first
+    // after it was planned again from where the rider moved to, decision 45),
+    // and whether asking is paused. `seq`
     // counts what's asked of the worker, as only its latest answer counts;
     // `trip`, each new trip, so an answer for an older one is dropped. On a
     // decision (decision 36): the rider's choice of the quicker way, taken
@@ -142,7 +152,7 @@ function start(metro) {
         /** @type {Map<string, import('./buses.js').StopLive>} */ answers: new Map(),
         /** @type {Map<string, number>} */ asked: new Map(),
         /** @type {Set<string>} */ asking: new Set(),
-        started: false, paused: false, touched: Date.now(),
+        /** @type {'start' | 'moved' | null} */ opening: 'start', paused: false, touched: Date.now(),
         /** @type {'taken' | 'kept' | null} */ choice: null, directions: null, offered: false,
         /** @type {import('./trains.js').TrainsLive | null} */ trains: null, trainsAsked: -Infinity, askingTrains: false,
     };
@@ -160,7 +170,15 @@ function start(metro) {
         searches.postMessage({ id: want.id, live: { seq: ++live.seq, row: want.row, departure: want.departure, now: athensNow(), stops: Object.fromEntries(live.answers), taken: want.taken, trains } });
     };
     const resetLive = () => {
-        Object.assign(live, { trip: live.trip + 1, wanted: null, way: null, answers: new Map(), asked: new Map(), asking: new Set(), started: false, choice: null, directions: null, offered: false });
+        Object.assign(live, { trip: live.trip + 1, wanted: null, way: null, answers: new Map(), asked: new Map(), asking: new Set(), opening: 'start', choice: null, directions: null, offered: false });
+        showLive();
+    };
+    // The trip planned again from where the rider moved to (decision 45):
+    // each stop keeps its answer and its turn on the tiers, so only the
+    // stops new to its way are asked at once. The way being timed goes, and
+    // an answer for it still to come from the worker is dropped
+    const moveLive = () => {
+        Object.assign(live, { seq: live.seq + 1, wanted: null, way: null, opening: 'moved', choice: null, directions: null, offered: false });
         showLive();
     };
     // Paused, unavailable or older live times, said above the answer
@@ -171,14 +189,12 @@ function start(metro) {
         liveBox.querySelector('button')?.addEventListener('click', interact);
     };
     // A stop's live times, one request each, so each shows as soon as it's in
-    const ask = async code => {
+    const ask = async (code, opening) => {
         const trip = live.trip;
-        const first = !live.started;
-        live.started = true;
         live.asking.add(code);
         let answer;
         try {
-            const response = await fetch(arrivalsUrl(code, first), { signal: AbortSignal.timeout(20_000) });
+            const response = await fetch(arrivalsUrl(code, opening), { signal: AbortSignal.timeout(20_000) });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             answer = stopLive((await response.json()).stops[code], athensNow().seconds);
         } catch {
@@ -207,11 +223,16 @@ function start(metro) {
         retime();
     };
     // The stops that are due (live.js), and the trains when the way has one
-    // (trains.js): nothing while paused or out of sight
+    // (trains.js): nothing while paused or out of sight. The first stop not
+    // asked before says the trip's `opening`; after a re-plan that kept
+    // every stop, nothing does
     const askDue = () => {
         if (!live.way || live.paused || document.hidden) return;
         const seconds = athensNow().seconds;
-        for (const code of dueStops(live.way.way.asks, live, Date.now(), seconds)) ask(code);
+        const due = dueStops(live.way.way.asks, live, Date.now(), seconds);
+        const first = due.find(code => !live.answers.has(code));
+        for (const code of due) ask(code, code === first ? live.opening : null);
+        live.opening = null;
         const { train } = live.way.way;
         if (train !== null && trainsDue(train, { asking: live.askingTrains, asked: live.trainsAsked, answer: live.trains }, Date.now(), seconds)) askTrains();
     };
@@ -290,15 +311,17 @@ function start(metro) {
     const lifts = watchLifts(() => {
         if (!from || !to || result.contains(document.activeElement)) return;
         if (!searches) draw(athensNow(), [], false);
-        else if (forTrip(found)) draw(found.now, found.options, false);
+        else if (forTrip(found) && !holding()) draw(found.now, found.options, false);
     });
     lifts();
 
-    // `refresh`: the same trip, for a later time
-    const render = ({ speak = false, refresh = false } = {}) => {
+    // `refresh`: the same trip, for a later time; `moved`: planned again
+    // from where the rider moved to
+    const render = ({ speak = false, refresh = false, moved = false } = {}) => {
         const ready = from && to;
         form.hidden = Boolean(ready) && !changing;
         if (!ready) { setHtml(result, html`<p class="trip-intro">${t('trip.intro')}</p>`); return; }
+        if (!forTrip(planned)) planned = { from, to, at: Date.now() };
         const now = athensNow();
         if (!searches) { draw(now, [], speak); return; }
         const same = forTrip(found);
@@ -310,7 +333,9 @@ function start(metro) {
         const age = forTrip(half) ? now.seconds - half.view.departures[0] : 0;
         const halfToo = !same || age < 0 || age >= HALF_REWORK_SECONDS;
         if (halfToo) askedHalf = { id, from, to };
-        if (!same) {
+        moving = moved || (same && moving);
+        if (moved) moveLive();
+        else if (!same) {
             // A new trip: said while it's worked out, the first of the day
             // taking longest, as the day's city is made for it
             setHtml(result, html`<p class="trip-intro" role="status">${t('trip.working')}</p>`);
@@ -330,6 +355,7 @@ function start(metro) {
         searches = null;
         noBuses = await updateWaiting() ? 'updated' : true;
         found = null;
+        moving = false;
         resetLive();
         render({ speak: asked?.speak });
     };
@@ -352,10 +378,12 @@ function start(metro) {
             const box = $('trip-half');
             if (box) setHtml(box, halfWords(timing.half));
             // Drawn at once, unless someone is in the answer: then with the
-            // next refresh, which waits for that too
+            // next refresh, which waits for that too. Said, unless it was
+            // planned again from where the rider moved to
             if (!forTrip(found) || result.contains(document.activeElement)) return;
             const ways = draw(found.now, found.options, false);
-            if (ways.length) announce(halfReady(ways));
+            if (ways.length && !moving) announce(halfReady(ways));
+            moving = false;
             return;
         }
         if (data.id !== asked.id) return;
@@ -363,6 +391,8 @@ function start(metro) {
         noTrains = data.trains === false && !noSuburban;
         timing.city = data.timing.city ?? timing.city;
         timing.answer = data.timing.answer;
+        if (holding()) return;
+        moving = false;
         draw(asked.now, data.options, asked.speak);
     });
 
@@ -372,7 +402,36 @@ function start(metro) {
         changing = false;
         render({ speak: Boolean(found) });
     };
-    const fromPicker = placePicker({ input: fromInput, list: $('trip-from-list'), status: $('trip-from-status'), rail, onChange: chooser(fromInput, place => { from = place; locate.setAttribute('aria-pressed', 'false'); }) });
+    // My location (DESIGN.md, "Start from here"): while it's on, From follows
+    // where the rider is, and the trip is planned again once they've moved
+    // far enough (decision 45). Typing or picking a start, swapping, or
+    // location blocked turns it off; pressed again, it looks again. The
+    // position stays on this device. `waiting`: pressed, with no position yet
+    let following = false;
+    let waiting = false;
+    const follow = on => {
+        following = on;
+        waiting &&= on;
+        showFollowing(locate, on);
+    };
+    const here = position => ({ lat: position.lat, lng: position.lng, title: t('trip.my-location'), exact: null });
+    const useLocation = position => {
+        from = here(position);
+        fromInput.value = t('trip.my-location');
+        follow(true);
+        fromPicker.say('');
+        render({ speak: true });
+    };
+    // In sight only, and not while the keyboard is in the answer, as for a refresh
+    const replanIfMoved = (position = null) => {
+        if (!following || !from || !to || document.hidden || result.contains(document.activeElement)) return;
+        const now = position ?? lastPosition();
+        if (!now || !replanDue({ lat: from.lat, lng: from.lng, at: planned.at }, now, Date.now())) return;
+        from = here(now);
+        render({ moved: true });
+    };
+
+    const fromPicker = placePicker({ input: fromInput, list: $('trip-from-list'), status: $('trip-from-status'), rail, onChange: chooser(fromInput, place => { from = place; follow(false); }) });
     placePicker({ input: toInput, list: $('trip-to-list'), status: $('trip-to-status'), rail, onChange: chooser(toInput, place => { to = place; }) });
 
     // What was typed before the train times had loaded is replayed as
@@ -382,37 +441,62 @@ function start(metro) {
     });
 
     $('trip-swap').addEventListener('click', () => {
+        follow(false);
         [from, to] = [to, from];
         [fromInput.value, toInput.value] = [toInput.value, fromInput.value];
         render();
     });
 
-    // One position is enough for a trip: it isn't followed, and stays on this device
-    const useLocation = position => {
-        from = { lat: position.lat, lng: position.lng, title: t('trip.my-location'), exact: null };
-        fromInput.value = t('trip.my-location');
-        locate.setAttribute('aria-pressed', 'true');
-        fromPicker.say('');
-        render({ speak: true });
-    };
-    let waiting = false;
     locate.addEventListener('click', () => {
         const known = lastPosition();
-        if (known) { useLocation(known); return; }
-        waiting = true;
-        fromPicker.say(t('trip.finding-location'));
+        if (known) useLocation(known);
+        else {
+            follow(true);
+            waiting = true;
+            fromPicker.say(t('trip.finding-location'));
+        }
         startLocation();
     });
+    // On by itself, a position never fills From while someone is in it,
+    // perhaps about to type a start of their own
+    const inFrom = () => document.activeElement === fromInput;
     onLocation(position => {
-        if (!waiting) return;
-        waiting = false;
-        useLocation(position);
+        if (!following) return;
+        if (waiting) {
+            waiting = false;
+            useLocation(position);
+        } else if (!from) {
+            if (!inFrom()) useLocation(position);
+        } else if (!to) {
+            // Nothing planned yet: From moves with the rider, and nothing is asked
+            from = here(position);
+        } else {
+            replanIfMoved(position);
+        }
     });
+    // Blocked, it can't follow anything. Said only when someone pressed it
+    // and is waiting for it
     onLocationProblem(problem => {
-        if (!waiting || problem === 'slow') return;
-        waiting = false;
-        fromPicker.say(t(problem === 'denied' ? 'trip.location-denied' : 'trip.location-unavailable'));
+        if (waiting && problem !== 'slow') {
+            waiting = false;
+            fromPicker.say(t(problem === 'denied' ? 'trip.location-denied' : 'trip.location-unavailable'));
+        }
+        if (problem === 'denied') follow(false);
     });
+
+    // On when the page opens without a start: from a recent position at
+    // once, then following it if the browser already allows that. Nothing
+    // asks for the location here, and what's typed meanwhile wins
+    if (!fromInput.value) {
+        const last = lastPosition();
+        if (last && !inFrom()) useLocation(last);
+        locationPermission().then(permission => {
+            if (permission === 'denied') follow(false);
+            if (permission !== 'granted' || (fromInput.value && !following)) return;
+            follow(true);
+            startLocation();
+        });
+    }
 
     setInterval(() => {
         if (!from || !to || result.contains(document.activeElement)) return;
@@ -420,8 +504,11 @@ function start(metro) {
         retime();
     }, REFRESH_MS);
     // The live times: asked again when due, and paused, as on the Buses page,
-    // once nobody has touched the page for a while
+    // once nobody has touched the page for a while. And whether the rider
+    // has moved far enough for the trip to be planned again (positions come
+    // only when the phone has a new one)
     setInterval(() => {
+        replanIfMoved();
         if (!live.way || live.paused || document.hidden) return;
         if (isIdle(live.touched, Date.now())) {
             live.paused = true;
@@ -434,6 +521,7 @@ function start(metro) {
     document.addEventListener('keydown', interact);
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) return;
+        replanIfMoved();
         interact();
         askDue();
     });

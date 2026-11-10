@@ -1,7 +1,7 @@
 // Every request the bus page makes in a scripted visit, second by second:
 // what it asks of /api/arrivals, and so of OASA, written down so a change to
 // how the page polls (tools/buses/client/) can't change it unnoticed. A change
-// that means to (new numbers, agreed first: decision 38) updates these lists.
+// that means to (new numbers, agreed first: decision 45) updates these lists.
 import { onScreen, watchRequests } from './bus-requests.js';
 import { expect, onlyOn, test } from './fixtures.js';
 

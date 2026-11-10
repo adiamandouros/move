@@ -1,6 +1,6 @@
 # 45. Our load on OASA and STASY, with My location following on the Trip page
 
-Decided 2026-11-10 · In force
+Decided 2026-11-11 · In force
 
 ## Situation
 
@@ -13,7 +13,8 @@ Nearest. It is on by default when the page opens without a start, and
 follows where the rider is. It plans the trip again once the rider is 200
 metres or more from where it was last planned, at most every 2 minutes, and
 keeps following while they ride. Agreed that day as a start: a re-plan is a
-new search, at most 10 stops, under the 30 a minute each visitor may ask.
+new search, at most 10 stops, under the 30 a minute each visitor may ask;
+the rest of the numbers below on 11 November.
 
 Until now My location fills From once and doesn't follow. A new From is a
 new trip, so the page drops every stop's live answer and asks for the new

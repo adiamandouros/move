@@ -26,6 +26,34 @@ export async function pickDecision(page, url = '/trip', [fromName, toName] = ['F
     await list(page, 'to').first().click();
 }
 
+// Menelaou 45 and 85, 350 m apart on the same street (test/fixtures/places.js),
+// for a rider followed by "My location" (decision 45)
+export const MENELAOU_45 = { lat: 37.955, lng: 23.707 };
+export const MENELAOU_85 = { lat: 37.955, lng: 23.711 };
+
+// Where the Trip page's searches plan from, each new place once, with the
+// page's (fake) time it was first asked: [{ lat, lng, at }]
+export async function watchPlans(page) {
+    await page.addInitScript(() => {
+        window.__plans = [];
+        const post = Worker.prototype.postMessage;
+        Worker.prototype.postMessage = function (data, ...rest) {
+            const last = window.__plans.at(-1);
+            if (data?.from && (data.from.lat !== last?.lat || data.from.lng !== last?.lng)) {
+                window.__plans.push({ lat: data.from.lat, lng: data.from.lng, at: Date.now() });
+            }
+            return post.call(this, data, ...rest);
+        };
+    });
+    return () => page.evaluate(() => window.__plans);
+}
+
+// The rider somewhere else, and the phone saying so at once
+export const moveTo = (page, at) => page.evaluate(at => {
+    window.__setLocation({ at });
+    window.__sendPosition();
+}, at);
+
 // Megara's station, as test.use({ location: { at: MEGARA } }), and from
 // there by "My location" to Syntagma: the A4 at 12:08 (train 1313), Athens
 // at 12:51, the walk to Larissa Station and the M2 at 13:01

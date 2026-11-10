@@ -2,7 +2,7 @@ import { refreshEvery } from '/tools/buses/timing.js';
 
 // OASA's live times for the way the Trip page shows in full (decision 35):
 // how a stop is asked for, what its answer says, and when it's due again.
-// How often is agreed (6 Nov 2026, decision 34; kept in 38): the Buses page's tiers
+// How often is agreed (6 Nov 2026, decision 34; kept in 45): the Buses page's tiers
 // (timing.js), set by the first bus of the way's lines the rider can still
 // catch there, so a change far down the trip costs little until it nears.
 // No DOM, so it's tested in Node; main.js asks and draws.
@@ -11,10 +11,11 @@ import { refreshEvery } from '/tools/buses/timing.js';
 /** @typedef {{ arrivals?: { route: string, line: string | null, minutes: number }[], stale?: boolean, unavailable?: boolean }} StopAnswer */
 
 // The address that asks for one stop. Its requests say they're the Trip
-// page's, the first of a trip too, so /admin/usage counts them apart
-// (server/oasa/usage.js)
-/** @param {string} code @param {boolean} first */
-export const arrivalsUrl = (code, first) => `/api/arrivals?stops=${code}&for=${first ? 'plan-start' : 'plan'}`;
+// page's, and the first of a trip, or the first new stop after the trip was
+// planned again from where the rider moved to (decision 45), say that too,
+// so /admin/usage counts them apart (server/oasa/usage.js)
+/** @param {string} code @param {'start' | 'moved' | null} [opening] */
+export const arrivalsUrl = (code, opening = null) => `/api/arrivals?stops=${code}&for=${opening ? `plan-${opening}` : 'plan'}`;
 
 /**
  * A stop's answer from /api/arrivals, which came at `seconds` (from

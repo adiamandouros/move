@@ -158,9 +158,11 @@ test('any bus after a train: the M2 to Syggrou-Fix, then the stops there, each c
 
 // ── The page's side (live.js) ───────────────────────────────────────────────
 
-test('a stop is asked for by itself, the trip\'s first request saying it starts a search', () => {
-    assert.equal(live.arrivalsUrl('240115', true), '/api/arrivals?stops=240115&for=plan-start');
-    assert.equal(live.arrivalsUrl('240115', false), '/api/arrivals?stops=240115&for=plan');
+test('a stop is asked for by itself, the trip\'s first request saying it starts a search, a re-plan\'s that it was planned again', () => {
+    assert.equal(live.arrivalsUrl('240115', 'start'), '/api/arrivals?stops=240115&for=plan-start');
+    assert.equal(live.arrivalsUrl('240115', 'moved'), '/api/arrivals?stops=240115&for=plan-moved');
+    assert.equal(live.arrivalsUrl('240115', null), '/api/arrivals?stops=240115&for=plan');
+    assert.equal(live.arrivalsUrl('240115'), '/api/arrivals?stops=240115&for=plan');
 });
 
 test('an answer\'s buses are due at a time of day, so they count down by themselves, and say when they were said; one that couldn\'t be had says so', () => {

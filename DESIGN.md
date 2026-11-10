@@ -386,7 +386,7 @@ rules, with a picture of a way shown in full.
 - **My location** works exactly like Nearest. It re-plans when the rider is
   200m or more from where the trip was last planned, at most every 2
   minutes, and keeps following while they ride (numbers for OASA's sake,
-  agreed 10 November 2026; the pull request comes with its decision page).
+  decision 45).
 - **Later, agreed**: with "Following your own ride", a way 3' or more
   sooner found on the way is switched to after 10 seconds unless the rider
   keeps theirs: a visible countdown that pauses while the notice is touched
