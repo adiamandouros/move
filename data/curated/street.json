@@ -72,5 +72,24 @@
       { "name": "Εξωτερικός προς Αθήνα και προς Δημ. Θέατρο", "coords": [38.02187, 23.82112] },
       { "name": "Εξωτερικός προς Βριλήσια και προς Αεροδρόμιο", "coords": [38.02153, 23.82126] }
     ]
+  },
+  "syntagma": {
+    "exits": [
+      { "name": { "el": "Πλατεία Συντάγματος", "en": "Syntagma Square" }, "coords": [37.97536, 23.7353], "way": ["stairs"] },
+      { "name": { "el": "Αμαλίας/Εθνικός Κήπος", "en": "Amalias/National Garden" }, "coords": [37.97468, 23.73561], "way": ["stairs", "escalator-up"] },
+      { "name": { "el": "Μεγάλη Βρετανία/Πανεπιστημίου", "en": "Grande Bretagne/Panepistimiou" }, "coords": [37.9763, 23.73559], "way": ["stairs"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός Πλατεία Συντάγματος", "coords": [37.97523, 23.73522] }
+    ]
+  },
+  "neos-kosmos": {
+    "exits": [
+      { "name": { "el": "Κασομούλη/Πίσσα", "en": "Kassomouli/Pissa" }, "coords": [37.95798, 23.72767], "way": ["stairs"] },
+      { "name": { "el": "Κασομούλη/Ηλία Ηλιού", "en": "Kassomouli/Ilia Iliou" }, "coords": [37.95755, 23.72842], "way": ["stairs", "escalator-up"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός προς Κασομούλη και Ελληνικό", "coords": [37.9576, 23.72837] }
+    ]
   }
 }
