@@ -4,6 +4,7 @@
 // what keeps them in rem. Cut off on purpose, with an ellipsis, is allowed.
 import { expect, onlyOn, test } from './fixtures.js';
 import { EVERY_PAGE, READY } from './site-pages.js';
+import { hereToSyntagma, MEGARA, pickBoth, pickDecision } from './trip-page.js';
 
 // Without animations: a turning loading icon (a bus stop below the screen
 // keeps one until it's scrolled to) sticks out of its line at some angles
@@ -60,6 +61,9 @@ function problems() {
     return [...new Set(found)];
 }
 
+// The browser's default text size, doubled
+const big = page => page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
+
 // (A word wider than its box may break: .long)
 test('the 200% check finds text that doesn\'t fit', async ({ page }) => {
     await page.setContent(`<main id="app-content" style="width: 200px; overflow: auto">
@@ -82,8 +86,7 @@ for (const [path, , url] of EVERY_PAGE) {
     test(`${url} at 200% text`, { tag: '@every-page' }, async ({ page }) => {
         await page.goto(url);
         if (READY[path]) await expect(page.locator(READY[path]).first()).toBeAttached();
-        // The browser's default text size, doubled
-        await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
+        await big(page);
         expect(await page.evaluate(problems)).toEqual([]);
     });
 }
@@ -92,7 +95,6 @@ for (const [path, , url] of EVERY_PAGE) {
 // on a phone's width, where it doesn't
 test.describe('at large text', () => {
     test.beforeEach(onlyOn('phone', 'iphone'));
-    const big = page => page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
 
     test('the train diagram says where to ride in words instead of labels', async ({ page }) => {
         await page.goto('/subway?from=kifisia&to=airport');
@@ -135,10 +137,56 @@ test('/buses with starred stops and lines, and a starred line\'s header, at 200%
     await page.goto('/buses');
     await expect(page.locator('#favourite-lines a')).toHaveCount(2);
     await expect(page.locator('#favourite-stops .time-badge').first()).toBeVisible();
-    await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
+    await big(page);
     expect(await page.evaluate(problems)).toEqual([]);
     await page.goto('/buses?line=040&dir=1');
     await expect(page.locator('.line-favourite')).toHaveAttribute('aria-pressed', 'true');
-    await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
+    await big(page);
     expect(await page.evaluate(problems)).toEqual([]);
+});
+
+// The Trip page's answers, which its empty page above doesn't have, on a
+// phone's width: a long stop or station name breaks rather than push the
+// page sideways
+test.describe('the Trip page\'s answers at 200% text', () => {
+    test.beforeEach(onlyOn('phone', 'iphone'));
+
+    test.describe('by bus, with OASA\'s live times', () => {
+        test.use({ scenario: 'trip-live' });
+
+        test('the way shown, its other stops opened', async ({ page }) => {
+            await pickBoth(page);
+            const best = page.locator('.trip-card').first();
+            await expect(best.locator('.trip-live .time-badge').first()).toBeVisible();
+            await best.locator('.trip-more summary').click();
+            await big(page);
+            expect(await page.evaluate(problems)).toEqual([]);
+        });
+    });
+
+    test.describe('on a decision', () => {
+        test.use({ scenario: 'trip-quicker' });
+
+        test('the quicker way offered, then taken', async ({ page }) => {
+            await pickDecision(page);
+            await expect(page.locator('#trip-quicker')).toContainText('A quicker way: about');
+            await big(page);
+            expect(await page.evaluate(problems)).toEqual([]);
+            await page.getByRole('button', { name: 'Take the quicker way' }).click();
+            await expect(page.getByRole('button', { name: 'Back to my route' })).toBeVisible();
+            expect(await page.evaluate(problems)).toEqual([]);
+        });
+    });
+
+    test.describe('by suburban train', () => {
+        test.use({ location: { at: MEGARA } });
+
+        test('a train running late, the walk at Larissa Station, the metro', async ({ page }) => {
+            await page.route('**/api/trains', route => route.fulfill({ json: { at: '2026-10-21T09:00:00Z', trains: { 1313: { late: 480, exact: true } } } }));
+            await hereToSyntagma(page);
+            await expect(page.locator('.trip-card').first()).toContainText('Running about 8′ late');
+            await big(page);
+            expect(await page.evaluate(problems)).toEqual([]);
+        });
+    });
 });

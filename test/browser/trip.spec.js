@@ -4,7 +4,7 @@
 // together. The addresses are test/fixtures/places.js.
 import { watchRequests } from './bus-requests.js';
 import { axe, expect, keyboardWalk, onlyOn, test } from './fixtures.js';
-import { from, list, pickBoth, to } from './trip-page.js';
+import { from, hereToSyntagma, list, MEGARA, pickBoth, pickDecision, to } from './trip-page.js';
 
 test.describe('the trip page', () => {
     test.beforeEach(onlyOn('phone'));
@@ -274,16 +274,7 @@ test.describe('the trip page', () => {
     test.describe('on a decision, with the quicker way\'s bus coming', () => {
         test.use({ scenario: 'trip-quicker' });
 
-        // From Σταύρου 1 to Μενελάου 45 at noon: the directions stay on the T6
-        // for a bus; the quicker way gets off sooner, at Agia Foteini, for one
-        // there, the only stop with buses coming (decision 36)
-        async function pickDecision(page, url = '/trip', [fromName, toName] = ['From', 'To']) {
-            await page.goto(url);
-            await page.getByRole('combobox', { name: fromName }).fill('Σταύρου 1');
-            await list(page, 'from').first().click();
-            await page.getByRole('combobox', { name: toName }).fill('Μενελάου 45');
-            await list(page, 'to').first().click();
-        }
+        // From Σταύρου 1 to Μενελάου 45 at noon (pickDecision)
         const offer = page => page.locator('#trip-quicker');
 
         test('offered under the directions; taken, in their place with the way back; kept, gone for the trip', async ({ page }) => {
@@ -428,13 +419,7 @@ test.describe('the trip page', () => {
 
         test.describe('from Megara, where the location is, to Syntagma', () => {
             // The A4 at 12:08 (train 1313), Athens at 12:51, the walk to Larissa Station and the M2 at 13:01
-            test.use({ location: { at: { lat: 37.99095, lng: 23.36107 } } });
-            const toSyntagma = async page => {
-                await page.goto('/trip');
-                await page.getByRole('button', { name: 'My location' }).click();
-                await to(page).fill('Syntagma');
-                await list(page, 'to').first().click();
-            };
+            test.use({ location: { at: MEGARA } });
             // The time of the way shown's step with the M2
             const metroTime = page => page.locator('.trip-card').first().locator('li.trip-step', { has: page.locator('.line-pill', { hasText: 'M2' }) }).locator('.trip-step-when').textContent();
             const minutesOf = hhmm => hhmm.replace('~', '').split(':').reduce((h, m) => h * 60 + Number(m), 0);
@@ -442,7 +427,7 @@ test.describe('the trip page', () => {
             test('how late its train runs: said at its timetable time, the M2 after it later, asked again on the tiers while in sight', async ({ page }) => {
                 const answer = { now: { at: '2026-10-21T09:00:00Z', trains: {} } };
                 const asked = await lateness(page, answer);
-                await toSyntagma(page);
+                await hereToSyntagma(page);
                 const best = page.locator('.trip-card').first();
                 await expect(best.locator('.line-pill.line-a4').first()).toBeVisible();
                 await expect.poll(() => asked.length).toBe(1);
