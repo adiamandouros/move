@@ -2,14 +2,15 @@
 
 The rules for Wayhop's look, from the
 [Wayhop Design Guide](https://claude.ai/artifact/AkCzboJyryavTDHviJ87Sv)
-(version 1, agreed 24 October 2026), which has the reasons, the palettes,
-the contrast numbers and pictures of each piece. Changing a rule means
-changing the guide and this file together. Where a rule can be checked, a
-test checks it; the tests are named under each section.
+(version 1, agreed 24 October 2026; version 2, the Trip page, agreed 10
+November 2026), which has the reasons, the palettes, the contrast numbers
+and pictures of each piece. Changing a rule means changing the guide and
+this file together. Where a rule can be checked, a test checks it; the
+tests are named under each section.
 
-The guide is being built in six steps (roadmap item 34): foundations, lines
-and stations, icons, components, the light theme, brand. Rules marked
-*(step n)* aren't in the code yet.
+Version 1 is built. Version 2 adds the Trip page and a few rules for every
+page; rules marked *(v2)* aren't in the code yet, and lose the mark in the
+pull request that builds them (the guide's plan of attack has the order).
 
 ## Principles
 
@@ -24,7 +25,7 @@ and stations, icons, components, the light theme, brand. Rules marked
 - **Never colour alone.** Every coloured state also has a word, an icon or a
   shape.
 - **One set of names, two themes.** Rules use token names, never values.
-  Light and dark are two blocks of values. *(light: step 5)*
+  Light and dark are two blocks of values.
 - **Change what's broken, keep what works.** The bottom bar, the yellow
   menu, the train diagram, the yellow disruption alert and the black maps
   stay.
@@ -54,6 +55,9 @@ width, so `style.css` sets it); the station page's name is 2xl.
 - Weights: 400 text, 600 labels and emphasis, 700 headings, pills and
   times, 800 only in the wordmark.
 - Tabular figures for every time, minute count, distance and stop code.
+- Minutes are written `7'` everywhere, sentences included ("Walk 3'",
+  "next in 12'"), never ′ or "min"; screen readers always hear "7 minutes"
+  (the mark `aria-hidden`, the words `sr-only`). *(v2)*
 - Small capitals: one style, xs, weight 700, 0.06em letter spacing, the
   faint colour (`--bs-tertiary-color`). One rule in `style.css` for the
   route heading, the search headings and the Info sub-headings.
@@ -105,7 +109,8 @@ keep their own shapes.
 A 4px grid: `--wh-space-1` (4), `-2` (8), `-3` (12), `-4` (16), `-6` (24),
 `-8` (32), `-12` (48). Bootstrap's spacing utilities (`p-2`, `gap-3`…) are
 on the same grid and fine to use. The page gutter is 16px on phones, card
-padding 16px, gaps between cards 12px.
+padding 16px, gaps between cards 12px. Every card's padding is 16px, the
+Subway page's leg cards (20px today) and the Trip page's (12px) too. *(v2)*
 
 ### Depth and edges
 
@@ -128,10 +133,18 @@ The palettes and every contrast number are in the guide.
 - **Yellow** = warnings only (and the brand: logo dot, menu button).
 - **Blue** = what can be pressed, and the current page.
 - **Green** = how soon a departure is, for buses and trains alike: solid
-  when due (≤ 3 min), a tint when close (4–8), neutral later (9+).
+  when due (≤ 3 min), a tint when close (4–8), neutral later (9+). Every
+  time a vehicle comes for you is a badge on it, counted from now, whether
+  it's from a timetable or live. *(v2)*
 - Last trains: the last is red, the second-last amber, and a line of words
   says so too.
-- Clock times (tomorrow, station timetables) are neutral chips.
+- Clock times (tomorrow, station timetables) are neutral chips. A trip's
+  own clock times are plain text: when to be at the stop, when you arrive,
+  "due at 12:14" in a sentence; so are walks and how long a ride takes.
+  *(v2)*
+- **~** marks a guess from a timetable: a bus by OASA's timetable
+  (`~12:06`), a walk (`~16'`). A live time has none: a bus on OASA's live
+  times, a suburban train whose lateness is known. *(v2)*
 - The maps stay black in both themes.
 
 ### Light and dark
@@ -167,6 +180,8 @@ value outside those blocks.
 - Three sizes, in em inside: **S** in lists (station suggestions, the
   stations by line, a stop's lines), **M** in sentences, arrival rows and
   tables, **L** in the headers of leg cards, station sections and bus stops.
+  The Trip page's step headings, the quicker way's sentence and its other
+  ways' lines are M. *(v2)*
 - The text in a pill sits dead centre: its box is trimmed to the capitals
   (`text-box`), so the padding is the same above and below the letters, and
   M1's pill makes up for Roboto's off-centre 1
@@ -213,7 +228,8 @@ Material Symbols Rounded, by meaning: code names what an icon means
   train (the way out, a lift). **The current tab is filled**, the others
   outline.
 - **A toggle's icon is outline when off, filled when on**: the favourites'
-  star, gold when starred (`aria-pressed` says it to screen readers).
+  star, gold when starred, and Nearest and My location, blue when on
+  (`aria-pressed` says it to screen readers). *(v2: My location)*
 - Each carriage to ride in shows how it leads off the platform, filled: an
   escalator up, stairs, or, while that isn't recorded (`escalators` and
   `stairs` in positions.json, set in the station editor), an up arrow. A
@@ -231,24 +247,40 @@ Material Symbols Rounded, by meaning: code names what an icon means
   SVG into `server/icons/` (the package is a dev dependency; the server
   never installs it).
 
-## Components *(step 4)*
+## Components
 
 ### Notice
 
-One boxed message, `notice(tone, icon, content)` in `/js/core/html.js`: a
-status icon (filled) and the text, in a 12px-cornered box with a 1px edge,
-text at `sm`. Four tones, each also told by its icon and its words, never
-by colour alone:
+One boxed message, `notice(tone, icon, content)` in `/js/core/html.js`: an
+icon and the text, in a 12px-cornered box with a 1px edge, text at `sm`.
+Four tones, each also told by its icon and its words, never by colour
+alone. The tone follows what the message means for the answer *(v2)*:
 
 | Tone | For | Icon |
 |---|---|---|
-| `warn` | Something to watch for: a disruption, an old timetable, no route, paused or stale times | warning |
-| `info` | How to read what's shown: tomorrow's first trains | night |
+| `danger` | Something Wayhop uses isn't working, so the answer is missing it: bus or train times that didn't load, live times unavailable (buses or trains), a lift status missing or over 30 minutes old *(v2)* | error |
+| `warn` | The answer may be off: an old timetable, no route, paused or stale times, a disruption, a station that can't be reached step-free | warning |
+| `info` | How to read the answer: tomorrow's first trains, a long walk, a newer Wayhop waiting, lifts out where the station can still be reached | what it's about: night, walk, bus, step-free *(v2)* |
 | `ok` | All clear: no disruption announcements | ok |
-| `danger` | It isn't working: live bus times unavailable | error |
 
-Margins come from where it's put (`mb-3`), not from the notice. Yellow is
-for warnings only.
+An error, a warning and all clear always show their own status icon,
+filled. Margins come from where it's put (`mb-3`), not from the notice.
+Yellow is for warnings only.
+
+Nothing under an answer says where its times come from: the About page
+credits every source. *(v2)*
+
+### Step-free notice
+
+`liftNotice` in `/js/core/lifts.js`, above an answer that uses stations: the
+stations that can't be reached step-free (`warn`) or have lifts out but can
+still be reached (`info`), closable to its first line, which names them. On
+the Subway page, and on the Trip page for every station its rides use
+*(v2)*. No source line under it *(v2)*. A lift status over 30 minutes old,
+or none, is an error ("Lift status unavailable right now, so lifts out of
+service aren't shown"), with any outages already known still listed under
+it *(v2)*. A notice that only lists platforms with steps ends with
+`liftCaution` (decision 18).
 
 ### Time badge
 
@@ -269,6 +301,9 @@ eyes ("Last train 23:57", with the clock time, so it's clear which badge it
 means). The tints are 10% of their colour, which keeps the text on them at
 4.5:1 on every surface (`test/accessibility.test.js`).
 
+A late suburban train's badge is when it actually leaves: no timetable
+time and no "running late" line. *(v2)*
+
 ### Tag
 
 A short fact about the thing beside it ("Doors open on the left", "Only
@@ -283,6 +318,22 @@ A stop, an arrival and a search result each end in the same quiet line
 18em wide) stacks: the stop's band runs the whole width, the next bus under
 it, the time and the walking directions on a line of their own under that.
 
+### Walking directions
+
+The walking figure, grey, as tall as its row, at the far right: a bus
+stop's row on the Buses page, and each walk on the Trip page *(v2)*. The
+words beside it ("Walk to Tavros") are plain text, not a link; screen
+readers hear "Walking directions to Tavros".
+
+### Start from here
+
+Nearest on the Subway page and My location on the Trip page are one toggle
+*(v2: My location)*. Off: grey, the icon outline. On: blue, the icon
+filled, following where you are. On by default when the page opens without
+a start, from a recent position or a location the browser already allows;
+nothing asks for location when the page opens. Typing or picking a start,
+swapping, or blocked location turns it off; pressed again, it looks again.
+
 ### Switch
 
 For a setting that stays until it's changed, like showing the tram stops or
@@ -290,6 +341,45 @@ the suburban railway's stations, in words on one line, side by side while they
 fit: Bootstrap's switch with its label, in `--bs-primary` when on
 (Bootstrap's own blue is fixed), and the whole row at least 2.75rem high. What
 acts on the page right now stays a button, like Nearest.
+
+## The Trip page *(v2)*
+
+The Trip page came a week after version 1; version 2 of the guide has its
+rules, with a picture of a way shown in full.
+
+- **The way shown in full** is one card. Its heading is how long the trip
+  takes and when you arrive, both in the body colour. Walks and bus rides
+  are rows with a 3rem column on the left; metro, tram and suburban rides
+  are the Subway page's leg card, inside the trip's card. Every other way
+  is one line. Nothing under the answer.
+- **A walk**: `~16'` on the left, "Walk to …" in plain text with the
+  distance under it, walking directions at the far right.
+- **A bus ride**: on the left, the clock time it leaves, `md`, bold, the
+  body colour, with `~` when it's from OASA's timetable. The heading is the
+  M plate and "towards …" in words (a bus shows where it goes on its front,
+  so no station sign). At the right end of the heading's line, the bus's
+  badge and the next one's; none an hour or more away, as the clock time
+  says it. Where any of several buses will do, the stops with their lines
+  and badges, or "Not on live times yet".
+- **A metro, tram or suburban ride** is the Subway page's card as it is:
+  where to board, the L pill → the direction's sign, the badges, the
+  last-train words, the train diagram (metro), notes, where to change or get
+  off, the stations on the way. Its badges start at the first train the
+  rider can catch: now plus the walk to the platform, or after a ride, from
+  when they get there; past an hour, clock times. The suburban railway is
+  the same as the metro and the tram, with no time on the left. The legend
+  of what the train shows comes under the way; no "Where to stand" button.
+- **Above the answer**: notices by their tones, and the step-free notice.
+- **My location** works exactly like Nearest. It re-plans when the rider is
+  200m or more from where the trip was last planned, at most every 2
+  minutes, and keeps following while they ride (numbers for OASA's sake,
+  agreed 10 November 2026; the pull request comes with its decision page).
+- **Later, agreed**: with "Following your own ride", a way 3' or more
+  sooner found on the way is switched to after 10 seconds unless the rider
+  keeps theirs: a visible countdown that pauses while the notice is touched
+  or has the keyboard, "Back to my route" after, a declined way not offered
+  again, on the page only (a vibration on Android). The "Any of these
+  buses" stops become the Buses page's stop rows.
 
 ## Tests
 
@@ -306,4 +396,4 @@ acts on the page right now stays a button, like Nearest.
   switch, remembering, forced colours; `pages.spec.js` runs axe-core on
   every page in light too.
 - `test/browser/text-size.spec.js`: every page at 200% text, as above, and
-  the two parts that change shape.
+  the two parts that change shape. *(v2: the Trip page's answers too)*
