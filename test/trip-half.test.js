@@ -5,6 +5,7 @@ import { browserModule, strings } from './support/browser-modules.js';
 import { markupProblems } from './support/markup.js';
 import { buildTrains } from '../server/data/build-suburban.js';
 import { suburbanCurated, train } from './fixtures/railway.js';
+import { minutesMark } from '../public/js/core/times.js';
 
 // The next half hour's answer as the trip page shows it (decision 33): what
 // the worker picks from answer.js (halfView in tools/trip/client/buses.js),
@@ -108,7 +109,9 @@ for (const lang of ['en', 'el']) {
     const keys = Object.keys(strings(lang));
     const s = strings(lang);
     const check = view => assert.deepEqual(markupProblems(String(view), { keys }), []);
-    const range = ([low, high]) => s['trip.range'].replace('{low}', low).replace('{high}', high);
+    // Minutes as every page writes them (/js/core/times.js): a range, "16–19'", or one, "~17'"
+    const mark = (minutes, options) => String(minutesMark(minutes, key => s[key], options));
+    const range = ([low, high]) => low === high ? mark(low, { about: true }) : mark([low, high]);
     const escaped = text => text.replace(/'/g, '&#39;');
 
     test(`${lang}: the clear way, its range, "best on most departures", and the nearest 3 stops with their buses`, () => {
@@ -145,7 +148,7 @@ for (const lang of ['en', 'el']) {
         assert.ok(view.includes(s['trip.any-bus']));
         const second = ways[1].o;
         assert.deepEqual(second.rides.map(ride => ride.line), ['040', 'M2']);
-        assert.ok(view.includes(s['trip.walk-short'].replace('{minutes}', second.firstWalk.minutes)));
+        assert.ok(view.includes(s['trip.walk-short'].replace('{minutes}', mark(second.firstWalk.minutes, { about: true }))), 'walking there, "~" an estimate');
     });
 
     test(`${lang}: a bus that's one line has its time by the clock, as an estimate; a train's is the timetable's`, () => {
@@ -199,8 +202,10 @@ test('times follow the clock: the way for the next departure tried, up to a minu
     assert.deepEqual(r.halfWays(clear, start + 3600), [], 'past the half hour: nothing');
 });
 
-test('a range of one minute is said as that minute', async () => {
+test('a range of one minute is said as that minute, about', async () => {
     const r = await browserModule('tools/trip/client/render.js');
-    assert.equal(r.rangeText({ range: [12, 12] }), '~12 min');
-    assert.equal(r.rangeText({ range: [11, 15] }), '11–15 min');
+    assert.equal(r.rangeText({ range: [12, 12] }), 'about 12 minutes');
+    assert.equal(r.rangeText({ range: [11, 15] }), '11 to 15 minutes');
+    const el = await browserModule('tools/trip/client/render.js', 'el');
+    assert.equal(el.rangeText({ range: [11, 15] }), '11 έως 15 λεπτά');
 });

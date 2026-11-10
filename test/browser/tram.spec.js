@@ -80,7 +80,7 @@ test('a stop\'s stations open on a strip in the tram\'s colour', async ({ page }
 
 test('two stops a short walk apart: a word about the walk, no route', async ({ page }) => {
     await page.goto('/subway?from=piraeus&to=akti-poseidonos');
-    await expect(page.locator('#subway-result')).toContainText('short walk apart: about 8 minutes');
+    await expect(page.locator('#subway-result')).toContainText('short walk apart: ~8\'');
     await expect(page.locator('.result-card')).toHaveCount(0);
     expect(await axe(page)).toEqual([]);
 });

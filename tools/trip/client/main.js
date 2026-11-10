@@ -1,6 +1,7 @@
-import { announce, format, html, localName, setHtml } from '/js/core/html.js';
+import { announce, format, formatHtml, html, localName, setHtml } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
 import { onLocation, onLocationProblem, startLocation, lastPosition } from '/js/core/location.js';
+import { minutesMark } from '/js/core/times.js';
 import { athensNow, closestStation, isTimetableExpired, withTram } from '/tools/subway/network.js';
 import { suburbanHidden, tramHidden } from '/tools/subway/tram-switch.js';
 import { isIdle } from '/tools/buses/timing.js';
@@ -70,9 +71,10 @@ async function updateWaiting() {
     }
 }
 
-// The half hour's kind of answer (answer.js), in words
+// The half hour's kind of answer (answer.js), in words; its departures are
+// tried every 2 minutes (answer.js's STEP_SECONDS)
 const KINDS = { clear: 'trip.half-clear', decision: 'trip.half-decision', depends: 'trip.half-depends', none: 'trip.half-none' };
-const halfWords = half => half ? format(t('trip.timing-half'), { ms: half.ms, kind: t(KINDS[half.kind]) }) : t('trip.timing-half-working');
+const halfWords = half => half ? formatHtml(t('trip.timing-half'), { minutes: minutesMark(2, t), ms: half.ms, kind: t(KINDS[half.kind]) }) : t('trip.timing-half-working');
 
 // The timing, under the answer
 function timingBox(timing) {
@@ -330,7 +332,7 @@ function start(metro) {
             half = { id: data.id, from: askedHalf.from, to: askedHalf.to, view: data.half };
             timing.half = data.half;
             const box = $('trip-half');
-            if (box) box.textContent = halfWords(timing.half);
+            if (box) setHtml(box, halfWords(timing.half));
             // Drawn at once, unless someone is in the answer: then with the
             // next refresh, which waits for that too
             if (!forTrip(found) || result.contains(document.activeElement)) return;

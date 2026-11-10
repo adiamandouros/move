@@ -87,7 +87,7 @@ const PAGE = { lang: 'el', strings: { greeting: 'Γεια σου, {name}', 'shel
 const render = (source, context = {}, page = PAGE) => compileView(source, 'test.hbs')(context, page);
 
 test('only these helpers exist', () => {
-    assert.deepEqual(HELPERS.sort(), ['external', 'formatDate', 'icon', 'ifLang', 'json', 'pill', 'plate', 't']);
+    assert.deepEqual(HELPERS.sort(), ['external', 'formatDate', 'icon', 'ifLang', 'json', 'minutes', 'pill', 'plate', 't']);
     assert.throws(() => render('{{shout "x"}}'), /test\.hbs/);
 });
 
@@ -116,6 +116,12 @@ test('{{pill}} and {{plate}}: a line\'s pill, a bus line\'s plate, in size m unl
     assert.equal(render('{{pill "T7" "s"}}'), '<span class="line-pill pill-s line-t7">T7</span>');
     assert.equal(render('{{plate "X95"}}'), '<span class="bus-plate pill-m">X95</span>');
     assert.equal(render('{{plate "040" "l"}}'), '<span class="bus-plate pill-l">040</span>');
+});
+
+test('{{minutes}}: minutes as every page writes them, with their words for screen readers', () => {
+    const page = { lang: 'el', strings: { 'shell.minute': '{minutes} λεπτό', 'shell.minutes': '{minutes} λεπτά' } };
+    assert.equal(render('κάθε {{minutes 36}}', {}, page), 'κάθε <span aria-hidden="true">36\'</span><span class="sr-only">36 λεπτά</span>');
+    assert.throws(() => render('{{minutes 36}}'), /There's no string "shell\.minutes" \(el\)/);
 });
 
 test('{{#ifLang}} keeps the page\'s language', () => {

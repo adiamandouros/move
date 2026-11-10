@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import Handlebars from 'handlebars';
 import { externalLink, formatDate, formatHtml, icon, raw } from '../../public/js/core/html.js';
 import { busPlate, linePill } from '../../public/js/core/lines.js';
+import { minutesMark } from '../../public/js/core/times.js';
 import { stringGetter } from './i18n.js';
 
 // The server's views are Handlebars templates (.hbs): the layout
@@ -16,6 +17,8 @@ import { stringGetter } from './i18n.js';
 //                                   {{t "stations.toward" name=toward}} fills {name}
 //   {{icon "walk" "me-1"}}          an icon from the sprite, by its meaning (/js/core/html.js)
 //   {{pill "M3"}}, {{plate "X95"}}  a line's pill, a bus line's plate (/js/core/lines.js)
+//   {{minutes 36}}                  minutes as every page writes them: "36'", and
+//                                   "36 minutes" for screen readers (/js/core/times.js)
 //   {{json value}}                  JSON that's safe inside a <script> element
 //   {{formatDate "2026-10-14"}}     a date as people write it: 14/10/2026
 //   {{#ifLang "en"}}…{{else}}…{{/ifLang}}  text written in both languages:
@@ -34,7 +37,7 @@ import { stringGetter } from './i18n.js';
 const hb = Handlebars.create();
 
 // (A value can't have a helper's name: {{lang}} is the page's language)
-export const HELPERS = ['t', 'icon', 'json', 'ifLang', 'formatDate', 'external', 'pill', 'plate'];
+export const HELPERS = ['t', 'icon', 'json', 'ifLang', 'formatDate', 'external', 'pill', 'plate', 'minutes'];
 const OPTIONS = {
     strict: true,
     knownHelpersOnly: true,
@@ -51,6 +54,7 @@ hb.registerHelper('t', (key, options) => {
 // {{plate "X95"}} a bus line's plate (/js/core/lines.js), in size m unless given
 hb.registerHelper('pill', (id, ...rest) => linePill(id, id, rest.length > 1 ? rest[0] : 'm'));
 hb.registerHelper('plate', (number, ...rest) => busPlate(number, rest.length > 1 ? rest[0] : 'm'));
+hb.registerHelper('minutes', (minutes, options) => minutesMark(minutes, stringGetter(options.data.strings ?? {}, options.data.lang)));
 
 // {{icon name}} or {{icon name classes}}: the last argument is Handlebars' options
 // {{icon name filled=true}}: a tab's filled form

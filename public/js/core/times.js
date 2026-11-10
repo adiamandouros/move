@@ -1,4 +1,4 @@
-import { html } from './html.js';
+import { format, html } from './html.js';
 
 // How Wayhop shows when something leaves: one badge, bus and train alike
 // (DESIGN.md, "Time badge"). Its colour is how soon:
@@ -20,4 +20,33 @@ export const soonTier = minutes => minutes <= DUE_MINUTES ? 'due' : minutes <= C
 /** @param {TimeTier} tier @param {unknown} content @param {string} [title] @returns {import('./html.js').Html} */
 export function timeBadge(tier, content, title = '') {
     return html`<span class="time-badge time-${tier}"${title && html` title="${title}"`}>${content}</span>`;
+}
+
+// Minutes, as Wayhop writes them on every page (DESIGN.md, "Type"): "7'" on
+// screen, never ′ or "min", and "7 minutes" for screen readers, which don't
+// hear the mark. A range: "16–19'", "16 to 19 minutes". about: a guess (a
+// walk, a trip's total), "~7'" and "about 7 minutes". then: more words for
+// screen readers after the minutes (", arriving soon"). t: the page's strings
+// (/js/core/i18n.js in the browser, a view's on the server)
+/** @typedef {number | [number, number]} Minutes */
+/** @param {Minutes} minutes @param {(key: string) => string} t @param {boolean} [about] @returns {string} */
+export function minutesWords(minutes, t, about = false) {
+    const words = Array.isArray(minutes)
+        ? format(t('shell.minutes-range'), { low: minutes[0], high: minutes[1] })
+        : format(t(minutes === 1 ? 'shell.minute' : 'shell.minutes'), { minutes });
+    return about ? format(t('shell.about'), { minutes: words }) : words;
+}
+
+/** @param {Minutes} minutes @param {(key: string) => string} t @param {{ about?: boolean, then?: string }} [options] @returns {import('./html.js').Html} */
+export function minutesMark(minutes, t, { about = false, then = '' } = {}) {
+    const shown = Array.isArray(minutes) ? `${minutes[0]}–${minutes[1]}` : minutes;
+    return html`<span aria-hidden="true">${about ? '~' : ''}${shown}'</span><span class="sr-only">${minutesWords(minutes, t, about)}${then}</span>`;
+}
+
+// A bus coming in `minutes`, as its badge: "7'" in the colour of how soon,
+// and ", arriving soon" for screen readers when it's due
+/** @param {number} minutes @param {(key: string) => string} t */
+export function minutesBadge(minutes, t) {
+    const tier = soonTier(minutes);
+    return timeBadge(tier, minutesMark(minutes, t, { then: tier === 'due' ? `, ${t('shell.arriving-soon')}` : '' }));
 }

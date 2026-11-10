@@ -2,7 +2,7 @@ import { favouriteButton, isFavourite, lineFavourite } from '/js/core/favourites
 import { externalLink, format, html, icon, localName, setHtml, walkingUrl } from '/js/core/html.js';
 import { language, localHref, t } from '/js/core/i18n.js';
 import { busPlate, pillList } from '/js/core/lines.js';
-import { soonTier, timeBadge } from '/js/core/times.js';
+import { minutesBadge, minutesWords } from '/js/core/times.js';
 
 // What the bus page draws, with html`` (every value escaped: stop names,
 // lines and destinations come from OASA)
@@ -21,12 +21,6 @@ const plate = (line, size) => busPlate(line, size, t('buses.line'));
 
 // How far a stop is, when the location is known (beside its code)
 export const distance = meters => meters === undefined ? html`` : html`<span class="sr-only">, </span>${formatDistance(meters)}`;
-
-function arrivalBadge(minutes) {
-    const tier = soonTier(minutes);
-    const label = tier === 'due' ? `${minutes} ${t('buses.arriving-soon')}` : `${minutes} ${t('buses.minutes')}`;
-    return timeBadge(tier, html`<span aria-hidden="true">${minutes}'</span><span class="sr-only">${label}</span>`);
-}
 
 const lineLabel = a => a.line ?? '?';
 const destination = a => a.to ? local(a.to) : t('buses.unknown-line');
@@ -90,7 +84,7 @@ export function patchStop(item, result, { waiting = true } = {}) {
 // sits outside the button, so they're repeated for screen readers).
 export function nextBus(result, { waiting = true } = {}) {
     const first = result?.arrivals?.[0];
-    if (first) return html`<span class="sr-only">. ${t('buses.next-bus-line')} </span><span class="next-bus-line">${busPlate(lineLabel(first), 'l')}</span><span class="sr-only">, </span><span class="next-bus-dest">${destination(first)}</span><span class="sr-only">, ${first.minutes} ${t('buses.minutes')}</span>`;
+    if (first) return html`<span class="sr-only">. ${t('buses.next-bus-line')} </span><span class="next-bus-line">${busPlate(lineLabel(first), 'l')}</span><span class="sr-only">, </span><span class="next-bus-dest">${destination(first)}</span><span class="sr-only">, ${minutesWords(first.minutes, t)}</span>`;
     if (result) return html`<span class="next-bus-dest text-body-secondary fst-italic"><span class="sr-only">. </span>${t(result.unavailable ? 'buses.unavailable' : 'buses.no-arrivals-short')}</span>`;
     return waiting
         ? html`<span class="next-bus-dest text-body-secondary">${icon('loading', 'spin')}<span class="sr-only">. ${t('buses.finding-stops')}</span></span>`
@@ -100,7 +94,7 @@ export function nextBus(result, { waiting = true } = {}) {
 // The next bus's minutes, beside the button
 export function headerBadge(result) {
     const first = result?.arrivals?.[0];
-    return first ? arrivalBadge(first.minutes) : html``;
+    return first ? minutesBadge(first.minutes, t) : html``;
 }
 
 // One arrival: the line, where it goes and in how many minutes
@@ -111,7 +105,7 @@ export function arrivalRow(a) {
                     ${plate(lineLabel(a), 'm')}
                     <span class="arrival-dest"><span class="sr-only">, </span>${destination(a)}<span class="sr-only">, </span></span>
                 </span>
-                ${arrivalBadge(a.minutes)}
+                ${minutesBadge(a.minutes, t)}
             </li>`;
 }
 

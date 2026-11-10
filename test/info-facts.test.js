@@ -34,6 +34,12 @@ test('the dates on the page come from data.json, in both languages', () => {
     assert.match(renderPages(changed).pages['/info'], /Checked on 05\/01\/2027 at <a href="https:\/\/www\.osy\.gr\/"/);
 });
 
+test('the airport\'s metro minutes are written as on every page: "36\'", with the words for screen readers', () => {
+    const { pages } = renderPages(tools);
+    assert.ok(pages['/info'].includes('every <span aria-hidden="true">36\'</span><span class="sr-only">36 minutes</span>, about <span aria-hidden="true">40\'</span><span class="sr-only">40 minutes</span> from Syntagma'));
+    assert.ok(pages['/el/info'].includes('κάθε <span aria-hidden="true">36\'</span><span class="sr-only">36 λεπτά</span>, περίπου <span aria-hidden="true">40\'</span><span class="sr-only">40 λεπτά</span> από το Σύνταγμα'));
+});
+
 test('diagnostics name each section, and warn once it\'s over 90 days old', () => {
     const facts = checkedFacts(tools);
     assert.deepEqual(facts.map(f => f.what), ['Info: Closing times', 'Info: Tickets', 'Info: Getting to the airport', 'Info: Night buses']);

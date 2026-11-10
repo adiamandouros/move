@@ -5,7 +5,7 @@ import { markupProblems } from './support/markup.js';
 // The accessibility checks other tests rely on (support/markup.js) must
 // catch what they're for; a check that passes everything would hide bugs.
 
-const keys = ['buses.minutes', 'shell.new-tab'];
+const keys = ['shell.minutes', 'shell.new-tab'];
 const flags = (html, expected) => assert.ok(markupProblems(html, { keys }).some(p => expected.test(p)), `${expected} for ${html}`);
 
 test('good markup has no problems', () => {
@@ -29,7 +29,7 @@ test('each problem is caught', () => {
     flags('<button aria-controls="gone">x</button>', /nothing has id="gone"/);
     flags('<input id="q">', /has no label/);
     flags('<div tabindex="2"></div>', /positive tabindex/);
-    flags('<span>3 buses.minutes</span>', /"buses\.minutes" shown instead of its text/);
+    flags('<span>3 shell.minutes</span>', /"shell\.minutes" shown instead of its text/);
     flags('<a href="/" aria-label="shell.new-tab">x</a>', /"shell\.new-tab" shown/);
     flags('<p>Change to M3</p>', /"M3" shown without its pill/);
     flags('<p>Στον Πειραιά, το Τ7</p>', /"Τ7" shown without its pill/);
