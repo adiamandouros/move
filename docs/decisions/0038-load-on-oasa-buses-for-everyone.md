@@ -1,6 +1,6 @@
 # 38. Our load on OASA and STASY, with buses for everyone on the Trip page
 
-Decided 2026-11-07 · In force
+Decided 2026-11-07 · Replaced by [45](0045-load-on-oasa-my-location-follows.md)
 
 ## Situation
 

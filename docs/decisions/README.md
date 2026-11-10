@@ -49,10 +49,11 @@ decisions, or makes one of the same weight, comes with its page.
 | 35 | [The trip page: OASA's live times on the way shown in full, the buses behind a switch for now](0035-trip-live-times.md) | Replaced by 36 |
 | 36 | [The trip page: the quicker way on a decision, offered from OASA's live times, the buses behind a switch for now](0036-trip-quicker-way.md) | Replaced by 37 |
 | 37 | [The trip page: one walking estimate, the straight line × 1.4, the buses behind a switch for now](0037-trip-one-walk.md) | Replaced by 39 |
-| 38 | [Our load on OASA and STASY, with buses for everyone on the Trip page](0038-load-on-oasa-buses-for-everyone.md) | In force |
+| 38 | [Our load on OASA and STASY, with buses for everyone on the Trip page](0038-load-on-oasa-buses-for-everyone.md) | Replaced by 45 |
 | 39 | [The trip page: buses for everyone, and the bus trip finder gone](0039-trip-buses-for-everyone.md) | In force |
 | 40 | [The suburban railway on the trip page, from railway.gov.gr's timetable](0040-suburban-railway-timetable.md) | Replaced by 41 |
 | 41 | [The suburban railway on the trip page and in the subway planner, from railway.gov.gr's timetable](0041-suburban-railway.md) | Replaced by 42 |
 | 42 | [The suburban railway on the trip page and in the subway planner, from railway.gov.gr's timetable, with how late its trains run](0042-suburban-railway-live-times.md) | Replaced by 44 |
 | 43 | [What an answer says around it: messages by what they mean, and nothing under it](0043-messages-and-nothing-under-the-answer.md) | In force |
 | 44 | [The suburban railway on the trip page and in the subway planner, from railway.gov.gr's timetable, with how late its trains run, credited on the About page](0044-suburban-railway-credited-on-about.md) | In force |
+| 45 | [Our load on OASA and STASY, with My location following on the Trip page](0045-load-on-oasa-my-location-follows.md) | In force |

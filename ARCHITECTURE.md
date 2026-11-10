@@ -351,7 +351,7 @@ version they started with, and it takes over once they're closed
 
 These numbers set our load on OASA, and so do the ones for STASY and the
 bus network below; changes to any of them are agreed first
-([decision 38](docs/decisions/0038-load-on-oasa-buses-for-everyone.md), which replaced 34, 26, 21 and 7).
+([decision 45](docs/decisions/0045-load-on-oasa-my-location-follows.md), which replaced 38, 34, 26, 21 and 7).
 
 Announcements ([server/info/announcements.js](server/info/announcements.js))
 are fetched from OASA's RSS and STASY's news page at most every 15 minutes,
@@ -546,7 +546,7 @@ hour's answer are the app's, in `tools/subway/client/`.
 - live arrivals have come in recently, or nothing needed them (a quiet
   night, a restart);
 - OASA answered and fast enough over the past hour, and the request budget
-  held, with room to spare ([decision 38](docs/decisions/0038-load-on-oasa-buses-for-everyone.md)
+  held, with room to spare ([decision 45](docs/decisions/0045-load-on-oasa-my-location-follows.md)
   has the numbers);
 - every announcement source loaded;
 - last night's data build worked, and its checks of the metro timetable
