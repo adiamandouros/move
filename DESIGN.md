@@ -264,7 +264,10 @@ alone. The tone follows what the message means for the answer *(v2)*:
 | `ok` | All clear: no disruption announcements | ok |
 
 An error, a warning and all clear always show their own status icon,
-filled. Margins come from where it's put (`mb-3`), not from the notice.
+filled, except the step-free notice, which keeps the step-free symbol as a
+warning too, so the people who rely on lifts spot it at once (decided 10
+November 2026). Margins come from where it's put (`mb-3`), not from the
+notice.
 Yellow is for warnings only.
 
 Nothing under an answer says where its times come from: the About page
@@ -274,7 +277,8 @@ credits every source. *(v2)*
 
 `liftNotice` in `/js/core/lifts.js`, above an answer that uses stations: the
 stations that can't be reached step-free (`warn`) or have lifts out but can
-still be reached (`info`), closable to its first line, which names them. On
+still be reached (`info`), with the step-free symbol in both, closable to
+its first line, which names them. On
 the Subway page, and on the Trip page for every station its rides use
 *(v2)*. No source line under it *(v2)*. A lift status over 30 minutes old,
 or none, is an error ("Lift status unavailable right now, so lifts out of
