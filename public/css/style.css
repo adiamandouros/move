@@ -1648,8 +1648,10 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
+/* A stop's name longer than the step (large text) breaks */
 .trip-step-what {
     min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 /* OASA's live times on the trip page's way (decision 35): a bus's minutes

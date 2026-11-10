@@ -399,5 +399,6 @@ rules, with a picture of a way shown in full.
 - `test/theme.test.js`, `test/browser/theme.spec.js`: the mode logic, the
   switch, remembering, forced colours; `pages.spec.js` runs axe-core on
   every page in light too.
-- `test/browser/text-size.spec.js`: every page at 200% text, as above, and
-  the two parts that change shape. *(v2: the Trip page's answers too)*
+- `test/browser/text-size.spec.js`: every page at 200% text, as above, the
+  Trip page's answers (a way by bus with live times, the quicker way, a way
+  by suburban train), and the two parts that change shape.
