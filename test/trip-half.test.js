@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { browserModule, strings } from './support/browser-modules.js';
-import { markupProblems } from './support/markup.js';
+import { markupProblems, notices } from './support/markup.js';
 import { buildTrains } from '../server/data/build-suburban.js';
 import { suburbanCurated, train } from './fixtures/railway.js';
-import { minutesMark } from '../public/js/core/times.js';
+import { aboutTime, minutesMark } from '../public/js/core/times.js';
 
 // The next half hour's answer as the trip page shows it (decision 33): what
 // the worker picks from answer.js (halfView in tools/trip/client/buses.js),
@@ -112,7 +112,10 @@ for (const lang of ['en', 'el']) {
     // Minutes as every page writes them (/js/core/times.js): a range, "16–19'", or one, "~17'"
     const mark = (minutes, options) => String(minutesMark(minutes, key => s[key], options));
     const range = ([low, high]) => low === high ? mark(low, { about: true }) : mark([low, high]);
-    const escaped = text => text.replace(/'/g, '&#39;');
+    // A time that's a guess (/js/core/times.js): "~12:06", "about 12:06" for screen readers
+    const about = time => String(aboutTime(time, key => s[key]));
+    // Nothing under the answer (decision 43): it ends with its last way
+    const nothingUnder = view => assert.ok(String(view).trimEnd().endsWith('</div>'), 'nothing under the answer');
 
     test(`${lang}: the clear way, its range, "best on most departures", and the nearest 3 stops with their buses`, () => {
         const ways = r.halfWays(clear, at(12).seconds);
@@ -123,16 +126,15 @@ for (const lang of ['en', 'el']) {
         assert.ok(view.includes(s['trip.half-best']));
         assert.ok(view.includes(s['trip.any-bus']), 'from the door, so no "then"');
         // The bus has no time by the clock: any of them will do
-        assert.ok(!/trip-step-when">~\d\d:\d\d/.test(view));
+        assert.ok(!/trip-step-when"><span aria-hidden="true">~\d\d:\d\d/.test(view));
         // Each stop links to the walk there: the nearest 3 shown, the rest behind "N more stops"
         const [shown, more] = view.split('<details class="trip-more">');
         const link = ({ stop }) => walkingUrl(stop.lat, stop.lng).replace(/&/g, '&amp;');
         for (const stop of first.stops.slice(0, 3)) assert.ok(shown.includes(link(stop)), stop.stop.id);
         for (const stop of first.stops.slice(3)) assert.ok(more.includes(link(stop)) && !shown.includes(link(stop)), stop.stop.id);
         assert.ok(more.includes(s['trip.more-stops'].replace('{count}', first.stops.length - 3)));
-        assert.ok(view.includes(escaped(s['trip.range-note'])));
-        assert.ok(view.includes(escaped(s['trip.bus-estimates'])));
         assert.ok(!view.includes(s['trip.where-to-stand']), 'no "where to stand" with a bus');
+        nothingUnder(view);
     });
 
     test(`${lang}: it depends, said above the way first by the weights; the others on a line each, with their range`, () => {
@@ -158,7 +160,7 @@ for (const lang of ['en', 'el']) {
         check(html);
         const [bus, train] = view.rows[0].options[0].rides;
         const clock = seconds => `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;
-        assert.ok(html.includes(`<span class="trip-step-when">~${clock(bus.boards)}</span>`));
+        assert.ok(html.includes(`<span class="trip-step-when">${about(clock(bus.boards))}</span>`));
         assert.ok(html.includes(`<span class="trip-step-when">${clock(train.boards)}</span>`));
     });
 
@@ -177,17 +179,19 @@ for (const lang of ['en', 'el']) {
         assert.ok(!String(r.renderTrip(network, trip, syntagma)).includes(s['trip.half-checking']));
     });
 
-    test(`${lang}: a way by suburban railway in the half hour's answer has its pill and names where its times are from; with no trains today, it says they're left out`, () => {
+    test(`${lang}: a way by suburban railway in the half hour's answer has its pill, nothing under it of where its times are from; with no trains today, an error above says they're left out`, () => {
         const ways = r.halfWays(byTrain, at(10).seconds);
         assert.ok(ways.some(({ o }) => o.rides.some(ride => ride.mode === 'suburban')), 'a way by train is shown');
         const view = String(r.renderHalf(network, byTrain.kind, ways, airportStation));
         check(view);
         assert.ok(view.includes('line-a1">A1<'));
-        assert.ok(view.includes(escaped(s['trip.train-estimates'])));
-        assert.equal(view.includes(escaped(s['trip.no-trains-today'])), false);
+        assert.equal(view.includes('railway.gov.gr'), false, 'credited on the About page, not under the answer');
+        nothingUnder(view);
+        assert.deepEqual(notices(view), []);
         const none = String(r.renderHalf(network, clear.kind, r.halfWays(clear, at(12).seconds), fix, { noTrains: true }));
         check(none);
-        assert.ok(none.includes(escaped(s['trip.no-trains-today'])));
+        assert.deepEqual(notices(none), [{ tone: 'danger', icon: 'error', text: s['trip.no-trains-today'] }]);
+        assert.ok(none.indexOf('notice-danger') < none.indexOf('trip-card'), 'above the answer');
     });
 }
 

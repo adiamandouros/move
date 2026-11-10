@@ -34,7 +34,7 @@ export function minutesWords(minutes, t, about = false) {
     const words = Array.isArray(minutes)
         ? format(t('shell.minutes-range'), { low: minutes[0], high: minutes[1] })
         : format(t(minutes === 1 ? 'shell.minute' : 'shell.minutes'), { minutes });
-    return about ? format(t('shell.about'), { minutes: words }) : words;
+    return about ? format(t('shell.about'), { what: words }) : words;
 }
 
 /** @param {Minutes} minutes @param {(key: string) => string} t @param {{ about?: boolean, then?: string }} [options] @returns {import('./html.js').Html} */
@@ -42,6 +42,11 @@ export function minutesMark(minutes, t, { about = false, then = '' } = {}) {
     const shown = Array.isArray(minutes) ? `${minutes[0]}–${minutes[1]}` : minutes;
     return html`<span aria-hidden="true">${about ? '~' : ''}${shown}'</span><span class="sr-only">${minutesWords(minutes, t, about)}${then}</span>`;
 }
+
+// A clock time that's a guess, from a timetable (decision 11): "~12:06" on
+// screen, "about 12:06" for screen readers, the "~" being its warning
+/** @param {string} time @param {(key: string) => string} t @returns {import('./html.js').Html} */
+export const aboutTime = (time, t) => html`<span aria-hidden="true">~${time}</span><span class="sr-only">${format(t('shell.about'), { what: time })}</span>`;
 
 // A bus coming in `minutes`, as its badge: "7'" in the colour of how soon,
 // and ", arriving soon" for screen readers when it's due

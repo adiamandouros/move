@@ -1566,8 +1566,7 @@ body {
     color: var(--wh-warn);
 }
 
-.trip-intro,
-.trip-estimates {
+.trip-intro {
     font-size: var(--wh-fs-sm);
     color: var(--bs-secondary-color);
 }

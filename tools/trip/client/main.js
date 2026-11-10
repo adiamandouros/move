@@ -1,4 +1,4 @@
-import { announce, format, formatHtml, html, localName, setHtml } from '/js/core/html.js';
+import { announce, format, formatHtml, html, localName, notice, setHtml } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
 import { onLocation, onLocationProblem, startLocation, lastPosition } from '/js/core/location.js';
 import { minutesMark } from '/js/core/times.js';
@@ -40,7 +40,7 @@ async function loadRail() {
     try {
         return await loadJson('/data/rail.json');
     } catch {
-        setHtml(result, html`<p>${t('trip.data-error')}</p>`);
+        setHtml(result, notice('danger', 'error', t('trip.data-error')));
         return null;
     }
 }

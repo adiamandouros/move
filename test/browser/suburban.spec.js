@@ -31,7 +31,7 @@ test('Megara to Syntagma: the A4 toward where it ends, with no train diagram and
     await expect(first.locator('a')).toHaveCount(0);
     await expect(page.locator('#subway-result')).toContainText('Walk to Larissa Station');
     await expect(page.locator('.result-card').nth(1).locator('.train-diagram')).toBeVisible();
-    await expect(page.locator('.schedule-disclaimer')).toContainText('Suburban railway times are from railway.gov.gr (OSE)');
+    await expect(page.locator('#subway-result')).not.toContainText('railway.gov.gr');
     expect(await axe(page)).toEqual([]);
     const walk = await keyboardWalk(page);
     expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);

@@ -134,7 +134,7 @@ test.describe('the trip page', () => {
         await expect(page.locator('#trip-result .bus-plate').first()).toBeVisible();
     });
 
-    test('the next half hour takes the answer\'s place: its range, the stops and their buses, and why they\'re estimates', async ({ page }) => {
+    test('the next half hour takes the answer\'s place: its range, the stops and their buses, and nothing under it', async ({ page }) => {
         await pickBoth(page);
         // One clear way at noon: any of the buses from the stops near the door
         const best = page.locator('.trip-card').first();
@@ -150,8 +150,7 @@ test.describe('the trip page', () => {
         await expect(more.locator('.trip-step').first()).toBeHidden();
         await more.locator('summary').click();
         await expect(more.locator('.trip-step').first()).toBeVisible();
-        await expect(page.locator('.trip-estimates')).toContainText('Bus times are estimates from OASA\'s timetable of August 2026');
-        await expect(page.locator('.trip-estimates')).toContainText('A range covers the next half hour\'s departures');
+        await expect(page.locator('#trip-result > :last-child'), 'nothing under the answer').toHaveClass(/trip-card/);
         await expect(page.locator('#trip-timing')).toHaveCount(0);
         expect(await axe(page), 'axe-core violations').toEqual([]);
         const walk = await keyboardWalk(page);
@@ -169,7 +168,7 @@ test.describe('the trip page', () => {
         await expect(best.locator('.trip-total')).toHaveAccessibleName(/^\d+ έως \d+ λεπτά$/);
         await expect(best).toContainText('Ο καλύτερος στις περισσότερες αναχωρήσεις');
         await expect(best.locator('.bus-plate').first()).toBeVisible();
-        await expect(page.locator('.trip-estimates')).toContainText('Οι ώρες των λεωφορείων είναι εκτιμήσεις');
+        await expect(page.locator('#trip-result > :last-child'), 'nothing under the answer').toHaveClass(/trip-card/);
     });
 
     test('?timing: how long the buses took here, then the next half hour, worked out after the answer', async ({ page }) => {
@@ -210,7 +209,6 @@ test.describe('the trip page', () => {
             const best = page.locator('.trip-card').first();
             await expect(best).toContainText('Any of these buses, whichever comes first:');
             await expect(best.locator('.trip-live .time-badge').first()).toBeVisible();
-            await expect(page.locator('.trip-estimates')).toContainText('A bus with its minutes beside it is on OASA\'s live times.');
             await expect.poll(() => firstBuses(page)).not.toEqual([]);
             const minutes = await firstBuses(page);
             expect(minutes).toEqual([...minutes].sort((a, b) => a - b));
@@ -270,7 +268,6 @@ test.describe('the trip page', () => {
             await page.getByRole('combobox', { name: 'Προς' }).fill('Συγγρού-Φιξ');
             await list(page, 'to').first().click();
             await expect(page.locator('.trip-card').first().locator('.trip-live .time-badge').first()).toBeVisible();
-            await expect(page.locator('.trip-estimates')).toContainText('Ένα λεωφορείο με τα λεπτά δίπλα του είναι από τις ώρες του ΟΑΣΑ σε πραγματικό χρόνο.');
         });
     });
 
@@ -338,12 +335,11 @@ test.describe('the trip page', () => {
     test.describe('with OASA down', () => {
         test.use({ scenario: 'oasa-down' });
 
-        test('the timetable\'s times stay, and the live times are said to be unavailable', async ({ page }) => {
+        test('the timetable\'s times stay, and an error says the live times are unavailable', async ({ page }) => {
             await pickBoth(page);
-            await expect(page.locator('#trip-live-status')).toContainText('Live bus times are unavailable right now.');
+            await expect(page.locator('#trip-live-status .notice-danger')).toContainText('Live bus times are unavailable right now.');
             await expect(page.locator('.trip-card').first().locator('.bus-plate').first()).toBeVisible();
             await expect(page.locator('#trip-result .time-badge')).toHaveCount(0);
-            await expect(page.locator('.trip-estimates')).toContainText('Bus times are estimates from OASA\'s timetable of August 2026');
             expect(await axe(page), 'axe-core violations').toEqual([]);
         });
     });
@@ -374,15 +370,16 @@ test.describe('the trip page', () => {
             await list(page, 'to').first().click();
         };
 
-        test('a way by train: its line\'s pill, where it goes, the ticket it needs and where its times are from', async ({ page }) => {
+        test('a way by train: its line\'s pill, where it goes, the ticket it needs, and nothing under it of where its times are from', async ({ page }) => {
             await toMegara(page, '/trip', { here: 'My location', there: 'To' });
             const best = page.locator('.trip-card').first();
             await expect(best.locator('.trip-total [aria-hidden="true"]')).toHaveText(/^\d+–\d+'$/);
             await expect(best.locator('.line-pill.line-a4').first()).toHaveText('A4');
             await expect(best).toContainText('Megara');
             await expect(best).toContainText('Needs a Hellenic Train ticket, as OASA\'s ticket doesn\'t cover Megara.');
-            await expect(page.locator('.trip-estimates')).toContainText('Suburban railway times are from railway.gov.gr (OSE)');
-            await expect(page.locator('.trip-estimates')).not.toContainText('left out');
+            await expect(page.locator('#trip-result')).not.toContainText('railway.gov.gr');
+            await expect(page.locator('#trip-result .notice-danger')).toHaveCount(0);
+            await expect(page.locator('#trip-result > :last-child'), 'nothing under the answer').toHaveClass(/trip-card/);
             expect(await axe(page), 'axe-core violations').toEqual([]);
             const walk = await keyboardWalk(page);
             expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
@@ -393,10 +390,9 @@ test.describe('the trip page', () => {
             let asked = false;
             page.on('request', request => { asked ||= /\/data\/trains\.json|\/api\/trains/.test(request.url()); });
             await toMegara(page, '/trip', { here: 'My location', there: 'To' });
-            await expect(page.locator('.trip-estimates')).toBeVisible();
+            await expect(page.locator('.trip-card').first()).toBeVisible();
             await expect(page.locator('#trip-result .line-a4')).toHaveCount(0);
-            await expect(page.locator('.trip-estimates')).not.toContainText('railway.gov.gr');
-            await expect(page.locator('.trip-estimates')).not.toContainText('left out');
+            await expect(page.locator('#trip-result')).not.toContainText('left out');
             expect(asked).toBe(false);
         });
 
@@ -406,7 +402,7 @@ test.describe('the trip page', () => {
             await expect(best.locator('.line-pill.line-a4').first()).toHaveText('A4');
             await expect(best).toContainText('Μέγαρα');
             await expect(best).toContainText('δεν καλύπτει τον σταθμό Μέγαρα');
-            await expect(page.locator('.trip-estimates')).toContainText('Οι ώρες του Προαστιακού είναι από το railway.gov.gr (ΟΣΕ)');
+            await expect(page.locator('#trip-result')).not.toContainText('railway.gov.gr');
         });
 
         // How late the trains run (decision 42), as Wayhop's server answers it;
@@ -447,7 +443,6 @@ test.describe('the trip page', () => {
                 expect(asked.length).toBe(2);
                 await expect(best.locator('li.trip-step', { has: page.locator('.line-pill.line-a4') }).locator('.trip-step-when')).toHaveText('12:08');
                 expect(minutesOf(await metroTime(page))).toBeGreaterThan(onTime);
-                await expect(page.locator('.trip-estimates')).toContainText('A train\'s lateness is Wayhop\'s estimate from where railway.gov.gr shows it');
                 await expect(page.locator('#trip-live-status')).toBeHidden();
                 // Out of sight: not asked, however long
                 await page.evaluate(() => {
@@ -463,10 +458,10 @@ test.describe('the trip page', () => {
             });
         });
 
-        test('with no lateness to be had, said above the answer; the times the timetable\'s', async ({ page }) => {
+        test('with no lateness to be had, an error above the answer says so; the times the timetable\'s', async ({ page }) => {
             await lateness(page, { now: { unavailable: true } });
             await toMegara(page, '/trip', { here: 'My location', there: 'To' });
-            await expect(page.locator('#trip-live-status')).toContainText('How late the suburban trains run is unavailable right now, so their times are the timetable\'s.');
+            await expect(page.locator('#trip-live-status .notice-danger')).toContainText('How late the suburban trains run is unavailable right now, so their times are the timetable\'s.');
             await expect(page.locator('.trip-card').first()).not.toContainText('late');
         });
 
@@ -480,11 +475,15 @@ test.describe('the trip page', () => {
     test.describe('with the suburban railway\'s times not loading', () => {
         test.use({ allowErrors: [/status of 404/] });
 
-        test('it\'s left out, and said under the answer', async ({ page }) => {
+        test('it\'s left out, and an error above the answer says so', async ({ page }) => {
             await page.route('**/data/trains.json', route => route.fulfill({ status: 404, body: '' }));
             await pickBoth(page);
             await expect(page.locator('.trip-card').first()).toBeVisible();
-            await expect(page.locator('.trip-estimates')).toContainText('The suburban railway is left out: its times for today couldn\'t be loaded.');
+            // Right under where it's from and to, above the ways
+            await expect(page.locator('#trip-result > .trip-places + .notice-danger')).toContainText('The suburban railway is left out: its times for today couldn\'t be loaded.');
+            // Its own space under it, as the cards have
+            const gap = await page.locator('#trip-result .notice-danger').evaluate(box => box.nextElementSibling.getBoundingClientRect().top - box.getBoundingClientRect().bottom);
+            expect(gap).toBeGreaterThanOrEqual(12);
             await expect(page.locator('#trip-result .bus-plate').first()).toBeVisible();
         });
     });
