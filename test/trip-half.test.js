@@ -172,6 +172,27 @@ for (const lang of ['en', 'el']) {
         assert.ok(view.includes('/subway?from=syntagma&amp;to=larissa-station'));
     });
 
+    test(`${lang}: the step-free notice above the half hour's answer, for the stations of every way shown; none for buses alone`, () => {
+        const lifts = { stations: { syntagma: { status: 'closed', out: ['Εξωτερικός'] } }, unavailable: false };
+        const ways = r.halfWays(byRail, at(12).seconds);
+        const view = String(r.renderHalf(network, byRail.kind, ways, larissa, { lifts }));
+        check(view);
+        assert.match(view, /^\s*<details class="notice notice-warn closable-notice lift-notice mb-3" open>/);
+        // Where the M2's platform at Larissa has steps only
+        const steps = structuredClone(network);
+        steps.lines.M2.directions.anthoupoli.stops.find(stop => stop.station === 'larissa-station').stepFree = 'no';
+        const gap = String(r.renderHalf(steps, byRail.kind, ways, larissa, { lifts: { stations: {}, unavailable: false } }));
+        assert.ok(gap.includes(s['lifts.no-step-free'].split('{station}')[1].split('{toward}')[0]), 'the platform with steps only');
+        // The rider took the quicker way (the 040 then the M2) over the
+        // directions (any bus): its stations
+        const two = { ...depends, rows: depends.rows.slice(0, 2) };
+        const taken = String(r.renderHalf(network, two.kind, r.halfWays(two, at(10).seconds), syntagma, { taken: two.rows[1], lifts: { stations: { 'syggrou-fix': { status: 'partial', out: [] } }, unavailable: true } }));
+        assert.deepEqual(notices(taken), [{ tone: 'danger', icon: 'error', text: s['lifts.unavailable'] }]);
+        assert.match(taken, /lift-notice/);
+        // Any of the buses: no station, nothing to say
+        assert.doesNotMatch(String(r.renderHalf(network, clear.kind, r.halfWays(clear, at(12).seconds), fix, { lifts: { stations: {}, unavailable: true } })), /lift-/);
+    });
+
     test(`${lang}: the answer for leaving now says the half hour is being checked, while it is`, async () => {
         const { doorToDoor } = await browserModule('tools/trip/client/plan.js', lang);
         const trip = doorToDoor(network, menelaou, syntagma, { ...at(10), date: '2026-10-21' });

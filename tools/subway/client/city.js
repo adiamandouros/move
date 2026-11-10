@@ -34,7 +34,7 @@ const M_LNG = 111_320 * Math.cos(37.97 * Math.PI / 180);
  * at a suburban station OASA's ticket doesn't cover
  * @typedef {Point & { id: string, name: string, names?: Names, station?: string, oasaTicket?: false }} Stop
  */
-/** @typedef {import('./raptor.js').Route & { toward?: Names, code?: string, numbers?: (string | null)[] }} Route where it goes: a rail line's direction, a bus's last stop; code: a bus's OASA route, which its live times name; numbers: each suburban trip's train, which its live times name (decision 42) */
+/** @typedef {import('./raptor.js').Route & { toward?: Names, dir?: string, code?: string, numbers?: (string | null)[] }} Route where it goes: a rail line's direction, a bus's last stop; dir: a metro or tram line's direction, as rail.json names it; code: a bus's OASA route, which its live times name; numbers: each suburban trip's train, which its live times name (decision 42) */
 /** @typedef {import('./raptor.js').Leg} Leg */
 /** @typedef {import('./raptor.js').Journey} Journey */
 /**
@@ -132,7 +132,7 @@ export function joinNetwork(rail, buses, weekday, trains = null) {
 
     const routes = [];
     for (const [line, { directions, tram }] of Object.entries(net.lines)) {
-        for (const { stops: calls, timetable, toward } of Object.values(directions)) {
+        for (const [dir, { stops: calls, timetable, toward }] of Object.entries(directions)) {
             const byProfile = new Map();
             for (const dayOffset of [-1, 0]) {
                 const pattern = timetable.patterns[timetable.days[(weekday + dayOffset + 7) % 7]];
@@ -143,7 +143,7 @@ export function joinNetwork(rail, buses, weekday, trains = null) {
             }
             for (const [profile, trips] of byProfile) {
                 const along = timetable.profiles[profile].stops.map(i => index.get(`rail:${calls[i].station}`));
-                routes.push({ line, mode: tram ? 'tram' : 'metro', stops: along, trips, toward });
+                routes.push({ line, dir, mode: tram ? 'tram' : 'metro', stops: along, trips, toward });
             }
         }
     }

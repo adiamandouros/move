@@ -1130,8 +1130,17 @@ body {
     }
 }
 
-/* Where a notice's facts come from (the lifts: STASY) */
-.lift-source {
+/* The step-free notice's lines, a little apart; under platforms with steps
+   only, that lifts can stop working, smaller */
+.lift-notice > .notice-body > p {
+    margin-bottom: var(--wh-space-1);
+}
+
+.lift-notice > .notice-body > p:last-child {
+    margin-bottom: 0;
+}
+
+.lift-caution {
     font-size: var(--wh-fs-xs);
 }
 

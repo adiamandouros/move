@@ -244,6 +244,8 @@ test('lifts: the stations with lifts out, never cached, and 503 when STASY\'s pa
         omonia: { status: 'partial', out: ['Προς Ανθούπολη'] },
     });
     assert.ok(Date.parse(out.fetched));
+    // How old the copy is, ms, so a page needn't trust its own clock (public/js/core/lifts.js)
+    assert.ok(Number.isInteger(out.age) && out.age >= 0 && out.age < 60_000);
 
     const pageDown = await serve({ fetch: down });
     const refused = await pageDown('/api/lifts');

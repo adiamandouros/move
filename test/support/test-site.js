@@ -179,7 +179,8 @@ export const scenarios = () => ({
     'no-disruptions': site({ fetch: fakeNetwork({ calm: true }) }),
     // Lifts out of service at Kerameikos (no step-free access) and Omonia (one lift)
     'lifts-out': site({ fetch: fakeNetwork({ lifts: LIFTS_OUT }) }),
-    // STASY's lift page doesn't answer: no lift warnings anywhere
+    // STASY's lift page doesn't answer: the lift status is unavailable, an
+    // error above every answer that uses the metro
     'lifts-down': site({ fetch: fakeNetwork({ lifts: null }) }),
     // Before the first data build: no rail.json or bus-stops.json
     'no-data': site({ buildDir: mkdtempSync(join(tmpdir(), 'wayhop-nodata-')) }),

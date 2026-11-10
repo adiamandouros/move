@@ -9,6 +9,7 @@ import { createHealth } from '../server/health.js';
 import { createLifts, LIFTS_PAGE, parseLifts } from '../server/info/lifts.js';
 import { liftsPage, STASY_LINES } from './fixtures/stasy-lifts.js';
 import { browserModule } from './support/browser-modules.js';
+import { notices } from './support/markup.js';
 
 const stations = JSON.parse(readFileSync(new URL('../data/curated/stations.json', import.meta.url), 'utf8')).stations;
 const names = stationNames(stations);
@@ -91,10 +92,11 @@ test('the lift page is fetched at most every 10 minutes, and only when asked', a
     const first = await lifts.current();
     assert.deepEqual(web.calls, [LIFTS_PAGE]);
     assert.equal(first.fetched, new Date(NOW).toISOString());
+    assert.equal(first.age, 0);
     assert.deepEqual(Object.keys(first.stations).sort(), ['kerameikos', 'omonia']);
 
     t += 9 * MIN;
-    await lifts.current();
+    assert.equal((await lifts.current()).age, 9 * MIN, 'how old the copy is, so the page needn\'t trust its own clock');
     assert.equal(web.calls.length, 1, 'within 10 minutes: the copy');
 
     // After 10 minutes: answered from the copy, refreshed behind it
@@ -104,6 +106,31 @@ test('the lift page is fetched at most every 10 minutes, and only when asked', a
     assert.equal(web.calls.length, 2);
     await settle();
     assert.deepEqual((await lifts.current()).stations, {});
+});
+
+test('a copy 20 minutes old is fetched again before it\'s answered, as the page counts one over 30 as none', async () => {
+    let t = NOW;
+    let page = liftsPage(OUT);
+    const web = fakeWeb(() => page);
+    const lifts = createLifts({ fetch: web.fetch, now: () => t, log: () => {} });
+    await lifts.current();
+
+    // Nobody asked for 25 minutes: the new copy, not the old one
+    t += 25 * MIN;
+    page = liftsPage();
+    const answer = await lifts.current();
+    assert.equal(web.calls.length, 2);
+    assert.deepEqual(answer.stations, {});
+    assert.equal(answer.age, 0);
+
+    // STASY can't be read: the old copy, with its age, and asked no more often
+    page = new Error('down');
+    t += 25 * MIN;
+    assert.equal((await lifts.current()).age, 25 * MIN);
+    assert.equal(web.calls.length, 3);
+    t += 5 * MIN;
+    assert.equal((await lifts.current()).age, 30 * MIN);
+    assert.equal(web.calls.length, 3, 'tried 5 minutes ago');
 });
 
 test('a failure keeps the copy for 2 hours, then there is none', async () => {
@@ -195,55 +222,111 @@ test('the diagnostics and the health check report the lift page', async () => {
 
 // ── In the browser (public/js/core/lifts.js) ────────────────────────────────
 
-test('the page asks for the lifts at most every 10 minutes, and keeps a copy for 2 hours offline', async () => {
+// /api/lifts's answer: these stations' lifts out, its copy `age` ms old
+const answered = (stations, age = 0) => ({ ok: true, body: { fetched: new Date(NOW - age).toISOString(), age, stations } });
+const KERAMEIKOS = { kerameikos: { status: 'closed', out: [] } };
+
+// A page's watchLifts() on a fake /api/lifts (answer: answered(), { ok:
+// false } for a 503, or an Error offline) and a fake clock; online unless
+// the browser says it isn't
+async function watching(first, { onLine = true } = {}) {
     const { watchLifts } = await browserModule('public/js/core/lifts.js', 'en');
-    let t = NOW;
-    let answer = { ok: true, body: { fetched: new Date(NOW).toISOString(), stations: { kerameikos: { status: 'closed', out: [] } } } };
-    const asked = [];
+    const state = { t: NOW, answer: first, asked: [], changes: 0 };
     const fetch = async url => {
-        asked.push(url);
-        if (answer instanceof Error) throw answer;
-        return { ok: answer.ok, json: async () => answer.body };
+        state.asked.push(url);
+        if (state.answer instanceof Error) throw state.answer;
+        return { ok: state.answer.ok, json: async () => state.answer.body };
     };
-    let changes = 0;
-    const lifts = watchLifts(() => changes++, { fetch, now: () => t });
+    const was = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+    Object.defineProperty(globalThis, 'navigator', { value: { onLine }, configurable: true });
+    try {
+        state.lifts = watchLifts(() => state.changes++, { fetch, now: () => state.t });
+        state.first = state.lifts();
+    } finally {
+        if (was) Object.defineProperty(globalThis, 'navigator', was);
+    }
+    return state;
+}
 
-    assert.equal(lifts(), null, 'not known yet');
+test('the page asks for the lifts at most every 10 minutes, and says nothing until the first answer is in', async () => {
+    const page = await watching(answered(KERAMEIKOS));
+    assert.equal(page.first, null, 'not known yet');
     await settle();
-    assert.deepEqual(asked, ['/api/lifts']);
-    assert.equal(changes, 1, 'drawn again once they came');
-    assert.ok(lifts().stations.kerameikos);
+    assert.deepEqual(page.asked, ['/api/lifts']);
+    assert.equal(page.changes, 1, 'drawn again once they came');
+    assert.deepEqual(page.lifts(), { stations: KERAMEIKOS, unavailable: false });
 
-    t += 9 * MIN;
-    lifts();
-    assert.equal(asked.length, 1);
+    page.t += 9 * MIN;
+    page.lifts();
+    assert.equal(page.asked.length, 1);
+    page.t += 2 * MIN;
+    page.answer = answered({});
+    page.lifts();
+    await settle();
+    assert.equal(page.asked.length, 2);
+    assert.deepEqual(page.lifts(), { stations: {}, unavailable: false });
+});
 
-    // The server has no recent copy (503): nothing, though the page's is recent
-    answer = { ok: false };
-    t += 2 * MIN;
-    lifts();
+test('a lift status over 30 minutes old is unavailable, its outages still listed; at 2 hours they go too', async () => {
+    // The server's copy is 25 minutes old (STASY can't be read), the
+    // phone's clock an hour wrong: it's the server's age that counts
+    const page = await watching(answered(KERAMEIKOS, 25 * MIN));
+    page.t += 60 * MIN;
     await settle();
-    assert.equal(asked.length, 2);
-    assert.equal(lifts(), null);
+    assert.deepEqual(page.lifts(), { stations: KERAMEIKOS, unavailable: false });
+    // Offline from then on: the copy ages on the page
+    page.answer = new Error('offline');
+    page.t += 5 * MIN;
+    assert.deepEqual(page.lifts(), { stations: KERAMEIKOS, unavailable: true }, '30 minutes old');
+    page.t += 89 * MIN;
+    assert.deepEqual(page.lifts(), { stations: KERAMEIKOS, unavailable: true });
+    page.t += MIN;
+    assert.deepEqual(page.lifts(), { stations: {}, unavailable: true }, 'an outage 2 hours old may be fixed');
+});
 
-    // Offline: the copy, until it's 2 hours old
-    answer = { ok: true, body: { fetched: new Date(t).toISOString(), stations: { kerameikos: { status: 'closed', out: [] } } } };
-    t += 10 * MIN;
-    lifts();
+test('no lift status at all is unavailable: the server has none (503), or the page opened offline', async () => {
+    const refused = await watching({ ok: false });
     await settle();
-    answer = new Error('offline');
-    const fetched = t;
-    t += 10 * MIN;
-    lifts();
-    await settle();
-    assert.equal(asked.length, 4);
-    assert.ok(lifts().stations.kerameikos);
-    t = fetched + 2 * 60 * MIN;
-    assert.equal(lifts(), null);
+    assert.deepEqual(refused.lifts(), { stations: {}, unavailable: true });
+
+    const offline = await watching(answered(KERAMEIKOS), { onLine: false });
+    assert.deepEqual(offline.first, { stations: {}, unavailable: true });
+    assert.deepEqual(offline.asked, [], 'asked once the page is drawn online');
+});
+
+test('the step-free notice says the lift status is unavailable, above the outages known; only for an answer with metro stations', async () => {
+    const en = await browserModule('public/js/core/lifts.js', 'en');
+    const el = await browserModule('public/js/core/lifts.js', 'el');
+    const stale = { stations: KERAMEIKOS, unavailable: true };
+    const html = String(en.liftNotice(stale, ['kerameikos', 'syntagma'], id => id));
+    assert.deepEqual(notices(html), [{ tone: 'danger', icon: 'error', text: 'Lift status unavailable right now, so lifts out of service aren\'t shown.' }]);
+    assert.match(html, /^<div class="notice notice-danger lift-error mb-3">[^]*<\/div><details class="notice notice-warn closable-notice lift-notice mb-3" open>[^]*kerameikos<\/strong>: no step-free access right now/);
+    // Nothing known: the error alone
+    assert.deepEqual(notices(en.liftNotice({ stations: {}, unavailable: true }, ['syntagma'], id => id)).map(n => n.tone), ['danger']);
+    assert.doesNotMatch(String(en.liftNotice({ stations: {}, unavailable: true }, ['syntagma'], id => id)), /lift-notice/);
+    assert.match(String(el.liftNotice({ stations: {}, unavailable: true }, ['syntagma'], id => id)), /Η κατάσταση των ανελκυστήρων δεν είναι διαθέσιμη/);
+    // No metro station in the answer, or not known yet: nothing
+    assert.equal(en.liftNotice({ stations: {}, unavailable: true }, [], id => id), '');
+    assert.equal(en.liftNotice(null, ['syntagma'], id => id), '');
+    // Where the outages come from isn't said under them any more (decision 43)
+    assert.doesNotMatch(html, /stasy\.gr|STASY/);
+    // Screen readers hear it first
+    assert.equal(en.liftSummary(stale, ['kerameikos'], id => id), 'Lift status unavailable right now, so lifts out of service aren\'t shown. kerameikos: no step-free access right now.');
+    assert.equal(en.liftSummary(stale, [], id => id), '');
+});
+
+test('the metro stations among an answer\'s, and where its rides board and get off', async () => {
+    const { metroStations, ridePlatforms } = await browserModule('public/js/core/lifts.js', 'en');
+    const rail = { stations: { syntagma: {}, 'syntagma-tram': { tram: true }, 'piraeus-suburban': { suburban: true } } };
+    assert.deepEqual(metroStations(rail, ['syntagma-tram', 'syntagma', 'piraeus-suburban', 'constructor']), ['syntagma']);
+    assert.deepEqual(ridePlatforms([{ line: 'T6', dir: 'a', from: 'x', to: 'y' }, { line: 'M2', dir: 'b', from: 'z', to: 'w' }]), [
+        { line: 'T6', dir: 'a', station: 'x' }, { line: 'T6', dir: 'a', station: 'y' },
+        { line: 'M2', dir: 'b', station: 'z' }, { line: 'M2', dir: 'b', station: 'w' },
+    ]);
 });
 
 test('a station\'s words in the search: none when its lifts work', async () => {
-    const lifts = { fetched: new Date(NOW).toISOString(), stations: { kerameikos: { status: 'closed', out: [] }, omonia: { status: 'partial', out: ['Προς Ανθούπολη'] } } };
+    const lifts = { stations: { kerameikos: { status: 'closed', out: [] }, omonia: { status: 'partial', out: ['Προς Ανθούπολη'] } }, unavailable: false };
     const en = await browserModule('public/js/core/lifts.js', 'en');
     const el = await browserModule('public/js/core/lifts.js', 'el');
     assert.deepEqual(en.liftWords(lifts, 'kerameikos'), { text: 'No step-free access right now', closed: true });

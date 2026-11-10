@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { browserModule, strings } from './support/browser-modules.js';
-import { markupProblems, notices } from './support/markup.js';
+import { markupProblems, notices, spoken } from './support/markup.js';
 import { buildTrains } from '../server/data/build-suburban.js';
 import { suburbanCurated, train } from './fixtures/railway.js';
 import { aboutTime } from '../public/js/core/times.js';
@@ -44,6 +44,7 @@ const changing = createPlanner({
     knownWalks: [[1, 2, 240, { el: 'Απέναντι, χωρίς σήμανση', en: 'Across the road, with no signs' }]],
 });
 const { latinName: latin } = await browserModule('public/js/core/text.js');
+const { format, localName } = await browserModule('public/js/core/html.js');
 
 for (const lang of ['en', 'el']) {
     const r = await browserModule('tools/trip/client/render.js', lang);
@@ -256,5 +257,54 @@ for (const lang of ['en', 'el']) {
     test(`${lang}: a timetable that has ended is said`, () => {
         const trip = doorToDoor(rail, menelaou, syntagma, NOW);
         assert.ok(String(r.renderTrip(rail, trip, syntagma, { expired: true })).includes(s['trip.timetable-ended']));
+    });
+    // ── The step-free notice (DESIGN.md, the Guide's T12) ──
+    const named = id => localName(network.stations[id].name, lang);
+    const lifts = (stations, unavailable = false) => ({ stations, unavailable });
+    const liftError = { tone: 'danger', icon: 'error', text: s['lifts.unavailable'] };
+
+    test(`${lang}: by metro, the step-free notice above the answer for every station its ways use, after its messages`, () => {
+        // Each way: M1 to Monastiraki, then M3 to Syntagma
+        const trip = doorToDoor(rail, menelaou, syntagma, NOW);
+        assert.ok(trip.options.every(o => o.plan.legs.map(leg => leg.to).join() === 'monastiraki,syntagma'));
+        const view = String(r.renderTrip(rail, trip, syntagma, { expired: true, lifts: lifts({ monastiraki: { status: 'partial', out: ['Προς Πειραιά'] } }) }));
+        check(view);
+        assert.match(view, /<details class="notice notice-info closable-notice lift-notice mb-3" open>/);
+        assert.ok(view.includes(`${format(s['lifts.summary'], { stations: named('monastiraki') })}<`), 'named in its first line');
+        assert.ok(view.indexOf(s['trip.timetable-ended']) < view.indexOf('lift-notice') && view.indexOf('lift-notice') < view.indexOf('trip-card'), 'after the messages, above the answer');
+        nothingUnder(view);
+        // Closed before (liftsOpen()): drawn closed
+        assert.match(String(r.renderTrip(rail, trip, syntagma, { lifts: lifts({ syntagma: { status: 'closed', out: [] } }), liftsOpen: false })), /<details class="notice notice-warn closable-notice lift-notice mb-3">/);
+        // A platform with steps only where the ways board: a warning, and that lifts can stop working
+        const steps = structuredClone(rail);
+        steps.lines.M3.directions.doukissis.stops.find(stop => stop.station === 'monastiraki').stepFree = 'no';
+        const gap = String(r.renderTrip(steps, doorToDoor(steps, menelaou, syntagma, NOW), syntagma, { lifts: lifts({}) }));
+        assert.match(gap, /notice-warn closable-notice lift-notice/);
+        assert.ok(spoken(gap).includes(format(s['lifts.no-step-free'], { station: named('monastiraki'), toward: named('airport') })));
+        // Their lifts all working: nothing
+        assert.doesNotMatch(String(r.renderTrip(rail, trip, syntagma, { lifts: lifts({ kerameikos: { status: 'closed', out: [] } }) })), /lift-/);
+    });
+
+    test(`${lang}: a way with a bus: the stations of its metro ride; by bus alone, nothing, even with no lift status`, () => {
+        // By the 040 alone, then two ways by bus and M2 from Syggrou-Fix
+        const trip = doorToDoor(network, menelaou, syntagma, NOW, { buses: busOptions(city, menelaou, syntagma, NOW) });
+        const [byBus] = trip.options;
+        assert.ok(byBus.city && byBus.rides.every(ride => !ride.board.station));
+        const withMetro = trip.options.find(o => o.rides?.some(ride => ride.mode === 'metro'));
+        assert.equal(withMetro.rides.find(ride => ride.mode === 'metro').dir, 'anthoupoli', 'a metro ride knows its direction');
+        const view = String(r.renderTrip(network, trip, syntagma, { lifts: lifts({ 'syggrou-fix': { status: 'closed', out: ['Εξωτερικός'] } }, true) }));
+        check(view);
+        assert.deepEqual(notices(view), [liftError]);
+        assert.ok(view.includes(`${format(s['lifts.summary'], { stations: named('syggrou-fix') })}<`));
+        assert.ok(view.indexOf('lift-error') < view.indexOf('lift-notice'), 'the error first, what\'s known under it');
+        // For a screen reader, after the trip's summary
+        assert.equal(r.stepFreeSummary(network, trip.options, lifts({ 'syggrou-fix': { status: 'closed', out: [] } }, true)),
+            `${s['lifts.unavailable']} ${format(s['lifts.closed'], { station: named('syggrou-fix') })}`);
+        const busOnly = { ...trip, options: [byBus] };
+        assert.doesNotMatch(String(r.renderTrip(network, busOnly, syntagma, { lifts: lifts({}, true) })), /lift-/);
+        assert.equal(r.stepFreeSummary(network, busOnly.options, lifts({}, true)), '');
+        // A suburban train's stations have no lift status
+        const byTrain = busOptions(withTrains, athensStation, airportStation, NOW).find(o => o.rides.every(ride => ride.mode === 'suburban'));
+        assert.doesNotMatch(String(r.renderTrip(network, { options: [byTrain], walk: { meters: 9000, minutes: 112 }, walkFirst: false, longWalk: false }, airportStation, { lifts: lifts({}, true) })), /lift-/);
     });
 }

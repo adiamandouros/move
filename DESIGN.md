@@ -265,7 +265,7 @@ alone. The tone follows what the message means for the answer (decision
 
 | Tone | For | Icon |
 |---|---|---|
-| `danger` | Something Wayhop uses isn't working, so the answer is missing it: bus or train times that didn't load, the suburban railway left out for the day, live times unavailable (buses or trains); a lift status missing or over 30 minutes old *(v2)* | error |
+| `danger` | Something Wayhop uses isn't working, so the answer is missing it: bus or train times that didn't load, the suburban railway left out for the day, live times unavailable (buses or trains); a lift status missing or over 30 minutes old | error |
 | `warn` | The answer may be off: an old timetable, no route, paused or stale times, a disruption, a station that can't be reached step-free | warning |
 | `info` | How to read the answer: tomorrow's first trains, a long walk, a newer Wayhop waiting, lifts out where the station can still be reached | what it's about: night, walk, bus, step-free |
 | `ok` | All clear: no disruption announcements | ok |
@@ -286,12 +286,13 @@ it.
 `liftNotice` in `/js/core/lifts.js`, above an answer that uses stations: the
 stations that can't be reached step-free (`warn`) or have lifts out but can
 still be reached (`info`), with the step-free symbol in both, closable to
-its first line, which names them. On
-the Subway page, and on the Trip page for every station its rides use
-*(v2)*. No source line under it *(v2)*. A lift status over 30 minutes old,
-or none, is an error ("Lift status unavailable right now, so lifts out of
-service aren't shown"), with any outages already known still listed under
-it *(v2)*. A notice that only lists platforms with steps ends with
+its first line, which names them. On the Subway page, on a station's page,
+and on the Trip page, after its messages, for every station the ways shown
+board or get off at. No source line under it. A lift status over 30
+minutes old, or none, is an error above it ("Lift status unavailable right
+now, so lifts out of service aren't shown"), for an answer with a metro
+station, with any outages already known still listed under it (up to 2
+hours old). A notice that only lists platforms with steps ends with
 `liftCaution` (decision 18).
 
 ### Time badge

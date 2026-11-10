@@ -16,13 +16,13 @@ const trains = JSON.parse(readFileSync(new URL('./browser/data/trains.json', imp
 const NOON = athensNow(new Date('2026-10-21T09:00:00Z')); // Wednesday 12:00 in Athens
 const LATE = athensNow(new Date('2026-10-14T20:55:00Z')); // Wednesday 23:55
 
-// Lifts out of service, as /api/lifts gives them (public/js/core/lifts.js)
+// Lifts out of service, as watchLifts() gives them (public/js/core/lifts.js)
 const LIFTS = {
-    fetched: '2026-10-21T08:50:00Z',
     stations: {
         kifisia: { status: 'partial', out: ['Αποβάθρα - Υπόγεια Διάβαση'] },
         aigaleo: { status: 'closed', out: ['Εξωτερικός', 'Προς Αγία Μαρίνα'] },
     },
+    unavailable: false,
 };
 
 // [from, to, now, options]
@@ -150,8 +150,8 @@ test('lifts out of service where the trip starts, changes or ends: one notice, a
     assert.match(text, /Kifisia: not every elevator works, but the station can still be reached by the others\. Out of service: «Αποβάθρα - Υπόγεια Διάβαση»\./);
     assert.match(text, /Aigaleo: no step-free access right now\. Out of service: «Εξωτερικός», «Προς Αγία Μαρίνα»\./);
     assert.match(html, /<span lang="el">«Εξωτερικός»<\/span>/);
-    // STASY's page in English, read at 11:50 in Athens
-    assert.match(html, /href="https:\/\/www\.stasy\.gr\/en\/[^"]+" target="_blank" rel="noopener">Elevator status from STASY, 11:50/);
+    // Nothing under it says where the lifts' status comes from (decision 43)
+    assert.doesNotMatch(html, /stasy\.gr|STASY/);
     // Screen readers hear it with the trip
     assert.match(render.routeSummary(rail, trip.plans, trip.now, trip.tomorrow, LIFTS), /\. Kifisia: not every elevator works[^.]+\. Aigaleo: no step-free access right now\.$/);
 
@@ -179,8 +179,7 @@ test('a platform with steps only where the trip boards, changes or gets off: a w
     const html = String(render.renderResult(steps, trip.plans, trip.now, { expired: false }));
     assert.match(html, /^\s*<details class="notice notice-warn closable-notice lift-notice mb-3" open>\s*<summary>[^]*?Step-free access: Thiseio</);
     assert.match(spoken(html).replace(/\s+/g, ' '), /Thiseio: the platform toward Piraeus has steps only, no step-free access\./);
-    // Nothing about lifts out of service, but where to see them
-    assert.doesNotMatch(html, /Elevator status from STASY/);
+    // No lifts out of service, but that they can stop and where to see them
     assert.match(spoken(html), /Lifts can stop working at any time: see STASY's elevator page \(opens in a new tab\)\./);
     assert.match(render.routeSummary(steps, trip.plans, trip.now, false), /\. Thiseio: the platform toward Piraeus has steps only, no step-free access\.$/);
     // Passing through it: nothing; the other direction's platform: nothing
@@ -195,11 +194,46 @@ test('a platform with steps only where the trip boards, changes or gets off: a w
     assert.doesNotMatch(String(render.renderIntro(rail, true, null, ['thiseio'])), /lift-notice/);
 });
 
-test('lifts out of service, in Greek: STASY\'s Greek page and the Greek names', async () => {
+test('lifts out of service, in Greek: the Greek names', async () => {
     const render = await browserModule('tools/subway/client/render.js', 'el');
-    const text = spoken(draw(render, TRIPS['lifts out of service on the way']).html).replace(/\s+/g, ' ');
-    assert.match(text, /Αιγάλεω: προς το παρόν χωρίς πρόσβαση με ανελκυστήρα\. Εκτός λειτουργίας: «Εξωτερικός», «Προς Αγία Μαρίνα»\./);
-    assert.match(draw(render, TRIPS['lifts out of service on the way']).html, /href="https:\/\/www\.stasy\.gr\/elevators\/"[^>]*>Ανελκυστήρες σύμφωνα με τη ΣΤΑΣΥ, 11:50/);
+    const { html } = draw(render, TRIPS['lifts out of service on the way']);
+    assert.match(spoken(html).replace(/\s+/g, ' '), /Αιγάλεω: προς το παρόν χωρίς πρόσβαση με ανελκυστήρα\. Εκτός λειτουργίας: «Εξωτερικός», «Προς Αγία Μαρίνα»\./);
+    assert.doesNotMatch(html, /stasy\.gr|ΣΤΑΣΥ/);
+});
+
+test('a station boarded after a walk from the tram counts too: its lifts out are said', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    // T7 to Dimarcheio, then a walk to M3's Dimotiko Theatro
+    const trip = planTrip(network, 'evangelistria', 'kifisia', NOON);
+    assert.ok(trip.plans.some(r => r.legs.some((leg, i) => leg.from === 'dimotiko-theatro' && r.legs[i - 1]?.to === 'dimarcheio')));
+    const lifts = { stations: { 'dimotiko-theatro': { status: 'closed', out: ['Εξωτερικός'] } }, unavailable: false };
+    const html = String(render.renderResult(network, trip.plans, trip.now, { expired: false, lifts }));
+    assert.match(html, /Step-free access: Dimotiko Theatro</);
+    assert.match(render.routeSummary(network, trip.plans, trip.now, false, lifts), /Dimotiko Theatro: no step-free access right now\.$/);
+});
+
+test('the lift status unavailable: an error above the step-free notice, for a trip or a station picked that the metro serves', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    const stale = { ...LIFTS, unavailable: true };
+    const { trip, html } = draw(render, TRIPS['lifts out of service on the way']);
+    const drawn = String(render.renderResult(rail, trip.plans, trip.now, { expired: false, lifts: stale }));
+    assert.deepEqual(notices(drawn)[0], { tone: 'danger', icon: 'error', text: 'Lift status unavailable right now, so lifts out of service aren\'t shown.' });
+    // The outages known still listed, under it
+    assert.match(drawn, /^\s*<div class="notice notice-danger lift-error mb-3">[^]*?<\/div><details class="notice notice-warn closable-notice lift-notice mb-3" open>/);
+    assert.equal(drawn.replace(/^\s*<div class="notice notice-danger lift-error mb-3">[^]*?<\/div>(?=<details)/, ''), html);
+    assert.match(render.routeSummary(rail, trip.plans, trip.now, false, stale), /\. Lift status unavailable right now, so lifts out of service aren't shown\. Kifisia/);
+    // None known: the error alone
+    const none = { stations: {}, unavailable: true };
+    assert.deepEqual(notices(draw(render, ['syntagma', 'airport', NOON, { lifts: none }]).html).map(n => n.tone), ['danger']);
+    // By tram alone: no metro station, nothing to say. With a metro ride too: said
+    const tram = planTrip(network, 'zappeio', 'fix', NOON);
+    assert.deepEqual(tram.plans.map(r => r.legs.map(leg => leg.line)), [['T6'], ['T6', 'M2']]);
+    const ends = { from: 'zappeio', to: 'fix' };
+    assert.doesNotMatch(String(render.renderResult(network, tram.plans.slice(0, 1), tram.now, { expired: false, lifts: none, ...ends })), /lift-/);
+    assert.match(String(render.renderResult(network, tram.plans, tram.now, { expired: false, lifts: none, ...ends })), /lift-error/);
+    // One station picked
+    assert.match(String(render.renderIntro(rail, true, none, ['aigaleo'])), /^<div class="notice notice-danger lift-error mb-3">/);
+    assert.doesNotMatch(String(render.renderIntro(network, true, none, ['zappeio'])), /lift-/);
 });
 
 test('an old timetable says so, with its last day', async () => {
