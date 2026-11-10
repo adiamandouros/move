@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { browserModule, strings } from './support/browser-modules.js';
 import { markupProblems } from './support/markup.js';
+import { minutesMark } from '../public/js/core/times.js';
 
 // OASA's live times on the Trip page's way shown in full (decision 35): the
 // way timed again with them in the worker (liveWay in
@@ -299,6 +300,8 @@ for (const lang of ['en', 'el']) {
     const s = strings(lang);
     const check = view => assert.deepEqual(markupProblems(String(view), { keys }), []);
     const escaped = text => text.replace(/'/g, '&#39;');
+    // Minutes as every page writes them (/js/core/times.js)
+    const mark = (minutes, options) => String(minutesMark(minutes, key => s[key], options));
     const view = viewOf => JSON.parse(JSON.stringify(viewOf));
     const now = 10 * 3600;
     const clock = seconds => `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;
@@ -313,8 +316,8 @@ for (const lang of ['en', 'el']) {
         const html = drawn(way);
         check(html);
         assert.ok(html.includes(`<span class="trip-step-when">${clock(now + 6 * MIN + 30)}</span>`), 'no "~": it\'s OASA\'s');
-        assert.ok(html.includes(`<span class="time-badge time-close"><span aria-hidden="true">6'</span><span class="sr-only">${s['trip.live-minutes'].replace('{minutes}', 6)}</span></span>`));
-        assert.ok(html.includes(s['trip.live-next'].replace('{minutes}', 14)));
+        assert.ok(html.includes(`<span class="time-badge time-close"><span aria-hidden="true">6'</span><span class="sr-only">${s['shell.minutes'].replace('{minutes}', 6)}</span></span>`));
+        assert.ok(html.includes(s['trip.live-next'].replace('{minutes}', mark(14))), 'the next one, "14\'" too');
         assert.ok(html.includes(escaped(s['trip.live-estimates'])) && !html.includes(escaped(s['trip.bus-estimates'])));
         assert.ok(html.includes(`<span class="trip-step-when">${clock(way.option.rides[1].boards)}</span>`), 'the train after it, timed from it');
     });
@@ -322,7 +325,7 @@ for (const lang of ['en', 'el']) {
     test(`${lang}: a bus due in 3 minutes or less says so; one that's the last on the road has no "next"`, () => {
         const html = drawn(timed(busThenTrain, { [BOARD]: { buses: [{ route: ROUTE, line: '040', at: now + 3 * MIN }] } }));
         check(html);
-        assert.ok(html.includes(`<span class="time-badge time-due"><span aria-hidden="true">3'</span><span class="sr-only">${s['trip.live-soon'].replace('{minutes}', 3)}</span></span>`));
+        assert.ok(html.includes(`<span class="time-badge time-due"><span aria-hidden="true">3'</span><span class="sr-only">${s['shell.minutes'].replace('{minutes}', 3)}, ${s['shell.arriving-soon']}</span></span>`));
         const [times] = html.match(/<div class="trip-live">.*?<\/div>/s);
         assert.ok(!times.includes('trip-step-note'), 'no "next"');
     });
@@ -369,7 +372,8 @@ for (const lang of ['en', 'el']) {
         check(html);
         const [directed, offer] = html.split('<div class="trip-card" id="trip-quicker">');
         assert.ok(directed.includes('<h2 class="trip-total" tabindex="-1">'), 'the directions first');
-        assert.ok(offer.includes(`<h2 class="trip-total trip-total-small">${s['trip.quicker-title'].replace('{minutes}', Math.floor(way.offer.sooner / 60))}</h2>`));
+        assert.ok(offer.includes(`<h2 class="trip-total trip-total-small">${s['trip.quicker-title'].replace('{minutes}', mark(Math.floor(way.offer.sooner / 60)))}</h2>`));
+        assert.equal(r.quickerSummary(way.offer), s['trip.quicker-title'].replace('{minutes}', s['shell.minutes'].replace('{minutes}', Math.floor(way.offer.sooner / 60))), 'in words for a screen reader');
         // Off the T6 at its stop, a tram's ("στη στάση" in Greek, not a station's)
         assert.ok(offer.includes('line-t6'));
         const change = network.stations[way.offer.change.station].name[lang];
@@ -377,7 +381,7 @@ for (const lang of ['en', 'el']) {
         // For the bus, at its stop, by OASA's time, after the walk
         assert.ok(offer.includes(`<span class="bus-plate pill-s">${OFF_BUS.line}</span>`));
         assert.ok(offer.includes(escaped(s['trip.quicker-bus'].split('{bus}')[1]
-            .replace('{stop}', stopNamed(way.offer.stop)).replace('{time}', clock(way.offer.at)).replace('{minutes}', way.offer.walk.minutes))));
+            .replace('{stop}', stopNamed(way.offer.stop)).replace('{time}', clock(way.offer.at))).replace('{minutes}', mark(way.offer.walk.minutes, { about: true }))));
         assert.ok(offer.includes(`<button type="button" id="trip-quicker-take" class="btn btn-primary btn-sm rounded-pill px-4">${escaped(s['trip.quicker-take'])}</button>`));
         assert.ok(offer.includes(`<button type="button" id="trip-quicker-keep" class="btn btn-sm locate-btn">${escaped(s['trip.quicker-keep'])}</button>`));
         // Kept, or none in time: the directions alone
@@ -389,7 +393,8 @@ for (const lang of ['en', 'el']) {
         const taken = offered(quickerBus([16 * MIN]), { taken: true });
         const html = drawnDecided(taken, { offer: true, taken: decidedView.quicker });
         check(html);
-        assert.ok(html.includes(`<h2 class="trip-total" tabindex="-1">${r.rangeText(decidedView.quicker)}</h2>`));
+        const [low, high] = decidedView.quicker.range;
+        assert.ok(html.includes(`<h2 class="trip-total" tabindex="-1">${low === high ? mark(low, { about: true }) : mark([low, high])}</h2>`));
         assert.ok(html.includes(`<span class="trip-arrives">${escaped(s['trip.quicker-taken'])}</span>`));
         assert.ok(html.includes(`<button type="button" id="trip-quicker-back" class="btn btn-sm locate-btn trip-stand">${escaped(s['trip.quicker-back'])}</button>`));
         assert.ok(!html.includes('trip-quicker-take'), 'nothing more offered');

@@ -12,7 +12,7 @@ test.describe('the trip page', () => {
     test('from an address to a station: the trip, then back to the fields', async ({ page }) => {
         await pickBoth(page);
         await expect(page.locator('.trip-card').first()).toBeVisible();
-        await expect(page.locator('.trip-total').first()).toContainText('min');
+        await expect(page.locator('.trip-total [aria-hidden="true"]').first()).toHaveText(/^~?\d+(–\d+)?'$/);
         await expect(page.locator('#trip-form')).toBeHidden();
         await expect(page.locator('.trip-places')).toContainText('Μενελάου 45');
         await page.getByRole('button', { name: 'Change' }).click();
@@ -138,7 +138,9 @@ test.describe('the trip page', () => {
         await pickBoth(page);
         // One clear way at noon: any of the buses from the stops near the door
         const best = page.locator('.trip-card').first();
-        await expect(best.locator('.trip-total')).toHaveText(/^\d+–\d+ min$/);
+        // "16–19'" on screen, "16 to 19 minutes" for screen readers
+        await expect(best.locator('.trip-total [aria-hidden="true"]')).toHaveText(/^\d+–\d+'$/);
+        await expect(best.locator('.trip-total')).toHaveAccessibleName(/^\d+ to \d+ minutes$/);
         await expect(best).toContainText('Best on most departures');
         await expect(best).toContainText('Any of these buses, whichever comes first:');
         await expect(best.locator('.bus-plate').first()).toBeVisible();
@@ -163,7 +165,8 @@ test.describe('the trip page', () => {
         await page.getByRole('combobox', { name: 'Προς' }).fill('Συγγρού-Φιξ');
         await list(page, 'to').first().click();
         const best = page.locator('.trip-card').first();
-        await expect(best.locator('.trip-total')).toHaveText(/^\d+–\d+ λεπτά$/);
+        await expect(best.locator('.trip-total [aria-hidden="true"]')).toHaveText(/^\d+–\d+'$/);
+        await expect(best.locator('.trip-total')).toHaveAccessibleName(/^\d+ έως \d+ λεπτά$/);
         await expect(best).toContainText('Ο καλύτερος στις περισσότερες αναχωρήσεις');
         await expect(best.locator('.bus-plate').first()).toBeVisible();
         await expect(page.locator('.trip-estimates')).toContainText('Οι ώρες των λεωφορείων είναι εκτιμήσεις');
@@ -173,7 +176,7 @@ test.describe('the trip page', () => {
         await pickBoth(page, '/trip?timing');
         const box = page.locator('#trip-timing');
         await expect(box).toContainText(/Buses ready in \d+ ms · This answer in \d+ ms/);
-        await expect(box.getByRole('status')).toHaveText(/^The next half hour, a departure every 2 minutes: \d+ ms, one clear way$/);
+        await expect(box.getByRole('status')).toHaveText(/^The next half hour, a departure every 2'.*: \d+ ms, one clear way$/);
         expect(await axe(page), 'axe-core violations').toEqual([]);
     });
 
@@ -374,7 +377,7 @@ test.describe('the trip page', () => {
         test('a way by train: its line\'s pill, where it goes, the ticket it needs and where its times are from', async ({ page }) => {
             await toMegara(page, '/trip', { here: 'My location', there: 'To' });
             const best = page.locator('.trip-card').first();
-            await expect(best.locator('.trip-total')).toHaveText(/^\d+–\d+ min$/);
+            await expect(best.locator('.trip-total [aria-hidden="true"]')).toHaveText(/^\d+–\d+'$/);
             await expect(best.locator('.line-pill.line-a4').first()).toHaveText('A4');
             await expect(best).toContainText('Megara');
             await expect(best).toContainText('Needs a Hellenic Train ticket, as OASA\'s ticket doesn\'t cover Megara.');
@@ -440,7 +443,7 @@ test.describe('the trip page', () => {
                 await page.clock.runFor(31_000);
                 expect(asked.length).toBe(1);
                 await page.clock.runFor(3_000);
-                await expect(best).toContainText('Running about 8′ late');
+                await expect(best).toContainText('Running about 8\'');
                 expect(asked.length).toBe(2);
                 await expect(best.locator('li.trip-step', { has: page.locator('.line-pill.line-a4') }).locator('.trip-step-when')).toHaveText('12:08');
                 expect(minutesOf(await metroTime(page))).toBeGreaterThan(onTime);
@@ -470,7 +473,7 @@ test.describe('the trip page', () => {
         test('in Greek, how late its train runs', async ({ page }) => {
             await lateness(page, { now: { at: '2026-10-21T09:00:00Z', trains: { 1314: { late: 240, exact: false } } } });
             await toMegara(page, '/el/trip', { here: 'Η θέση μου', there: 'Προς' });
-            await expect(page.locator('.trip-card').first()).toContainText('Καθυστερεί τουλάχιστον 4′');
+            await expect(page.locator('.trip-card').first()).toContainText('Καθυστερεί τουλάχιστον 4\'');
         });
     });
 

@@ -184,7 +184,7 @@ test.describe('the Trip page\'s answers at 200% text', () => {
         test('a train running late, the walk at Larissa Station, the metro', async ({ page }) => {
             await page.route('**/api/trains', route => route.fulfill({ json: { at: '2026-10-21T09:00:00Z', trains: { 1313: { late: 480, exact: true } } } }));
             await hereToSyntagma(page);
-            await expect(page.locator('.trip-card').first()).toContainText('Running about 8′ late');
+            await expect(page.locator('.trip-card').first()).toContainText('Running about 8\'');
             await big(page);
             expect(await page.evaluate(problems)).toEqual([]);
         });

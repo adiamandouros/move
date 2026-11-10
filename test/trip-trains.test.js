@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { browserModule, strings } from './support/browser-modules.js';
 import { markupProblems } from './support/markup.js';
+import { minutesMark } from '../public/js/core/times.js';
 
 // How late the suburban trains run, on the Trip page's way shown in full
 // (decision 42): a train ride timed with it (trainRide in
@@ -138,7 +139,8 @@ for (const lang of ['en', 'el']) {
     const clock = seconds => `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;
     const half = json(halfView(city, megara, syntagma, answer));
     const drawn = (way, now = at(17).seconds) => String(r.renderHalf(network, half.kind, r.halfWays(half, now), syntagma, { live: { way: json(way), now } }));
-    const note = (key, minutes) => s[key].replace('{minutes}', minutes);
+    // Minutes as every page writes them (/js/core/times.js): "5'"
+    const note = (key, minutes) => s[key].replace('{minutes}', String(minutesMark(minutes, k => s[k])));
 
     test(`${lang}: a late train says how late at the timetable's time, the M2 timed after it, and the note says whose estimate it is`, () => {
         const way = timed({ 1323: { late: 5 * MIN, exact: true } });

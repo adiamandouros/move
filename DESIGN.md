@@ -55,9 +55,12 @@ width, so `style.css` sets it); the station page's name is 2xl.
 - Weights: 400 text, 600 labels and emphasis, 700 headings, pills and
   times, 800 only in the wordmark.
 - Tabular figures for every time, minute count, distance and stop code.
-- Minutes are written `7'` everywhere, sentences included ("Walk 3'",
+- Minutes are written `7'` everywhere, sentences included ("Walk ~3'",
   "next in 12'"), never ′ or "min"; screen readers always hear "7 minutes"
-  (the mark `aria-hidden`, the words `sr-only`). *(v2)*
+  (the mark `aria-hidden`, the words `sr-only`). One helper writes them:
+  `minutesMark` in `/js/core/times.js` (`{{minutes 36}}` in views), with
+  `~` and "about" for a guess and "16–19'" for a range. Ticket names
+  ("90-minute ticket") and the text pages (About, Privacy) keep words.
 - Small capitals: one style, xs, weight 700, 0.06em letter spacing, the
   faint colour (`--bs-tertiary-color`). One rule in `style.css` for the
   route heading, the search headings and the Info sub-headings.
@@ -399,6 +402,9 @@ rules, with a picture of a way shown in full.
 - `test/theme.test.js`, `test/browser/theme.spec.js`: the mode logic, the
   switch, remembering, forced colours; `pages.spec.js` runs axe-core on
   every page in light too.
+- `test/times.test.js`: minutes are written one way: no string writes
+  ′, "min" or "{minutes} minutes", and no script draws the mark but
+  `times.js`.
 - `test/browser/text-size.spec.js`: every page at 200% text, as above, the
   Trip page's answers (a way by bus with live times, the quicker way, a way
   by suburban train), and the two parts that change shape.

@@ -65,7 +65,7 @@ export function formProblems(html) {
     ];
 }
 
-// A string key shown as it is ("buses.minutes"): what t() returns for a
+// A string key shown as it is ("shell.minutes"): what t() returns for a
 // string that's missing. `keys`: every known key, to know their prefixes.
 export function untranslatedProblems(html, keys) {
     if (!keys.length) return [];

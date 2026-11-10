@@ -2,7 +2,7 @@ import { language, localHref, t } from '/js/core/i18n.js';
 import { format, formatDate, formatHtml, html, icon, localName, notice, walkingUrl as walkingTo } from '/js/core/html.js';
 import { liftNotice, liftSummary, stationPlatforms, stepFreeGaps } from '/js/core/lifts.js';
 import { linePill, pillList, stationSign } from '/js/core/lines.js';
-import { soonTier, timeBadge } from '/js/core/times.js';
+import { minutesMark, minutesWords, soonTier, timeBadge } from '/js/core/times.js';
 import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, lineEnd, stopNote } from '/js/core/metro.js';
 import { legPositions, tripTime } from './network.js';
 
@@ -47,9 +47,6 @@ const TRAIN_WORDS = { last: 'subway.last-train', secondLast: 'subway.second-last
 const TRAM_WORDS = { last: 'subway.last-tram', secondLast: 'subway.second-last-tram', none: 'subway.no-trams', stop: 'subway.tram-stop-count', stops: 'subway.tram-stops-count', stations: 'subway.tram-leg-stations' };
 const wordsFor = (rail, leg) => rail.lines[leg.line].tram ? TRAM_WORDS : TRAIN_WORDS;
 
-// Minutes as on the station boards: "12'" on screen, "12 minutes" for screen readers
-const minutesMark = minutes => html`<span aria-hidden="true">${minutes}'</span><span class="sr-only">${minutes} ${t('subway.minutes')}</span>`;
-
 // Times shown as clock times rather than minutes from now: tomorrow's trains,
 // and trains over an hour away (after midnight, the first ones of the morning)
 const asClock = (departures, now, tomorrow) => tomorrow || departures[0].departs - now.seconds > HOUR;
@@ -63,7 +60,7 @@ export function departureChip(d, now, clock, words = TRAIN_WORDS) {
     // "12'" on screen, "12 minutes" for screen readers; or "05:32" for both
     const time = clock
         ? html`${clockTime(d.departs)}<span class="sr-only">${note && ` (${note})`},</span>`
-        : html`<span aria-hidden="true">${minutes}'</span><span class="sr-only">${minutes} ${t('subway.minutes')}${note && ` (${note})`},</span>`;
+        : minutesMark(minutes, t, { then: `${note && ` (${note})`},` });
     return timeBadge(tier, time, note);
 }
 
@@ -123,7 +120,7 @@ function legCard(rail, leg, next, now, level, tomorrow, changes, key, open) {
     const where = legPositions(rail, leg, next);
     const { stop } = where;
     const first = leg.departures[0];
-    const ride = changes && first && html`${minutesMark(Math.round((first.arrives - first.departs) / 60))} · `;
+    const ride = changes && first && html`${minutesMark(Math.round((first.arrives - first.departs) / 60), t)} · `;
     const action = next
         ? html`${icon('change-trains', 'me-2')}${t('subway.transfer-at')} <strong>${stationLink(rail, leg.to)}</strong>`
         : html`${icon('get-off', 'me-2')}${t('subway.exit-at')} <strong>${stationLink(rail, leg.to)}</strong>`;
@@ -161,7 +158,7 @@ function legCard(rail, leg, next, now, level, tomorrow, changes, key, open) {
 // Neo Faliro ~7'", with "about 7 minutes" for screen readers, and under it the
 // walk's note, if it has one (the suburban railway's at Piraeus and SKA)
 function walkTo(rail, id, minutes, note = null) {
-    return html`<p class="transfer-connector mb-0">${icon('walk')}<span>${format(t('subway.walk-to'), { station: stationName(rail, id) })} <span aria-hidden="true">~</span><span class="sr-only">${t('subway.about')} </span>${minutesMark(minutes)}${note && html` <span class="walk-note">${localName(note, language)}</span>`}</span></p>`;
+    return html`<p class="transfer-connector mb-0">${icon('walk')}<span>${format(t('subway.walk-to'), { station: stationName(rail, id) })} ${minutesMark(minutes, t, { about: true })}${note && html` <span class="walk-note">${localName(note, language)}</span>`}</span></p>`;
 }
 
 // The note on the walk between two stations, if it has one (withSuburban in network.js)
@@ -171,7 +168,7 @@ const walkNote = (rail, a, b) => rail.walkNotes?.[a]?.[b] ?? null;
 // "Arrive ~12:47 · 23'" on screen, "Arrive about 12:47 · 23 minutes" for
 // screen readers
 function tripTotal(time) {
-    return time && html`${t('subway.arrive')} <span aria-hidden="true">~</span><span class="sr-only">${t('subway.about')} </span>${clockTime(time.arrives)} · ${minutesMark(time.minutes)}`;
+    return time && html`${t('subway.arrive')} <span aria-hidden="true">~</span><span class="sr-only">${t('subway.about')} </span>${clockTime(time.arrives)} · ${minutesMark(time.minutes, t)}`;
 }
 
 // An option arriving more than this many minutes after the first starts
@@ -182,7 +179,7 @@ export const SLOWER_MINUTES = 5;
 // the user left it
 export const routeKey = route => route.legs.map(leg => `${leg.line}/${leg.dir}/${leg.from}/${leg.to}`).join('+');
 
-// time: tripTime's. closed: why the option starts closed ("9 min slower"),
+// time: tripTime's. closed: why the option starts closed ("9' slower"),
 // or '' when it doesn't. open: the options the user opened or closed
 // (routeKey). stations: the legs whose stations are open (legKey). from, to:
 // where the trip starts and ends, for a walk from the first to the last leg.
@@ -246,7 +243,7 @@ export function renderResult(rail, plans, now, { expired, tomorrow = false, open
     const closed = (r, time) => {
         const slower = time ? Math.floor(time.arrives / 60) - first : 0;
         if (slower <= SLOWER_MINUTES) return '';
-        return r.arrives === null && plans[0].arrives !== null ? t('subway.no-connection') : formatHtml(t('subway.slower'), { min: minutesMark(slower) });
+        return r.arrives === null && plans[0].arrives !== null ? t('subway.no-connection') : formatHtml(t('subway.slower'), { minutes: minutesMark(slower, t) });
     };
     const routes = plans.map((r, i) => html`${i > 0 && html`<hr class="route-divider">`}${routeBlock(rail, r, i, plans.length, now, tomorrow, { time: times[i], closed: closed(r, times[i]), open, stations, from, to })}`);
     // What the trains above show, in words: every symbol in any of them
@@ -281,8 +278,9 @@ export function renderMessage(key) {
 }
 
 // Two stops a short walk apart: no ride to show, only the walk
-export const walkOnly = minutes => format(t('subway.walk-only'), { minutes });
-export const renderWalkOnly = minutes => notice('info', 'walk', walkOnly(minutes), 'subway-message mt-3');
+// (walkOnly in words, for a screen reader)
+export const walkOnly = minutes => format(t('subway.walk-only'), { minutes: minutesWords(minutes, t, true) });
+export const renderWalkOnly = minutes => notice('info', 'walk', formatHtml(t('subway.walk-only'), { minutes: minutesMark(minutes, t, { about: true }) }), 'subway-message mt-3');
 
 // A one-sentence version of the result for screen readers, announced when the
 // stations change (the result itself isn't a live region: it refreshes every 30 s).
@@ -296,11 +294,11 @@ export function routeSummary(rail, plans, now, tomorrow = false, lifts = null) {
     const first = leg.departures[0];
     const when = !first ? ''
         : asClock(leg.departures, now, tomorrow) ? `, ${t('subway.schedule-at').toLowerCase()} ${clockTime(first.departs)}`
-        : `, ${t('subway.schedule-in').toLowerCase()} ${Math.max(0, Math.floor((first.departs - now.seconds) / 60))} ${t('subway.minutes')}`;
+        : `, ${t('subway.schedule-in').toLowerCase()} ${minutesWords(Math.max(0, Math.floor((first.departs - now.seconds) / 60)), t)}`;
     const options = plans.length > 1 ? `${plans.length} ${t('subway.options')}. ${t('subway.option')} 1: ` : '';
     const time = tripTime(rail, plans[0], now);
-    const total = time ? ` ${t('subway.arrive')} ${t('subway.about')} ${clockTime(time.arrives)}, ${time.minutes} ${t('subway.minutes')}.` : '';
+    const total = time ? ` ${t('subway.arrive')} ${t('subway.about')} ${clockTime(time.arrives)}, ${minutesWords(time.minutes, t)}.` : '';
     const access = liftSummary(lifts, tripStations(plans), id => stationName(rail, id), tripGaps(rail, plans));
-    const walk = plans[0].walkFirst ? `${format(t('subway.walk-to'), { station: stationName(rail, leg.from) })}, ${t('subway.about')} ${plans[0].walkFirst} ${t('subway.minutes')}. ` : '';
+    const walk = plans[0].walkFirst ? `${format(t('subway.walk-to'), { station: stationName(rail, leg.from) })}, ${minutesWords(plans[0].walkFirst, t, true)}. ` : '';
     return `${tomorrow ? `${t('subway.tomorrow')} ` : ''}${options}${walk}${line.name} ${t('subway.toward')} ${toward}${when}.${total}${access ? ` ${access}` : ''}`;
 }
