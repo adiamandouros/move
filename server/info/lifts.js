@@ -15,11 +15,15 @@ import { decode } from './announcements.js';
 // Fetched only when someone asks and the copy is older than REFRESH_MS
 // (at most 144 a day, agreed 2026-10-27), so an idle app sends nothing; a
 // failure keeps the last good copy, but one older than MAX_AGE_MS isn't
-// served: an outage that long ago may be fixed. The copy is kept in
+// served: an outage that long ago may be fixed. The page counts a copy over
+// 30 minutes old as no lift status (public/js/core/lifts.js), and asks again
+// every 10: so one WAIT_MS old is fetched again before it's answered, not
+// behind it, and only gets that old when STASY can't be read. The copy is kept in
 // `cacheFile`, so a restart doesn't fetch again at once. STASY's pages come
 // directly or through the relays (server/stasy.js).
 
 const REFRESH_MS = 10 * 60_000;
+const WAIT_MS = 20 * 60_000;
 const MAX_AGE_MS = 2 * 3_600_000;
 // Fewer stations than this on the page: it has changed, not the lifts
 const MIN_STATIONS = 50;
@@ -128,17 +132,19 @@ export function createLifts({ fetch = globalThis.fetch, now = Date.now, log = co
     // Fetch now (sharing a refresh already under way), for the diagnostics
     const refreshNow = () => (refreshing ??= refresh().finally(() => { refreshing = null; }));
 
-    const fresh = () => state && now() - Date.parse(state.fetched) < MAX_AGE_MS;
+    // How old the copy is, ms
+    const age = () => now() - Date.parse(state.fetched);
+    const fresh = () => state && age() < MAX_AGE_MS;
 
-    // → { fetched, stations } or null (no copy recent enough)
+    // → { fetched, age, stations } or null (no copy recent enough)
     async function current() {
         if (now() - checkedAt > REFRESH_MS) {
             refreshNow();
-            // Answer from the last copy and refresh behind it; only wait
-            // when there's nothing to show
-            if (!fresh()) await refreshNow();
+            // Answer from the last copy and refresh behind it; wait when
+            // there's nothing to show, or the copy is getting old
+            if (!fresh() || age() >= WAIT_MS) await refreshNow();
         }
-        return fresh() ? { fetched: state.fetched, stations: state.stations } : null;
+        return fresh() ? { fetched: state.fetched, age: age(), stations: state.stations } : null;
     }
 
     // STASY's names for each station's lifts, { <id>: [name, …] }, from the

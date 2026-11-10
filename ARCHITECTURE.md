@@ -195,7 +195,7 @@ pages use.
   `metro.js` (what the subway page and the station pages share: train
   diagram, central platform badge, stop notes, times),
   `location.js`, `announcements.js`, `lifts.js` (lifts out of service, for
-  the subway page and the station pages), `ads.js`.
+  the subway and trip pages and the station pages), `ads.js`.
 - `tools/<id>/client/`: a tool's own scripts, served at `/tools/<id>/`.
 - **Building HTML**: with ``html`…` `` from `/js/core/html.js`, which escapes
   every value put into it (names from OASA, the strings, numbers) except
@@ -375,9 +375,13 @@ the looks rest and someone wants them.
 Lifts out of service ([server/info/lifts.js](server/info/lifts.js)) come from
 STASY's lift page (stasy.gr/elevators) at most every 10 minutes, only when
 someone asks, through the relays like its other pages, and are kept on disk; a
-copy over 2 hours old isn't served. The subway page warns for the stations a
-trip starts, changes or ends at and in the station search, and a station's
-page for itself (`public/js/core/lifts.js`). Stations STASY lists no lifts
+copy over 2 hours old isn't served, and one 20 minutes old is fetched again
+before it's answered rather than behind it. `/api/lifts` says how old its
+copy is (`age`), so a page needn't trust its own clock. The subway and trip
+pages warn for the metro stations their trips board or get off at, the
+subway page in its station search too, and a station's page for itself
+(`public/js/core/lifts.js`); a page counts a lift status over 30 minutes
+old, or none, as unavailable, an error above the warning. Stations STASY lists no lifts
 for (Nerantziotissa, the airport branch) get no warning. The page names every
 lift of every station; the station editor offers those names for each
 platform's elevators, from the last copy however old. How each platform is

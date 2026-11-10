@@ -1,5 +1,6 @@
 import { externalLink, format, formatHtml, html, localName, notice, walkingUrl } from '/js/core/html.js';
 import { language, localHref, t } from '/js/core/i18n.js';
+import { liftNotice, liftSummary, metroStations, ridePlatforms, stepFreeGaps } from '/js/core/lifts.js';
 import { busPlate, linePill, pillList } from '/js/core/lines.js';
 import { clockTime, lineEnd } from '/js/core/metro.js';
 import { latinName } from '/js/core/text.js';
@@ -245,6 +246,36 @@ function trainLate({ minutes, exact, timetable }) {
     return html`<div class="trip-step-note trip-train-late">${said}${timetable !== undefined && html` · ${format(t('trip.train-timetable'), { time: clockTime(timetable) })}`}</div>`;
 }
 
+// Where a way's rides board and get off, by line and direction: a metro or
+// tram ride's stations (a suburban train's stations and a bus's stops have
+// no lift status or step-free data)
+const wayPlatforms = o => ridePlatforms(o.city
+    ? o.rides.filter(ride => ride.board.station && ride.alight.station).map(ride => ({ line: ride.line, dir: ride.dir, from: ride.board.station, to: ride.alight.station }))
+    : o.plan.legs);
+
+// For the step-free notice of the ways shown: their metro stations, for the
+// lifts out of service there, and their platforms with steps only
+function access(rail, ways) {
+    const platforms = ways.flatMap(wayPlatforms);
+    return { ids: metroStations(rail, platforms.map(p => p.station)), gaps: stepFreeGaps(rail, platforms) };
+}
+
+// Above the answer, after its messages, the step-free notice (DESIGN.md):
+// every station the ways shown use that can't be reached step-free or has
+// lifts out, and an error when the lift status is unavailable. lifts:
+// watchLifts() in /js/core/lifts.js, or null; open: liftsOpen() in metro.js
+function stepFree(rail, ways, lifts, open) {
+    const { ids, gaps } = access(rail, ways);
+    return liftNotice(lifts, ids, id => stationName(rail, id), gaps, open);
+}
+
+// The same in words, for a screen reader, after the answer's summary: '' when there's none
+/** @param {import('../../../types/data.js').Rail} rail @param {any[]} ways @param {any} lifts */
+export function stepFreeSummary(rail, ways, lifts) {
+    const { ids, gaps } = access(rail, ways);
+    return liftSummary(lifts, ids, id => stationName(rail, id), gaps);
+}
+
 // Above the answer, what it's missing (decision 43): the buses' times, or
 // the suburban railway's for today (decision 41). An error; but a newer
 // Wayhop waiting to take over ('updated', main.js) is how to read it, about
@@ -259,18 +290,20 @@ function missing(noBuses, noTrains) {
 // metro and tram alone; 'updated': nor the searches, with a newer Wayhop
 // waiting to take over (main.js). noTrains: the suburban railway has no
 // times for today. checking: the next half hour is being worked out, and may
-// take its place (renderHalf)
+// take its place (renderHalf). lifts, liftsOpen: for the step-free notice
 /**
  * @param {import('../../../types/data.js').Rail} rail @param {ReturnType<typeof import('./plan.js').doorToDoor>} trip
- * @param {import('./plan.js').Place} to @param {{ expired?: boolean, noBuses?: boolean | 'updated', noTrains?: boolean, checking?: boolean }} [shown]
+ * @param {import('./plan.js').Place} to
+ * @param {{ expired?: boolean, noBuses?: boolean | 'updated', noTrains?: boolean, checking?: boolean, lifts?: any, liftsOpen?: boolean }} [shown]
  */
-export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { expired = false, noBuses = false, noTrains = false, checking = false } = {}) {
+export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { expired = false, noBuses = false, noTrains = false, checking = false, lifts = null, liftsOpen = true } = {}) {
     const [best, ...others] = options;
     const trainsStopped = best?.morning;
     return html`
         ${missing(noBuses, noTrains)}
         ${expired && notice('warn', 'warning', t('trip.timetable-ended'), 'mb-3')}
         ${trainsStopped && notice('info', 'night', t('trip.no-trains'), 'mb-3')}
+        ${stepFree(rail, options, lifts, liftsOpen)}
         ${walkFirst && !trainsStopped && walkCard(walk, to)}
         ${best && (walkFirst && !trainsStopped ? html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>${otherCard(rail, best)}` : tripCard(rail, best, to))}
         ${checking && html`<p class="trip-other" id="trip-checking">${t('trip.half-checking')}</p>`}
@@ -388,13 +421,17 @@ const takenOption = (row, departure) => row.options.find((o, d) => d >= departur
 // `offer`, the quicker way the live times have, under the directions; or
 // `taken`, the quicker way's row, when the rider took it: in their place.
 // noTrains: the suburban railway has no times for today (decision 41).
-// Nothing under it (decision 43)
-export function renderHalf(rail, kind, ways, to, { expired = false, longWalk = false, live = null, offer = false, taken = null, noTrains = false } = {}) {
+// lifts, liftsOpen: for the step-free notice, of every way shown. Nothing
+// under it (decision 43)
+export function renderHalf(rail, kind, ways, to, { expired = false, longWalk = false, live = null, offer = false, taken = null, noTrains = false, lifts = null, liftsOpen = true } = {}) {
     const [first, ...rest] = ways;
     const others = taken ? rest.filter(({ row }) => row !== taken) : rest;
+    // The first card's way, as halfCard shows it
+    const shown = live?.way.option ?? (taken ? takenOption(taken, first.departure) : first.o);
     return html`
         ${missing(false, noTrains)}
         ${expired && notice('warn', 'warning', t('trip.timetable-ended'), 'mb-3')}
+        ${stepFree(rail, [shown, ...others.map(way => way.o)], lifts, liftsOpen)}
         ${kind === 'depends' && html`<p class="trip-intro">${t('trip.half-depends-intro')}</p>`}
         ${taken
             ? halfCard(rail, { row: taken, o: takenOption(taken, first.departure) }, to, false, live, true)

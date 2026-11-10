@@ -36,10 +36,12 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
  * leaves and gets there, how many stops it rides, where its line goes, and
  * the walk to it from the ride before (null when it's the same stop), with
  * the note that walk has (a suburban station's change, decision 41), or null.
- * `lines`: every bus line that rides it, the first to come first. `live`:
+ * `dir`: a metro or tram ride's direction, as rail.json names it, for its
+ * platforms' step-free access. `lines`: every bus line that rides it, the
+ * first to come first. `live`:
  * OASA's word on a bus of the way shown in full, once its stop is answered;
  * `late`: how late a suburban train of it runs, once the trains are answered
- * @typedef {{ line: string, lines: string[], mode: string, board: import('/tools/subway/city.js').Stop, alight: import('/tools/subway/city.js').Stop,
+ * @typedef {{ line: string, dir?: string, lines: string[], mode: string, board: import('/tools/subway/city.js').Stop, alight: import('/tools/subway/city.js').Stop,
  *   boards: number, arrives: number, stops: number, toward: { el: string, en: string }, walkBefore: Walk | null,
  *   walkNote: { el: string, en: string } | null, live?: RideLive, late?: import('./trains.js').RideLate }} Ride
  */
@@ -154,7 +156,7 @@ function cityOption(planner, way, access, egress, now, lines = way.legs.map(leg 
         rides: way.legs.map((leg, i) => ({
             line: leg.line, lines: lines[i], mode: leg.mode, board: planner.stops[leg.board], alight: planner.stops[leg.alight],
             boards: leg.boards, arrives: leg.arrives, stops: leg.alightIndex - leg.boardIndex,
-            toward: planner.routes[leg.route].toward, walkBefore: walkOf(leg.walkBefore),
+            toward: planner.routes[leg.route].toward, ...planner.routes[leg.route].dir && { dir: planner.routes[leg.route].dir }, walkBefore: walkOf(leg.walkBefore),
             walkNote: i && leg.walkBefore ? planner.walkNote(way.legs[i - 1].alight, leg.board) : null,
         })),
         firstWalk: walkOf(secondsTo(access, way.legs[0].board)),

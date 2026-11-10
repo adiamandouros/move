@@ -1,6 +1,6 @@
 import { language, localHref, t } from '/js/core/i18n.js';
 import { format, formatDate, formatHtml, html, icon, localName, notice, walkingUrl as walkingTo } from '/js/core/html.js';
-import { liftNotice, liftSummary, stationPlatforms, stepFreeGaps } from '/js/core/lifts.js';
+import { liftNotice, liftSummary, metroStations, ridePlatforms, stationPlatforms, stepFreeGaps } from '/js/core/lifts.js';
 import { linePill, pillList, stationSign } from '/js/core/lines.js';
 import { minutesMark, minutesWords, soonTier, timeBadge } from '/js/core/times.js';
 import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, lineEnd, stopNote } from '/js/core/metro.js';
@@ -21,10 +21,12 @@ function boardAt(rail, id) {
     return html`${before}${stationLink(rail, id)}${after}`;
 }
 
-// Every station the trips start, change or end at, for the lifts out of service there
-const tripStations = plans => plans.flatMap(r => [r.legs[0].from, ...r.legs.map(leg => leg.to)]);
-// The platforms they use there, for those with steps only
-const tripGaps = (rail, plans) => stepFreeGaps(rail, plans.flatMap(r => r.legs.flatMap(leg => [leg.from, leg.to].map(station => ({ line: leg.line, dir: leg.dir, station })))));
+// Every platform the trips board or get off at: where they start, change
+// (after a walk too) or end
+const tripPlatforms = plans => plans.flatMap(r => ridePlatforms(r.legs));
+// Their metro stations, for the lifts out of service there, and those with steps only
+const tripStations = (rail, plans) => metroStations(rail, tripPlatforms(plans).map(p => p.station));
+const tripGaps = (rail, plans) => stepFreeGaps(rail, tripPlatforms(plans));
 
 // Google Maps walking directions to a station
 export function walkingUrl(rail, id) {
@@ -232,7 +234,7 @@ function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, op
 // from, to: where the trip starts and ends, for a walk from the first leg or to the last
 export function renderResult(rail, plans, now, { expired, tomorrow = false, open = {}, stations = {}, legend = true, lifts = null, liftsOpen = true, from = null, to = null }) {
     if (!plans.length) return renderMessage('subway.no-route');
-    const liftsNotice = liftNotice(lifts, tripStations(plans), id => stationName(rail, id), tripGaps(rail, plans), liftsOpen);
+    const liftsNotice = liftNotice(lifts, tripStations(rail, plans), id => stationName(rail, id), tripGaps(rail, plans), liftsOpen);
     const oldNotice = expired && notice('warn', 'warning', format(t('subway.timetable-old'), { date: formatDate(rail.feed.validTo) }), 'timetable-notice mb-3');
     const tomorrowNotice = tomorrow && notice('info', 'night', t('subway.tomorrow'), 'tomorrow-notice mb-3');
     const times = plans.map(r => tripTime(rail, r, now));
@@ -266,7 +268,7 @@ export function renderIntro(rail, legend = true, lifts = null, picked = [], lift
     const stops = Object.values(rail.lines).flatMap(line => Object.values(line.directions)).flatMap(direction => direction.stops);
     const symbols = [...new Set(stops.filter(stop => stop.exits.length).flatMap(diagramSymbols))];
     const gaps = stepFreeGaps(rail, picked.flatMap(id => stationPlatforms(rail, id)));
-    return html`${liftNotice(lifts, picked, id => stationName(rail, id), gaps, liftsOpen)}<div class="subway-intro"><p>${t('subway.intro')}</p>
+    return html`${liftNotice(lifts, metroStations(rail, picked), id => stationName(rail, id), gaps, liftsOpen)}<div class="subway-intro"><p>${t('subway.intro')}</p>
         <ul>${INTRO_POINTS.map(key => html`<li>${t(key)}</li>`)}</ul></div>
         ${symbols.length > 0 && diagramLegend(symbols, t, legend)}`;
 }
@@ -302,7 +304,7 @@ export function routeSummary(rail, plans, now, tomorrow = false, lifts = null) {
     const options = plans.length > 1 ? `${plans.length} ${t('subway.options')}. ${t('subway.option')} 1: ` : '';
     const time = tripTime(rail, plans[0], now);
     const total = time ? ` ${t('subway.arrive')} ${t('subway.about')} ${clockTime(time.arrives)}, ${minutesWords(time.minutes, t)}.` : '';
-    const access = liftSummary(lifts, tripStations(plans), id => stationName(rail, id), tripGaps(rail, plans));
+    const access = liftSummary(lifts, tripStations(rail, plans), id => stationName(rail, id), tripGaps(rail, plans));
     const walk = plans[0].walkFirst ? `${format(t('subway.walk-to'), { station: stationName(rail, leg.from) })}, ${minutesWords(plans[0].walkFirst, t, true)}. ` : '';
     return `${tomorrow ? `${t('subway.tomorrow')} ` : ''}${options}${walk}${line.name} ${t('subway.toward')} ${toward}${when}.${total}${access ? ` ${access}` : ''}`;
 }

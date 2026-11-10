@@ -1,5 +1,7 @@
 import { announce, format, formatHtml, html, localName, notice, setHtml } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
+import { watchLifts } from '/js/core/lifts.js';
+import { liftsOpen } from '/js/core/metro.js';
 import { onLocation, onLocationProblem, startLocation, lastPosition } from '/js/core/location.js';
 import { minutesMark } from '/js/core/times.js';
 import { athensNow, closestStation, isTimetableExpired, withTram } from '/tools/subway/network.js';
@@ -9,7 +11,7 @@ import { arrivalsUrl, dueStops, liveStatus, stopLive, unanswered } from './live.
 import { doorToDoor, isLongWalk } from './plan.js';
 import { placePicker } from './picker.js';
 import { TRAINS_URL, trainsDue, trainsUnanswered } from './trains.js';
-import { halfWays, hasBus, hasTrain, howExact, liveNotice, placeTitle, quickerSummary, rangeText, renderChosen, renderHalf, renderTrip, routeSummary } from './render.js';
+import { halfWays, hasBus, hasTrain, howExact, liveNotice, placeTitle, quickerSummary, rangeText, renderChosen, renderHalf, renderTrip, routeSummary, stepFreeSummary } from './render.js';
 
 const $ = id => document.getElementById(id);
 const result = $('trip-result');
@@ -244,9 +246,10 @@ function start(metro) {
         const latest = [live.way, live.directions].find(way => want && sameRow(way, want));
         const timed = latest ? { way: latest.way, now: athensNow().seconds } : null;
         const offer = !choice && timed?.way.offer;
+        const known = lifts();
         const shown = ways.length
-            ? renderHalf(rail, half.view.kind, ways, to, { expired, longWalk: isLongWalk(ways[0].o), live: timed, offer: !choice, taken: choice === 'taken' ? half.view.quicker : null, noTrains })
-            : renderTrip(rail, trip, to, { expired, noBuses, noTrains: noTrains && !noBuses, checking: Boolean(searches) && !forTrip(half) });
+            ? renderHalf(rail, half.view.kind, ways, to, { expired, longWalk: isLongWalk(ways[0].o), live: timed, offer: !choice, taken: choice === 'taken' ? half.view.quicker : null, noTrains, lifts: known, liftsOpen: liftsOpen() })
+            : renderTrip(rail, trip, to, { expired, noBuses, noTrains: noTrains && !noBuses, checking: Boolean(searches) && !forTrip(half), lifts: known, liftsOpen: liftsOpen() });
         const answer = html`${shown}${TIMING && timingBox(timing)}`;
         setHtml(result, changing ? answer : html`${renderChosen(from, to)}${answer}`);
         $('trip-change')?.addEventListener('click', () => {
@@ -270,11 +273,26 @@ function start(metro) {
         // A quicker way coming up is said once, as it isn't where the keyboard is
         if (offer && !live.offered) announce(quickerSummary(offer));
         live.offered = Boolean(offer);
-        if (speak) announce(ways.length ? halfReady(ways) : trip.options[0] ? routeSummary(trip.options[0]) : t('trip.walk-quicker'));
+        if (speak) {
+            const said = ways.length ? halfReady(ways) : trip.options[0] ? routeSummary(trip.options[0]) : t('trip.walk-quicker');
+            const access = stepFreeSummary(rail, ways.length ? ways.map(way => way.o) : trip.options, known);
+            announce(access ? `${said} ${access}` : said);
+        }
         if (!sameRow(live.wanted, want) || live.wanted?.departure !== want?.departure) retime(want);
         return ways;
     };
     const halfReady = ways => format(t('trip.half-ready'), { range: rangeText(ways[0].row) });
+
+    // Lifts out of service and the lift status (STASY), for the step-free
+    // notice: asked for at once, so they're in by the first answer, and
+    // drawn in when they come, unless someone is in the answer: then with
+    // the next refresh
+    const lifts = watchLifts(() => {
+        if (!from || !to || result.contains(document.activeElement)) return;
+        if (!searches) draw(athensNow(), [], false);
+        else if (forTrip(found)) draw(found.now, found.options, false);
+    });
+    lifts();
 
     // `refresh`: the same trip, for a later time
     const render = ({ speak = false, refresh = false } = {}) => {
