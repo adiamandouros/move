@@ -18,6 +18,11 @@ export function spoken(fragment) {
         .trim();
 }
 
+// Each boxed message drawn with notice() (/js/core/html.js), in order: its
+// tone, its icon and what a screen reader reads of it
+export const notices = html => [...String(html).matchAll(/<div class="notice notice-(\w+)[^"]*"><svg[^>]*><use href="[^"#]*#([\w-]+)"><\/use><\/svg><div class="notice-body">([\s\S]*?)<\/div><\/div>/g)]
+    .map(([, tone, icon, body]) => ({ tone, icon, text: spoken(body) }));
+
 // [{ open, inner }] for each <name …>…</name> (not nested in itself)
 export const elements = (html, name) => [...html.matchAll(new RegExp(`(<${name}\\b[^>]*>)([\\s\\S]*?)</${name}>`, 'g'))]
     .map(([, open, inner]) => ({ open, inner }));

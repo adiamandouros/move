@@ -2,9 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { browserModule, strings } from './support/browser-modules.js';
-import { markupProblems } from './support/markup.js';
+import { markupProblems, notices } from './support/markup.js';
 import { buildTrains } from '../server/data/build-suburban.js';
 import { suburbanCurated, train } from './fixtures/railway.js';
+import { aboutTime } from '../public/js/core/times.js';
 
 // What the trip page draws (tools/trip/client/render.js), in both languages:
 // how exact an address is, the trip, and the hard cases. Each is checked for
@@ -51,6 +52,10 @@ for (const lang of ['en', 'el']) {
     const keys = Object.keys(strings(lang));
     const check = view => assert.deepEqual(markupProblems(String(view), { keys }), []);
     const s = strings(lang);
+    // A time that's a guess (/js/core/times.js): "~12:06", "about 12:06" for screen readers
+    const about = time => String(aboutTime(time, key => s[key]));
+    // Nothing under the answer (decision 43): it ends with its last way
+    const nothingUnder = view => assert.ok(String(view).trimEnd().endsWith('</div>'), 'nothing under the answer');
 
     test(`${lang}: an exact number needs no words, the rest say how far to trust them`, () => {
         assert.equal(r.howExact(street('exact')), null);
@@ -98,8 +103,8 @@ for (const lang of ['en', 'el']) {
         assert.match(view, /trip-total/);
         assert.match(view, /google\.com\/maps\/dir/, 'the walk links to directions');
         assert.ok(view.includes(lang === 'el' ? '/el/subway?from=' : '"/subway?from='), 'where to stand is the Subway page');
-        assert.ok(view.includes(s['trip.estimates']));
         assert.ok(view.includes(s['trip.other-ways']));
+        nothingUnder(view);
     });
 
     test(`${lang}: by tram: the walk from the metro station to the stop is a step, and there's nowhere to stand`, () => {
@@ -131,7 +136,7 @@ for (const lang of ['en', 'el']) {
         assert.ok(last.indexOf('line-m2') < last.indexOf(walkTo('neos-kosmos-tram')), 'after the last train');
     });
 
-    test(`${lang}: a way by bus: the walk to its stop, its plate, its time with "~", where it goes, and why it's an estimate`, () => {
+    test(`${lang}: a way by bus: the walk to its stop, its plate, its time with "~" ("about" to a screen reader), where it goes, nothing under it`, () => {
         const trip = doorToDoor(network, menelaou, syntagma, NOW, { buses: busOptions(city, menelaou, syntagma, NOW) });
         const view = String(r.renderTrip(network, trip, syntagma));
         check(view);
@@ -140,10 +145,11 @@ for (const lang of ['en', 'el']) {
         const stop = lang === 'el' ? ride.board.names.el : ride.board.names.en || latin(ride.board.names.el);
         assert.ok(card.includes(s['trip.walk-to'].replace('{place}', stop)), 'the walk to its stop, by name');
         assert.match(card, /<span class="bus-plate pill-s">040<\/span>/);
-        assert.match(card, /trip-step-when">~\d\d:\d\d</, 'its time an estimate');
+        const [, boards] = card.match(/trip-step-when"><span aria-hidden="true">~(\d\d:\d\d)/) ?? [];
+        assert.ok(boards && card.includes(`trip-step-when">${about(boards)}<`), 'its time an estimate, said in words too (decision 11)');
         assert.ok(card.includes(s['trip.towards'].split('{end}')[0]), 'where it goes');
         assert.equal(card.includes('/subway?from='), false, 'nowhere to stand on a bus');
-        assert.ok(view.includes(`${s['trip.estimates']} ${s['trip.bus-estimates']}`.replace(/'/g, '&#39;')), 'in words, not only "~"');
+        nothingUnder(view);
     });
 
     test(`${lang}: the same ride on two buses shows both, and doesn't say where one of them goes`, () => {
@@ -159,7 +165,7 @@ for (const lang of ['en', 'el']) {
         assert.equal(steps.split(towards).length - 1, both.rides.filter(one => one.lines.length === 1).length);
     });
 
-    test(`${lang}: a way by suburban railway: its pill, its time from the timetable, where it goes, and where its times are from`, () => {
+    test(`${lang}: a way by suburban railway: its pill, its time from the timetable, where it goes, and nothing under it of where its times are from`, () => {
         const way = busOptions(withTrains, athensStation, airportStation, NOW).find(o => o.rides.some(ride => ride.mode === 'suburban'));
         assert.ok(way, 'the search found the train');
         const trip = doorToDoor(network, athensStation, airportStation, NOW, { buses: [way] });
@@ -170,8 +176,8 @@ for (const lang of ['en', 'el']) {
         // From the timetable, as the metro's: no "~"
         assert.ok(view.includes(`trip-step-when">${String(Math.floor(ride.boards / 3600)).padStart(2, '0')}:${String(Math.floor(ride.boards / 60) % 60).padStart(2, '0')}<`));
         assert.ok(view.includes(s['trip.towards'].replace('{end}', lang === 'el' ? 'Αεροδρόμιο' : 'Airport')));
-        assert.ok(view.includes(`${s['trip.estimates']} ${s['trip.train-estimates']}`), 'railway.gov.gr named');
-        assert.equal(view.includes(s['trip.bus-estimates'].replace(/'/g, '&#39;')), false, 'no bus, no word on buses');
+        assert.equal(view.includes('railway.gov.gr'), false, 'credited on the About page, not under the answer');
+        nothingUnder(view);
         assert.equal(view.includes(s['trip.where-to-stand']), false, 'nowhere to stand on the suburban railway');
         // The airport is outside OASA's ticket
         assert.ok(view.includes(s['trip.train-ticket'].replace('{station}', lang === 'el' ? 'Αεροδρόμιο' : 'Airport').replace(/'/g, '&#39;')));
@@ -191,25 +197,25 @@ for (const lang of ['en', 'el']) {
         assert.equal(String(r.renderTrip(network, { options: [inside], walk: { meters: 9000, minutes: 112 }, walkFirst: false, longWalk: false }, airportStation)).includes(s['trip.train-ticket'].split('{station}')[0].replace(/'/g, '&#39;')), false);
     });
 
-    test(`${lang}: when the suburban railway has no times for today, it says it's left out`, () => {
+    test(`${lang}: when the suburban railway has no times for today, an error above the answer says it's left out`, () => {
         const view = String(r.renderTrip(network, doorToDoor(network, menelaou, syntagma, NOW), syntagma, { noTrains: true }));
         check(view);
-        assert.ok(view.includes(s['trip.no-trains-today'].replace(/'/g, '&#39;')));
-        assert.equal(String(r.renderTrip(network, doorToDoor(network, menelaou, syntagma, NOW), syntagma)).includes(s['trip.no-trains-today'].replace(/'/g, '&#39;')), false);
+        assert.deepEqual(notices(view), [{ tone: 'danger', icon: 'error', text: s['trip.no-trains-today'] }]);
+        assert.ok(view.indexOf('notice-danger') < view.indexOf('trip-card'), 'above the answer');
+        nothingUnder(view);
+        assert.deepEqual(notices(r.renderTrip(network, doorToDoor(network, menelaou, syntagma, NOW), syntagma)), []);
     });
 
-    test(`${lang}: without the buses' times, it says the trip is by metro and tram`, () => {
+    test(`${lang}: without the buses' times, an error says the trip is by metro and tram`, () => {
         const view = String(r.renderTrip(network, doorToDoor(network, menelaou, syntagma, NOW), syntagma, { noBuses: true }));
         check(view);
-        assert.ok(view.includes(s['trip.buses-error'].replace(/'/g, '&#39;')));
-        assert.equal(view.includes(s['trip.bus-estimates'].replace(/'/g, '&#39;')), false);
+        assert.deepEqual(notices(view), [{ tone: 'danger', icon: 'error', text: s['trip.buses-error'] }]);
     });
 
     test(`${lang}: without the searches, with a newer Wayhop waiting, it says to close it and open it again, not that the times failed`, () => {
         const view = String(r.renderTrip(network, doorToDoor(network, menelaou, syntagma, NOW), syntagma, { noBuses: 'updated' }));
         check(view);
-        assert.ok(view.includes(s['trip.updated'].replace(/'/g, '&#39;')));
-        assert.equal(view.includes(s['trip.buses-error'].replace(/'/g, '&#39;')), false);
+        assert.deepEqual(notices(view), [{ tone: 'info', icon: 'bus', text: s['trip.updated'] }], 'how to read it, about the buses');
     });
 
     test(`${lang}: to an address, the last walk is there too`, () => {

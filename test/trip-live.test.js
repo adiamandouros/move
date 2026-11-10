@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { browserModule, strings } from './support/browser-modules.js';
-import { markupProblems } from './support/markup.js';
-import { minutesMark } from '../public/js/core/times.js';
+import { markupProblems, notices } from './support/markup.js';
+import { aboutTime, minutesMark } from '../public/js/core/times.js';
 
 // OASA's live times on the Trip page's way shown in full (decision 35): the
 // way timed again with them in the worker (liveWay in
@@ -300,8 +300,11 @@ for (const lang of ['en', 'el']) {
     const s = strings(lang);
     const check = view => assert.deepEqual(markupProblems(String(view), { keys }), []);
     const escaped = text => text.replace(/'/g, '&#39;');
-    // Minutes as every page writes them (/js/core/times.js)
+    // Minutes as every page writes them (/js/core/times.js), and a time that's a guess
     const mark = (minutes, options) => String(minutesMark(minutes, key => s[key], options));
+    const about = time => String(aboutTime(time, key => s[key]));
+    // Nothing under the answer (decision 43): it ends with its last way
+    const nothingUnder = html => assert.ok(html.trimEnd().endsWith('</div>'), 'nothing under the answer');
     const view = viewOf => JSON.parse(JSON.stringify(viewOf));
     const now = 10 * 3600;
     const clock = seconds => `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;
@@ -311,15 +314,15 @@ for (const lang of ['en', 'el']) {
     const ways = r.halfWays(shown, now);
     const drawn = way => String(r.renderHalf(network, shown.kind, ways, point('syntagma'), { live: { way: view(way), now } }));
 
-    test(`${lang}: a bus OASA has coming, by its time, its minutes and the next one's; the note says which times are live`, () => {
+    test(`${lang}: a bus OASA has coming, by its time, its minutes and the next one's`, () => {
         const way = timed(busThenTrain, { [BOARD]: { buses: [{ route: ROUTE, line: '040', at: now + 6 * MIN + 30 }, { route: ROUTE, line: '040', at: now + 14 * MIN }] } });
         const html = drawn(way);
         check(html);
         assert.ok(html.includes(`<span class="trip-step-when">${clock(now + 6 * MIN + 30)}</span>`), 'no "~": it\'s OASA\'s');
         assert.ok(html.includes(`<span class="time-badge time-close"><span aria-hidden="true">6'</span><span class="sr-only">${s['shell.minutes'].replace('{minutes}', 6)}</span></span>`));
         assert.ok(html.includes(s['trip.live-next'].replace('{minutes}', mark(14))), 'the next one, "14\'" too');
-        assert.ok(html.includes(escaped(s['trip.live-estimates'])) && !html.includes(escaped(s['trip.bus-estimates'])));
         assert.ok(html.includes(`<span class="trip-step-when">${clock(way.option.rides[1].boards)}</span>`), 'the train after it, timed from it');
+        nothingUnder(html);
     });
 
     test(`${lang}: a bus due in 3 minutes or less says so; one that's the last on the road has no "next"`, () => {
@@ -330,13 +333,13 @@ for (const lang of ['en', 'el']) {
         assert.ok(!times.includes('trip-step-note'), 'no "next"');
     });
 
-    test(`${lang}: no bus on OASA's live times yet: said, with the timetable's "~" time`, () => {
+    test(`${lang}: no bus on OASA's live times yet: said, with the timetable's "~" time, "about" to a screen reader`, () => {
         const way = timed(busThenTrain, { [BOARD]: { buses: [] } });
         const html = drawn(way);
         check(html);
         assert.ok(html.includes(s['trip.live-none']));
-        assert.ok(html.includes(`<span class="trip-step-when">~${clock(way.option.rides[0].boards)}</span>`));
-        assert.ok(html.includes(escaped(s['trip.bus-estimates'])), 'nothing live, so the timetable note');
+        assert.ok(html.includes(`<span class="trip-step-when">${about(clock(way.option.rides[0].boards))}</span>`));
+        nothingUnder(html);
     });
 
     test(`${lang}: any bus from near the door, the stops with a bus first, each line with its minutes`, () => {
@@ -356,7 +359,6 @@ for (const lang of ['en', 'el']) {
         const [first, next] = html.split('<li class="trip-step">').slice(2);
         assert.ok(first.includes(`<span class="trip-live-bus"><span class="bus-plate pill-s">${line}</span> <span class="time-badge time-later">`), first);
         assert.ok(next.includes(s['trip.live-none']));
-        assert.ok(html.includes(escaped(s['trip.live-estimates'])));
     });
 
     // From Σταύρου 1 to Μενελάου 45 at noon, a decision (decision 36)
@@ -399,18 +401,17 @@ for (const lang of ['en', 'el']) {
         assert.ok(html.includes(`<button type="button" id="trip-quicker-back" class="btn btn-sm locate-btn trip-stand">${escaped(s['trip.quicker-back'])}</button>`));
         assert.ok(!html.includes('trip-quicker-take'), 'nothing more offered');
         assert.ok(html.includes(`<span class="bus-plate pill-s">${OFF_BUS.line}</span> <span class="time-badge`), 'its bus with its minutes');
-        assert.ok(html.includes(escaped(s['trip.live-estimates'])));
         const waiting = drawnDecided(null, { taken: decidedView.quicker });
         check(waiting);
         assert.ok(waiting.includes(escaped(s['trip.quicker-back'])) && waiting.includes(escaped(s['trip.any-bus-then'])));
-        assert.ok(waiting.includes(escaped(s['trip.bus-estimates'])));
     });
 
-    test(`${lang}: paused, unavailable or older live times, said above the answer; paused with a button`, () => {
+    test(`${lang}: paused, unavailable or older live times, said above the answer: an error when they can't be had, a warning when the answer may be off; paused with a button`, () => {
         check(r.liveNotice('paused'));
         assert.match(String(r.liveNotice('paused')), new RegExp(`${s['trip.live-paused']} <button type="button" class="btn btn-link btn-sm p-0 align-baseline">${s['trip.live-resume']}</button>`));
-        assert.ok(String(r.liveNotice('unavailable')).includes(s['trip.live-unavailable']));
-        assert.ok(String(r.liveNotice('stale')).includes(s['trip.live-stale']));
+        assert.deepEqual(notices(r.liveNotice('paused')).map(({ tone, icon }) => [tone, icon]), [['warn', 'warning']]);
+        assert.deepEqual(notices(r.liveNotice('unavailable')), [{ tone: 'danger', icon: 'error', text: s['trip.live-unavailable'] }]);
+        assert.deepEqual(notices(r.liveNotice('stale')), [{ tone: 'warn', icon: 'warning', text: s['trip.live-stale'] }]);
         assert.equal(r.liveNotice(null), '');
     });
 }

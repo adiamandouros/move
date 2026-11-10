@@ -6,7 +6,7 @@ import { language, t } from '/js/core/i18n.js';
 import { remember } from '/js/core/remember.js';
 import { athensNow, closestStation, isTimetableExpired, planTrip, withSuburban, withTram } from './network.js';
 import { stationSearch } from './search.js';
-import { renderIntro, renderMessage, renderResult, renderWalkOnly, routeSummary, walkOnly, walkingUrl } from './render.js';
+import { renderError, renderIntro, renderMessage, renderResult, renderWalkOnly, routeSummary, walkOnly, walkingUrl } from './render.js';
 import { SUBURBAN_HIDDEN, TRAM_HIDDEN, suburbanHidden, tramHidden } from './tram-switch.js';
 
 // Keeps the "in N minutes" chips current while the page is open
@@ -21,7 +21,7 @@ async function loadRail() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return await res.json();
     } catch {
-        setHtml(result, renderMessage('subway.data-error'));
+        setHtml(result, renderError('subway.data-error'));
         return null;
     }
 }

@@ -230,7 +230,6 @@ function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, op
 // lifts: the lifts out of service (watchLifts() in /js/core/lifts.js), or null
 // liftsOpen: whether their notice is open (liftsOpen() in metro.js)
 // from, to: where the trip starts and ends, for a walk from the first leg or to the last
-// Under a trip by suburban train, that its times are railway.gov.gr's (decision 41)
 export function renderResult(rail, plans, now, { expired, tomorrow = false, open = {}, stations = {}, legend = true, lifts = null, liftsOpen = true, from = null, to = null }) {
     if (!plans.length) return renderMessage('subway.no-route');
     const liftsNotice = liftNotice(lifts, tripStations(plans), id => stationName(rail, id), tripGaps(rail, plans), liftsOpen);
@@ -252,7 +251,7 @@ export function renderResult(rail, plans, now, { expired, tomorrow = false, open
     return html`${liftsNotice}${oldNotice}${tomorrowNotice}
         <div class="routes-wrap">${routes}</div>
         ${symbols.length > 0 && diagramLegend(symbols, t, legend)}
-        <p class="schedule-disclaimer">${icon('info', 'me-1')}${t('subway.schedule-disclaimer')}${plans.some(r => r.legs.some(leg => rail.lines[leg.line].suburban)) && ` ${t('subway.train-estimates')}`}</p>`;
+        <p class="schedule-disclaimer">${icon('info', 'me-1')}${t('subway.schedule-disclaimer')}</p>`;
 }
 
 // What the planner shows, as bullets under the intro
@@ -275,6 +274,11 @@ export function renderIntro(rail, legend = true, lifts = null, picked = [], lift
 // Why there's no trip to show, in the same yellow as the other warnings
 export function renderMessage(key) {
     return notice('warn', 'warning', t(key), 'subway-message mt-3');
+}
+
+// What the page needs and couldn't load: an error (decision 43)
+export function renderError(key) {
+    return notice('danger', 'error', t(key), 'subway-message mt-3');
 }
 
 // Two stops a short walk apart: no ride to show, only the walk

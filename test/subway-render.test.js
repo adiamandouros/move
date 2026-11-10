@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { athensNow, planTrip, withSuburban, withTram } from '../tools/subway/client/network.js';
 import { browserModule, strings } from './support/browser-modules.js';
-import { markupProblems, spoken } from './support/markup.js';
+import { markupProblems, notices, spoken } from './support/markup.js';
 import { clockTime } from '../public/js/core/metro.js';
 
 // What the subway page draws for a trip (tools/subway/client/render.js), in
@@ -90,6 +90,7 @@ for (const lang of ['en', 'el']) {
         assert.deepEqual(markupProblems(render.renderIntro(rail), { keys }), []);
         assert.deepEqual(markupProblems(render.renderIntro(rail, true, LIFTS, ['aigaleo']), { keys }), []);
         assert.deepEqual(markupProblems(render.renderMessage('subway.same-station'), { keys }), []);
+        assert.deepEqual(markupProblems(render.renderError('subway.data-error'), { keys }), []);
         assert.deepEqual(markupProblems(render.renderWalkOnly(8), { keys }), []);
     });
 }
@@ -423,6 +424,11 @@ test('same station and no route: shown in the warnings\' yellow, not light grey'
     }
 });
 
+test('the subway data not loaded: an error, as the page is missing what it needs (decision 43)', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    assert.deepEqual(notices(render.renderError('subway.data-error')), [{ tone: 'danger', icon: 'error', text: strings('en')['subway.data-error'] }]);
+});
+
 test('the last trains are also said in words on a line of their own, with their clock times', async () => {
     const { lastTrainWords } = await browserModule('tools/subway/client/render.js', 'en');
     const now = { seconds: 23 * 3600 };
@@ -520,7 +526,7 @@ test('each line, the tram\'s too, has its strip under a leg\'s stations', () => 
     for (const id of Object.keys(network.lines)) assert.ok(css.includes(`.strip-${id.toLowerCase()} {`), id);
 });
 
-test('a trip by suburban train: its line toward where the train ends, as signed, no train diagram, the ticket it needs, its walks\' notes and where its times are from', async () => {
+test('a trip by suburban train: its line toward where the train ends, as signed, no train diagram, the ticket it needs, its walks\' notes, and nothing of where its times are from', async () => {
     const render = await browserModule('tools/subway/client/render.js', 'en');
     const { plans, now, tomorrow } = planTrip(suburban, 'megara', 'syntagma', NOON);
     const html = String(render.renderResult(suburban, plans.slice(0, 1), now, { expired: false, tomorrow, from: 'megara', to: 'syntagma' }));
@@ -534,7 +540,7 @@ test('a trip by suburban train: its line toward where the train ends, as signed,
     assert.match(html, /At Megara:/);
     assert.match(html, /Transfer at <strong>Athens<\/strong>/);
     assert.match(html, /<a href="\/subway\/stations\/larissa-station">Larissa Station<\/a>/);
-    assert.match(text, /Suburban railway times are from railway\.gov\.gr \(OSE\), and its trains often arrive a few minutes late\./);
+    assert.doesNotMatch(html, /railway\.gov\.gr/, 'credited on the About page, not under the answer (decision 43)');
     assert.match(render.routeSummary(suburban, plans, now, tomorrow), /A4 toward Piraeus/);
     // From Piraeus's suburban station, the walk to the metro says it isn't signed; a metro trip doesn't mention the railway
     const fromPiraeus = planTrip(suburban, 'piraeus-suburban', 'monastiraki', NOON);
@@ -550,5 +556,5 @@ test('in Greek, the footbridge at SKA and the ticket beyond it', async () => {
     assert.match(text, /Περπάτημα ως Σιδηροδρομικό Κέντρο Αχαρνών περίπου 6 λεπτά Οι δύο σταθμοί του ΣΚΑ ενώνονται μόνο με μια στενή πεζογέφυρα/);
     assert.match(text, /A3 προς Χαλκίδα/);
     assert.match(text, /δεν καλύπτει τον σταθμό Χαλκίδα\./);
-    assert.match(text, /Οι ώρες του Προαστιακού είναι από το railway\.gov\.gr/);
+    assert.doesNotMatch(text, /railway\.gov\.gr/);
 });

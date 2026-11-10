@@ -146,8 +146,11 @@ The palettes and every contrast number are in the guide.
   "due at 12:14" in a sentence; so are walks and how long a ride takes.
   *(v2)*
 - **~** marks a guess from a timetable: a bus by OASA's timetable
-  (`~12:06`), a walk (`~16'`). A live time has none: a bus on OASA's live
-  times, a suburban train whose lateness is known. *(v2)*
+  (`~12:06`), a walk (`~16'`). Screen readers hear "about" (`aboutTime` and
+  `minutesMark` in `/js/core/times.js`): the "~" is the warning, so no
+  sentence under the answer repeats it (decision 43). A live time has none:
+  a bus on OASA's live times; a suburban train whose lateness is known
+  *(v2)*.
 - The maps stay black in both themes.
 
 ### Light and dark
@@ -257,13 +260,14 @@ Material Symbols Rounded, by meaning: code names what an icon means
 One boxed message, `notice(tone, icon, content)` in `/js/core/html.js`: an
 icon and the text, in a 12px-cornered box with a 1px edge, text at `sm`.
 Four tones, each also told by its icon and its words, never by colour
-alone. The tone follows what the message means for the answer *(v2)*:
+alone. The tone follows what the message means for the answer (decision
+43):
 
 | Tone | For | Icon |
 |---|---|---|
-| `danger` | Something Wayhop uses isn't working, so the answer is missing it: bus or train times that didn't load, live times unavailable (buses or trains), a lift status missing or over 30 minutes old *(v2)* | error |
+| `danger` | Something Wayhop uses isn't working, so the answer is missing it: bus or train times that didn't load, the suburban railway left out for the day, live times unavailable (buses or trains); a lift status missing or over 30 minutes old *(v2)* | error |
 | `warn` | The answer may be off: an old timetable, no route, paused or stale times, a disruption, a station that can't be reached step-free | warning |
-| `info` | How to read the answer: tomorrow's first trains, a long walk, a newer Wayhop waiting, lifts out where the station can still be reached | what it's about: night, walk, bus, step-free *(v2)* |
+| `info` | How to read the answer: tomorrow's first trains, a long walk, a newer Wayhop waiting, lifts out where the station can still be reached | what it's about: night, walk, bus, step-free |
 | `ok` | All clear: no disruption announcements | ok |
 
 An error, a warning and all clear always show their own status icon,
@@ -274,7 +278,8 @@ notice.
 Yellow is for warnings only.
 
 Nothing under an answer says where its times come from: the About page
-credits every source. *(v2)*
+credits every source (decision 43). A message about the answer goes above
+it.
 
 ### Step-free notice
 

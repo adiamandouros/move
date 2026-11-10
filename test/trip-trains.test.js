@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { browserModule, strings } from './support/browser-modules.js';
-import { markupProblems } from './support/markup.js';
-import { minutesMark } from '../public/js/core/times.js';
+import { markupProblems, notices } from './support/markup.js';
+import { aboutTime, minutesMark } from '../public/js/core/times.js';
 
 // How late the suburban trains run, on the Trip page's way shown in full
 // (decision 42): a train ride timed with it (trainRide in
@@ -134,46 +134,46 @@ for (const lang of ['en', 'el']) {
     const keys = Object.keys(strings(lang));
     const s = strings(lang);
     const check = view => assert.deepEqual(markupProblems(String(view), { keys }), []);
-    const escaped = text => text.replace(/'/g, '&#39;');
     const json = value => JSON.parse(JSON.stringify(value));
     const clock = seconds => `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;
     const half = json(halfView(city, megara, syntagma, answer));
     const drawn = (way, now = at(17).seconds) => String(r.renderHalf(network, half.kind, r.halfWays(half, now), syntagma, { live: { way: json(way), now } }));
     // Minutes as every page writes them (/js/core/times.js): "5'"
     const note = (key, minutes) => s[key].replace('{minutes}', String(minutesMark(minutes, k => s[k])));
+    // A time that's a guess: "~12:06", "about 12:06" for screen readers
+    const about = time => String(aboutTime(time, k => s[k]));
 
-    test(`${lang}: a late train says how late at the timetable's time, the M2 timed after it, and the note says whose estimate it is`, () => {
+    test(`${lang}: a late train says how late at the timetable's time, the M2 timed after it, and nothing under the answer`, () => {
         const way = timed({ 1323: { late: 5 * MIN, exact: true } });
         const html = drawn(way);
         check(html);
         assert.ok(html.includes(`<span class="trip-step-when">${clock(A4)}</span>`), 'the timetable\'s time, without "~"');
         assert.ok(html.includes(`<div class="trip-step-note trip-train-late">${note('trip.train-late', 5)}</div>`));
         assert.ok(html.includes(`<span class="trip-step-when">${clock(way.option.rides[1].boards)}</span>`), 'the M2 after it');
-        assert.ok(html.includes(escaped(s['trip.train-late-estimates'])));
+        assert.ok(html.trimEnd().endsWith('</div>'), 'nothing under the answer (decision 43)');
         const atLeast = drawn(timed({ 1323: { late: 4 * MIN, exact: false } }));
         assert.ok(atLeast.includes(note('trip.train-late-at-least', 4)));
     });
 
-    test(`${lang}: on time when measured so; nothing said of a train only known to be at least on time, nor the note`, () => {
+    test(`${lang}: on time when measured so; nothing said of a train only known to be at least on time`, () => {
         assert.ok(drawn(timed({ 1323: { late: 20, exact: true } })).includes(`<div class="trip-step-note trip-train-late">${s['trip.train-on-time']}</div>`));
         const unknown = drawn(timed({ 1323: { late: 20, exact: false } }));
         assert.ok(!unknown.includes('trip-train-late'));
-        assert.ok(!drawn(timed(null)).includes(escaped(s['trip.train-late-estimates'])));
     });
 
-    test(`${lang}: a late train caught: "~" its expected time, and the timetable's beside how late it is`, () => {
+    test(`${lang}: a late train caught: "~" its expected time ("about" to a screen reader), and the timetable's beside how late it is`, () => {
         const now = at(17 + 10 / 60);
         const html = drawn(timed({ 1323: { late: 6 * MIN, exact: true } }, now), now.seconds);
         check(html);
-        assert.ok(html.includes(`<span class="trip-step-when">~${clock(A4 + 6 * MIN)}</span>`));
+        assert.ok(html.includes(`<span class="trip-step-when">${about(clock(A4 + 6 * MIN))}</span>`));
         assert.ok(html.includes(`${note('trip.train-late', 6)} · ${s['trip.train-timetable'].replace('{time}', clock(A4))}`));
     });
 
-    test(`${lang}: the notices: the trains' lateness unavailable, with the buses' too`, () => {
+    test(`${lang}: the notices: the trains' lateness unavailable, with the buses' too, an error either way`, () => {
         for (const status of ['trains-unavailable', 'all-unavailable']) {
             const html = String(r.liveNotice(status));
             check(html);
-            assert.ok(html.includes(escaped(s[status === 'all-unavailable' ? 'trip.all-live-unavailable' : 'trip.trains-live-unavailable'])));
+            assert.deepEqual(notices(html), [{ tone: 'danger', icon: 'error', text: s[status === 'all-unavailable' ? 'trip.all-live-unavailable' : 'trip.trains-live-unavailable'] }]);
         }
     });
 }

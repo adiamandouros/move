@@ -247,7 +247,7 @@ pages use.
   to 3 changes (`raptor.js`, made once for each day's trains), and keeps the 3
   that arrive first. Beside a tram leg those can have more changes; metro
   trains alone only do if they get there 5 minutes sooner.
-- **The suburban railway in the planner** ([decision 42](docs/decisions/0042-suburban-railway-live-times.md)):
+- **The suburban railway in the planner** ([decision 44](docs/decisions/0044-suburban-railway-credited-on-about.md)):
   `withSuburban(rail, trains, date)` in `network.js` joins `trains.json` to
   either network in the same shape, each station a station (marked
   `suburban`, with an id of its own and "(suburban)" when it has a metro
@@ -267,7 +267,7 @@ pages use.
   browser and the planner lab share them: `city.js` joins the metro, the tram,
   a day of `buses.json` ([decision 30](docs/decisions/0030-bus-timetable.md))
   and a day of the suburban railway's `trains.json` (`trainDay`,
-  [decision 42](docs/decisions/0042-suburban-railway-live-times.md)) into one network, with walks of up to 10 minutes between stops from the
+  [decision 44](docs/decisions/0044-suburban-railway-credited-on-about.md)) into one network, with walks of up to 10 minutes between stops from the
   straight line (× 1.4, measured against a street router); `ways.js` finds the
   ways a rider could choose from, beyond the search's best with each number
   of rides; `weights.js` puts them in order by what they cost a rider (agreed
@@ -358,7 +358,7 @@ are fetched from OASA's RSS and STASY's news page at most every 15 minutes,
 only when someone asks, and kept on disk.
 
 How late the suburban railway's running trains are ([server/railway/](server/railway/),
-[decision 42](docs/decisions/0042-suburban-railway-live-times.md)) is Wayhop's own
+[decision 44](docs/decisions/0044-suburban-railway-credited-on-about.md)) is Wayhop's own
 reckoning, as railway.gov.gr fills in a train's delay only once its trip is
 over: `stream.js` takes one look at its live stream (the first positions,
 then it hangs up, about 250 KB, the trains' history skipped as it comes),
@@ -446,7 +446,7 @@ is logged; each route's stops are saved as they arrive, so a fetch that still
 fails is picked up where it stopped by the next build, and meanwhile the last
 network is used. The suburban railway's timetable comes from railway.gov.gr,
 OSE's train site, as there's no open data for it
-([decision 42](docs/decisions/0042-suburban-railway-live-times.md)): `railway.js`
+([decision 44](docs/decisions/0044-suburban-railway-credited-on-about.md)): `railway.js`
 fetches its schedule boards once an Athens day, yesterday's to 4 days ahead,
 10 seconds apart, into `data/raw/railway/`, keeping the boards there are when
 it fails; `build-suburban.js` makes `data/build/trains.json` from them and

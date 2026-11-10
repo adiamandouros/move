@@ -95,9 +95,15 @@ test.describe('the announcement sources down', () => {
 test.describe('before the first data build', () => {
     test.use({ scenario: 'no-data', allowErrors: [/status of (404|503)/] });
 
-    test('the subway page says the data couldn\'t load', async ({ page }) => {
+    test('the subway page says the data couldn\'t load, as an error', async ({ page }) => {
         await page.goto('/subway?from=syntagma&to=airport');
-        await expect(page.locator('#app-content')).toContainText('Couldn\'t load the subway data.');
+        await expect(page.locator('#subway-result .notice-danger')).toContainText('Couldn\'t load the subway data.');
+        expect(await axe(page)).toEqual([]);
+    });
+
+    test('the trip page says the train times couldn\'t load, as an error', async ({ page }) => {
+        await page.goto('/trip');
+        await expect(page.locator('#trip-result .notice-danger')).toContainText('The train times couldn\'t be loaded.');
         expect(await axe(page)).toEqual([]);
     });
 

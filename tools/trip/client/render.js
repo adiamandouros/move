@@ -3,7 +3,7 @@ import { language, localHref, t } from '/js/core/i18n.js';
 import { busPlate, linePill, pillList } from '/js/core/lines.js';
 import { clockTime, lineEnd } from '/js/core/metro.js';
 import { latinName } from '/js/core/text.js';
-import { minutesBadge, minutesMark, minutesWords } from '/js/core/times.js';
+import { aboutTime, minutesBadge, minutesMark, minutesWords } from '/js/core/times.js';
 
 const stationName = (rail, id) => localName(rail.stations[id].name, language);
 // A stop of the city's search (buses.js): a station by its name, a bus stop
@@ -104,7 +104,7 @@ function rideStep(rail, ride, now) {
     const live = ride.live && 'at' in ride.live ? ride.live : null;
     const beyond = [ride.board, ride.alight].find(stop => stop.oasaTicket === false);
     const caught = ride.late?.timetable !== undefined;
-    return step((bus && !live) || caught ? `~${clockTime(ride.boards)}` : clockTime(ride.boards), html`
+    return step((bus && !live) || caught ? aboutTime(clockTime(ride.boards), t) : clockTime(ride.boards), html`
         <div>${pill(rail, ride)}${ride.lines.length === 1 && html` ${format(t('trip.towards'), { end: cityName(ride.toward) })}`}</div>
         ${ride.late && trainLate(ride.late)}
         ${live && html`<div class="trip-live">${liveBadge(live.at, now)}${live.next !== null && html`<span class="trip-step-note">${formatHtml(t('trip.live-next'), { minutes: minutesMark(minutesTo(live.next, now), t) })}</span>`}</div>`}
@@ -245,19 +245,21 @@ function trainLate({ minutes, exact, timetable }) {
     return html`<div class="trip-step-note trip-train-late">${said}${timetable !== undefined && html` · ${format(t('trip.train-timetable'), { time: clockTime(timetable) })}`}</div>`;
 }
 
-// Under the answer, what its times are: walks and the timetable's trains,
-// then `bus`, what its buses' are, where it has any, and where it has
-// suburban trains, theirs, with `trainsLate`, that a train's lateness is
-// Wayhop's estimate (decision 42); when the suburban railway's times for today
-// couldn't be had, that it's left out (decision 41); and with `range`, what
-// the half hour's ranges are
-const estimates = (options, { bus = null, noTrains = false, range = false, trainsLate = false }) => html`<p class="trip-estimates">${t('trip.estimates')}${bus && html` ${bus}`}${options.some(hasTrain) && html` ${t('trip.train-estimates')}`}${trainsLate && html` ${t('trip.train-late-estimates')}`}${noTrains && html` ${t('trip.no-trains-today')}`}${range && html` ${t('trip.range-note')}`}</p>`;
+// Above the answer, what it's missing (decision 43): the buses' times, or
+// the suburban railway's for today (decision 41). An error; but a newer
+// Wayhop waiting to take over ('updated', main.js) is how to read it, about
+// the buses
+function missing(noBuses, noTrains) {
+    return html`${noBuses && (noBuses === 'updated' ? notice('info', 'bus', t('trip.updated'), 'mb-3') : notice('danger', 'error', t('trip.buses-error'), 'mb-3'))}
+        ${noTrains && notice('danger', 'error', t('trip.no-trains-today'), 'mb-3')}`;
+}
 
-// The answer: what `doorToDoor` found, drawn. noBuses: the buses' times
-// couldn't be loaded, so it's by metro and tram alone; 'updated': nor the
-// searches, with a newer Wayhop waiting to take over (main.js). noTrains:
-// the suburban railway has no times for today. checking: the next half hour
-// is being worked out, and may take its place (renderHalf)
+// The answer: what `doorToDoor` found, drawn, with nothing under it
+// (decision 43). noBuses: the buses' times couldn't be loaded, so it's by
+// metro and tram alone; 'updated': nor the searches, with a newer Wayhop
+// waiting to take over (main.js). noTrains: the suburban railway has no
+// times for today. checking: the next half hour is being worked out, and may
+// take its place (renderHalf)
 /**
  * @param {import('../../../types/data.js').Rail} rail @param {ReturnType<typeof import('./plan.js').doorToDoor>} trip
  * @param {import('./plan.js').Place} to @param {{ expired?: boolean, noBuses?: boolean | 'updated', noTrains?: boolean, checking?: boolean }} [shown]
@@ -266,19 +268,18 @@ export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { e
     const [best, ...others] = options;
     const trainsStopped = best?.morning;
     return html`
-        ${expired && notice('warn', 'warning', t('trip.timetable-ended'))}
-        ${noBuses && notice('info', 'bus', t(noBuses === 'updated' ? 'trip.updated' : 'trip.buses-error'))}
-        ${trainsStopped && notice('info', 'night', t('trip.no-trains'))}
+        ${missing(noBuses, noTrains)}
+        ${expired && notice('warn', 'warning', t('trip.timetable-ended'), 'mb-3')}
+        ${trainsStopped && notice('info', 'night', t('trip.no-trains'), 'mb-3')}
         ${walkFirst && !trainsStopped && walkCard(walk, to)}
         ${best && (walkFirst && !trainsStopped ? html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>${otherCard(rail, best)}` : tripCard(rail, best, to))}
         ${checking && html`<p class="trip-other" id="trip-checking">${t('trip.half-checking')}</p>`}
         ${longWalk && !walkFirst && longWalkNotice()}
         ${others.length > 0 && !(walkFirst && !trainsStopped) && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
-        ${others.map(o => otherCard(rail, o))}
-        ${estimates(options, { bus: options.some(hasBus) && t('trip.bus-estimates'), noTrains })}`;
+        ${others.map(o => otherCard(rail, o))}`;
 }
 
-const longWalkNotice = () => notice('info', 'bus', html`${t('trip.long-walk')} <a href="${localHref('/buses')}">${t('trip.look-for-buses')}</a>`);
+const longWalkNotice = () => notice('info', 'bus', html`${t('trip.long-walk')} <a href="${localHref('/buses')}">${t('trip.look-for-buses')}</a>`, 'mb-3');
 
 // ── The next half hour's answer (decision 33) ───────────────────────────────
 
@@ -372,9 +373,6 @@ function halfOther(rail, { row, o }) {
     </div>`;
 }
 
-// Whether the way shown has a bus on OASA's live times
-const onLive = ({ way }) => way.option.rides.some(ride => ride.live && 'at' in ride.live) || way.stops.some(({ buses }) => buses?.length);
-
 // The quicker way the rider took, for the departure shown: as OASA's live
 // times have it, or until they do, the half hour's own for that departure or
 // the first after it
@@ -389,13 +387,14 @@ const takenOption = (row, departure) => row.options.find((o, d) => d >= departur
 // midnight), in its place (decision 35). On a decision (decision 36): with
 // `offer`, the quicker way the live times have, under the directions; or
 // `taken`, the quicker way's row, when the rider took it: in their place.
-// noTrains: the suburban railway has no times for today (decision 41)
+// noTrains: the suburban railway has no times for today (decision 41).
+// Nothing under it (decision 43)
 export function renderHalf(rail, kind, ways, to, { expired = false, longWalk = false, live = null, offer = false, taken = null, noTrains = false } = {}) {
     const [first, ...rest] = ways;
     const others = taken ? rest.filter(({ row }) => row !== taken) : rest;
-    const busNote = live && onLive(live) ? t('trip.live-estimates') : t('trip.bus-estimates');
     return html`
-        ${expired && notice('warn', 'warning', t('trip.timetable-ended'))}
+        ${missing(false, noTrains)}
+        ${expired && notice('warn', 'warning', t('trip.timetable-ended'), 'mb-3')}
         ${kind === 'depends' && html`<p class="trip-intro">${t('trip.half-depends-intro')}</p>`}
         ${taken
             ? halfCard(rail, { row: taken, o: takenOption(taken, first.departure) }, to, false, live, true)
@@ -403,17 +402,17 @@ export function renderHalf(rail, kind, ways, to, { expired = false, longWalk = f
         ${offer && live?.way.offer && quickerCard(rail, live.way.offer)}
         ${longWalk && longWalkNotice()}
         ${others.length > 0 && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
-        ${others.map(way => halfOther(rail, way))}
-        ${estimates(ways.map(({ o }) => o), { bus: (taken || ways.some(({ o }) => hasBus(o))) && busNote, noTrains, range: true, trainsLate: Boolean(live?.way.option.rides.some(ride => ride.late)) })}`;
+        ${others.map(way => halfOther(rail, way))}`;
 }
 
 // What's said of the live times above the answer (live.js liveStatus), as on
-// the Buses page; paused, with a button that asks again
+// the Buses page: an error when the buses' or the trains' can't be had
+// (decision 43); paused, with a button that asks again
 /** @param {ReturnType<typeof import('./live.js').liveStatus>} status */
 export function liveNotice(status) {
     if (status === 'paused') return notice('warn', 'warning', html`${t('trip.live-paused')} <button type="button" class="btn btn-link btn-sm p-0 align-baseline">${t('trip.live-resume')}</button>`);
     if (status === 'unavailable') return notice('danger', 'error', t('trip.live-unavailable'));
-    if (status === 'trains-unavailable') return notice('warn', 'warning', t('trip.trains-live-unavailable'));
+    if (status === 'trains-unavailable') return notice('danger', 'error', t('trip.trains-live-unavailable'));
     if (status === 'all-unavailable') return notice('danger', 'error', t('trip.all-live-unavailable'));
     if (status === 'stale') return notice('warn', 'warning', t('trip.live-stale'));
     return '';

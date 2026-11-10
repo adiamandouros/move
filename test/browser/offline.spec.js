@@ -134,7 +134,7 @@ const OLD_SEARCHER = 'export const searcher = ({ post }) => message => { if (\'f
 test('the Trip page\'s bus searches failing with a newer version waiting: it says to close Wayhop and open it again', async ({ page, context }) => {
     await installed(page);
     await context.route('**/tools/trip/searcher.js', route => route.fulfill({ contentType: 'text/javascript', body: OLD_SEARCHER }));
-    const failed = text => text.getByText('The bus times couldn\'t be loaded');
+    const failed = text => text.locator('.notice-danger').getByText('The bus times couldn\'t be loaded');
     const updated = text => text.getByText('Wayhop has been updated.');
 
     // Nothing newer: the times couldn't be loaded

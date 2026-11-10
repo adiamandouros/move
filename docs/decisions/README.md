@@ -53,4 +53,6 @@ decisions, or makes one of the same weight, comes with its page.
 | 39 | [The trip page: buses for everyone, and the bus trip finder gone](0039-trip-buses-for-everyone.md) | In force |
 | 40 | [The suburban railway on the trip page, from railway.gov.gr's timetable](0040-suburban-railway-timetable.md) | Replaced by 41 |
 | 41 | [The suburban railway on the trip page and in the subway planner, from railway.gov.gr's timetable](0041-suburban-railway.md) | Replaced by 42 |
-| 42 | [The suburban railway on the trip page and in the subway planner, from railway.gov.gr's timetable, with how late its trains run](0042-suburban-railway-live-times.md) | In force |
+| 42 | [The suburban railway on the trip page and in the subway planner, from railway.gov.gr's timetable, with how late its trains run](0042-suburban-railway-live-times.md) | Replaced by 44 |
+| 43 | [What an answer says around it: messages by what they mean, and nothing under it](0043-messages-and-nothing-under-the-answer.md) | In force |
+| 44 | [The suburban railway on the trip page and in the subway planner, from railway.gov.gr's timetable, with how late its trains run, credited on the About page](0044-suburban-railway-credited-on-about.md) | In force |

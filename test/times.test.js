@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { loadTools, stringTables } from '../server/pages/registry.js';
-import { minutesBadge, minutesMark, minutesWords, soonTier, timeBadge } from '../public/js/core/times.js';
+import { aboutTime, minutesBadge, minutesMark, minutesWords, soonTier, timeBadge } from '../public/js/core/times.js';
 import { strings } from './support/browser-modules.js';
 
 // The time badge (public/js/core/times.js): how soon, on one scale for buses
@@ -39,6 +39,11 @@ test('minutes that are a guess: "~16\'", "about 16 minutes"; a range: "16–19\'
     // In words alone, for what's announced
     assert.equal(minutesWords(1, tEn, true), 'about 1 minute');
     assert.equal(minutesWords([3, 5], tEl), '3 έως 5 λεπτά');
+});
+
+test('a clock time that\'s a guess: "~12:06" on screen, "about 12:06" for screen readers (decision 11)', () => {
+    assert.equal(String(aboutTime('12:06', tEn)), '<span aria-hidden="true">~12:06</span><span class="sr-only">about 12:06</span>');
+    assert.equal(String(aboutTime('12:06', tEl)), '<span aria-hidden="true">~12:06</span><span class="sr-only">περίπου 12:06</span>');
 });
 
 test('more words for screen readers go after the minutes', () => {
