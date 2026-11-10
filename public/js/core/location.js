@@ -1,9 +1,9 @@
-// The device's location, shared by the pages that use it (Buses, Subway).
+// The device's location, shared by the pages that use it (Buses, Subway, Trip).
 //
 // - Only pages that need it start it, so the browser asks for permission
 //   once, where it's clear why: when the bus page opens (after a "Use my
-//   location" tap the very first time), or on the subway page's "Nearest
-//   station". Pages that don't need it never ask.
+//   location" tap the very first time), or on the subway page's "Nearest"
+//   and the trip page's "My location". Pages that don't need it never ask.
 // - The last position is kept on this device for KEEP_MS, so the next page
 //   has it at once, even without a signal (underground, offline), and
 //   refines it as new positions come in.
@@ -96,6 +96,15 @@ export function onLocation(fn) {
 export function onLocationProblem(fn) {
     problemListeners.add(fn);
     return () => problemListeners.delete(fn);
+}
+
+// The button that starts from where you are, Nearest on the Subway page and
+// My location on the Trip page, one toggle (DESIGN.md, "Start from here"):
+// pressed while it follows the location, blue with its icon filled
+export function showFollowing(button, on) {
+    button.setAttribute('aria-pressed', String(on));
+    const use = button.querySelector('use');
+    use?.setAttribute('href', use.getAttribute('href').replace(/#.*$/, `#nearest${on ? '-filled' : ''}`));
 }
 
 // ── Internal ────────────────────────────────────────────────────────────────

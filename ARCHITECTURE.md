@@ -205,8 +205,9 @@ pages use.
   station pages are built the same way on the server. `test/escaping.test.js`
   feeds markup into every name and note and checks it comes out as text.
 - **Location** (`/js/core/location.js`): only the pages that use it start it
-  (Buses, and Subway when allowed or on "Nearest station"), so the browser
-  asks once, where it's clear why. The last position is kept on the device
+  (Buses, Subway's "Nearest" and Trip's "My location", when allowed or
+  pressed), so the browser asks once, where it's clear why. Nearest and My
+  location are one toggle (`showFollowing`). The last position is kept on the device
   for 10 minutes and shared by the pages
   ([decision 19](docs/decisions/0019-privacy-counts-only.md)), and nothing waits for it: pages
   show what they can and update as positions come.
@@ -329,7 +330,11 @@ version they started with, and it takes over once they're closed
   the bus page's tiers, by the first bus the rider can still catch there,
   so a change far down the trip is asked rarely until it nears; nothing
   while out of sight, and it pauses after 10 minutes untouched, as the bus
-  page does. Its requests carry `&for=plan` (`plan-start`).
+  page does. With My location, the trip is planned again once the rider is
+  200 m from where it was last planned, at most every 2 minutes
+  (`client/follow.js`); its stops keep their answers, so only those new to
+  the way are asked at once. Its requests carry `&for=plan` (`plan-start`
+  for a search, `plan-moved` for a re-plan).
 - `limits.js`: each visitor may ask for 30 stops a minute that aren't cached.
 - `passes.js`: from every fresh answer, the buses that passed a stop (one 3
   minutes away or less, gone from the next answer), a line each in the day's
@@ -351,7 +356,7 @@ version they started with, and it takes over once they're closed
 
 These numbers set our load on OASA, and so do the ones for STASY and the
 bus network below; changes to any of them are agreed first
-([decision 38](docs/decisions/0038-load-on-oasa-buses-for-everyone.md), which replaced 34, 26, 21 and 7).
+([decision 45](docs/decisions/0045-load-on-oasa-my-location-follows.md), which replaced 38, 34, 26, 21 and 7).
 
 Announcements ([server/info/announcements.js](server/info/announcements.js))
 are fetched from OASA's RSS and STASY's news page at most every 15 minutes,
@@ -546,7 +551,7 @@ hour's answer are the app's, in `tools/subway/client/`.
 - live arrivals have come in recently, or nothing needed them (a quiet
   night, a restart);
 - OASA answered and fast enough over the past hour, and the request budget
-  held, with room to spare ([decision 38](docs/decisions/0038-load-on-oasa-buses-for-everyone.md)
+  held, with room to spare ([decision 45](docs/decisions/0045-load-on-oasa-my-location-follows.md)
   has the numbers);
 - every announcement source loaded;
 - last night's data build worked, and its checks of the metro timetable

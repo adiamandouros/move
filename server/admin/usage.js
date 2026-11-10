@@ -45,6 +45,8 @@ export function usageView(days) {
                 paused: d.paused,
                 limited: d.limited,
                 planSearches, planAsked, planPerSearch,
+                // (none before decision 45)
+                planMoved: d.plans?.moved ?? '–',
                 // (nor the collector)
                 collector: d.requests.collector ?? '–',
                 collectorSkipped: d.dropped.collector ?? '–',

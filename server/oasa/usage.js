@@ -6,7 +6,7 @@ import { REQUESTS_PER_SECOND } from './client.js';
 
 // How much Wayhop asks of OASA, and how OASA answers (roadmap item 39):
 // counted each minute, added up per day (Athens time) and kept for KEEP_DAYS,
-// so the limits of decision 38 can be judged by numbers. Counts only: stop
+// so the limits of decision 45 can be judged by numbers. Counts only: stop
 // codes and route names, nothing about who asked. Nothing here sends a request.
 //
 // What is counted (the OASA client, the arrivals cache and the bus API report it):
@@ -24,10 +24,12 @@ import { REQUESTS_PER_SECOND } from './client.js';
 //   horizon   per line, the most minutes ahead OASA predicted a bus, from
 //             fresh answers: how far ahead its predictions reach (for retries
 //             and scheduled times, items 37 and 13)
-//   plans     the Trip page's searches with live times, and its stop answers
-//             by where they came from (also counted in `answers`): its load
-//             on OASA per search (decision 38). Days from before decision 39
-//             also have `trips`, the bus trip finder's, no longer shown
+//   plans     the Trip page's searches with live times, the re-plans from
+//             where the rider moved to that asked for a stop (`moved`), and
+//             its stop answers by where they came from (also counted in
+//             `answers`): its load on OASA per search (decision 45). Days
+//             from before decision 39 also have `trips`, the bus trip
+//             finder's, no longer shown; from before 45, no `moved`
 //   passes    buses seen passing a stop (passes.js); the collector's requests
 //             are the kind 'collector', and its skipped turns are dropped
 //             requests of that kind (decision 26)
@@ -74,7 +76,7 @@ const emptySummary = () => ({
     dropMinutes: 0,
     network: null,
     horizon: {},
-    ...Object.fromEntries(SEARCHES.map(kind => [kind, { searches: 0, answers: counts(SOURCES) }])),
+    ...Object.fromEntries(SEARCHES.map(kind => [kind, { searches: 0, moved: 0, answers: counts(SOURCES) }])),
     pages: { asked: {}, served: {} },
     passes: 0,
     trains: emptyTrains(),
@@ -110,8 +112,10 @@ function addMinute(summary, minute) {
     for (const [line, minutes] of Object.entries(minute.horizon)) summary.horizon[line] = Math.max(summary.horizon[line] ?? 0, minutes);
     // (nor the Trip page's, before it was counted)
     for (const kind of SEARCHES) {
-        summary[kind] ??= { searches: 0, answers: counts(SOURCES) };
+        summary[kind] ??= { searches: 0, moved: 0, answers: counts(SOURCES) };
         summary[kind].searches += minute[kind].searches;
+        // (nor the re-plans, before decision 45)
+        summary[kind].moved = (summary[kind].moved ?? 0) + minute[kind].moved;
         for (const s of SOURCES) summary[kind].answers[s] += minute[kind].answers[s];
     }
     // (nor the pages, before they were counted)
@@ -245,9 +249,11 @@ export function createUsage({ file = null, networkFile = null, now = Date.now, k
         limited() { current().limited++; },
         // A stop's answer to a visitor, and where it came from
         answer(stop, source) { const m = current(); m.answers[source]++; m.stopCodes.add(stop); },
-        // The Trip page (`kind`, SEARCHES): a new search, and a stop's answer
-        // to it (by where it came from)
+        // The Trip page (`kind`, SEARCHES): a new search, a re-plan from where
+        // the rider moved to that asked for a stop, and a stop's answer to
+        // either (by where it came from)
         tripSearch(kind = 'plans') { current()[kind].searches++; },
+        tripMoved(kind = 'plans') { current()[kind].moved++; },
         tripAnswer(source, kind = 'plans') { current()[kind].answers[source]++; },
         // Buses seen passing a stop (passes.js)
         passes(n) { current().passes += n; },

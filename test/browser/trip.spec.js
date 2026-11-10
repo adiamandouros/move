@@ -4,7 +4,7 @@
 // together. The addresses are test/fixtures/places.js.
 import { watchRequests } from './bus-requests.js';
 import { axe, expect, keyboardWalk, onlyOn, test } from './fixtures.js';
-import { from, hereToSyntagma, list, MEGARA, pickBoth, pickDecision, to } from './trip-page.js';
+import { from, hereToSyntagma, list, MEGARA, MENELAOU_45, MENELAOU_85, moveTo, pickBoth, pickDecision, to, watchPlans } from './trip-page.js';
 
 test.describe('the trip page', () => {
     test.beforeEach(onlyOn('phone'));
@@ -70,11 +70,14 @@ test.describe('the trip page', () => {
         await expect(list(page, 'from').first()).toContainText('Καλλιθέας');
     });
 
-    test('my location starts the trip from here', async ({ page }) => {
+    test('my location is on when the page opens: the trip starts from here', async ({ page }) => {
         await page.goto('/trip');
-        await page.getByRole('button', { name: 'My location' }).click();
         await expect(from(page)).toHaveValue('My location');
         await expect(page.getByRole('button', { name: 'My location' })).toHaveAttribute('aria-pressed', 'true');
+        await to(page).fill('Συγγρού-Φιξ');
+        await list(page, 'to').first().click();
+        await expect(page.locator('.trip-card').first()).toBeVisible();
+        await expect(page.locator('.trip-places')).toContainText('My location');
     });
 
     test('what is typed before the train times have loaded is kept, and searched', async ({ page }) => {
@@ -268,6 +271,95 @@ test.describe('the trip page', () => {
             await page.getByRole('combobox', { name: 'Προς' }).fill('Συγγρού-Φιξ');
             await list(page, 'to').first().click();
             await expect(page.locator('.trip-card').first().locator('.trip-live .time-badge').first()).toBeVisible();
+        });
+
+        test.describe('followed by My location (decision 45)', () => {
+            test.use({ location: { at: MENELAOU_45 } });
+
+            // From where the location is, Menelaou 45, to Syggrou-Fix, with
+            // its stops asked and the clock stopped
+            const hereToFix = async (page, run, asks) => {
+                await page.goto('/trip');
+                await expect(page.getByRole('button', { name: 'My location' })).toHaveAttribute('aria-pressed', 'true');
+                await to(page).fill('Συγγρού-Φιξ');
+                await list(page, 'to').first().click();
+                await expect(page.locator('.trip-card').first().locator('.trip-live .time-badge').first()).toBeVisible();
+                await expect.poll(async () => (await asks()).length).toBe(10);
+                await run(1);
+            };
+
+            test('planned again 2 minutes on once 200 m away, the answer kept meanwhile, only stops new to its way asked at once', async ({ page }) => {
+                const { asks, run } = await watchRequests(page);
+                const plans = await watchPlans(page);
+                await hereToFix(page, run, asks);
+                expect((await plans()).map(({ lat, lng }) => ({ lat, lng }))).toEqual([MENELAOU_45]);
+                // The answer is never taken away to be worked out again, nor
+                // swapped for the one for leaving now while its half hour is
+                await page.evaluate(() => new MutationObserver(() => {
+                    window.__blank ||= Boolean(document.querySelector('#trip-result .trip-intro, #trip-checking'));
+                }).observe(document.getElementById('trip-result'), { childList: true, subtree: true }));
+
+                // 350 m on at once, as on a bus: not before 2 minutes. The
+                // clock stops as it's planned again, so its stops are asked
+                // while those it kept were asked a moment ago
+                await moveTo(page, MENELAOU_85);
+                await run(100);
+                expect(await plans()).toHaveLength(1);
+                for (let i = 0; i < 30 && (await plans()).length < 2; i++) await run(1);
+                const [first, again] = await plans();
+                expect({ lat: again.lat, lng: again.lng }).toEqual(MENELAOU_85);
+                expect(again.at - first.at).toBeGreaterThanOrEqual(120_000);
+                expect(again.at - first.at).toBeLessThan(122_000);
+                await expect.poll(async () => (await asks()).some(a => a.for === 'plan-moved')).toBe(true);
+                await page.waitForFunction(() => window.__pending === 0);
+                await expect(page.locator('.trip-card').first().locator('.trip-live .time-badge').first()).toBeVisible();
+                expect(await page.evaluate(() => window.__blank), 'the answer stays').toBe(false);
+
+                // Asked at once: only the stops the first way didn't have, the
+                // first saying it was planned again, and no new search
+                const all = await asks();
+                const before = new Set(all.filter(a => a.at < again.at).map(a => a.code));
+                const after = all.filter(a => a.at >= again.at);
+                expect(after.length).toBeGreaterThan(0);
+                expect(after.filter(a => before.has(a.code)), 'stops kept, asked on their tiers').toEqual([]);
+                expect(after.map(a => a.for)).toEqual(['plan-moved', ...after.slice(1).map(() => 'plan')]);
+                // Kept: asked again on their tiers from here
+                await run(35);
+                expect((await asks()).slice(all.length).some(a => before.has(a.code))).toBe(true);
+            });
+
+            test('not planned again out of sight, but at once back in sight; while paused, planned again with nothing asked', async ({ page }) => {
+                const { asks, run } = await watchRequests(page);
+                const plans = await watchPlans(page);
+                await hereToFix(page, run, asks);
+                const skip = async seconds => {
+                    await page.clock.runFor(seconds * 1000);
+                    await page.waitForFunction(() => window.__pending === 0);
+                };
+                await timeTravel(page, true);
+                await moveTo(page, MENELAOU_85);
+                await skip(150);
+                expect(await plans()).toHaveLength(1);
+                await timeTravel(page, false);
+                await expect.poll(async () => (await plans()).length).toBe(2);
+                await expect(page.locator('.trip-card').first().locator('.trip-live .time-badge').first()).toBeVisible();
+
+                // Untouched for 10 minutes: paused. Moving on plans it again,
+                // which isn't a touch: the new way asks nothing, and says it's paused
+                await skip(610);
+                const status = page.locator('#trip-live-status');
+                await expect(status).toContainText('Live times paused to save data.');
+                const paused = (await asks()).length;
+                await moveTo(page, MENELAOU_45);
+                await skip(2);
+                await expect.poll(async () => (await plans()).length).toBe(3);
+                await expect(status).toContainText('Live times paused to save data.');
+                await page.waitForFunction(() => window.__pending === 0);
+                expect((await asks()).length).toBe(paused);
+                await page.clock.resume();
+                await page.getByRole('button', { name: 'Tap to refresh' }).click();
+                await expect.poll(async () => (await asks()).length).toBeGreaterThan(paused);
+            });
         });
     });
 

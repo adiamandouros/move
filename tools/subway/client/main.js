@@ -1,4 +1,4 @@
-import { lastPosition, locationPermission, onLocation, onLocationProblem, startLocation } from '/js/core/location.js';
+import { lastPosition, locationPermission, onLocation, onLocationProblem, showFollowing, startLocation } from '/js/core/location.js';
 import { announce, localName, setHtml } from '/js/core/html.js';
 import { watchLifts } from '/js/core/lifts.js';
 import { legendOpen, liftsOpen } from '/js/core/metro.js';
@@ -160,9 +160,7 @@ function start(metro, trains) {
     const locate = document.getElementById('locate-btn');
     const follow = on => {
         followLocation = on;
-        locate.setAttribute('aria-pressed', String(on));
-        const use = locate.querySelector('use');
-        use?.setAttribute('href', use.getAttribute('href').replace(/#.*$/, `#nearest${on ? '-filled' : ''}`));
+        showFollowing(locate, on);
     };
     follow(!params.has('from'));
 

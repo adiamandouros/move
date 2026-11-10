@@ -223,7 +223,7 @@ export function shownRows({ rows, clear, decision }) {
 /** @param {import('/tools/subway/ways.js').Way} way @param {boolean} bundle @param {string[]} lines */
 const linesOf = (way, bundle, lines) => way.legs.map((leg, i) => bundle && i === way.legs.length - 1 ? lines : [leg.line]);
 
-// The most stops the way shown asks OASA for (agreed 6 Nov 2026, decision 34; kept in 38)
+// The most stops the way shown asks OASA for (agreed 6 Nov 2026, decision 34; kept in 45)
 export const LIVE_STOPS = 10;
 
 // A bus stop's code at OASA, from its id in the city (city.js)
