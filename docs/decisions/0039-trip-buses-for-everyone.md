@@ -1,6 +1,6 @@
 # 39. The trip page: buses for everyone, and the bus trip finder gone
 
-Decided 2026-11-07 · In force
+Decided 2026-11-07 · Replaced by [46](0046-trip-rail-rides-as-cards.md)
 
 ## Situation
 
