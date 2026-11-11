@@ -57,15 +57,18 @@ Everything [39](0039-trip-buses-for-everyone.md) decided stands, and:
 - **Its ride's minutes always**, beside its stops ("12' · 3 stops"), as the
   trip's heading is door to door. The subway planner shows them only on a
   trip with a change.
-- **No "Change to …" line between two cards**: the first card's "Change at
-  …" and the next card's "At …:" say it, and a walk between them is its row.
-- **The legend** of what the trains show comes under the way's card, before
-  the other ways, with only the symbols its trains show, open or closed as
-  the rider last left a legend on any page.
+- **No "Change to …" line between two cards**: the first card's "Transfer
+  at …" and the next card's "At …:" say it, and a walk between them is its
+  row.
+- **The legend** of what the trains show comes under the way, after the
+  quicker way's offer when there's one, before the other ways: only the
+  symbols its trains show, open or closed as the rider last left a legend
+  on any page.
 - **No "Where to stand on the train" button**: the card shows where. This
   replaces 29's "Where to stand is for the metro".
 - **The stations on the way** stay open or closed as the rider left them
-  while the page refreshes each minute, until the trip changes.
+  while the page refreshes each minute, as long as the trip goes to the same
+  place (a start that follows My location included).
 - **The subway planner's words** go to the trip page with its own (tool.json
   `borrows`), so the card reads the same on both: no new words.
 - **The suburban railway's rides stay rows** for now. Their card, with a

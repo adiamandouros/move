@@ -3,7 +3,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { STASY_LIFTS_PAGE } from '../../public/js/core/metro.js';
 import { loadConfig } from '../config.js';
-import { SHELL_STRINGS, stringGetter, toolNames } from './i18n.js';
+import { mergeStrings, SHELL_STRINGS, stringGetter, toolNames } from './i18n.js';
 import { fares } from './fares.js';
 import { lastTrains } from './last-trains.js';
 import { appData } from './seo.js';
@@ -86,7 +86,8 @@ export function sitePages(tools, config = loadConfig({}), rail = () => null) {
                     ...tool.rail && { metro: lastTrains(rail(), tool.data.lastTrains, lang, stringGetter(strings, lang)) },
                     ...tool.data.fares && { prices: fares(tool.data.fares, lang) },
                 }, { lang, strings }),
-                strings: tool.strings,
+                // With the strings of the tools it borrows from (tool.json "borrows")
+                strings: tool.borrows ? mergeStrings(...tool.borrows.map(id => tools.find(other => other.id === id).strings), tool.strings) : tool.strings,
                 scripts: tool.scripts.map(s => `/tools/${tool.id}/${s}`),
                 active: tool.id,
                 ad: tool.ad,

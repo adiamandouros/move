@@ -1692,6 +1692,12 @@ body {
     margin-left: auto;
 }
 
+/* A metro or tram ride: the Subway page's card, across the whole step
+   (decision 46), its corners inside the trip card's */
+.trip-leg > .result-card {
+    --bs-card-border-radius: calc(var(--wh-radius-lg) - 1px);
+}
+
 /* A walk's walking directions, at the far right of its row as on a bus
    stop's, as tall as the row */
 .trip-step .directions-btn {

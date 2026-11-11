@@ -32,6 +32,8 @@ export interface Tool {
     rail?: boolean;
     /** Fetches the Trip page's buses.json in the background (/js/core/ready-buses.js) */
     readyBuses?: boolean;
+    /** The other tools whose strings its page and scripts use too */
+    borrows?: string[];
     /** Full path of page.hbs, its view (server/pages/templates.js) */
     view: string;
     /** strings.json */

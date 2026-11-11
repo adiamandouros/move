@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { browserModule, strings } from './support/browser-modules.js';
-import { markupProblems, notices } from './support/markup.js';
+import { markupProblems, nothingUnder, notices } from './support/markup.js';
 import { aboutTime, minutesMark } from '../public/js/core/times.js';
 
 // How late the suburban trains run, on the Trip page's way shown in full
@@ -131,13 +131,14 @@ test('what\'s said above the answer with a train: its lateness unavailable, with
 
 for (const lang of ['en', 'el']) {
     const r = await browserModule('tools/trip/client/render.js', lang);
+    const subway = await browserModule('tools/subway/client/render.js', lang);
     const keys = Object.keys(strings(lang));
     const s = strings(lang);
     const check = view => assert.deepEqual(markupProblems(String(view), { keys }), []);
     const json = value => JSON.parse(JSON.stringify(value));
     const clock = seconds => `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;
     const half = json(halfView(city, megara, syntagma, answer));
-    const drawn = (way, now = at(17).seconds) => String(r.renderHalf(network, half.kind, r.halfWays(half, now), syntagma, { now, live: { way: json(way) } }));
+    const drawn = (way, now = at(17).seconds) => String(r.renderHalf(network, half.kind, r.halfWays(half, now), syntagma, { now, weekday: 3, live: { way: json(way) } }));
     // Minutes as every page writes them (/js/core/times.js): "5'"
     const note = (key, minutes) => s[key].replace('{minutes}', String(minutesMark(minutes, k => s[k])));
     // A time that's a guess: "~12:06", "about 12:06" for screen readers
@@ -151,8 +152,12 @@ for (const lang of ['en', 'el']) {
         check(html);
         assert.ok(html.includes(leaves(clock(A4))), 'the timetable\'s time, without "~"');
         assert.ok(html.includes(`<div class="trip-step-note trip-train-late">${note('trip.train-late', 5)}</div>`));
-        assert.ok(html.includes(leaves(clock(way.option.rides[1].boards))), 'the M2 after it');
-        assert.ok(html.trimEnd().endsWith('</div>'), 'nothing under the answer (decision 43)');
+        // Over an hour away, by the clock, as on the Subway page
+        const { boards } = way.option.rides[1];
+        assert.ok(boards - at(17).seconds > H);
+        const m2 = String(subway.departureChip({ departs: boards, isLast: false, isSecondLast: false }, { seconds: at(17).seconds }, true));
+        assert.ok(html.includes(`<span class="schedule-chips">${m2}`), 'the M2 after it, its card\'s first train timed from it');
+        assert.ok(nothingUnder(html), 'nothing under the answer but the legend (decisions 43, 46)');
         const atLeast = drawn(timed({ 1323: { late: 4 * MIN, exact: false } }));
         assert.ok(atLeast.includes(note('trip.train-late-at-least', 4)));
     });

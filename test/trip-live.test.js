@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { browserModule, strings } from './support/browser-modules.js';
-import { markupProblems, notices } from './support/markup.js';
+import { markupProblems, nothingUnder, notices } from './support/markup.js';
 import { aboutTime, minutesBadge, minutesMark } from '../public/js/core/times.js';
 
 // OASA's live times on the Trip page's way shown in full (decision 35): the
@@ -298,15 +298,16 @@ test('what\'s said above the answer: paused, none to be had anywhere, or older t
 
 for (const lang of ['en', 'el']) {
     const r = await browserModule('tools/trip/client/render.js', lang);
+    const subway = await browserModule('tools/subway/client/render.js', lang);
     const keys = Object.keys(strings(lang));
     const s = strings(lang);
     const check = view => assert.deepEqual(markupProblems(String(view), { keys }), []);
     const escaped = text => text.replace(/'/g, '&#39;');
+    // A train's first badge on its card (decision 46), counted from `now`
+    const firstTrain = (departs, at) => `<span class="schedule-chips">${subway.departureChip({ departs, isLast: false, isSecondLast: false }, { seconds: at }, false)}`;
     // Minutes as every page writes them (/js/core/times.js), and a time that's a guess
     const mark = (minutes, options) => String(minutesMark(minutes, key => s[key], options));
     const about = time => String(aboutTime(time, key => s[key]));
-    // Nothing under the answer (decision 43): it ends with its last way
-    const nothingUnder = html => assert.ok(html.trimEnd().endsWith('</div>'), 'nothing under the answer');
     const view = viewOf => JSON.parse(JSON.stringify(viewOf));
     const now = 10 * 3600;
     const clock = seconds => `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;
@@ -314,7 +315,7 @@ for (const lang of ['en', 'el']) {
     // The 040 then the M2 first, as the way shown in full
     const shown = { ...half, rows: half.rows.filter(row => !row.bundle) };
     const ways = r.halfWays(shown, now);
-    const drawn = way => String(r.renderHalf(network, shown.kind, ways, point('syntagma'), { now, live: { way: view(way) } }));
+    const drawn = way => String(r.renderHalf(network, shown.kind, ways, point('syntagma'), { now, weekday: 3, live: { way: view(way) } }));
     // When a ride leaves, on the left of its step, strong
     const leaves = time => `<span class="trip-step-when trip-step-leaves">${time}</span>`;
     // The badges at the right of a bus ride's heading: OASA's, marked live, or the timetable's
@@ -328,8 +329,8 @@ for (const lang of ['en', 'el']) {
         assert.ok(html.includes(`<span class="time-badge time-close"><span aria-hidden="true">6'</span><span class="sr-only">${s['shell.minutes'].replace('{minutes}', 6)}</span></span>`));
         assert.ok(html.includes(`${badges(true, 6, 14)}</div>`), 'the next one, "14\'" too, "next in 14 minutes" to a screen reader, ending the heading');
         assert.ok(html.includes(`<span class="sr-only">${s['trip.next-in'].replace('{minutes}', s['shell.minutes'].replace('{minutes}', 14))}</span>`));
-        assert.ok(html.includes(leaves(clock(way.option.rides[1].boards))), 'the train after it, timed from it');
-        nothingUnder(html);
+        assert.ok(html.includes(firstTrain(way.option.rides[1].boards, now)), 'the train after it, timed from it');
+        assert.ok(nothingUnder(html), 'nothing under the answer');
     });
 
     test(`${lang}: a bus due in 3 minutes or less says so; one that's the last on the road has no "next"`, () => {
@@ -347,7 +348,7 @@ for (const lang of ['en', 'el']) {
         const [bus] = way.option.rides;
         assert.ok(html.includes(leaves(about(clock(bus.boards)))));
         assert.ok(html.includes(badges(false, ...[bus.boards, bus.next].map(at => Math.floor((at - now) / 60)).filter(m => m < 60))), 'the timetable\'s, not marked live');
-        nothingUnder(html);
+        assert.ok(nothingUnder(html), 'nothing under the answer');
     });
 
     test(`${lang}: any bus from near the door, the stops with a bus first, each line with its minutes`, () => {
@@ -361,7 +362,7 @@ for (const lang of ['en', 'el']) {
             [codeOf(city.stops[second.stop])]: { buses: [{ route, line, at: 12 * 3600 + second.walk + 9 * MIN }] },
             [codeOf(city.stops[nearest.stop])]: { buses: [] },
         });
-        const html = String(r.renderHalf(network, half12.kind, r.halfWays(half12, 12 * 3600), fix, { now: 12 * 3600, live: { way: view(way) } }));
+        const html = String(r.renderHalf(network, half12.kind, r.halfWays(half12, 12 * 3600), fix, { now: 12 * 3600, weekday: 3, live: { way: view(way) } }));
         check(html);
         // After "Any of these buses": the stop with a bus, its line with its minutes; then the nearest, answered with none
         const [first, next] = html.split('<li class="trip-step">').slice(2);
@@ -373,7 +374,7 @@ for (const lang of ['en', 'el']) {
     const decidedView = view(halfView(city, stavrou, menelaou45, decided));
     const decidedWays = r.halfWays(decidedView, NOON.seconds);
     const target = { ...menelaou45, title: 'Μενελάου 45', exact: null };
-    const drawnDecided = (way, more = {}) => String(r.renderHalf(network, decidedView.kind, decidedWays, target, { now: NOON.seconds, live: way && { way: view(way) }, ...more }));
+    const drawnDecided = (way, more = {}) => String(r.renderHalf(network, decidedView.kind, decidedWays, target, { now: NOON.seconds, weekday: NOON.weekday, live: way && { way: view(way) }, ...more }));
     const stopNamed = stop => lang === 'el' ? stop.names.el : stop.names.en || latinName(stop.names.el);
 
     test(`${lang}: the quicker way offered under the directions: how much sooner, where to get off the tram for which bus, the walk, the choice`, () => {

@@ -6,7 +6,7 @@ import { language, t } from '/js/core/i18n.js';
 import { remember } from '/js/core/remember.js';
 import { athensNow, closestStation, isTimetableExpired, planTrip, withSuburban, withTram } from './network.js';
 import { stationSearch } from './search.js';
-import { renderError, renderIntro, renderMessage, renderResult, renderWalkOnly, routeSummary, walkOnly, walkingUrl } from './render.js';
+import { renderError, renderIntro, renderMessage, renderResult, renderWalkOnly, routeSummary, walkOnly, walkingUrl, watchLegStations } from './render.js';
 import { SUBURBAN_HIDDEN, TRAM_HIDDEN, suburbanHidden, tramHidden } from './tram-switch.js';
 
 // Keeps the "in N minutes" chips current while the page is open
@@ -144,14 +144,7 @@ function start(metro, trains) {
     });
 
     // A leg's stops: open or close its stations
-    result.addEventListener('click', e => {
-        const toggle = /** @type {Element} */ (e.target).closest?.('.leg-stops-toggle');
-        if (!toggle) return;
-        const open = toggle.getAttribute('aria-expanded') !== 'true';
-        toggle.setAttribute('aria-expanded', String(open));
-        /** @type {HTMLElement} */ (document.getElementById(toggle.getAttribute('aria-controls'))).hidden = !open;
-        stationsOpen[toggle.getAttribute('data-leg')] = open;
-    });
+    watchLegStations(result, () => stationsOpen);
 
     // Without a station in the address, the boarding station follows the
     // user's location until they pick one themselves. The "Nearest" button

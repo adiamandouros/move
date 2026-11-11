@@ -2,9 +2,12 @@ import { externalLink, format, formatHtml, html, icon, localName, notice, walkin
 import { language, localHref, t } from '/js/core/i18n.js';
 import { liftNotice, liftSummary, metroStations, ridePlatforms, stepFreeGaps } from '/js/core/lifts.js';
 import { busPlate, linePill, pillList } from '/js/core/lines.js';
-import { clockTime, lineEnd } from '/js/core/metro.js';
+import { clockTime, diagramLegend, diagramSymbols } from '/js/core/metro.js';
 import { latinName } from '/js/core/text.js';
 import { aboutTime, minutesBadge, minutesMark, minutesWords } from '/js/core/times.js';
+import { legPositions } from '/tools/subway/network.js';
+import { legCard } from '/tools/subway/render.js';
+import { wayLegs } from './legs.js';
 
 const stationName = (rail, id) => localName(rail.stations[id].name, language);
 // A stop of the city's search (buses.js): a station by its name, a bus stop
@@ -81,12 +84,25 @@ function walkStep(walk, name, place, note = null) {
 /** @param {unknown} line @param {string | false} toward @param {unknown} [badges] */
 const rideHead = (line, toward, badges = '') => html`<div class="trip-step-head"><span>${line}${toward && html` ${format(t('trip.towards'), { end: toward })}`}</span>${badges}</div>`;
 
-function legStep(rail, leg) {
-    const stops = leg.toIndex - leg.fromIndex;
-    const place = stationName(rail, leg.to);
-    return step(clockTime(leg.departures[0].departs), html`
-        ${rideHead(linePill(leg.line, rail.lines[leg.line].name, 'm'), stationName(rail, lineEnd(rail, leg.line, leg.dir)))}
-        <div class="trip-step-note">${stops === 1 ? format(t('trip.stop'), { place }) : format(t('trip.stops'), { count: stops, place })}</div>`, { leaves: true });
+// A metro or tram ride: the Subway page's card in its place, with nothing on
+// the left (decision 46). Its badges count from `now` (seconds from the
+// midnight its trains count from), clock times for the morning's first
+// trains; it says its ride's minutes always, as the trip's are door to door;
+// its stations on the way are open as the rider left them (`stations`, by
+// the leg's key)
+function railCard(rail, { leg, next }, now, morning, stations) {
+    const key = `${leg.line}/${leg.dir}/${leg.from}/${leg.to}`;
+    return html`<li class="trip-leg">${legCard(rail, leg, next, { seconds: now }, 3, morning, true, key, Boolean(stations[key]))}</li>`;
+}
+
+// Under the way shown in full, what its trains show, in words: only the
+// symbols they show, open as the rider last left a legend (`open`, DESIGN.md
+// "Icons")
+function legend(rail, o, weekday, open) {
+    const symbols = [...new Set(wayLegs(rail, o, weekday).filter(Boolean)
+        .map(({ leg, next }) => legPositions(rail, leg, next))
+        .filter(where => where.exits.length).flatMap(diagramSymbols))];
+    return symbols.length > 0 && diagramLegend(symbols, t, open);
 }
 
 const stationPlace = (rail, id) => ({ lat: rail.stations[id].coords[0], lng: rail.stations[id].coords[1] });
@@ -120,7 +136,7 @@ function busBadges(ride, now) {
     return soon.length > 0 && html`<span class="trip-step-badges${live ? ' trip-live' : ''}">${soon.map((minutes, i) => minutesBadge(minutes, t, { said: i ? t('trip.next-in') : undefined }))}</span>`;
 }
 
-// A ride of a way with a bus: a bus's time is the timetable's, an estimate
+// A bus or suburban train ride of a way: a bus's time is the timetable's, an estimate
 // (decision 11), so it says "~", unless OASA has the bus coming (decision
 // 35); its badge and the next one's beside its heading. A suburban train to
 // or from a station OASA's ticket doesn't cover says it needs Hellenic
@@ -178,13 +194,15 @@ function busStops(rail, stops, change, now) {
 // A way of the city's search, step by step: its walks and rides, and for a
 // way of the half hour whose last bus can be any of several, the stops.
 // live: the way timed with OASA's live times (buses.js liveWay). `now`:
-// seconds from midnight, for the buses' minutes
-function citySteps(rail, o, to, now, row = null, live = null) {
+// seconds from midnight, for the minutes; `weekday`, for its trains (legs.js);
+// `stations`: the cards' stations on the way the rider opened
+function citySteps(rail, o, to, { now, weekday, stations }, row = null, live = null) {
     const walkTo = (walk, stop, note = null) => walk && walkStep(walk, stopName(rail, stop), stop, note);
     const rides = row?.bundle ? o.rides.slice(0, -1) : o.rides;
+    const cards = wayLegs(rail, o, weekday);
     return html`<ol class="trip-steps">
         ${rides.length > 0 && walkTo(o.firstWalk, o.rides[0].board)}
-        ${rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board, ride.walkNote)}${rideStep(rail, ride, now)}`)}
+        ${rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board, ride.walkNote)}${cards[i] ? railCard(rail, cards[i], now, false, stations) : rideStep(rail, ride, now)}`)}
         ${row?.bundle && busStops(rail, live?.way.stops ?? row.stops, rides.length > 0, now)}
         ${o.lastWalk && walkStep(o.lastWalk, to.title, to)}
     </ol>`;
@@ -193,18 +211,16 @@ function citySteps(rail, o, to, now, row = null, live = null) {
 // How long a way takes, door to door: "~25'"
 const totalMinutes = o => minutesMark(o.minutes, t, { about: true });
 
-// A way with a bus, step by step: there's no "where to stand" for it yet
-function cityCard(rail, o, to, now) {
+// A way of the city's search, step by step
+function cityCard(rail, o, to, drawn) {
     return html`<div class="trip-card result-card">
         <div class="trip-card-head">
             <h2 class="trip-total">${totalMinutes(o)}</h2>
             <span class="trip-arrives">${format(t('trip.arrive'), { time: clockTime(o.arrives) })}</span>
         </div>
-        ${citySteps(rail, o, to, now)}
+        ${citySteps(rail, o, to, drawn)}
     </div>`;
 }
-
-const standHref = (start, end) => `${localHref('/subway')}?${new URLSearchParams({ from: start.station, to: end.station })}`;
 
 function when(o) {
     const time = clockTime(o.arrives);
@@ -213,10 +229,11 @@ function when(o) {
     return format(t('trip.morning'), { leave, time });
 }
 
-// The best way, step by step. Where to stand is for the metro: a tram has
-// no front or back
-function tripCard(rail, o, to, now) {
-    if (o.city) return cityCard(rail, o, to, now);
+// The best way, step by step. `drawn`: when, and the stations on the way
+// the rider opened (citySteps)
+function tripCard(rail, o, to, drawn) {
+    if (o.city) return cityCard(rail, o, to, drawn);
+    const cards = wayLegs(rail, o, drawn.weekday);
     return html`<div class="trip-card result-card">
         <div class="trip-card-head">
             ${!o.morning && html`<h2 class="trip-total">${totalMinutes(o)}</h2>`}
@@ -227,12 +244,11 @@ function tripCard(rail, o, to, now) {
             ${o.plan.walkFirst && walkToStation(rail, o.plan.legs[0].from, o.plan.walkFirst)}
             ${o.plan.legs.map((leg, i) => {
                 const before = o.plan.legs[i - 1];
-                return html`${before && before.to !== leg.from && walkToStation(rail, leg.from, rail.walks[before.to][leg.from])}${legStep(rail, leg)}`;
+                return html`${before && before.to !== leg.from && walkToStation(rail, leg.from, rail.walks[before.to][leg.from])}${railCard(rail, cards[i], drawn.now - o.dayStart, o.morning, drawn.stations)}`;
             })}
             ${o.plan.walkLast && walkToStation(rail, o.end.station, o.plan.walkLast)}
             ${o.end.walk && walkStep(o.end.walk, to.title, to)}
         </ol>
-        ${o.plan.legs.some(leg => !rail.lines[leg.line].tram) && html`<a class="btn btn-sm locate-btn trip-stand" href="${standHref(o.start, o.end)}">${t('trip.where-to-stand')}</a>`}
     </div>`;
 }
 
@@ -314,18 +330,21 @@ function missing(noBuses, noTrains) {
 }
 
 // The answer: what `doorToDoor` found, drawn, with nothing under it
-// (decision 43). noBuses: the buses' times couldn't be loaded, so it's by
-// metro and tram alone; 'updated': nor the searches, with a newer Wayhop
-// waiting to take over (main.js). noTrains: the suburban railway has no
-// times for today. checking: the next half hour is being worked out, and may
-// take its place (renderHalf). lifts, liftsOpen: for the step-free notice.
-// `now`: seconds from midnight, for the buses' minutes
+// (decision 43) but the legend of what its trains show. noBuses: the buses'
+// times couldn't be loaded, so it's by metro and tram alone; 'updated': nor
+// the searches, with a newer Wayhop waiting to take over (main.js).
+// noTrains: the suburban railway has no times for today. checking: the next
+// half hour is being worked out, and may take its place (renderHalf). lifts,
+// liftsOpen: for the step-free notice. `now`: seconds from midnight, for the
+// minutes; `weekday` (0 = Sunday), for the trains of the cards (legs.js);
+// stations: the cards' stations on the way the rider opened (by key);
+// legend: whether the legend is open (legendOpen() in metro.js)
 /**
  * @param {import('../../../types/data.js').Rail} rail @param {ReturnType<typeof import('./plan.js').doorToDoor>} trip
  * @param {import('./plan.js').Place} to
- * @param {{ now: number, expired?: boolean, noBuses?: boolean | 'updated', noTrains?: boolean, checking?: boolean, lifts?: any, liftsOpen?: boolean }} shown
+ * @param {{ now: number, weekday: number, expired?: boolean, noBuses?: boolean | 'updated', noTrains?: boolean, checking?: boolean, lifts?: any, liftsOpen?: boolean, stations?: Record<string, boolean>, legend?: boolean }} shown
  */
-export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { now, expired = false, noBuses = false, noTrains = false, checking = false, lifts = null, liftsOpen = true }) {
+export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { now, weekday, expired = false, noBuses = false, noTrains = false, checking = false, lifts = null, liftsOpen = true, stations = {}, legend: legendShown = true }) {
     const [best, ...others] = options;
     const trainsStopped = best?.morning;
     return html`
@@ -334,7 +353,9 @@ export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { n
         ${trainsStopped && notice('info', 'night', t('trip.no-trains'), 'mb-3')}
         ${stepFree(rail, options, lifts, liftsOpen)}
         ${walkFirst && !trainsStopped && walkCard(walk, to)}
-        ${best && (walkFirst && !trainsStopped ? html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>${otherCard(rail, best)}` : tripCard(rail, best, to, now))}
+        ${best && (walkFirst && !trainsStopped
+            ? html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>${otherCard(rail, best)}`
+            : html`${tripCard(rail, best, to, { now, weekday, stations })}${legend(rail, best, weekday, legendShown)}`)}
         ${checking && html`<p class="trip-other" id="trip-checking">${t('trip.half-checking')}</p>`}
         ${longWalk && !walkFirst && longWalkNotice()}
         ${others.length > 0 && !(walkFirst && !trainsStopped) && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
@@ -369,25 +390,20 @@ export function halfWays(view, now) {
     }).filter(({ o }) => o);
 }
 
-// Where to stand is for a way by rail alone with a metro ride, as on tripCard
-const standFor = o => o.rides.every(ride => ride.board.station && ride.alight.station) && o.rides.some(ride => ride.mode === 'metro')
-    && standHref({ station: o.rides[0].board.station }, { station: o.rides.at(-1).alight.station });
-
 // The way the half hour stands for, step by step, with its range. best: it's
 // the clear way. live: the way timed with OASA's live times, in its place.
 // taken: it's the quicker way the rider took, with the way back to the
-// directions. The heading can take the keyboard after a choice (main.js)
-function halfCard(rail, { row, o }, to, now, best, live, taken = false) {
+// directions. The heading can take the keyboard after a choice (main.js).
+// `drawn`: when, and the stations on the way the rider opened (citySteps)
+function halfCard(rail, { row, o }, to, drawn, best, live, taken = false) {
     const shown = live?.way.option ?? o;
-    const stand = standFor(shown);
     return html`<div class="trip-card result-card">
         <div class="trip-card-head">
             <h2 class="trip-total" tabindex="-1">${rangeMark(row)}</h2>
             ${best && html`<span class="trip-arrives">${t('trip.half-best')}</span>`}
             ${taken && html`<span class="trip-arrives">${t('trip.quicker-taken')}</span>`}
         </div>
-        ${citySteps(rail, shown, to, now, row, live)}
-        ${stand && html`<a class="btn btn-sm locate-btn trip-stand" href="${stand}">${t('trip.where-to-stand')}</a>`}
+        ${citySteps(rail, shown, to, drawn, row, live)}
         ${taken && html`<button type="button" id="trip-quicker-back" class="btn btn-sm locate-btn trip-stand">${t('trip.quicker-back')}</button>`}
     </div>`;
 }
@@ -450,22 +466,24 @@ const takenOption = (row, departure) => row.options.find((o, d) => d >= departur
 // times have, under the directions; or `taken`, the quicker way's row, when
 // the rider took it: in their place. noTrains: the suburban railway has no
 // times for today (decision 41). lifts, liftsOpen: for the step-free notice,
-// of every way shown. `now`: seconds from midnight, for the buses' minutes.
-// Nothing under it (decision 43)
-export function renderHalf(rail, kind, ways, to, { now, expired = false, longWalk = false, live = null, offer = false, taken = null, noTrains = false, lifts = null, liftsOpen = true }) {
+// of every way shown. `now`, `weekday`, stations, legend: as renderTrip's.
+// Nothing under it (decision 43) but the legend of what its trains show
+export function renderHalf(rail, kind, ways, to, { now, weekday, expired = false, longWalk = false, live = null, offer = false, taken = null, noTrains = false, lifts = null, liftsOpen = true, stations = {}, legend: legendShown = true }) {
     const [first, ...rest] = ways;
     const others = taken ? rest.filter(({ row }) => row !== taken) : rest;
     // The first card's way, as halfCard shows it
     const shown = live?.way.option ?? (taken ? takenOption(taken, first.departure) : first.o);
+    const drawn = { now, weekday, stations };
     return html`
         ${missing(false, noTrains)}
         ${expired && notice('warn', 'warning', t('trip.timetable-ended'), 'mb-3')}
         ${stepFree(rail, [shown, ...others.map(way => way.o)], lifts, liftsOpen)}
         ${kind === 'depends' && html`<p class="trip-intro">${t('trip.half-depends-intro')}</p>`}
         ${taken
-            ? halfCard(rail, { row: taken, o: takenOption(taken, first.departure) }, to, now, false, live, true)
-            : halfCard(rail, first, to, now, kind === 'clear', live)}
+            ? halfCard(rail, { row: taken, o: takenOption(taken, first.departure) }, to, drawn, false, live, true)
+            : halfCard(rail, first, to, drawn, kind === 'clear', live)}
         ${offer && live?.way.offer && quickerCard(rail, live.way.offer)}
+        ${legend(rail, shown, weekday, legendShown)}
         ${longWalk && longWalkNotice()}
         ${others.length > 0 && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
         ${others.map(way => halfOther(rail, way))}`;

@@ -68,12 +68,15 @@ function option(rail, start, end, now) {
     const { plans, now: day, tomorrow } = planTrip(rail, start.station, end.station, leave);
     const plan = plans.find(p => p.arrives !== null);
     if (!plan) return null;
+    // The plan's times count from its day's midnight: `dayStart` seconds
+    // after `now`'s, when it's tomorrow's
+    const dayStart = day.date === now.date ? 0 : DAY;
     // Seconds from the midnight of `now`, whichever day the train runs on
-    const arrives = plan.arrives + (day.date === now.date ? 0 : DAY) + (end.walk?.minutes ?? 0) * 60;
+    const arrives = plan.arrives + dayStart + (end.walk?.minutes ?? 0) * 60;
     const morning = tomorrow || plan.legs[0].departures[0].departs - leave.seconds > LONGEST_WAIT;
     const changes = plan.legs.length - 1;
     return {
-        start, end, plan, morning, arrives, changes,
+        start, end, plan, dayStart, morning, arrives, changes,
         minutes: Math.round((arrives - now.seconds) / 60),
         cost: weighed(arrives - now.seconds, walkedMinutes(rail, start, end, plan) * 60, changes),
     };
