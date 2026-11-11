@@ -1,6 +1,6 @@
 # 44. The suburban railway on the trip page and in the subway planner, from railway.gov.gr's timetable, with how late its trains run, credited on the About page
 
-Decided 2026-11-10 · In force
+Decided 2026-11-10 · Replaced by [47](0047-trip-suburban-cards.md)
 
 ## Situation
 

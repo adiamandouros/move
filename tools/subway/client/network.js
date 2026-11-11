@@ -14,7 +14,7 @@ import { createPlanner } from './raptor.js';
  * A ride on one line, between stop indexes of one direction
  * @typedef {{ line: string, dir: string, from: string, to: string, fromIndex: number, toIndex: number }} Leg
  */
-/** @typedef {{ departs: number, arrives: number, isLast: boolean, isSecondLast: boolean }} Departure */
+/** @typedef {{ departs: number, arrives: number, isLast: boolean, isSecondLast: boolean, train?: string }} Departure train: a suburban train's number (withSuburban) */
 /**
  * legs: the rides, with a change between each two. walkFirst, walkLast: the
  * minutes on foot from where the trip starts to the first leg, and from the
@@ -142,6 +142,7 @@ function mergeStops(sequences) {
 // calls at is a row of its own; one with a metro station's or a tram stop's
 // id gets an id of its own and says "(suburban)" in its name. Its walks are
 // trains.json's, in minutes, and `walkNotes` the notes on them, both ways.
+// Each train keeps its number, which its lateness goes by (decision 47).
 // Without trains for `date` (or without trains.json), it's rail.
 /**
  * @param {Rail} rail @param {import('../../../types/data.js').Trains | null} trains @param {string} date
@@ -175,10 +176,10 @@ export function withSuburban(rail, trains, date) {
         for (const { day, stops, profiles: offsets, trips } of routes) {
             const along = stops.map(station => order.indexOf(station));
             if (!(day in dates)) dates[day] = patterns.push([]) - 1;
-            for (const [start, p] of trips) {
+            for (const [start, p, train] of trips) {
                 const key = JSON.stringify([along, offsets[p]]);
                 if (!profileOf.has(key)) profileOf.set(key, profiles.push({ stops: along, offsets: offsets[p] }) - 1);
-                patterns[dates[day]].push([start, profileOf.get(key)]);
+                patterns[dates[day]].push(train ? [start, profileOf.get(key), train] : [start, profileOf.get(key)]);
             }
         }
         patterns.forEach(pattern => pattern.sort((a, b) => a[0] - b[0]));
@@ -214,6 +215,11 @@ export function withSuburban(rail, trains, date) {
     }
     return { ...rail, stations, lines: { ...rail.lines, ...lines }, walks, walkNotes };
 }
+
+// The id withSuburban gave trains.json's station `id` in `rail`, joined:
+// its own, or with "-suburban" where a metro station or tram stop has it
+/** @param {Rail} rail @param {string} id */
+export const suburbanStation = (rail, id) => Object.hasOwn(rail.stations, `${id}-suburban`) ? `${id}-suburban` : id;
 
 // Worked out once per network: at each station, the directions that call there
 // and where it is among their stops, and the stations a route can change at
@@ -345,7 +351,8 @@ function othersOnLeg(rail, leg, weekday, date, dayOffset) {
 // unless ownDay (only the day's own service). With `date` (today's, ISO), a
 // day the timetable has its own trains for (a holiday) uses them; otherwise
 // its weekday's.
-// Each result: { departs, arrives, isLast, isSecondLast }. The last ones are
+// Each result: { departs, arrives, isLast, isSecondLast }, and a suburban
+// train's number, `train`, where it has one. The last ones are
 // only flagged when STASY's last train agrees (the timetable misses the late
 // airport trains, and there's no last one when the trains run all night), or
 // when there are no STASY times; a suburban train, when none of its line's
@@ -361,12 +368,12 @@ export function departures(rail, leg, { weekday, after, count = 2, ownDay = fals
     for (const dayOffset of ownDay ? [0] : [-1, 0]) {
         const serviceDay = (weekday + dayOffset + 7) % 7;
         const trains = [];
-        for (const [start, p] of trainsOn(timetable, weekday, date, dayOffset)) {
+        for (const [start, p, train] of trainsOn(timetable, weekday, date, dayOffset)) {
             const { stops, offsets } = timetable.profiles[p];
             const i = stops.indexOf(leg.fromIndex);
             const j = stops.indexOf(leg.toIndex);
             if (i === -1 || j <= i) continue;
-            trains.push({ departs: start + offsets[i] + dayOffset * DAY, arrives: start + offsets[j] + dayOffset * DAY });
+            trains.push({ departs: start + offsets[i] + dayOffset * DAY, arrives: start + offsets[j] + dayOffset * DAY, ...(train && { train }) });
         }
         trains.sort((a, b) => a.departs - b.departs);
         const unique = trains.filter((d, k) => k === 0 || d.departs - trains[k - 1].departs >= DUPLICATE_SECONDS);

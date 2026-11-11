@@ -248,7 +248,7 @@ pages use.
   to 3 changes (`raptor.js`, made once for each day's trains), and keeps the 3
   that arrive first. Beside a tram leg those can have more changes; metro
   trains alone only do if they get there 5 minutes sooner.
-- **The suburban railway in the planner** ([decision 44](docs/decisions/0044-suburban-railway-credited-on-about.md)):
+- **The suburban railway in the planner** ([decision 47](docs/decisions/0047-trip-suburban-cards.md)):
   `withSuburban(rail, trains, date)` in `network.js` joins `trains.json` to
   either network in the same shape, each station a station (marked
   `suburban`, with an id of its own and "(suburban)" when it has a metro
@@ -268,7 +268,7 @@ pages use.
   browser and the planner lab share them: `city.js` joins the metro, the tram,
   a day of `buses.json` ([decision 30](docs/decisions/0030-bus-timetable.md))
   and a day of the suburban railway's `trains.json` (`trainDay`,
-  [decision 44](docs/decisions/0044-suburban-railway-credited-on-about.md)) into one network, with walks of up to 10 minutes between stops from the
+  [decision 47](docs/decisions/0047-trip-suburban-cards.md)) into one network, with walks of up to 10 minutes between stops from the
   straight line (× 1.4, measured against a street router); `ways.js` finds the
   ways a rider could choose from, beyond the search's best with each number
   of rides; `weights.js` puts them in order by what they cost a rider (agreed
@@ -363,7 +363,7 @@ are fetched from OASA's RSS and STASY's news page at most every 15 minutes,
 only when someone asks, and kept on disk.
 
 How late the suburban railway's running trains are ([server/railway/](server/railway/),
-[decision 44](docs/decisions/0044-suburban-railway-credited-on-about.md)) is Wayhop's own
+[decision 47](docs/decisions/0047-trip-suburban-cards.md)) is Wayhop's own
 reckoning, as railway.gov.gr fills in a train's delay only once its trip is
 over: `stream.js` takes one look at its live stream (the first positions,
 then it hangs up, about 250 KB, the trains' history skipped as it comes),
@@ -455,7 +455,7 @@ is logged; each route's stops are saved as they arrive, so a fetch that still
 fails is picked up where it stopped by the next build, and meanwhile the last
 network is used. The suburban railway's timetable comes from railway.gov.gr,
 OSE's train site, as there's no open data for it
-([decision 44](docs/decisions/0044-suburban-railway-credited-on-about.md)): `railway.js`
+([decision 47](docs/decisions/0047-trip-suburban-cards.md)): `railway.js`
 fetches its schedule boards once an Athens day, yesterday's to 4 days ahead,
 10 seconds apart, into `data/raw/railway/`, keeping the boards there are when
 it fails; `build-suburban.js` makes `data/build/trains.json` from them and
@@ -503,8 +503,8 @@ in the body, so it stays out of the host's logs. The index is loaded for the
 first search and dropped for a new one, and `/api/health` warns when it's
 over three weeks old.
 
-The trip page (`tools/trip/`, [decision 46](docs/decisions/0046-trip-rail-rides-as-cards.md))
-is what uses it. `client/picker.js` finds places as they're typed,
+The trip page (`tools/trip/`, [decisions 46](docs/decisions/0046-trip-rail-rides-as-cards.md)
+and [47](docs/decisions/0047-trip-suburban-cards.md)) is what uses it. `client/picker.js` finds places as they're typed,
 `client/plan.js` works out the trip in the browser from the Subway's
 `network.js`, on the metro and the tram unless the Subway page's switch hides
 the tram (`tram-switch.js`). Its walks are the city's (`walkMeters` in
@@ -530,10 +530,15 @@ bus comes. On a decision the way shown is the directions that stay on, and
 the quicker way (`quickerWay` in `answer.js`) is offered under them when
 OASA has its bus coming in time; taken, it's the way timed instead.
 `client/live.js` says which stops to ask for and when, and
-`client/main.js` asks. `client/render.js` draws it, each metro or tram ride
-of the way shown in full as the Subway page's own card (`legCard` in its
-`render.js`, the ride made into a leg by `client/legs.js`), with the Subway
-page's words (tool.json `borrows`). Addresses aren't kept, and never go in the page's
+`client/main.js` asks. `client/render.js` draws it, each metro, tram or
+suburban ride of the way shown in full as the Subway page's own card
+(`legCard` in its `render.js`, the ride made into a leg by `client/legs.js`),
+with the Subway page's words (tool.json `borrows`). For the suburban rides'
+cards the page loads `trains.json` itself and draws on the network with the
+day's trains joined (`withSuburban`, which keeps each train's number), while
+it plans on the metro and the tram alone; a late train's badges are when it
+actually leaves, once the way is timed with how late the trains run. Until
+the file is in, a train's ride is a row. Addresses aren't kept, and never go in the page's
 address. So that `buses.json` (about 325 KB over the wire) is usually there
 by the time a trip is planned, Home, Subway, Buses and the station pages
 fetch it in the background once they've loaded (`readyBuses`,

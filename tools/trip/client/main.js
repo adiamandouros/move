@@ -4,7 +4,7 @@ import { watchLifts } from '/js/core/lifts.js';
 import { legendOpen, liftsOpen } from '/js/core/metro.js';
 import { lastPosition, locationPermission, onLocation, onLocationProblem, showFollowing, startLocation } from '/js/core/location.js';
 import { minutesMark } from '/js/core/times.js';
-import { athensNow, closestStation, isTimetableExpired, withTram } from '/tools/subway/network.js';
+import { athensNow, closestStation, isTimetableExpired, withSuburban, withTram } from '/tools/subway/network.js';
 import { watchLegStations } from '/tools/subway/render.js';
 import { suburbanHidden, tramHidden } from '/tools/subway/tram-switch.js';
 import { isIdle } from '/tools/buses/timing.js';
@@ -45,6 +45,18 @@ async function loadRail() {
         return await loadJson('/data/rail.json');
     } catch {
         setHtml(result, notice('danger', 'error', t('trip.data-error')));
+        return null;
+    }
+}
+
+// trains.json, for the suburban rides' cards (decision 47), as the Subway
+// page loads it: from the browser's copy, the searches' own being in their
+// worker. Nothing waits for it: until it's in, or without it, a train's ride
+// is a row
+async function loadTrains() {
+    try {
+        return await loadJson('/data/trains.json');
+    } catch {
         return null;
     }
 }
@@ -110,6 +122,16 @@ function start(metro) {
     let changing = false;
     const noSuburban = suburbanHidden();
     let searches = startSearches(hidden ? { ...metro, tram: undefined } : metro, !noSuburban);
+    // What the answer is drawn on: `rail`, with the day's suburban trains
+    // joined once trains.json is in, for their rides' cards (decision 47).
+    // The page plans on `rail` alone; its trains come from the searches
+    let timetable = null;
+    let joined = { date: null, rail };
+    const drawnOn = date => {
+        if (!timetable) return rail;
+        if (joined.date !== date) joined = { date, rail: withSuburban(rail, timetable, date) };
+        return joined.rail;
+    };
     /** @type {boolean | 'updated'} */
     let noBuses = !searches;
     // The suburban railway has no times for today, so the searches leave it out
@@ -168,6 +190,9 @@ function start(metro) {
     };
     watchLegStations(result, openedLegs);
 
+    // How late the suburban trains run, by number, as the way shown in full
+    // is timed with it: none while it can't be had
+    const lateness = () => live.trains?.unavailable ? null : live.trains?.trains ?? null;
     // The way shown in full, timed again by the worker with the live times
     // there are, for leaving now; or nothing to time, as it has no bus
     const retime = (want = live.wanted) => {
@@ -176,8 +201,7 @@ function start(metro) {
             if (live.way) { live.way = null; showLive(); }
             return;
         }
-        const trains = live.trains?.unavailable ? null : live.trains?.trains ?? null;
-        searches.postMessage({ id: want.id, live: { seq: ++live.seq, row: want.row, departure: want.departure, now: athensNow(), stops: Object.fromEntries(live.answers), taken: want.taken, trains } });
+        searches.postMessage({ id: want.id, live: { seq: ++live.seq, row: want.row, departure: want.departure, now: athensNow(), stops: Object.fromEntries(live.answers), taken: want.taken, trains: lateness() } });
     };
     const resetLive = () => {
         Object.assign(live, { trip: live.trip + 1, wanted: null, way: null, answers: new Map(), asked: new Map(), asking: new Set(), opening: 'start', choice: null, directions: null, offered: false });
@@ -277,14 +301,15 @@ function start(metro) {
         const latest = [live.way, live.directions].find(way => want && sameRow(way, want));
         const timed = latest ? { way: latest.way } : null;
         // The minutes count from the clock, not from when the search was made;
-        // the cards' trains are the day's (legs.js)
-        const { seconds: clock, weekday } = athensNow();
-        const cards = { weekday, stations: openedLegs(), legend: legendOpen() };
+        // the cards' trains are the day's (legs.js), as late as they run
+        // when the way is timed with it (decision 47)
+        const { seconds: clock, weekday, date } = athensNow();
+        const cards = { weekday, date, stations: openedLegs(), legend: legendOpen() };
         const offer = !choice && timed?.way.offer;
         const known = lifts();
         const shown = ways.length
-            ? renderHalf(rail, half.view.kind, ways, to, { now: clock, expired, longWalk: isLongWalk(ways[0].o), live: timed, offer: !choice, taken: choice === 'taken' ? half.view.quicker : null, noTrains, lifts: known, liftsOpen: liftsOpen(), ...cards })
-            : renderTrip(rail, trip, to, { now: clock, expired, noBuses, noTrains: noTrains && !noBuses, checking: Boolean(searches) && !forTrip(half), lifts: known, liftsOpen: liftsOpen(), ...cards });
+            ? renderHalf(drawnOn(date), half.view.kind, ways, to, { now: clock, expired, longWalk: isLongWalk(ways[0].o), live: timed, offer: !choice, taken: choice === 'taken' ? half.view.quicker : null, noTrains, trains: lateness(), lifts: known, liftsOpen: liftsOpen(), ...cards })
+            : renderTrip(drawnOn(date), trip, to, { now: clock, expired, noBuses, noTrains: noTrains && !noBuses, checking: Boolean(searches) && !forTrip(half), lifts: known, liftsOpen: liftsOpen(), ...cards });
         const answer = html`${shown}${TIMING && timingBox(timing)}`;
         setHtml(result, changing ? answer : html`${renderChosen(from, to)}${answer}`);
         $('trip-change')?.addEventListener('click', () => {
@@ -318,16 +343,26 @@ function start(metro) {
     };
     const halfReady = ways => format(t('trip.half-ready'), { range: rangeText(ways[0].row) });
 
-    // Lifts out of service and the lift status (STASY), for the step-free
-    // notice: asked for at once, so they're in by the first answer, and
-    // drawn in when they come, unless someone is in the answer: then with
-    // the next refresh
-    const lifts = watchLifts(() => {
+    // The answer drawn again with what came in, unless someone is in it:
+    // then with the next refresh
+    const redraw = () => {
         if (!from || !to || result.contains(document.activeElement)) return;
         if (!searches) draw(athensNow(), [], false);
         else if (forTrip(found) && !holding()) draw(found.now, found.options, false);
-    });
+    };
+    // Lifts out of service and the lift status (STASY), for the step-free
+    // notice: asked for at once, so they're in by the first answer, and
+    // drawn in when they come
+    const lifts = watchLifts(redraw);
     lifts();
+    // The suburban trains' timetable, unless the railway is hidden on the
+    // Subway page (decision 41): their rides' cards drawn in when it comes
+    if (!noSuburban) {
+        loadTrains().then(loaded => {
+            timetable = loaded;
+            if (loaded) redraw();
+        });
+    }
 
     // `refresh`: the same trip, for a later time; `moved`: planned again
     // from where the rider moved to

@@ -125,8 +125,8 @@ export interface Hours {
 export interface Timetable {
     /** Run-time profiles shared by trips: indexes into `stops`, and seconds from the first of them */
     profiles: { stops: number[]; offsets: number[] }[];
-    /** One list of trips per distinct day: [start, profile index] */
-    patterns: [number, number][][];
+    /** One list of trips per distinct day: [start, profile index], and a suburban train's number (withSuburban in tools/subway/client/network.js) */
+    patterns: ([number, number] | [number, number, string])[][];
     /** Pattern index for each weekday, 0 = Sunday: one typical week, for any date */
     days: number[];
     /** Pattern index for the dates ('YYYY-MM-DD') whose trains aren't their weekday's (a holiday), from the feed */

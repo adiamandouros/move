@@ -7,7 +7,7 @@ import { latinName } from '/js/core/text.js';
 import { aboutTime, minutesBadge, minutesMark, minutesWords } from '/js/core/times.js';
 import { legPositions } from '/tools/subway/network.js';
 import { legCard } from '/tools/subway/render.js';
-import { wayLegs } from './legs.js';
+import { asLate, wayLegs } from './legs.js';
 
 const stationName = (rail, id) => localName(rail.stations[id].name, language);
 // A stop of the city's search (buses.js): a station by its name, a bus stop
@@ -84,12 +84,12 @@ function walkStep(walk, name, place, note = null) {
 /** @param {unknown} line @param {string | false} toward @param {unknown} [badges] */
 const rideHead = (line, toward, badges = '') => html`<div class="trip-step-head"><span>${line}${toward && html` ${format(t('trip.towards'), { end: toward })}`}</span>${badges}</div>`;
 
-// A metro or tram ride: the Subway page's card in its place, with nothing on
-// the left (decision 46). Its badges count from `now` (seconds from the
-// midnight its trains count from), clock times for the morning's first
-// trains; it says its ride's minutes always, as the trip's are door to door;
-// its stations on the way are open as the rider left them (`stations`, by
-// the leg's key)
+// A metro, tram or suburban ride: the Subway page's card in its place, with
+// nothing on the left (decisions 46 and 47). Its badges count from `now`
+// (seconds from the midnight its trains count from), clock times for the
+// morning's first trains; it says its ride's minutes always, as the trip's
+// are door to door; its stations on the way are open as the rider left them
+// (`stations`, by the leg's key)
 function railCard(rail, { leg, next }, now, morning, stations) {
     const key = `${leg.line}/${leg.dir}/${leg.from}/${leg.to}`;
     return html`<li class="trip-leg">${legCard(rail, leg, next, { seconds: now }, 3, morning, true, key, Boolean(stations[key]))}</li>`;
@@ -97,9 +97,9 @@ function railCard(rail, { leg, next }, now, morning, stations) {
 
 // Under the way shown in full, what its trains show, in words: only the
 // symbols they show, open as the rider last left a legend (`open`, DESIGN.md
-// "Icons")
-function legend(rail, o, weekday, open) {
-    const symbols = [...new Set(wayLegs(rail, o, weekday).filter(Boolean)
+// "Icons"). `when`: the cards' trains' (legs.js)
+function legend(rail, o, when, open) {
+    const symbols = [...new Set(wayLegs(rail, o, when).filter(Boolean)
         .map(({ leg, next }) => legPositions(rail, leg, next))
         .filter(where => where.exits.length).flatMap(diagramSymbols))];
     return symbols.length > 0 && diagramLegend(symbols, t, open);
@@ -136,21 +136,20 @@ function busBadges(ride, now) {
     return soon.length > 0 && html`<span class="trip-step-badges${live ? ' trip-live' : ''}">${soon.map((minutes, i) => minutesBadge(minutes, t, { said: i ? t('trip.next-in') : undefined }))}</span>`;
 }
 
-// A bus or suburban train ride of a way: a bus's time is the timetable's, an estimate
-// (decision 11), so it says "~", unless OASA has the bus coming (decision
-// 35); its badge and the next one's beside its heading. A suburban train to
-// or from a station OASA's ticket doesn't cover says it needs Hellenic
-// Train's (decision 41), and one whose lateness is known says it
-// (trainLate). `now`: seconds from midnight, for the minutes
-function rideStep(rail, ride, now) {
+// A bus ride of a way, or a suburban train's until its card can be drawn
+// (legs.js): a bus's time is the timetable's, an estimate (decision 11), so
+// it says "~", unless OASA has the bus coming (decision 35); its badge and
+// the next one's beside its heading. A train's is when it actually leaves,
+// as late as it runs, `trains` by number (decision 47); one to or from a
+// station OASA's ticket doesn't cover says it needs Hellenic Train's
+// (decision 41). `now`: seconds from midnight, for the minutes
+function rideStep(rail, ride, { now, trains }) {
     const bus = ON_THE_ROAD.has(ride.mode);
     const place = stopName(rail, ride.alight);
     const live = ride.live && 'at' in ride.live;
     const beyond = [ride.board, ride.alight].find(stop => stop.oasaTicket === false);
-    const caught = ride.late?.timetable !== undefined;
-    return step((bus && !live) || caught ? aboutTime(clockTime(ride.boards), t) : clockTime(ride.boards), html`
+    return step(!bus ? clockTime(asLate(trains, ride.train, ride.timetable)) : live ? clockTime(ride.boards) : aboutTime(clockTime(ride.boards), t), html`
         ${rideHead(pill(rail, ride), ride.lines.length === 1 && cityName(ride.toward), bus && busBadges(ride, now))}
-        ${ride.late && trainLate(ride.late)}
         ${ride.live && 'none' in ride.live && html`<div class="trip-step-note">${t('trip.live-none')}</div>`}
         <div class="trip-step-note">${ride.stops === 1 ? format(t('trip.stop'), { place }) : format(t('trip.stops'), { count: ride.stops, place })}</div>
         ${beyond && html`<div class="trip-step-note">${format(t('trip.train-ticket'), { station: stopName(rail, beyond) })}</div>`}`, { leaves: true });
@@ -193,17 +192,18 @@ function busStops(rail, stops, change, now) {
 
 // A way of the city's search, step by step: its walks and rides, and for a
 // way of the half hour whose last bus can be any of several, the stops.
-// live: the way timed with OASA's live times (buses.js liveWay). `now`:
-// seconds from midnight, for the minutes; `weekday`, for its trains (legs.js);
-// `stations`: the cards' stations on the way the rider opened
-function citySteps(rail, o, to, { now, weekday, stations }, row = null, live = null) {
+// live: the way timed with OASA's live times (buses.js liveWay). `drawn`:
+// `now`, seconds from midnight, for the minutes; the weekday and date, and
+// how late the trains run when the way is timed with it, for its trains
+// (legs.js); `stations`: the cards' stations on the way the rider opened
+function citySteps(rail, o, to, drawn, row = null, live = null) {
     const walkTo = (walk, stop, note = null) => walk && walkStep(walk, stopName(rail, stop), stop, note);
     const rides = row?.bundle ? o.rides.slice(0, -1) : o.rides;
-    const cards = wayLegs(rail, o, weekday);
+    const cards = wayLegs(rail, o, drawn);
     return html`<ol class="trip-steps">
         ${rides.length > 0 && walkTo(o.firstWalk, o.rides[0].board)}
-        ${rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board, ride.walkNote)}${cards[i] ? railCard(rail, cards[i], now, false, stations) : rideStep(rail, ride, now)}`)}
-        ${row?.bundle && busStops(rail, live?.way.stops ?? row.stops, rides.length > 0, now)}
+        ${rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board, ride.walkNote)}${cards[i] ? railCard(rail, cards[i], drawn.now, false, drawn.stations) : rideStep(rail, ride, drawn)}`)}
+        ${row?.bundle && busStops(rail, live?.way.stops ?? row.stops, rides.length > 0, drawn.now)}
         ${o.lastWalk && walkStep(o.lastWalk, to.title, to)}
     </ol>`;
 }
@@ -233,7 +233,7 @@ function when(o) {
 // the rider opened (citySteps)
 function tripCard(rail, o, to, drawn) {
     if (o.city) return cityCard(rail, o, to, drawn);
-    const cards = wayLegs(rail, o, drawn.weekday);
+    const cards = wayLegs(rail, o, drawn);
     return html`<div class="trip-card result-card">
         <div class="trip-card-head">
             ${!o.morning && html`<h2 class="trip-total">${totalMinutes(o)}</h2>`}
@@ -278,17 +278,6 @@ function walkCard(walk, to) {
 
 // For a screen reader, and for naming a card
 export const routeSummary = o => format(t('trip.summary'), { minutes: minutesWords(o.minutes, t), time: clockTime(o.arrives) });
-
-// How late a suburban train runs (decision 42): measured at a station, or
-// at least so late on its way to the next; on time when measured under a
-// minute, and nothing said of one only known to be at least on time. A
-// train caught as it's late says its timetable's time too
-/** @param {import('./trains.js').RideLate} late */
-function trainLate({ minutes, exact, timetable }) {
-    if (!minutes && !exact) return '';
-    const said = !minutes ? t('trip.train-on-time') : formatHtml(t(exact ? 'trip.train-late' : 'trip.train-late-at-least'), { minutes: minutesMark(minutes, t) });
-    return html`<div class="trip-step-note trip-train-late">${said}${timetable !== undefined && html` · ${format(t('trip.train-timetable'), { time: clockTime(timetable) })}`}</div>`;
-}
 
 // Where a way's rides board and get off, by line and direction: a metro or
 // tram ride's stations (a suburban train's stations and a bus's stops have
@@ -336,17 +325,21 @@ function missing(noBuses, noTrains) {
 // noTrains: the suburban railway has no times for today. checking: the next
 // half hour is being worked out, and may take its place (renderHalf). lifts,
 // liftsOpen: for the step-free notice. `now`: seconds from midnight, for the
-// minutes; `weekday` (0 = Sunday), for the trains of the cards (legs.js);
-// stations: the cards' stations on the way the rider opened (by key);
-// legend: whether the legend is open (legendOpen() in metro.js)
+// minutes; `weekday` (0 = Sunday) and `date` in Athens, for the trains of
+// the cards (legs.js), by the timetable, as this answer isn't timed with how
+// late they run; stations: the cards' stations on the way the rider opened
+// (by key); legend: whether the legend is open (legendOpen() in metro.js).
+// `rail`: with the day's suburban trains joined for their cards (decision
+// 47), or without them, when their rides are rows
 /**
  * @param {import('../../../types/data.js').Rail} rail @param {ReturnType<typeof import('./plan.js').doorToDoor>} trip
  * @param {import('./plan.js').Place} to
- * @param {{ now: number, weekday: number, expired?: boolean, noBuses?: boolean | 'updated', noTrains?: boolean, checking?: boolean, lifts?: any, liftsOpen?: boolean, stations?: Record<string, boolean>, legend?: boolean }} shown
+ * @param {{ now: number, weekday: number, date: string, expired?: boolean, noBuses?: boolean | 'updated', noTrains?: boolean, checking?: boolean, lifts?: any, liftsOpen?: boolean, stations?: Record<string, boolean>, legend?: boolean }} shown
  */
-export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { now, weekday, expired = false, noBuses = false, noTrains = false, checking = false, lifts = null, liftsOpen = true, stations = {}, legend: legendShown = true }) {
+export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { now, weekday, date, expired = false, noBuses = false, noTrains = false, checking = false, lifts = null, liftsOpen = true, stations = {}, legend: legendShown = true }) {
     const [best, ...others] = options;
     const trainsStopped = best?.morning;
+    const drawn = { now, weekday, date, stations };
     return html`
         ${missing(noBuses, noTrains)}
         ${expired && notice('warn', 'warning', t('trip.timetable-ended'), 'mb-3')}
@@ -355,7 +348,7 @@ export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { n
         ${walkFirst && !trainsStopped && walkCard(walk, to)}
         ${best && (walkFirst && !trainsStopped
             ? html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>${otherCard(rail, best)}`
-            : html`${tripCard(rail, best, to, { now, weekday, stations })}${legend(rail, best, weekday, legendShown)}`)}
+            : html`${tripCard(rail, best, to, drawn)}${legend(rail, best, drawn, legendShown)}`)}
         ${checking && html`<p class="trip-other" id="trip-checking">${t('trip.half-checking')}</p>`}
         ${longWalk && !walkFirst && longWalkNotice()}
         ${others.length > 0 && !(walkFirst && !trainsStopped) && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
@@ -466,14 +459,17 @@ const takenOption = (row, departure) => row.options.find((o, d) => d >= departur
 // times have, under the directions; or `taken`, the quicker way's row, when
 // the rider took it: in their place. noTrains: the suburban railway has no
 // times for today (decision 41). lifts, liftsOpen: for the step-free notice,
-// of every way shown. `now`, `weekday`, stations, legend: as renderTrip's.
-// Nothing under it (decision 43) but the legend of what its trains show
-export function renderHalf(rail, kind, ways, to, { now, weekday, expired = false, longWalk = false, live = null, offer = false, taken = null, noTrains = false, lifts = null, liftsOpen = true, stations = {}, legend: legendShown = true }) {
+// of every way shown. `trains`: how late the suburban trains run, by number,
+// when the first way is timed with it (live), for its cards' badges
+// (decision 47). `rail`, `now`, `weekday`, `date`, stations, legend: as
+// renderTrip's. Nothing under it (decision 43) but the legend of what its
+// trains show
+export function renderHalf(rail, kind, ways, to, { now, weekday, date, expired = false, longWalk = false, live = null, offer = false, taken = null, noTrains = false, trains = null, lifts = null, liftsOpen = true, stations = {}, legend: legendShown = true }) {
     const [first, ...rest] = ways;
     const others = taken ? rest.filter(({ row }) => row !== taken) : rest;
     // The first card's way, as halfCard shows it
     const shown = live?.way.option ?? (taken ? takenOption(taken, first.departure) : first.o);
-    const drawn = { now, weekday, stations };
+    const drawn = { now, weekday, date, trains: live && trains, stations };
     return html`
         ${missing(false, noTrains)}
         ${expired && notice('warn', 'warning', t('trip.timetable-ended'), 'mb-3')}
@@ -483,7 +479,7 @@ export function renderHalf(rail, kind, ways, to, { now, weekday, expired = false
             ? halfCard(rail, { row: taken, o: takenOption(taken, first.departure) }, to, drawn, false, live, true)
             : halfCard(rail, first, to, drawn, kind === 'clear', live)}
         ${offer && live?.way.offer && quickerCard(rail, live.way.offer)}
-        ${legend(rail, shown, weekday, legendShown)}
+        ${legend(rail, shown, drawn, legendShown)}
         ${longWalk && longWalkNotice()}
         ${others.length > 0 && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
         ${others.map(way => halfOther(rail, way))}`;
