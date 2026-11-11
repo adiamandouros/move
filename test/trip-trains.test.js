@@ -137,19 +137,21 @@ for (const lang of ['en', 'el']) {
     const json = value => JSON.parse(JSON.stringify(value));
     const clock = seconds => `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;
     const half = json(halfView(city, megara, syntagma, answer));
-    const drawn = (way, now = at(17).seconds) => String(r.renderHalf(network, half.kind, r.halfWays(half, now), syntagma, { live: { way: json(way), now } }));
+    const drawn = (way, now = at(17).seconds) => String(r.renderHalf(network, half.kind, r.halfWays(half, now), syntagma, { now, live: { way: json(way) } }));
     // Minutes as every page writes them (/js/core/times.js): "5'"
     const note = (key, minutes) => s[key].replace('{minutes}', String(minutesMark(minutes, k => s[k])));
     // A time that's a guess: "~12:06", "about 12:06" for screen readers
     const about = time => String(aboutTime(time, k => s[k]));
+    // When a ride leaves, on the left of its step, strong
+    const leaves = time => `<span class="trip-step-when trip-step-leaves">${time}</span>`;
 
     test(`${lang}: a late train says how late at the timetable's time, the M2 timed after it, and nothing under the answer`, () => {
         const way = timed({ 1323: { late: 5 * MIN, exact: true } });
         const html = drawn(way);
         check(html);
-        assert.ok(html.includes(`<span class="trip-step-when">${clock(A4)}</span>`), 'the timetable\'s time, without "~"');
+        assert.ok(html.includes(leaves(clock(A4))), 'the timetable\'s time, without "~"');
         assert.ok(html.includes(`<div class="trip-step-note trip-train-late">${note('trip.train-late', 5)}</div>`));
-        assert.ok(html.includes(`<span class="trip-step-when">${clock(way.option.rides[1].boards)}</span>`), 'the M2 after it');
+        assert.ok(html.includes(leaves(clock(way.option.rides[1].boards))), 'the M2 after it');
         assert.ok(html.trimEnd().endsWith('</div>'), 'nothing under the answer (decision 43)');
         const atLeast = drawn(timed({ 1323: { late: 4 * MIN, exact: false } }));
         assert.ok(atLeast.includes(note('trip.train-late-at-least', 4)));
@@ -165,7 +167,7 @@ for (const lang of ['en', 'el']) {
         const now = at(17 + 10 / 60);
         const html = drawn(timed({ 1323: { late: 6 * MIN, exact: true } }, now), now.seconds);
         check(html);
-        assert.ok(html.includes(`<span class="trip-step-when">${about(clock(A4 + 6 * MIN))}</span>`));
+        assert.ok(html.includes(leaves(about(clock(A4 + 6 * MIN)))));
         assert.ok(html.includes(`${note('trip.train-late', 6)} · ${s['trip.train-timetable'].replace('{time}', clock(A4))}`));
     });
 

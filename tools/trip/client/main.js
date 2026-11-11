@@ -265,12 +265,14 @@ function start(metro) {
             ? { id: half.id, row: half.view.rows.indexOf(first.row), departure: first.departure, taken: choice === 'taken' }
             : null;
         const latest = [live.way, live.directions].find(way => want && sameRow(way, want));
-        const timed = latest ? { way: latest.way, now: athensNow().seconds } : null;
+        const timed = latest ? { way: latest.way } : null;
+        // The buses' minutes count from the clock, not from when the search was made
+        const clock = athensNow().seconds;
         const offer = !choice && timed?.way.offer;
         const known = lifts();
         const shown = ways.length
-            ? renderHalf(rail, half.view.kind, ways, to, { expired, longWalk: isLongWalk(ways[0].o), live: timed, offer: !choice, taken: choice === 'taken' ? half.view.quicker : null, noTrains, lifts: known, liftsOpen: liftsOpen() })
-            : renderTrip(rail, trip, to, { expired, noBuses, noTrains: noTrains && !noBuses, checking: Boolean(searches) && !forTrip(half), lifts: known, liftsOpen: liftsOpen() });
+            ? renderHalf(rail, half.view.kind, ways, to, { now: clock, expired, longWalk: isLongWalk(ways[0].o), live: timed, offer: !choice, taken: choice === 'taken' ? half.view.quicker : null, noTrains, lifts: known, liftsOpen: liftsOpen() })
+            : renderTrip(rail, trip, to, { now: clock, expired, noBuses, noTrains: noTrains && !noBuses, checking: Boolean(searches) && !forTrip(half), lifts: known, liftsOpen: liftsOpen() });
         const answer = html`${shown}${TIMING && timingBox(timing)}`;
         setHtml(result, changing ? answer : html`${renderChosen(from, to)}${answer}`);
         $('trip-change')?.addEventListener('click', () => {

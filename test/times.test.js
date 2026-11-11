@@ -50,6 +50,11 @@ test('more words for screen readers go after the minutes', () => {
     assert.equal(String(minutesMark(2, tEn, { then: ' (Last train),' })), '<span aria-hidden="true">2\'</span><span class="sr-only">2 minutes (Last train),</span>');
 });
 
+test('screen readers can hear the minutes in a sentence: "next in 19 minutes", a bus due "next in 2 minutes, arriving soon"', () => {
+    assert.equal(String(minutesMark(19, tEn, { said: 'next in {minutes}' })), '<span aria-hidden="true">19\'</span><span class="sr-only">next in 19 minutes</span>');
+    assert.equal(String(minutesBadge(2, tEl, { said: 'το επόμενο σε {minutes}' })), '<span class="time-badge time-due"><span aria-hidden="true">2\'</span><span class="sr-only">το επόμενο σε 2 λεπτά, φτάνει σύντομα</span></span>');
+});
+
 test('a bus coming: its minutes in a badge of how soon, "arriving soon" when it\'s due', () => {
     assert.equal(String(minutesBadge(3, tEn)), '<span class="time-badge time-due"><span aria-hidden="true">3\'</span><span class="sr-only">3 minutes, arriving soon</span></span>');
     assert.equal(String(minutesBadge(4, tEl)), '<span class="time-badge time-close"><span aria-hidden="true">4\'</span><span class="sr-only">4 λεπτά</span></span>');

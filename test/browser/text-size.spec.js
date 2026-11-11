@@ -4,7 +4,7 @@
 // what keeps them in rem. Cut off on purpose, with an ellipsis, is allowed.
 import { expect, onlyOn, test } from './fixtures.js';
 import { EVERY_PAGE, READY } from './site-pages.js';
-import { hereToSyntagma, MEGARA, pickBoth, pickDecision } from './trip-page.js';
+import { hereToSyntagma, MEGARA, pickBoth, pickDecision, pickPark } from './trip-page.js';
 
 // Without animations: a turning loading icon (a bus stop below the screen
 // keeps one until it's scrolled to) sticks out of its line at some angles
@@ -129,6 +129,29 @@ test.describe('at large text', () => {
             expect(box.y).toBeGreaterThanOrEqual(label.y + label.height - 1);
         }
     });
+
+    test('a step of a trip puts its time or minutes on a line of their own', async ({ page }) => {
+        await pickPark(page);
+        const steps = page.locator('.trip-card').first().locator('li.trip-step');
+        await expect(steps.locator('.trip-step-badges').first()).toBeVisible();
+        // The next half hour's answer in the place of the answer for leaving now
+        await expect(page.locator('#trip-checking')).toHaveCount(0);
+        // Each step's time or minutes, beside what to do or above it
+        const sides = () => steps.evaluateAll(all => all.map(step => {
+            const [when, what] = ['.trip-step-when', '.trip-step-what'].map(s => step.querySelector(s).getBoundingClientRect());
+            return what.left >= when.right - 1 ? 'beside' : what.top >= when.bottom - 1 ? 'above' : 'overlapping';
+        }));
+        expect(new Set(await sides())).toEqual(new Set(['beside']));
+        await big(page);
+        await expect.poll(async () => [...new Set(await sides())]).toEqual(['above']);
+        // what to do takes the row's width, the walking directions still at its far right
+        const walk = await steps.filter({ has: page.locator('.directions-btn') }).first().evaluate(step => {
+            const [row, what, directions] = [step, step.querySelector('.trip-step-what'), step.querySelector('.directions-btn')].map(el => el.getBoundingClientRect());
+            return { what: what.left - row.left, directions: row.right - directions.right };
+        });
+        expect(Math.abs(walk.what)).toBeLessThan(1);
+        expect(Math.abs(walk.directions)).toBeLessThan(1);
+    });
 });
 
 // The favourites drawn on the bus page aren't on a fresh page: starred first
@@ -162,6 +185,14 @@ test.describe('the Trip page\'s answers at 200% text', () => {
             await big(page);
             expect(await page.evaluate(problems)).toEqual([]);
         });
+    });
+
+    test('a bus ride by the timetable, its badges at the right of its heading', async ({ page }) => {
+        await pickPark(page);
+        await expect(page.locator('.trip-card').first().locator('.trip-step-badges .time-badge').first()).toBeVisible();
+        await expect(page.locator('#trip-checking')).toHaveCount(0);
+        await big(page);
+        expect(await page.evaluate(problems)).toEqual([]);
     });
 
     test.describe('on a decision', () => {

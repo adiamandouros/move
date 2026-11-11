@@ -1238,10 +1238,10 @@ body {
     color: var(--bs-secondary-color);
 }
 
-/* Result card */
+/* Result card: 16px of padding, as every card (DESIGN.md, "Space") */
 .result-card {
-    --bs-card-spacer-x: 1.25rem;
-    --bs-card-spacer-y: 1.25rem;
+    --bs-card-spacer-x: var(--wh-space-4);
+    --bs-card-spacer-y: var(--wh-space-4);
 }
 
 /* Lines (/js/core/lines.js): a metro or tram line is a round pill in its
@@ -1588,7 +1588,7 @@ body {
     background-color: var(--bs-tertiary-bg);
     border: 1px solid var(--wh-divider);
     border-radius: var(--wh-radius-lg);
-    padding: var(--wh-space-3);
+    padding: var(--wh-space-4);
     margin-bottom: var(--wh-space-3);
 }
 
@@ -1631,11 +1631,18 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
+/* When you get there is the card's heading, as its minutes are */
+.trip-arrives {
+    color: var(--bs-body-color);
+}
+
 .trip-other {
     margin: 0;
 }
 
+/* Sized by its own width, for the rule after the steps' parts */
 .trip-steps {
+    container-type: inline-size;
     list-style: none;
     margin: 0;
     padding: 0;
@@ -1656,15 +1663,46 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
+/* When a ride leaves is the answer: strong, where a walk's minutes are quiet */
+.trip-step-leaves {
+    font-size: var(--wh-fs-md);
+    font-weight: 700;
+    color: var(--bs-body-color);
+}
+
 /* A stop's name longer than the step (large text) breaks */
 .trip-step-what {
+    flex: 1;
     min-width: 0;
     overflow-wrap: anywhere;
 }
 
-/* OASA's live times on the trip page's way (decision 35): a bus's minutes
-   and the next one's, or each line's at a stop, beside its plate */
-.trip-live {
+/* A ride's line and where it goes, its badges at the right end, on a line
+   of their own when they don't fit */
+.trip-step-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--wh-space-1) var(--wh-space-2);
+}
+
+.trip-step-badges {
+    display: inline-flex;
+    gap: var(--wh-space-1);
+    margin-left: auto;
+}
+
+/* A walk's walking directions, at the far right of its row as on a bus
+   stop's, as tall as the row */
+.trip-step .directions-btn {
+    width: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2rem;
+}
+
+/* The buses coming to one of the stops a way's last bus can be caught at
+   (decision 35): each line's minutes beside its plate */
+.trip-stop-buses {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -1704,6 +1742,28 @@ body {
 
 .trip-more > .trip-steps {
     margin-top: var(--wh-space-2);
+}
+
+/* Too narrow for the left column beside what to do (large text, about 14
+   letters wide): the time or the minutes on a line of their own above it,
+   the walking directions still at its far right */
+@container (max-width: 14em) {
+    .trip-step {
+        flex-wrap: wrap;
+        row-gap: 0;
+    }
+
+    .trip-step-when {
+        flex-basis: 100%;
+    }
+
+    .trip-step-when:empty {
+        display: none;
+    }
+
+    .trip-more summary {
+        margin-left: 0;
+    }
 }
 
 /* The quicker way offered on a decision (decision 36), under the

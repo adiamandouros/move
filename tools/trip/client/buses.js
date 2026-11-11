@@ -38,12 +38,13 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
  * the note that walk has (a suburban station's change, decision 41), or null.
  * `dir`: a metro or tram ride's direction, as rail.json names it, for its
  * platforms' step-free access. `lines`: every bus line that rides it, the
- * first to come first. `live`:
+ * first to come first. `next`: a bus ride's, when the timetable's next bus
+ * of its line leaves there, null if there's none. `live`:
  * OASA's word on a bus of the way shown in full, once its stop is answered;
  * `late`: how late a suburban train of it runs, once the trains are answered
  * @typedef {{ line: string, dir?: string, lines: string[], mode: string, board: import('/tools/subway/city.js').Stop, alight: import('/tools/subway/city.js').Stop,
  *   boards: number, arrives: number, stops: number, toward: { el: string, en: string }, walkBefore: Walk | null,
- *   walkNote: { el: string, en: string } | null, live?: RideLive, late?: import('./trains.js').RideLate }} Ride
+ *   walkNote: { el: string, en: string } | null, next?: number | null, live?: RideLive, late?: import('./trains.js').RideLate }} Ride
  */
 /**
  * A way with a bus, as one of the Trip page's options: `rides`, its walks
@@ -158,6 +159,7 @@ function cityOption(planner, way, access, egress, now, lines = way.legs.map(leg 
             boards: leg.boards, arrives: leg.arrives, stops: leg.alightIndex - leg.boardIndex,
             toward: planner.routes[leg.route].toward, ...planner.routes[leg.route].dir && { dir: planner.routes[leg.route].dir }, walkBefore: walkOf(leg.walkBefore),
             walkNote: i && leg.walkBefore ? planner.walkNote(way.legs[i - 1].alight, leg.board) : null,
+            ...ON_THE_ROAD.has(leg.mode) && { next: planner.ride([leg], leg.boards)?.[0].next ?? null },
         })),
         firstWalk: walkOf(secondsTo(access, way.legs[0].board)),
         lastWalk: walkOf(secondsTo(egress, way.legs.at(-1).alight)),

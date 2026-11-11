@@ -4,7 +4,7 @@
 // together. The addresses are test/fixtures/places.js.
 import { watchRequests } from './bus-requests.js';
 import { axe, expect, keyboardWalk, onlyOn, test } from './fixtures.js';
-import { from, hereToSyntagma, list, MEGARA, MENELAOU_45, MENELAOU_85, moveTo, pickBoth, pickDecision, to, watchPlans } from './trip-page.js';
+import { from, hereToSyntagma, list, MEGARA, MENELAOU_45, MENELAOU_85, moveTo, pickBoth, pickDecision, pickPark, to, watchPlans } from './trip-page.js';
 
 test.describe('the trip page', () => {
     test.beforeEach(onlyOn('phone'));
@@ -160,6 +160,35 @@ test.describe('the trip page', () => {
         expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
     });
 
+    // DESIGN.md, "The Trip page": the guide's picture of a way
+    test('a bus ride: when it leaves, strong, its badge and the next one\'s at the right end of its heading; a walk\'s directions at the far right of its row', async ({ page }) => {
+        await pickPark(page);
+        const best = page.locator('.trip-card').first();
+        const ride = best.locator('li.trip-step', { has: page.locator('.trip-step-badges') });
+        await expect(ride).toHaveCount(1);
+        // The next half hour's answer in the place of the answer for leaving now
+        await expect(page.locator('#trip-checking')).toHaveCount(0);
+        // By the timetable until OASA has it: "~12:09", bold
+        await expect(ride.locator('.trip-step-when [aria-hidden="true"]')).toHaveText(/^~\d\d:\d\d$/);
+        expect(await ride.locator('.trip-step-when').evaluate(el => getComputedStyle(el).fontWeight)).toBe('700');
+        await expect(ride.locator('.trip-step-head .bus-plate.pill-m')).toHaveText('040');
+        const badges = ride.locator('.trip-step-badges');
+        await expect(badges).not.toHaveClass(/trip-live/);
+        await expect(badges.locator('.time-badge [aria-hidden="true"]').first()).toHaveText(/^\d+'$/);
+        expect(Math.abs(await ride.evaluate(step => step.querySelector('.trip-step-head').getBoundingClientRect().right - step.querySelector('.trip-step-badges').getBoundingClientRect().right))).toBeLessThan(1);
+        // The walk to its stop: plain words, and the walking figure as tall as the row, at its far right
+        const walk = best.locator('li.trip-step', { hasText: 'Walk to' }).first();
+        await expect(walk.getByRole('link')).toHaveCount(1);
+        await expect(walk.getByRole('link', { name: /^Walking directions to .+ \(opens in a new tab\)$/ })).toBeVisible();
+        const edges = await walk.evaluate(step => {
+            const [row, button] = [step, step.querySelector('a')].map(el => el.getBoundingClientRect());
+            return { right: row.right - button.right, height: row.height - button.height };
+        });
+        expect(Math.abs(edges.right)).toBeLessThan(1);
+        expect(Math.abs(edges.height)).toBeLessThan(1);
+        expect(await axe(page), 'axe-core violations').toEqual([]);
+    });
+
     test('in Greek too', async ({ page }) => {
         await page.goto('/el/trip');
         await page.getByRole('combobox', { name: 'Από' }).fill('Μενελάου 45');
@@ -271,6 +300,13 @@ test.describe('the trip page', () => {
             await page.getByRole('combobox', { name: 'Προς' }).fill('Συγγρού-Φιξ');
             await list(page, 'to').first().click();
             await expect(page.locator('.trip-card').first().locator('.trip-live .time-badge').first()).toBeVisible();
+        });
+
+        test('a bus ride OASA has coming: its time without "~", its badges marked as OASA\'s', async ({ page }) => {
+            await pickPark(page);
+            const ride = page.locator('.trip-card').first().locator('li.trip-step', { has: page.locator('.trip-step-badges') });
+            await expect(ride.locator('.trip-step-badges.trip-live .time-badge').first()).toBeVisible();
+            await expect(ride.locator('.trip-step-when')).toHaveText(/^\d\d:\d\d$/);
         });
 
         test.describe('followed by My location (decision 45)', () => {
