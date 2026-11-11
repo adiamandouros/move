@@ -31,9 +31,21 @@ const destination = a => a.to ? local(a.to) : t('buses.unknown-line');
 // filled in by patchStop(). open: shown opened; nearest: marked as the
 // nearest (on a line); id: the start of its parts' ids (the favourites have
 // their own, as a stop can be listed twice).
-export function stopItem(stop, index, { open = false, nearest = false, id = 'stop' } = {}) {
+export const stopItem = (stop, index, { open = false, nearest = false, id = 'stop' } = {}) =>
+    stopRow(stop, index, { open, nearest, id });
+
+// A stop's row as the Buses page draws it, for the Trip page too (decision
+// 48), which fills it in at once: `away`, how far it is, beside its code;
+// `next`, `badge` and `arrivals` as nextBus(), headerBadge() and arrivalRows()
+// draw them, `lines` its lines, `heard` what its list of arrivals is called
+// for a screen reader; `star`: false leaves out saving the stop
+/**
+ * @param {{ code: string, name: { el?: string, en?: string }, lat: number, lng: number, meters?: number, lines?: string[] }} stop @param {number} index
+ * @param {{ open?: boolean, nearest?: boolean, id?: string, star?: boolean, away?: unknown, next?: unknown, badge?: unknown, arrivals?: unknown, lines?: unknown, heard?: string, hasArrivals?: boolean }} options
+ */
+export function stopRow(stop, index, { open = false, nearest = false, id = 'stop', star = true, away = distance(stop.meters), next = '', badge = '', arrivals = '', lines = lineLinks(stop.lines), heard = `${t('buses.all-arrivals-for')} ${local(stop.name)}`, hasArrivals = false }) {
     return html`
-    <div class="accordion-item stop-item${nearest ? ' stop-nearest' : ''}" data-stop="${stop.code}" data-has-arrivals="false">
+    <div class="accordion-item stop-item${nearest ? ' stop-nearest' : ''}" data-stop="${stop.code}" data-has-arrivals="${String(hasArrivals)}">
         <div class="stop-header d-flex align-items-stretch">
             <h2 class="stop-heading d-flex flex-grow-1">
             <button class="accordion-button stop-toggle${open ? '' : ' collapsed'} d-flex align-items-center gap-3 flex-grow-1 p-0"
@@ -42,23 +54,23 @@ export function stopItem(stop, index, { open = false, nearest = false, id = 'sto
                 <span class="stop-label d-flex flex-column align-items-center justify-content-center text-center">
                     <span class="stop-name">${local(stop.name)}</span>
                     <span class="stop-code"><span class="sr-only">, ${t('buses.code')} </span>${stop.code}</span>
-                    <span class="stop-distance">${distance(stop.meters)}</span>
+                    <span class="stop-distance">${away}</span>
                     <span class="stop-nearest-note">${nearest ? nearestNote() : ''}</span>
                 </span>
-                <span class="stop-next-bus d-flex align-items-center gap-2 flex-grow-1"></span>
+                <span class="stop-next-bus d-flex align-items-center gap-2 flex-grow-1">${next}</span>
             </button>
             </h2>
             <div class="stop-header-fixed d-flex align-items-center">
-                <span class="header-badge-wrap" aria-hidden="true"></span>
-                ${favouriteButton({ kind: 'stop', key: stop.code, on: isFavourite('stop', stop.code), label: `${t('favourites.star')}: ${local(stop.name)} ${stop.code}`, cls: 'stop-favourite' })}
+                <span class="header-badge-wrap" aria-hidden="true">${badge}</span>
+                ${star && favouriteButton({ kind: 'stop', key: stop.code, on: isFavourite('stop', stop.code), label: `${t('favourites.star')}: ${local(stop.name)} ${stop.code}`, cls: 'stop-favourite' })}
                 ${externalLink({ class: 'directions-btn d-flex align-items-center justify-content-center', href: walkingUrl(stop.lat, stop.lng) },
                     html`${icon('walk')}<span class="sr-only">${t('buses.walking-directions-to')} ${local(stop.name)}</span>`, t('shell.new-tab'))}
             </div>
         </div>
         <div id="${id}-${index}" class="accordion-collapse collapse${open ? ' show' : ''}">
             <div class="accordion-body stop-body">
-                <ul class="stop-arrivals list-unstyled mb-0" aria-label="${t('buses.all-arrivals-for')} ${local(stop.name)}"></ul>
-                <p class="stop-lines mb-0">${t('buses.lines')}: ${lineLinks(stop.lines)}</p>
+                <ul class="stop-arrivals list-unstyled mb-0" aria-label="${heard}">${arrivals}</ul>
+                <p class="stop-lines mb-0">${t('buses.lines')}: ${lines}</p>
             </div>
         </div>
     </div>`;

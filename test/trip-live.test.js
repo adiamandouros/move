@@ -131,8 +131,11 @@ test('any bus from near the door: the stops with a bus the rider can catch first
     assert.deepEqual(order.slice(0, 2), [ids[2], ids[0]], 'the bus soonest first');
     assert.deepEqual(order.slice(2), ids.filter(id => id !== ids[0] && id !== ids[2]), 'then nearest first');
     assert.deepEqual(way.stops[0].buses, [{ line: busAt(third, 0).line, at: busAt(third, 2 * MIN).at }]);
+    assert.deepEqual(way.stops[0].arrivals, [{ line: busAt(third, 0).line, to: null, at: busAt(third, 2 * MIN).at }], 'for its row opened');
     assert.deepEqual(way.stops[2].buses, [], 'answered, but its bus can\'t be caught');
+    assert.deepEqual(way.stops[2].arrivals, []);
     assert.equal(way.stops.at(-1).buses, null, 'not asked');
+    assert.deepEqual(way.stops.at(-1).arrivals, []);
     // The nearest 10 asked, each by when the bus the rider can catch there comes
     assert.deepEqual(way.asks.map(({ stop }) => stop), ids.slice(0, LIVE_STOPS).map(id => id.replace('bus:', '')));
     assert.deepEqual(way.asks.slice(0, 3).map(({ at: when }) => when), [busAt(nearest, 10 * MIN).at, null, busAt(third, 2 * MIN).at]);
@@ -152,8 +155,12 @@ test('any bus after a train: the M2 to Syggrou-Fix, then the stops there, each c
     const [[route, line]] = routeCodes(city, nearest.lines, nearest.stop, doors);
     const code = codeOf(city.stops[nearest.stop]);
     const ready = m2.arrives + (nearest.walk ? nearest.walk + 60 : 30);
-    const way = liveWay(city, syntagma, menelaou, row, 0, at(8.5), { [code]: { buses: [{ route, line, at: m2.arrives - MIN }, { route, line, at: ready + 4 * MIN }] } });
+    const to = { el: 'ΓΛΥΦΑΔΑ', en: 'GLYFADA' };
+    const elsewhere = { route: 'not-the-riders', line: '999', to, at: ready + MIN };
+    const way = liveWay(city, syntagma, menelaou, row, 0, at(8.5), { [code]: { buses: [{ route, line, to, at: ready + 12 * MIN }, { route, line, at: m2.arrives - MIN }, elsewhere, { route, line, to, at: ready + 4 * MIN }] } });
     assert.deepEqual(way.stops[0].buses, [{ line, at: ready + 4 * MIN }]);
+    // Opened, its row lists every bus of the rider's lines they can still catch, soonest first, with where it goes (decision 48)
+    assert.deepEqual(way.stops[0].arrivals, [{ line, to, at: ready + 4 * MIN }, { line, to, at: ready + 12 * MIN }]);
 });
 
 // ── The page's side (live.js) ───────────────────────────────────────────────
@@ -165,10 +172,11 @@ test('a stop is asked for by itself, the trip\'s first request saying it starts 
     assert.equal(live.arrivalsUrl('240115'), '/api/arrivals?stops=240115&for=plan');
 });
 
-test('an answer\'s buses are due at a time of day, so they count down by themselves, and say when they were said; one that couldn\'t be had says so', () => {
+test('an answer\'s buses are due at a time of day, so they count down by themselves, with where they go, and say when they were said; one that couldn\'t be had says so', () => {
     const came = 10 * 3600;
-    assert.deepEqual(live.stopLive({ arrivals: [{ route: '3922', line: '040', minutes: 4 }, { route: '3922', line: null, minutes: 0 }] }, came),
-        { buses: [{ route: '3922', line: '040', at: came + 4 * MIN }, { route: '3922', line: null, at: came }], asked: came });
+    const piraeus = { el: 'ΠΕΙΡΑΙΑΣ', en: 'PIRAEUS' };
+    assert.deepEqual(live.stopLive({ arrivals: [{ route: '3922', line: '040', to: piraeus, minutes: 4 }, { route: '3922', line: null, to: null, minutes: 0 }, { route: '3922', line: '040', minutes: 9 }] }, came),
+        { buses: [{ route: '3922', line: '040', to: piraeus, at: came + 4 * MIN }, { route: '3922', line: null, to: null, at: came }, { route: '3922', line: '040', to: null, at: came + 9 * MIN }], asked: came });
     assert.deepEqual(live.stopLive({ arrivals: [], stale: true }, came), { buses: [], asked: came, stale: true });
     assert.deepEqual(live.stopLive({ arrivals: [], unavailable: true }, came), { buses: [], asked: came, unavailable: true });
     // Asking failed: the last answer, possibly old, or none
@@ -351,23 +359,47 @@ for (const lang of ['en', 'el']) {
         assert.ok(nothingUnder(html), 'nothing under the answer');
     });
 
-    test(`${lang}: any bus from near the door, the stops with a bus first, each line with its minutes`, () => {
+    test(`${lang}: any bus from near the door: each stop the Buses page's row, the one with a bus first, its next bus and every bus of the rider's lines when opened (decision 48)`, () => {
         const fix = point('syggrou-fix');
         const half12 = view(halfView(city, menelaou, fix, answered(menelaou, fix, at(12))));
         const [row] = shownRows(answered(menelaou, fix, at(12)));
-        const [nearest, second] = row.stops;
+        const [nearest, second, third] = row.stops;
         const doors = new Set(city.near(fix, 15 * MIN).filter((_, i) => i % 2 === 0));
         const [[route, line]] = routeCodes(city, second.lines, second.stop, doors);
+        const glyfada = { el: 'ΓΛΥΦΑΔΑ', en: 'GLYFADA' };
+        const code = codeOf(city.stops[second.stop]);
         const way = liveWay(city, menelaou, fix, row, 0, at(12), {
-            [codeOf(city.stops[second.stop])]: { buses: [{ route, line, at: 12 * 3600 + second.walk + 9 * MIN }] },
+            [code]: { buses: [{ route, line, to: glyfada, at: 12 * 3600 + second.walk + 9 * MIN }, { route, line, to: glyfada, at: 12 * 3600 + second.walk + 25 * MIN }] },
             [codeOf(city.stops[nearest.stop])]: { buses: [] },
         });
-        const html = String(r.renderHalf(network, half12.kind, r.halfWays(half12, 12 * 3600), fix, { now: 12 * 3600, weekday: 3, live: { way: view(way) } }));
+        const drawnWith = stops => String(r.renderHalf(network, half12.kind, r.halfWays(half12, 12 * 3600), fix, { now: 12 * 3600, weekday: 3, live: { way: view(way) }, stops }));
+        const html = drawnWith(new Set());
         check(html);
-        // After "Any of these buses": the stop with a bus, its line with its minutes; then the nearest, answered with none
-        const [first, next] = html.split('<li class="trip-step">').slice(2);
-        assert.ok(first.includes(`<div class="trip-stop-buses trip-live"><span class="trip-live-bus"><span class="bus-plate pill-s">${line}</span> <span class="time-badge time-later">`), first);
-        assert.ok(next.includes(s['trip.live-none']));
+        assert.ok(!html.includes('stop-favourite'), 'no star on the Trip page');
+        // After "Any of these buses": the stop with a bus, then the nearest, answered with none, then one not asked yet
+        const [, first, next, unasked] = html.split(/<li class="trip-stop(?: trip-live)?">/);
+        assert.equal(html.split('<li class="trip-stop trip-live">').length - 1, 1, 'only the stop with buses from OASA marked live');
+        assert.ok(html.indexOf('<li class="trip-stop trip-live">') < html.indexOf('<li class="trip-stop">'), 'and it comes first');
+        assert.ok(first.includes(`data-stop="${code}"`) && first.includes('aria-controls="trip-stop-0"') && first.includes('aria-expanded="false"'));
+        // Beside its code, the walk to it, "about" to a screen reader
+        const walk = way.stops[0].walk.minutes;
+        assert.ok(first.includes(`<span class="stop-distance"><span class="sr-only">, </span><span aria-hidden="true">~${walk}'</span><span class="sr-only">${s['trip.walk-short'].replace('{minutes}', s['shell.about'].replace('{what}', s[walk === 1 ? 'shell.minute' : 'shell.minutes'].replace('{minutes}', walk)))}</span></span>`), first);
+        // The next bus as on the Buses page: its large plate, where it goes, its minutes beside the button
+        assert.ok(first.includes(`<span class="next-bus-line"><span class="bus-plate pill-l">${line}</span></span>`), first);
+        assert.ok(first.includes(`<span class="next-bus-dest">${glyfada[lang]}</span>`));
+        const due = Math.floor((second.walk + 9 * MIN) / 60);
+        assert.ok(first.includes(`<span class="header-badge-wrap" aria-hidden="true"><span class="time-badge time-later"><span aria-hidden="true">${due}'`), 'counted from now');
+        assert.ok(first.includes(`aria-label="${s['trip.stop-buses'].replace('{stop}', (names => lang === 'el' ? names.el : names.en || latinName(names.el))(city.stops[second.stop].names))}"`), 'only the rider\'s buses, so not "all arrivals"');
+        // Opened: both its buses, each with where it goes; its lines, not links away from the trip
+        assert.equal(first.split('class="arrival-row').length - 1, 2);
+        assert.ok(!first.includes('plate-link'));
+        assert.ok(next.includes(s['trip.live-none']) && !next.includes('arrival-row'));
+        assert.ok(next.split('</button>')[0].includes(`<span class="sr-only">. ${s['buses.lines']}: </span>`), 'with none on live times, its lines still beside it');
+        assert.ok(unasked.includes(`data-stop="${codeOf(city.stops[third.stop])}"`));
+        assert.ok(unasked.split('</button>')[0].includes(`<span class="sr-only">. ${s['buses.lines']}: </span>`) && !unasked.includes('time-badge') && !unasked.includes(s['trip.live-none']), 'its lines, no minutes');
+        // Opened by the rider, it stays opened through the redraws
+        const opened = drawnWith(new Set([code])).split(/<li class="trip-stop(?: trip-live)?">/)[1];
+        assert.ok(opened.includes('aria-expanded="true"') && opened.includes('accordion-collapse collapse show'));
     });
 
     // From Σταύρου 1 to Μενελάου 45 at noon, a decision (decision 36)
@@ -409,7 +441,7 @@ for (const lang of ['en', 'el']) {
         assert.ok(html.includes(`<span class="trip-arrives">${escaped(s['trip.quicker-taken'])}</span>`));
         assert.ok(html.includes(`<button type="button" id="trip-quicker-back" class="btn btn-sm locate-btn trip-stand">${escaped(s['trip.quicker-back'])}</button>`));
         assert.ok(!html.includes('trip-quicker-take'), 'nothing more offered');
-        assert.ok(html.includes(`<span class="bus-plate pill-s">${OFF_BUS.line}</span> <span class="time-badge`), 'its bus with its minutes');
+        assert.ok(html.includes(`<span class="next-bus-line"><span class="bus-plate pill-l">${OFF_BUS.line}</span></span>`) && html.includes('<span class="header-badge-wrap" aria-hidden="true"><span class="time-badge'), 'its bus with its minutes');
         const waiting = drawnDecided(null, { taken: decidedView.quicker });
         check(waiting);
         assert.ok(waiting.includes(escaped(s['trip.quicker-back'])) && waiting.includes(escaped(s['trip.any-bus-then'])));

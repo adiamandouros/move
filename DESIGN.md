@@ -373,8 +373,12 @@ rules, with a picture of a way shown in full.
   M plate and "towards …" in words (a bus shows where it goes on its front,
   so no station sign). At the right end of the heading's line, the bus's
   badge and the next one's; none an hour or more away, as the clock time
-  says it. Where any of several buses will do, the stops with their lines
-  and badges, or "Not on live times yet".
+  says it. Where any of several buses will do, each stop is the Buses page's
+  stop row (decision 48), across the step with nothing on the left: the
+  walk to it (`~4'`) where the Buses page shows how far, the next bus of the
+  rider's lines with where it goes and its badge, the walking figure; no
+  star. Opened, every bus of the rider's lines they can still catch there.
+  None on live times: their lines, and "Not on live times yet".
 - **A metro, tram or suburban ride** is the Subway page's card as it is
   (`legCard`, decision 46), across the step with nothing on the left: where
   to board, the L pill → the direction's sign, the badges, the last-train
@@ -396,8 +400,7 @@ rules, with a picture of a way shown in full.
   sooner found on the way is switched to after 10 seconds unless the rider
   keeps theirs: a visible countdown that pauses while the notice is touched
   or has the keyboard, "Back to my route" after, a declined way not offered
-  again, on the page only (a vibration on Android). The "Any of these
-  buses" stops become the Buses page's stop rows.
+  again, on the page only (a vibration on Android).
 
 ## Tests
 

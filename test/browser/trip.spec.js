@@ -176,9 +176,9 @@ test.describe('the trip page', () => {
         await expect(page.locator('#trip-checking')).toHaveCount(0);
         const more = best.locator('.trip-more');
         await expect(more.locator('summary')).toHaveText(/^\d+ more stops$/);
-        await expect(more.locator('.trip-step').first()).toBeHidden();
+        await expect(more.locator('.trip-stop').first()).toBeHidden();
         await more.locator('summary').click();
-        await expect(more.locator('.trip-step').first()).toBeVisible();
+        await expect(more.locator('.trip-stop').first()).toBeVisible();
         await expect(page.locator('#trip-result > :last-child'), 'nothing under the answer').toHaveClass(/trip-card/);
         await expect(page.locator('#trip-timing')).toHaveCount(0);
         expect(await axe(page), 'axe-core violations').toEqual([]);
@@ -251,8 +251,8 @@ test.describe('the trip page', () => {
         test.use({ scenario: 'trip-live' });
 
         // The minutes of the first bus at each stop of the way shown with one, in the order shown
-        const firstBuses = page => page.locator('.trip-card').first().locator('li.trip-step').evaluateAll(steps => steps
-            .map(step => step.querySelector('.trip-live .time-badge [aria-hidden="true"]')?.textContent)
+        const firstBuses = page => page.locator('.trip-card').first().locator('li.trip-stop').evaluateAll(stops => stops
+            .map(stop => stop.querySelector('.header-badge-wrap .time-badge [aria-hidden="true"]')?.textContent)
             .filter(Boolean)
             .map(minutes => parseInt(minutes, 10)));
         // The page out of sight, or back, as when the phone locks or the app is switched
@@ -281,6 +281,40 @@ test.describe('the trip page', () => {
             expect(await axe(page), 'axe-core violations').toEqual([]);
             const walk = await keyboardWalk(page);
             expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
+        });
+
+        // DESIGN.md, "The Trip page", and decision 48
+        test('a stop is the Buses page\'s row: its next bus beside it, no star; opened from the keyboard, the rider\'s buses there, each with where it goes, still open as the minutes count down', async ({ page }) => {
+            const { run } = await watchRequests(page);
+            await pickBoth(page);
+            const first = page.locator('.trip-card').first().locator('li.trip-stop.trip-live').first();
+            await expect(first.locator('.header-badge-wrap .time-badge')).toBeVisible();
+            const code = await first.locator('.stop-item').getAttribute('data-stop');
+            // Found again by its code after each redraw
+            const stop = page.locator(`li.trip-stop:has(.stop-item[data-stop="${code}"])`);
+            await expect(stop.locator('.next-bus-line .bus-plate')).toBeVisible();
+            await expect(stop.locator('.next-bus-dest')).toHaveText('SYNTAGMA');
+            await expect(stop.locator('.stop-favourite')).toHaveCount(0);
+            await expect(stop.getByRole('link', { name: /^Walking directions to .+ \(opens in a new tab\)$/ })).toBeVisible();
+            const toggle = stop.locator('.stop-toggle');
+            await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+            await toggle.focus();
+            await page.keyboard.press('Enter');
+            await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+            const buses = stop.locator('.arrival-row');
+            await expect(buses.first()).toBeVisible();
+            await expect(buses.first()).toContainText('SYNTAGMA');
+            await expect(stop.getByRole('list', { name: /^Your buses at / })).toBeVisible();
+            expect(await axe(page), 'axe-core violations').toEqual([]);
+            // A minute on, the page has drawn the answer again (the row is a new
+            // element, as the old one was marked; not while the keyboard is in
+            // the answer, so it leaves first): the stop stays open
+            await stop.locator('.stop-item').evaluate(row => { row.dataset.drawnBefore = 'yes'; });
+            await page.evaluate(() => /** @type {HTMLElement} */ (document.activeElement).blur());
+            await run(61);
+            await expect(stop.locator('.stop-item[data-drawn-before]')).toHaveCount(0);
+            await expect(stop.locator('.stop-toggle')).toHaveAttribute('aria-expanded', 'true');
+            await expect(stop.locator('.arrival-row').first()).toBeVisible();
         });
 
         test('asked again as their buses near, nothing while out of sight, paused after 10 minutes untouched until a tap', async ({ page }) => {

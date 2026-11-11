@@ -1,6 +1,6 @@
 # 46. The trip page: metro and tram rides as the subway planner's cards
 
-Decided 2026-11-11 · In force
+Decided 2026-11-11 · Replaced by [48](0048-trip-bus-stops-as-buses-rows.md)
 
 ## Situation
 

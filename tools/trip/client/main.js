@@ -181,14 +181,23 @@ function start(metro) {
     };
     const sameRow = (a, b) => a?.id === b?.id && a?.row === b?.row && Boolean(a?.taken) === Boolean(b?.taken);
     // The cards' stations on the way the rider opened or closed (by leg),
-    // kept through the refreshes while the trip goes to the same place, a
-    // start that follows My location included (decision 46)
-    let opened = { to: null, legs: {} };
-    const openedLegs = () => {
-        if (opened.to !== to) opened = { to, legs: {} };
-        return opened.legs;
+    // and the bus stops they opened (by code), kept through the refreshes
+    // while the trip goes to the same place, a start that follows My
+    // location included (decisions 46 and 48)
+    /** @type {{ to: unknown, legs: Record<string, boolean>, stops: Set<string> }} */
+    let opened = { to: null, legs: {}, stops: new Set() };
+    const openedFor = () => {
+        if (opened.to !== to) opened = { to, legs: {}, stops: new Set() };
+        return opened;
     };
+    const openedLegs = () => openedFor().legs;
+    const openedStops = () => openedFor().stops;
     watchLegStations(result, openedLegs);
+    // A stop's row as the rider opens or closes it, so a redraw while it
+    // slides keeps what they chose
+    const stopOf = e => /** @type {HTMLElement} */ (e.target).closest('.trip-stop')?.querySelector('.stop-item')?.getAttribute('data-stop');
+    result.addEventListener('show.bs.collapse', e => { const code = stopOf(e); if (code) openedStops().add(code); });
+    result.addEventListener('hide.bs.collapse', e => { const code = stopOf(e); if (code) openedStops().delete(code); });
 
     // How late the suburban trains run, by number, as the way shown in full
     // is timed with it: none while it can't be had
@@ -304,7 +313,7 @@ function start(metro) {
         // the cards' trains are the day's (legs.js), as late as they run
         // when the way is timed with it (decision 47)
         const { seconds: clock, weekday, date } = athensNow();
-        const cards = { weekday, date, stations: openedLegs(), legend: legendOpen() };
+        const cards = { weekday, date, stations: openedLegs(), stops: openedStops(), legend: legendOpen() };
         const offer = !choice && timed?.way.offer;
         const known = lifts();
         const shown = ways.length
