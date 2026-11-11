@@ -106,15 +106,18 @@ function legStations(rail, leg, id, open) {
     </ol>`;
 }
 
-// changes: whether the route has more than one leg. Only then does each card
-// say how long its ride is (a direct trip's is the total on the route's line).
-// The stops it always says, on the right: "12' · 3 stops", a button that
-// opens the stations on the way (legStations). key: legKey's; open: whether
-// they're open. A tram has no train diagram: its platforms are in the street,
-// open along their length, so you get off anywhere; nor has a suburban train,
-// whose stations aren't recorded. A suburban train to or from a station OASA's
-// ticket doesn't cover says it needs Hellenic Train's (decision 41).
-function legCard(rail, leg, next, now, level, tomorrow, changes, key, open) {
+// timed: whether the card says how long its ride is: here only on a route
+// with more than one leg (a direct trip's is the total on the route's line),
+// on the Trip page always (decision 46). The stops it always says, on the
+// right: "12' · 3 stops", a button that opens the stations on the way
+// (legStations). key: names the leg among the page's; open: whether its
+// stations are open. A tram has no train diagram: its platforms are in the
+// street, open along their length, so you get off anywhere; nor has a
+// suburban train, whose stations aren't recorded. A suburban train to or from
+// a station OASA's ticket doesn't cover says it needs Hellenic Train's
+// (decision 41). The Trip page draws its metro and tram rides with it too
+// (decision 46).
+export function legCard(rail, leg, next, now, level, tomorrow, timed, key, open) {
     const line = rail.lines[leg.line];
     const words = wordsFor(rail, leg);
     // Where the line goes, as the station's signs say
@@ -122,7 +125,7 @@ function legCard(rail, leg, next, now, level, tomorrow, changes, key, open) {
     const where = legPositions(rail, leg, next);
     const { stop } = where;
     const first = leg.departures[0];
-    const ride = changes && first && html`${minutesMark(Math.round((first.arrives - first.departs) / 60), t)} · `;
+    const ride = timed && first && html`${minutesMark(Math.round((first.arrives - first.departs) / 60), t)} · `;
     const action = next
         ? html`${icon('change-trains', 'me-2')}${t('subway.transfer-at')} <strong>${stationLink(rail, leg.to)}</strong>`
         : html`${icon('get-off', 'me-2')}${t('subway.exit-at')} <strong>${stationLink(rail, leg.to)}</strong>`;
@@ -154,6 +157,21 @@ function legCard(rail, leg, next, now, level, tomorrow, changes, key, open) {
             ${legStations(rail, leg, id, open)}
             ${stop.centralPlatform && html`<p class="leg-doors text-center mt-2 mb-0">${centralPlatformBadge(t)}</p>`}
         </div></div>`;
+}
+
+// A leg card's stops button (legCard), in `box`: it opens or closes the
+// stations on the way, and `open()` (key → true/false) keeps them so through
+// the page's refreshes. The Subway page's and the Trip page's
+/** @param {HTMLElement} box @param {() => Record<string, boolean>} open */
+export function watchLegStations(box, open) {
+    box.addEventListener('click', e => {
+        const toggle = /** @type {Element} */ (e.target).closest?.('.leg-stops-toggle');
+        if (!toggle) return;
+        const opened = toggle.getAttribute('aria-expanded') !== 'true';
+        toggle.setAttribute('aria-expanded', String(opened));
+        /** @type {HTMLElement} */ (document.getElementById(toggle.getAttribute('aria-controls'))).hidden = !opened;
+        open()[toggle.getAttribute('data-leg')] = opened;
+    });
 }
 
 // A walk at the start or end of a trip, in the place of a connector: "Walk to

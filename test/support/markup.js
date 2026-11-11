@@ -24,6 +24,10 @@ export const notices = html => [...String(html).matchAll(/<div class="notice not
     .map(([, tone, icon, body]) => ({ tone, icon, text: spoken(body) }));
 
 // [{ open, inner }] for each <name …>…</name> (not nested in itself)
+// Nothing under a Trip page answer but the legend of what its trains show
+// (decisions 43 and 46): what's left ends with its last way
+export const nothingUnder = html => /<\/div>$/.test(String(html).trimEnd().replace(/<details class="diagram-legend"[^>]*>[\s\S]*<\/details>$/, '').trimEnd());
+
 export const elements = (html, name) => [...html.matchAll(new RegExp(`(<${name}\\b[^>]*>)([\\s\\S]*?)</${name}>`, 'g'))]
     .map(([, open, inner]) => ({ open, inner }));
 

@@ -1,10 +1,11 @@
 import { announce, format, formatHtml, html, localName, notice, setHtml } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
 import { watchLifts } from '/js/core/lifts.js';
-import { liftsOpen } from '/js/core/metro.js';
+import { legendOpen, liftsOpen } from '/js/core/metro.js';
 import { lastPosition, locationPermission, onLocation, onLocationProblem, showFollowing, startLocation } from '/js/core/location.js';
 import { minutesMark } from '/js/core/times.js';
 import { athensNow, closestStation, isTimetableExpired, withTram } from '/tools/subway/network.js';
+import { watchLegStations } from '/tools/subway/render.js';
 import { suburbanHidden, tramHidden } from '/tools/subway/tram-switch.js';
 import { isIdle } from '/tools/buses/timing.js';
 import { replanDue } from './follow.js';
@@ -157,6 +158,15 @@ function start(metro) {
         /** @type {import('./trains.js').TrainsLive | null} */ trains: null, trainsAsked: -Infinity, askingTrains: false,
     };
     const sameRow = (a, b) => a?.id === b?.id && a?.row === b?.row && Boolean(a?.taken) === Boolean(b?.taken);
+    // The cards' stations on the way the rider opened or closed (by leg),
+    // kept through the refreshes while the trip goes to the same place, a
+    // start that follows My location included (decision 46)
+    let opened = { to: null, legs: {} };
+    const openedLegs = () => {
+        if (opened.to !== to) opened = { to, legs: {} };
+        return opened.legs;
+    };
+    watchLegStations(result, openedLegs);
 
     // The way shown in full, timed again by the worker with the live times
     // there are, for leaving now; or nothing to time, as it has no bus
@@ -266,13 +276,15 @@ function start(metro) {
             : null;
         const latest = [live.way, live.directions].find(way => want && sameRow(way, want));
         const timed = latest ? { way: latest.way } : null;
-        // The buses' minutes count from the clock, not from when the search was made
-        const clock = athensNow().seconds;
+        // The minutes count from the clock, not from when the search was made;
+        // the cards' trains are the day's (legs.js)
+        const { seconds: clock, weekday } = athensNow();
+        const cards = { weekday, stations: openedLegs(), legend: legendOpen() };
         const offer = !choice && timed?.way.offer;
         const known = lifts();
         const shown = ways.length
-            ? renderHalf(rail, half.view.kind, ways, to, { now: clock, expired, longWalk: isLongWalk(ways[0].o), live: timed, offer: !choice, taken: choice === 'taken' ? half.view.quicker : null, noTrains, lifts: known, liftsOpen: liftsOpen() })
-            : renderTrip(rail, trip, to, { now: clock, expired, noBuses, noTrains: noTrains && !noBuses, checking: Boolean(searches) && !forTrip(half), lifts: known, liftsOpen: liftsOpen() });
+            ? renderHalf(rail, half.view.kind, ways, to, { now: clock, expired, longWalk: isLongWalk(ways[0].o), live: timed, offer: !choice, taken: choice === 'taken' ? half.view.quicker : null, noTrains, lifts: known, liftsOpen: liftsOpen(), ...cards })
+            : renderTrip(rail, trip, to, { now: clock, expired, noBuses, noTrains: noTrains && !noBuses, checking: Boolean(searches) && !forTrip(half), lifts: known, liftsOpen: liftsOpen(), ...cards });
         const answer = html`${shown}${TIMING && timingBox(timing)}`;
         setHtml(result, changing ? answer : html`${renderChosen(from, to)}${answer}`);
         $('trip-change')?.addEventListener('click', () => {

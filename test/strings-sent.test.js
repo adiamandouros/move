@@ -52,6 +52,15 @@ test('a page sends its own strings and the shared ones scripts use, in its langu
     assert.equal(buses['location.try-again'], stringTables(tools)[0].el['location.try-again'], 'in Greek');
 });
 
+test('a page sends the strings of the tools it borrows from: the Trip page the Subway page\'s, for its leg cards (decision 46)', () => {
+    for (const lang of ['en', 'el']) {
+        const trip = sent(pages[lang === 'en' ? '/trip' : '/el/trip']);
+        for (const [key, text] of Object.entries(tools.find(t => t.id === 'subway').strings[lang])) assert.equal(trip[key], text, key);
+        assert.equal(trip['trip.from'], tools.find(t => t.id === 'trip').strings[lang]['trip.from'], 'and its own');
+    }
+    assert.ok(!Object.keys(sent(pages['/buses'])).some(key => key.startsWith('subway.')), 'only where borrowed');
+});
+
 // JSON keeps the last of two keys that are the same, so a key written twice
 // silently loses its first text (a new string named as one already there).
 // Counted in the file as written: once parsed, the first is already gone

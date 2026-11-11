@@ -547,9 +547,51 @@ test.describe('the trip page', () => {
         test.describe('from Megara, where the location is, to Syntagma', () => {
             // The A4 at 12:08 (train 1313), Athens at 12:51, the walk to Larissa Station and the M2 at 13:01
             test.use({ location: { at: MEGARA } });
-            // The time of the way shown's step with the M2
-            const metroTime = page => page.locator('.trip-card').first().locator('li.trip-step', { has: page.locator('.line-pill', { hasText: 'M2' }) }).locator('.trip-step-when').textContent();
+            // The way shown's M2: its card (decision 46), and when its first train leaves,
+            // past an hour by the clock
+            const metroCard = page => page.locator('.trip-card').first().locator('li.trip-leg', { has: page.locator('.line-pill.line-m2') });
+            const metroTime = async page => (await metroCard(page).locator('.schedule-chips .time-badge').first().textContent()).match(/\d\d:\d\d/)[0];
             const minutesOf = hhmm => hhmm.replace('~', '').split(':').reduce((h, m) => h * 60 + Number(m), 0);
+
+            test('its metro ride is the Subway page\'s card: where to board, the line to its sign, the train, where to get off, its stations kept open; the legend under the way', async ({ page }) => {
+                await lateness(page, { now: { at: '2026-10-21T09:00:00Z', trains: {} } });
+                await hereToSyntagma(page);
+                const card = metroCard(page);
+                await expect(card).toBeVisible();
+                await expect(card.locator('.leg-boarding')).toHaveText('At Larissa Station:');
+                await expect(card.locator('h3.leg-title')).toHaveAccessibleName('M2 toward Elliniko');
+                await expect(card.locator('.schedule-label')).toHaveText('At', { useInnerText: true });
+                expect(await metroTime(page)).toBe('13:01');
+                await expect(card.locator('.train-diagram')).toBeVisible();
+                await expect(card.locator('.leg-action')).toContainText('Exit at Syntagma');
+                await expect(card.locator('.trip-step-when'), 'nothing on its left').toHaveCount(0);
+                await expect(page.getByRole('link', { name: 'Where to stand on the train' })).toHaveCount(0);
+                // What the train shows, under the way's card
+                const legend = page.locator('#trip-result > details.diagram-legend');
+                await expect(legend).toHaveAttribute('open', '');
+                expect(await legend.evaluate(el => el.previousElementSibling.classList.contains('trip-card'))).toBe(true);
+                // Its stations, opened, stay open when the page is drawn again a minute on
+                const toggle = card.locator('.leg-stops-toggle');
+                await toggle.click();
+                await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+                await expect(card.locator('.leg-stations')).toBeVisible();
+                await card.evaluate(el => { el.dataset.before = '1'; });
+                await page.evaluate(() => /** @type {HTMLElement} */ (document.activeElement).blur());
+                await page.clock.runFor(61_000);
+                await expect(page.locator('li.trip-leg[data-before]'), 'drawn again').toHaveCount(0);
+                await expect(metroCard(page).locator('.leg-stations')).toBeVisible();
+                await page.clock.resume();
+                expect(await axe(page), 'axe-core violations').toEqual([]);
+                const walk = await keyboardWalk(page);
+                expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
+                // In Greek, with the Subway page's words
+                await page.goto('/el/trip');
+                await page.getByRole('button', { name: 'Η θέση μου' }).click();
+                await page.getByRole('combobox', { name: 'Προς' }).fill('Σύνταγμα');
+                await list(page, 'to').first().click();
+                await expect(metroCard(page).locator('.leg-boarding')).toHaveText('Σε Σταθμός Λαρίσσης:');
+                await expect(metroCard(page).locator('.leg-stops-toggle')).toContainText(/^\d+ σταθμοί/);
+            });
 
             test('how late its train runs: said at its timetable time, the M2 after it later, asked again on the tiers while in sight', async ({ page }) => {
                 const answer = { now: { at: '2026-10-21T09:00:00Z', trains: {} } };

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { browserModule, strings } from './support/browser-modules.js';
-import { markupProblems, notices, spoken } from './support/markup.js';
+import { markupProblems, nothingUnder, notices, spoken } from './support/markup.js';
 import { buildTrains } from '../server/data/build-suburban.js';
 import { suburbanCurated, train } from './fixtures/railway.js';
 import { aboutTime, minutesBadge, minutesMark } from '../public/js/core/times.js';
@@ -48,20 +48,25 @@ const { format, localName } = await browserModule('public/js/core/html.js');
 
 for (const lang of ['en', 'el']) {
     const r = await browserModule('tools/trip/client/render.js', lang);
+    const subway = await browserModule('tools/subway/client/render.js', lang);
     const { doorToDoor } = await browserModule('tools/trip/client/plan.js', lang);
     const { listNote } = await browserModule('tools/trip/client/picker.js', lang);
     const keys = Object.keys(strings(lang));
     const check = view => assert.deepEqual(markupProblems(String(view), { keys }), []);
     const s = strings(lang);
     // The answer as the page draws it at NOW, the buses' minutes counted from then
-    const drawTrip = (planned, trip, to, shown = {}) => r.renderTrip(planned, trip, to, { now: NOW.seconds, ...shown });
+    const drawTrip = (planned, trip, to, shown = {}) => r.renderTrip(planned, trip, to, { now: NOW.seconds, weekday: NOW.weekday, ...shown });
     // A time that's a guess (/js/core/times.js): "~12:06", "about 12:06" for screen readers
     const about = time => String(aboutTime(time, key => s[key]));
     // When a ride leaves, on the left of its step, strong
     const leaves = time => `<span class="trip-step-when trip-step-leaves">${time}</span>`;
     const clock = seconds => `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;
-    // Nothing under the answer (decision 43): it ends with its last way
-    const nothingUnder = view => assert.ok(String(view).trimEnd().endsWith('</div>'), 'nothing under the answer');
+    // A metro or tram ride as the Trip page draws it (decision 46): the
+    // Subway page's own card, with its ride's minutes, its badges counted
+    // from `now`, its stations closed unless `open`
+    const legKey = leg => `${leg.line}/${leg.dir}/${leg.from}/${leg.to}`;
+    const subwayCard = (planned, leg, next, now, { morning = false, open = false } = {}) =>
+        String(subway.legCard(planned, leg, next, { seconds: now }, 3, morning, true, legKey(leg), open));
 
     test(`${lang}: an exact number needs no words, the rest say how far to trust them`, () => {
         assert.equal(r.howExact(street('exact')), null);
@@ -102,20 +107,56 @@ for (const lang of ['en', 'el']) {
         assert.equal(listNote({ results: one }), '');
     });
 
-    test(`${lang}: the trip: walk, train by train, and where to stand`, () => {
+    test(`${lang}: the trip: the walk, then each train as the Subway page's own card, where to stand on it included`, () => {
         const trip = doorToDoor(rail, menelaou, syntagma, NOW);
         const view = String(drawTrip(rail, trip, syntagma));
         check(view);
         assert.match(view, /trip-total/);
         assert.match(view, /google\.com\/maps\/dir/, 'the walk has walking directions');
-        // Each train by the clock, strong, its line's pill medium, as in a heading
+        // In the trip's card, each in its ride's place, with nothing on the left:
+        // the train the way is timed on first, its ride's minutes said
+        const { plan } = trip.options[0];
+        const way = view.slice(0, view.indexOf(s['trip.other-ways']));
+        plan.legs.forEach((leg, i) => assert.ok(way.includes(`<li class="trip-leg">${subwayCard(rail, leg, plan.legs[i + 1] ?? null, NOW.seconds)}</li>`), leg.line));
+        assert.ok(!way.includes('trip-step-leaves'), 'no time on the left of a train');
+        assert.ok(way.includes('class="train-diagram'), 'where to stand on the train');
+        assert.ok(!view.includes('/subway?from='), 'no "Where to stand" button: the card shows it');
+        // The other ways' lines medium, as in a sentence
+        const others = view.slice(view.indexOf(s['trip.other-ways']));
+        assert.ok(others.includes('pill-m') && !others.includes('pill-s') && !others.includes('pill-l'));
+        assert.ok(nothingUnder(view), 'nothing under the answer');
+    });
+
+    test(`${lang}: a train's badges count from now; the morning's first trains by the clock`, () => {
+        const trip = doorToDoor(rail, menelaou, syntagma, NOW);
         const [leg] = trip.options[0].plan.legs;
-        assert.ok(view.includes(leaves(clock(leg.departures[0].departs))));
-        assert.ok(view.includes(`<span class="line-pill pill-m line-${leg.line.toLowerCase()}">`));
-        assert.ok(!view.includes('pill-s'), 'medium in the other ways\' lines too');
-        assert.ok(view.includes(lang === 'el' ? '/el/subway?from=' : '"/subway?from='), 'where to stand is the Subway page');
-        assert.ok(view.includes(s['trip.other-ways']));
-        nothingUnder(view);
+        const later = NOW.seconds + 60;
+        const view = String(drawTrip(rail, trip, syntagma, { now: later }));
+        assert.ok(view.includes(subwayCard(rail, leg, trip.options[0].plan.legs[1] ?? null, later)), 'a minute on, a minute less');
+        // After the last train, the first ones of the morning
+        const night = { weekday: 3, seconds: 2 * 3600, date: NOW.date };
+        const morning = doorToDoor(rail, menelaou, syntagma, night);
+        const o = morning.options[0];
+        assert.ok(o.morning);
+        const drawn = String(drawTrip(rail, morning, syntagma, { now: night.seconds }));
+        check(drawn);
+        assert.ok(drawn.includes(subwayCard(rail, o.plan.legs[0], o.plan.legs[1] ?? null, night.seconds - o.dayStart, { morning: true })));
+        assert.ok(drawn.includes(s['subway.schedule-at']), 'at a clock time');
+    });
+
+    test(`${lang}: the stations on a train's way stay open as the rider left them, and the legend under the way`, () => {
+        const trip = doorToDoor(rail, menelaou, syntagma, NOW);
+        const { plan } = trip.options[0];
+        const [leg] = plan.legs;
+        const open = String(drawTrip(rail, trip, syntagma, { stations: { [legKey(leg)]: true } }));
+        assert.ok(open.includes(subwayCard(rail, leg, plan.legs[1] ?? null, NOW.seconds, { open: true })));
+        assert.match(open, /aria-expanded="true"/);
+        // What the trains show, in words, right under the way's card and
+        // before the other ways; closed when the rider closed it
+        const view = String(drawTrip(rail, trip, syntagma));
+        const legend = view.indexOf('<details class="diagram-legend" open>');
+        assert.ok(legend > view.indexOf('trip-leg') && legend < view.indexOf(s['trip.other-ways']), 'under the way, before the others');
+        assert.ok(String(drawTrip(rail, trip, syntagma, { legend: false })).includes('<details class="diagram-legend">'));
     });
 
     test(`${lang}: a walk: its minutes on the left, "Walk to …" in plain text with the distance under it, walking directions at the far right`, () => {
@@ -138,7 +179,7 @@ for (const lang of ['en', 'el']) {
         assert.equal(spoken(link), `${format(s['trip.walking-directions-to'], { place })} ${s['shell.new-tab']}`);
     });
 
-    test(`${lang}: by tram: the walk from the metro station to the stop is a step, and there's nowhere to stand`, () => {
+    test(`${lang}: by tram: the walk from the metro station to the stop is a step, and the tram's card has no train diagram`, () => {
         // Omirou to Kyprou: two minutes to Neos Kosmos, four more to its tram stop, T6
         const omirou = { lat: 37.958, lng: 23.73, title: 'Ομήρου 10', exact: null };
         const kyprou = { lat: 37.9595, lng: 23.7185, title: 'Κύπρου 1', exact: null };
@@ -150,7 +191,9 @@ for (const lang of ['en', 'el']) {
         const stop = s['trip.walk-to'].replace('{place}', lang === 'el' ? 'Νέος Κόσμος (τραμ)' : 'Neos Kosmos (tram)');
         assert.ok(card.includes(stop), 'the walk to the tram stop');
         assert.ok(card.indexOf(stop) < card.indexOf('line-t6'), 'before the tram');
-        assert.equal(card.includes('/subway?from='), false, 'no "where to stand" for a tram');
+        assert.ok(card.includes(`<li class="trip-leg">${subwayCard(network, trip.options[0].plan.legs[0], null, NOW.seconds)}</li>`), 'the Subway page\'s card');
+        assert.ok(!card.includes('train-diagram'), 'a tram has no front or back');
+        assert.ok(!view.includes('diagram-legend'), 'so nothing to explain');
     });
 
     test(`${lang}: a change on foot and a last walk to a stop are steps, each in its place`, () => {
@@ -182,8 +225,7 @@ for (const lang of ['en', 'el']) {
         const minutes = [ride.boards, ride.next].filter(at => at !== null).map(at => Math.floor((at - NOW.seconds) / 60)).filter(m => m < 60);
         assert.ok(minutes.length > 0, 'within the hour');
         assert.ok(card.includes(`<span class="trip-step-badges">${minutes.map((m, i) => minutesBadge(m, key => s[key], { said: i ? s['trip.next-in'] : undefined })).join('')}</span>`), 'not marked live');
-        assert.equal(card.includes('/subway?from='), false, 'nowhere to stand on a bus');
-        nothingUnder(view);
+        assert.ok(nothingUnder(view), 'nothing under the answer');
     });
 
     test(`${lang}: the same ride on two buses shows both, and doesn't say where one of them goes`, () => {
@@ -194,9 +236,10 @@ for (const lang of ['en', 'el']) {
         const view = String(drawTrip(network, { ...trip, options: [both] }, syntagma));
         check(view);
         for (const line of ride.lines) assert.ok(view.includes(`<span class="bus-plate pill-m">${line}</span>`), line);
-        const steps = view.slice(view.indexOf('trip-steps'));
+        // Of the rides drawn as rows (a train is a card, with its sign)
+        const heads = view.match(/<div class="trip-step-head"><span>.*?<\/span>/g);
         const towards = s['trip.towards'].split('{end}')[0];
-        assert.equal(steps.split(towards).length - 1, both.rides.filter(one => one.lines.length === 1).length);
+        assert.equal(heads.filter(head => head.includes(towards)).length, both.rides.filter(one => one.lines.length === 1 && !['metro', 'tram'].includes(one.mode)).length);
     });
 
     test(`${lang}: a way by suburban railway: its pill, its time from the timetable, where it goes, and nothing under it of where its times are from`, () => {
@@ -211,8 +254,7 @@ for (const lang of ['en', 'el']) {
         assert.ok(view.includes(leaves(clock(ride.boards))));
         assert.ok(view.includes(s['trip.towards'].replace('{end}', lang === 'el' ? 'Αεροδρόμιο' : 'Airport')));
         assert.equal(view.includes('railway.gov.gr'), false, 'credited on the About page, not under the answer');
-        nothingUnder(view);
-        assert.equal(view.includes(s['trip.where-to-stand']), false, 'nowhere to stand on the suburban railway');
+        assert.ok(nothingUnder(view), 'nothing under the answer');
         // The airport is outside OASA's ticket
         assert.ok(view.includes(s['trip.train-ticket'].replace('{station}', lang === 'el' ? 'Αεροδρόμιο' : 'Airport').replace(/'/g, '&#39;')));
     });
@@ -236,7 +278,7 @@ for (const lang of ['en', 'el']) {
         check(view);
         assert.deepEqual(notices(view), [{ tone: 'danger', icon: 'error', text: s['trip.no-trains-today'] }]);
         assert.ok(view.indexOf('notice-danger') < view.indexOf('trip-card'), 'above the answer');
-        nothingUnder(view);
+        assert.ok(nothingUnder(view), 'nothing under the answer');
         assert.deepEqual(notices(drawTrip(network, doorToDoor(network, menelaou, syntagma, NOW), syntagma)), []);
     });
 
@@ -305,7 +347,7 @@ for (const lang of ['en', 'el']) {
         assert.match(view, /<details class="notice notice-info closable-notice lift-notice mb-3" open>/);
         assert.ok(view.includes(`${format(s['lifts.summary'], { stations: named('monastiraki') })}<`), 'named in its first line');
         assert.ok(view.indexOf(s['trip.timetable-ended']) < view.indexOf('lift-notice') && view.indexOf('lift-notice') < view.indexOf('trip-card'), 'after the messages, above the answer');
-        nothingUnder(view);
+        assert.ok(nothingUnder(view), 'nothing under the answer');
         // Closed before (liftsOpen()): drawn closed
         assert.match(String(drawTrip(rail, trip, syntagma, { lifts: lifts({ syntagma: { status: 'closed', out: [] } }), liftsOpen: false })), /<details class="notice notice-warn closable-notice lift-notice mb-3">/);
         // A platform with steps only where the ways board: a warning, and that lifts can stop working

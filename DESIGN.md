@@ -141,7 +141,7 @@ The palettes and every contrast number are in the guide.
 - **Green** = how soon a departure is, for buses and trains alike: solid
   when due (≤ 3 min), a tint when close (4–8), neutral later (9+). Every
   time a vehicle comes for you is a badge on it, counted from now, whether
-  it's from a timetable or live. *(v2: the Trip page's trains)*
+  it's from a timetable or live. *(v2: the Trip page's suburban trains)*
 - Last trains: the last is red, the second-last amber, and a line of words
   says so too.
 - Clock times (tomorrow, station timetables) are neutral chips. A trip's
@@ -365,8 +365,8 @@ rules, with a picture of a way shown in full.
 - **The way shown in full** is one card. Its heading is how long the trip
   takes and when you arrive, both in the body colour. Walks and bus rides
   are rows with a 3rem column on the left; metro, tram and suburban rides
-  are the Subway page's leg card, inside the trip's card *(v2: rows like a
-  bus's until then)*. Every other way is one line. Nothing under the answer.
+  are the Subway page's leg card, inside the trip's card *(v2 for the
+  suburban railway: a row like a bus's until then)*. Every other way is one line. Nothing under the answer.
 - **A walk**: `~16'` on the left, "Walk to …" in plain text with the
   distance under it, walking directions at the far right.
 - **A bus ride**: on the left, the clock time it leaves, `md`, bold, the
@@ -376,14 +376,17 @@ rules, with a picture of a way shown in full.
   badge and the next one's; none an hour or more away, as the clock time
   says it. Where any of several buses will do, the stops with their lines
   and badges, or "Not on live times yet".
-- **A metro, tram or suburban ride** *(v2)* is the Subway page's card as it is:
-  where to board, the L pill → the direction's sign, the badges, the
-  last-train words, the train diagram (metro), notes, where to change or get
-  off, the stations on the way. Its badges start at the first train the
-  rider can catch: now plus the walk to the platform, or after a ride, from
-  when they get there; past an hour, clock times. The suburban railway is
-  the same as the metro and the tram, with no time on the left. The legend
-  of what the train shows comes under the way; no "Where to stand" button.
+- **A metro, tram or suburban ride** is the Subway page's card as it is
+  (`legCard`, decision 46), across the step with nothing on the left: where
+  to board, the L pill → the direction's sign, the badges, the last-train
+  words, the train diagram (metro), notes, where to change or get off, the
+  stations on the way. Its badges start at the first train the rider can
+  catch, the one the way is timed on: now plus the walk to the platform, or
+  after a ride, from when they get there; past an hour, clock times. It
+  always says its ride's minutes, as the trip's are door to door; no "Change
+  to …" line between two cards, as theirs say it. The suburban railway is
+  the same as the metro and the tram *(v2)*. The legend of what the train
+  shows comes under the way; no "Where to stand" button.
 - **Above the answer**: notices by their tones, and the step-free notice.
 - **My location** works exactly like Nearest. It re-plans when the rider is
   200m or more from where the trip was last planned, at most every 2
@@ -418,4 +421,6 @@ rules, with a picture of a way shown in full.
   timetable, the quicker way, a way by suburban train), and the three parts
   that change shape.
 - `test/browser/trip.spec.js`: a bus ride's badges at the right end of its
-  heading and a walk's directions at the far right of its row, as tall as it.
+  heading and a walk's directions at the far right of its row, as tall as it;
+  a metro ride's card, its stations kept open through a refresh, the legend
+  under the way.
