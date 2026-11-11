@@ -579,10 +579,10 @@ test.describe('the trip page', () => {
                 await expect(card.locator('.leg-action')).toContainText('Exit at Syntagma');
                 await expect(card.locator('.trip-step-when'), 'nothing on its left').toHaveCount(0);
                 await expect(page.getByRole('link', { name: 'Where to stand on the train' })).toHaveCount(0);
-                // What the train shows, under the way's card
-                const legend = page.locator('#trip-result > details.diagram-legend');
-                await expect(legend).toHaveAttribute('open', '');
-                expect(await legend.evaluate(el => el.previousElementSibling.classList.contains('trip-card'))).toBe(true);
+                // What the train shows, right under the way's card. Found by
+                // where it is, so a redraw meanwhile (the trains' lateness
+                // coming in) is waited out rather than read half-way
+                await expect(page.locator('#trip-result > .trip-card + details.diagram-legend')).toHaveAttribute('open', '');
                 // Its stations, opened, stay open when the page is drawn again a minute on
                 const toggle = card.locator('.leg-stops-toggle');
                 await toggle.click();
