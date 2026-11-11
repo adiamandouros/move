@@ -24,6 +24,7 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
 /** @typedef {ReturnType<typeof createPlanner>} Planner */
 /** @typedef {{ lat: number, lng: number }} Point */
 /** @typedef {{ minutes: number, meters: number }} Walk */
+/** @typedef {import('/tools/subway/city.js').Names} Names */
 /**
  * What OASA says of a bus ride of the way shown in full (liveWay): the bus
  * the rider can catch, due `at` (seconds from midnight), and the next of its
@@ -80,7 +81,7 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
  * has coming, by its route, due `at`, as said at `asked` (both seconds from
  * midnight); stale: an older answer, as OASA couldn't be reached;
  * unavailable: none to be had
- * @typedef {{ buses: { route: string, line: string | null, at: number }[], asked?: number, stale?: boolean, unavailable?: boolean }} StopLive
+ * @typedef {{ buses: { route: string, line: string | null, to?: Names | null, at: number }[], asked?: number, stale?: boolean, unavailable?: boolean }} StopLive
  */
 /**
  * The quicker way offered on a decision (decision 36): leave the first ride,
@@ -94,13 +95,16 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
  * The way shown in full, timed with OASA's live times (liveWay): as one of the
  * page's options; for a last bus that can be any of several, each stop it
  * leaves from with the first bus of each line the rider can catch there
- * (`buses`, the first to come first; null when the stop isn't answered);
+ * (`buses`, the first to come first; null when the stop isn't answered)
+ * and every bus of those lines the rider can catch there, soonest first,
+ * with where it goes (`arrivals`, for its row opened, decision 48);
  * the stops to ask OASA for, each with when the first bus the rider can
  * catch there comes (null: none yet), for how often it's asked again; on a
  * decision, the quicker way when OASA has its bus coming in time; and when
  * its first train leaves (seconds from midnight; null: it has none), for how
  * often the trains are asked for again (decision 42)
- * @typedef {{ option: BusOption, stops: { stop: import('/tools/subway/city.js').Stop, walk: Walk | null, lines: string[], buses: { line: string, at: number }[] | null }[],
+ * @typedef {{ option: BusOption, stops: { stop: import('/tools/subway/city.js').Stop, walk: Walk | null, lines: string[], buses: { line: string, at: number }[] | null,
+ *   arrivals: { line: string, to: Names | null, at: number }[] }[],
  *   asks: { stop: string, at: number | null }[], offer: Offer | null, train: number | null }} LiveWay
  */
 
@@ -261,7 +265,7 @@ export function routeCodes(planner, lines, board, ends) {
 /** @param {StopLive | undefined} live @param {Map<string, string>} codes @param {number} ready */
 const catchable = (live, codes, ready) => (live?.buses ?? [])
     .filter(bus => codes.has(bus.route) && bus.at >= ready)
-    .map(bus => ({ line: codes.get(bus.route), at: bus.at }))
+    .map(bus => ({ line: codes.get(bus.route), to: bus.to ?? null, at: bus.at }))
     .sort((a, b) => a.at - b.at);
 
 /**
@@ -348,7 +352,7 @@ export function liveWay(planner, from, to, row, departure, now, live, { decision
         const first = new Map();
         for (const bus of coming) if (!first.has(bus.line)) first.set(bus.line, bus.at);
         const known = live[code] && !live[code].unavailable;
-        return { stop: planner.stops[stop], walk: walkOf(walk), lines, buses: known ? [...first].map(([line, at]) => ({ line, at })) : null };
+        return { stop: planner.stops[stop], walk: walkOf(walk), lines, buses: known ? [...first].map(([line, at]) => ({ line, at })) : null, arrivals: known ? coming : [] };
     }) : [];
     const coming = stops.filter(({ buses }) => buses?.length).sort((a, b) => a.buses[0].at - b.buses[0].at);
     return {

@@ -7,6 +7,6 @@
   "description": { "en": "From one address to another: walks, the metro, the tram and buses, door to door", "el": "Από διεύθυνση σε διεύθυνση: περπάτημα, μετρό, τραμ και λεωφορεία, από πόρτα σε πόρτα" },
   "offline": false,
   "scripts": ["main.js"],
-  "borrows": ["subway"],
+  "borrows": ["subway", "buses"],
   "precache": []
 }

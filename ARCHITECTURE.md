@@ -503,8 +503,8 @@ in the body, so it stays out of the host's logs. The index is loaded for the
 first search and dropped for a new one, and `/api/health` warns when it's
 over three weeks old.
 
-The trip page (`tools/trip/`, [decisions 46](docs/decisions/0046-trip-rail-rides-as-cards.md)
-and [47](docs/decisions/0047-trip-suburban-cards.md)) is what uses it. `client/picker.js` finds places as they're typed,
+The trip page (`tools/trip/`, [decisions 47](docs/decisions/0047-trip-suburban-cards.md)
+and [48](docs/decisions/0048-trip-bus-stops-as-buses-rows.md)) is what uses it. `client/picker.js` finds places as they're typed,
 `client/plan.js` works out the trip in the browser from the Subway's
 `network.js`, on the metro and the tram unless the Subway page's switch hides
 the tram (`tram-switch.js`). Its walks are the city's (`walkMeters` in
@@ -533,7 +533,9 @@ OASA has its bus coming in time; taken, it's the way timed instead.
 `client/main.js` asks. `client/render.js` draws it, each metro, tram or
 suburban ride of the way shown in full as the Subway page's own card
 (`legCard` in its `render.js`, the ride made into a leg by `client/legs.js`),
-with the Subway page's words (tool.json `borrows`). For the suburban rides'
+and each stop of a last bus that can be any of several as the Buses page's
+stop row (`stopRow` in its `render.js`), with those pages' words (tool.json
+`borrows`). For the suburban rides'
 cards the page loads `trains.json` itself and draws on the network with the
 day's trains joined (`withSuburban`, which keeps each train's number), while
 it plans on the metro and the tram alone; a late train's badges are when it

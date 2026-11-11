@@ -1706,21 +1706,15 @@ body {
     min-height: 2rem;
 }
 
-/* The buses coming to one of the stops a way's last bus can be caught at
-   (decision 35): each line's minutes beside its plate */
-.trip-stop-buses {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--wh-space-1) var(--wh-space-3);
-    margin-top: var(--wh-space-1);
+/* The stops a way's last bus can be caught at: the Buses page's stop rows
+   (decision 48), across the whole step, one under the other with the line
+   between them, none under the last */
+.trip-stop + .trip-stop {
+    margin-top: calc(-1 * var(--wh-space-3));
 }
 
-.trip-live-bus {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--wh-space-1);
-    white-space: nowrap;
+.trip-stop:last-child .stop-item {
+    border-bottom: none !important;
 }
 
 /* Paused, unavailable or older live times, above the answer, as on the Buses page */
@@ -1736,12 +1730,11 @@ body {
 
 /* "2 more stops": the rest of the stops a way's last bus leaves from (the
    trip page's half hour), blue as what can be pressed is, under the stops
-   shown; opened, the rest line up with them */
+   shown, at their left edge; opened, the rest line up with them */
 .trip-more summary {
     display: flex;
     align-items: center;
     min-height: 2rem;
-    margin-left: calc(3rem + var(--wh-space-3));
     color: var(--bs-link-color);
     cursor: pointer;
 }
@@ -1765,10 +1758,6 @@ body {
 
     .trip-step-when:empty {
         display: none;
-    }
-
-    .trip-more summary {
-        margin-left: 0;
     }
 }
 

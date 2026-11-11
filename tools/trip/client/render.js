@@ -6,6 +6,7 @@ import { clockTime, diagramLegend, diagramSymbols } from '/js/core/metro.js';
 import { latinName } from '/js/core/text.js';
 import { aboutTime, minutesBadge, minutesMark, minutesWords } from '/js/core/times.js';
 import { legPositions } from '/tools/subway/network.js';
+import { arrivalRows, headerBadge, nextBus, stopRow } from '/tools/buses/render.js';
 import { legCard } from '/tools/subway/render.js';
 import { asLate, wayLegs } from './legs.js';
 
@@ -118,9 +119,6 @@ export const hasTrain = o => o.city && o.rides.some(ride => ride.mode === 'subur
 // Whole minutes from `now` to `at` (seconds from midnight), as a live time counts down
 const minutesTo = (at, now) => Math.max(0, Math.floor((at - now) / 60));
 
-// A bus OASA has coming, in its minutes, as on the Buses page (DESIGN.md, "Time badge")
-const liveBadge = (at, now) => minutesBadge(minutesTo(at, now), t);
-
 // Past an hour, a bus's minutes are no use: its clock time says it
 const HOUR_MINUTES = 60;
 
@@ -165,28 +163,37 @@ const pill = (rail, ride) => ON_THE_ROAD.has(ride.mode) ? pillList(ride.lines.ma
 // "N more stops"
 const STOPS_SHOWN = 3;
 
-// The stops a way's last bus can be caught at, nearest first, each with the
-// walk to it and its lines: any of them will do, so no time by the clock
-// (decision 33). With OASA's live times (decision 35), those with a bus the
-// rider can catch first, by when it comes, each line with its minutes.
+// The stops a way's last bus can be caught at, nearest first: any of them
+// will do, so no time by the clock (decision 33). With OASA's live times
+// (decision 35), those with a bus the rider can catch first, by when it
+// comes. Each is the Buses page's stop row (decision 48): the walk to it
+// beside its code, the next bus of the rider's lines, and opened, every bus
+// of them the rider can catch there; not yet on live times, its lines.
 // `change`: after a ride, rather than from the door. `now`: seconds from
-// midnight, for the minutes
-function busStops(rail, stops, change, now) {
-    const stopStep = ({ stop, walk, lines, buses = null }) => step(walk ? walkMinutes(walk.minutes) : '', html`
-        <div>${stopName(rail, stop)}</div>
-        ${buses?.length
-            ? html`<div class="trip-stop-buses trip-live">${pillList([
-                ...buses.map(bus => html`<span class="trip-live-bus">${busPlate(bus.line, 's')} ${liveBadge(bus.at, now)}</span>`),
-                ...lines.filter(line => !buses.some(bus => bus.line === line)).map(line => busPlate(line, 's')),
-            ])}</div>`
-            : html`<div>${pillList(lines.map(line => busPlate(line, 's')))}</div>`}
-        ${buses?.length === 0 && html`<div class="trip-step-note">${t('trip.live-none')}</div>`}`, { directions: directionsTo(stop, stopName(rail, stop)) });
+// midnight, for the minutes; `opened`: the stops the rider opened, by code
+function busStops(rail, stops, change, now, opened) {
+    const stopStep = ({ stop, walk, lines, buses = null, arrivals = [] }, i) => {
+        const code = stop.id.slice('bus:'.length);
+        const name = stopName(rail, stop);
+        const plates = size => pillList(lines.map(line => busPlate(line, size)));
+        // As the Buses page has a stop's answer, each bus's minutes from now
+        const result = { arrivals: arrivals.map(bus => ({ line: bus.line, to: bus.to, minutes: minutesTo(bus.at, now) })) };
+        // With none of them on OASA's live times, its lines, and that it has none
+        const next = arrivals.length ? nextBus(result) : html`<span class="sr-only">. ${t('buses.lines')}: </span>${plates('m')}${buses && html`<span class="next-bus-dest text-body-secondary fst-italic"><span class="sr-only">. </span>${t('trip.live-none')}</span>`}`;
+        // Marked trip-live with buses from OASA's live times, as a ride's badges are
+        return html`<li class="trip-stop${arrivals.length ? ' trip-live' : ''}">${stopRow({ code, name: { el: name, en: name }, lat: stop.lat, lng: stop.lng }, i, {
+            id: 'trip-stop', star: false, open: opened?.has(code) ?? false,
+            away: walk && html`<span class="sr-only">, </span>${minutesMark(walk.minutes, t, { about: true, said: t('trip.walk-short') })}`,
+            next, badge: headerBadge(result), arrivals: arrivals.length > 0 && arrivalRows(result), lines: plates('s'),
+            heard: format(t('trip.stop-buses'), { stop: name }),
+        })}</li>`;
+    };
     const more = stops.slice(STOPS_SHOWN);
-    return html`${step('', t(change ? 'trip.any-bus-then' : 'trip.any-bus'))}
+    return html`<li>${t(change ? 'trip.any-bus-then' : 'trip.any-bus')}</li>
         ${stops.slice(0, STOPS_SHOWN).map(stopStep)}
         ${more.length > 0 && html`<li><details class="trip-more">
             <summary>${format(t(more.length === 1 ? 'trip.more-stop' : 'trip.more-stops'), { count: more.length })}</summary>
-            <ol class="trip-steps">${more.map(stopStep)}</ol>
+            <ol class="trip-steps">${more.map((stop, i) => stopStep(stop, STOPS_SHOWN + i))}</ol>
         </details></li>`}`;
 }
 
@@ -195,7 +202,8 @@ function busStops(rail, stops, change, now) {
 // live: the way timed with OASA's live times (buses.js liveWay). `drawn`:
 // `now`, seconds from midnight, for the minutes; the weekday and date, and
 // how late the trains run when the way is timed with it, for its trains
-// (legs.js); `stations`: the cards' stations on the way the rider opened
+// (legs.js); `stations`: the cards' stations on the way the rider opened;
+// `stops`: the bus stops they opened
 function citySteps(rail, o, to, drawn, row = null, live = null) {
     const walkTo = (walk, stop, note = null) => walk && walkStep(walk, stopName(rail, stop), stop, note);
     const rides = row?.bundle ? o.rides.slice(0, -1) : o.rides;
@@ -203,7 +211,7 @@ function citySteps(rail, o, to, drawn, row = null, live = null) {
     return html`<ol class="trip-steps">
         ${rides.length > 0 && walkTo(o.firstWalk, o.rides[0].board)}
         ${rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board, ride.walkNote)}${cards[i] ? railCard(rail, cards[i], drawn.now, false, drawn.stations) : rideStep(rail, ride, drawn)}`)}
-        ${row?.bundle && busStops(rail, live?.way.stops ?? row.stops, rides.length > 0, drawn.now)}
+        ${row?.bundle && busStops(rail, live?.way.stops ?? row.stops, rides.length > 0, drawn.now, drawn.stops)}
         ${o.lastWalk && walkStep(o.lastWalk, to.title, to)}
     </ol>`;
 }
@@ -461,15 +469,16 @@ const takenOption = (row, departure) => row.options.find((o, d) => d >= departur
 // times for today (decision 41). lifts, liftsOpen: for the step-free notice,
 // of every way shown. `trains`: how late the suburban trains run, by number,
 // when the first way is timed with it (live), for its cards' badges
-// (decision 47). `rail`, `now`, `weekday`, `date`, stations, legend: as
+// (decision 47). `stops`: the bus stops the rider opened, by code (decision
+// 48). `rail`, `now`, `weekday`, `date`, stations, legend: as
 // renderTrip's. Nothing under it (decision 43) but the legend of what its
 // trains show
-export function renderHalf(rail, kind, ways, to, { now, weekday, date, expired = false, longWalk = false, live = null, offer = false, taken = null, noTrains = false, trains = null, lifts = null, liftsOpen = true, stations = {}, legend: legendShown = true }) {
+export function renderHalf(rail, kind, ways, to, { now, weekday, date, expired = false, longWalk = false, live = null, offer = false, taken = null, noTrains = false, trains = null, lifts = null, liftsOpen = true, stations = {}, stops = new Set(), legend: legendShown = true }) {
     const [first, ...rest] = ways;
     const others = taken ? rest.filter(({ row }) => row !== taken) : rest;
     // The first card's way, as halfCard shows it
     const shown = live?.way.option ?? (taken ? takenOption(taken, first.departure) : first.o);
-    const drawn = { now, weekday, date, trains: live && trains, stations };
+    const drawn = { now, weekday, date, trains: live && trains, stations, stops };
     return html`
         ${missing(false, noTrains)}
         ${expired && notice('warn', 'warning', t('trip.timetable-ended'), 'mb-3')}
