@@ -92,6 +92,9 @@ query measured in `em` (so it follows the text size, not the screen):
   line of words ("Ride in: Near Back").
 - A bus stop's row: below 18em, the stop's name, code and distance go on a
   line of their own above the next bus.
+- A step of a way on the Trip page: below 14em, the time or the minutes go
+  on a line of their own above what to do, the walking directions still at
+  its far right.
 - The bottom bar's labels end in "…" when they don't fit (the link's name
   is still the whole word).
 
@@ -113,7 +116,7 @@ A 4px grid: `--wh-space-1` (4), `-2` (8), `-3` (12), `-4` (16), `-6` (24),
 `-8` (32), `-12` (48). Bootstrap's spacing utilities (`p-2`, `gap-3`…) are
 on the same grid and fine to use. The page gutter is 16px on phones, card
 padding 16px, gaps between cards 12px. Every card's padding is 16px, the
-Subway page's leg cards (20px today) and the Trip page's (12px) too. *(v2)*
+Subway page's leg cards and the Trip page's too.
 
 ### Depth and edges
 
@@ -138,13 +141,12 @@ The palettes and every contrast number are in the guide.
 - **Green** = how soon a departure is, for buses and trains alike: solid
   when due (≤ 3 min), a tint when close (4–8), neutral later (9+). Every
   time a vehicle comes for you is a badge on it, counted from now, whether
-  it's from a timetable or live. *(v2)*
+  it's from a timetable or live. *(v2: the Trip page's trains)*
 - Last trains: the last is red, the second-last amber, and a line of words
   says so too.
 - Clock times (tomorrow, station timetables) are neutral chips. A trip's
   own clock times are plain text: when to be at the stop, when you arrive,
   "due at 12:14" in a sentence; so are walks and how long a ride takes.
-  *(v2)*
 - **~** marks a guess from a timetable: a bus by OASA's timetable
   (`~12:06`), a walk (`~16'`). Screen readers hear "about" (`aboutTime` and
   `minutesMark` in `/js/core/times.js`): the "~" is the warning, so no
@@ -187,7 +189,7 @@ value outside those blocks.
   stations by line, a stop's lines), **M** in sentences, arrival rows and
   tables, **L** in the headers of leg cards, station sections and bus stops.
   The Trip page's step headings, the quicker way's sentence and its other
-  ways' lines are M. *(v2)*
+  ways' lines are M.
 - The text in a pill sits dead centre: its box is trimmed to the capitals
   (`text-box`), so the padding is the same above and below the letters, and
   M1's pill makes up for Roboto's off-centre 1
@@ -235,7 +237,7 @@ Material Symbols Rounded, by meaning: code names what an icon means
   outline.
 - **A toggle's icon is outline when off, filled when on**: the favourites'
   star, gold when starred, and Nearest and My location, blue when on
-  (`aria-pressed` says it to screen readers). *(v2: My location)*
+  (`aria-pressed` says it to screen readers).
 - Each carriage to ride in shows how it leads off the platform, filled: an
   escalator up, stairs, or, while that isn't recorded (`escalators` and
   `stairs` in positions.json, set in the station editor), an up arrow. A
@@ -334,15 +336,15 @@ it, the time and the walking directions on a line of their own under that.
 ### Walking directions
 
 The walking figure, grey, as tall as its row, at the far right: a bus
-stop's row on the Buses page, and each walk on the Trip page *(v2)*. The
-words beside it ("Walk to Tavros") are plain text, not a link; screen
-readers hear "Walking directions to Tavros".
+stop's row on the Buses page, and on the Trip page each walk and each stop
+where any of several buses will do. The words beside it ("Walk to Tavros")
+are plain text, not a link; screen readers hear "Walking directions to
+Tavros".
 
 ### Start from here
 
-Nearest on the Subway page and My location on the Trip page are one toggle
-*(v2: My location)*. Off: grey, the icon outline. On: blue, the icon
-filled, following where you are. On by default when the page opens without
+Nearest on the Subway page and My location on the Trip page are one toggle.
+Off: grey, the icon outline. On: blue, the icon filled, following where you are. On by default when the page opens without
 a start, from a recent position or a location the browser already allows;
 nothing asks for location when the page opens. Typing or picking a start,
 swapping, or blocked location turns it off; pressed again, it looks again.
@@ -355,7 +357,7 @@ fit: Bootstrap's switch with its label, in `--bs-primary` when on
 (Bootstrap's own blue is fixed), and the whole row at least 2.75rem high. What
 acts on the page right now stays a button, like Nearest.
 
-## The Trip page *(v2)*
+## The Trip page
 
 The Trip page came a week after version 1; version 2 of the guide has its
 rules, with a picture of a way shown in full.
@@ -363,8 +365,8 @@ rules, with a picture of a way shown in full.
 - **The way shown in full** is one card. Its heading is how long the trip
   takes and when you arrive, both in the body colour. Walks and bus rides
   are rows with a 3rem column on the left; metro, tram and suburban rides
-  are the Subway page's leg card, inside the trip's card. Every other way
-  is one line. Nothing under the answer.
+  are the Subway page's leg card, inside the trip's card *(v2: rows like a
+  bus's until then)*. Every other way is one line. Nothing under the answer.
 - **A walk**: `~16'` on the left, "Walk to …" in plain text with the
   distance under it, walking directions at the far right.
 - **A bus ride**: on the left, the clock time it leaves, `md`, bold, the
@@ -374,7 +376,7 @@ rules, with a picture of a way shown in full.
   badge and the next one's; none an hour or more away, as the clock time
   says it. Where any of several buses will do, the stops with their lines
   and badges, or "Not on live times yet".
-- **A metro, tram or suburban ride** is the Subway page's card as it is:
+- **A metro, tram or suburban ride** *(v2)* is the Subway page's card as it is:
   where to board, the L pill → the direction's sign, the badges, the
   last-train words, the train diagram (metro), notes, where to change or get
   off, the stations on the way. Its badges start at the first train the
@@ -397,7 +399,7 @@ rules, with a picture of a way shown in full.
 ## Tests
 
 - `test/design.test.js`: the tokens are the scale; sizes, corners, shadows,
-  px and breakpoints in `style.css` use them.
+  px and breakpoints in `style.css` use them; cards' 16px of padding.
 - `test/accessibility.test.js`: in both colour modes, every text colour on every surface, the line
   colours, the control edge; and that no page shows a line's name outside
   its pill (`bareLineProblems` in `test/support/markup.js`, which the
@@ -412,5 +414,8 @@ rules, with a picture of a way shown in full.
   ′, "min" or "{minutes} minutes", and no script draws the mark but
   `times.js`.
 - `test/browser/text-size.spec.js`: every page at 200% text, as above, the
-  Trip page's answers (a way by bus with live times, the quicker way, a way
-  by suburban train), and the two parts that change shape.
+  Trip page's answers (a way by bus with live times, a bus ride by the
+  timetable, the quicker way, a way by suburban train), and the three parts
+  that change shape.
+- `test/browser/trip.spec.js`: a bus ride's badges at the right end of its
+  heading and a walk's directions at the far right of its row, as tall as it.

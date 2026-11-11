@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { browserModule, strings } from './support/browser-modules.js';
 import { markupProblems, notices } from './support/markup.js';
-import { aboutTime, minutesMark } from '../public/js/core/times.js';
+import { aboutTime, minutesBadge, minutesMark } from '../public/js/core/times.js';
 
 // OASA's live times on the Trip page's way shown in full (decision 35): the
 // way timed again with them in the worker (liveWay in
@@ -314,16 +314,21 @@ for (const lang of ['en', 'el']) {
     // The 040 then the M2 first, as the way shown in full
     const shown = { ...half, rows: half.rows.filter(row => !row.bundle) };
     const ways = r.halfWays(shown, now);
-    const drawn = way => String(r.renderHalf(network, shown.kind, ways, point('syntagma'), { live: { way: view(way), now } }));
+    const drawn = way => String(r.renderHalf(network, shown.kind, ways, point('syntagma'), { now, live: { way: view(way) } }));
+    // When a ride leaves, on the left of its step, strong
+    const leaves = time => `<span class="trip-step-when trip-step-leaves">${time}</span>`;
+    // The badges at the right of a bus ride's heading: OASA's, marked live, or the timetable's
+    const badges = (live, ...minutes) => `<span class="trip-step-badges${live ? ' trip-live' : ''}">${minutes.map((m, i) => minutesBadge(m, key => s[key], { said: i ? s['trip.next-in'] : undefined })).join('')}</span>`;
 
-    test(`${lang}: a bus OASA has coming, by its time, its minutes and the next one's`, () => {
+    test(`${lang}: a bus OASA has coming, by its time, its minutes and the next one's, at the right of its heading`, () => {
         const way = timed(busThenTrain, { [BOARD]: { buses: [{ route: ROUTE, line: '040', at: now + 6 * MIN + 30 }, { route: ROUTE, line: '040', at: now + 14 * MIN }] } });
         const html = drawn(way);
         check(html);
-        assert.ok(html.includes(`<span class="trip-step-when">${clock(now + 6 * MIN + 30)}</span>`), 'no "~": it\'s OASA\'s');
+        assert.ok(html.includes(leaves(clock(now + 6 * MIN + 30))), 'no "~": it\'s OASA\'s');
         assert.ok(html.includes(`<span class="time-badge time-close"><span aria-hidden="true">6'</span><span class="sr-only">${s['shell.minutes'].replace('{minutes}', 6)}</span></span>`));
-        assert.ok(html.includes(s['trip.live-next'].replace('{minutes}', mark(14))), 'the next one, "14\'" too');
-        assert.ok(html.includes(`<span class="trip-step-when">${clock(way.option.rides[1].boards)}</span>`), 'the train after it, timed from it');
+        assert.ok(html.includes(`${badges(true, 6, 14)}</div>`), 'the next one, "14\'" too, "next in 14 minutes" to a screen reader, ending the heading');
+        assert.ok(html.includes(`<span class="sr-only">${s['trip.next-in'].replace('{minutes}', s['shell.minutes'].replace('{minutes}', 14))}</span>`));
+        assert.ok(html.includes(leaves(clock(way.option.rides[1].boards))), 'the train after it, timed from it');
         nothingUnder(html);
     });
 
@@ -331,16 +336,17 @@ for (const lang of ['en', 'el']) {
         const html = drawn(timed(busThenTrain, { [BOARD]: { buses: [{ route: ROUTE, line: '040', at: now + 3 * MIN }] } }));
         check(html);
         assert.ok(html.includes(`<span class="time-badge time-due"><span aria-hidden="true">3'</span><span class="sr-only">${s['shell.minutes'].replace('{minutes}', 3)}, ${s['shell.arriving-soon']}</span></span>`));
-        const [times] = html.match(/<div class="trip-live">.*?<\/div>/s);
-        assert.ok(!times.includes('trip-step-note'), 'no "next"');
+        assert.ok(html.includes(badges(true, 3)), 'no "next"');
     });
 
-    test(`${lang}: no bus on OASA's live times yet: said, with the timetable's "~" time, "about" to a screen reader`, () => {
+    test(`${lang}: no bus on OASA's live times yet: said, with the timetable's "~" time, "about" to a screen reader, and its badges`, () => {
         const way = timed(busThenTrain, { [BOARD]: { buses: [] } });
         const html = drawn(way);
         check(html);
         assert.ok(html.includes(s['trip.live-none']));
-        assert.ok(html.includes(`<span class="trip-step-when">${about(clock(way.option.rides[0].boards))}</span>`));
+        const [bus] = way.option.rides;
+        assert.ok(html.includes(leaves(about(clock(bus.boards)))));
+        assert.ok(html.includes(badges(false, ...[bus.boards, bus.next].map(at => Math.floor((at - now) / 60)).filter(m => m < 60))), 'the timetable\'s, not marked live');
         nothingUnder(html);
     });
 
@@ -355,11 +361,11 @@ for (const lang of ['en', 'el']) {
             [codeOf(city.stops[second.stop])]: { buses: [{ route, line, at: 12 * 3600 + second.walk + 9 * MIN }] },
             [codeOf(city.stops[nearest.stop])]: { buses: [] },
         });
-        const html = String(r.renderHalf(network, half12.kind, r.halfWays(half12, 12 * 3600), fix, { live: { way: view(way), now: 12 * 3600 } }));
+        const html = String(r.renderHalf(network, half12.kind, r.halfWays(half12, 12 * 3600), fix, { now: 12 * 3600, live: { way: view(way) } }));
         check(html);
         // After "Any of these buses": the stop with a bus, its line with its minutes; then the nearest, answered with none
         const [first, next] = html.split('<li class="trip-step">').slice(2);
-        assert.ok(first.includes(`<span class="trip-live-bus"><span class="bus-plate pill-s">${line}</span> <span class="time-badge time-later">`), first);
+        assert.ok(first.includes(`<div class="trip-stop-buses trip-live"><span class="trip-live-bus"><span class="bus-plate pill-s">${line}</span> <span class="time-badge time-later">`), first);
         assert.ok(next.includes(s['trip.live-none']));
     });
 
@@ -367,7 +373,7 @@ for (const lang of ['en', 'el']) {
     const decidedView = view(halfView(city, stavrou, menelaou45, decided));
     const decidedWays = r.halfWays(decidedView, NOON.seconds);
     const target = { ...menelaou45, title: 'Μενελάου 45', exact: null };
-    const drawnDecided = (way, more = {}) => String(r.renderHalf(network, decidedView.kind, decidedWays, target, { live: way && { way: view(way), now: NOON.seconds }, ...more }));
+    const drawnDecided = (way, more = {}) => String(r.renderHalf(network, decidedView.kind, decidedWays, target, { now: NOON.seconds, live: way && { way: view(way) }, ...more }));
     const stopNamed = stop => lang === 'el' ? stop.names.el : stop.names.en || latinName(stop.names.el);
 
     test(`${lang}: the quicker way offered under the directions: how much sooner, where to get off the tram for which bus, the walk, the choice`, () => {
@@ -383,7 +389,7 @@ for (const lang of ['en', 'el']) {
         const change = network.stations[way.offer.change.station].name[lang];
         assert.ok(offer.includes(escaped(s['trip.quicker-off'].split('{ride}')[1].replace('{change}', change))), change);
         // For the bus, at its stop, by OASA's time, after the walk
-        assert.ok(offer.includes(`<span class="bus-plate pill-s">${OFF_BUS.line}</span>`));
+        assert.ok(offer.includes(`<span class="bus-plate pill-m">${OFF_BUS.line}</span>`));
         assert.ok(offer.includes(escaped(s['trip.quicker-bus'].split('{bus}')[1]
             .replace('{stop}', stopNamed(way.offer.stop)).replace('{time}', clock(way.offer.at))).replace('{minutes}', mark(way.offer.walk.minutes, { about: true }))));
         assert.ok(offer.includes(`<button type="button" id="trip-quicker-take" class="btn btn-primary btn-sm rounded-pill px-4">${escaped(s['trip.quicker-take'])}</button>`));

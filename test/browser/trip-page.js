@@ -14,6 +14,16 @@ export async function pickBoth(page, url = '/trip') {
     await list(page, 'to').first().click();
 }
 
+// From Μενελάου 45 to the park, Άλσος: at noon the way shown in full walks
+// to Pl. Dabaki for the 040, a bus ride of its own (not any of several)
+export async function pickPark(page) {
+    await page.goto('/trip');
+    await from(page).fill('Μενελάου 45');
+    await list(page, 'from').first().click();
+    await to(page).fill('Άλσος');
+    await list(page, 'to').first().click();
+}
+
 // From Σταύρου 1 to Μενελάου 45, on `url`, with its fields' names: at noon
 // the directions stay on the T6 for a bus; with the trip-quicker scenario
 // the quicker way gets off sooner, at Agia Foteini, for one there, the only

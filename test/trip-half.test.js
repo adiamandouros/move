@@ -5,7 +5,7 @@ import { browserModule, strings } from './support/browser-modules.js';
 import { markupProblems, notices } from './support/markup.js';
 import { buildTrains } from '../server/data/build-suburban.js';
 import { suburbanCurated, train } from './fixtures/railway.js';
-import { aboutTime, minutesMark } from '../public/js/core/times.js';
+import { aboutTime, minutesBadge, minutesMark } from '../public/js/core/times.js';
 
 // The next half hour's answer as the trip page shows it (decision 33): what
 // the worker picks from answer.js (halfView in tools/trip/client/buses.js),
@@ -114,21 +114,26 @@ for (const lang of ['en', 'el']) {
     const range = ([low, high]) => low === high ? mark(low, { about: true }) : mark([low, high]);
     // A time that's a guess (/js/core/times.js): "~12:06", "about 12:06" for screen readers
     const about = time => String(aboutTime(time, key => s[key]));
+    // When a ride leaves, on the left of its step, strong
+    const leaves = time => `<span class="trip-step-when trip-step-leaves">${time}</span>`;
+    const clock = seconds => `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;
     // Nothing under the answer (decision 43): it ends with its last way
     const nothingUnder = view => assert.ok(String(view).trimEnd().endsWith('</div>'), 'nothing under the answer');
 
     test(`${lang}: the clear way, its range, "best on most departures", and the nearest 3 stops with their buses`, () => {
         const ways = r.halfWays(clear, at(12).seconds);
-        const view = String(r.renderHalf(network, clear.kind, ways, fix));
+        const view = String(r.renderHalf(network, clear.kind, ways, fix, { now: at(12).seconds }));
         check(view);
         const [first] = clear.rows;
         assert.ok(view.includes(`<h2 class="trip-total" tabindex="-1">${range(first.range)}</h2>`));
         assert.ok(view.includes(s['trip.half-best']));
         assert.ok(view.includes(s['trip.any-bus']), 'from the door, so no "then"');
         // The bus has no time by the clock: any of them will do
-        assert.ok(!/trip-step-when"><span aria-hidden="true">~\d\d:\d\d/.test(view));
-        // Each stop links to the walk there: the nearest 3 shown, the rest behind "N more stops"
+        assert.ok(!/trip-step-when[^"]*"><span aria-hidden="true">~\d\d:\d\d/.test(view));
+        // Each stop has walking directions there, its name plain text: the
+        // nearest 3 shown, the rest behind "N more stops"
         const [shown, more] = view.split('<details class="trip-more">');
+        assert.ok(view.match(/<a href="https:\/\/www\.google\.com\/maps[^>]*>/g).every(a => a.includes('class="directions-btn ')), 'no stop\'s name is a link');
         const link = ({ stop }) => walkingUrl(stop.lat, stop.lng).replace(/&/g, '&amp;');
         for (const stop of first.stops.slice(0, 3)) assert.ok(shown.includes(link(stop)), stop.stop.id);
         for (const stop of first.stops.slice(3)) assert.ok(more.includes(link(stop)) && !shown.includes(link(stop)), stop.stop.id);
@@ -139,7 +144,7 @@ for (const lang of ['en', 'el']) {
 
     test(`${lang}: it depends, said above the way first by the weights; the others on a line each, with their range`, () => {
         const ways = r.halfWays(depends, at(10).seconds);
-        const view = String(r.renderHalf(network, depends.kind, ways, syntagma));
+        const view = String(r.renderHalf(network, depends.kind, ways, syntagma, { now: at(10).seconds }));
         check(view);
         assert.ok(view.includes(s['trip.half-depends-intro']));
         assert.ok(!view.includes(s['trip.half-best']));
@@ -156,17 +161,38 @@ for (const lang of ['en', 'el']) {
     test(`${lang}: a bus that's one line has its time by the clock, as an estimate; a train's is the timetable's`, () => {
         // The 040 then the M2 first
         const view = { ...depends, rows: depends.rows.slice(1) };
-        const html = String(r.renderHalf(network, view.kind, r.halfWays(view, at(10).seconds), syntagma));
+        const html = String(r.renderHalf(network, view.kind, r.halfWays(view, at(10).seconds), syntagma, { now: at(10).seconds }));
         check(html);
         const [bus, train] = view.rows[0].options[0].rides;
-        const clock = seconds => `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;
-        assert.ok(html.includes(`<span class="trip-step-when">${about(clock(bus.boards))}</span>`));
-        assert.ok(html.includes(`<span class="trip-step-when">${clock(train.boards)}</span>`));
+        assert.ok(html.includes(leaves(about(clock(bus.boards)))));
+        assert.ok(html.includes(leaves(clock(train.boards))));
+    });
+
+    test(`${lang}: a bus by the timetable has its badge and the next one's at the right of its heading, counted from now; none an hour or more away`, () => {
+        // The 040 then the M2 first
+        const view = { ...depends, rows: depends.rows.slice(1) };
+        const ways = r.halfWays(view, at(10).seconds);
+        const [bus] = ways[0].o.rides;
+        assert.ok(bus.next > bus.boards, 'the timetable has the next 040');
+        const drawn = now => String(r.renderHalf(network, view.kind, ways, syntagma, { now }));
+        const badges = (...minutes) => `<span class="trip-step-badges">${minutes.map((m, i) => String(minutesBadge(m, key => s[key], { said: i ? s['trip.next-in'] : undefined }))).join('')}</span>`;
+        const minutesTo = (at, now) => Math.floor((at - now) / 60);
+        const now = at(10).seconds;
+        const html = drawn(now);
+        check(html);
+        const head = html.slice(html.indexOf('<div class="trip-step-head">'), html.indexOf(leaves(clock(ways[0].o.rides[1].boards))));
+        assert.ok(head.includes(badges(minutesTo(bus.boards, now), minutesTo(bus.next, now))), head);
+        assert.ok(head.indexOf('bus-plate pill-m') < head.indexOf('trip-step-badges'), 'after its plate and where it goes');
+        // The next one an hour away: the first alone
+        const later = bus.next - 60 * 60;
+        assert.ok(drawn(later).includes(badges(minutesTo(bus.boards, later))));
+        // An hour or more away: none, the clock time says it
+        assert.ok(!drawn(bus.boards - 60 * 60).includes('trip-step-badges'));
     });
 
     test(`${lang}: by rail alone, where to stand on the train`, () => {
         assert.equal(byRail.kind, 'clear');
-        const view = String(r.renderHalf(network, byRail.kind, r.halfWays(byRail, at(12).seconds), larissa));
+        const view = String(r.renderHalf(network, byRail.kind, r.halfWays(byRail, at(12).seconds), larissa, { now: at(12).seconds }));
         check(view);
         assert.ok(view.includes(s['trip.where-to-stand']));
         assert.ok(view.includes('/subway?from=syntagma&amp;to=larissa-station'));
@@ -175,41 +201,41 @@ for (const lang of ['en', 'el']) {
     test(`${lang}: the step-free notice above the half hour's answer, for the stations of every way shown; none for buses alone`, () => {
         const lifts = { stations: { syntagma: { status: 'closed', out: ['Εξωτερικός'] } }, unavailable: false };
         const ways = r.halfWays(byRail, at(12).seconds);
-        const view = String(r.renderHalf(network, byRail.kind, ways, larissa, { lifts }));
+        const view = String(r.renderHalf(network, byRail.kind, ways, larissa, { now: at(12).seconds, lifts }));
         check(view);
         assert.match(view, /^\s*<details class="notice notice-warn closable-notice lift-notice mb-3" open>/);
         // Where the M2's platform at Larissa has steps only
         const steps = structuredClone(network);
         steps.lines.M2.directions.anthoupoli.stops.find(stop => stop.station === 'larissa-station').stepFree = 'no';
-        const gap = String(r.renderHalf(steps, byRail.kind, ways, larissa, { lifts: { stations: {}, unavailable: false } }));
+        const gap = String(r.renderHalf(steps, byRail.kind, ways, larissa, { now: at(12).seconds, lifts: { stations: {}, unavailable: false } }));
         assert.ok(gap.includes(s['lifts.no-step-free'].split('{station}')[1].split('{toward}')[0]), 'the platform with steps only');
         // The rider took the quicker way (the 040 then the M2) over the
         // directions (any bus): its stations
         const two = { ...depends, rows: depends.rows.slice(0, 2) };
-        const taken = String(r.renderHalf(network, two.kind, r.halfWays(two, at(10).seconds), syntagma, { taken: two.rows[1], lifts: { stations: { 'syggrou-fix': { status: 'partial', out: [] } }, unavailable: true } }));
+        const taken = String(r.renderHalf(network, two.kind, r.halfWays(two, at(10).seconds), syntagma, { now: at(10).seconds, taken: two.rows[1], lifts: { stations: { 'syggrou-fix': { status: 'partial', out: [] } }, unavailable: true } }));
         assert.deepEqual(notices(taken), [{ tone: 'danger', icon: 'error', text: s['lifts.unavailable'] }]);
         assert.match(taken, /lift-notice/);
         // Any of the buses: no station, nothing to say
-        assert.doesNotMatch(String(r.renderHalf(network, clear.kind, r.halfWays(clear, at(12).seconds), fix, { lifts: { stations: {}, unavailable: true } })), /lift-/);
+        assert.doesNotMatch(String(r.renderHalf(network, clear.kind, r.halfWays(clear, at(12).seconds), fix, { now: at(12).seconds, lifts: { stations: {}, unavailable: true } })), /lift-/);
     });
 
     test(`${lang}: the answer for leaving now says the half hour is being checked, while it is`, async () => {
         const { doorToDoor } = await browserModule('tools/trip/client/plan.js', lang);
         const trip = doorToDoor(network, menelaou, syntagma, { ...at(10), date: '2026-10-21' });
-        assert.ok(String(r.renderTrip(network, trip, syntagma, { checking: true })).includes(s['trip.half-checking']));
-        assert.ok(!String(r.renderTrip(network, trip, syntagma)).includes(s['trip.half-checking']));
+        assert.ok(String(r.renderTrip(network, trip, syntagma, { now: at(10).seconds, checking: true })).includes(s['trip.half-checking']));
+        assert.ok(!String(r.renderTrip(network, trip, syntagma, { now: at(10).seconds })).includes(s['trip.half-checking']));
     });
 
     test(`${lang}: a way by suburban railway in the half hour's answer has its pill, nothing under it of where its times are from; with no trains today, an error above says they're left out`, () => {
         const ways = r.halfWays(byTrain, at(10).seconds);
         assert.ok(ways.some(({ o }) => o.rides.some(ride => ride.mode === 'suburban')), 'a way by train is shown');
-        const view = String(r.renderHalf(network, byTrain.kind, ways, airportStation));
+        const view = String(r.renderHalf(network, byTrain.kind, ways, airportStation, { now: at(10).seconds }));
         check(view);
         assert.ok(view.includes('line-a1">A1<'));
         assert.equal(view.includes('railway.gov.gr'), false, 'credited on the About page, not under the answer');
         nothingUnder(view);
         assert.deepEqual(notices(view), []);
-        const none = String(r.renderHalf(network, clear.kind, r.halfWays(clear, at(12).seconds), fix, { noTrains: true }));
+        const none = String(r.renderHalf(network, clear.kind, r.halfWays(clear, at(12).seconds), fix, { now: at(12).seconds, noTrains: true }));
         check(none);
         assert.deepEqual(notices(none), [{ tone: 'danger', icon: 'error', text: s['trip.no-trains-today'] }]);
         assert.ok(none.indexOf('notice-danger') < none.indexOf('trip-card'), 'above the answer');

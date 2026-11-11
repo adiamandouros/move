@@ -26,7 +26,8 @@ export function timeBadge(tier, content, title = '') {
 // screen, never ′ or "min", and "7 minutes" for screen readers, which don't
 // hear the mark. A range: "16–19'", "16 to 19 minutes". about: a guess (a
 // walk, a trip's total), "~7'" and "about 7 minutes". then: more words for
-// screen readers after the minutes (", arriving soon"). t: the page's strings
+// screen readers after the minutes (", arriving soon"). said: the sentence
+// screen readers hear them in ("next in {minutes}"). t: the page's strings
 // (/js/core/i18n.js in the browser, a view's on the server)
 /** @typedef {number | [number, number]} Minutes */
 /** @param {Minutes} minutes @param {(key: string) => string} t @param {boolean} [about] @returns {string} */
@@ -37,10 +38,10 @@ export function minutesWords(minutes, t, about = false) {
     return about ? format(t('shell.about'), { what: words }) : words;
 }
 
-/** @param {Minutes} minutes @param {(key: string) => string} t @param {{ about?: boolean, then?: string }} [options] @returns {import('./html.js').Html} */
-export function minutesMark(minutes, t, { about = false, then = '' } = {}) {
+/** @param {Minutes} minutes @param {(key: string) => string} t @param {{ about?: boolean, then?: string, said?: string }} [options] @returns {import('./html.js').Html} */
+export function minutesMark(minutes, t, { about = false, then = '', said = '{minutes}' } = {}) {
     const shown = Array.isArray(minutes) ? `${minutes[0]}–${minutes[1]}` : minutes;
-    return html`<span aria-hidden="true">${about ? '~' : ''}${shown}'</span><span class="sr-only">${minutesWords(minutes, t, about)}${then}</span>`;
+    return html`<span aria-hidden="true">${about ? '~' : ''}${shown}'</span><span class="sr-only">${format(said, { minutes: minutesWords(minutes, t, about) })}${then}</span>`;
 }
 
 // A clock time that's a guess, from a timetable (decision 11): "~12:06" on
@@ -49,9 +50,10 @@ export function minutesMark(minutes, t, { about = false, then = '' } = {}) {
 export const aboutTime = (time, t) => html`<span aria-hidden="true">~${time}</span><span class="sr-only">${format(t('shell.about'), { what: time })}</span>`;
 
 // A bus coming in `minutes`, as its badge: "7'" in the colour of how soon,
-// and ", arriving soon" for screen readers when it's due
-/** @param {number} minutes @param {(key: string) => string} t */
-export function minutesBadge(minutes, t) {
+// and ", arriving soon" for screen readers when it's due. said: as for
+// minutesMark ("next in {minutes}")
+/** @param {number} minutes @param {(key: string) => string} t @param {{ said?: string }} [options] */
+export function minutesBadge(minutes, t, { said } = {}) {
     const tier = soonTier(minutes);
-    return timeBadge(tier, minutesMark(minutes, t, { then: tier === 'due' ? `, ${t('shell.arriving-soon')}` : '' }));
+    return timeBadge(tier, minutesMark(minutes, t, { said, then: tier === 'due' ? `, ${t('shell.arriving-soon')}` : '' }));
 }
