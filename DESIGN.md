@@ -346,6 +346,8 @@ Off: grey, the icon outline. On: blue, the icon filled, following where you are.
 a start, from a recent position or a location the browser already allows;
 nothing asks for location when the page opens. Typing or picking a start,
 swapping, or blocked location turns it off; pressed again, it looks again.
+A field it filled, like one holding a station or a place picked, has its
+words selected on a tap, so typing replaces them.
 
 ### Switch
 
