@@ -46,7 +46,12 @@ test.describe('the trip page', () => {
 
     test('the keyboard alone: down to a place, Enter picks it, Escape closes', async ({ page }) => {
         await page.goto('/trip');
-        await from(page).focus();
+        // Reached as the keyboard reaches it, from My location, once that has
+        // put itself in From: what's typed takes its place
+        await expect(from(page)).toHaveValue('My location');
+        await page.getByRole('button', { name: 'My location' }).focus();
+        await page.keyboard.press('Tab');
+        await expect(from(page)).toBeFocused();
         await page.keyboard.type('Μενελάου 45');
         await expect(list(page, 'from').first()).toBeVisible();
         await page.keyboard.press('Escape');
@@ -61,6 +66,27 @@ test.describe('the trip page', () => {
         await expect(from(page)).toBeFocused();
         const walk = await keyboardWalk(page);
         expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
+    });
+
+    test('a tap on a field holding a choice, My location or a place picked, selects it, so what\'s typed replaces it', async ({ page }) => {
+        await page.goto('/trip');
+        await expect(from(page)).toHaveValue('My location');
+        await from(page).click();
+        await page.keyboard.type('Μενελάου 45');
+        await expect(from(page)).toHaveValue('Μενελάου 45');
+        await expect(page.getByRole('button', { name: 'My location' })).toHaveAttribute('aria-pressed', 'false');
+        await list(page, 'from').first().click();
+        await to(page).fill('Συγγρού-Φιξ');
+        await list(page, 'to').first().click();
+        await page.getByRole('button', { name: 'Change' }).click();
+        await to(page).click();
+        await page.keyboard.type('Σύνταγμα');
+        await expect(to(page)).toHaveValue('Σύνταγμα');
+        await expect(list(page, 'to').first()).toBeVisible();
+        // What's being typed isn't a choice: a tap in it leaves it to go on
+        await to(page).click();
+        await page.keyboard.type(' 1');
+        await expect(to(page)).toHaveValue('Σύνταγμα 1');
     });
 
     test('a street that isn\'t in that town says so and lists where it is', async ({ page }) => {

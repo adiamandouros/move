@@ -4,7 +4,10 @@ import { placeOption } from './render.js';
 
 // A field that finds a place on our server as it's typed (POST /api/places;
 // decision 22), as a combobox and listbox. `onChange(found | null)` says what
-// was chosen. Nothing typed is kept, and it's never put in the page's address.
+// was chosen. `chosen()`: whether the field holds what was chosen (a place
+// picked, or My location) rather than what's being typed; tapped then, its
+// words are selected, so typing replaces them, as on the Subway page's
+// fields. Nothing typed is kept, and it's never put in the page's address.
 
 const WAIT_MS = 200;
 const FEWEST_LETTERS = 2;
@@ -25,7 +28,7 @@ async function findPlaces(q, signal) {
     return response.json();
 }
 
-export function placePicker({ input, list, status, rail, onChange }) {
+export function placePicker({ input, list, status, rail, onChange, chosen }) {
     let found = [];
     let timer = null;
     let asking = null;
@@ -64,6 +67,11 @@ export function placePicker({ input, list, status, rail, onChange }) {
         say('');
         onChange(place);
     }
+
+    // On a tap, not on focus: the focus comes back here from the list, and
+    // a tap's own press would undo a selection made as the field takes the
+    // focus. The keyboard's Tab selects it by itself
+    input.addEventListener('click', () => { if (chosen()) input.select(); });
 
     input.addEventListener('input', () => {
         clearTimeout(timer);

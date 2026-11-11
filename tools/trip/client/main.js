@@ -445,8 +445,10 @@ function start(metro) {
         render({ moved: true });
     };
 
-    const fromPicker = placePicker({ input: fromInput, list: $('trip-from-list'), status: $('trip-from-status'), rail, onChange: chooser(fromInput, place => { from = place; follow(false); }) });
-    placePicker({ input: toInput, list: $('trip-to-list'), status: $('trip-to-status'), rail, onChange: chooser(toInput, place => { to = place; }) });
+    // A field holds a choice while its place is set (My location's too):
+    // typing sets it to null
+    const fromPicker = placePicker({ input: fromInput, list: $('trip-from-list'), status: $('trip-from-status'), rail, onChange: chooser(fromInput, place => { from = place; follow(false); }), chosen: () => Boolean(from) });
+    placePicker({ input: toInput, list: $('trip-to-list'), status: $('trip-to-status'), rail, onChange: chooser(toInput, place => { to = place; }), chosen: () => Boolean(to) });
 
     // What was typed before the train times had loaded is replayed as
     // typing, so it's searched
