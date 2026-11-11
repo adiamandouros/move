@@ -9,8 +9,7 @@ this file together. Where a rule can be checked, a test checks it; the
 tests are named under each section.
 
 Version 1 is built. Version 2 adds the Trip page and a few rules for every
-page; rules marked *(v2)* aren't in the code yet, and lose the mark in the
-pull request that builds them (the guide's plan of attack has the order).
+page, and is built too, but for what the Trip page has "Later, agreed".
 
 ## Principles
 
@@ -141,7 +140,7 @@ The palettes and every contrast number are in the guide.
 - **Green** = how soon a departure is, for buses and trains alike: solid
   when due (≤ 3 min), a tint when close (4–8), neutral later (9+). Every
   time a vehicle comes for you is a badge on it, counted from now, whether
-  it's from a timetable or live. *(v2: the Trip page's suburban trains)*
+  it's from a timetable or live.
 - Last trains: the last is red, the second-last amber, and a line of words
   says so too.
 - Clock times (tomorrow, station timetables) are neutral chips. A trip's
@@ -151,8 +150,7 @@ The palettes and every contrast number are in the guide.
   (`~12:06`), a walk (`~16'`). Screen readers hear "about" (`aboutTime` and
   `minutesMark` in `/js/core/times.js`): the "~" is the warning, so no
   sentence under the answer repeats it (decision 43). A live time has none:
-  a bus on OASA's live times; a suburban train whose lateness is known
-  *(v2)*.
+  a bus on OASA's live times; a suburban train whose lateness is known.
 - The maps stay black in both themes.
 
 ### Light and dark
@@ -317,7 +315,7 @@ means). The tints are 10% of their colour, which keeps the text on them at
 4.5:1 on every surface (`test/accessibility.test.js`).
 
 A late suburban train's badge is when it actually leaves: no timetable
-time and no "running late" line. *(v2)*
+time and no "running late" line (decision 47).
 
 ### Tag
 
@@ -365,8 +363,7 @@ rules, with a picture of a way shown in full.
 - **The way shown in full** is one card. Its heading is how long the trip
   takes and when you arrive, both in the body colour. Walks and bus rides
   are rows with a 3rem column on the left; metro, tram and suburban rides
-  are the Subway page's leg card, inside the trip's card *(v2 for the
-  suburban railway: a row like a bus's until then)*. Every other way is one line. Nothing under the answer.
+  are the Subway page's leg card, inside the trip's card. Every other way is one line. Nothing under the answer.
 - **A walk**: `~16'` on the left, "Walk to …" in plain text with the
   distance under it, walking directions at the far right.
 - **A bus ride**: on the left, the clock time it leaves, `md`, bold, the
@@ -385,8 +382,9 @@ rules, with a picture of a way shown in full.
   after a ride, from when they get there; past an hour, clock times. It
   always says its ride's minutes, as the trip's are door to door; no "Change
   to …" line between two cards, as theirs say it. The suburban railway is
-  the same as the metro and the tram *(v2)*. The legend of what the train
-  shows comes under the way; no "Where to stand" button.
+  the same as the metro and the tram (decision 47): a late train's badges
+  are when it actually leaves. The legend of what the train shows comes
+  under the way; no "Where to stand" button.
 - **Above the answer**: notices by their tones, and the step-free notice.
 - **My location** works exactly like Nearest. It re-plans when the rider is
   200m or more from where the trip was last planned, at most every 2

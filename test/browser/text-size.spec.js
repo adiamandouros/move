@@ -215,7 +215,9 @@ test.describe('the Trip page\'s answers at 200% text', () => {
         test('a train running late, the walk at Larissa Station, the metro', async ({ page }) => {
             await page.route('**/api/trains', route => route.fulfill({ json: { at: '2026-10-21T09:00:00Z', trains: { 1313: { late: 480, exact: true } } } }));
             await hereToSyntagma(page);
-            await expect(page.locator('.trip-card').first()).toContainText('Running about 8\'');
+            // Its card's badge when it leaves, 8 minutes late (decision 47)
+            const train = page.locator('.trip-card').first().locator('li.trip-leg', { has: page.locator('.line-pill.line-a4') });
+            await expect(train.locator('.schedule-chips .time-badge [aria-hidden="true"]').first()).toHaveText(/^1[56]'$/);
             await big(page);
             expect(await page.evaluate(problems)).toEqual([]);
         });

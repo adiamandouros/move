@@ -498,13 +498,25 @@ test.describe('the trip page', () => {
             await list(page, 'to').first().click();
         };
 
-        test('a way by train: its line\'s pill, where it goes, the ticket it needs, and nothing under it of where its times are from', async ({ page }) => {
+        // A way's train ride: the Subway page's card (decision 47)
+        const trainCard = page => page.locator('.trip-card').first().locator('li.trip-leg', { has: page.locator('.line-pill.line-a4') });
+        const trainBadge = page => trainCard(page).locator('.schedule-chips .time-badge [aria-hidden="true"]').first();
+
+        test('a way by train: the Subway page\'s card, where its train goes, the ticket it needs, and nothing under it of where its times are from', async ({ page }) => {
             await toMegara(page, '/trip', { here: 'My location', there: 'To' });
             const best = page.locator('.trip-card').first();
             await expect(best.locator('.trip-total [aria-hidden="true"]')).toHaveText(/^\d+–\d+'$/);
             await expect(best.locator('.line-pill.line-a4').first()).toHaveText('A4');
-            await expect(best).toContainText('Megara');
-            await expect(best).toContainText('Needs a Hellenic Train ticket, as OASA\'s ticket doesn\'t cover Megara.');
+            const card = trainCard(page);
+            await expect(card.locator('.leg-boarding')).toHaveText('At Athens:');
+            await expect(card.locator('h3.leg-title')).toHaveAccessibleName('A4 toward Kiato');
+            // 12:35, from 12:00
+            await expect(trainBadge(page)).toHaveText(/^3[45]'$/);
+            await expect(card.locator('.train-diagram'), 'no train diagram').toHaveCount(0);
+            await expect(card.locator('.trip-step-when'), 'nothing on its left').toHaveCount(0);
+            await expect(card.locator('.leg-boarding a'), 'no station pages').toHaveCount(0);
+            await expect(card).toContainText('Needs a Hellenic Train ticket, as OASA\'s ticket doesn\'t cover Megara.');
+            await expect(card.locator('.leg-action')).toContainText('Exit at Megara');
             await expect(page.locator('#trip-result')).not.toContainText('railway.gov.gr');
             await expect(page.locator('#trip-result .notice-danger')).toHaveCount(0);
             await expect(page.locator('#trip-result > :last-child'), 'nothing under the answer').toHaveClass(/trip-card/);
@@ -529,6 +541,7 @@ test.describe('the trip page', () => {
             const best = page.locator('.trip-card').first();
             await expect(best.locator('.line-pill.line-a4').first()).toHaveText('A4');
             await expect(best).toContainText('Μέγαρα');
+            await expect(trainCard(page).locator('.leg-boarding')).toHaveText('Σε Αθήνα:');
             await expect(best).toContainText('δεν καλύπτει τον σταθμό Μέγαρα');
             await expect(page.locator('#trip-result')).not.toContainText('railway.gov.gr');
         });
@@ -593,25 +606,28 @@ test.describe('the trip page', () => {
                 await expect(metroCard(page).locator('.leg-stops-toggle')).toContainText(/^\d+ σταθμοί/);
             });
 
-            test('how late its train runs: said at its timetable time, the M2 after it later, asked again on the tiers while in sight', async ({ page }) => {
+            test('how late its train runs: its badge when it actually leaves, the M2 after it later, asked again on the tiers while in sight', async ({ page }) => {
                 const answer = { now: { at: '2026-10-21T09:00:00Z', trains: {} } };
                 const asked = await lateness(page, answer);
                 await hereToSyntagma(page);
                 const best = page.locator('.trip-card').first();
-                await expect(best.locator('.line-pill.line-a4').first()).toBeVisible();
+                await expect(trainCard(page)).toBeVisible();
                 await expect.poll(() => asked.length).toBe(1);
-                await expect(best).not.toContainText('late');
+                // 12:08, from 12:00
+                await expect(trainBadge(page)).toHaveText(/^[78]'$/);
                 const onTime = minutesOf(await metroTime(page));
 
-                // 8 minutes late, as measured: said, and the M2 at 13:01 missed;
-                // asked again after 32 seconds, as the train leaves in under 10 minutes
+                // 8 minutes late, as measured: its badge 8 minutes later, and the
+                // M2 at 13:01 missed; asked again after 32 seconds, as the train
+                // leaves in under 10 minutes
                 answer.now = { at: '2026-10-21T09:01:00Z', trains: { 1313: { late: 480, exact: true } } };
                 await page.clock.runFor(31_000);
                 expect(asked.length).toBe(1);
                 await page.clock.runFor(3_000);
-                await expect(best).toContainText('Running about 8\'');
+                await expect(trainBadge(page)).toHaveText(/^1[56]'$/);
                 expect(asked.length).toBe(2);
-                await expect(best.locator('li.trip-step', { has: page.locator('.line-pill.line-a4') }).locator('.trip-step-when')).toHaveText('12:08');
+                await expect(best, 'no line saying how late').not.toContainText('Running about');
+                await expect(trainCard(page), 'nor its timetable time').not.toContainText('12:08');
                 expect(minutesOf(await metroTime(page))).toBeGreaterThan(onTime);
                 await expect(page.locator('#trip-live-status')).toBeHidden();
                 // Out of sight: not asked, however long
@@ -635,10 +651,12 @@ test.describe('the trip page', () => {
             await expect(page.locator('.trip-card').first()).not.toContainText('late');
         });
 
-        test('in Greek, how late its train runs', async ({ page }) => {
+        test('in Greek, its badge as late as its train runs, at least', async ({ page }) => {
             await lateness(page, { now: { at: '2026-10-21T09:00:00Z', trains: { 1314: { late: 240, exact: false } } } });
             await toMegara(page, '/el/trip', { here: 'Η θέση μου', there: 'Προς' });
-            await expect(page.locator('.trip-card').first()).toContainText('Καθυστερεί τουλάχιστον 4\'');
+            // 12:35 and at least 4 minutes late, from 12:00
+            await expect(trainBadge(page)).toHaveText(/^3[89]'$/);
+            await expect(page.locator('.trip-card').first()).not.toContainText('Καθυστερεί');
         });
     });
 

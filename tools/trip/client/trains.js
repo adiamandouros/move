@@ -13,12 +13,6 @@ import { refreshEvery } from '/tools/buses/timing.js';
  * @typedef {{ late: number, exact: boolean }} TrainLate
  * @typedef {{ at?: string, trains?: Record<string, TrainLate>, unavailable?: boolean, stale?: boolean }} TrainsLive
  */
-/**
- * A train ride's lateness, as the page says it: whole minutes, measured or at
- * least; `timetable`: when the timetable has a train the rider would miss by
- * it, and catches as it's late (seconds from midnight)
- * @typedef {{ minutes: number, exact: boolean, timetable?: number }} RideLate
- */
 
 export const TRAINS_URL = '/api/trains';
 // A late train the timetable would miss is planned on when its lateness was
@@ -71,12 +65,14 @@ function tripsOf(planner, leg) {
  * there first, of those the timetable has leaving from `ready` on, each
  * there as late as it runs, and those leaving before it that run late
  * enough to be caught with SPARE_SECONDS to spare, as measured at a station
- * (the rider's call, 9 November 2026). Its departure is the timetable's,
- * so a train that makes up time isn't missed; a train caught late leaves when
- * it's expected. Null when there's no train
- * @param {Parameters<typeof tripsOf>[0]} planner @param {Parameters<typeof tripsOf>[1] & Record<string, any>} leg
+ * (the rider's call, 9 November 2026). It boards at the timetable's time,
+ * or a train caught late when it's expected; `timetable`: when it leaves by
+ * the timetable, and `train`, its number, by which the page shows when it
+ * actually leaves (decision 47). Null when there's no train
+ * @template {Parameters<typeof tripsOf>[1]} L
+ * @param {Parameters<typeof tripsOf>[0]} planner @param {L} leg
  * @param {number} ready @param {Record<string, TrainLate> | null | undefined} trains
- * @returns {{ leg: any, late: RideLate | null } | null}
+ * @returns {(L & { route: number, boardIndex: number, alightIndex: number, boards: number, arrives: number, timetable: number, train: string | null }) | null}
  */
 export function trainRide(planner, leg, ready, trains) {
     const timed = tripsOf(planner, leg).map(trip => {
@@ -87,10 +83,16 @@ export function trainRide(planner, leg, ready, trains) {
         .filter(trip => trip.boards >= ready || (trip.late?.exact && trip.boards + trip.late.late >= ready + SPARE_SECONDS))
         .sort((a, b) => a.at - b.at || a.boards - b.boards);
     if (!best) return null;
-    const caught = best.boards < ready;
-    const { route, boardIndex, alightIndex } = best;
-    return {
-        leg: { ...leg, route, boardIndex, alightIndex, boards: best.boards + (caught ? best.late.late : 0), arrives: best.at },
-        late: best.late && { minutes: Math.round(best.late.late / 60), exact: best.late.exact, ...(caught && { timetable: best.boards }) },
-    };
+    const { route, boardIndex, alightIndex, boards, train } = best;
+    return { ...leg, route, boardIndex, alightIndex, boards: boards < ready ? boards + best.late.late : boards, arrives: best.at, timetable: boards, train };
+}
+
+/**
+ * The number of the train a ride of the city's search is on, as the
+ * timetable has it, or null when trains.json doesn't say
+ * @param {import('./buses.js').Planner} planner @param {{ route: number, boardIndex: number, boards: number }} leg
+ */
+export function trainOf(planner, { route, boardIndex, boards }) {
+    const { trips, numbers } = planner.routes[route];
+    return numbers?.[trips.findIndex(times => times[boardIndex] === boards)] ?? null;
 }

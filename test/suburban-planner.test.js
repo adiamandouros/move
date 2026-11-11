@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
-import { departures, findRoutes, planTrip, withSuburban, withTram } from '../tools/subway/client/network.js';
+import { departures, findRoutes, planTrip, suburbanStation, withSuburban, withTram } from '../tools/subway/client/network.js';
 
 // The suburban railway in the subway planner (tools/subway/client/network.js,
 // decision 41): withSuburban joins trains.json to the metro and the tram, on
@@ -19,6 +19,11 @@ const H = 3600;
 const at = hours => ({ weekday: 3, seconds: hours * H, date: DATE });
 const legs = plan => plan.legs.map(leg => `${leg.line} ${leg.from}>${leg.to}`);
 const sorted = object => Object.keys(object).sort();
+// Where a leg boards and gets off among its direction's stops
+const indexes = (line, dir, from, to) => {
+    const { stops } = network.lines[line].directions[dir];
+    return { fromIndex: stops.findIndex(stop => stop.station === from), toIndex: stops.findIndex(stop => stop.station === to) };
+};
 
 test('withSuburban adds the railway and leaves the network as it was', () => {
     const before = structuredClone(tram);
@@ -42,6 +47,8 @@ test('a station with a metro station\'s id has an id of its own and says it\'s t
         'paiania-kantza-suburban', 'pallini-suburban', 'piraeus-suburban', 'tavros-suburban',
     ]);
     assert.deepEqual(network.stations['piraeus-suburban'].name, { el: 'Πειραιάς (Προαστιακός)', en: 'Piraeus (suburban)' });
+    // trains.json's ids as joined, for the Trip page's cards (decision 47)
+    assert.deepEqual(['piraeus', 'megara'].map(id => suburbanStation(network, id)), ['piraeus-suburban', 'megara']);
     assert.equal(network.stations.piraeus.suburban, undefined);
     // Athens's metro station is Larissa Station: no clash
     assert.deepEqual(network.stations.athens.name, { el: 'Αθήνα', en: 'Athens' });
@@ -88,9 +95,12 @@ test('each date\'s trains run on that date only; without trains for the day, or 
     const { stops } = network.lines.A4.directions.piraeus;
     leg.fromIndex = stops.findIndex(stop => stop.station === 'megara');
     leg.toIndex = stops.findIndex(stop => stop.station === 'athens');
-    // Hourly from 06:08 to 22:08
+    // Hourly from 06:08 to 22:08, each train with its number, which its lateness goes by (decision 47)
     const hourly = departures(network, leg, { weekday: 3, after: 0, date: DATE, count: 20 });
     assert.deepEqual(hourly.map(d => d.departs), Array.from({ length: 17 }, (_, i) => (6 + i) * H + 8 * 60));
+    assert.deepEqual(hourly.slice(11, 13).map(d => d.train), ['1323', '1325']);
+    assert.ok(hourly.every(d => /^\d+$/.test(d.train)));
+    assert.ok(!('train' in departures(network, { line: 'M1', dir: 'kifisia', from: 'omonia', to: 'attiki', ...indexes('M1', 'kifisia', 'omonia', 'attiki') }, { weekday: 3, after: 10 * H, date: DATE })[0]), 'a metro train has none');
     // A Wednesday trains.json doesn't hold
     assert.deepEqual(departures(network, leg, { weekday: 3, after: 0, date: '2026-10-28' }), []);
     assert.equal(withSuburban(tram, trains, '2026-10-28'), tram);
