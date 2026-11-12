@@ -338,7 +338,11 @@ version they started with, and it takes over once they're closed
   200 m from where it was last planned, at most every 2 minutes
   (`client/follow.js`); its stops keep their answers, so only those new to
   the way are asked at once. Its requests carry `&for=plan` (`plan-start`
-  for a search, `plan-moved` for a re-plan).
+  for a search, `plan-moved` for a re-plan). `follow.js` also holds the
+  model for following the rider's own ride (roadmap Plan 7: the way as
+  steps, where a fix puts the rider on it, when they're off it, standing
+  still), tested in Node and not yet used by the page; each ride of a way
+  carries its stops' positions (`along`, `past` in `buses.js`) for it.
 - `limits.js`: each visitor may ask for 30 stops a minute that aren't cached.
 - `passes.js`: from every fresh answer, the buses that passed a stop (one 3
   minutes away or less, gone from the next answer), a line each in the day's

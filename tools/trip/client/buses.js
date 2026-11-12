@@ -45,9 +45,12 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
  * A suburban ride's `train`: its number, null when trains.json doesn't say,
  * and `timetable`, when it leaves by the timetable, by which the page shows
  * when it actually leaves (decision 47); it boards then, or a train caught
- * as it runs late when it's expected (trainRide in trains.js)
+ * as it runs late when it's expected (trainRide in trains.js). `along`: where
+ * each stop of the ride is, from where it boards to where it gets off, and
+ * `past`, the stops after that, up to PAST_STOPS, by which the page follows
+ * the rider along the ride and sees them ride past their stop (follow.js, Plan 7)
  * @typedef {{ line: string, dir?: string, lines: string[], mode: string, board: import('/tools/subway/city.js').Stop, alight: import('/tools/subway/city.js').Stop,
- *   boards: number, arrives: number, stops: number, toward: { el: string, en: string }, walkBefore: Walk | null,
+ *   boards: number, arrives: number, stops: number, along: [number, number][], past: [number, number][], toward: { el: string, en: string }, walkBefore: Walk | null,
  *   walkNote: { el: string, en: string } | null, next?: number | null, live?: RideLive, train?: string | null, timetable?: number }} Ride
  */
 /**
@@ -81,7 +84,7 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
  * has coming, by its route, due `at`, as said at `asked` (both seconds from
  * midnight); stale: an older answer, as OASA couldn't be reached;
  * unavailable: none to be had
- * @typedef {{ buses: { route: string, line: string | null, to?: Names | null, at: number }[], asked?: number, stale?: boolean, unavailable?: boolean }} StopLive
+ * @typedef {{ buses: { route: string, vehicle?: string | null, line: string | null, to?: Names | null, at: number }[], asked?: number, stale?: boolean, unavailable?: boolean }} StopLive
  */
 /**
  * The quicker way offered on a decision (decision 36): leave the first ride,
@@ -125,6 +128,22 @@ export const cityPlanner = (rail, buses, weekday, trains = null) => createPlanne
 /** @param {Planner} planner @param {Point} from @param {Point} to */
 const ends = (planner, from, to) => [planner.near(from, NEAR_SECONDS), planner.near(to, NEAR_SECONDS)];
 
+// How many stops past where a ride gets off it carries, for seeing a rider ride past their stop
+export const PAST_STOPS = 2;
+// A stop's position, to about a metre, as a ride carries its stops
+/** @param {import('/tools/subway/city.js').Stop} stop @returns {[number, number]} */
+const position = stop => [Math.round(stop.lat * 1e5) / 1e5, Math.round(stop.lng * 1e5) / 1e5];
+// Where a leg's stops are, boarding to getting off, and the stops after
+/** @param {Planner} planner @param {{ route: number, boardIndex: number, alightIndex: number }} leg */
+function alongLeg(planner, leg) {
+    const { stops } = planner.routes[leg.route];
+    const at = i => position(planner.stops[stops[i]]);
+    return {
+        along: stops.slice(leg.boardIndex, leg.alightIndex + 1).map((_, i) => at(leg.boardIndex + i)),
+        past: stops.slice(leg.alightIndex + 1, leg.alightIndex + 1 + PAST_STOPS).map((_, i) => at(leg.alightIndex + 1 + i)),
+    };
+}
+
 // The same rides whatever the bus: between the same stops, any line
 const bundleKey = way => way.legs.map(leg => `${ON_THE_ROAD.has(leg.mode) ? 'bus' : leg.line} ${leg.board} ${leg.alight}`).join('|');
 
@@ -167,7 +186,7 @@ function cityOption(planner, way, access, egress, now, lines = way.legs.map(leg 
         morning: false,
         rides: way.legs.map((leg, i) => ({
             line: leg.line, lines: lines[i], mode: leg.mode, board: planner.stops[leg.board], alight: planner.stops[leg.alight],
-            boards: leg.boards, arrives: leg.arrives, stops: leg.alightIndex - leg.boardIndex,
+            boards: leg.boards, arrives: leg.arrives, stops: leg.alightIndex - leg.boardIndex, ...alongLeg(planner, leg),
             toward: planner.routes[leg.route].toward, ...planner.routes[leg.route].dir && { dir: planner.routes[leg.route].dir }, walkBefore: walkOf(leg.walkBefore),
             walkNote: i && leg.walkBefore ? planner.walkNote(way.legs[i - 1].alight, leg.board) : null,
             ...ON_THE_ROAD.has(leg.mode) && { next: planner.ride([leg], leg.boards)?.[0].next ?? null },
