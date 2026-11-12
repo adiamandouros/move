@@ -1,13 +1,11 @@
 <div class="subway-view trip-view">
-    <div class="trip-heading">
-        <h1 id="trip-title" tabindex="-1">{{t "tool.trip.title"}}</h1>
-    </div>
+    <h1 class="sr-only">{{t "tool.trip.title"}}</h1>
     <form id="trip-form" class="subway-form" role="search" autocomplete="off">
         <div class="subway-search-wrap mb-1">
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
                 <label for="trip-from" class="form-label fw-semibold m-0">{{t "trip.from"}}</label>
                 <button id="trip-locate" type="button" class="btn btn-sm locate-btn" aria-pressed="false">
-                    {{icon "nearest"}}<span>{{t "trip.my-location"}}</span>
+                    <span>{{t "trip.my-location"}}</span>{{icon "nearest"}}
                 </button>
             </div>
             <div class="position-relative">

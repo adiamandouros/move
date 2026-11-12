@@ -999,6 +999,12 @@ body {
     color: var(--bs-secondary-color);
 }
 
+/* Its icon after the words, centred over the swap button below it (2.25rem
+   wide, the same padding from the edge) */
+.locate-btn > .icon:last-child {
+    margin-right: calc(1.125rem - var(--icon-size) / 2 - var(--bs-btn-border-width));
+}
+
 .locate-btn[aria-pressed="true"] {
     color: var(--bs-primary);
 }
@@ -1548,22 +1554,10 @@ body {
 
 /* The trip page */
 .trip-view {
-    padding: var(--wh-space-1) var(--wh-space-4) var(--wh-space-4);
+    padding: var(--wh-space-6) var(--wh-space-4) var(--wh-space-4);
     display: flex;
     flex-direction: column;
     gap: var(--wh-space-3);
-}
-
-.trip-heading {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--wh-space-2);
-    margin-bottom: var(--wh-space-3);
-}
-
-.trip-heading h1 {
-    margin: 0;
 }
 
 .trip-exact {

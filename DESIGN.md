@@ -348,6 +348,7 @@ nothing asks for location when the page opens. Typing or picking a start,
 swapping, or blocked location turns it off; pressed again, it looks again.
 A field it filled, like one holding a station or a place picked, has its
 words selected on a tap, so typing replaces them.
+Its icon comes after the words, centred over the swap button below it.
 
 ### Switch
 
@@ -362,6 +363,8 @@ acts on the page right now stays a button, like Nearest.
 The Trip page came a week after version 1; version 2 of the guide has its
 rules, with a picture of a way shown in full.
 
+- **No heading on screen**: the form comes first, as on the Subway page;
+  "Plan a trip" is the page's title for screen readers and the browser tab.
 - **The way shown in full** is one card. Its heading is how long the trip
   takes and when you arrive, both in the body colour. Walks and bus rides
   are rows with a 3rem column on the left; metro, tram and suburban rides

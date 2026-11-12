@@ -158,6 +158,17 @@ test.describe('"Nearest": on while the boarding station follows the location', (
     });
 });
 
+test('"Nearest" and "My location": the icon after the words, centred over the swap button', async ({ page }) => {
+    const middle = async locator => { const box = await locator.boundingBox(); return box.x + box.width / 2; };
+    for (const [path, toggle, swap] of [['/subway', '#locate-btn', '#swap-stations'], ['/trip', '#trip-locate', '#trip-swap']]) {
+        await page.goto(path);
+        const words = await page.locator(`${toggle} span`).boundingBox();
+        const icon = await page.locator(`${toggle} svg`).boundingBox();
+        expect(icon.x, path).toBeGreaterThanOrEqual(words.x + words.width);
+        expect(Math.abs(await middle(page.locator(`${toggle} svg`)) - await middle(page.locator(`${swap} svg`))), path).toBeLessThanOrEqual(0.5);
+    }
+});
+
 test.describe('"My location" on the trip page: on while From follows the location, as "Nearest" does', () => {
     const colour = locator => locator.evaluate(el => getComputedStyle(el).color);
 
