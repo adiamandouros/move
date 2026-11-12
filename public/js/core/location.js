@@ -10,7 +10,10 @@
 // - Nothing waits for it: pages show what they can without it and update
 //   when it comes. A position that's slow to come is reported, not waited on.
 
-// { lat, lng, at } of the last position (rounded to about 10 m)
+// { lat, lng, at } of the last position (rounded to about 10 m). A position
+// as it comes also says how exact it is (`accuracy`, metres, null when the
+// phone doesn't say) and how fast the device moves (`speed`, m/s, or null),
+// for the Trip page following a ride (follow.js); neither is kept
 const KEY = 'location';
 // Set once a position has come, so pages can start without asking again
 // (some browsers keep reporting "prompt" after someone allowed it)
@@ -85,7 +88,7 @@ export function restartLocation() {
     startLocation();
 }
 
-// fn({ lat, lng, at }) for every new position. Returns a function that stops it.
+// fn({ lat, lng, at, accuracy, speed }) for every new position. Returns a function that stops it.
 export function onLocation(fn) {
     positionListeners.add(fn);
     return () => positionListeners.delete(fn);
@@ -113,7 +116,7 @@ function onPosition(pos) {
     const at = pos.timestamp || Date.now();
     // The quick fix can be older than what the watch already gave
     if (current && at <= current.at) return;
-    current = { lat: pos.coords.latitude, lng: pos.coords.longitude, at };
+    current = { lat: pos.coords.latitude, lng: pos.coords.longitude, at, accuracy: pos.coords.accuracy ?? null, speed: pos.coords.speed ?? null };
     clearTimeout(slowTimer);
     storage.set(KEY, JSON.stringify({ lat: round(current.lat), lng: round(current.lng), at }));
     storage.set(ALLOWED_KEY, '1');

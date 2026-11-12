@@ -15,7 +15,7 @@ import { aboutTime, minutesBadge, minutesMark } from '../public/js/core/times.js
 
 const rail = JSON.parse(readFileSync(new URL('browser/data/rail.json', import.meta.url), 'utf8'));
 const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.meta.url), 'utf8'));
-const { cityPlanner, halfHour, halfView } = await browserModule('tools/trip/client/buses.js');
+const { cityPlanner, halfHour, halfView, PAST_STOPS } = await browserModule('tools/trip/client/buses.js');
 const { planTrip, withTram } = await browserModule('tools/subway/client/network.js');
 const { walkingUrl } = await browserModule('public/js/core/html.js');
 const network = withTram(rail);
@@ -266,6 +266,19 @@ test('times follow the clock: the way for the next departure tried, up to a minu
     const gaps = { ...clear, rows: [{ ...clear.rows[0], options: [clear.rows[0].options[0], null, null, clear.rows[0].options[3]] }] };
     assert.equal(r.halfWays(gaps, start + 120)[0].o, clear.rows[0].options[3]);
     assert.deepEqual(r.halfWays(clear, start + 3600), [], 'past the half hour: nothing');
+});
+
+test('each ride carries where its stops are, boarding to getting off, and the two after, for following the rider along it (Plan 7)', () => {
+    const rides = clear.rows.flatMap(row => row.options.filter(Boolean).flatMap(o => o.rides));
+    assert.ok(rides.length > 0);
+    for (const ride of rides) {
+        assert.equal(ride.along.length, ride.stops + 1, `${ride.line}: one position per stop ridden, and where it boards`);
+        assert.deepEqual(ride.along[0], [ride.board.lat, ride.board.lng].map(n => Math.round(n * 1e5) / 1e5));
+        assert.deepEqual(ride.along.at(-1), [ride.alight.lat, ride.alight.lng].map(n => Math.round(n * 1e5) / 1e5));
+        assert.ok(ride.past.length <= PAST_STOPS);
+        for (const [lat, lng] of [...ride.along, ...ride.past]) assert.ok(lat > 37 && lat < 39 && lng > 23 && lng < 25, 'in Attica');
+    }
+    assert.ok(rides.some(ride => ride.past.length === PAST_STOPS), 'a ride that gets off before the line ends has the stops after');
 });
 
 test('a range of one minute is said as that minute, about', async () => {

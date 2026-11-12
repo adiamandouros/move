@@ -48,7 +48,7 @@ function browser(t, { permission = 'prompt', geolocation = true, permissionsApi 
         stored,
         calls,
         // The location service answering the watch, or failing (1: denied, 2: unavailable)
-        position: (lat, lng, timestamp = Date.now()) => watcher.ok({ coords: { latitude: lat, longitude: lng }, timestamp }),
+        position: (lat, lng, timestamp = Date.now(), coords = {}) => watcher.ok({ coords: { latitude: lat, longitude: lng, ...coords }, timestamp }),
         quickFix: (lat, lng, timestamp) => calls.quick.at(-1).ok({ coords: { latitude: lat, longitude: lng }, timestamp }),
         fail: code => watcher.fail({ code }),
         hide: () => { env.document.hidden = true; listeners.visibilitychange(); },
@@ -106,13 +106,20 @@ test('following the location: a quick rough fix and a precise watch, saved to ab
     assert.deepEqual(b.calls.watch, [{ enableHighAccuracy: true }]);
 
     b.position(37.975512345, 23.734812345);
-    assert.deepEqual(heard, [{ lat: 37.975512345, lng: 23.734812345, at: Date.now() }]);
+    assert.deepEqual(heard, [{ lat: 37.975512345, lng: 23.734812345, at: Date.now(), accuracy: null, speed: null }]);
     assert.deepEqual(JSON.parse(b.stored.get('location')), { lat: 37.9755, lng: 23.7348, at: Date.now() });
     assert.equal(b.stored.get('location-allowed'), '1');
 
     // The quick fix arriving after the watch, and older: ignored
     b.quickFix(38, 24, Date.now() - MINUTE);
     assert.equal(heard.length, 1);
+
+    // How exact a fix is and how fast the device moves come with it, for a
+    // ride followed (follow.js); neither is kept
+    t.mock.timers.tick(1_000);
+    b.position(37.9756, 23.7349, Date.now(), { accuracy: 12.5, speed: 8.2 });
+    assert.deepEqual(heard[1], { lat: 37.9756, lng: 23.7349, at: Date.now(), accuracy: 12.5, speed: 8.2 });
+    assert.deepEqual(JSON.parse(b.stored.get('location')), { lat: 37.9756, lng: 23.7349, at: Date.now() });
 });
 
 test('blocked: pages hear "denied", and nothing is kept', async t => {

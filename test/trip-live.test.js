@@ -175,8 +175,9 @@ test('a stop is asked for by itself, the trip\'s first request saying it starts 
 test('an answer\'s buses are due at a time of day, so they count down by themselves, with where they go, and say when they were said; one that couldn\'t be had says so', () => {
     const came = 10 * 3600;
     const piraeus = { el: 'ΠΕΙΡΑΙΑΣ', en: 'PIRAEUS' };
-    assert.deepEqual(live.stopLive({ arrivals: [{ route: '3922', line: '040', to: piraeus, minutes: 4 }, { route: '3922', line: null, to: null, minutes: 0 }, { route: '3922', line: '040', minutes: 9 }] }, came),
-        { buses: [{ route: '3922', line: '040', to: piraeus, at: came + 4 * MIN }, { route: '3922', line: null, to: null, at: came }, { route: '3922', line: '040', to: null, at: came + 9 * MIN }], asked: came });
+    // OASA's code for each vehicle stays with the bus, so the one the rider boarded is known again (Plan 7)
+    assert.deepEqual(live.stopLive({ arrivals: [{ route: '3922', vehicle: '70412', line: '040', to: piraeus, minutes: 4 }, { route: '3922', line: null, to: null, minutes: 0 }, { route: '3922', vehicle: null, line: '040', minutes: 9 }] }, came),
+        { buses: [{ route: '3922', vehicle: '70412', line: '040', to: piraeus, at: came + 4 * MIN }, { route: '3922', vehicle: null, line: null, to: null, at: came }, { route: '3922', vehicle: null, line: '040', to: null, at: came + 9 * MIN }], asked: came });
     assert.deepEqual(live.stopLive({ arrivals: [], stale: true }, came), { buses: [], asked: came, stale: true });
     assert.deepEqual(live.stopLive({ arrivals: [], unavailable: true }, came), { buses: [], asked: came, unavailable: true });
     // Asking failed: the last answer, possibly old, or none

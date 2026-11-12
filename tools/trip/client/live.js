@@ -8,7 +8,7 @@ import { refreshEvery } from '/tools/buses/timing.js';
 // No DOM, so it's tested in Node; main.js asks and draws.
 
 /** @typedef {import('./buses.js').StopLive} StopLive */
-/** @typedef {{ arrivals?: { route: string, line: string | null, to?: { el: string, en: string } | null, minutes: number }[], stale?: boolean, unavailable?: boolean }} StopAnswer */
+/** @typedef {{ arrivals?: { route: string, vehicle?: string | null, line: string | null, to?: { el: string, en: string } | null, minutes: number }[], stale?: boolean, unavailable?: boolean }} StopAnswer */
 
 // The address that asks for one stop. Its requests say they're the Trip
 // page's, and the first of a trip, or the first new stop after the trip was
@@ -20,12 +20,14 @@ export const arrivalsUrl = (code, opening = null) => `/api/arrivals?stops=${code
 /**
  * A stop's answer from /api/arrivals, which came at `seconds` (from
  * midnight): each bus due at seconds from midnight, so it counts down by
- * itself, with where it goes, and when it was said, as how late a bus comes depends on how far
+ * itself, with where it goes and OASA's code for the vehicle (null when it
+ * has none), by which the bus the rider boarded is known again at the stop
+ * they get off (Plan 7), and when it was said, as how late a bus comes depends on how far
  * ahead it was (answer.js lateness)
  * @param {StopAnswer} answer @param {number} seconds @returns {StopLive}
  */
 export function stopLive({ arrivals = [], stale = false, unavailable = false }, seconds) {
-    const buses = arrivals.map(({ route, line, to = null, minutes }) => ({ route, line, to, at: seconds + minutes * 60 }));
+    const buses = arrivals.map(({ route, vehicle = null, line, to = null, minutes }) => ({ route, vehicle, line, to, at: seconds + minutes * 60 }));
     return { buses, asked: seconds, ...(stale && { stale }), ...(unavailable && { unavailable }) };
 }
 
