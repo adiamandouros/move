@@ -9,6 +9,7 @@ import { watchLegStations } from '/tools/subway/render.js';
 import { suburbanHidden, tramHidden } from '/tools/subway/tram-switch.js';
 import { isIdle } from '/tools/buses/timing.js';
 import { replanDue } from './follow.js';
+import { forgetTrip, keepTrip, keptTrip } from './kept.js';
 import { arrivalsUrl, dueStops, liveStatus, stopLive, unanswered } from './live.js';
 import { doorToDoor, isLongWalk } from './plan.js';
 import { placePicker } from './picker.js';
@@ -118,6 +119,9 @@ function start(metro) {
     const rail = hidden ? metro : withTram(metro);
     let from = null;
     let to = null;
+    // Each end's place as search found it, kept for the session (kept.js)
+    /** @type {WeakMap<object, object>} */
+    const foundOf = new WeakMap();
     // The fields are back, with the answer still under them
     let changing = false;
     const noSuburban = suburbanHidden();
@@ -376,6 +380,7 @@ function start(metro) {
     // `refresh`: the same trip, for a later time; `moved`: planned again
     // from where the rider moved to
     const render = ({ speak = false, refresh = false, moved = false } = {}) => {
+        keepTrip({ from: foundOf.get(from) ?? null, to: foundOf.get(to) ?? null }, Date.now());
         const ready = from && to;
         form.hidden = Boolean(ready) && !changing;
         if (!ready) { setHtml(result, html`<p class="trip-intro">${t('trip.intro')}</p>`); return; }
@@ -454,9 +459,15 @@ function start(metro) {
         draw(asked.now, data.options, asked.speak);
     });
 
+    // A place found, chosen for an end, with what it was found as
+    const placeFor = found => {
+        const place = chosenPlace(rail, found);
+        foundOf.set(place, found);
+        return place;
+    };
     const chooser = (input, set) => found => {
         if (found) input.value = placeTitle(found);
-        set(found && chosenPlace(rail, found));
+        set(found && placeFor(found));
         changing = false;
         render({ speak: Boolean(found) });
     };
@@ -499,6 +510,14 @@ function start(metro) {
     [fromInput, toInput].forEach(input => {
         if (input.value) input.dispatchEvent(new Event('input', { bubbles: true }));
     });
+
+    // The trip kept from earlier in this session, unless something was typed
+    // first. With no start kept, My location starts it as below
+    const kept = !fromInput.value && !toInput.value ? keptTrip(Date.now()) : null;
+    if (kept?.from) { from = placeFor(kept.from); fromInput.value = placeTitle(kept.from); }
+    if (kept?.to) { to = placeFor(kept.to); toInput.value = placeTitle(kept.to); }
+    // The link to this page starts it over, as on the other tools (remember.js)
+    document.querySelectorAll('a[data-tool="trip"]').forEach(link => link.addEventListener('click', forgetTrip));
 
     $('trip-swap').addEventListener('click', () => {
         follow(false);

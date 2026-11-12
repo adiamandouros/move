@@ -219,7 +219,11 @@ pages use.
   navigation and the home tiles, set by `shell.js` on every page. The link to
   the page you're on starts the tool over, and links that say where they
   go (a station page's "Plan a trip from here", the bus page's way back to
-  the stops nearby) work as they always did.
+  the stops nearby) work as they always did. The Trip page keeps no
+  address, so it keeps its trip itself (`tools/trip/client/kept.js`,
+  [decision 49](docs/decisions/0049-trip-kept-for-the-session.md)): each
+  end's place as search found it, for the session and 12 hours at most;
+  My location isn't kept, as the page starts from it by itself.
 - Scripts import each other by absolute URL (`/js/core/i18n.js`). An import
   map in every page points each of those URLs at its version (`?v=<hash>`;
   [decision 1](docs/decisions/0001-no-build-step.md)).
@@ -540,8 +544,8 @@ cards the page loads `trains.json` itself and draws on the network with the
 day's trains joined (`withSuburban`, which keeps each train's number), while
 it plans on the metro and the tram alone; a late train's badges are when it
 actually leaves, once the way is timed with how late the trains run. Until
-the file is in, a train's ride is a row. Addresses aren't kept, and never go in the page's
-address. So that `buses.json` (about 325 KB over the wire) is usually there
+the file is in, a train's ride is a row. Addresses never go in the page's address; the trip is
+kept in the tab for the session (decision 49). So that `buses.json` (about 325 KB over the wire) is usually there
 by the time a trip is planned, Home, Subway, Buses and the station pages
 fetch it in the background once they've loaded (`readyBuses`,
 `/js/core/ready-buses.js`), unless the browser asks to save data; the pages

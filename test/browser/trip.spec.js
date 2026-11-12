@@ -134,19 +134,17 @@ test.describe('the trip page', () => {
         await expect(from(page)).toHaveValue('');
     });
 
-    test('the tram, unless it\'s hidden on the Subway page: then the metro alone', async ({ page }) => {
-        const trip = async () => {
-            await page.goto('/trip');
-            await from(page).fill('Σταύρου 1');
-            await list(page, 'from').first().click();
-            await to(page).fill('Άλσος');
-            await list(page, 'to').first().click();
-            await expect(page.locator('.trip-card').first()).toBeVisible();
-        };
-        await trip();
+    test('the tram, unless it\'s hidden on the Subway page: then the metro alone, the trip kept planned again on it', async ({ page }) => {
+        await page.goto('/trip');
+        await from(page).fill('Σταύρου 1');
+        await list(page, 'from').first().click();
+        await to(page).fill('Άλσος');
+        await list(page, 'to').first().click();
+        await expect(page.locator('.trip-card').first()).toBeVisible();
         await expect(page.locator('#trip-result .line-t6').first()).toBeVisible();
         await page.evaluate(() => localStorage.setItem('tram-hidden', '1'));
-        await trip();
+        await page.goto('/trip');
+        await expect(page.locator('.trip-card').first()).toBeVisible();
         await expect(page.locator('#trip-result .line-m2').first()).toBeVisible();
         await expect(page.locator('#trip-result .line-t6')).toHaveCount(0);
     });
@@ -158,7 +156,8 @@ test.describe('the trip page', () => {
         await expect(page.locator('#trip-result .bus-plate').first()).toBeVisible();
         expect(asked.length).toBeGreaterThan(0);
         await expect(page.getByText('Beta')).toHaveCount(0);
-        await pickBoth(page, '/trip?buses');
+        // The trip kept (decision 49), planned again there
+        await page.goto('/trip?buses');
         await expect(page.locator('#trip-result .bus-plate').first()).toBeVisible();
     });
 
@@ -656,11 +655,8 @@ test.describe('the trip page', () => {
                 expect(await axe(page), 'axe-core violations').toEqual([]);
                 const walk = await keyboardWalk(page);
                 expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
-                // In Greek, with the Subway page's words
+                // In Greek, with the Subway page's words: the trip kept (decision 49)
                 await page.goto('/el/trip');
-                await page.getByRole('button', { name: 'Η θέση μου' }).click();
-                await page.getByRole('combobox', { name: 'Προς' }).fill('Σύνταγμα');
-                await list(page, 'to').first().click();
                 await expect(metroCard(page).locator('.leg-boarding')).toHaveText('Σε Σταθμός Λαρίσσης:');
                 await expect(metroCard(page).locator('.leg-stops-toggle')).toContainText(/^\d+ σταθμοί/);
             });
@@ -763,6 +759,74 @@ test.describe('the trip page', () => {
         const trip = await top();
         await page.goto('/subway');
         expect(trip).toBe(await top());
+    });
+
+    // Decision 49: what's kept and for how long is tested in Node
+    // (trip-kept.test.js); here, that the page shows it again
+    test.describe('the trip kept for the session', () => {
+        const nav = (page, tool) => page.locator(`nav:visible a[data-tool="${tool}"]`);
+
+        test('after another page the trip is there again, planned, in either language; its fields hold it', async ({ page }) => {
+            await pickBoth(page);
+            await expect(page.locator('.trip-card').first()).toBeVisible();
+            await nav(page, 'buses').click();
+            await expect(page).toHaveURL(/\/buses/);
+            await nav(page, 'trip').click();
+            await expect(page).toHaveURL(/\/trip$/);
+            await expect(page.locator('#trip-form')).toBeHidden();
+            await expect(page.locator('.trip-places')).toContainText('Μενελάου 45');
+            await expect(page.locator('.trip-places')).toContainText('Syggrou Fix');
+            await expect(page.locator('.trip-card').first()).toBeVisible();
+            expect(await axe(page), 'axe-core violations').toEqual([]);
+            await page.getByRole('button', { name: 'Change' }).click();
+            await expect(from(page)).toHaveValue('Μενελάου 45');
+            await expect(to(page)).not.toHaveValue('');
+
+            await page.goto('/el/trip');
+            await expect(page.locator('.trip-places')).toContainText('Συγγρού Φιξ');
+            await expect(page.locator('.trip-card').first()).toBeVisible();
+        });
+
+        test('the trip tab, tapped on the trip page, starts over; another tab hasn\'t got it', async ({ page }) => {
+            await pickBoth(page);
+            await expect(page.locator('.trip-card').first()).toBeVisible();
+            const other = await page.context().newPage();
+            await other.goto('/trip');
+            await expect(other.locator('.trip-intro')).toBeVisible();
+            await other.close();
+
+            await nav(page, 'trip').click();
+            await expect(page.locator('#trip-form')).toBeVisible();
+            await expect(to(page)).toHaveValue('');
+            await expect(from(page), 'My location starts it, as on a page opened afresh').toHaveValue('My location');
+        });
+
+        test('forgotten 12 hours after it was set', async ({ page }) => {
+            await pickBoth(page);
+            await expect(page.locator('.trip-card').first()).toBeVisible();
+            await page.goto('/info');
+            await page.clock.fastForward(12 * 60 * 60_000);
+            await page.goto('/trip');
+            await expect(page.locator('.trip-intro')).toBeVisible();
+            await expect(to(page)).toHaveValue('');
+        });
+
+        test.describe('from My location', () => {
+            test.use({ location: { at: MEGARA } });
+
+            test('My location isn\'t kept, and where it was isn\'t either: the page starts from where the rider is, as it does by itself', async ({ page }) => {
+                await hereToSyntagma(page);
+                await expect(page.locator('.trip-card').first()).toBeVisible();
+                await page.goto('/info');
+                const kept = JSON.parse(await page.evaluate(() => sessionStorage.getItem('trip')));
+                expect(kept.from).toBeNull();
+                expect(kept.to.placeKind).toBe('metro');
+                await page.goto('/trip');
+                await expect(page.locator('.trip-places')).toContainText('My location');
+                await expect(page.locator('.trip-places')).toContainText('Syntagma');
+                await expect(page.locator('#trip-locate'), 'following the rider').toHaveAttribute('aria-pressed', 'true');
+            });
+        });
     });
 });
 
