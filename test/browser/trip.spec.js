@@ -157,7 +157,6 @@ test.describe('the trip page', () => {
         await pickBoth(page);
         await expect(page.locator('#trip-result .bus-plate').first()).toBeVisible();
         expect(asked.length).toBeGreaterThan(0);
-        await expect(page.locator('.trip-heading .tag')).toHaveCount(0);
         await expect(page.getByText('Beta')).toHaveCount(0);
         await pickBoth(page, '/trip?buses');
         await expect(page.locator('#trip-result .bus-plate').first()).toBeVisible();
@@ -752,6 +751,18 @@ test.describe('the trip page', () => {
         await page.goto('/el/trip');
         await expect(page.getByRole('heading', { level: 1 })).toHaveText('Σχεδιασμός διαδρομής');
         await expect(page.getByRole('link', { name: 'OpenStreetMap' })).toBeVisible();
+    });
+
+    test('no "Plan a trip" on screen: the form comes first, the title is for screen readers', async ({ page }) => {
+        await page.goto('/trip');
+        const title = page.getByRole('heading', { level: 1 });
+        await expect(title).toHaveText('Plan a trip');
+        expect((await title.boundingBox()).width).toBeLessThanOrEqual(1);
+        // The same space above the form as on the Subway page
+        const top = async () => (await page.locator('main form').boundingBox()).y;
+        const trip = await top();
+        await page.goto('/subway');
+        expect(trip).toBe(await top());
     });
 });
 
