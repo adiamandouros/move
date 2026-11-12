@@ -1574,7 +1574,6 @@ body {
     color: var(--bs-secondary-color);
 }
 
-.trip-places,
 .trip-card {
     display: flex;
     flex-direction: column;
@@ -1586,16 +1585,11 @@ body {
     margin-bottom: var(--wh-space-3);
 }
 
-.trip-places button,
 .trip-stand {
     align-self: flex-start;
     border: 1px solid var(--wh-control-edge);
     border-radius: var(--wh-radius-round);
     padding-inline: var(--wh-space-3);
-}
-
-.trip-place-name {
-    font-weight: 600;
 }
 
 .trip-card-head {

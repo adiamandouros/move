@@ -1,13 +1,13 @@
 import { html, setHtml } from '/js/core/html.js';
 import { t } from '/js/core/i18n.js';
-import { placeOption } from './render.js';
+import { howExact, placeOption } from './render.js';
 
 // A field that finds a place on our server as it's typed (POST /api/places;
 // decision 22), as a combobox and listbox. `onChange(found | null)` says what
-// was chosen. `chosen()`: whether the field holds what was chosen (a place
-// picked, or My location) rather than what's being typed; tapped then, its
-// words are selected, so typing replaces them, as on the Subway page's
-// fields. Nothing typed is kept, and it's never put in the page's address.
+// was chosen, and how exact it is is said under the field. `chosen()`:
+// whether the field holds what was chosen (a place picked, or My location)
+// rather than what's being typed; tapped then, its words are selected, so
+// typing replaces them, as on the Subway page's fields. Nothing typed is kept, and it's never put in the page's address.
 
 const WAIT_MS = 200;
 const FEWEST_LETTERS = 2;
@@ -64,7 +64,7 @@ export function placePicker({ input, list, status, rail, onChange, chosen }) {
         const place = found[index];
         if (!place) return;
         hide();
-        say('');
+        say(howExact(place)?.words ?? '');
         onChange(place);
     }
 

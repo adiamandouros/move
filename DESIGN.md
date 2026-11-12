@@ -365,6 +365,10 @@ rules, with a picture of a way shown in full.
 
 - **No heading on screen**: the form comes first, as on the Subway page;
   "Plan a trip" is the page's title for screen readers and the browser tab.
+- **From and To stay on the page**, as the Subway page's fields do: either
+  one can be changed at once, and a place picked plans the trip again. How
+  exact a place is ("About here, between 41 and 49", "Metro station") is
+  said under its field; a station is named in the page's language.
 - **The way shown in full** is one card. Its heading is how long the trip
   takes and when you arrive, both in the body colour. Walks and bus rides
   are rows with a 3rem column on the left; metro, tram and suburban rides

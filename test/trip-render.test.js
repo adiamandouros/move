@@ -301,12 +301,6 @@ for (const lang of ['en', 'el']) {
         assert.ok(view.includes('Μενελάου 25'));
     });
 
-    test(`${lang}: what's chosen, with how exact it is`, () => {
-        const view = String(r.renderChosen(menelaou, syntagma));
-        check(view);
-        for (const text of ['Μενελάου 25', 'About here', 'Σύνταγμα', s['trip.change']]) assert.ok(view.includes(text), text);
-    });
-
     test(`${lang}: close enough to walk`, () => {
         const near = { lat: syntagma.lat + 0.002, lng: syntagma.lng };
         const view = String(drawTrip(rail, doorToDoor(rail, near, syntagma, NOW), syntagma));

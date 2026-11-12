@@ -14,12 +14,11 @@ import { arrivalsUrl, dueStops, liveStatus, stopLive, unanswered } from './live.
 import { doorToDoor, isLongWalk } from './plan.js';
 import { placePicker } from './picker.js';
 import { TRAINS_URL, trainsDue, trainsUnanswered } from './trains.js';
-import { halfWays, hasBus, hasTrain, howExact, liveNotice, placeTitle, quickerSummary, rangeText, renderChosen, renderHalf, renderTrip, routeSummary, stepFreeSummary } from './render.js';
+import { halfWays, hasBus, hasTrain, howExact, liveNotice, placeTitle, quickerSummary, rangeText, renderHalf, renderTrip, routeSummary, stepFreeSummary } from './render.js';
 
 const $ = id => document.getElementById(id);
 const result = $('trip-result');
 const liveBox = $('trip-live-status');
-const form = $('trip-form');
 const fromInput = /** @type {HTMLInputElement} */ ($('trip-from'));
 const toInput = /** @type {HTMLInputElement} */ ($('trip-to'));
 const locate = $('trip-locate');
@@ -106,7 +105,7 @@ function timingBox(timing) {
 // so is a tram stop when the tram is planned on, so there's no walk to it, and
 // it goes by the page's language
 function chosenPlace(rail, found) {
-    const place = { lat: found.lat, lng: found.lng, title: placeTitle(found), exact: howExact(found)?.words ?? null };
+    const place = { lat: found.lat, lng: found.lng, title: placeTitle(found) };
     const tram = { metro: false, tram: true }[found.placeKind];
     if (tram === undefined || (tram && !Object.values(rail.stations).some(station => station.tram))) return place;
     const station = closestStation(rail, found.lat, found.lng, tram);
@@ -122,8 +121,6 @@ function start(metro) {
     // Each end's place as search found it, kept for the session (kept.js)
     /** @type {WeakMap<object, object>} */
     const foundOf = new WeakMap();
-    // The fields are back, with the answer still under them
-    let changing = false;
     const noSuburban = suburbanHidden();
     let searches = startSearches(hidden ? { ...metro, tram: undefined } : metro, !noSuburban);
     // What the answer is drawn on: `rail`, with the day's suburban trains
@@ -324,13 +321,7 @@ function start(metro) {
             ? renderHalf(drawnOn(date), half.view.kind, ways, to, { now: clock, expired, longWalk: isLongWalk(ways[0].o), live: timed, offer: !choice, taken: choice === 'taken' ? half.view.quicker : null, noTrains, trains: lateness(), lifts: known, liftsOpen: liftsOpen(), ...cards })
             : renderTrip(drawnOn(date), trip, to, { now: clock, expired, noBuses, noTrains: noTrains && !noBuses, checking: Boolean(searches) && !forTrip(half), lifts: known, liftsOpen: liftsOpen(), ...cards });
         const answer = html`${shown}${TIMING && timingBox(timing)}`;
-        setHtml(result, changing ? answer : html`${renderChosen(from, to)}${answer}`);
-        $('trip-change')?.addEventListener('click', () => {
-            changing = true;
-            render();
-            fromInput.focus();
-            fromInput.select();
-        });
+        setHtml(result, answer);
         // The rider's choice redraws the answer at once. From the keyboard,
         // the keyboard goes on to what's there now: the way back or the offer
         // again, or the way shown. A tap leaves it, so the live times go on
@@ -382,7 +373,6 @@ function start(metro) {
     const render = ({ speak = false, refresh = false, moved = false } = {}) => {
         keepTrip({ from: foundOf.get(from) ?? null, to: foundOf.get(to) ?? null }, Date.now());
         const ready = from && to;
-        form.hidden = Boolean(ready) && !changing;
         if (!ready) { setHtml(result, html`<p class="trip-intro">${t('trip.intro')}</p>`); return; }
         if (!forTrip(planned)) planned = { from, to, at: Date.now() };
         const now = athensNow();
@@ -454,7 +444,8 @@ function start(metro) {
         noTrains = data.trains === false && !noSuburban;
         timing.city = data.timing.city ?? timing.city;
         timing.answer = data.timing.answer;
-        if (holding()) return;
+        // Not for an end being typed over since it was asked
+        if (holding() || !forTrip(found)) return;
         moving = false;
         draw(asked.now, data.options, asked.speak);
     });
@@ -465,10 +456,16 @@ function start(metro) {
         foundOf.set(place, found);
         return place;
     };
+    // How exact an end is, under its field, as when it was picked (picker.js)
+    const sayExact = (picker, place) => {
+        const found = place && foundOf.get(place);
+        picker.say((found && howExact(found)?.words) ?? '');
+    };
+    // The field says the place as the answer does: a station by the page's language
     const chooser = (input, set) => found => {
-        if (found) input.value = placeTitle(found);
-        set(found && placeFor(found));
-        changing = false;
+        const place = found && placeFor(found);
+        if (place) input.value = place.title;
+        set(place);
         render({ speak: Boolean(found) });
     };
     // My location (DESIGN.md, "Start from here"): while it's on, From follows
@@ -483,7 +480,7 @@ function start(metro) {
         waiting &&= on;
         showFollowing(locate, on);
     };
-    const here = position => ({ lat: position.lat, lng: position.lng, title: t('trip.my-location'), exact: null });
+    const here = position => ({ lat: position.lat, lng: position.lng, title: t('trip.my-location') });
     const useLocation = position => {
         from = here(position);
         fromInput.value = t('trip.my-location');
@@ -503,7 +500,7 @@ function start(metro) {
     // A field holds a choice while its place is set (My location's too):
     // typing sets it to null
     const fromPicker = placePicker({ input: fromInput, list: $('trip-from-list'), status: $('trip-from-status'), rail, onChange: chooser(fromInput, place => { from = place; follow(false); }), chosen: () => Boolean(from) });
-    placePicker({ input: toInput, list: $('trip-to-list'), status: $('trip-to-status'), rail, onChange: chooser(toInput, place => { to = place; }), chosen: () => Boolean(to) });
+    const toPicker = placePicker({ input: toInput, list: $('trip-to-list'), status: $('trip-to-status'), rail, onChange: chooser(toInput, place => { to = place; }), chosen: () => Boolean(to) });
 
     // What was typed before the train times had loaded is replayed as
     // typing, so it's searched
@@ -514,8 +511,8 @@ function start(metro) {
     // The trip kept from earlier in this session, unless something was typed
     // first. With no start kept, My location starts it as below
     const kept = !fromInput.value && !toInput.value ? keptTrip(Date.now()) : null;
-    if (kept?.from) { from = placeFor(kept.from); fromInput.value = placeTitle(kept.from); }
-    if (kept?.to) { to = placeFor(kept.to); toInput.value = placeTitle(kept.to); }
+    if (kept?.from) { from = placeFor(kept.from); fromInput.value = from.title; sayExact(fromPicker, from); }
+    if (kept?.to) { to = placeFor(kept.to); toInput.value = to.title; sayExact(toPicker, to); }
     // The link to this page starts it over, as on the other tools (remember.js)
     document.querySelectorAll('a[data-tool="trip"]').forEach(link => link.addEventListener('click', forgetTrip));
 
@@ -523,6 +520,8 @@ function start(metro) {
         follow(false);
         [from, to] = [to, from];
         [fromInput.value, toInput.value] = [toInput.value, fromInput.value];
+        sayExact(fromPicker, from);
+        sayExact(toPicker, to);
         render();
     });
 

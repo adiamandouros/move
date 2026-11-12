@@ -506,17 +506,3 @@ export function liveNotice(status) {
     if (status === 'stale') return notice('warn', 'warning', t('trip.live-stale'));
     return '';
 }
-
-// What's been chosen, above the answer
-export function renderChosen(from, to) {
-    const place = (label, chosen) => html`<div>
-        <div class="route-option-label">${label}</div>
-        <div class="trip-place-name">${chosen.title}</div>
-        ${chosen.exact && html`<div class="trip-step-note">${chosen.exact}</div>`}
-    </div>`;
-    return html`<div class="trip-places">
-        ${place(t('trip.from'), from)}
-        ${place(t('trip.to'), to)}
-        <button id="trip-change" type="button" class="btn btn-sm locate-btn">${t('trip.change')}</button>
-    </div>`;
-}

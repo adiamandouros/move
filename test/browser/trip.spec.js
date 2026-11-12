@@ -9,15 +9,34 @@ import { from, hereToSyntagma, list, MEGARA, MENELAOU_45, MENELAOU_85, moveTo, p
 test.describe('the trip page', () => {
     test.beforeEach(onlyOn('phone'));
 
-    test('from an address to a station: the trip, then back to the fields', async ({ page }) => {
+    test('from an address to a station: the trip under the fields, which stay as they are', async ({ page }) => {
         await pickBoth(page);
         await expect(page.locator('.trip-card').first()).toBeVisible();
         await expect(page.locator('.trip-total [aria-hidden="true"]').first()).toHaveText(/^~?\d+(–\d+)?'$/);
-        await expect(page.locator('#trip-form')).toBeHidden();
-        await expect(page.locator('.trip-places')).toContainText('Μενελάου 45');
-        await page.getByRole('button', { name: 'Change' }).click();
-        await expect(from(page)).toBeFocused();
+        await expect(from(page)).toBeVisible();
+        await expect(from(page)).toHaveValue('Μενελάου 45');
+        await expect(to(page)).toHaveValue('Syggrou Fix');
+        // How exact each end is, under its field
+        await expect(page.locator('#trip-from-status')).toHaveText('');
+        await expect(page.locator('#trip-to-status')).toHaveText('Metro station');
+    });
+
+    test('either field changed straight away plans the trip again, with no button to press first', async ({ page }) => {
+        await pickBoth(page);
         await expect(page.locator('.trip-card').first()).toBeVisible();
+        await to(page).click();
+        await page.keyboard.type('Άλσος');
+        // What's being typed isn't a choice: the answer gives way until one is picked
+        await expect(page.locator('.trip-intro')).toBeVisible();
+        await list(page, 'to').first().click();
+        await expect(page.locator('.trip-card').first()).toBeVisible();
+        await expect(to(page)).toHaveValue(/Άλσος/);
+        await expect(page.locator('#trip-to-status')).toHaveText('');
+        await from(page).click();
+        await page.keyboard.type('Σταύρου 1');
+        await list(page, 'from').first().click();
+        await expect(page.locator('.trip-card').first()).toBeVisible();
+        await expect(from(page)).toHaveValue(/Σταύρου 1/);
     });
 
     test('axe-core is clean with the list open and with a trip', async ({ page }) => {
@@ -78,7 +97,6 @@ test.describe('the trip page', () => {
         await list(page, 'from').first().click();
         await to(page).fill('Συγγρού-Φιξ');
         await list(page, 'to').first().click();
-        await page.getByRole('button', { name: 'Change' }).click();
         await to(page).click();
         await page.keyboard.type('Σύνταγμα');
         await expect(to(page)).toHaveValue('Σύνταγμα');
@@ -103,7 +121,7 @@ test.describe('the trip page', () => {
         await to(page).fill('Συγγρού-Φιξ');
         await list(page, 'to').first().click();
         await expect(page.locator('.trip-card').first()).toBeVisible();
-        await expect(page.locator('.trip-places')).toContainText('My location');
+        await expect(from(page)).toHaveValue('My location');
     });
 
     test('what is typed before the train times have loaded is kept, and searched', async ({ page }) => {
@@ -237,10 +255,9 @@ test.describe('the trip page', () => {
 
     test('?timing: a trip changed while its half hour is worked out gets its own answer and half hour', async ({ page }) => {
         await pickBoth(page, '/trip?timing');
-        await page.getByRole('button', { name: 'Change' }).click();
         await to(page).fill('Άλσος');
         await list(page, 'to').first().click();
-        await expect(page.locator('.trip-places')).toContainText('Άλσος');
+        await expect(to(page)).toHaveValue(/Άλσος/);
         await expect(page.locator('.trip-card').first()).toBeVisible();
         await expect(page.locator('#trip-half')).toHaveText(/\d+ ms, (one clear way|a decision on the way|it depends|no way found)$/);
     });
@@ -722,8 +739,8 @@ test.describe('the trip page', () => {
             await page.route('**/data/trains.json', route => route.fulfill({ status: 404, body: '' }));
             await pickBoth(page);
             await expect(page.locator('.trip-card').first()).toBeVisible();
-            // Right under where it's from and to, above the ways
-            await expect(page.locator('#trip-result > .trip-places + .notice-danger')).toContainText('The suburban railway is left out: its times for today couldn\'t be loaded.');
+            // At the top of the answer, above the ways
+            await expect(page.locator('#trip-result > .notice-danger:first-child')).toContainText('The suburban railway is left out: its times for today couldn\'t be loaded.');
             // Its own space under it, as the cards have
             const gap = await page.locator('#trip-result .notice-danger').evaluate(box => box.nextElementSibling.getBoundingClientRect().top - box.getBoundingClientRect().bottom);
             expect(gap).toBeGreaterThanOrEqual(12);
@@ -773,17 +790,14 @@ test.describe('the trip page', () => {
             await expect(page).toHaveURL(/\/buses/);
             await nav(page, 'trip').click();
             await expect(page).toHaveURL(/\/trip$/);
-            await expect(page.locator('#trip-form')).toBeHidden();
-            await expect(page.locator('.trip-places')).toContainText('Μενελάου 45');
-            await expect(page.locator('.trip-places')).toContainText('Syggrou Fix');
+            await expect(from(page)).toHaveValue('Μενελάου 45');
+            await expect(to(page)).toHaveValue('Syggrou Fix');
+            await expect(page.locator('#trip-to-status')).toHaveText('Metro station');
             await expect(page.locator('.trip-card').first()).toBeVisible();
             expect(await axe(page), 'axe-core violations').toEqual([]);
-            await page.getByRole('button', { name: 'Change' }).click();
-            await expect(from(page)).toHaveValue('Μενελάου 45');
-            await expect(to(page)).not.toHaveValue('');
 
             await page.goto('/el/trip');
-            await expect(page.locator('.trip-places')).toContainText('Συγγρού Φιξ');
+            await expect(page.getByRole('combobox', { name: 'Προς' })).toHaveValue('Συγγρού Φιξ');
             await expect(page.locator('.trip-card').first()).toBeVisible();
         });
 
@@ -796,7 +810,7 @@ test.describe('the trip page', () => {
             await other.close();
 
             await nav(page, 'trip').click();
-            await expect(page.locator('#trip-form')).toBeVisible();
+            await expect(page.locator('.trip-intro')).toBeVisible();
             await expect(to(page)).toHaveValue('');
             await expect(from(page), 'My location starts it, as on a page opened afresh').toHaveValue('My location');
         });
@@ -822,8 +836,8 @@ test.describe('the trip page', () => {
                 expect(kept.from).toBeNull();
                 expect(kept.to.placeKind).toBe('metro');
                 await page.goto('/trip');
-                await expect(page.locator('.trip-places')).toContainText('My location');
-                await expect(page.locator('.trip-places')).toContainText('Syntagma');
+                await expect(from(page)).toHaveValue('My location');
+                await expect(to(page)).toHaveValue('Syntagma');
                 await expect(page.locator('#trip-locate'), 'following the rider').toHaveAttribute('aria-pressed', 'true');
             });
         });
