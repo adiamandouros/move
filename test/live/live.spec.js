@@ -106,7 +106,7 @@ test('the Trip page plans a trip with the buses\' times', async ({ page }) => {
     await page.getByRole('combobox', { name: 'To' }).fill('Ίδρυμα Σταύρος Νιάρχος');
     await page.locator('#trip-to-list [role="option"]').first().click();
     await expect(page.locator('.trip-card').first()).toBeVisible({ timeout: 30_000 });
-    await expect(page.locator('.trip-places')).toContainText('Σταύρος Νιάρχος');
+    await expect(page.getByRole('combobox', { name: 'To' })).toHaveValue(/Σταύρος Νιάρχος/);
     await expect(page.getByText('The bus times couldn\'t be loaded')).toHaveCount(0);
     await expect(page.getByText('Wayhop has been updated')).toHaveCount(0);
 });

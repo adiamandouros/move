@@ -114,5 +114,5 @@ test('list rows: one divider', () => {
 test('cards: 16 px of padding', () => {
     const padding = selector => DECLARATIONS.filter(d => d.selector.split(',').map(s => s.trim()).includes(selector) && /^(padding|--bs-card-spacer-[xy])$/.test(d.property)).map(where);
     assert.deepEqual(padding('.result-card'), ['.result-card { --bs-card-spacer-x: var(--wh-space-4) }', '.result-card { --bs-card-spacer-y: var(--wh-space-4) }']);
-    assert.deepEqual(padding('.trip-card'), ['.trip-places,\n.trip-card { padding: var(--wh-space-4) }']);
+    assert.deepEqual(padding('.trip-card'), ['.trip-card { padding: var(--wh-space-4) }']);
 });
