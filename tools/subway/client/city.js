@@ -172,7 +172,8 @@ export function joinNetwork(rail, buses, weekday, trains = null) {
 /**
  * The search over these stops and routes (a leg's `route` is one of them),
  * with every walk of up to 10 minutes between stops for changes, the
- * straight line's or, either way round, a known walk's, and `near`:
+ * straight line's or, either way round, a known walk's (`walks`, by stop:
+ * [stop, seconds…]), and `near`:
  * the stops within `limit` seconds on foot of a point, [stop, seconds, stop,
  * seconds…]; `walkNote`, a known walk's note between two stops, or null
  * @param {{ stops: Stop[], routes: Route[], knownWalks?: KnownWalk[] }} network
@@ -221,5 +222,5 @@ export function createPlanner({ stops, routes, knownWalks = [] }) {
     });
     /** @param {number} from @param {number} to @returns {Names | null} */
     const walkNote = (from, to) => notes.get(pair(from, to)) ?? null;
-    return { ...planner, stops, routes, near, walkNote };
+    return { ...planner, stops, routes, walks, near, walkNote };
 }

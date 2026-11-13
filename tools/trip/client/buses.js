@@ -1,4 +1,4 @@
-import { answering, quickerWay } from '/tools/subway/answer.js';
+import { answering, quickerWay, rowKey, TIE_SECONDS } from '/tools/subway/answer.js';
 import { AFTER_WALK_SECONDS, busDay, CHANGE_SECONDS, createPlanner, joinNetwork, METERS_PER_MINUTE } from '/tools/subway/city.js';
 import { findWays, fold, secondsTo } from '/tools/subway/ways.js';
 import { cost } from '/tools/subway/weights.js';
@@ -90,9 +90,11 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
  * The quicker way offered on a decision (decision 36): leave the first ride,
  * `ride`, at `change` for the bus `line`, due at `stop` at `at` (seconds from
  * midnight), `walk` from where it's left (null: the same stop), and get
- * there about `sooner` seconds sooner than staying on
+ * there about `sooner` seconds sooner than staying on. The switch on the way
+ * (T14, decision 50) is the same, off the ride the rider is on, for the next
+ * ride's `line` of any `mode` (a bus without one)
  * @typedef {{ line: string, at: number, sooner: number, ride: { line: string, mode: string }, change: import('/tools/subway/city.js').Stop,
- *   stop: import('/tools/subway/city.js').Stop, walk: Walk | null }} Offer
+ *   stop: import('/tools/subway/city.js').Stop, walk: Walk | null, mode?: string }} Offer
  */
 /**
  * The way shown in full, timed with OASA's live times (liveWay): as one of the
@@ -103,12 +105,13 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
  * with where it goes (`arrivals`, for its row opened, decision 48);
  * the stops to ask OASA for, each with when the first bus the rider can
  * catch there comes (null: none yet), for how often it's asked again; on a
- * decision, the quicker way when OASA has its bus coming in time; and when
- * its first train leaves (seconds from midnight; null: it has none), for how
+ * decision, the quicker way when OASA has its bus coming in time; on the
+ * way, the switch to the search ahead's way, by its key (decision 50); and
+ * when its first train leaves (seconds from midnight; null: it has none), for how
  * often the trains are asked for again (decision 42)
  * @typedef {{ option: BusOption, stops: { stop: import('/tools/subway/city.js').Stop, walk: Walk | null, lines: string[], buses: { line: string, at: number }[] | null,
  *   arrivals: { line: string, to: Names | null, at: number }[] }[],
- *   asks: { stop: string, at: number | null, ride?: true }[], offer: Offer | null, train: number | null }} LiveWay
+ *   asks: { stop: string, at: number | null, ride?: true }[], offer: Offer | null, switchTo: (Offer & { key: string }) | null, train: number | null }} LiveWay
  */
 /**
  * The rider's own bus (decision 50): OASA's code for the vehicle they
@@ -281,9 +284,15 @@ export const LIVE_STOPS = 10;
  * @param {number} offset @param {number} at
  */
 function arrivalFrom(planner, leg, offset, at) {
-    const { trips } = planner.routes[leg.route];
-    const trip = trips.reduce((best, times) => Math.abs(times[leg.boardIndex] - leg.boards) < Math.abs(best[leg.boardIndex] - leg.boards) ? times : best, trips[0]);
+    const trip = tripOf(planner, leg);
     return trip ? at + trip[leg.alightIndex] - trip[leg.boardIndex + offset] : leg.arrives;
+}
+
+// The times of the trip a ride boards: the one leaving nearest when it does; none when the route has none
+/** @param {Planner} planner @param {{ route: number, boardIndex: number, boards: number }} leg @returns {number[] | undefined} */
+function tripOf(planner, leg) {
+    const { trips } = planner.routes[leg.route];
+    return trips.reduce((best, times) => Math.abs(times[leg.boardIndex] - leg.boards) < Math.abs(best[leg.boardIndex] - leg.boards) ? times : best, trips[0]);
 }
 
 // A bus stop's code at OASA, from its id in the city (city.js)
@@ -326,7 +335,8 @@ const catchable = (live, codes, ready) => (live?.buses ?? [])
  * with one first, by when it comes, then the others, nearest first (the
  * rider's rule, 6 Nov). On a `decision` whose directions `row` is, the
  * quicker way is offered when OASA has its bus coming in time (quickerWay in
- * answer.js), from the first ride as it's timed now; `taken`: the rider took
+ * answer.js), from the first ride as it's timed now, until the rider is on
+ * it; `taken`: the rider took
  * it, so it's the way timed instead (decision 36). Asked for: the stops of
  * the rides by bus, then the decision's bus stop, then those of a last bus
  * that can be any of several, nearest first, at most LIVE_STOPS. A ride by
@@ -344,28 +354,94 @@ const catchable = (live, codes, ready) => (live?.buses ?? [])
  * left of it; and once past every ride, the way gets there by the last walk.
  * On a bus that's their `own`, the stop they get off is asked for it, on the
  * tiers by when OASA has that vehicle due there (`ride` marks the ask), and
- * the ride gets off then, when OASA says so
- * @param {{ decision?: import('/tools/subway/answer.js').Decision | null, taken?: boolean, trains?: Record<string, import('./trains.js').TrainLate> | null, step?: LiveStep | null, own?: OwnBus | null }} [options]
+ * the ride gets off then, when OASA says so. With the search ahead's way
+ * off the ride they're on (`ahead`, searchAhead), the switch to it when it's
+ * 3' or more sooner (switchOf), its bus's stop asked for that ride
+ * @param {{ decision?: import('/tools/subway/answer.js').Decision | null, taken?: boolean, trains?: Record<string, import('./trains.js').TrainLate> | null, step?: LiveStep | null, own?: OwnBus | null, ahead?: Ahead | null }} [options]
  * @returns {LiveWay | null}
  */
-export function liveWay(planner, from, to, row, departure, now, live, { decision = null, taken = false, trains = null, step = null, own = null } = {}) {
+export function liveWay(planner, from, to, row, departure, now, live, { decision = null, taken = false, trains = null, step = null, own = null, ahead = null } = {}) {
     const way = row.best[departure];
     if (!way) return null;
     if (decision && taken) {
         const off = leavingSooner(decision, way, departure);
-        return off < 0 ? null : liveWay(planner, from, to, decision.getOff, off, now, live, { trains, step, own });
+        return off < 0 ? null : liveWay(planner, from, to, decision.getOff, off, now, live, { trains, step, own, ahead });
     }
     const [access, egress] = ends(planner, from, to);
     const last = way.legs.length - 1;
-    // The ride the rider is on or walking to; past them all, one more
-    const current = !step ? -1 : step.kind === 'last' || step.kind === 'arrived' ? way.legs.length : step.leg;
+    const current = currentLeg(way, step);
     const asks = new Map();
     const ask = (code, at, ride = false) => { if (code && asks.size < LIVE_STOPS && !asks.has(code)) asks.set(code, { at, ...ride && { ride: true } }); };
+    const timed = timedLegs(planner, row, way, now, live, access, { step, own, trains }, ask);
+    if (!timed) return null;
+    const { legs, said, train } = timed;
+    const end = legs.at(-1);
+    // Past every ride, the door is as far as the last walk; arrived, it's here
+    const at = step?.kind === 'arrived' ? step.at : step?.kind === 'last' ? step.at + step.walk : end.arrives + secondsTo(egress, end.alight);
+    const option = cityOption(planner, { ...way, legs, at }, access, egress, now.seconds, linesOf(way, row.bundle, row.lines));
+    option.rides.forEach((ride, i) => { if (said[i]) ride.live = said[i]; });
+
+    const doors = new Set(egress.filter((_, i) => i % 2 === 0));
+    // On a decision, where the quicker way would catch its bus: asked before
+    // a last bus's stops; not once the rider is on the first ride, where the
+    // search ahead finds what's quicker (decision 50)
+    const quick = decision && (current < 0 || (current === 0 && step.kind !== 'ride')) && quickerBus(planner, decision, way, departure, legs[0], doors);
+    if (quick) ask(quick.code, catchable(live[quick.code], quick.codes, quick.ready)[0]?.at ?? null);
+    // The search ahead's way off the ride the rider is on: where its bus is
+    // caught, asked for that ride, as their own bus is
+    const leaving = ahead && leavingAhead(planner, ahead, legs, step);
+    if (leaving?.code) ask(leaving.code, catchable(live[leaving.code], leaving.codes, leaving.ready)[0]?.at ?? null, true);
+    // A last bus that can be any of several: its stops, until the rider is on it
+    const riding = current > last || (current === last && step.kind === 'ride');
+    const stops = row.bundle && !riding ? row.stops.map(({ stop, walk, lines }) => {
+        const ready = current === last ? step.at + (step.kind === 'walk' ? walk : 0)
+            : last ? legs[last - 1].arrives + (walk ? walk + AFTER_WALK_SECONDS : CHANGE_SECONDS) : now.seconds + walk;
+        const code = codeOf(planner.stops[stop]);
+        const coming = catchable(live[code], routeCodes(planner, lines, stop, doors), ready);
+        ask(code, coming[0]?.at ?? null);
+        const first = new Map();
+        for (const bus of coming) if (!first.has(bus.line)) first.set(bus.line, bus.at);
+        const known = live[code] && !live[code].unavailable;
+        return { stop: planner.stops[stop], walk: walkOf(walk), lines, buses: known ? [...first].map(([line, at]) => ({ line, at })) : null, arrivals: known ? coming : [] };
+    }) : [];
+    const coming = stops.filter(({ buses }) => buses?.length).sort((a, b) => a.buses[0].at - b.buses[0].at);
+    const staying = riding ? option.arrives : stayingOn(planner, row, legs, egress, stops, option.arrives);
+    return {
+        option,
+        stops: [...coming, ...stops.filter(stop => !coming.includes(stop))],
+        asks: [...asks].map(([stop, what]) => ({ stop, ...what })),
+        offer: quick ? offerOf(quick, staying, live[quick.code]) : null,
+        switchTo: leaving ? switchOf(planner, leaving, staying, live, timed.own) : null,
+        train,
+    };
+}
+
+// The ride the rider is on or walking to, by its index among the way's;
+// past them all, one more; -1 when they aren't followed
+/** @param {import('/tools/subway/ways.js').Way} way @param {LiveStep | null} step */
+const currentLeg = (way, step) => !step ? -1 : step.kind === 'last' || step.kind === 'arrived' ? way.legs.length : step.leg;
+
+/**
+ * The rides of `way`, `row`'s, timed for leaving at `now` with the live times
+ * `live` and how late the `trains` run, from where the rider is (`step`) on
+ * their `own` bus (liveWay); each stop to ask OASA for passed to `ask`.
+ * With what OASA says of each bus ride (`said`), when its first train leaves
+ * (`train`), and when OASA has the rider's own bus due where they get off
+ * (`own`; null when it doesn't say). Null when a ride can't be made
+ * @param {Planner} planner @param {import('/tools/subway/answer.js').Row} row @param {import('/tools/subway/ways.js').Way} way
+ * @param {{ seconds: number }} now @param {Record<string, StopLive>} live @param {number[]} access
+ * @param {{ step: LiveStep | null, own: OwnBus | null, trains: Record<string, import('./trains.js').TrainLate> | null }} rider
+ * @param {(code: string | null, at: number | null, ride?: boolean) => void} ask
+ */
+function timedLegs(planner, row, way, now, live, access, { step, own, trains }, ask) {
+    const last = way.legs.length - 1;
+    const current = currentLeg(way, step);
     /** @type {(import('/tools/subway/ways.js').Way['legs'][number] & { boards: number, arrives: number })[]} */
     const legs = [];
     /** @type {(RideLive | undefined)[]} */
     const said = [];
     let train = null;
+    let ownAt = null;
     for (const [i, leg] of way.legs.entries()) {
         const before = legs.at(-1);
         // A ride done: as the way had it, nothing asked
@@ -383,6 +459,7 @@ export function liveWay(planner, from, to, row, departure, now, live, { decision
             const code = own && own.leg === i && ON_THE_ROAD.has(leg.mode) ? codeOf(planner.stops[leg.alight]) : null;
             const due = code ? live[code]?.buses.find(bus => bus.vehicle === own.vehicle && bus.at >= step.at) ?? null : null;
             ask(code, due?.at ?? null, true);
+            ownAt = due?.at ?? null;
             legs.push(ride ?? { ...leg, arrives: due?.at ?? arrivalFrom(planner, leg, step.stop, step.at) });
             said.push(undefined);
             continue;
@@ -413,37 +490,129 @@ export function liveWay(planner, from, to, row, departure, now, live, { decision
         if (!timed && !(row.bundle && i === last)) return null;
         legs.push(timed ?? leg);
     }
-    const end = legs.at(-1);
-    // Past every ride, the door is as far as the last walk; arrived, it's here
-    const at = step?.kind === 'arrived' ? step.at : step?.kind === 'last' ? step.at + step.walk : end.arrives + secondsTo(egress, end.alight);
-    const option = cityOption(planner, { ...way, legs, at }, access, egress, now.seconds, linesOf(way, row.bundle, row.lines));
-    option.rides.forEach((ride, i) => { if (said[i]) ride.live = said[i]; });
+    return { legs, said, train, own: ownAt };
+}
 
-    const doors = new Set(egress.filter((_, i) => i % 2 === 0));
-    // On a decision, where the quicker way would catch its bus: asked before a last bus's stops; not once the first ride is done
-    const quick = decision && current <= 0 && quickerBus(planner, decision, way, departure, legs[0], doors);
-    if (quick) ask(quick.code, catchable(live[quick.code], quick.codes, quick.ready)[0]?.at ?? null);
-    // A last bus that can be any of several: its stops, until the rider is on it
-    const riding = current > last || (current === last && step.kind === 'ride');
-    const stops = row.bundle && !riding ? row.stops.map(({ stop, walk, lines }) => {
-        const ready = current === last ? step.at + (step.kind === 'walk' ? walk : 0)
-            : last ? legs[last - 1].arrives + (walk ? walk + AFTER_WALK_SECONDS : CHANGE_SECONDS) : now.seconds + walk;
-        const code = codeOf(planner.stops[stop]);
-        const coming = catchable(live[code], routeCodes(planner, lines, stop, doors), ready);
-        ask(code, coming[0]?.at ?? null);
-        const first = new Map();
-        for (const bus of coming) if (!first.has(bus.line)) first.set(bus.line, bus.at);
-        const known = live[code] && !live[code].unavailable;
-        return { stop: planner.stops[stop], walk: walkOf(walk), lines, buses: known ? [...first].map(([line, at]) => ({ line, at })) : null, arrivals: known ? coming : [] };
-    }) : [];
-    const coming = stops.filter(({ buses }) => buses?.length).sort((a, b) => a.buses[0].at - b.buses[0].at);
-    return {
-        option,
-        stops: [...coming, ...stops.filter(stop => !coming.includes(stop))],
-        asks: [...asks].map(([stop, what]) => ({ stop, ...what })),
-        offer: quick ? offerOf(quick, stayingOn(planner, row, legs, egress, stops, option.arrives), live[quick.code]) : null,
-        train,
+/**
+ * The way the search ahead found off the ride the rider is on (searchAhead,
+ * Plan 7, decision 50): `key`, as the half hour's rows are told apart
+ * (rowKey in answer.js); the way itself, the rides before it and the ride
+ * they're on up to where it leaves it as they are timed, then its own; and
+ * which of the way's rides it leaves (`leg`)
+ * @typedef {{ key: string, way: import('/tools/subway/ways.js').Way, leg: number }} Ahead
+ */
+
+/**
+ * The search ahead (Plan 7, agreed 12 Nov 2026, decision 50): on a ride of
+ * the way shown in full, the ways on from each of its stops still to come,
+ * as the rider gets there (by the trip the way boards, as late as the ride
+ * is timed to get off, liveWay), or from a walk from one: one departure of
+ * the city's search, with every stop and walk as where it starts. A change
+ * at the same stop takes as long as in the search. The best that isn't the
+ * way itself, nor a later bus of the same line, nor one the rider
+ * `declined` (by key), with the rides before as they are timed; staying on
+ * is the way, as liveWay times it, which says whether it's sooner. Null
+ * off a ride, or with nothing else. Options as liveWay's
+ * @param {Planner} planner @param {Point} from @param {Point} to
+ * @param {import('/tools/subway/answer.js').Row} row @param {number} departure
+ * @param {{ seconds: number }} now @param {Record<string, StopLive>} live
+ * @param {{ decision?: import('/tools/subway/answer.js').Decision | null, taken?: boolean, trains?: Record<string, import('./trains.js').TrainLate> | null, step?: LiveStep | null, own?: OwnBus | null, declined?: string[] }} [options]
+ * @returns {Ahead | null}
+ */
+export function searchAhead(planner, from, to, row, departure, now, live, { decision = null, taken = false, trains = null, step = null, own = null, declined = [] } = {}) {
+    const way = row.best[departure];
+    if (!way || step?.kind !== 'ride') return null;
+    if (decision && taken) {
+        const off = leavingSooner(decision, way, departure);
+        return off < 0 ? null : searchAhead(planner, from, to, decision.getOff, off, now, live, { trains, step, own, declined });
+    }
+    const [access, egress] = ends(planner, from, to);
+    const timed = timedLegs(planner, row, way, now, live, access, { step, own, trains }, () => {});
+    const riding = timed?.legs[step.leg];
+    const trip = riding && tripOf(planner, riding);
+    const here = riding ? riding.boardIndex + step.stop : 0;
+    if (!trip || here >= riding.alightIndex) return null;
+    const { stops } = planner.routes[riding.route];
+    // How late the ride is timed to get off, shared out along the stops left
+    const late = riding.arrives - (step.at + trip[riding.alightIndex] - trip[here]);
+    const seeds = [];
+    /** @type {Map<number, { index: number, reaches: number, walk: number, seconds: number }>} */
+    const seededBy = new Map();
+    const seed = (stop, index, reaches, walk) => {
+        const seconds = reaches - step.at + (walk ? walk + AFTER_WALK_SECONDS : CHANGE_SECONDS);
+        seeds.push(stop, seconds);
+        if (!(seededBy.get(stop)?.seconds <= seconds)) seededBy.set(stop, { index, reaches, walk, seconds });
     };
+    for (let i = here + 1; i <= riding.alightIndex; i++) {
+        const reaches = step.at + trip[i] - trip[here] + Math.round(late * (i - here) / (riding.alightIndex - here));
+        seed(stops[i], i, reaches, 0);
+        const near = planner.walks[stops[i]];
+        for (let j = 0; j < near.length; j += 2) seed(near[j], i, reaches, near[j + 1]);
+    }
+    const skip = new Set([rowKey(planner, way), ...declined]);
+    const before = timed.legs.slice(0, step.leg);
+    /** @type {Ahead | null} */
+    let best = null;
+    for (const found of fold(findWays(planner, seeds, egress, step.at))) {
+        const [onward, ...rest] = found.legs;
+        const by = seededBy.get(onward.board);
+        if (!by || onward.line === riding.line || (best && best.way.at <= found.at)) continue;
+        const legs = [...before, { ...riding, alight: stops[by.index], alightIndex: by.index, arrives: by.reaches }, { ...onward, walkBefore: by.walk }, ...rest];
+        const candidate = { ...found, legs, walk: found.walk + by.walk };
+        const key = rowKey(planner, candidate);
+        if (!skip.has(key)) best = { key, way: candidate, leg: step.leg };
+    }
+    return best;
+}
+
+/**
+ * The search ahead's way, while the rider is on the ride it leaves, before
+ * where it does: where it leaves it, what it rides next and from when they
+ * can be there, and for a bus, where it's caught (`code`) and OASA's routes
+ * of its line that get from there to where it's left (`codes`). Null when
+ * it isn't for the ride they're on, or they're past where it leaves
+ * @param {Planner} planner @param {Ahead} ahead @param {{ line: string, mode: string, board: number, boardIndex: number }[]} legs @param {LiveStep | null} step
+ */
+function leavingAhead(planner, ahead, legs, step) {
+    if (step?.kind !== 'ride' || ahead.leg !== step.leg) return null;
+    const ride = legs[step.leg];
+    const leave = ahead.way.legs[step.leg];
+    const onward = ahead.way.legs[step.leg + 1];
+    if (!ride || leave.line !== ride.line || leave.board !== ride.board || leave.alightIndex <= ride.boardIndex + step.stop) return null;
+    const bus = ON_THE_ROAD.has(onward.mode);
+    return {
+        ahead, ride, leave, onward, bus,
+        ready: leave.arrives + (onward.walkBefore ? onward.walkBefore + AFTER_WALK_SECONDS : CHANGE_SECONDS),
+        // From the next ride leaving to the door takes the same whenever it leaves
+        rest: ahead.way.at - onward.boards,
+        code: bus ? codeOf(planner.stops[onward.board]) : null,
+        codes: bus ? routeCodes(planner, [onward.line], onward.board, new Set([onward.alight])) : new Map(),
+    };
+}
+
+/**
+ * The switch to the search ahead's way (T14, decision 50), against staying
+ * on to the door at `staying`: when it gets there TIE_SECONDS or more sooner,
+ * by the timetable for a train, and for a bus only when OASA has it coming
+ * in time (quickerWay in answer.js), late as buses are, an older answer
+ * offering nothing; `own`: when OASA has the rider's own bus due where they
+ * get off, so the stops before are as late (quickerWay's `here`). As the
+ * quicker way on a decision is offered, with its key
+ * @param {Planner} planner @param {NonNullable<ReturnType<typeof leavingAhead>>} leaving
+ * @param {number} staying @param {Record<string, StopLive>} live @param {number | null} own
+ * @returns {(Offer & { key: string }) | null}
+ */
+function switchOf(planner, { ahead, ride, leave, onward, bus, ready, rest, code, codes }, staying, live, own) {
+    const offer = { key: ahead.key, ride: { line: ride.line, mode: ride.mode }, mode: onward.mode, change: planner.stops[leave.alight], stop: planner.stops[onward.board], walk: walkOf(onward.walkBefore) };
+    if (!bus) {
+        const sooner = staying - ahead.way.at;
+        return sooner >= TIE_SECONDS ? { ...offer, line: onward.line, at: onward.boards, sooner } : null;
+    }
+    const answer = code ? live[code] : undefined;
+    if (!answer || answer.stale) return null;
+    const predictions = answer.buses.filter(each => codes.has(each.route)).map(each => ({ line: codes.get(each.route), at: each.at }));
+    const found = quickerWay({ lines: [onward.line], ready, latest: staying - rest, reaches: leave.arrives }, predictions, answer.asked ?? 0, own === null ? {} : { here: leave.arrives });
+    return found.offer ? { ...offer, line: found.line, at: found.at, sooner: found.sooner } : null;
 }
 
 /**

@@ -86,7 +86,9 @@
     "trip.quicker-take": "Take the quicker way",
     "trip.quicker-keep": "Keep my route",
     "trip.quicker-taken": "The quicker way",
-    "trip.quicker-back": "Back to my route"
+    "trip.quicker-back": "Back to my route",
+    "trip.switch-in": "Switching to it in {seconds} s, unless you keep your route.",
+    "trip.switched": "Switched to the quicker way."
   },
   "el": {
     "trip.from": "Από",
@@ -175,6 +177,8 @@
     "trip.quicker-take": "Πάρε τον γρηγορότερο",
     "trip.quicker-keep": "Κράτα τη διαδρομή μου",
     "trip.quicker-taken": "Ο γρηγορότερος δρόμος",
-    "trip.quicker-back": "Πίσω στη διαδρομή μου"
+    "trip.quicker-back": "Πίσω στη διαδρομή μου",
+    "trip.switch-in": "Αλλαγή σε {seconds} δευτ., εκτός αν κρατήσεις τη διαδρομή σου.",
+    "trip.switched": "Έγινε αλλαγή στον γρηγορότερο δρόμο."
   }
 }

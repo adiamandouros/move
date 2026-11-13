@@ -342,7 +342,11 @@ version they started with, and it takes over once they're closed
   step, the stops passed aren't asked again, the stop they get off is
   asked for their own bus (OASA's vehicle code, `ownBus` in `live.js`), and
   a followed trip pauses for standing still 10 minutes rather than for the
-  page untouched. Off
+  page untouched. At each stop of a ride, at most once a minute, the worker
+  searches ahead from the ride's stops still to come (`searchAhead`); a way
+  3 minutes or more sooner, its bus's stop asked for that ride, is switched
+  to after a 10-second countdown unless the rider keeps theirs (`switchOf`,
+  DESIGN.md T14). Off
   the way, or with no way to follow yet, the trip is planned again from
   where they are, 200 m on and at most every 2 minutes
   ([decision 50](docs/decisions/0050-trip-follows-the-ride.md)); its stops
@@ -542,7 +546,9 @@ catch, matched by OASA's route, boards then, and the rides after it follow;
 a last bus that can be any of several lists its stops by when their first
 bus comes. On a decision the way shown is the directions that stay on, and
 the quicker way (`quickerWay` in `answer.js`) is offered under them when
-OASA has its bus coming in time; taken, it's the way timed instead.
+OASA has its bus coming in time; taken, it's the way timed instead. Once
+the rider is on that first ride and followed, the search ahead offers what's
+quicker in its place.
 `client/live.js` says which stops to ask for and when, and
 `client/main.js` asks. `client/render.js` draws it, each metro, tram or
 suburban ride of the way shown in full as the Subway page's own card

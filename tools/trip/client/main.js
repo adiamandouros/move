@@ -9,13 +9,13 @@ import { watchLegStations } from '/tools/subway/render.js';
 import { suburbanHidden, tramHidden } from '/tools/subway/tram-switch.js';
 import { walkSeconds } from '/tools/subway/city.js';
 import { isIdle } from '/tools/buses/timing.js';
-import { GAP_MS, leftStart, offDue, placeOn, replanDue, REPLAN_MS, starting, stepOf, stillDue, waySteps } from './follow.js';
+import { carry, GAP_MS, leftStart, offDue, placeOn, replanDue, REPLAN_MS, startOver, starting, stepOf, stillDue, waySteps } from './follow.js';
 import { forgetTrip, keepTrip, keptTrip } from './kept.js';
 import { arrivalsUrl, dueStops, liveStatus, ownBus, stopLive, unanswered } from './live.js';
 import { doorToDoor, isLongWalk } from './plan.js';
 import { placePicker } from './picker.js';
 import { TRAINS_URL, trainsDue, trainsUnanswered } from './trains.js';
-import { halfWays, hasBus, hasTrain, howExact, liveNotice, placeTitle, quickerSummary, rangeText, renderHalf, renderTrip, routeSummary, stepFreeSummary, takenOption } from './render.js';
+import { halfWays, hasBus, hasTrain, howExact, liveNotice, placeTitle, quickerSummary, rangeText, renderHalf, renderTrip, routeSummary, stepFreeSummary, switchIn, takenOption } from './render.js';
 
 const $ = id => document.getElementById(id);
 const result = $('trip-result');
@@ -31,6 +31,11 @@ const REFRESH_MS = 60_000;
 const HALF_REWORK_SECONDS = 600;
 // How often the live times' stops are checked for being due (live.js), as on the Buses page
 const TICK_MS = 1_000;
+// On a ride followed, the search ahead runs at each stop reached, at most
+// this often (decision 50); a way 3' or more sooner it finds is switched to
+// after this many seconds unless the rider keeps theirs (T14)
+const AHEAD_MS = 60_000;
+const SWITCH_SECONDS = 10;
 // Buses for everyone (decision 39). /trip?timing also says how long their
 // searches take on this device, for phone tests (roadmap Plan 7)
 const TIMING = new URLSearchParams(location.search).has('timing');
@@ -162,20 +167,23 @@ function start(metro) {
     // they're for (`key`, by its stops), where the last fix put the rider on
     // them, whether they've left the start, and what From's status line says
     // of it. `following` itself is My location's switch (below)
+    // `carrying`: the next way is one switched to on the way, or back, so the
+    // rider's place carries over (carry)
     let following = false;
-    const ride = { key: null, way: null, steps: null, state: starting(), left: false, said: null };
+    const ride = { key: null, way: null, steps: null, state: starting(), left: false, said: null, carrying: false };
     const riding = () => Boolean(following && to && ride.left && ride.steps);
     const keyOf = o => o.city ? o.rides.map(r => `${r.board.id}>${r.alight.id}`).join() : o.plan.legs.map(leg => `${leg.from}>${leg.to}`).join();
     // The steps are made again only for another way: a trip planned again,
     // or the quicker way taken; the rider's place on them starts over, where
-    // the last fix had them (a phone standing still may send no other)
+    // the last fix had them, but for a way switched to on the way or back
     const followWay = (o, date) => {
         const key = o ? keyOf(o) : null;
         if (key === ride.key) return;
-        const { fix, anchor } = ride.state;
-        Object.assign(ride, { key, way: o, steps: o ? waySteps(o, from, to, drawnOn(date)) : null, state: { ...starting(), fix, anchor, at: fix?.at ?? null } });
+        const steps = o ? waySteps(o, from, to, drawnOn(date)) : null;
+        const state = ride.carrying && ride.steps && steps ? carry(ride.steps, ride.state, steps) : startOver(ride.state);
+        Object.assign(ride, { key, way: o, steps, state, carrying: false });
     };
-    const resetRide = () => Object.assign(ride, { key: null, way: null, steps: null, state: starting(), left: false, said: null });
+    const resetRide = () => Object.assign(ride, { key: null, way: null, steps: null, state: starting(), left: false, said: null, carrying: false });
     // Where the rider is, for the worker to time the way from (buses.js
     // LiveStep): as of now, or of the last fix when none has come for a while
     // (underground), so nothing slides to the next train; a walk by what's
@@ -205,7 +213,11 @@ function start(metro) {
     // at once if the rider goes back to them; and whether a quicker way is
     // offered, so it's said once. How late the suburban trains run (decision
     // 42): the latest answer, for every train, so kept from trip to trip;
-    // when it was asked for, and whether it's being asked for
+    // when it was asked for, and whether it's being asked for. On a ride
+    // followed (decision 50): when the search ahead last ran; the switch to
+    // the way it found counting down (`countdown`: its key, the seconds
+    // left), held while a pointer is down on it; the way switched to, by
+    // key; and the ways the rider kept theirs over, never offered again
     const live = {
         seq: 0, trip: 0, wanted: null, way: null,
         /** @type {Map<string, import('./buses.js').StopLive>} */ answers: new Map(),
@@ -215,8 +227,13 @@ function start(metro) {
         /** @type {import('./buses.js').OwnBus | null} */ own: null,
         /** @type {'taken' | 'kept' | null} */ choice: null, directions: null, offered: false,
         /** @type {import('./trains.js').TrainsLive | null} */ trains: null, trainsAsked: -Infinity, askingTrains: false,
+        aheadAt: -Infinity, /** @type {{ key: string, left: number } | null} */ countdown: null, held: false,
+        /** @type {string | null} */ switched: null, /** @type {Set<string>} */ declined: new Set(),
     };
-    const sameRow = (a, b) => a?.id === b?.id && a?.row === b?.row && Boolean(a?.taken) === Boolean(b?.taken);
+    // Someone is in the answer: the keyboard is there, or a pointer is held
+    // down on the switch (T14). It isn't drawn again under them till they're done
+    const inAnswer = () => live.held || result.contains(document.activeElement);
+    const sameRow = (a, b) => a?.id === b?.id && a?.row === b?.row && Boolean(a?.taken) === Boolean(b?.taken) && (a?.switched ?? null) === (b?.switched ?? null);
     // The cards' stations on the way the rider opened or closed (by leg),
     // and the bus stops they opened (by code), kept through the refreshes
     // while the trip goes to the same place, a start that follows My
@@ -240,17 +257,20 @@ function start(metro) {
     // is timed with it: none while it can't be had
     const lateness = () => live.trains?.unavailable ? null : live.trains?.trains ?? null;
     // The way shown in full, timed again by the worker with the live times
-    // there are, for leaving now; or nothing to time, as it has no bus
-    const retime = (want = live.wanted) => {
+    // there are, for leaving now; or nothing to time, as it has no bus.
+    // `ahead`: search ahead from the ride the rider is on first
+    const retime = (want = live.wanted, ahead = false) => {
         live.wanted = want;
         if (!want || !searches) {
             if (live.way) { live.way = null; showLive(); }
             return;
         }
-        searches.postMessage({ id: want.id, live: { seq: ++live.seq, row: want.row, departure: want.departure, now: athensNow(), stops: Object.fromEntries(live.answers), taken: want.taken, trains: lateness(), step: stepFor(), own: live.own } });
+        searches.postMessage({ id: want.id, live: { seq: ++live.seq, row: want.row, departure: want.departure, now: athensNow(), stops: Object.fromEntries(live.answers), taken: want.taken, trains: lateness(), step: stepFor(), own: live.own,
+            ahead, declined: [...live.declined], switched: want.switched } });
     };
     const resetLive = () => {
-        Object.assign(live, { trip: live.trip + 1, wanted: null, way: null, answers: new Map(), asked: new Map(), asking: new Set(), opening: 'start', choice: null, directions: null, offered: false, own: null });
+        Object.assign(live, { trip: live.trip + 1, wanted: null, way: null, answers: new Map(), asked: new Map(), asking: new Set(), opening: 'start', choice: null, directions: null, offered: false, own: null,
+            aheadAt: -Infinity, countdown: null, switched: null, declined: new Set() });
         showLive();
     };
     // The trip planned again from where the rider moved to (decision 45):
@@ -258,7 +278,7 @@ function start(metro) {
     // stops new to its way are asked at once. The way being timed goes, and
     // an answer for it still to come from the worker is dropped
     const moveLive = () => {
-        Object.assign(live, { seq: live.seq + 1, wanted: null, way: null, opening: 'moved', choice: null, directions: null, offered: false, own: null });
+        Object.assign(live, { seq: live.seq + 1, wanted: null, way: null, opening: 'moved', choice: null, directions: null, offered: false, own: null, aheadAt: -Infinity, countdown: null, switched: null });
         showLive();
     };
     // Paused, unavailable or older live times, said above the answer
@@ -343,10 +363,12 @@ function start(metro) {
         const [first] = ways;
         const directions = Boolean(first) && half.view.kind === 'decision' && first.row === half.view.rows[0];
         const choice = directions ? live.choice : null;
+        // On a ride followed, the way switched to on the way (T14)
+        const switched = riding() ? live.switched : null;
         // Timed with the live times when it has a bus or a train, or on a
         // decision; and while the rider is followed along it, whatever it has
         const want = first && (hasBus(first.o) || hasTrain(first.o) || directions || riding())
-            ? { id: half.id, row: half.view.rows.indexOf(first.row), departure: first.departure, taken: choice === 'taken' }
+            ? { id: half.id, row: half.view.rows.indexOf(first.row), departure: first.departure, taken: choice === 'taken', switched }
             : null;
         const latest = [live.way, live.directions].find(way => want && sameRow(way, want));
         const timed = latest ? { way: latest.way } : null;
@@ -355,7 +377,16 @@ function start(metro) {
         // when the way is timed with it (decision 47)
         const { seconds: clock, weekday, date } = athensNow();
         const cards = { weekday, date, stations: openedLegs(), stops: openedStops(), legend: legendOpen() };
-        const offer = !choice && timed?.way.offer;
+        // The switch to a way 3' or more sooner, counting down from when it
+        // first comes up, with a buzz where the phone can (T14); in place of
+        // the quicker way on a decision
+        const sooner = riding() && !switched && timed?.way.switchTo;
+        const switching = sooner && !live.declined.has(sooner.key) ? sooner : null;
+        if (switching?.key !== live.countdown?.key) {
+            live.countdown = switching && { key: switching.key, left: SWITCH_SECONDS };
+            if (switching) navigator.vibrate?.(200);
+        }
+        const offer = switching || (!choice && timed?.way.offer);
         const known = lifts();
         // The way shown in full, for My location to follow the rider along
         // (decision 50): the first card's, or the answer for leaving now's
@@ -365,7 +396,8 @@ function start(metro) {
             : !trip.walkFirst && !trip.options[0]?.morning ? trip.options[0] ?? null : null;
         followWay(following ? card : null, date);
         const shown = ways.length
-            ? renderHalf(drawnOn(date), half.view.kind, ways, to, { now: clock, expired, longWalk: isLongWalk(ways[0].o), live: timed, offer: !choice, taken: choice === 'taken' ? half.view.quicker : null, noTrains, trains: lateness(), lifts: known, liftsOpen: liftsOpen(), following: followingShown(), ...cards })
+            ? renderHalf(drawnOn(date), half.view.kind, ways, to, { now: clock, expired, longWalk: isLongWalk(ways[0].o), live: timed, offer: !choice, taken: choice === 'taken' ? half.view.quicker : null,
+                switching: switching && { offer: switching, seconds: live.countdown.left }, switched: Boolean(switched), noTrains, trains: lateness(), lifts: known, liftsOpen: liftsOpen(), following: followingShown(), ...cards })
             : renderTrip(drawnOn(date), trip, to, { now: clock, expired, noBuses, noTrains: noTrains && !noBuses, checking: Boolean(searches) && !forTrip(half), lifts: known, liftsOpen: liftsOpen(), following: followingShown(), ...cards });
         const answer = html`${shown}${TIMING && timingBox(timing)}`;
         setHtml(result, answer);
@@ -378,11 +410,17 @@ function start(metro) {
             draw(now, buses, false);
             if (event.detail === 0) /** @type {HTMLElement | null} */ (result.querySelector(next) ?? result.querySelector('.trip-card h2'))?.focus();
         };
-        $('trip-quicker-take')?.addEventListener('click', choose('taken', '#trip-quicker-back'));
-        $('trip-quicker-keep')?.addEventListener('click', choose('kept', '.trip-card h2'));
-        $('trip-quicker-back')?.addEventListener('click', choose(null, '#trip-quicker-take'));
-        // A quicker way coming up is said once, as it isn't where the keyboard is
-        if (offer && !live.offered) announce(quickerSummary(offer));
+        if (switching) {
+            $('trip-quicker-take')?.addEventListener('click', event => switchTo(switching.key, event));
+            $('trip-quicker-keep')?.addEventListener('click', event => keepRoute(switching.key, event));
+        } else {
+            $('trip-quicker-take')?.addEventListener('click', choose('taken', '#trip-quicker-back'));
+            $('trip-quicker-keep')?.addEventListener('click', choose('kept', '.trip-card h2'));
+        }
+        $('trip-quicker-back')?.addEventListener('click', switched ? event => switchBack(event) : choose(null, '#trip-quicker-take'));
+        // A quicker way coming up is said once, as it isn't where the keyboard
+        // is; the switch with when it's taken by itself
+        if (offer && !live.offered) announce(switching ? `${quickerSummary(offer)} ${switchIn(SWITCH_SECONDS)}` : quickerSummary(offer));
         live.offered = Boolean(offer);
         if (speak) {
             const said = ways.length ? halfReady(ways) : trip.options[0] ? routeSummary(trip.options[0]) : t('trip.walk-quicker');
@@ -394,10 +432,49 @@ function start(metro) {
     };
     const halfReady = ways => format(t('trip.half-ready'), { range: rangeText(ways[0].row) });
 
+    // The switch on the way (T14, decision 50), drawn again at once. Taken
+    // (by the rider, or by itself when the countdown ends), the way found
+    // ahead is theirs, and they stay where they are on it; kept, or gone
+    // back from, that way is never offered again in this trip. From the
+    // keyboard, the keyboard goes on to the way back, or the way shown
+    const switchDraw = (event, next) => {
+        if (forTrip(found)) draw(found.now, found.options, false);
+        if (event?.detail === 0) /** @type {HTMLElement | null} */ (result.querySelector(next) ?? result.querySelector('.trip-card h2'))?.focus();
+    };
+    const switchTo = (key, event = null) => {
+        Object.assign(live, { switched: key, countdown: null, held: false });
+        ride.carrying = true;
+        if (!event) announce(t('trip.switched'));
+        switchDraw(event, '#trip-quicker-back');
+    };
+    const keepRoute = (key, event) => {
+        live.declined.add(key);
+        Object.assign(live, { countdown: null, held: false });
+        switchDraw(event, '.trip-card h2');
+    };
+    const switchBack = event => {
+        if (live.switched) live.declined.add(live.switched);
+        live.switched = null;
+        ride.carrying = true;
+        switchDraw(event, '.trip-card h2');
+    };
+    // A second off the countdown, unless it's out of sight, touched or has
+    // the keyboard; at none, taken
+    const countDown = () => {
+        const card = $('trip-quicker');
+        if (!live.countdown || !card || document.hidden || live.held || card.contains(document.activeElement)) return;
+        live.countdown.left--;
+        if (live.countdown.left <= 0) { switchTo(live.countdown.key); return; }
+        const timer = $('trip-switch-timer');
+        if (timer) timer.textContent = switchIn(live.countdown.left);
+    };
+    result.addEventListener('pointerdown', e => { live.held = Boolean(/** @type {HTMLElement} */ (e.target).closest('#trip-quicker')); });
+    ['pointerup', 'pointercancel'].forEach(type => document.addEventListener(type, () => { live.held = false; }));
+
     // The answer drawn again with what came in, unless someone is in it:
     // then with the next refresh
     const redraw = () => {
-        if (!from || !to || result.contains(document.activeElement)) return;
+        if (!from || !to || inAnswer()) return;
         if (!searches) draw(athensNow(), [], false);
         else if (forTrip(found) && !holding()) draw(found.now, found.options, false);
     };
@@ -471,7 +548,7 @@ function start(metro) {
             if (live.way && !live.way.taken) live.directions = live.way;
             showLive();
             askDue();
-            if (forTrip(found) && !result.contains(document.activeElement)) draw(found.now, found.options, false);
+            if (forTrip(found) && !inAnswer()) draw(found.now, found.options, false);
             return;
         }
         if ('half' in data) {
@@ -483,7 +560,7 @@ function start(metro) {
             // Drawn at once, unless someone is in the answer: then with the
             // next refresh, which waits for that too. Said, unless it was
             // planned again from where the rider moved to
-            if (!forTrip(found) || result.contains(document.activeElement)) return;
+            if (!forTrip(found) || inAnswer()) return;
             const ways = draw(found.now, found.options, false);
             if (ways.length && !moving) announce(halfReady(ways));
             moving = false;
@@ -543,7 +620,7 @@ function start(metro) {
     // In sight only, and not while the keyboard is in the answer, as for a
     // refresh. With a way to follow, the fixes place the rider on it instead (placeFix)
     const replanIfMoved = (position = null) => {
-        if (!following || !from || !to || ride.steps || document.hidden || result.contains(document.activeElement)) return;
+        if (!following || !from || !to || ride.steps || document.hidden || inAnswer()) return;
         const now = position ?? lastPosition();
         if (!now || !replanDue({ lat: from.lat, lng: from.lng, at: planned.at }, now, Date.now())) return;
         from = here(now);
@@ -591,7 +668,10 @@ function start(metro) {
         if (live.paused && ride.state.anchor?.at === nowMs) interact();
         if (offDue(ride.state, nowMs)) { replanIfOff(); return; }
         if (!ride.state.moved) return;
-        retime();
+        // At a stop of the ride, the search ahead, at most once a minute
+        const ahead = step.kind === 'ride' && nowMs - live.aheadAt >= AHEAD_MS;
+        if (ahead) live.aheadAt = nowMs;
+        retime(live.wanted, ahead);
         redraw();
     };
 
@@ -677,7 +757,7 @@ function start(metro) {
     }
 
     setInterval(() => {
-        if (!from || !to || result.contains(document.activeElement)) return;
+        if (!from || !to || inAnswer()) return;
         render({ refresh: true });
         retime();
     }, REFRESH_MS);
@@ -688,6 +768,7 @@ function start(metro) {
     // A ride followed pauses for standing still as long instead (decision 50)
     const pauseDue = () => riding() ? stillDue(ride.state, live.touched, Date.now()) : isIdle(live.touched, Date.now());
     setInterval(() => {
+        countDown();
         replanIfMoved();
         replanIfOff();
         sayRide();

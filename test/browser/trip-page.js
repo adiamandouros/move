@@ -36,6 +36,10 @@ export async function pickDecision(page, url = '/trip', [fromName, toName] = ['F
     await list(page, 'to').first().click();
 }
 
+// Σταύρου 1 (test/fixtures/places.js), as test.use({ location: { at: STAVROU_1 } }),
+// for a rider followed from there by "My location" on the decision's T6 (T14)
+export const STAVROU_1 = { lat: 37.9535, lng: 23.7255 };
+
 // Menelaou 45 and 85, 350 m apart on the same street (test/fixtures/places.js),
 // for a rider followed by "My location" (decision 45)
 export const MENELAOU_45 = { lat: 37.955, lng: 23.707 };

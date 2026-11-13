@@ -23,7 +23,7 @@ a redraw every second. Agreed before it, 7 and 10 November: following is
 switched on by My location (a trip from a typed start is planned ahead and
 isn't followed), and a way 3 minutes or more sooner found on the way is
 switched to after 10 seconds unless the rider keeps theirs
-([DESIGN.md](../../DESIGN.md), "The Trip page", still to build).
+([DESIGN.md](../../DESIGN.md), "The Trip page", T14).
 
 OASA's live API is the only source of live bus times. OASA publishes no
 limits for it and makes no promise about how long it keeps running. Being
@@ -106,11 +106,17 @@ proposed and agreed before it is built.
   `&for=plan-ride`, one new column on /admin/usage, "stops asked for the
   rider's own ride". Within the 10 stops a trip, and in place of the stop
   they boarded at, so nothing more than a trip kept open.
-- **Still to build, agreed with the same numbers**: a search ahead on the
-  phone from the ride's remaining stops at each stop reached, at most once
-  a minute, which costs OASA nothing by itself (a stop it first asks for
-  says `plan-ride` too); and the switch to a way 3 minutes or more sooner,
-  with its countdown.
+- **The search ahead**: on a ride, at each of its stops reached, at most
+  once a minute, the phone searches from the ride's stops still to come
+  (one departure, as the rider gets to each, or a walk from one;
+  `searchAhead` in [buses.js](../../tools/trip/client/buses.js)). That
+  costs OASA nothing by itself. A way 3 minutes or more sooner is switched
+  to after a 10-second countdown unless the rider keeps theirs
+  ([DESIGN.md](../../DESIGN.md), T14); by bus, only when OASA has that bus
+  coming in time, so its stop is asked, within the 10 stops a trip, and
+  its first request says `plan-ride` too. Once the rider is on the first
+  ride, this takes the place of the decision's quicker way, whose stop is
+  then no longer asked for it.
 - **The collector** asks for one stop every 6 seconds, Monday to Friday
   07:00–10:00 and 16:00–20:00 Athens time: at most 10 requests a minute,
   about 4,200 a day ([collector.js](../../server/oasa/collector.js)). Its
@@ -139,7 +145,7 @@ proposed and agreed before it is built.
 - A followed trip costs about what a trip kept open does, and less as it
   goes: a stop passed is dropped, and a re-plan comes only off the way,
   rarer than 45's every 2 minutes on foot. With the rider's own bus and the
-  search ahead built, at most about 20 a minute, of the 30 each visitor may
+  search ahead, at most about 20 a minute, of the 30 each visitor may
   ask: about 5 such trips at once take the budget, as before. Past that the
   cache keeps answers longer, as it does for the bus page, and
   `/api/health` says so (below).
@@ -149,10 +155,14 @@ proposed and agreed before it is built.
   arrive. The step they're on is marked and the steps done greyed
   ([DESIGN.md](../../DESIGN.md), "The Trip page"); From's status line says
   the ride is followed, or how long ago the last position came.
-- The quicker way on a decision ([36](0036-trip-quicker-way.md)) is still
-  worked out from the first ride as timed, and no longer once that ride is
-  done; how late the rider's own bus is at the change doesn't count in it
-  yet (`here` in `quickerWay`): that comes with the search ahead.
+- The quicker way on a decision ([36](0036-trip-quicker-way.md)) is
+  worked out from the first ride as timed until the rider is on it; then
+  the search ahead finds what's quicker, on any ride, not only the first.
+  On their own bus, how late OASA has it where they get off counts in it
+  (`here` in `quickerWay`), the stops before as late in proportion.
+- The search ahead takes about a hundredth of a second on a laptop, a
+  departure's search; it runs in the worker, so following never waits for
+  it. A way kept over, or gone back from, isn't offered again in the trip.
 - A bus boarded where OASA had none of its line coming, or one OASA has no
   vehicle code for, isn't known again: the ride they're on is timed from
   where they are by the timetable. So is one whose code OASA no longer
@@ -185,8 +195,10 @@ proposed and agreed before it is built.
 - Riders find the step marked wrong on a ride they know (boarded too soon
   or too late, off the way when they weren't, not off when they were), or
   the answer on board misleading.
-- The rider's own bus, the search ahead and the switch are built: their
+- The rider's own bus, the search ahead and the switch on the road: their
   requests on /admin/usage against the sum above.
+- Riders find the switch offered for a way that wasn't quicker, or not
+  offered for one that was.
 - Measurements show the limits are reached often, or the health page warns
   that visitors' requests didn't fit the budget on ordinary days.
 - OASA publishes limits of its own.

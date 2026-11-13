@@ -9,13 +9,14 @@ import { aboutTime, minutesBadge, minutesMark } from '../public/js/core/times.js
 // way timed again with them in the worker (liveWay in
 // tools/trip/client/buses.js), which stops are asked for and when (live.js,
 // decision 34), and the way drawn with them (render.js), in both languages;
-// and on a decision, the quicker way offered and taken (decision 36).
+// and on a decision, the quicker way offered and taken (decision 36); with
+// the rider followed, the search ahead and the switch (T14, decision 50).
 // Over the test data's metro, tram and the buses between Kallithea and
 // Syntagma, on a Wednesday. The page's side: test/browser/trip.spec.js.
 
 const rail = JSON.parse(readFileSync(new URL('browser/data/rail.json', import.meta.url), 'utf8'));
 const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.meta.url), 'utf8'));
-const { cityPlanner, halfHour, halfView, LIVE_STOPS, liveWay, routeCodes, shownRows } = await browserModule('tools/trip/client/buses.js');
+const { cityPlanner, halfHour, halfView, LIVE_STOPS, liveWay, routeCodes, searchAhead, shownRows } = await browserModule('tools/trip/client/buses.js');
 const live = await browserModule('tools/trip/client/live.js');
 const { withTram } = await browserModule('tools/subway/client/network.js');
 const { latinName } = await browserModule('public/js/core/text.js');
@@ -388,6 +389,75 @@ test('the quicker way taken: it\'s the way timed, from the same tram, with its o
     assert.equal(liveWay(city, stavrou, menelaou45, directions, DEPARTURE, NOON, stops, { decision: { ...decision, getOff: { ...decision.getOff, best: decision.getOff.best.map(() => null) } }, taken: true }), null);
 });
 
+// The search ahead and the switch (T14, decision 50): the rider followed on
+// the directions' T6, two minutes past its second stop
+const TRAM = directions.best[DEPARTURE].legs[0];
+const ON_TRAM = { leg: 0, kind: 'ride', stop: 1, at: TRAM.boards + 2 * MIN, walk: 0 };
+const ahead = (more = {}) => searchAhead(city, stavrou, menelaou45, directions, DEPARTURE, NOON, {}, { step: ON_TRAM, ...more });
+const AHEAD = ahead();
+const [, ONWARD] = AHEAD.way.legs;
+const ONWARD_STOP = codeOf(city.stops[ONWARD.board]);
+const [ONWARD_ROUTE] = routesOf(ONWARD.line, ONWARD.board, ONWARD.alight);
+// OASA's answer at the way ahead's stop: its bus due `late` seconds after the timetable says
+const onwardBus = (late, more = {}) => ({ [ONWARD_STOP]: { buses: [{ route: ONWARD_ROUTE, line: ONWARD.line, at: ONWARD.boards + late }], asked: ON_TRAM.at, ...more } });
+const switching = (stops, more = {}) => liveWay(city, stavrou, menelaou45, directions, DEPARTURE, NOON, stops, { step: ON_TRAM, ahead: AHEAD, ...more });
+
+test('the search ahead, on the tram: off it sooner for a bus, the tram as far as there as it\'s timed, from the stops still to come only', () => {
+    assert.equal(AHEAD.key, decision.getOff.key, 'the decision\'s other way, found from the tram');
+    assert.equal(AHEAD.leg, 0);
+    const [tram] = AHEAD.way.legs;
+    assert.equal(tram.line, 'T6');
+    assert.equal(tram.boards, TRAM.boards, 'the same tram');
+    assert.ok(tram.alightIndex < TRAM.alightIndex && tram.alightIndex > TRAM.boardIndex + ON_TRAM.stop, 'off before where the directions get off, after where the rider is');
+    assert.ok(ONWARD.boards >= tram.arrives + ONWARD.walkBefore, 'the bus from when they can be at its stop');
+    assert.ok(AHEAD.way.at < directions.best[DEPARTURE].at, 'sooner by the timetable');
+    // Past where it leaves the tram, it's another way or none; off a ride, none
+    const later = ahead({ step: { ...ON_TRAM, stop: tram.alightIndex - TRAM.boardIndex } });
+    assert.ok(!later || later.way.legs[0].alightIndex > tram.alightIndex);
+    assert.equal(ahead({ step: { ...ON_TRAM, kind: 'wait', stop: 0 } }), null, 'not yet on it');
+    assert.equal(ahead({ step: null }), null, 'not followed');
+    // Declined, it's never found again
+    assert.notEqual(ahead({ declined: [AHEAD.key] })?.key, AHEAD.key);
+});
+
+test('the switch: its bus\'s stop asked for the ride, offered when OASA has the bus coming in time and it saves 3\' or more, with its key', () => {
+    const before = switching({});
+    assert.equal(before.switchTo, null, 'nothing before its stop answers');
+    assert.deepEqual(before.asks[0], { stop: ONWARD_STOP, at: null, ride: true }, 'asked first, as for the rider\'s own ride');
+    const offer = switching(onwardBus(0)).switchTo;
+    assert.equal(offer.key, AHEAD.key);
+    assert.equal(offer.line, ONWARD.line);
+    assert.equal(offer.at, ONWARD.boards);
+    assert.ok(offer.sooner >= 180, `${offer.sooner} s`);
+    assert.deepEqual(offer.ride, { line: 'T6', mode: 'tram' });
+    assert.equal(offer.change.id, city.stops[AHEAD.way.legs[0].alight].id);
+    assert.equal(offer.stop.id, city.stops[ONWARD.board].id);
+    assert.equal(offer.walk?.minutes ?? 0, ONWARD.walkBefore ? Math.max(1, Math.round(ONWARD.walkBefore / 60)) : 0);
+    assert.ok(switching(onwardBus(3 * MIN)).switchTo, 'as late as it saves 3\'');
+    assert.equal(switching(onwardBus(4 * MIN)).switchTo, null, 'later: not worth it');
+    assert.equal(switching(onwardBus(-5 * MIN)).switchTo, null, 'gone before the tram gets there');
+    assert.equal(switching(onwardBus(0, { stale: true })).switchTo, null, 'an older answer');
+    // The directions stay as they are; the decision's own quicker way isn't
+    // offered on the tram, where the search ahead has taken over
+    assert.deepEqual(switching(onwardBus(0)).option, liveWay(city, stavrou, menelaou45, directions, DEPARTURE, NOON, onwardBus(0), { step: ON_TRAM }).option);
+    assert.equal(switching(quickerBus([16 * MIN]), { decision }).offer, null);
+    assert.ok(liveWay(city, stavrou, menelaou45, directions, DEPARTURE, NOON, quickerBus([16 * MIN]), { decision, step: { ...ON_TRAM, kind: 'wait', stop: 0, at: NOON.seconds } }).offer, 'waiting for it, still offered');
+    // Past where it leaves the tram, or on the walk to it: nothing
+    assert.equal(switching(onwardBus(0), { step: { ...ON_TRAM, stop: AHEAD.way.legs[0].alightIndex - TRAM.boardIndex } }).switchTo, null);
+    assert.equal(switching(onwardBus(0), { step: { ...ON_TRAM, kind: 'walk', stop: 0, walk: 60 } }).switchTo, null);
+});
+
+test('switched to: the way ahead is the way timed, from the same tram, its bus\'s stop asked, and from it another way ahead can be searched', () => {
+    const row = { key: AHEAD.key, best: [AHEAD.way], bundle: false, lines: [], stops: [] };
+    const way = liveWay(city, stavrou, menelaou45, row, 0, NOON, onwardBus(0), { step: ON_TRAM });
+    assert.equal(way.option.rides[0].boards, TRAM.boards);
+    assert.equal(way.option.rides[0].alight.id, city.stops[AHEAD.way.legs[0].alight].id);
+    assert.deepEqual(way.option.rides[1].live, { at: ONWARD.boards, next: null }, 'its bus as OASA has it');
+    assert.deepEqual(way.asks[0], { stop: ONWARD_STOP, at: ONWARD.boards });
+    assert.equal(way.switchTo, null);
+    assert.notEqual(searchAhead(city, stavrou, menelaou45, row, 0, NOON, {}, { step: ON_TRAM })?.key, AHEAD.key, 'not the way it is');
+});
+
 test('what\'s said above the answer: paused, none to be had anywhere, or older times', () => {
     const asks = [{ stop: 'a', at: null }, { stop: 'b', at: null }];
     const answers = entries => new Map(entries);
@@ -561,6 +631,30 @@ for (const lang of ['en', 'el']) {
         const waiting = drawnDecided(null, { taken: decidedView.quicker });
         check(waiting);
         assert.ok(waiting.includes(escaped(s['trip.quicker-back'])) && waiting.includes(escaped(s['trip.any-bus-then'])));
+    });
+
+    test(`${lang}: on the way, the switch to a way 3' sooner in the quicker way's place, with when it's taken by itself; switched, that way with the way back`, () => {
+        const way = switching(onwardBus(0));
+        const html = drawnDecided(way, { offer: true, switching: { offer: way.switchTo, seconds: 7 }, following: { kind: 'ride', ride: 0, stop: 1 } });
+        check(html);
+        const [, offer] = html.split('<div class="trip-card" id="trip-quicker">');
+        assert.ok(offer.includes(`<h2 class="trip-total trip-total-small">${s['trip.quicker-title'].replace('{minutes}', mark(Math.floor(way.switchTo.sooner / 60)))}</h2>`));
+        assert.ok(offer.includes('line-t6') && offer.includes(`<span class="bus-plate pill-m">${ONWARD.line}</span>`), 'off the tram for the bus');
+        assert.ok(offer.includes(`<p class="trip-other" id="trip-switch-timer" role="timer">${escaped(r.switchIn(7))}</p>`));
+        assert.equal(r.switchIn(7), s['trip.switch-in'].replace('{seconds}', 7));
+        assert.ok(offer.includes('id="trip-quicker-take"') && offer.includes('id="trip-quicker-keep"'));
+        // Onward by train: its pill
+        const byTrain = drawnDecided(way, { switching: { offer: { ...way.switchTo, line: 'M2', mode: 'metro' }, seconds: 7 } });
+        assert.ok(byTrain.split('id="trip-quicker"')[1].includes('line-m2'));
+        // Switched: the way ahead timed, in the directions' place, said, with the way back
+        const row = { key: AHEAD.key, best: [AHEAD.way], bundle: false, lines: [], stops: [] };
+        const onto = liveWay(city, stavrou, menelaou45, row, 0, NOON, onwardBus(0), { step: ON_TRAM });
+        const switched = drawnDecided(onto, { switched: true, following: { kind: 'ride', ride: 0, stop: 1 } });
+        check(switched);
+        assert.ok(switched.includes(`<span class="trip-arrives">${escaped(s['trip.quicker-taken'])}</span>`));
+        assert.ok(switched.includes(`<button type="button" id="trip-quicker-back" class="btn btn-sm locate-btn trip-stand">${escaped(s['trip.quicker-back'])}</button>`));
+        assert.ok(!switched.includes('trip-quicker-take') && !switched.includes(escaped(s['trip.any-bus-then'])), 'its bus a ride of its own, nothing more offered');
+        assert.ok(switched.split('route-option-label')[0].includes(`<span class="bus-plate pill-m">${ONWARD.line}</span>`), 'its bus in the way shown');
     });
 
     test(`${lang}: paused, unavailable or older live times, said above the answer: an error when they can't be had, a warning when the answer may be off; paused with a button`, () => {

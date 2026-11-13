@@ -448,22 +448,28 @@ const linePlate = (rail, { line, mode }) => ON_THE_ROAD.has(mode) ? busPlate(lin
 const quickerTitle = offer => formatHtml(t('trip.quicker-title'), { minutes: minutesMark(Math.floor(offer.sooner / 60), t) });
 /** @param {import('./buses.js').Offer} offer */
 export const quickerSummary = offer => format(t('trip.quicker-title'), { minutes: minutesWords(Math.floor(offer.sooner / 60), t) });
+// How long till the switch on the way is taken by itself (T14)
+/** @param {number} seconds */
+export const switchIn = seconds => format(t('trip.switch-in'), { seconds });
 
 // The quicker way offered on a decision (decision 36), under the directions,
 // as OASA has its bus coming in time: how much sooner, where to get off the
 // first ride for which bus, and the rider's choice. The directions stay as
-// they are unless it's taken
-/** @param {import('./buses.js').Offer} offer */
-function quickerCard(rail, offer) {
+// they are unless it's taken. On the way (T14, decision 50), the switch to a
+// way 3' or more sooner is the same, off the ride the rider is on for the
+// next ride, a train's too, with `seconds` till it's taken by itself
+/** @param {import('./buses.js').Offer} offer @param {number | null} [seconds] */
+function quickerCard(rail, offer, seconds = null) {
     const off = formatHtml(t(offer.ride.mode === 'metro' ? 'trip.quicker-off-station' : 'trip.quicker-off'), {
         ride: linePlate(rail, offer.ride), change: stopName(rail, offer.change),
     });
     const bus = formatHtml(t(offer.walk ? 'trip.quicker-bus' : 'trip.quicker-bus-here'), {
-        bus: busPlate(offer.line, 'm'), stop: stopName(rail, offer.stop), time: clockTime(offer.at), minutes: offer.walk && walkMinutes(offer.walk.minutes),
+        bus: linePlate(rail, { line: offer.line, mode: offer.mode ?? 'bus' }), stop: stopName(rail, offer.stop), time: clockTime(offer.at), minutes: offer.walk && walkMinutes(offer.walk.minutes),
     });
     return html`<div class="trip-card" id="trip-quicker">
         <h2 class="trip-total trip-total-small">${quickerTitle(offer)}</h2>
         <p class="trip-quicker-what">${off} ${bus}</p>
+        ${seconds !== null && html`<p class="trip-other" id="trip-switch-timer" role="timer">${switchIn(seconds)}</p>`}
         <div class="trip-quicker-actions">
             <button type="button" id="trip-quicker-take" class="btn btn-primary btn-sm rounded-pill px-4">${t('trip.quicker-take')}</button>
             <button type="button" id="trip-quicker-keep" class="btn btn-sm locate-btn">${t('trip.quicker-keep')}</button>
@@ -503,8 +509,11 @@ export const takenOption = (row, departure) => row.options.find((o, d) => d >= d
 // (decision 47). `stops`: the bus stops the rider opened, by code (decision
 // 48). `rail`, `now`, `weekday`, `date`, stations, legend: as
 // renderTrip's. Nothing under it (decision 43) but the legend of what its
-// trains show
-export function renderHalf(rail, kind, ways, to, { now, weekday, date, expired = false, longWalk = false, live = null, offer = false, taken = null, noTrains = false, trains = null, lifts = null, liftsOpen = true, stations = {}, stops = new Set(), legend: legendShown = true, following = null }) {
+// trains show. On the way (T14, decision 50): `switching`, the switch to a
+// way 3' or more sooner, with the seconds till it's taken by itself, in the
+// quicker way's place; `switched`: the rider is on that way now, which
+// `live` has, with the way back
+export function renderHalf(rail, kind, ways, to, { now, weekday, date, expired = false, longWalk = false, live = null, offer = false, taken = null, switching = null, switched = false, noTrains = false, trains = null, lifts = null, liftsOpen = true, stations = {}, stops = new Set(), legend: legendShown = true, following = null }) {
     const [first, ...rest] = ways;
     const others = taken ? rest.filter(({ row }) => row !== taken) : rest;
     // The first card's way, as halfCard shows it
@@ -515,10 +524,12 @@ export function renderHalf(rail, kind, ways, to, { now, weekday, date, expired =
         ${expired && notice('warn', 'warning', t('trip.timetable-ended'), 'mb-3')}
         ${stepFree(rail, [shown, ...others.map(way => way.o)], lifts, liftsOpen)}
         ${kind === 'depends' && html`<p class="trip-intro">${t('trip.half-depends-intro')}</p>`}
-        ${taken
-            ? halfCard(rail, { row: taken, o: takenOption(taken, first.departure) }, to, drawn, false, live, true, following)
-            : halfCard(rail, first, to, drawn, kind === 'clear', live, false, following)}
-        ${offer && live?.way.offer && quickerCard(rail, live.way.offer)}
+        ${switched
+            ? halfCard(rail, { row: { ...first.row, bundle: false }, o: shown }, to, drawn, false, live, true, following)
+            : taken
+                ? halfCard(rail, { row: taken, o: takenOption(taken, first.departure) }, to, drawn, false, live, true, following)
+                : halfCard(rail, first, to, drawn, kind === 'clear', live, false, following)}
+        ${switching ? quickerCard(rail, switching.offer, switching.seconds) : offer && live?.way.offer && quickerCard(rail, live.way.offer)}
         ${legend(rail, shown, drawn, legendShown)}
         ${longWalk && longWalkNotice()}
         ${others.length > 0 && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
