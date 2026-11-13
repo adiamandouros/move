@@ -498,7 +498,7 @@ test.describe('the trip page', () => {
             expect(rides.map(ride => ride.line)).toEqual(['040', 'M2']);
             const [bus, metro] = rides.map(ride => ride.along.map(([lat, lng]) => ({ lat, lng })));
             expect(bus.length).toBeGreaterThan(2);
-            return { bus, metro, board: rides[0].board.id.slice('bus:'.length) };
+            return { bus, metro, board: rides[0].board.id.slice('bus:'.length), alight: rides[0].alight.id.slice('bus:'.length) };
         };
         const east = (at, metres) => ({ lat: at.lat, lng: at.lng + metres / (111_195 * Math.cos(at.lat * Math.PI / 180)) });
         const status = page => page.locator('#trip-from-status');
@@ -510,7 +510,7 @@ test.describe('the trip page', () => {
             const { asks, run } = await watchRequests(page);
             const plans = await watchPlans(page);
             const liveWay = await watchLive(page);
-            const { bus, metro, board } = await hereToPark(page, run, asks, liveWay);
+            const { bus, metro, board, alight } = await hereToPark(page, run, asks, liveWay);
             await expect(current(page)).toHaveCount(0);
             await expect(status(page)).toHaveText('');
             await expect(card(page).locator('h2.trip-total')).not.toContainText('Arrive about');
@@ -526,12 +526,17 @@ test.describe('the trip page', () => {
             await expect(card(page).locator('h2.trip-total')).toContainText('Arrive about');
 
             // On the bus, two stops on: still the 040's step; the stop it
-            // boarded at is behind the rider, so no longer asked; no new plan
+            // boarded at is behind the rider, so no longer asked, and the
+            // stop they get off is asked for their own bus, saying so
+            // (decision 50); no new plan
             const boarded = (await asks()).length;
             await moveTo(page, bus[2]);
             await run(35);
             await expect(current(page)).toContainText('040');
-            expect((await asks()).slice(boarded).map(a => a.code)).not.toContain(board);
+            const since = (await asks()).slice(boarded);
+            expect(since.map(a => a.code)).not.toContain(board);
+            expect(since.find(a => a.code === alight)).toMatchObject({ for: 'plan-ride' });
+            expect(since.filter(a => a.code === alight).map(a => a.for)).toEqual(['plan-ride', ...since.filter(a => a.code === alight).slice(1).map(() => 'plan')]);
             expect(await plans()).toHaveLength(1);
 
             // Off at its last stop, 50 m from the station: that walk is done

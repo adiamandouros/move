@@ -152,6 +152,41 @@ test('on the last walk, the door is as far as what\'s left of it; arrived, it\'s
     assert.deepEqual(arrived.asks, []);
 });
 
+test('the rider\'s own bus: of their lines, the one due nearest when they boarded; the stop they get off asked for it, saying so, and the ride off when OASA has it there', () => {
+    const T = 10 * 3600 + 20 * MIN;
+    const answer = { buses: [{ route: ROUTE, vehicle: 'a', line: '040', at: T - 3 * MIN }, { route: ROUTE, vehicle: 'b', line: '040', at: T + MIN }, { route: '9', vehicle: 'c', line: 'Β2', at: T }] };
+    assert.equal(live.ownBus(answer, ['040'], T), 'b');
+    assert.equal(live.ownBus(answer, ['040'], T - 2 * MIN), 'a');
+    assert.equal(live.ownBus(answer, ['Β2', '040'], T), 'c');
+    assert.equal(live.ownBus(answer, ['550'], T), null, 'none of their lines');
+    assert.equal(live.ownBus(undefined, ['040'], T), null, 'no answer yet');
+    assert.equal(live.ownBus({ buses: [{ route: ROUTE, vehicle: null, line: '040', at: T }] }, ['040'], T), null, 'no code for it');
+
+    const ALIGHT = codeOf(city.stops[bus.alight]);
+    const step = { leg: 0, kind: 'ride', stop: 2, at: T, walk: 0 };
+    const own = { leg: 0, vehicle: 'b' };
+    const asked = liveWay(city, menelaou, SYNTAGMA_STOP, busThenTrain, 0, at(10), {}, { step, own });
+    assert.deepEqual(asked.asks, [{ stop: ALIGHT, at: null, ride: true }], 'the stop they get off, marked as for the ride');
+    assert.equal(asked.option.rides[0].arrives, T + rideFrom(2), 'by the timetable until OASA says');
+    const there = T + 9 * MIN;
+    const stops = { [ALIGHT]: { buses: [{ route: ROUTE, vehicle: 'a', line: '040', at: T + 2 * MIN }, { route: ROUTE, vehicle: 'b', line: '040', at: there }] } };
+    const said = liveWay(city, menelaou, SYNTAGMA_STOP, busThenTrain, 0, at(10), stops, { step, own });
+    assert.deepEqual(said.asks, [{ stop: ALIGHT, at: there, ride: true }], 'asked again by when their bus is due there');
+    assert.equal(said.option.rides[0].arrives, there, 'off when OASA has their bus there');
+    assert.ok(said.option.rides[1].boards >= there + (train.walkBefore ?? 0), 'the M2 from then');
+    // Said to be there already: the timetable's word from where they are
+    const passed = liveWay(city, menelaou, SYNTAGMA_STOP, busThenTrain, 0, at(10), { [ALIGHT]: { buses: [{ route: ROUTE, vehicle: 'b', line: '040', at: T - MIN }] } }, { step, own });
+    assert.equal(passed.option.rides[0].arrives, T + rideFrom(2));
+    // Their bus is another ride's: nothing asked for this one
+    assert.deepEqual(liveWay(city, menelaou, SYNTAGMA_STOP, busThenTrain, 0, at(10), {}, { step, own: { leg: 1, vehicle: 'b' } }).asks, []);
+    // Still waiting for it: the stop they board at, as before
+    assert.deepEqual(liveWay(city, menelaou, SYNTAGMA_STOP, busThenTrain, 0, at(10), {}, { step: { ...step, kind: 'wait' }, own: null }).asks, [{ stop: BOARD, at: null }]);
+});
+
+test('a stop first asked for the ride the rider is on says so', () => {
+    assert.equal(live.arrivalsUrl('240115', 'ride'), '/api/arrivals?stops=240115&for=plan-ride');
+});
+
 test('a last bus that can be any of several: its stops while the rider walks to them or waits, none once they\'re on it', () => {
     const anyBus = depends.find(row => row.bundle);
     const last = anyBus.best[0].legs.length - 1;

@@ -108,7 +108,12 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
  * often the trains are asked for again (decision 42)
  * @typedef {{ option: BusOption, stops: { stop: import('/tools/subway/city.js').Stop, walk: Walk | null, lines: string[], buses: { line: string, at: number }[] | null,
  *   arrivals: { line: string, to: Names | null, at: number }[] }[],
- *   asks: { stop: string, at: number | null }[], offer: Offer | null, train: number | null }} LiveWay
+ *   asks: { stop: string, at: number | null, ride?: true }[], offer: Offer | null, train: number | null }} LiveWay
+ */
+/**
+ * The rider's own bus (decision 50): OASA's code for the vehicle they
+ * boarded on ride `leg` (ownBus in live.js)
+ * @typedef {{ leg: number, vehicle: string }} OwnBus
  */
 
 // A walk's length, as the search times it (city.js)
@@ -336,23 +341,26 @@ const catchable = (live, codes, ready) => (live?.buses ?? [])
  * the ride they're on gets off when the timetable's ride from the stop
  * they're at says, by the trip the way boards (arrivalFrom); the rest is
  * timed from that, as after a bus; a walk is timed from `step.at` by what's
- * left of it; and once past every ride, the way gets there by the last walk
- * @param {{ decision?: import('/tools/subway/answer.js').Decision | null, taken?: boolean, trains?: Record<string, import('./trains.js').TrainLate> | null, step?: LiveStep | null }} [options]
+ * left of it; and once past every ride, the way gets there by the last walk.
+ * On a bus that's their `own`, the stop they get off is asked for it, on the
+ * tiers by when OASA has that vehicle due there (`ride` marks the ask), and
+ * the ride gets off then, when OASA says so
+ * @param {{ decision?: import('/tools/subway/answer.js').Decision | null, taken?: boolean, trains?: Record<string, import('./trains.js').TrainLate> | null, step?: LiveStep | null, own?: OwnBus | null }} [options]
  * @returns {LiveWay | null}
  */
-export function liveWay(planner, from, to, row, departure, now, live, { decision = null, taken = false, trains = null, step = null } = {}) {
+export function liveWay(planner, from, to, row, departure, now, live, { decision = null, taken = false, trains = null, step = null, own = null } = {}) {
     const way = row.best[departure];
     if (!way) return null;
     if (decision && taken) {
         const off = leavingSooner(decision, way, departure);
-        return off < 0 ? null : liveWay(planner, from, to, decision.getOff, off, now, live, { trains, step });
+        return off < 0 ? null : liveWay(planner, from, to, decision.getOff, off, now, live, { trains, step, own });
     }
     const [access, egress] = ends(planner, from, to);
     const last = way.legs.length - 1;
     // The ride the rider is on or walking to; past them all, one more
     const current = !step ? -1 : step.kind === 'last' || step.kind === 'arrived' ? way.legs.length : step.leg;
     const asks = new Map();
-    const ask = (code, at) => { if (code && asks.size < LIVE_STOPS && !asks.has(code)) asks.set(code, at); };
+    const ask = (code, at, ride = false) => { if (code && asks.size < LIVE_STOPS && !asks.has(code)) asks.set(code, { at, ...ride && { ride: true } }); };
     /** @type {(import('/tools/subway/ways.js').Way['legs'][number] & { boards: number, arrives: number })[]} */
     const legs = [];
     /** @type {(RideLive | undefined)[]} */
@@ -366,11 +374,16 @@ export function liveWay(planner, from, to, row, departure, now, live, { decision
             said.push(undefined);
             continue;
         }
-        // The ride the rider is on: off it when the timetable says from where they are
+        // The ride the rider is on: off it when OASA has their own bus due
+        // where they get off, asked for it, or else when the timetable says
+        // from where they are
         if (i === current && step.kind === 'ride') {
             const ride = leg.mode === 'suburban' ? trainRide(planner, leg, leg.boards, trains) : null;
             if (ride) train ??= ride.boards;
-            legs.push(ride ?? { ...leg, arrives: arrivalFrom(planner, leg, step.stop, step.at) });
+            const code = own && own.leg === i && ON_THE_ROAD.has(leg.mode) ? codeOf(planner.stops[leg.alight]) : null;
+            const due = code ? live[code]?.buses.find(bus => bus.vehicle === own.vehicle && bus.at >= step.at) ?? null : null;
+            ask(code, due?.at ?? null, true);
+            legs.push(ride ?? { ...leg, arrives: due?.at ?? arrivalFrom(planner, leg, step.stop, step.at) });
             said.push(undefined);
             continue;
         }
@@ -427,7 +440,7 @@ export function liveWay(planner, from, to, row, departure, now, live, { decision
     return {
         option,
         stops: [...coming, ...stops.filter(stop => !coming.includes(stop))],
-        asks: [...asks].map(([stop, at]) => ({ stop, at })),
+        asks: [...asks].map(([stop, what]) => ({ stop, ...what })),
         offer: quick ? offerOf(quick, stayingOn(planner, row, legs, egress, stops, option.arrives), live[quick.code]) : null,
         train,
     };

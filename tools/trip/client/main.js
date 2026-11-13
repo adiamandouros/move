@@ -11,7 +11,7 @@ import { walkSeconds } from '/tools/subway/city.js';
 import { isIdle } from '/tools/buses/timing.js';
 import { GAP_MS, leftStart, offDue, placeOn, replanDue, REPLAN_MS, starting, stepOf, stillDue, waySteps } from './follow.js';
 import { forgetTrip, keepTrip, keptTrip } from './kept.js';
-import { arrivalsUrl, dueStops, liveStatus, stopLive, unanswered } from './live.js';
+import { arrivalsUrl, dueStops, liveStatus, ownBus, stopLive, unanswered } from './live.js';
 import { doorToDoor, isLongWalk } from './plan.js';
 import { placePicker } from './picker.js';
 import { TRAINS_URL, trainsDue, trainsUnanswered } from './trains.js';
@@ -163,7 +163,7 @@ function start(metro) {
     // them, whether they've left the start, and what From's status line says
     // of it. `following` itself is My location's switch (below)
     let following = false;
-    const ride = { key: null, steps: null, state: starting(), left: false, said: null };
+    const ride = { key: null, way: null, steps: null, state: starting(), left: false, said: null };
     const riding = () => Boolean(following && to && ride.left && ride.steps);
     const keyOf = o => o.city ? o.rides.map(r => `${r.board.id}>${r.alight.id}`).join() : o.plan.legs.map(leg => `${leg.from}>${leg.to}`).join();
     // The steps are made again only for another way: a trip planned again,
@@ -173,9 +173,9 @@ function start(metro) {
         const key = o ? keyOf(o) : null;
         if (key === ride.key) return;
         const { fix, anchor } = ride.state;
-        Object.assign(ride, { key, steps: o ? waySteps(o, from, to, drawnOn(date)) : null, state: { ...starting(), fix, anchor, at: fix?.at ?? null } });
+        Object.assign(ride, { key, way: o, steps: o ? waySteps(o, from, to, drawnOn(date)) : null, state: { ...starting(), fix, anchor, at: fix?.at ?? null } });
     };
-    const resetRide = () => Object.assign(ride, { key: null, steps: null, state: starting(), left: false, said: null });
+    const resetRide = () => Object.assign(ride, { key: null, way: null, steps: null, state: starting(), left: false, said: null });
     // Where the rider is, for the worker to time the way from (buses.js
     // LiveStep): as of now, or of the last fix when none has come for a while
     // (underground), so nothing slides to the next train; a walk by what's
@@ -212,6 +212,7 @@ function start(metro) {
         /** @type {Map<string, number>} */ asked: new Map(),
         /** @type {Set<string>} */ asking: new Set(),
         /** @type {'start' | 'moved' | null} */ opening: 'start', paused: false, touched: Date.now(),
+        /** @type {import('./buses.js').OwnBus | null} */ own: null,
         /** @type {'taken' | 'kept' | null} */ choice: null, directions: null, offered: false,
         /** @type {import('./trains.js').TrainsLive | null} */ trains: null, trainsAsked: -Infinity, askingTrains: false,
     };
@@ -246,10 +247,10 @@ function start(metro) {
             if (live.way) { live.way = null; showLive(); }
             return;
         }
-        searches.postMessage({ id: want.id, live: { seq: ++live.seq, row: want.row, departure: want.departure, now: athensNow(), stops: Object.fromEntries(live.answers), taken: want.taken, trains: lateness(), step: stepFor() } });
+        searches.postMessage({ id: want.id, live: { seq: ++live.seq, row: want.row, departure: want.departure, now: athensNow(), stops: Object.fromEntries(live.answers), taken: want.taken, trains: lateness(), step: stepFor(), own: live.own } });
     };
     const resetLive = () => {
-        Object.assign(live, { trip: live.trip + 1, wanted: null, way: null, answers: new Map(), asked: new Map(), asking: new Set(), opening: 'start', choice: null, directions: null, offered: false });
+        Object.assign(live, { trip: live.trip + 1, wanted: null, way: null, answers: new Map(), asked: new Map(), asking: new Set(), opening: 'start', choice: null, directions: null, offered: false, own: null });
         showLive();
     };
     // The trip planned again from where the rider moved to (decision 45):
@@ -257,7 +258,7 @@ function start(metro) {
     // stops new to its way are asked at once. The way being timed goes, and
     // an answer for it still to come from the worker is dropped
     const moveLive = () => {
-        Object.assign(live, { seq: live.seq + 1, wanted: null, way: null, opening: 'moved', choice: null, directions: null, offered: false });
+        Object.assign(live, { seq: live.seq + 1, wanted: null, way: null, opening: 'moved', choice: null, directions: null, offered: false, own: null });
         showLive();
     };
     // Paused, unavailable or older live times, said above the answer
@@ -304,13 +305,15 @@ function start(metro) {
     // The stops that are due (live.js), and the trains when the way has one
     // (trains.js): nothing while paused or out of sight. The first stop not
     // asked before says the trip's `opening`; after a re-plan that kept
-    // every stop, nothing does
+    // every stop, nothing does. A stop first asked for the ride the rider is
+    // on (their own bus's, decision 50) says that instead
     const askDue = () => {
         if (!live.way || live.paused || document.hidden) return;
         const seconds = athensNow().seconds;
         const due = dueStops(live.way.way.asks, live, Date.now(), seconds);
-        const first = due.find(code => !live.answers.has(code));
-        for (const code of due) ask(code, code === first ? live.opening : null);
+        const forRide = new Set(live.way.way.asks.filter(a => a.ride).map(a => a.stop));
+        const first = due.find(code => !live.answers.has(code) && !forRide.has(code));
+        for (const code of due) ask(code, forRide.has(code) ? live.answers.has(code) ? null : 'ride' : code === first ? live.opening : null);
         live.opening = null;
         const { train } = live.way.way;
         if (train !== null && trainsDue(train, { asking: live.askingTrains, asked: live.trainsAsked, answer: live.trains }, Date.now(), seconds)) askTrains();
@@ -576,6 +579,15 @@ function start(metro) {
         const nowMs = Date.now();
         ride.state = placeOn(ride.steps, ride.state, fix, nowMs);
         sayRide();
+        // Boarding a bus: the one of the way's lines OASA had due at that
+        // stop nearest then is theirs, known again where they get off
+        const step = stepOf(ride.steps, ride.state);
+        if (ride.state.moved && step.kind === 'ride' && live.own?.leg !== step.ride) {
+            const boarded = ride.way?.rides?.[step.ride];
+            const code = boarded?.board.id.startsWith('bus:') ? boarded.board.id.slice('bus:'.length) : null;
+            const vehicle = code ? ownBus(live.answers.get(code), boarded.lines, athensNow(new Date(nowMs)).seconds) : null;
+            live.own = vehicle ? { leg: step.ride, vehicle } : null;
+        }
         if (live.paused && ride.state.anchor?.at === nowMs) interact();
         if (offDue(ride.state, nowMs)) { replanIfOff(); return; }
         if (!ride.state.moved) return;

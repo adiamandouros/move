@@ -98,14 +98,19 @@ proposed and agreed before it is built.
     planned, at most every 2 minutes;
   - without a destination, a new position only changes From, and nothing
     is asked.
-- **Still to build, agreed with the same numbers**: the rider's own bus
-  (OASA's vehicle code kept from the stop they boarded at; the stop they
-  get off asked for it on the tiers by that bus's minutes there); a search
-  ahead on the phone from the ride's remaining stops at each stop reached,
-  at most once a minute, which costs OASA nothing by itself; a stop first
-  asked for either of those says `&for=plan-ride`, one new column on
-  /admin/usage; and the switch to a way 3 minutes or more sooner, with its
-  countdown.
+- **The rider's own bus**: boarding, the bus of the way's lines that OASA
+  had due at that stop nearest then is theirs, by its vehicle code
+  (`ownBus` in [live.js](../../tools/trip/client/live.js)). The stop they
+  get off is asked for it, on the tiers by when OASA has that vehicle due
+  there, and the ride gets off then; its first request says
+  `&for=plan-ride`, one new column on /admin/usage, "stops asked for the
+  rider's own ride". Within the 10 stops a trip, and in place of the stop
+  they boarded at, so nothing more than a trip kept open.
+- **Still to build, agreed with the same numbers**: a search ahead on the
+  phone from the ride's remaining stops at each stop reached, at most once
+  a minute, which costs OASA nothing by itself (a stop it first asks for
+  says `plan-ride` too); and the switch to a way 3 minutes or more sooner,
+  with its countdown.
 - **The collector** asks for one stop every 6 seconds, Monday to Friday
   07:00–10:00 and 16:00–20:00 Athens time: at most 10 requests a minute,
   about 4,200 a day ([collector.js](../../server/oasa/collector.js)). Its
@@ -146,9 +151,12 @@ proposed and agreed before it is built.
   the ride is followed, or how long ago the last position came.
 - The quicker way on a decision ([36](0036-trip-quicker-way.md)) is still
   worked out from the first ride as timed, and no longer once that ride is
-  done. Which of OASA's buses is the rider's own still isn't known: the
-  ride they're on is timed from where they are by the timetable, not by
-  OASA's prediction for their bus, until that's built.
+  done; how late the rider's own bus is at the change doesn't count in it
+  yet (`here` in `quickerWay`): that comes with the search ahead.
+- A bus boarded where OASA had none of its line coming, or one OASA has no
+  vehicle code for, isn't known again: the ride they're on is timed from
+  where they are by the timetable. So is one whose code OASA no longer
+  lists where they get off, until it does.
 - Where a last bus can be any of several, the way is followed by the stop
   and line the way boards; a rider walking to another of the stops is
   within 300 m of it, so still on the way.

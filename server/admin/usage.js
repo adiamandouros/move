@@ -47,6 +47,8 @@ export function usageView(days) {
                 planSearches, planAsked, planPerSearch,
                 // (none before decision 45)
                 planMoved: d.plans?.moved ?? '–',
+                // (none before decision 50)
+                planRide: d.plans?.ride ?? '–',
                 // (nor the collector)
                 collector: d.requests.collector ?? '–',
                 collectorSkipped: d.dropped.collector ?? '–',

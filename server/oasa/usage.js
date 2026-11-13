@@ -25,11 +25,13 @@ import { REQUESTS_PER_SECOND } from './client.js';
 //             fresh answers: how far ahead its predictions reach (for retries
 //             and scheduled times, items 37 and 13)
 //   plans     the Trip page's searches with live times, the re-plans from
-//             where the rider moved to that asked for a stop (`moved`), and
-//             its stop answers by where they came from (also counted in
-//             `answers`): its load on OASA per search (decision 45). Days
-//             from before decision 39 also have `trips`, the bus trip
-//             finder's, no longer shown; from before 45, no `moved`
+//             where the rider moved to that asked for a stop (`moved`), the
+//             stops first asked for the ride the rider is on (`ride`,
+//             decision 50), and its stop answers by where they came from
+//             (also counted in `answers`): its load on OASA per search
+//             (decision 45). Days from before decision 39 also have `trips`,
+//             the bus trip finder's, no longer shown; from before 45, no
+//             `moved`; from before 50, no `ride`
 //   passes    buses seen passing a stop (passes.js); the collector's requests
 //             are the kind 'collector', and its skipped turns are dropped
 //             requests of that kind (decision 26)
@@ -76,7 +78,7 @@ const emptySummary = () => ({
     dropMinutes: 0,
     network: null,
     horizon: {},
-    ...Object.fromEntries(SEARCHES.map(kind => [kind, { searches: 0, moved: 0, answers: counts(SOURCES) }])),
+    ...Object.fromEntries(SEARCHES.map(kind => [kind, { searches: 0, moved: 0, ride: 0, answers: counts(SOURCES) }])),
     pages: { asked: {}, served: {} },
     passes: 0,
     trains: emptyTrains(),
@@ -112,10 +114,12 @@ function addMinute(summary, minute) {
     for (const [line, minutes] of Object.entries(minute.horizon)) summary.horizon[line] = Math.max(summary.horizon[line] ?? 0, minutes);
     // (nor the Trip page's, before it was counted)
     for (const kind of SEARCHES) {
-        summary[kind] ??= { searches: 0, moved: 0, answers: counts(SOURCES) };
+        summary[kind] ??= { searches: 0, moved: 0, ride: 0, answers: counts(SOURCES) };
         summary[kind].searches += minute[kind].searches;
         // (nor the re-plans, before decision 45)
         summary[kind].moved = (summary[kind].moved ?? 0) + minute[kind].moved;
+        // (nor the stops for the rider's own ride, before decision 50)
+        summary[kind].ride = (summary[kind].ride ?? 0) + (minute[kind].ride ?? 0);
         for (const s of SOURCES) summary[kind].answers[s] += minute[kind].answers[s];
     }
     // (nor the pages, before they were counted)
@@ -250,10 +254,12 @@ export function createUsage({ file = null, networkFile = null, now = Date.now, k
         // A stop's answer to a visitor, and where it came from
         answer(stop, source) { const m = current(); m.answers[source]++; m.stopCodes.add(stop); },
         // The Trip page (`kind`, SEARCHES): a new search, a re-plan from where
-        // the rider moved to that asked for a stop, and a stop's answer to
-        // either (by where it came from)
+        // the rider moved to that asked for a stop, a stop first asked for
+        // the ride the rider is on, and a stop's answer to any (by where it
+        // came from)
         tripSearch(kind = 'plans') { current()[kind].searches++; },
         tripMoved(kind = 'plans') { current()[kind].moved++; },
+        tripRide(kind = 'plans') { current()[kind].ride++; },
         tripAnswer(source, kind = 'plans') { current()[kind].answers[source]++; },
         // Buses seen passing a stop (passes.js)
         passes(n) { current().passes += n; },
