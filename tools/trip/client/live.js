@@ -11,11 +11,26 @@ import { refreshEvery } from '/tools/buses/timing.js';
 /** @typedef {{ arrivals?: { route: string, vehicle?: string | null, line: string | null, to?: { el: string, en: string } | null, minutes: number }[], stale?: boolean, unavailable?: boolean }} StopAnswer */
 
 // The address that asks for one stop. Its requests say they're the Trip
-// page's, and the first of a trip, or the first new stop after the trip was
-// planned again from where the rider moved to (decision 45), say that too,
-// so /admin/usage counts them apart (server/oasa/usage.js)
-/** @param {string} code @param {'start' | 'moved' | null} [opening] */
+// page's, and the first of a trip, the first new stop after the trip was
+// planned again from where the rider moved to (decision 45), or a stop
+// first asked for the ride they're on (decision 50), say that too, so
+// /admin/usage counts them apart (server/oasa/usage.js)
+/** @param {string} code @param {'start' | 'moved' | 'ride' | null} [opening] */
 export const arrivalsUrl = (code, opening = null) => `/api/arrivals?stops=${code}&for=${opening ? `plan-${opening}` : 'plan'}`;
+
+/**
+ * The rider's own bus, as they board at `boardedAt` (seconds from midnight)
+ * at a stop whose last answer is `answer`: OASA's code for the vehicle of
+ * their `lines` due nearest then, by which it's known again at the stop they
+ * get off (decision 50). Null when OASA had none, or no code for it
+ * @param {StopLive | undefined} answer @param {string[]} lines @param {number} boardedAt
+ * @returns {string | null}
+ */
+export function ownBus(answer, lines, boardedAt) {
+    const theirs = (answer?.buses ?? []).filter(bus => bus.line && lines.includes(bus.line));
+    const nearest = theirs.reduce((best, bus) => !best || Math.abs(bus.at - boardedAt) < Math.abs(best.at - boardedAt) ? bus : best, null);
+    return nearest?.vehicle ?? null;
+}
 
 /**
  * A stop's answer from /api/arrivals, which came at `seconds` (from
@@ -44,7 +59,7 @@ export const unanswered = last => last && !last.unavailable ? { ...last, stale: 
  * is due by when the first bus the rider can catch there comes, and not
  * while it's being asked for. `asked`: when each was last asked, answered
  * or not (ms)
- * @param {{ stop: string, at: number | null }[]} asks
+ * @param {{ stop: string, at: number | null, ride?: true }[]} asks
  * @param {{ asking: Set<string>, asked: Map<string, number>, answers: Map<string, StopLive> }} state
  * @param {number} nowMs @param {number} seconds now, from midnight
  * @returns {string[]}

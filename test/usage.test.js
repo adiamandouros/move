@@ -214,7 +214,7 @@ test('the usage page: a day per row, newest first, and each route\'s answers per
     assert.deepEqual(view.asked[1], {
         date: '2026-10-30', requests: 2, firstLooks: 1, refreshes: 1, routeNames: 0, routeTests: 0, network: '–',
         fromCache: '67%', stops: 2, mostAtOnce: 2, longestWait: '2.4 s', busyMinutes: '1 / 0', dropped: '1 (in 1 min)', paused: 0, limited: 0,
-        planSearches: 0, planAsked: 0, planPerSearch: '–', planMoved: 0, collector: 0, collectorSkipped: 0, passes: 0,
+        planSearches: 0, planAsked: 0, planPerSearch: '–', planMoved: 0, planRide: 0, collector: 0, collectorSkipped: 0, passes: 0,
     });
     assert.deepEqual(view.answered, [
         { date: '2026-10-31', route: 'home relay', ok: 0, failed: 1, half: 'over 8 s', most: 'over 8 s', downMinutes: 1 },
@@ -248,19 +248,22 @@ test('the Trip page\'s live times: its searches, its re-plans and its stop answe
     usage.tripMoved();
     usage.tripMoved();
     usage.tripAnswer('oasa');
+    // A stop first asked for the ride the rider is on (decision 50)
+    usage.tripRide();
 
-    assert.deepEqual(usage.status().hour.plans, { searches: 1, moved: 2, answers: { oasa: 4, cache: 1, old: 1, none: 0 } });
+    assert.deepEqual(usage.status().hour.plans, { searches: 1, moved: 2, ride: 1, answers: { oasa: 4, cache: 1, old: 1, none: 0 } });
     assert.equal(usage.status().hour.trips, undefined);
     const view = usageView(usage.days());
-    assert.deepEqual(view.asked.map(d => [d.date, d.planSearches, d.planMoved, d.planAsked, d.planPerSearch]), [
-        ['2026-11-06', 1, 2, 4, '4.0'],
-        ['2026-11-05', '–', '–', '–', '–'],
-        ['2026-11-04', 2, '–', 8, '4.0'],
+    assert.deepEqual(view.asked.map(d => [d.date, d.planSearches, d.planMoved, d.planRide, d.planAsked, d.planPerSearch]), [
+        ['2026-11-06', 1, 2, 1, 4, '4.0'],
+        ['2026-11-05', '–', '–', '–', '–', '–'],
+        ['2026-11-04', 2, '–', '–', 8, '4.0'],
     ]);
     const html = view_(view);
     assert.match(html, /<th scope="col">Trip page re-plans from where the rider moved<\/th>/);
+    assert.match(html, /<th scope="col">Trip page stops asked for the rider's own ride<\/th>/);
     assert.match(html, /<th scope="col">Asked of OASA per Trip page search<\/th>/);
-    assert.match(html, /<td>1<\/td>\s*<td>2<\/td>\s*<td>4<\/td>\s*<td>4\.0<\/td>/, 'the Trip page\'s columns');
+    assert.match(html, /<td>1<\/td>\s*<td>2<\/td>\s*<td>1<\/td>\s*<td>4<\/td>\s*<td>4\.0<\/td>/, 'the Trip page\'s columns');
     assert.doesNotMatch(html, /trip finder/i);
 });
 

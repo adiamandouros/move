@@ -28,7 +28,7 @@ import { busOptions, cityPlanner, halfHour, halfView, liveWay, shownRows } from 
  * the suburban trains run, by number (trains.js)
  * @typedef {{ rail: import('../../../types/data.js').Rail, suburban?: boolean }
  *   | { id: number, from: Point, to: Point, now: { weekday: number, seconds: number, date?: string }, half: boolean }
- *   | { id: number, live: { seq: number, row: number, departure: number, now: { seconds: number }, stops: Record<string, import('./buses.js').StopLive>, taken?: boolean, step?: import('./buses.js').LiveStep | null,
+ *   | { id: number, live: { seq: number, row: number, departure: number, now: { seconds: number }, stops: Record<string, import('./buses.js').StopLive>, taken?: boolean, step?: import('./buses.js').LiveStep | null, own?: import('./buses.js').OwnBus | null,
  *     trains?: Record<string, import('./trains.js').TrainLate> | null } }} Asked
  */
 /**
@@ -84,14 +84,14 @@ export function searcher({ loadBuses, loadTrains = async () => null, post, pause
             return;
         }
         if ('live' in message) {
-            const { id, live: { seq, row, departure, now, stops, taken = false, trains = null, step = null } } = message;
+            const { id, live: { seq, row, departure, now, stops, taken = false, trains = null, step = null, own = null } } = message;
             if (id !== shown?.id) return;
             let way = null;
             try {
                 const full = shown.rows[row];
                 // The quicker way goes with the decision's directions
                 const decision = full && full === shown.decision?.stayOn ? shown.decision : null;
-                way = full ? liveWay(shown.planner, shown.from, shown.to, full, departure, now, stops, { decision, taken, trains, step }) : null;
+                way = full ? liveWay(shown.planner, shown.from, shown.to, full, departure, now, stops, { decision, taken, trains, step, own }) : null;
             } catch { /* the way as the half hour has it */ }
             post({ id, live: { seq, way } });
             return;

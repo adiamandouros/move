@@ -339,14 +339,16 @@ version they started with, and it takes over once they're closed
   (`client/follow.js`: the way as steps, where a fix puts the rider, when
   they're off it, standing still; each ride carries its stops' positions,
   `along` and `past` in `buses.js`); the worker times the way from that
-  step, the stops passed aren't asked again, and a followed trip pauses
-  for standing still 10 minutes rather than for the page untouched. Off
+  step, the stops passed aren't asked again, the stop they get off is
+  asked for their own bus (OASA's vehicle code, `ownBus` in `live.js`), and
+  a followed trip pauses for standing still 10 minutes rather than for the
+  page untouched. Off
   the way, or with no way to follow yet, the trip is planned again from
   where they are, 200 m on and at most every 2 minutes
   ([decision 50](docs/decisions/0050-trip-follows-the-ride.md)); its stops
   keep their answers, so only those new to the way are asked at once. Its
   requests carry `&for=plan` (`plan-start` for a search, `plan-moved` for a
-  re-plan).
+  re-plan, `plan-ride` for a stop first asked for the ride they're on).
 - `limits.js`: each visitor may ask for 30 stops a minute that aren't cached.
 - `passes.js`: from every fresh answer, the buses that passed a stop (one 3
   minutes away or less, gone from the next answer), a line each in the day's
