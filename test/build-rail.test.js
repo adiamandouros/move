@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildRail } from '../server/data/build-rail.js';
+import { buildRail, streetExits } from '../server/data/build-rail.js';
 import { extractTables } from '../server/data/stasy.js';
 import { railCurated as curated, railFeed as feed } from './fixtures/gtfs.js';
 import { stasyPage, stasyTable } from './fixtures/stasy.js';
@@ -37,6 +37,29 @@ test('the pages get only where the elevators are, each place once; "none" and th
     const [a, b] = data.lines.M9.directions.north.stops;
     assert.deepEqual(a, { station: 'a', exits: ['back'], elevators: ['front', 'back'], stepFree: 'lift' });
     assert.deepEqual(b, { station: 'b', exits: ['front'] });
+});
+
+test('a station\'s exits with a place, for the Trip page\'s walks (decision 51): named without the sign\'s "Exit", how they\'re reached when it isn\'t every way', async () => {
+    const street = {
+        a: {
+            exits: [
+                { name: { el: 'Έξοδος Πλατεία', en: 'Exit / Square' }, coords: [37.1, 23.1], way: ['escalator-down', 'stairs', 'escalator-up'] },
+                { name: { el: 'Οδός Κρήτης', en: 'No name' }, coords: [37.2, 23.2], way: ['escalator-up'] },
+                { name: { el: 'Χωρίς θέση ακόμα' } },
+                { coords: [37.3, 23.3] },
+            ],
+            lifts: [{ name: 'Εξωτερικός', coords: [37.1, 23.1] }],
+        },
+    };
+    const { data } = await buildRail({ dir: feed(), curated: curated({ street }), today: '20261003' });
+    assert.deepEqual(data.stations.a.exits, [
+        { name: { el: 'Πλατεία', en: 'Square' }, at: [37.1, 23.1] },
+        { name: { el: 'Οδός Κρήτης' }, at: [37.2, 23.2], way: ['escalator-up'] },
+        { at: [37.3, 23.3] },
+    ]);
+    assert.equal(data.stations.b.exits, undefined, 'none recorded');
+    assert.deepEqual(streetExits({ exits: [{ name: { el: 'Έξοδος', en: 'No name' }, coords: [37.1, 23.1] }] }), [{ name: { el: 'Έξοδος' }, at: [37.1, 23.1] }], 'a name that\'s only "Exit" is kept as it is');
+    assert.deepEqual(streetExits(undefined), []);
 });
 
 test('a train the feed lists twice is kept once, the night before\'s copy on the earlier day', async () => {

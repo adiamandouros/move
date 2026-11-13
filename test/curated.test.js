@@ -167,14 +167,18 @@ test('tram.json: lines with a colour and directions, stops with names and their 
     ].sort());
 });
 
-test('tram.json: walks go to stations and stops that exist, in whole minutes, and every change to the metro has one', () => {
+test('tram.json: walks go to stations and stops that exist, in whole minutes, every change to the metro has one, and an exit is a metro station\'s, by name', () => {
     const c = real();
     c.tram.stops.batis.walks = [{ metro: 'nowhere', minutes: 3 }];
     c.tram.stops.edem.walks = [{ stop: 'nowhere', minutes: 3 }, { stop: 'batis', minutes: 2.5 }, { metro: 'faliro', minutes: 0 }];
     c.tram.stops.zefyros.walks = [{ minutes: 3 }];
     c.tram.stops.fix.walks = [];
+    c.tram.stops.syntagma.walks = [{ metro: 'syntagma', minutes: 4, exit: '' }];
+    c.tram.stops.kasomouli.walks = [{ stop: 'batis', minutes: 4, exit: 'Πλατεία' }];
     const { errors } = validateCurated(c);
     assert.deepEqual(errors.sort(), [
+        'tram.json: kasomouli\'s walk to batis: "exit" is the Greek name of the metro station\'s exit it uses, as in street.json',
+        'tram.json: syntagma\'s walk to syntagma: "exit" is the Greek name of the metro station\'s exit it uses, as in street.json',
         'tram.json: batis walks to an unknown station or stop "nowhere"',
         'tram.json: edem walks to an unknown station or stop "nowhere"',
         'tram.json: edem\'s walk to batis needs whole minutes',

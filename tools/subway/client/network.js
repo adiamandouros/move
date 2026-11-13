@@ -5,8 +5,9 @@ import { createPlanner } from './raptor.js';
 
 /**
  * rail.json's metro, or the metro and the tram together (withTram). `walks`:
- * the stations a short walk from each other, with the minutes it takes
- * @typedef {import('../../../types/data.js').Rail & { walks?: Record<string, Record<string, number>> }} Rail
+ * the stations a short walk from each other, with the minutes it takes;
+ * `walkExits`: the metro station's exit one goes through, where it's said
+ * @typedef {import('../../../types/data.js').Rail & { walks?: Record<string, Record<string, number>>, walkExits?: Record<string, Record<string, number>> }} Rail
  */
 /** @typedef {import('../../../types/data.js').Stop} Stop */
 /** @typedef {import('../../../types/data.js').Position} Position */
@@ -80,7 +81,8 @@ export function athensDate(date = new Date()) {
 // before they were added), it's rail.
 // Every tram stop is a station of its own, metro stations first. One with a
 // metro station's id and name, like Syntagma, gets an id of its own and says
-// "(tram)" in its name. Each stop's `walks` go both ways.
+// "(tram)" in its name. Each stop's `walks` go both ways, and `walkExits`
+// says which of a metro station's exits one goes through, where tram.json says.
 /** @param {Rail} rail @returns {Rail} */
 export function withTram(rail) {
     const { tram } = rail;
@@ -91,13 +93,15 @@ export function withTram(rail) {
     const stationId = id => clashes(id) ? `${id}-tram` : id;
     const stations = { ...rail.stations };
     const walks = {};
-    const addWalk = (a, b, minutes) => {
+    const walkExits = {};
+    const addWalk = (a, b, minutes, exit) => {
         (walks[a] ??= {})[b] = minutes;
         (walks[b] ??= {})[a] = minutes;
+        if (exit !== undefined) (walkExits[a] ??= {})[b] = (walkExits[b] ??= {})[a] = exit;
     };
     for (const [id, { name, coords, lines, walks: nearby = [] }] of Object.entries(tram.stations)) {
         stations[stationId(id)] = { name: clashes(id) ? { el: `${name.el} (τραμ)`, en: `${name.en} (tram)` } : name, coords, lines, tram: true };
-        for (const { metro, stop, minutes } of nearby) addWalk(stationId(id), metro ?? stationId(stop), minutes);
+        for (const { metro, stop, minutes, exit } of nearby) addWalk(stationId(id), metro ?? stationId(stop), minutes, exit);
     }
     const lines = { ...rail.lines };
     for (const [id, line] of Object.entries(tram.lines)) {
@@ -110,7 +114,7 @@ export function withTram(rail) {
             }])),
         };
     }
-    return { ...rail, stations, lines, walks };
+    return { ...rail, stations, lines, walks, walkExits };
 }
 
 // The stops of trains that end at the same station, in one order: the

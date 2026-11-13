@@ -1,4 +1,4 @@
-import { METERS_PER_MINUTE, walkMeters } from '/tools/subway/city.js';
+import { METERS_PER_MINUTE, stationWalk, walkMeters } from '/tools/subway/city.js';
 import { arrivalsFrom, nextDay, planTrip } from '/tools/subway/network.js';
 import { weighed } from '/tools/subway/weights.js';
 
@@ -11,7 +11,8 @@ import { weighed } from '/tools/subway/weights.js';
 
 // Walks are worked out from the straight line, as we have no street map:
 // the city's search's walk (city.js), so a walk to a station is timed the
-// same in every option (decision 37). Shown as estimates.
+// same in every option (decision 37), to or from the nearest of its exits
+// that goes the rider's way (decision 51). Shown as estimates.
 // The nearest station isn't always the best: the next one may be on a direct line
 const STATIONS_TRIED = 3;
 // Any other station or tram stop this close is tried too, and any bus stop
@@ -35,20 +36,40 @@ export function walkBetween(from, to) {
     return { meters: Math.round(meters), minutes: Math.max(1, Math.round(meters / METERS_PER_MINUTE)) };
 }
 
-const stationPlace = (rail, station) => ({ lat: rail.stations[station].coords[0], lng: rail.stations[station].coords[1] });
+// A station as the city's search walks to it (city.js), with a metro station's exits
+const stationPlace = (rail, station) => {
+    const { coords, exits } = rail.stations[station];
+    return { lat: coords[0], lng: coords[1], exits };
+};
 
-// The stations to try from a place: { station, walk, nearest }, nearest first.
-// nearest: one of the metro stations nearest it, or the station it is: every
-// trip between those is planned. The others are any station or tram stop a
-// short walk away
-/** @param {Rail} rail @param {Place} place */
-export function stationsNear(rail, place) {
+/**
+ * A walk from `place` into `station` (`way` 'in') or out of it to `place`
+ * ('out'), through the exit it goes by (`exit`, its place in the station's
+ * exits, or null), its `meters` and `minutes`; `away`, the minutes to where
+ * the station is, which say how far it is (NEAR_MINUTES), as for the city's
+ * search, so its exits never put it out of reach
+ * @param {Rail} rail @param {Place} place @param {string} station @param {import('/tools/subway/city.js').Way} way
+ */
+export function walkStation(rail, place, station, way) {
+    const at = stationPlace(rail, station);
+    const { exit, seconds } = stationWalk(at, place, way);
+    return { meters: Math.round(seconds / 60 * METERS_PER_MINUTE), minutes: Math.max(1, Math.round(seconds / 60)), away: walkBetween(place, at).minutes, exit };
+}
+
+// The stations to try from a place, walking into them (`way` 'in') or, at
+// the trip's end, out of them ('out'): { station, walk, nearest }, nearest
+// first. nearest: one of the metro stations nearest it, or the station it
+// is: every trip between those is planned. The others are any station or
+// tram stop a short walk away on the street
+/** @param {Rail} rail @param {Place} place @param {import('/tools/subway/city.js').Way} [way] */
+export function stationsNear(rail, place, way = 'in') {
     if (place.station) return [{ station: place.station, walk: null, nearest: true }];
     const all = Object.keys(rail.stations)
-        .map(station => ({ station, walk: walkBetween(place, stationPlace(rail, station)) }))
-        .sort((a, b) => a.walk.meters - b.walk.meters);
+        .map(station => ({ station, walk: walkStation(rail, place, station, way), far: walkMeters(place, stationPlace(rail, station)) }))
+        .sort((a, b) => a.far - b.far)
+        .map(({ far, ...s }) => s);
     const metro = new Set(all.filter(({ station }) => !rail.stations[station].tram).slice(0, STATIONS_TRIED));
-    return all.filter(s => metro.has(s) || s.walk.minutes <= NEAR_MINUTES).map(s => ({ ...s, nearest: metro.has(s) }));
+    return all.filter(s => metro.has(s) || s.walk.away <= NEAR_MINUTES).map(s => ({ ...s, nearest: metro.has(s) }));
 }
 
 // `now`, `minutes` later, into the next day if it comes to that
@@ -117,7 +138,7 @@ export const isLongWalk = o => Math.max(...endWalks(o)) >= LONG_WALK_MINUTES;
  * @param {{ buses?: BusOption[] }} [options]
  */
 export function doorToDoor(rail, from, to, now, { buses = [] } = {}) {
-    const pairs = stationsNear(rail, from).flatMap(start => stationsNear(rail, to).map(end => ({ start, end })))
+    const pairs = stationsNear(rail, from, 'in').flatMap(start => stationsNear(rail, to, 'out').map(end => ({ start, end })))
         .filter(({ start, end }) => start.station !== end.station);
     // Every trip between the nearest stations, and the quickest few others
     const nearest = pairs.filter(({ start, end }) => start.nearest && end.nearest);

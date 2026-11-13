@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { buildTimetable, dropCopies } from './build-rail.js';
+import { buildTimetable, dropCopies, exitLabel } from './build-rail.js';
 import { toSeconds } from './calendar.js';
 import { readCsv, readCsvAll } from './csv.js';
 
@@ -9,7 +9,7 @@ import { readCsv, readCsvAll } from './csv.js';
 // positions:
 //
 // {
-//   stations: { id: { name: { el, en }, coords: [lat, lng], lines: ['T6', …], metro?: { station, lines }, walks?: [{ metro | stop, minutes }, …] } },
+//   stations: { id: { name: { el, en }, coords: [lat, lng], lines: ['T6', …], metro?: { station, lines }, walks?: [{ metro | stop, minutes, exit? }, …] } },
 //   lines: { T6: { name, color, directions: { pikrodafni: { toward: { el, en }, stops: [{ station }, …], timetable } } } }
 // }
 //
@@ -20,7 +20,9 @@ import { readCsv, readCsvAll } from './csv.js';
 // `metro` is the metro station a stop changes to (tram.json's `metro`, with
 // that station's lines from the metro part of rail.json), and `walks` the
 // stops it's a short walk from, with the minutes: to change there, or instead
-// of riding.
+// of riding. A walk to a metro station that uses one of its exits (tram.json's
+// `exit`, by its Greek name in street.json) has that exit's place in the
+// station's `exits` (decision 51).
 //
 // The timetable is the feed's, on the metro's week and dates (`calendar`, from
 // buildRail). Unlike the metro's it isn't held to STASY's: its first and last
@@ -139,7 +141,8 @@ export async function buildTram({ dir, tram, metroStations, calendar }) {
         if (!stopLines.has(id)) { warnings.push(`tram.json: ${id} is not served by any tram`); continue; }
         const metro = s.metro && metroStations[s.metro];
         if (s.metro && !metro) warnings.push(`tram.json: ${id} changes to ${s.metro}, which isn't a metro station in rail.json`);
-        const walks = (s.walks ?? []).filter(walk => walk.metro ? metroStations[walk.metro] : stopLines.has(walk.stop));
+        const walks = (s.walks ?? []).filter(walk => walk.metro ? metroStations[walk.metro] : stopLines.has(walk.stop))
+            .map(walk => walkExit(id, walk, metroStations, warnings));
         if (walks.length !== (s.walks ?? []).length) warnings.push(`tram.json: ${id} has a walk to a stop that isn't in rail.json`);
         stations[id] = {
             name: s.name,
@@ -151,6 +154,20 @@ export async function buildTram({ dir, tram, metroStations, calendar }) {
     }
 
     return { data: { stations, lines }, warnings };
+}
+
+// A walk to a metro station, with the place of the exit it uses in that
+// station's exits, or without one when the exit isn't among them (renamed in
+// the station editor, or without a place yet): a warning, as the editor is
+// never blocked (record 16)
+function walkExit(id, { exit, ...walk }, metroStations, warnings) {
+    if (exit === undefined || !walk.metro) return walk;
+    const at = (metroStations[walk.metro].exits ?? []).findIndex(e => e.name?.el === exitLabel(exit));
+    if (at < 0) {
+        warnings.push(`tram.json: ${id}'s walk to ${walk.metro} uses the exit "${exit}", which street.json doesn't have with a place`);
+        return walk;
+    }
+    return { ...walk, exit: at };
 }
 
 // A direction's timetable, on its stops only: a tram's calls anywhere else are

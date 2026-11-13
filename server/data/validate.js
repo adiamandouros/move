@@ -236,6 +236,7 @@ function checkTram(tram, stationIds, metroCodes, errors) {
             const known = walk.metro ? stationIds.has(walk.metro) : Object.hasOwn(tram.stops, walk.stop ?? '');
             if (!known) errors.push(`tram.json: ${id} walks to an unknown station or stop "${walk.metro ?? walk.stop}"`);
             if (!Number.isInteger(walk.minutes) || walk.minutes < 1) errors.push(`tram.json: ${id}'s walk to ${walk.metro ?? walk.stop} needs whole minutes`);
+            if (walk.exit !== undefined && (!walk.metro || typeof walk.exit !== 'string' || !walk.exit.trim())) errors.push(`tram.json: ${id}'s walk to ${walk.metro ?? walk.stop}: "exit" is the Greek name of the metro station's exit it uses, as in street.json`);
         }
     }
 }

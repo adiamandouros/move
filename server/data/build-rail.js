@@ -3,7 +3,7 @@ import { join } from 'path';
 import { readCsv, readCsvAll } from './csv.js';
 import { DAY_NAMES, addDays, crowdedDates, isoDate, pickWeek, serviceDates, toSeconds, weekday } from './calendar.js';
 import { applyHours } from './stasy.js';
-import { POSITIONS } from './validate.js';
+import { EXIT_WAYS, POSITIONS } from './validate.js';
 
 // Build rail.json — everything the subway page needs, offline:
 //
@@ -12,7 +12,7 @@ import { POSITIONS } from './validate.js';
 //   feed:      { validFrom, validTo, week: { sun: 'YYYY-MM-DD', … } }   ← dates the weekly timetable was taken from
 //   hours?:    { fetched: 'YYYY-MM-DD' }                                ← the copy of STASY's first and last trains
 //   positions: ['back', …, 'front'],
-//   stations:  { id: { name: { el, en }, coords: [lat, lng], lines: ['M1', …] } },
+//   stations:  { id: { name: { el, en }, coords: [lat, lng], lines: ['M1', …], exits?: [{ name?, at: [lat, lng], way? }, …] } },
 //   lines: { M1: { name, color, directions: { kifisia: {
 //       toward: { el, en },
 //       stops:  [{ station, exits, elevators?, escalators?, stairs?, centralPlatform?, transfers?, note?, hours? }, …],   ← in travel order
@@ -34,6 +34,8 @@ import { POSITIONS } from './validate.js';
 // simply trips whose profile covers fewer stops. Trains the feed lists twice
 // are kept once (see dropCopies). A stop's `hours` are STASY's first and last
 // trains from there, [{ to, first, last }] (stasy.js, readLine).
+// A station's `exits` are street.json's exits that have a place (streetExits),
+// for the Trip page's walks to and from them (decision 51).
 
 const RAIL_SCHEMA = 1;
 const DAY = 86_400;
@@ -44,7 +46,7 @@ const DAY = 86_400;
  * @returns {Promise<{ data: import('../../types/data.js').Rail, warnings: string[], notes: string[], calendar: import('./build-tram.js').Calendar }>}
  */
 export async function buildRail({ dir, curated, today, stasy = null }) {
-    const { stations, lines, positions, airport = null } = curated;
+    const { stations, lines, positions, airport = null, street = {} } = curated;
     const file = name => join(dir, name);
     const warnings = [];
 
@@ -195,10 +197,12 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
     for (const [id, s] of Object.entries(stations.stations)) {
         const sum = coordSums.get(id);
         if (!stationLines.has(id)) { warnings.push(`stations.json: ${id} is not served by any trip`); continue; }
+        const exits = streetExits(street[id]);
         stationsOut[id] = {
             name: s.name,
             coords: [round(sum.lat / sum.n, 5), round(sum.lng / sum.n, 5)],
             lines: [...stationLines.get(id)].sort(),
+            ...(exits.length && { exits }),
         };
     }
 
@@ -225,6 +229,34 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
         // For the tram, on the same week and dates (build-tram.js)
         calendar: { daysOf, serviceDays, ownDates },
     };
+}
+
+// An exit's name as a walk step says it, after "Way in:" or "Way out:": its
+// sign's "Exit" or "Έξοδος" left off, and none for one recorded as having none
+const SAID_EXIT = /^(?:exit|έξοδος)(?:\s*\/)?\s+/iu;
+const NO_NAME = /^no name$/i;
+/** @param {string | undefined} name */
+export const exitLabel = name => {
+    const said = name?.trim().replace(SAID_EXIT, '');
+    return said && !NO_NAME.test(said) ? said : undefined;
+};
+
+// A station's exits in street.json as the Trip page walks to them: those
+// with a place, each with its name (either language, while the other isn't
+// known), where it is, and how it's reached from inside when that's
+// recorded and isn't every way (EXIT_WAYS)
+/** @param {{ exits?: { name?: { el?: string, en?: string }, coords?: [number, number], way?: string[] }[] } | undefined} entry */
+export function streetExits(entry) {
+    return (entry?.exits ?? []).filter(exit => exit.coords).map(exit => {
+        const el = exitLabel(exit.name?.el);
+        const en = exitLabel(exit.name?.en);
+        const way = exit.way && EXIT_WAYS.filter(w => exit.way.includes(w));
+        return {
+            ...((el || en) && { name: { ...(el && { el }), ...(en && { en }) } }),
+            at: exit.coords,
+            ...(way && way.length < EXIT_WAYS.length && { way }),
+        };
+    });
 }
 
 // A stop's entry from positions.json, as the pages read it: its elevators

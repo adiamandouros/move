@@ -9,8 +9,8 @@ import { browserModule } from './support/browser-modules.js';
 
 const rail = JSON.parse(readFileSync(new URL('browser/data/rail.json', import.meta.url), 'utf8'));
 const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.meta.url), 'utf8'));
-const { doorToDoor, NEAR_MINUTES, stationsNear, walkBetween } = await browserModule('tools/trip/client/plan.js');
-const { walkSeconds } = await browserModule('tools/subway/client/city.js');
+const { doorToDoor, NEAR_MINUTES, stationsNear, walkBetween, walkStation } = await browserModule('tools/trip/client/plan.js');
+const { stationWalk, walkSeconds } = await browserModule('tools/subway/client/city.js');
 const { busOptions, cityPlanner, halfHour } = await browserModule('tools/trip/client/buses.js');
 const { answer } = await browserModule('tools/subway/client/answer.js');
 const { withTram } = await browserModule('tools/subway/client/network.js');
@@ -34,9 +34,37 @@ test('a walk is the straight line × 1.4, at 80 m a minute, and at least a minut
 
 test('a walk to a station takes as long as the city\'s search says the same walk takes', () => {
     for (const station of ['tavros', 'syntagma', 'aigaiou']) {
-        const at = { lat: network.stations[station].coords[0], lng: network.stations[station].coords[1] };
-        assert.equal(walkBetween(menelaou, at).minutes, Math.round(walkSeconds(menelaou, at) / 60), station);
+        const { coords: [lat, lng], exits } = network.stations[station];
+        for (const way of ['in', 'out']) assert.equal(walkStation(network, menelaou, station, way).minutes, Math.round(stationWalk({ lat, lng, exits }, menelaou, way).seconds / 60), `${station} ${way}`);
     }
+});
+
+test('a walk to a station with exits goes through the nearest that goes the rider\'s way, one without as before (decision 51)', () => {
+    const exit = (station, i) => network.stations[station].exits[i];
+    const named = (walk, station) => exit(station, walk.exit).name.en;
+    // From Panepistimiou, north of Syntagma: in by the Grande Bretagne stairs
+    const north = { lat: 37.9775, lng: 23.7353 };
+    const into = walkStation(network, north, 'syntagma', 'in');
+    assert.equal(named(into, 'syntagma'), 'Grande Bretagne/Panepistimiou');
+    assert.equal(into.minutes, Math.max(1, Math.round(walkSeconds(north, { lat: exit('syntagma', into.exit).at[0], lng: exit('syntagma', into.exit).at[1] }) / 60)));
+    // To the National Garden, south: out by the Amalias exit
+    assert.equal(named(walkStation(network, { lat: 37.9725, lng: 23.7365 }, 'syntagma', 'out'), 'syntagma'), 'Amalias/National Garden');
+    // Agia Varvara's Kalantzakou exit has only an escalator up: out by it, never in
+    const kalantzakou = { lat: exit('agia-varvara', 2).at[0] - 0.0005, lng: exit('agia-varvara', 2).at[1] };
+    assert.equal(named(walkStation(network, kalantzakou, 'agia-varvara', 'out'), 'agia-varvara'), 'Kalantzakou str.');
+    assert.notEqual(named(walkStation(network, kalantzakou, 'agia-varvara', 'in'), 'agia-varvara'), 'Kalantzakou str.');
+    // Tavros has none recorded: to where it is
+    const tavros = walkStation(network, menelaou, 'tavros', 'in');
+    assert.equal(tavros.exit, null);
+    assert.deepEqual([tavros.meters, tavros.minutes], [walkBetween(menelaou, { lat: network.stations.tavros.coords[0], lng: network.stations.tavros.coords[1] }).meters, walkBetween(menelaou, { lat: network.stations.tavros.coords[0], lng: network.stations.tavros.coords[1] }).minutes]);
+});
+
+test('a trip from the door walks into the first station through its way in, and out of the last through its way out', () => {
+    const north = { lat: 37.9775, lng: 23.7353 };
+    const [best] = doorToDoor(network, north, menelaou, NOW).options;
+    assert.equal(best.start.station, 'syntagma');
+    assert.equal(network.stations.syntagma.exits[best.start.walk.exit].name.en, 'Grande Bretagne/Panepistimiou');
+    assert.equal(best.end.walk.exit, null, 'the end, Tavros or Kallithea, has none recorded');
 });
 
 test('tries the three nearest stations, nearest first', () => {

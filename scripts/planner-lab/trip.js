@@ -40,8 +40,8 @@ const network = buses => createPlanner(joinNetwork(json('data/build/rail.json'),
 const planner = network('data/local/planner-lab/buses.json');
 const badDayFile = 'data/local/planner-lab/buses-bad-day.json';
 const badDay = existsSync(inRepo(badDayFile)) ? network(badDayFile) : planner;
-const access = planner.near(place(from), END_WALK_SECONDS);
-const egress = planner.near(place(to), END_WALK_SECONDS);
+const access = planner.near(place(from), END_WALK_SECONDS, -1, 'in');
+const egress = planner.near(place(to), END_WALK_SECONDS, -1, 'out');
 const [h, m] = time.split(':').map(Number);
 const now = h * 3600 + m * 60;
 

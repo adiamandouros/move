@@ -1,6 +1,6 @@
 # 48. The trip page: a last bus's stops as the Buses page's stop rows
 
-Decided 2026-11-11 · In force
+Decided 2026-11-11 · Replaced by [51](0051-trip-walks-through-exits.md)
 
 ## Situation
 

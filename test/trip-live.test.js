@@ -24,6 +24,8 @@ const network = withTram(rail);
 const city = cityPlanner(rail, buses, 3);
 
 const point = id => ({ lat: rail.stations[id].coords[0], lng: rail.stations[id].coords[1] });
+// A station picked as the trip's start or end: its platforms, with no walk to them through an exit (decision 51)
+const station = id => ({ ...point(id), station: id });
 const menelaou = { lat: 37.95463, lng: 23.71049 };
 const at = hours => ({ weekday: 3, seconds: hours * 3600 });
 const MIN = 60;
@@ -40,16 +42,16 @@ const routesOf = (line, board, alight) => [...routeCodes(city, [line], board, ne
 
 // From Menelaou to Syntagma at 10:00 it depends: any bus from near the door,
 // the 040 then the M2 from Syggrou-Fix, or the Β2 then the M2
-const depends = shownRows(answered(menelaou, point('syntagma'), at(10)));
+const depends = shownRows(answered(menelaou, station('syntagma'), at(10)));
 const busThenTrain = depends.find(row => row.key.startsWith('040'));
 const [bus, train] = busThenTrain.best[0].legs;
 const BOARD = codeOf(city.stops[bus.board]);
 const [ROUTE] = routesOf('040', bus.board, bus.alight);
-const timed = (row, stops, now = at(10)) => liveWay(city, menelaou, point('syntagma'), row, 0, now, stops);
+const timed = (row, stops, now = at(10)) => liveWay(city, menelaou, station('syntagma'), row, 0, now, stops);
 
 test('the rows the page shows are those the worker times again, in the same order', () => {
-    const answer = answered(menelaou, point('syntagma'), at(10));
-    assert.deepEqual(halfView(city, menelaou, point('syntagma'), answer).rows.map(row => row.range), shownRows(answer).map(row => row.range));
+    const answer = answered(menelaou, station('syntagma'), at(10));
+    assert.deepEqual(halfView(city, menelaou, station('syntagma'), answer).rows.map(row => row.range), shownRows(answer).map(row => row.range));
 });
 
 test('which of OASA\'s routes ride a bus: the line\'s routes that get from its stop to where it\'s left, not the way back', () => {
@@ -107,7 +109,7 @@ test('OASA with no bus the rider can catch: said, and the timetable\'s time stay
 
 // ── Followed along the way (Plan 7, decision 50) ────────────────────────────
 
-const SYNTAGMA_STOP = point('syntagma');
+const SYNTAGMA_STOP = station('syntagma');
 const followed = (row, step, stops = {}, now = at(10)) => liveWay(city, menelaou, SYNTAGMA_STOP, row, 0, now, stops, { step });
 // The timetable's ride from the 040's `offset`th stop to where it gets off, by the trip the way boards
 const rideFrom = offset => {
@@ -202,7 +204,7 @@ test('a last bus that can be any of several: its stops while the rider walks to 
 
 test('a way that can\'t be made from now, as its last bus has gone for the night, keeps its own times', () => {
     assert.equal(timed(busThenTrain, {}, at(27)), null);
-    assert.equal(liveWay(city, menelaou, point('syntagma'), { ...busThenTrain, best: busThenTrain.best.map(() => null) }, 0, at(10), {}), null);
+    assert.equal(liveWay(city, menelaou, station('syntagma'), { ...busThenTrain, best: busThenTrain.best.map(() => null) }, 0, at(10), {}), null);
 });
 
 test('any bus from near the door: the stops with a bus the rider can catch first, by when it comes, the rest nearest first; at most 10 asked', () => {
@@ -238,7 +240,7 @@ test('any bus from near the door: the stops with a bus the rider can catch first
 });
 
 test('any bus after a train: the M2 to Syggrou-Fix, then the stops there, each caught from when the train gets in', () => {
-    const syntagma = point('syntagma');
+    const syntagma = station('syntagma');
     const [row] = shownRows(answered(syntagma, menelaou, at(8.5)));
     assert.equal(row.key, 'M2 at Συγγρού Φιξ, a bus');
     const before = liveWay(city, syntagma, menelaou, row, 0, at(8.5), {});
@@ -485,11 +487,11 @@ for (const lang of ['en', 'el']) {
     const view = viewOf => JSON.parse(JSON.stringify(viewOf));
     const now = 10 * 3600;
     const clock = seconds => `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;
-    const half = view(halfView(city, menelaou, point('syntagma'), answered(menelaou, point('syntagma'), at(10))));
+    const half = view(halfView(city, menelaou, station('syntagma'), answered(menelaou, station('syntagma'), at(10))));
     // The 040 then the M2 first, as the way shown in full
     const shown = { ...half, rows: half.rows.filter(row => !row.bundle) };
     const ways = r.halfWays(shown, now);
-    const drawn = (way, more = {}) => String(r.renderHalf(network, shown.kind, ways, point('syntagma'), { now, weekday: 3, live: { way: view(way) }, ...more }));
+    const drawn = (way, more = {}) => String(r.renderHalf(network, shown.kind, ways, station('syntagma'), { now, weekday: 3, live: { way: view(way) }, ...more }));
 
     test(`${lang}: followed along the way (decision 50): the step the rider is on marked and said, the steps done greyed, the heading when they arrive`, () => {
         const way = timed(busThenTrain, {});
