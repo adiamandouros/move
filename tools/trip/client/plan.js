@@ -44,8 +44,8 @@ const stationPlace = (rail, station) => {
 
 /**
  * A walk from `place` into `station` (`way` 'in') or out of it to `place`
- * ('out'), through the exit it goes by (`exit`, its place in the station's
- * exits, or null), its `meters` and `minutes`; `away`, the minutes to where
+ * ('out'), its `meters` and `minutes`, and the exit it goes through (`in`
+ * or `out`, its place in the station's exits) when it has any; `away`, the minutes to where
  * the station is, which say how far it is (NEAR_MINUTES), as for the city's
  * search, so its exits never put it out of reach
  * @param {Rail} rail @param {Place} place @param {string} station @param {import('/tools/subway/city.js').Way} way
@@ -53,7 +53,7 @@ const stationPlace = (rail, station) => {
 export function walkStation(rail, place, station, way) {
     const at = stationPlace(rail, station);
     const { exit, seconds } = stationWalk(at, place, way);
-    return { meters: Math.round(seconds / 60 * METERS_PER_MINUTE), minutes: Math.max(1, Math.round(seconds / 60)), away: walkBetween(place, at).minutes, exit };
+    return { meters: Math.round(seconds / 60 * METERS_PER_MINUTE), minutes: Math.max(1, Math.round(seconds / 60)), away: walkBetween(place, at).minutes, ...exit !== null && { [way]: exit } };
 }
 
 // The stations to try from a place, walking into them (`way` 'in') or, at

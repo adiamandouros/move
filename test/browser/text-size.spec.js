@@ -136,8 +136,9 @@ test.describe('at large text', () => {
         await expect(steps.locator('.trip-step-badges').first()).toBeVisible();
         // The next half hour's answer in the place of the answer for leaving now
         await expect(page.locator('#trip-checking')).toHaveCount(0);
-        // Each step's time or minutes, beside what to do or above it
-        const sides = () => steps.evaluateAll(all => all.map(step => {
+        // Each step's time or minutes, beside what to do or above it; a step
+        // with none, as a metro station's way out (decision 51), has nothing to place
+        const sides = () => steps.evaluateAll(all => all.filter(step => step.querySelector('.trip-step-when').textContent !== '').map(step => {
             const [when, what] = ['.trip-step-when', '.trip-step-what'].map(s => step.querySelector(s).getBoundingClientRect());
             return what.left >= when.right - 1 ? 'beside' : what.top >= when.bottom - 1 ? 'above' : 'overlapping';
         }));

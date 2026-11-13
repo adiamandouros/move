@@ -1,5 +1,5 @@
 import { answering, quickerWay, rowKey, TIE_SECONDS } from '/tools/subway/answer.js';
-import { AFTER_WALK_SECONDS, busDay, CHANGE_SECONDS, createPlanner, joinNetwork, METERS_PER_MINUTE } from '/tools/subway/city.js';
+import { AFTER_WALK_SECONDS, busDay, CHANGE_SECONDS, createPlanner, joinNetwork, METERS_PER_MINUTE, streetEnd } from '/tools/subway/city.js';
 import { findWays, fold, secondsTo } from '/tools/subway/ways.js';
 import { cost } from '/tools/subway/weights.js';
 import { NEAR_MINUTES } from './plan.js';
@@ -23,7 +23,8 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
 
 /** @typedef {ReturnType<typeof createPlanner>} Planner */
 /** @typedef {{ lat: number, lng: number }} Point */
-/** @typedef {{ minutes: number, meters: number }} Walk */
+/** @typedef {{ access: number[], egress: number[], from: Point & { station?: string }, to: Point & { station?: string } }} Ends a trip's start and end, and the stops walked to from the one and from to the other (ends) */
+/** @typedef {{ minutes: number, meters: number, out?: number, in?: number }} Walk out, in: the exit of the metro station it leaves or walks into, by its place in the station's exits, where one is gone through (decision 51) */
 /** @typedef {import('/tools/subway/city.js').Names} Names */
 /**
  * What OASA says of a bus ride of the way shown in full (liveWay): the bus
@@ -119,9 +120,17 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
  * @typedef {{ leg: number, vehicle: string }} OwnBus
  */
 
-// A walk's length, as the search times it (city.js)
-/** @param {number} seconds @returns {Walk | null} */
-const walkOf = seconds => seconds > 0 ? { minutes: Math.max(1, Math.round(seconds / 60)), meters: Math.round(seconds / 60 * METERS_PER_MINUTE) } : null;
+// A walk's length, as the search times it (city.js), and the exits it goes
+// through: `out` of the metro station it leaves, `in` the one it walks into
+/** @param {number} seconds @param {{ out?: number | null, in?: number | null }} [exits] @returns {Walk | null} */
+const walkOf = (seconds, exits = {}) => seconds > 0 ? {
+    minutes: Math.max(1, Math.round(seconds / 60)), meters: Math.round(seconds / 60 * METERS_PER_MINUTE),
+    ...exits.out != null && { out: exits.out }, ...exits.in != null && { in: exits.in },
+} : null;
+// The exit a walk from the door goes into a station by, or one to the door
+// comes out of it by; none for a station picked as the start or the end
+/** @param {import('/tools/subway/city.js').Stop} stop @param {Point & { station?: string }} place @param {import('/tools/subway/city.js').Way} way */
+const doorExit = (stop, place, way) => place.station ? null : streetEnd(stop, place, way).exit;
 
 /**
  * The search over the city on `weekday` (0 = Sunday), with the suburban
@@ -179,7 +188,7 @@ export function busOptions(planner, from, to, now) {
         if (!bundles.has(key)) bundles.set(key, { way, lines: way.legs.map(() => new Set()) });
         way.legs.forEach((leg, i) => bundles.get(key).lines[i].add(leg.line));
     }
-    return [...bundles.values()].map(({ way, lines }) => cityOption(planner, way, access, egress, now.seconds, lines.map(set => [...set])));
+    return [...bundles.values()].map(({ way, lines }) => cityOption(planner, way, { access, egress, from, to }, now.seconds, lines.map(set => [...set])));
 }
 
 /**
@@ -189,24 +198,24 @@ export function busOptions(planner, from, to, now) {
  * train and when it leaves by the timetable; the timetable's own are looked up
  * @param {Planner} planner
  * @param {Omit<import('/tools/subway/ways.js').Way, 'legs'> & { legs: (import('/tools/subway/ways.js').Way['legs'][number] & { train?: string | null, timetable?: number })[] }} way
- * @param {number[]} access @param {number[]} egress @param {number} now
+ * @param {Ends} ends @param {number} now
  * @param {string[][]} [lines]
  * @returns {BusOption}
  */
-function cityOption(planner, way, access, egress, now, lines = way.legs.map(leg => [leg.line])) {
+function cityOption(planner, way, { access, egress, from, to }, now, lines = way.legs.map(leg => [leg.line])) {
     return {
         city: true,
         morning: false,
         rides: way.legs.map((leg, i) => ({
             line: leg.line, lines: lines[i], mode: leg.mode, board: planner.stops[leg.board], alight: planner.stops[leg.alight],
             boards: leg.boards, arrives: leg.arrives, stops: leg.alightIndex - leg.boardIndex, ...alongLeg(planner, leg),
-            toward: planner.routes[leg.route].toward, ...planner.routes[leg.route].dir && { dir: planner.routes[leg.route].dir }, walkBefore: walkOf(leg.walkBefore),
+            toward: planner.routes[leg.route].toward, ...planner.routes[leg.route].dir && { dir: planner.routes[leg.route].dir }, walkBefore: walkOf(leg.walkBefore, i ? planner.walkExits(way.legs[i - 1].alight, leg.board) : {}),
             walkNote: i && leg.walkBefore ? planner.walkNote(way.legs[i - 1].alight, leg.board) : null,
             ...ON_THE_ROAD.has(leg.mode) && { next: planner.ride([leg], leg.boards)?.[0].next ?? null },
             ...leg.mode === 'suburban' && { train: leg.train ?? trainOf(planner, leg), timetable: leg.timetable ?? leg.boards },
         })),
-        firstWalk: walkOf(secondsTo(access, way.legs[0].board)),
-        lastWalk: walkOf(secondsTo(egress, way.legs.at(-1).alight)),
+        firstWalk: walkOf(secondsTo(access, way.legs[0].board), { in: doorExit(planner.stops[way.legs[0].board], from, 'in') }),
+        lastWalk: walkOf(secondsTo(egress, way.legs.at(-1).alight), { out: doorExit(planner.stops[way.legs.at(-1).alight], to, 'out') }),
         arrives: way.at,
         minutes: Math.round((way.at - now) / 60),
         changes: way.legs.length - 1,
@@ -247,7 +256,7 @@ export function halfView(planner, from, to, answer) {
         bundle,
         lines,
         stops: stops.map(({ stop, walk, lines: at }) => ({ stop: planner.stops[stop], walk: walkOf(walk), lines: at })),
-        options: best.map((way, d) => way && cityOption(planner, way, access, egress, departures[d], linesOf(way, bundle, lines))),
+        options: best.map((way, d) => way && cityOption(planner, way, { access, egress, from, to }, departures[d], linesOf(way, bundle, lines))),
     });
     const rows = shown.map(halfRow);
     const quicker = decision ? rows[shown.indexOf(decision.getOff)] ?? halfRow(decision.getOff) : null;
@@ -383,7 +392,7 @@ export function liveWay(planner, from, to, row, departure, now, live, { decision
     const end = legs.at(-1);
     // Past every ride, the door is as far as the last walk; arrived, it's here
     const at = step?.kind === 'arrived' ? step.at : step?.kind === 'last' ? step.at + step.walk : end.arrives + secondsTo(egress, end.alight);
-    const option = cityOption(planner, { ...way, legs, at }, access, egress, now.seconds, linesOf(way, row.bundle, row.lines));
+    const option = cityOption(planner, { ...way, legs, at }, { access, egress, from, to }, now.seconds, linesOf(way, row.bundle, row.lines));
     option.rides.forEach((ride, i) => { if (said[i]) ride.live = said[i]; });
 
     const doors = new Set(egress.filter((_, i) => i % 2 === 0));

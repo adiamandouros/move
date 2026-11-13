@@ -114,6 +114,33 @@ test('a metro option as its steps, the stations from rail: the walk to the stati
     assert.deepEqual(waySteps(walked, BOARD, STOPS[3], rail).map(step => [step.kind, step.ride]), [['walk', 0], ['wait', 0], ['ride', 0], ['walk', 1]]);
 });
 
+test('through a metro station\'s exits (decision 51): a walk into it ends at its way in, one out of it starts at its way out; a walk from the door past a station to a stop beside it doesn\'t', () => {
+    const station = (id, point, exits) => [id, { coords: pair(point), ...exits && { exits } }];
+    const IN = north(80, BOARD);
+    const OUT = east(60, STOPS[2]);
+    const rail = {
+        stations: Object.fromEntries([station('a', BOARD, [{ at: pair(IN) }]), station('b', STOPS[1]), station('c', STOPS[2], [{ at: pair(north(50, STOPS[2])) }, { at: pair(OUT) }]), station('t', east(200, STOPS[2]))]),
+        lines: { M1: { directions: { up: { stops: ['a', 'b', 'c'].map(id => ({ station: id })) } } }, T1: { directions: { out: { stops: ['t', 'b'].map(id => ({ station: id })) } } } },
+        walkExits: { c: { t: 1 }, t: { c: 1 } },
+    };
+    const metro = { city: false, start: { station: 'a', walk: { minutes: 4, in: 0 } }, end: { station: 'c', walk: { minutes: 4, out: 1 } },
+        plan: { legs: [{ line: 'M1', dir: 'up', from: 'a', to: 'c', fromIndex: 0, toIndex: 2 }] } };
+    const steps = waySteps(metro, SYNTAGMA, DOOR, rail);
+    assert.deepEqual([steps[0].to, steps.at(-1).from], [IN, OUT]);
+    // Off the M1 at c, out by its exit to the tram, as tram.json says
+    const toTram = { ...metro, end: { station: 't', walk: null }, plan: { legs: [metro.plan.legs[0], { line: 'T1', dir: 'out', from: 't', to: 'b', fromIndex: 0, toIndex: 1 }] } };
+    assert.deepEqual(waySteps(toTram, SYNTAGMA, DOOR, rail)[3], { kind: 'walk', ride: 1, from: OUT, to: east(200, STOPS[2]) });
+    // From the door to c, then on foot to the tram stop beside it: never through c's exits
+    const pastIt = { city: false, start: { station: 'c', walk: { minutes: 3, in: 0 } }, end: { station: 'b', walk: null }, plan: { legs: [toTram.plan.legs[1]], walkFirst: 4 } };
+    assert.deepEqual(waySteps(pastIt, SYNTAGMA, DOOR, rail).slice(0, 2).map(step => [step.from, step.to]), [[SYNTAGMA, STOPS[2]], [STOPS[2], east(200, STOPS[2])]]);
+    // A way of the city's search: its walks say the exits of the stops they leave and walk into
+    const exits = [{ at: pair(IN) }];
+    const city = { ...bus, firstWalk: { minutes: 3, meters: 200, in: 0 }, lastWalk: { minutes: 4, meters: 300, out: 0 },
+        rides: [{ ...bus.rides[0], board: { exits }, alight: { exits: [{ at: pair(OUT) }] } }] };
+    const followed = waySteps(city, SYNTAGMA, DOOR, null);
+    assert.deepEqual([followed[0].to, followed.at(-1).from], [IN, OUT]);
+});
+
 test('each fix places the rider: along the walk, at the stop, on the bus stop by stop, off at the last, to the door', () => {
     let state = starting();
     const place = (point, at, more) => { state = placeOn(steps, state, fixAt(point, at, more), at); return state; };

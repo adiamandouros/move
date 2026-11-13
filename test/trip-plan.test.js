@@ -41,12 +41,12 @@ test('a walk to a station takes as long as the city\'s search says the same walk
 
 test('a walk to a station with exits goes through the nearest that goes the rider\'s way, one without as before (decision 51)', () => {
     const exit = (station, i) => network.stations[station].exits[i];
-    const named = (walk, station) => exit(station, walk.exit).name.en;
+    const named = (walk, station) => exit(station, walk.in ?? walk.out).name.en;
     // From Panepistimiou, north of Syntagma: in by the Grande Bretagne stairs
     const north = { lat: 37.9775, lng: 23.7353 };
     const into = walkStation(network, north, 'syntagma', 'in');
     assert.equal(named(into, 'syntagma'), 'Grande Bretagne/Panepistimiou');
-    assert.equal(into.minutes, Math.max(1, Math.round(walkSeconds(north, { lat: exit('syntagma', into.exit).at[0], lng: exit('syntagma', into.exit).at[1] }) / 60)));
+    assert.equal(into.minutes, Math.max(1, Math.round(walkSeconds(north, { lat: exit('syntagma', into.in).at[0], lng: exit('syntagma', into.in).at[1] }) / 60)));
     // To the National Garden, south: out by the Amalias exit
     assert.equal(named(walkStation(network, { lat: 37.9725, lng: 23.7365 }, 'syntagma', 'out'), 'syntagma'), 'Amalias/National Garden');
     // Agia Varvara's Kalantzakou exit has only an escalator up: out by it, never in
@@ -55,7 +55,7 @@ test('a walk to a station with exits goes through the nearest that goes the ride
     assert.notEqual(named(walkStation(network, kalantzakou, 'agia-varvara', 'in'), 'agia-varvara'), 'Kalantzakou str.');
     // Tavros has none recorded: to where it is
     const tavros = walkStation(network, menelaou, 'tavros', 'in');
-    assert.equal(tavros.exit, null);
+    assert.equal(tavros.in, undefined);
     assert.deepEqual([tavros.meters, tavros.minutes], [walkBetween(menelaou, { lat: network.stations.tavros.coords[0], lng: network.stations.tavros.coords[1] }).meters, walkBetween(menelaou, { lat: network.stations.tavros.coords[0], lng: network.stations.tavros.coords[1] }).minutes]);
 });
 
@@ -63,8 +63,8 @@ test('a trip from the door walks into the first station through its way in, and 
     const north = { lat: 37.9775, lng: 23.7353 };
     const [best] = doorToDoor(network, north, menelaou, NOW).options;
     assert.equal(best.start.station, 'syntagma');
-    assert.equal(network.stations.syntagma.exits[best.start.walk.exit].name.en, 'Grande Bretagne/Panepistimiou');
-    assert.equal(best.end.walk.exit, null, 'the end, Tavros or Kallithea, has none recorded');
+    assert.equal(network.stations.syntagma.exits[best.start.walk.in].name.en, 'Grande Bretagne/Panepistimiou');
+    assert.equal(best.end.walk.out, undefined, 'the end, Tavros or Kallithea, has none recorded');
 });
 
 test('tries the three nearest stations, nearest first', () => {
