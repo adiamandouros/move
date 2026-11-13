@@ -4,7 +4,7 @@
 // together. The addresses are test/fixtures/places.js.
 import { watchRequests } from './bus-requests.js';
 import { axe, expect, keyboardWalk, onlyOn, test } from './fixtures.js';
-import { from, hereToSyntagma, list, MEGARA, MENELAOU_45, MENELAOU_85, moveTo, PARK, pickBoth, pickDecision, pickPark, to, watchLive, watchPlans } from './trip-page.js';
+import { from, hereToSyntagma, list, MEGARA, MENELAOU_45, MENELAOU_85, moveTo, PARK, pickBoth, pickDecision, pickPark, STAVROU_1, to, watchLive, watchPlans } from './trip-page.js';
 
 test.describe('the trip page', () => {
     test.beforeEach(onlyOn('phone'));
@@ -698,6 +698,107 @@ test.describe('the trip page', () => {
             await expect(take).toBeFocused();
             const walk = await keyboardWalk(page);
             expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
+        });
+
+        test.describe('followed on the T6, the way off it found ahead (T14, decision 50)', () => {
+            test.use({ location: { at: STAVROU_1 } });
+
+            // From Σταύρου 1, where the location is, to Μενελάου 45; the
+            // rider at the T6's stop, then on it a stop on: the search ahead
+            // finds the way off it at Agia Foteini, and OASA has its bus coming
+            const timer = page => offer(page).locator('[role="timer"]');
+            const onTheTram = async (page, run, liveWay) => {
+                await page.goto('/trip');
+                await expect(page.getByRole('button', { name: 'My location' })).toHaveAttribute('aria-pressed', 'true');
+                await to(page).fill('Μενελάου 45');
+                await list(page, 'to').first().click();
+                await expect(offer(page)).toContainText('A quicker way: about');
+                await expect(offer(page).locator('[role="timer"]')).toHaveCount(0);
+                await page.waitForFunction(() => window.__pending === 0);
+                await run(1);
+                const { rides } = await liveWay();
+                expect(rides[0].line).toBe('T6');
+                const tram = rides[0].along.map(([lat, lng]) => ({ lat, lng }));
+                // Seconds from midnight in Athens, as the page counts
+                const clock = () => page.evaluate(() => {
+                    const [h, m, sec] = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Athens', hour: 'numeric', minute: 'numeric', second: 'numeric', hourCycle: 'h23' }).format(new Date()).split(':').map(Number);
+                    return h * 3600 + m * 60 + sec;
+                });
+                // At the stop, a fix a minute (with none, the page assumes nothing), until `at`
+                const waitUntil = async at => {
+                    while (await clock() < at) {
+                        await moveTo(page, tram[0]);
+                        await run(Math.min(60, at - await clock()));
+                    }
+                };
+                // The first tram gone, the next: the way's own, off it at Agia Foteini 3' sooner
+                await waitUntil(rides[0].boards + 30);
+                await expect.poll(async () => (await liveWay()).rides[0].boards).toBeGreaterThan(rides[0].boards);
+                await waitUntil((await liveWay()).rides[0].boards);
+                // On it a stop on: searched ahead at once, with the clock stopped, so the countdown is whole
+                await moveTo(page, tram[1]);
+                await expect(timer(page)).toBeVisible();
+                return tram;
+            };
+            const current = page => page.locator('.trip-card').first().locator('[aria-current="step"]');
+
+            test('a countdown that a touch or the keyboard holds; at none, switched, still on the tram; back to my route, never offered again', async ({ page }) => {
+                const { run } = await watchRequests(page);
+                const plans = await watchPlans(page);
+                const liveWay = await watchLive(page);
+                await onTheTram(page, run, liveWay);
+                await expect(timer(page)).toHaveText('Switching to it in 10 s, unless you keep your route.');
+                await expect(offer(page)).toContainText('Get off the');
+                await run(3);
+                await expect(timer(page)).toContainText('in 7 s');
+
+                // Held down: it waits
+                await offer(page).locator('h2').scrollIntoViewIfNeeded();
+                const box = await offer(page).locator('h2').boundingBox();
+                await page.mouse.move(box.x + 5, box.y + 5);
+                await page.mouse.down();
+                await run(3);
+                await expect(timer(page)).toContainText('in 7 s');
+                await page.mouse.up();
+                // On the keyboard: it waits too
+                await page.getByRole('button', { name: 'Keep my route' }).focus();
+                await run(3);
+                await expect(timer(page)).toContainText('in 7 s');
+                await page.evaluate(() => /** @type {HTMLElement} */ (document.activeElement).blur());
+                await page.clock.resume();
+                expect(await axe(page), 'axe-core violations').toEqual([]);
+                await page.clock.pauseAt(await page.evaluate(() => Date.now() + 500));
+
+                // At none: the way off at Agia Foteini is theirs, still on the T6
+                await run(8);
+                const best = page.locator('.trip-card').first();
+                await expect(best).toContainText('The quicker way');
+                await expect(offer(page)).toHaveCount(0);
+                await expect(current(page)).toContainText('T6');
+                await expect(page.getByRole('button', { name: 'Back to my route' })).toBeVisible();
+                expect(await plans()).toHaveLength(1);
+
+                // Back: the directions again, still on the T6, and that way never offered again
+                await page.getByRole('button', { name: 'Back to my route' }).click();
+                await expect(best).not.toContainText('The quicker way');
+                await expect(current(page)).toContainText('T6');
+                await run(70);
+                await expect(offer(page)).toHaveCount(0);
+                expect(await plans()).toHaveLength(1);
+            });
+
+            test('kept: gone for the trip, as the tram goes on', async ({ page }) => {
+                const { run } = await watchRequests(page);
+                const liveWay = await watchLive(page);
+                const tram = await onTheTram(page, run, liveWay);
+                await page.getByRole('button', { name: 'Keep my route' }).click();
+                await expect(offer(page)).toHaveCount(0);
+                await run(65);
+                await moveTo(page, tram[2] ?? tram[1]);
+                await run(5);
+                await expect(offer(page)).toHaveCount(0);
+                await expect(page.locator('.trip-card').first()).not.toContainText('The quicker way');
+            });
         });
 
         test('in Greek too', async ({ page }) => {

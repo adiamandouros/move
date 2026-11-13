@@ -157,6 +157,11 @@ export const site = ({ env = {}, ...overrides } = {}) => createApp({
 // The site with /api/arrivals answered by `handler` instead
 const withArrivals = handler => express().get('/api/arrivals', handler).use(site());
 const QUICKER_STOP = '340016';
+// Where the search ahead gets the rider off that T6 for the 218, on it as it
+// leaves at 12:15 (T14, decision 50): each of its lines due in 10 minutes and
+// 25, in time to be 3' or more sooner than staying on
+const AHEAD_STOP = '340104';
+const aheadArrivals = code => timetableArrivalsAt(code).map((arrival, i) => ({ ...arrival, minutes: 10 + i % 2 * 15 }));
 const codesOf = req => String(req.query.stops ?? '').split(',');
 export const down = async () => { throw new Error('fake OASA: down'); };
 
@@ -180,9 +185,10 @@ export const scenarios = () => ({
     }])) })),
     // As 'trip-live', but only the quicker way's stop has buses coming, on
     // the way from Σταύρου 1 to Μενελάου 45 at noon (Agia Foteini, off the
-    // T6 sooner): the Trip page offers it (decision 36)
+    // T6 sooner): the Trip page offers it (decision 36); and the stop the
+    // search ahead finds off the T6, for a rider followed on it (T14)
     'trip-quicker': withArrivals((req, res) => res.json({ stops: Object.fromEntries(codesOf(req).map(code => [code, {
-        arrivals: code === QUICKER_STOP ? timetableArrivalsAt(code).sort((a, b) => a.minutes - b.minutes) : [],
+        arrivals: code === QUICKER_STOP ? timetableArrivalsAt(code).sort((a, b) => a.minutes - b.minutes) : code === AHEAD_STOP ? aheadArrivals(code) : [],
         updated: Date.now(),
         stale: false,
     }])) })),

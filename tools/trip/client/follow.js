@@ -127,6 +127,30 @@ export function waySteps(o, from, to, rail) {
 /** @returns {State} */
 export const starting = () => ({ step: 0, stop: 0, at: null, offSince: null, fix: null, anchor: null, moved: false, off: false });
 
+/**
+ * Another way to follow, from where `state` had the rider: at its start,
+ * where the last fix had them (a phone standing still may send no other)
+ * @param {State} state @returns {State}
+ */
+export const startOver = state => ({ ...starting(), fix: state.fix, anchor: state.anchor, at: state.fix?.at ?? null });
+
+/**
+ * Where the rider is on `steps`, a way switched to on the way (T14), or back
+ * from it, from where `state` had them on the way's `before`: the same step,
+ * as both ways are the same up to the ride they're on, at the same stop of it
+ * when the new way rides that far; at the start (startOver) when the step
+ * isn't the same
+ * @param {Step[]} before @param {State} state @param {Step[]} steps
+ * @returns {State}
+ */
+export function carry(before, state, steps) {
+    const was = before[state.step];
+    const now = steps[state.step];
+    const ride = step => 'ride' in step ? step.ride : -1;
+    if (!was || !now || was.kind !== now.kind || ride(was) !== ride(now)) return startOver(state);
+    return { ...state, stop: now.kind === 'ride' ? Math.min(state.stop, now.points.length - 1) : state.stop, offSince: null, moved: false, off: false };
+}
+
 /** The step the rider is on, or that they've arrived */
 /** @param {Step[]} steps @param {State} state @returns {Step} */
 export const stepOf = (steps, state) => steps[state.step] ?? { kind: 'arrived' };

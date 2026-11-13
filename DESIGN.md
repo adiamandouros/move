@@ -9,7 +9,7 @@ this file together. Where a rule can be checked, a test checks it; the
 tests are named under each section.
 
 Version 1 is built. Version 2 adds the Trip page and a few rules for every
-page, and is built too, but for what the Trip page has "Later, agreed".
+page, and is built too.
 
 ## Principles
 
@@ -416,11 +416,19 @@ rules, with a picture of a way shown in full.
   to press: My location off (the button, typing a start, swapping) stops
   it, and the trip is planned ahead as before. Off the way (300 m from the
   step for a minute), the trip is planned again from where they are.
-- **Later, agreed**: with the ride followed, a way 3' or more
-  sooner found on the way is switched to after 10 seconds unless the rider
-  keeps theirs: a visible countdown that pauses while the notice is touched
-  or has the keyboard, "Back to my route" after, a declined way not offered
-  again, on the page only (a vibration on Android).
+- **A quicker way on the way** (T14): with the ride followed, at each stop
+  the page looks ahead from the stops still to come. A way 3' or more
+  sooner (a bus only when OASA has it coming in time) is the quicker way's
+  card under the way, with "Switching to it in N s, unless you keep your
+  route." under its words (`role="timer"`, said once when it comes up),
+  and is switched to when that reaches none. The countdown waits while the
+  card is held down or has the keyboard, and the answer isn't drawn again
+  under them meanwhile. A buzz where the phone can (Android); nothing
+  outside the page. Switched, the card's heading says "The quicker way",
+  the rider stays on the step they're on, and "Back to my route" goes back.
+  A way kept over, or gone back from, isn't offered again in the trip.
+  Once the rider is on the first ride, this takes the place of the quicker
+  way on a decision.
 
 ## Tests
 

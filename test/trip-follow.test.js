@@ -248,3 +248,26 @@ test('left the start at 100 m; standing still 10 minutes with the page untouched
     assert.equal(stillDue(state, T, T + 600_000), false);
     assert.equal(stillDue(starting(), T, T + 600_000), false, 'no fix yet: not still');
 });
+
+test('switched to a way that leaves the bus sooner, or back: still on the bus at the same stop; a way that isn\'t the same there starts over', () => {
+    // Off at the third stop for a 106 there
+    const sooner = { ...bus, lastWalk: null, rides: [{ ...bus.rides[0], along: STOPS.slice(0, 3).map(pair), past: [] },
+        { line: '106', mode: 'bus', along: [pair(STOPS[2]), pair(DOOR)], past: [], walkBefore: null }] };
+    const switched = waySteps(sooner, SYNTAGMA, DOOR, null);
+    const riding = onBus(STOPS[1], T);
+    assert.equal(riding.step, 2);
+    const carried = follow.carry(steps, riding, switched);
+    assert.deepEqual([carried.step, carried.stop], [2, 1], 'on the bus at its second stop');
+    assert.equal(stepOf(switched, carried).kind, 'ride');
+    assert.deepEqual(carried.fix, riding.fix);
+    // Further along than the new way rides: at its last stop, so the next fix gets them off
+    const further = follow.carry(steps, onBus(STOPS[3], T), switched);
+    assert.equal(further.stop, 2);
+    // And back again
+    assert.deepEqual(follow.carry(switched, carried, steps).stop, 1);
+    // A way that isn't the same where they are: from its start, where the last fix had them
+    const other = waySteps({ ...bus, firstWalk: null }, SYNTAGMA, DOOR, null);
+    const over = follow.carry(steps, riding, other);
+    assert.deepEqual([over.step, over.stop, over.at], [0, 0, riding.fix.at]);
+    assert.deepEqual(over, follow.startOver(riding));
+});
