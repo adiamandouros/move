@@ -64,6 +64,29 @@ export const moveTo = (page, at) => page.evaluate(at => {
     window.__sendPosition();
 }, at);
 
+// The way the Trip page shows in full, as the worker last timed it (the
+// `live` answers main.js gets): its rides, each with where its stops are
+// (`along`, [lat, lng] each), for a spec that moves the rider along it
+// (decision 50). Returns a function that gives the latest, or null
+export async function watchLive(page) {
+    await page.addInitScript(() => {
+        window.__live = null;
+        const listen = Worker.prototype.addEventListener;
+        Worker.prototype.addEventListener = function (type, fn, ...rest) {
+            const heard = type !== 'message' ? fn : event => {
+                if (event.data?.live?.way) window.__live = event.data.live.way.option;
+                return fn.call(this, event);
+            };
+            return listen.call(this, type, heard, ...rest);
+        };
+    });
+    return () => page.evaluate(() => window.__live);
+}
+
+// The park, Άλσος (test/fixtures/places.js): from Menelaou 45 at noon, the
+// walk to Pl. Dabaki, the 040, the walk to the park (pickPark)
+export const PARK = { lat: 37.9545, lng: 23.7305 };
+
 // Megara's station, as test.use({ location: { at: MEGARA } }), and from
 // there by "My location" to Syntagma: the A4 at 12:08 (train 1313), Athens
 // at 12:51, the walk to Larissa Station and the M2 at 13:01

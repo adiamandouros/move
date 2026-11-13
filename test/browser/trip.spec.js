@@ -4,7 +4,7 @@
 // together. The addresses are test/fixtures/places.js.
 import { watchRequests } from './bus-requests.js';
 import { axe, expect, keyboardWalk, onlyOn, test } from './fixtures.js';
-import { from, hereToSyntagma, list, MEGARA, MENELAOU_45, MENELAOU_85, moveTo, pickBoth, pickDecision, pickPark, to, watchPlans } from './trip-page.js';
+import { from, hereToSyntagma, list, MEGARA, MENELAOU_45, MENELAOU_85, moveTo, PARK, pickBoth, pickDecision, pickPark, to, watchLive, watchPlans } from './trip-page.js';
 
 test.describe('the trip page', () => {
     test.beforeEach(onlyOn('phone'));
@@ -399,7 +399,10 @@ test.describe('the trip page', () => {
                 await run(1);
             };
 
-            test('planned again 2 minutes on once 200 m away, the answer kept meanwhile, only stops new to its way asked at once', async ({ page }) => {
+            // The way: 9 minutes' walk to Strofi N. Smyrnis for any of its
+            // buses. Menelaou 85, 350 m along the street, is over 300 m from
+            // that walk: off the way (decision 50)
+            test('off the way: planned again a minute on, and 2 minutes after the last plan, the answer kept meanwhile, only stops new to its way asked at once', async ({ page }) => {
                 const { asks, run } = await watchRequests(page);
                 const plans = await watchPlans(page);
                 await hereToFix(page, run, asks);
@@ -410,9 +413,9 @@ test.describe('the trip page', () => {
                     window.__blank ||= Boolean(document.querySelector('#trip-result .trip-intro, #trip-checking'));
                 }).observe(document.getElementById('trip-result'), { childList: true, subtree: true }));
 
-                // 350 m on at once, as on a bus: not before 2 minutes. The
-                // clock stops as it's planned again, so its stops are asked
-                // while those it kept were asked a moment ago
+                // 350 m aside at once: off the way, but not before 2 minutes
+                // after the last plan. The clock stops as it's planned again,
+                // so its stops are asked while those it kept were asked a moment ago
                 await moveTo(page, MENELAOU_85);
                 await run(100);
                 expect(await plans()).toHaveLength(1);
@@ -439,7 +442,7 @@ test.describe('the trip page', () => {
                 expect((await asks()).slice(all.length).some(a => before.has(a.code))).toBe(true);
             });
 
-            test('not planned again out of sight, but at once back in sight; while paused, planned again with nothing asked', async ({ page }) => {
+            test('not planned again out of sight, but at once back in sight; still for 10 minutes, paused; moving on resumes, and off the way after that long without a fix plans again at once', async ({ page }) => {
                 const { asks, run } = await watchRequests(page);
                 const plans = await watchPlans(page);
                 await hereToFix(page, run, asks);
@@ -455,22 +458,189 @@ test.describe('the trip page', () => {
                 await expect.poll(async () => (await plans()).length).toBe(2);
                 await expect(page.locator('.trip-card').first().locator('.trip-live .time-badge').first()).toBeVisible();
 
-                // Untouched for 10 minutes: paused. Moving on plans it again,
-                // which isn't a touch: the new way asks nothing, and says it's paused
+                // Still and untouched for 10 minutes: paused. Moving on
+                // resumes the live times (decision 50); back at Menelaou 45,
+                // off the new way after that long without a fix, it's planned
+                // again at once
                 await skip(610);
                 const status = page.locator('#trip-live-status');
                 await expect(status).toContainText('Live times paused to save data.');
                 const paused = (await asks()).length;
                 await moveTo(page, MENELAOU_45);
                 await skip(2);
+                await expect(status).not.toContainText('paused');
                 await expect.poll(async () => (await plans()).length).toBe(3);
-                await expect(status).toContainText('Live times paused to save data.');
-                await page.waitForFunction(() => window.__pending === 0);
-                expect((await asks()).length).toBe(paused);
-                await page.clock.resume();
-                await page.getByRole('button', { name: 'Tap to refresh' }).click();
                 await expect.poll(async () => (await asks()).length).toBeGreaterThan(paused);
+                await page.clock.resume();
             });
+        });
+    });
+
+    test.describe('followed along the way (decision 50)', () => {
+        test.use({ location: { at: MENELAOU_45 } });
+
+        // From Menelaou 45, where the location is, to the park at noon: the
+        // walk to Pl. Dabaki, the 040 to Syggrou-Fix (no bus on the test
+        // data's live times there), the walk to the station, the M2 one stop
+        // to Neos Kosmos, the walk to the park; with the 040's stop asked and
+        // the clock stopped. Gives where each ride's stops are, and the 040's stop
+        const hereToPark = async (page, run, asks, liveWay) => {
+            await page.goto('/trip');
+            await expect(page.getByRole('button', { name: 'My location' })).toHaveAttribute('aria-pressed', 'true');
+            await to(page).fill('Άλσος');
+            await list(page, 'to').first().click();
+            await expect(page.locator('.trip-card').first()).toContainText('040');
+            await expect.poll(async () => (await asks()).length).toBeGreaterThan(0);
+            await page.waitForFunction(() => window.__pending === 0);
+            await expect.poll(liveWay).not.toBeNull();
+            await run(1);
+            const { rides } = await liveWay();
+            expect(rides.map(ride => ride.line)).toEqual(['040', 'M2']);
+            const [bus, metro] = rides.map(ride => ride.along.map(([lat, lng]) => ({ lat, lng })));
+            expect(bus.length).toBeGreaterThan(2);
+            return { bus, metro, board: rides[0].board.id.slice('bus:'.length) };
+        };
+        const east = (at, metres) => ({ lat: at.lat, lng: at.lng + metres / (111_195 * Math.cos(at.lat * Math.PI / 180)) });
+        const status = page => page.locator('#trip-from-status');
+        const card = page => page.locator('.trip-card').first();
+        const current = page => card(page).locator('[aria-current="step"]');
+        const done = page => card(page).locator('.trip-step-done');
+
+        test('each fix places the rider: the step marked and said, the steps done greyed, the heading when they arrive; nothing planned again, the stop boarded at not asked again', async ({ page }) => {
+            const { asks, run } = await watchRequests(page);
+            const plans = await watchPlans(page);
+            const liveWay = await watchLive(page);
+            const { bus, metro, board } = await hereToPark(page, run, asks, liveWay);
+            await expect(current(page)).toHaveCount(0);
+            await expect(status(page)).toHaveText('');
+            await expect(card(page).locator('h2.trip-total')).not.toContainText('Arrive about');
+
+            // At the stop: left the start, waiting for the 040; the walk done
+            await moveTo(page, bus[0]);
+            await run(1);
+            await expect(status(page)).toHaveText('Following your ride');
+            await expect(current(page)).toHaveCount(1);
+            await expect(current(page)).toContainText('040');
+            await expect(done(page)).toHaveCount(1);
+            await expect(done(page)).toContainText('Walk to');
+            await expect(card(page).locator('h2.trip-total')).toContainText('Arrive about');
+
+            // On the bus, two stops on: still the 040's step; the stop it
+            // boarded at is behind the rider, so no longer asked; no new plan
+            const boarded = (await asks()).length;
+            await moveTo(page, bus[2]);
+            await run(35);
+            await expect(current(page)).toContainText('040');
+            expect((await asks()).slice(boarded).map(a => a.code)).not.toContain(board);
+            expect(await plans()).toHaveLength(1);
+
+            // Off at its last stop, 50 m from the station: that walk is done
+            // too, the M2's card is the step; at Neos Kosmos, the walk to
+            // the park; there, arrived
+            await moveTo(page, bus.at(-1));
+            await run(1);
+            await expect(current(page)).toContainText('M2');
+            await expect(done(page)).toHaveCount(3);
+            await moveTo(page, metro[0]);
+            await run(1);
+            await expect(current(page)).toContainText('M2');
+            await expect(done(page)).toHaveCount(3);
+            await moveTo(page, metro.at(-1));
+            await run(1);
+            await expect(current(page)).toContainText('Walk to Άλσος');
+            await expect(done(page)).toHaveCount(4);
+            await moveTo(page, PARK);
+            await run(1);
+            await expect(current(page)).toHaveCount(0);
+            await expect(done(page)).toHaveCount(5);
+            expect(await plans()).toHaveLength(1);
+            await expect(status(page)).toHaveText('Following your ride');
+            // axe-core waits for what's animating, which a stopped clock never lets settle
+            await page.clock.resume();
+            expect(await axe(page), 'axe-core violations').toEqual([]);
+        });
+
+        test('off the way for a minute: planned again from there, once, 2 minutes after the last plan; typing a start stops following', async ({ page }) => {
+            const { asks, run } = await watchRequests(page);
+            const plans = await watchPlans(page);
+            const liveWay = await watchLive(page);
+            const { bus } = await hereToPark(page, run, asks, liveWay);
+            await moveTo(page, bus[0]);
+            await run(1);
+            await moveTo(page, bus[1]);
+            await run(60);
+            await expect(current(page)).toContainText('040');
+
+            // 500 m off the road, away from where it goes: a wander for under a minute changes nothing
+            const aside = east(bus[1], -500);
+            await moveTo(page, aside);
+            await run(30);
+            await moveTo(page, aside);
+            await run(25);
+            expect(await plans()).toHaveLength(1);
+            await expect(current(page)).toContainText('040');
+            // A minute off it: planned again from there, as a new start, with
+            // no fix needed to say so (a phone standing still may send none)
+            await run(10);
+            await expect.poll(async () => (await plans()).length).toBe(2);
+            const [, again] = await plans();
+            expect(again.lat).toBeCloseTo(aside.lat, 5);
+            expect(again.lng).toBeCloseTo(aside.lng, 5);
+            await expect.poll(async () => (await asks()).some(a => a.for === 'plan-moved')).toBe(true);
+            await page.waitForFunction(() => window.__pending === 0);
+            await expect(card(page)).toBeVisible();
+            // The new way is followed from where they are: its first step is theirs at once
+            await expect(current(page)).toHaveCount(1);
+            await expect(status(page)).toHaveText('Following your ride');
+
+            // A start typed (with the clock going, as the address search waits
+            // on it): My location off, nothing followed
+            await page.clock.resume();
+            await from(page).click();
+            await page.keyboard.type('Μενελάου 45');
+            await list(page, 'from').first().click();
+            await expect(page.getByRole('button', { name: 'My location' })).toHaveAttribute('aria-pressed', 'false');
+            await expect(card(page)).toBeVisible();
+            await expect(status(page)).not.toHaveText('Following your ride');
+            await moveTo(page, bus[2]);
+            await page.clock.runFor(2_000);
+            await expect(current(page)).toHaveCount(0);
+        });
+
+        test('no fix for minutes (underground): nothing assumed, the status says how old the position is, nothing planned again; standing still 10 minutes pauses the live times, moving on resumes them', async ({ page }) => {
+            const { asks, run } = await watchRequests(page);
+            const plans = await watchPlans(page);
+            const liveWay = await watchLive(page);
+            const { bus } = await hereToPark(page, run, asks, liveWay);
+            await moveTo(page, bus[0]);
+            await run(1);
+            await expect(current(page)).toContainText('040');
+            const skip = async seconds => {
+                await page.clock.runFor(seconds * 1000);
+                await page.waitForFunction(() => window.__pending === 0);
+            };
+            await skip(185);
+            await expect(status(page)).toHaveText('Last position 3 minutes ago');
+            await expect(current(page)).toContainText('040');
+            expect(await plans()).toHaveLength(1);
+
+            // Still at the stop, a fix every 5 minutes within 50 m: paused
+            // after 10 minutes untouched; 70 m on, the live times come back
+            const live = page.locator('#trip-live-status');
+            await moveTo(page, east(bus[0], 10));
+            await skip(300);
+            await expect(live).not.toContainText('paused');
+            await moveTo(page, east(bus[0], 20));
+            await skip(130);
+            await expect(live).toContainText('Live times paused to save data.');
+            await moveTo(page, east(bus[0], 70));
+            await skip(2);
+            await expect(live).not.toContainText('paused');
+            await expect(status(page)).toHaveText('Following your ride');
+            expect(await plans()).toHaveLength(1);
+            await expect(current(page)).toContainText('040');
+            await page.clock.resume();
+            expect(await axe(page), 'axe-core violations').toEqual([]);
         });
     });
 

@@ -56,8 +56,9 @@ decisions, or makes one of the same weight, comes with its page.
 | 42 | [The suburban railway on the trip page and in the subway planner, from railway.gov.gr's timetable, with how late its trains run](0042-suburban-railway-live-times.md) | Replaced by 44 |
 | 43 | [What an answer says around it: messages by what they mean, and nothing under it](0043-messages-and-nothing-under-the-answer.md) | In force |
 | 44 | [The suburban railway on the trip page and in the subway planner, from railway.gov.gr's timetable, with how late its trains run, credited on the About page](0044-suburban-railway-credited-on-about.md) | Replaced by 47 |
-| 45 | [Our load on OASA and STASY, with My location following on the Trip page](0045-load-on-oasa-my-location-follows.md) | In force |
+| 45 | [Our load on OASA and STASY, with My location following on the Trip page](0045-load-on-oasa-my-location-follows.md) | Replaced by 50 |
 | 46 | [The trip page: metro and tram rides as the subway planner's cards](0046-trip-rail-rides-as-cards.md) | Replaced by 48 |
 | 47 | [The trip page: suburban rides as the subway planner's cards, a late train by when it leaves](0047-trip-suburban-cards.md) | In force |
 | 48 | [The trip page: a last bus's stops as the Buses page's stop rows](0048-trip-bus-stops-as-buses-rows.md) | In force |
 | 49 | [The trip page: the trip kept for the session, 12 hours at most](0049-trip-kept-for-the-session.md) | In force |
+| 50 | [Our load on OASA and STASY, with the Trip page following the rider's ride](0050-trip-follows-the-ride.md) | In force |

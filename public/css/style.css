@@ -1694,6 +1694,29 @@ body {
     min-height: 2rem;
 }
 
+/* Following your ride (DESIGN.md, "The Trip page", decision 50): the step
+   the rider is on has a bar in the brand colour down its left, in the card's
+   padding; the steps done stay where they are, in the secondary colour, a
+   ride's time no longer strong */
+.trip-step-now {
+    position: relative;
+}
+
+.trip-step-now::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 calc(-1 * var(--wh-space-3));
+    width: var(--wh-space-1);
+    border-radius: var(--wh-radius-round);
+    background: var(--wh-brand-dot);
+}
+
+.trip-step-done,
+.trip-step-done .trip-step-leaves {
+    color: var(--bs-secondary-color);
+    font-weight: 400;
+}
+
 /* The stops a way's last bus can be caught at: the Buses page's stop rows
    (decision 48), across the whole step, one under the other with the line
    between them, none under the last */

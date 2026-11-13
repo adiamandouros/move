@@ -8,7 +8,7 @@ import { browserModule } from './support/browser-modules.js';
 // (tools/trip/client/follow.js). The page's side: test/browser/location.spec.js.
 
 const follow = await browserModule('tools/trip/client/follow.js');
-const { MOVED_METRES, REPLAN_MS, replanDue, waySteps, starting, placeOn, stepOf, leftStart, stillDue, segmentMeters } = follow;
+const { MOVED_METRES, REPLAN_MS, replanDue, waySteps, starting, placeOn, stepOf, offDue, leftStart, stillDue, segmentMeters } = follow;
 
 // Syntagma, and about 0.0009° of latitude to 100 m north of it
 const SYNTAGMA = { lat: 37.9755, lng: 23.7348 };
@@ -78,7 +78,7 @@ const onBus = (point, at, on = steps) => placeOn(on, placeOn(on, starting(), fix
 
 test('a way with a bus as the steps it\'s followed by: the walk, waiting, the ride, the last walk', () => {
     assert.deepEqual(steps, [
-        { kind: 'walk', from: SYNTAGMA, to: BOARD },
+        { kind: 'walk', ride: 0, from: SYNTAGMA, to: BOARD },
         { kind: 'wait', ride: 0, at: BOARD },
         { kind: 'ride', ride: 0, points: STOPS, past: PAST },
         { kind: 'last', from: STOPS[4], to: DOOR },
@@ -101,17 +101,17 @@ test('a metro option as its steps, the stations from rail: the walk to the stati
     const metro = { city: false, start: { station: 'a', walk: { minutes: 4 } }, end: { station: 'd', walk: { minutes: 4 } },
         plan: { legs: [{ line: 'M1', dir: 'up', from: 'a', to: 'c', fromIndex: 0, toIndex: 2 }, { line: 'M2', dir: 'out', from: 'f', to: 'd', fromIndex: 0, toIndex: 2 }] } };
     assert.deepEqual(waySteps(metro, SYNTAGMA, DOOR, rail), [
-        { kind: 'walk', from: SYNTAGMA, to: BOARD },
+        { kind: 'walk', ride: 0, from: SYNTAGMA, to: BOARD },
         { kind: 'wait', ride: 0, at: BOARD },
         { kind: 'ride', ride: 0, points: [BOARD, STOPS[1], STOPS[2]], past: [STOPS[3], STOPS[4]] },
-        { kind: 'walk', from: STOPS[2], to: east(200, STOPS[4]) },
+        { kind: 'walk', ride: 1, from: STOPS[2], to: east(200, STOPS[4]) },
         { kind: 'wait', ride: 1, at: east(200, STOPS[4]) },
         { kind: 'ride', ride: 1, points: [east(200, STOPS[4]), STOPS[4], STOPS[3]], past: [] },
         { kind: 'last', from: STOPS[3], to: DOOR },
     ]);
     // A walk from the first station to the line, and from the line to the last station (plan.js walkFirst, walkLast)
     const walked = { ...metro, start: { station: 'b', walk: null }, plan: { ...metro.plan, legs: [metro.plan.legs[0]], walkFirst: 3, walkLast: 5 }, end: { station: 'd', walk: null } };
-    assert.deepEqual(waySteps(walked, BOARD, STOPS[3], rail).map(step => step.kind), ['walk', 'wait', 'ride', 'walk']);
+    assert.deepEqual(waySteps(walked, BOARD, STOPS[3], rail).map(step => [step.kind, step.ride]), [['walk', 0], ['wait', 0], ['ride', 0], ['walk', 1]]);
 });
 
 test('each fix places the rider: along the walk, at the stop, on the bus stop by stop, off at the last, to the door', () => {
@@ -179,8 +179,13 @@ test('off the way: over 300 m from every point of the step for a minute; back wi
     state = placeOn(steps, state, fixAt(east(100, STOPS[2]), T + 55_000), T + 55_000);
     assert.deepEqual([state.off, state.offSince], [false, null]);
     state = placeOn(steps, state, fixAt(aside, T + 60_000), T + 60_000);
+    // No fix since (a phone standing still): off once the minute has gone by
+    assert.equal(offDue(state, T + 119_000), false);
+    assert.equal(offDue(state, T + 120_000), true);
     state = placeOn(steps, state, fixAt(aside, T + 120_000), T + 120_000);
     assert.equal(state.off, true);
+    assert.equal(offDue(state, T + 120_000), true);
+    assert.equal(offDue(starting(), T), false);
     // On the walk, it's the distance from the straight line, not the ends
     let walking = placeOn(steps, starting(), fixAt(north(250, east(150)), T), T);
     assert.deepEqual([walking.off, walking.offSince], [false, null]);

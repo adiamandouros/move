@@ -34,19 +34,21 @@ export const STILL_MS = 10 * 60_000;
 /** @typedef {{ lat: number, lng: number, at: number, accuracy?: number | null }} Fix */
 /**
  * A step of the way, as it's followed: a walk from `from` to `to` (the
- * first, or between rides), waiting at a stop for ride `ride`, ride `ride`
- * along `points` (boarding to getting off) with the stops `past` it, or the
- * last walk to the door. `arrived` once every step is done
- * @typedef {{ kind: 'walk', from: Point, to: Point } | { kind: 'wait', ride: number, at: Point }
+ * first, or between rides) to ride `ride`, waiting at a stop for ride
+ * `ride`, ride `ride` along `points` (boarding to getting off) with the
+ * stops `past` it, or the last walk to the door. `arrived` once every step
+ * is done
+ * @typedef {{ kind: 'walk', ride: number, from: Point, to: Point } | { kind: 'wait', ride: number, at: Point }
  *   | { kind: 'ride', ride: number, points: Point[], past: Point[] } | { kind: 'last', from: Point, to: Point } | { kind: 'arrived' }} Step
  */
 /**
  * Where the rider is on the way: which step (an index into the steps), at
  * which of a ride's points (`stop`), since when (`at`, ms; null before any
  * fix placed them), since when they've been off the way (`offSince`, ms,
- * null while on it), the last fix that counted, and the last place they
- * moved STILL_METRES from, and when (`anchor`)
- * @typedef {{ step: number, stop: number, at: number | null, offSince: number | null, fix: Fix | null, anchor: { lat: number, lng: number, at: number } | null }} State
+ * null while on it), the last fix that counted, the last place they moved
+ * STILL_METRES from, and when (`anchor`), whether the last fix moved them on
+ * (`moved`) and whether they're off the way (`off`)
+ * @typedef {{ step: number, stop: number, at: number | null, offSince: number | null, fix: Fix | null, anchor: { lat: number, lng: number, at: number } | null, moved: boolean, off: boolean }} State
  */
 
 /**
@@ -90,8 +92,8 @@ export function waySteps(o, from, to, rail) {
     /** @type {Step[]} */
     const steps = [];
     let here = from;
-    /** @param {Point} to */
-    const walk = to => { steps.push({ kind: 'walk', from: here, to }); here = to; };
+    /** @param {number} ride @param {Point} to */
+    const walk = (ride, to) => { steps.push({ kind: 'walk', ride, from: here, to }); here = to; };
     /** @param {number} ride @param {Point[]} points @param {Point[]} past */
     const board = (ride, points, past) => {
         steps.push({ kind: 'wait', ride, at: points[0] }, { kind: 'ride', ride, points, past });
@@ -99,22 +101,23 @@ export function waySteps(o, from, to, rail) {
     };
     if (o.city) {
         o.rides.forEach((ride, i) => {
-            if (i === 0 ? o.firstWalk : ride.walkBefore) walk(point(ride.along[0]));
+            if (i === 0 ? o.firstWalk : ride.walkBefore) walk(i, point(ride.along[0]));
             board(i, ride.along.map(point), ride.past.map(point));
         });
         if (o.lastWalk) steps.push({ kind: 'last', from: here, to });
     } else {
         const station = id => { const [lat, lng] = rail.stations[id].coords; return { lat, lng }; };
-        if (o.start.walk) walk(station(o.start.station));
-        if (o.plan.walkFirst) walk(station(o.plan.legs[0].from));
+        if (o.start.walk) walk(0, station(o.start.station));
+        if (o.plan.walkFirst) walk(0, station(o.plan.legs[0].from));
         o.plan.legs.forEach((leg, i) => {
             const before = o.plan.legs[i - 1];
-            if (before && before.to !== leg.from) walk(station(leg.from));
+            if (before && before.to !== leg.from) walk(i, station(leg.from));
             const { stops } = rail.lines[leg.line].directions[leg.dir];
             const at = stops.slice(leg.fromIndex, leg.toIndex + 1).map(stop => station(stop.station));
             board(i, at, stops.slice(leg.toIndex + 1, leg.toIndex + 3).map(stop => station(stop.station)));
         });
-        if (o.plan.walkLast) walk(station(o.end.station));
+        // A walk to another station at the end counts as the last walk
+        if (o.plan.walkLast) walk(o.plan.legs.length, station(o.end.station));
         if (o.end.walk) steps.push({ kind: 'last', from: here, to });
     }
     return steps;
@@ -122,7 +125,7 @@ export function waySteps(o, from, to, rail) {
 
 /** Before any fix: on the first step, at its start */
 /** @returns {State} */
-export const starting = () => ({ step: 0, stop: 0, at: null, offSince: null, fix: null, anchor: null });
+export const starting = () => ({ step: 0, stop: 0, at: null, offSince: null, fix: null, anchor: null, moved: false, off: false });
 
 /** The step the rider is on, or that they've arrived */
 /** @param {Step[]} steps @param {State} state @returns {Step} */
@@ -159,7 +162,7 @@ function offBy(step, stop, fix) {
  * once after GAP_MS without a fix, or nearer a stop past where the ride gets
  * off than to it. A fix rougher than ROUGH_METRES changes nothing
  * @param {Step[]} steps @param {State} state @param {Fix} fix @param {number} nowMs
- * @returns {State & { moved: boolean, off: boolean }}
+ * @returns {State}
  */
 export function placeOn(steps, state, fix, nowMs) {
     if (fix.accuracy != null && fix.accuracy > ROUGH_METRES) return { ...state, moved: false, off: false };
@@ -200,6 +203,14 @@ export function placeOn(steps, state, fix, nowMs) {
     const anchor = !state.anchor || metres(fix, state.anchor) >= STILL_METRES ? { lat: fix.lat, lng: fix.lng, at: nowMs } : state.anchor;
     return { step, stop, at: moved || state.at === null ? nowMs : state.at, offSince, fix, anchor, moved, off };
 }
+
+/**
+ * Off the way as time passes: a fix said so, or the last one was off it and
+ * OFF_MS have gone by since the first that was, with no fix since to say
+ * otherwise (a phone standing still may send none)
+ * @param {State} state @param {number} nowMs
+ */
+export const offDue = (state, nowMs) => state.off || (state.offSince !== null && nowMs - state.offSince >= OFF_MS);
 
 /** The rider has left the start: LEFT_METRES or more from it */
 /** @param {Point} fix @param {Point} from */

@@ -259,6 +259,28 @@ const linesOf = (way, bundle, lines) => way.legs.map((leg, i) => bundle && i ===
 // The most stops the way shown asks OASA for (agreed 6 Nov 2026, decision 34; kept in 45)
 export const LIVE_STOPS = 10;
 
+/**
+ * Where the rider is on the way, as it's followed (follow.js, decision 50):
+ * on which ride (`leg`: its index among the way's), doing what, at which of
+ * the ride's stops (`stop`, from where it boards), since `at` (seconds from
+ * midnight: now, or when the last fix came when none has for a while, so
+ * nothing slides underground), with `walk` seconds still to walk on a walk
+ * @typedef {{ leg: number, kind: 'walk' | 'wait' | 'ride' | 'last' | 'arrived', stop: number, at: number, walk: number }} LiveStep
+ */
+
+/**
+ * When a ride gets off, for a rider at its `offset`th stop from where it
+ * boards at `at`: the timetable's ride from there, by the trip the way boards
+ * (the one leaving nearest `leg.boards`); the way's own when the route has none
+ * @param {Planner} planner @param {{ route: number, boardIndex: number, alightIndex: number, boards: number, arrives: number }} leg
+ * @param {number} offset @param {number} at
+ */
+function arrivalFrom(planner, leg, offset, at) {
+    const { trips } = planner.routes[leg.route];
+    const trip = trips.reduce((best, times) => Math.abs(times[leg.boardIndex] - leg.boards) < Math.abs(best[leg.boardIndex] - leg.boards) ? times : best, trips[0]);
+    return trip ? at + trip[leg.alightIndex] - trip[leg.boardIndex + offset] : leg.arrives;
+}
+
 // A bus stop's code at OASA, from its id in the city (city.js)
 /** @param {import('/tools/subway/city.js').Stop} stop */
 const codeOf = stop => stop.id.startsWith('bus:') ? stop.id.slice(4) : null;
@@ -309,18 +331,26 @@ const catchable = (live, codes, ready) => (live?.buses ?? [])
  * @param {Planner} planner @param {Point} from @param {Point} to
  * @param {import('/tools/subway/answer.js').Row} row @param {number} departure
  * @param {{ seconds: number }} now @param {Record<string, StopLive>} live
- * @param {{ decision?: import('/tools/subway/answer.js').Decision | null, taken?: boolean, trains?: Record<string, import('./trains.js').TrainLate> | null }} [options]
+ * With the rider followed along it (`step`, Plan 7, decision 50): the rides
+ * done keep the way's own times (the page greys them) and aren't asked for;
+ * the ride they're on gets off when the timetable's ride from the stop
+ * they're at says, by the trip the way boards (arrivalFrom); the rest is
+ * timed from that, as after a bus; a walk is timed from `step.at` by what's
+ * left of it; and once past every ride, the way gets there by the last walk
+ * @param {{ decision?: import('/tools/subway/answer.js').Decision | null, taken?: boolean, trains?: Record<string, import('./trains.js').TrainLate> | null, step?: LiveStep | null }} [options]
  * @returns {LiveWay | null}
  */
-export function liveWay(planner, from, to, row, departure, now, live, { decision = null, taken = false, trains = null } = {}) {
+export function liveWay(planner, from, to, row, departure, now, live, { decision = null, taken = false, trains = null, step = null } = {}) {
     const way = row.best[departure];
     if (!way) return null;
     if (decision && taken) {
         const off = leavingSooner(decision, way, departure);
-        return off < 0 ? null : liveWay(planner, from, to, decision.getOff, off, now, live, { trains });
+        return off < 0 ? null : liveWay(planner, from, to, decision.getOff, off, now, live, { trains, step });
     }
     const [access, egress] = ends(planner, from, to);
     const last = way.legs.length - 1;
+    // The ride the rider is on or walking to; past them all, one more
+    const current = !step ? -1 : step.kind === 'last' || step.kind === 'arrived' ? way.legs.length : step.leg;
     const asks = new Map();
     const ask = (code, at) => { if (code && asks.size < LIVE_STOPS && !asks.has(code)) asks.set(code, at); };
     /** @type {(import('/tools/subway/ways.js').Way['legs'][number] & { boards: number, arrives: number })[]} */
@@ -330,7 +360,22 @@ export function liveWay(planner, from, to, row, departure, now, live, { decision
     let train = null;
     for (const [i, leg] of way.legs.entries()) {
         const before = legs.at(-1);
-        const ready = before ? before.arrives + (leg.walkBefore ? leg.walkBefore + AFTER_WALK_SECONDS : CHANGE_SECONDS) : now.seconds + secondsTo(access, leg.board);
+        // A ride done: as the way had it, nothing asked
+        if (i < current) {
+            legs.push(leg);
+            said.push(undefined);
+            continue;
+        }
+        // The ride the rider is on: off it when the timetable says from where they are
+        if (i === current && step.kind === 'ride') {
+            const ride = leg.mode === 'suburban' ? trainRide(planner, leg, leg.boards, trains) : null;
+            if (ride) train ??= ride.boards;
+            legs.push(ride ?? { ...leg, arrives: arrivalFrom(planner, leg, step.stop, step.at) });
+            said.push(undefined);
+            continue;
+        }
+        const ready = i === current ? step.at + (step.kind === 'walk' ? step.walk + (i ? AFTER_WALK_SECONDS : 0) : 0)
+            : before ? before.arrives + (leg.walkBefore ? leg.walkBefore + AFTER_WALK_SECONDS : CHANGE_SECONDS) : now.seconds + secondsTo(access, leg.board);
         if (leg.mode === 'suburban') {
             const ride = trainRide(planner, leg, ready, trains);
             if (!ride) return null;
@@ -356,15 +401,20 @@ export function liveWay(planner, from, to, row, departure, now, live, { decision
         legs.push(timed ?? leg);
     }
     const end = legs.at(-1);
-    const option = cityOption(planner, { ...way, legs, at: end.arrives + secondsTo(egress, end.alight) }, access, egress, now.seconds, linesOf(way, row.bundle, row.lines));
+    // Past every ride, the door is as far as the last walk; arrived, it's here
+    const at = step?.kind === 'arrived' ? step.at : step?.kind === 'last' ? step.at + step.walk : end.arrives + secondsTo(egress, end.alight);
+    const option = cityOption(planner, { ...way, legs, at }, access, egress, now.seconds, linesOf(way, row.bundle, row.lines));
     option.rides.forEach((ride, i) => { if (said[i]) ride.live = said[i]; });
 
     const doors = new Set(egress.filter((_, i) => i % 2 === 0));
-    // On a decision, where the quicker way would catch its bus: asked before a last bus's stops
-    const quick = decision && quickerBus(planner, decision, way, departure, legs[0], doors);
+    // On a decision, where the quicker way would catch its bus: asked before a last bus's stops; not once the first ride is done
+    const quick = decision && current <= 0 && quickerBus(planner, decision, way, departure, legs[0], doors);
     if (quick) ask(quick.code, catchable(live[quick.code], quick.codes, quick.ready)[0]?.at ?? null);
-    const stops = row.bundle ? row.stops.map(({ stop, walk, lines }) => {
-        const ready = last ? legs[last - 1].arrives + (walk ? walk + AFTER_WALK_SECONDS : CHANGE_SECONDS) : now.seconds + walk;
+    // A last bus that can be any of several: its stops, until the rider is on it
+    const riding = current > last || (current === last && step.kind === 'ride');
+    const stops = row.bundle && !riding ? row.stops.map(({ stop, walk, lines }) => {
+        const ready = current === last ? step.at + (step.kind === 'walk' ? walk : 0)
+            : last ? legs[last - 1].arrives + (walk ? walk + AFTER_WALK_SECONDS : CHANGE_SECONDS) : now.seconds + walk;
         const code = codeOf(planner.stops[stop]);
         const coming = catchable(live[code], routeCodes(planner, lines, stop, doors), ready);
         ask(code, coming[0]?.at ?? null);
