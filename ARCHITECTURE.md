@@ -522,11 +522,13 @@ first search and dropped for a new one, and `/api/health` warns when it's
 over three weeks old.
 
 The trip page (`tools/trip/`, [decisions 47](docs/decisions/0047-trip-suburban-cards.md)
-and [48](docs/decisions/0048-trip-bus-stops-as-buses-rows.md)) is what uses it. `client/picker.js` finds places as they're typed,
+and [51](docs/decisions/0051-trip-walks-through-exits.md)) is what uses it. `client/picker.js` finds places as they're typed,
 `client/plan.js` works out the trip in the browser from the Subway's
 `network.js`, on the metro and the tram unless the Subway page's switch hides
 the tram (`tram-switch.js`). Its walks are the city's (`walkMeters` in
-`city.js`, the straight line × 1.4). It tries the three metro stations nearest each
+`city.js`, the straight line × 1.4), into and out of a metro station
+through its nearest exit that goes the rider's way (`streetEnd`, from the
+station editor's `street.json`, carried in `rail.json`). It tries the three metro stations nearest each
 end and every station or stop within 16 minutes' walk: every trip between the
 nearest is planned, and the search (`arrivalsFrom`) picks the 6 quickest of
 the rest. `client/buses.js` adds the ways with a bus or a suburban train from the city's search (`city.js`,

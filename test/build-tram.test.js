@@ -8,7 +8,7 @@ import { tramCurated, tramFeed } from './fixtures/gtfs.js';
 // feed with a one-way loop, a shared stop and a few odd runs (fixtures/gtfs.js,
 // tramFeed), on the week the metro's build picks from the same feed
 
-const metroStations = { b: { lines: ['M9'] } };
+const metroStations = { b: { lines: ['M9'], exits: [{ name: { el: 'Πλατεία', en: 'Square' }, at: [37.1, 23.1] }, { name: { el: 'Οδός Κρήτης' }, at: [37.2, 23.2] }] } };
 const metroCurated = {
     stations: { stations: { m: { name: { el: 'Μ', en: 'M' }, gtfs: ['M'] } } },
     lines: { M9: { name: 'M9', color: '#000000', directions: { x: { gtfsDirection: '0', toward: { el: 'Μ', en: 'M' } } } } },
@@ -48,6 +48,18 @@ test('stops keep what\'s a short walk from them, among the stops rail.json has',
     assert.equal(data.stations.q.walks, undefined);
     assert.equal(data.stations.p.walks, undefined);
     assert.ok(warnings.includes('tram.json: q has a walk to a stop that isn\'t in rail.json'));
+});
+
+test('a walk to the metro that needs one of its exits has that exit\'s place in the station\'s exits; one it doesn\'t have is a warning, never an error', async () => {
+    const tram = tramCurated();
+    tram.stops.n.walks = [{ metro: 'b', minutes: 3, exit: 'Οδός Κρήτης' }, { stop: 'c', minutes: 5 }];
+    tram.stops.c.walks = [{ metro: 'b', minutes: 4, exit: 'Έξοδος Πλατεία' }];
+    tram.stops.e.walks = [{ metro: 'b', minutes: 6, exit: 'Αλλού' }];
+    const { data, warnings } = await built(tram);
+    assert.deepEqual(data.stations.n.walks, [{ metro: 'b', minutes: 3, exit: 1 }, { stop: 'c', minutes: 5 }]);
+    assert.deepEqual(data.stations.c.walks, [{ metro: 'b', minutes: 4, exit: 0 }], 'named as its sign says it, "Exit" and all');
+    assert.deepEqual(data.stations.e.walks, [{ metro: 'b', minutes: 6 }]);
+    assert.ok(warnings.includes('tram.json: e\'s walk to b uses the exit "Αλλού", which street.json doesn\'t have with a place'));
 });
 
 test('each direction has a timetable, on the same days as the metro', async () => {

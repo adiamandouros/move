@@ -72,7 +72,7 @@ and direction it's seen from, each exit on a line of its own:
 
 | Field | Meaning |
 |---|---|
-| `exits` | Its exits to the street. Each has `name` (as the signs inside write it: `el`, and `en` when they say it in English too) and `coords`, or one of them while the other isn't known yet, and `way`: how it's reached from inside, any of `stairs`, `escalator-up` (toward the street) and `escalator-down`. |
+| `exits` | Its exits to the street. Each has `name` (as the signs inside write it: `el`, and `en` when they say it in English too) and `coords`, or one of them while the other isn't known yet, and `way`: how it's reached from inside, any of `stairs`, `escalator-up` (toward the street) and `escalator-down`. The Trip page walks to the nearest exit that goes the rider's way: in by the stairs or an escalator down, out by the stairs or an escalator up (decision 51); its name is said without the sign's "Exit" or "Έξοδος". |
 | `lifts` | Its elevators that come out on the street. Each has `name` (as [STASY's lift page](https://www.stasy.gr/elevators/) writes it, like the platforms' elevators in positions.json) and `coords`, or one of them while the other isn't known yet. One that goes from a platform straight to the street is in both files under the same name. |
 
 `coords` are `[latitude, longitude]`, to 5 decimals (about 1 m), around Athens
@@ -130,7 +130,12 @@ to get from one to the other, platform included. A pair goes on one of its two
 stops, and works both ways. A stop with `metro` needs a walk to that station;
 a walk needs no `metro`, which is only the map's official change. The minutes
 are first guesses until checked on the spot: the straight line × 1.3 at 80 m a
-minute, plus 2 to reach the platform.
+minute, plus 2 to reach the platform. A walk to a metro station can have
+`exit`: the Greek name of the station's exit it goes through, as in
+street.json, when not every exit leads there (Syntagma's tram is reached only
+by Αμαλίας/Εθνικός Κήπος). The Trip page then says to leave by it; without it,
+it names none. A name street.json doesn't have with a place is a warning on
+`/admin/diagnostics`, and the walk names no exit.
 
 ## suburban.json — the suburban railway's lines and stations
 

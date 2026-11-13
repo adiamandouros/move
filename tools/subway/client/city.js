@@ -21,18 +21,24 @@ export const METERS_PER_MINUTE = 80;
 const CELL_LAT = 0.005;
 const CELL_LNG = 0.006;
 const CELL_METERS = 450;
+// Which of a station's exits a walk goes through: in by the stairs or an
+// escalator down, out by the stairs or an escalator up (decision 51)
+const THROUGH = { in: ['stairs', 'escalator-down'], out: ['stairs', 'escalator-up'] };
 // Meters on the flat, as the address search measures them (server/places/search.js)
 const M_LAT = 111_320;
 const M_LNG = 111_320 * Math.cos(37.97 * Math.PI / 180);
 
 /** @typedef {{ lat: number, lng: number }} Point */
 /** @typedef {{ el: string, en: string }} Names */
+/** @typedef {import('../../../types/data.js').Exit} Exit */
+/** @typedef {'in' | 'out'} Way into a station, or out of it */
 /**
  * A stop: name, Greek, for the lab; names, as the page shows them (`en` ''
  * for a bus stop whose English is its Greek in Latin letters, as in
  * bus-stops.json); station, a rail stop's id in rail.json; oasaTicket: false
- * at a suburban station OASA's ticket doesn't cover
- * @typedef {Point & { id: string, name: string, names?: Names, station?: string, oasaTicket?: false }} Stop
+ * at a suburban station OASA's ticket doesn't cover; exits: a metro
+ * station's exits with a place, where they're known (decision 51)
+ * @typedef {Point & { id: string, name: string, names?: Names, station?: string, oasaTicket?: false, exits?: Exit[] }} Stop
  */
 /** @typedef {import('./raptor.js').Route & { toward?: Names, dir?: string, code?: string, numbers?: (string | null)[] }} Route where it goes: a rail line's direction, a bus's last stop; dir: a metro or tram line's direction, as rail.json names it; code: a bus's OASA route, which its live times name; numbers: each suburban trip's train, which its live times name (decision 42) */
 /** @typedef {import('./raptor.js').Leg} Leg */
@@ -61,6 +67,47 @@ export const meters = (a, b) => Math.hypot((a.lat - b.lat) * M_LAT, (a.lng - b.l
 export const walkMeters = (a, b) => meters(a, b) * WINDING;
 /** @param {Point} a @param {Point} b */
 export const walkSeconds = (a, b) => walkMeters(a, b) / METERS_PER_MINUTE * 60;
+
+/**
+ * Where a walk into a station (`way` 'in') or out of it ('out') meets the
+ * street, for a walk from or to `point`: the nearest of its exits that goes
+ * that way (`exit`, its place in `exits`), or, with none, the station itself
+ * @param {Point & { exits?: Exit[] }} station @param {Point} point @param {Way} way
+ * @returns {{ exit: number | null, at: Point }}
+ */
+export function streetEnd(station, point, way) {
+    let found = { exit: null, at: { lat: station.lat, lng: station.lng } };
+    let least = Infinity;
+    (station.exits ?? []).forEach((exit, i) => {
+        if (exit.way && !exit.way.some(w => THROUGH[way].includes(w))) return;
+        const at = { lat: exit.at[0], lng: exit.at[1] };
+        const away = meters(point, at);
+        if (away < least) [least, found] = [away, { exit: i, at }];
+    });
+    return found;
+}
+
+/**
+ * A walk from `point` into a station, or out of it to `point`: through its
+ * exit (streetEnd), and the seconds it takes
+ * @param {Point & { exits?: Exit[] }} station @param {Point} point @param {Way} way
+ */
+export function stationWalk(station, point, way) {
+    const { exit, at } = streetEnd(station, point, way);
+    return { exit, seconds: walkSeconds(point, at) };
+}
+
+/**
+ * A walk from one stop to another for a change: out of a metro station by its
+ * exit nearest the other stop, into one by its way in nearest where the walk
+ * comes from (decision 51)
+ * @param {Stop} a @param {Stop} b
+ */
+export function changeWalk(a, b) {
+    const out = streetEnd(a, b, 'out');
+    const into = streetEnd(b, out.at, 'in');
+    return { out: out.exit, in: into.exit, seconds: walkSeconds(out.at, into.at) };
+}
 
 /**
  * One weekday (0 = Sunday) of buses.json, with the trips of the day before
@@ -125,7 +172,7 @@ export function joinNetwork(rail, buses, weekday, trains = null) {
         index.set(id, stops.length);
         stops.push({ id, lat, lng, name: names.el, names, ...more });
     };
-    for (const [id, { coords, name }] of Object.entries(net.stations)) add(`rail:${id}`, coords[0], coords[1], name, { station: id });
+    for (const [id, { coords, name, exits }] of Object.entries(net.stations)) add(`rail:${id}`, coords[0], coords[1], name, { station: id, ...exits && { exits } });
     for (const [code, [lat, lng, el, en = '']] of Object.entries(buses.stops)) add(`bus:${code}`, lat, lng, { el, en });
     const outside = new Set(trains?.outside ?? []);
     for (const [id, [lat, lng, el, en]] of Object.entries(trains?.stations ?? {})) add(`train:${id}`, lat, lng, { el, en }, outside.has(id) ? { oasaTicket: false } : {});
@@ -164,18 +211,29 @@ export function joinNetwork(rail, buses, weekday, trains = null) {
     }
     const knownWalks = (trains?.walks ?? []).filter(([from, to]) => index.has(from) && index.has(to))
         .map(([from, to, seconds, note]) => /** @type {KnownWalk} */ ([index.get(from), index.get(to), seconds, ...note ? [note] : []]));
+    // The tram's walks to the metro and between its stops, as the Subway planner has them (tram.json, decision 25), each pair once
+    for (const [a, to] of Object.entries(net.walks ?? {})) {
+        for (const [b, minutes] of Object.entries(to)) {
+            if (a < b) knownWalks.push([index.get(`rail:${a}`), index.get(`rail:${b}`), minutes * 60, null, net.walkExits?.[a]?.[b] ?? null]);
+        }
+    }
     return { stops, routes, index, knownWalks };
 }
 
-/** @typedef {[number, number, number] | [number, number, number, Names]} KnownWalk two stops, the seconds between them, and a note where the way needs one */
+/** @typedef {[number, number, number] | [number, number, number, Names | null] | [number, number, number, Names | null, number | null]} KnownWalk two stops, the seconds between them, a note where the way needs one, and the metro station's exit it goes through, where one is said (tram.json's, decision 51) */
 
 /**
  * The search over these stops and routes (a leg's `route` is one of them),
- * with every walk of up to 10 minutes between stops for changes, the
- * straight line's or, either way round, a known walk's (`walks`, by stop:
- * [stop, seconds…]), and `near`:
- * the stops within `limit` seconds on foot of a point, [stop, seconds, stop,
- * seconds…]; `walkNote`, a known walk's note between two stops, or null
+ * with every walk between stops of up to 10 minutes for changes, timed
+ * the straight line's from exit to exit (changeWalk) or, either way round, a
+ * known walk's (`walks`, by stop: [stop, seconds…]), and `near`: the stops
+ * within `limit` seconds on foot of a point, [stop, seconds, stop, seconds…],
+ * timed walking into them (`way` 'in') or out of them to the point ('out')
+ * through a metro station's exit (decision 51), or with no `way` to where
+ * each stop is. How far a stop is, for both, is to where it is, so its exits
+ * never put it out of reach. `walkNote`: a known walk's note between two
+ * stops, or null; `walkExits`: the exits a walk between two stops goes out
+ * of and into, at a metro station
  * @param {{ stops: Stop[], routes: Route[], knownWalks?: KnownWalk[] }} network
  */
 export function createPlanner({ stops, routes, knownWalks = [] }) {
@@ -186,30 +244,42 @@ export function createPlanner({ stops, routes, knownWalks = [] }) {
         if (!cells.has(cell)) cells.set(cell, []);
         cells.get(cell).push(i);
     });
-    /** @param {Point} point @param {number} limit @param {number} [except] */
-    const near = (point, limit, except = -1) => {
-        const found = [];
+    // Each stop around `point` that's maybe within `limit` seconds' walk
+    /** @param {Point} point @param {number} limit @param {(stop: number) => void} each */
+    const around = (point, limit, each) => {
         const y = Math.floor(point.lat / CELL_LAT);
         const x = Math.floor(point.lng / CELL_LNG);
         const reach = Math.ceil(limit * METERS_PER_MINUTE / 60 / WINDING / CELL_METERS);
         for (let a = y - reach; a <= y + reach; a++) {
-            for (let b = x - reach; b <= x + reach; b++) {
-                for (const stop of cells.get(cellOf(a, b)) ?? []) {
-                    const seconds = walkSeconds(point, stops[stop]);
-                    if (stop !== except && seconds <= limit) found.push(stop, Math.floor(seconds));
-                }
-            }
+            for (let b = x - reach; b <= x + reach; b++) for (const stop of cells.get(cellOf(a, b)) ?? []) each(stop);
         }
+    };
+    /** @param {Point} point @param {number} limit @param {number} [except] @param {Way | null} [way] */
+    const near = (point, limit, except = -1, way = null) => {
+        const found = [];
+        around(point, limit, stop => {
+            if (stop === except || walkSeconds(point, stops[stop]) > limit) return;
+            found.push(stop, Math.floor(way ? stationWalk(stops[stop], point, way).seconds : walkSeconds(point, stops[stop])));
+        });
         return found;
     };
-    const walks = stops.map((stop, i) => near(stop, CHANGE_WALK_SECONDS, i));
+    const walks = stops.map((from, i) => {
+        const found = [];
+        around(from, CHANGE_WALK_SECONDS, stop => {
+            if (stop === i || walkSeconds(from, stops[stop]) > CHANGE_WALK_SECONDS) return;
+            found.push(stop, Math.floor(changeWalk(from, stops[stop]).seconds));
+        });
+        return found;
+    });
     const known = new Map();
     const notes = new Map();
+    const exits = new Map();
     const pair = (from, to) => from * stops.length + to;
-    for (const [a, b, seconds, note] of knownWalks) {
+    for (const [a, b, seconds, note, exit] of knownWalks) {
         for (const [from, to] of [[a, b], [b, a]]) {
             known.set(pair(from, to), seconds);
             if (note) notes.set(pair(from, to), note);
+            if (exit !== undefined && exit !== null) exits.set(pair(from, to), { out: stops[from].exits ? exit : null, in: stops[to].exits ? exit : null });
             const list = walks[from];
             const at = list.findIndex((stop, j) => j % 2 === 0 && stop === to);
             if (at >= 0) list[at + 1] = seconds;
@@ -218,9 +288,16 @@ export function createPlanner({ stops, routes, knownWalks = [] }) {
     }
     const planner = search({ stops, routes, walks }, {
         afterWalk: AFTER_WALK_SECONDS,
-        walkSeconds: (from, to) => known.get(pair(from, to)) ?? walkSeconds(stops[from], stops[to]),
+        walkSeconds: (from, to) => known.get(pair(from, to)) ?? changeWalk(stops[from], stops[to]).seconds,
     });
     /** @param {number} from @param {number} to @returns {Names | null} */
     const walkNote = (from, to) => notes.get(pair(from, to)) ?? null;
-    return { ...planner, stops, routes, walks, near, walkNote };
+    // A known walk names its exit only where tram.json says which (none: none named)
+    /** @param {number} from @param {number} to @returns {{ out: number | null, in: number | null }} */
+    const walkExits = (from, to) => {
+        if (known.has(pair(from, to))) return exits.get(pair(from, to)) ?? { out: null, in: null };
+        const walk = changeWalk(stops[from], stops[to]);
+        return { out: walk.out, in: walk.in };
+    };
+    return { ...planner, stops, routes, walks, near, walkNote, walkExits };
 }

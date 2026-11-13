@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildBuses, TIMETABLE_SCHEMA } from '../server/data/bus-timetable.js';
 import { buildTrains } from '../server/data/build-suburban.js';
-import { busDay, createPlanner, joinNetwork, MAX_RIDES, trainDay } from '../tools/subway/client/city.js';
+import { readFileSync } from 'fs';
+import { busDay, changeWalk, createPlanner, joinNetwork, MAX_RIDES, stationWalk, streetEnd, trainDay, walkSeconds } from '../tools/subway/client/city.js';
 import { board, suburbanCurated, train } from './fixtures/railway.js';
 
 // The whole city for the trip search (tools/subway/client/city.js): a day of
@@ -153,4 +154,75 @@ test('a known walk is the search\'s, either way round and however far, with its 
         // Off at 08:40, 5 minutes on foot and the minute after a walk: the 08:50
         ['train:piraeus', 'train:liosia', 8 * 3600 + 50 * 60, 300],
     ]);
+});
+
+// ── A metro station's exits (decision 51) ─────────────────────────────────────
+
+// A station with an exit north that only has an escalator up (a way out
+// only), one south by the stairs, and one east with how it's reached not
+// recorded; a bus stop 300 m north and one 300 m east
+const north = 0.001;
+const metro = {
+    id: 'rail:m', name: 'Μ', station: 'm', lat: 37.97, lng: 23.7,
+    exits: [
+        { name: { el: 'Βόρεια', en: 'North' }, at: [37.97 + north, 23.7], way: ['escalator-up'] },
+        { name: { el: 'Νότια', en: 'South' }, at: [37.97 - north, 23.7], way: ['stairs'] },
+        { at: [37.97, 23.7015] },
+    ],
+};
+const stopNorth = { id: 'bus:n', name: 'Β', lat: 37.97 + 3 * north, lng: 23.7 };
+const stopEast = { id: 'bus:e', name: 'Α', lat: 37.97, lng: 23.704 };
+const exitAt = (station, i) => ({ lat: station.exits[i].at[0], lng: station.exits[i].at[1] });
+
+test('a walk goes through the nearest exit that goes its way: in by the stairs or an escalator down, out by the stairs or an escalator up', () => {
+    assert.deepEqual(streetEnd(metro, stopNorth, 'out'), { exit: 0, at: exitAt(metro, 0) }, 'out by the escalator up, north');
+    assert.equal(streetEnd(metro, stopNorth, 'in').exit, 2, 'not in by an escalator that only goes up: the nearest other');
+    assert.equal(streetEnd(metro, { lat: 37.96, lng: 23.7 }, 'in').exit, 1, 'south, by the stairs');
+    assert.equal(streetEnd(metro, stopEast, 'in').exit, 2, 'one with no way recorded goes both ways');
+    assert.equal(streetEnd(metro, stopEast, 'out').exit, 2);
+    assert.deepEqual(streetEnd({ lat: 37.97, lng: 23.7 }, stopNorth, 'in'), { exit: null, at: { lat: 37.97, lng: 23.7 } }, 'no exits: the station itself');
+    assert.deepEqual(stationWalk(metro, stopNorth, 'out'), { exit: 0, seconds: walkSeconds(stopNorth, exitAt(metro, 0)) });
+});
+
+test('a change walks out of a metro station by the exit nearest the other stop, and into one by its way in nearest where the walk comes from', () => {
+    assert.deepEqual(changeWalk(metro, stopNorth), { out: 0, in: null, seconds: walkSeconds(exitAt(metro, 0), stopNorth) });
+    assert.deepEqual(changeWalk(stopNorth, metro), { out: null, in: 2, seconds: walkSeconds(stopNorth, exitAt(metro, 2)) });
+    assert.deepEqual(changeWalk(stopNorth, stopEast), { out: null, in: null, seconds: walkSeconds(stopNorth, stopEast) }, 'between two bus stops, the straight line');
+});
+
+test('the stops near a place are timed through the exits the way the rider walks, and how far a stop is stays to where it is', () => {
+    const planner = createPlanner({ stops: [metro, stopNorth, stopEast], routes: [] });
+    const door = { lat: 37.97 + 2 * north, lng: 23.7 };
+    const seconds = (list, stop) => list[list.indexOf(stop) + 1];
+    assert.equal(seconds(planner.near(door, 600, -1, 'out'), 0), Math.floor(walkSeconds(door, exitAt(metro, 0))), 'out by the north exit');
+    assert.equal(seconds(planner.near(door, 600, -1, 'in'), 0), Math.floor(walkSeconds(door, exitAt(metro, 2))), 'in by the east one');
+    assert.equal(seconds(planner.near(door, 600), 0), Math.floor(walkSeconds(door, metro)), 'no way: to where the station is');
+    // 200 m from where the station is, 100 m from its north exit: a limit between the two keeps it out, as it was
+    const limit = Math.floor(walkSeconds(door, metro)) - 1;
+    assert.ok(walkSeconds(door, exitAt(metro, 0)) < limit);
+    assert.equal(planner.near(door, limit, -1, 'out').indexOf(0), -1);
+    // A change from the station to the bus stop north, and back
+    assert.equal(seconds(planner.walks[0], 1), Math.floor(changeWalk(metro, stopNorth).seconds));
+    assert.equal(seconds(planner.walks[1], 0), Math.floor(changeWalk(stopNorth, metro).seconds));
+    assert.deepEqual(planner.walkExits(0, 1), { out: 0, in: null });
+    assert.deepEqual(planner.walkExits(1, 0), { out: null, in: 2 });
+});
+
+test('a known walk keeps its minutes, and names the exit it goes through only where it\'s said', () => {
+    const tram = { id: 'rail:t', name: 'Τ', station: 't', lat: 37.97, lng: 23.7005 };
+    const planner = createPlanner({ stops: [metro, tram, stopNorth], routes: [], knownWalks: [[0, 1, 240, null, 1], [1, 2, 300]] });
+    assert.equal(planner.walks[0][planner.walks[0].indexOf(1) + 1], 240);
+    assert.deepEqual(planner.walkExits(0, 1), { out: 1, in: null });
+    assert.deepEqual(planner.walkExits(1, 0), { out: null, in: 1 });
+    assert.deepEqual(planner.walkExits(2, 1), { out: null, in: null });
+});
+
+test('the tram\'s walks to the metro are the search\'s known walks, with the exit tram.json says they go through', () => {
+    const rail = JSON.parse(readFileSync(new URL('browser/data/rail.json', import.meta.url), 'utf8'));
+    const network = joinNetwork(rail, busDay(buses, 3), 3);
+    const [syntagma, tram] = ['rail:syntagma', 'rail:syntagma-tram'].map(id => network.index.get(id));
+    const walk = network.knownWalks.find(([a, b]) => [a, b].includes(syntagma) && [a, b].includes(tram));
+    assert.deepEqual([walk[2], rail.stations.syntagma.exits[walk[4]].name.en], [240, 'Amalias/National Garden']);
+    assert.equal(network.stops[syntagma].exits, rail.stations.syntagma.exits);
+    assert.equal(network.stops[tram].exits, undefined);
 });

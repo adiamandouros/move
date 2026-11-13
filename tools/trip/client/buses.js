@@ -133,8 +133,13 @@ const walkOf = seconds => seconds > 0 ? { minutes: Math.max(1, Math.round(second
  */
 export const cityPlanner = (rail, buses, weekday, trains = null) => createPlanner(joinNetwork(rail, busDay(buses, weekday), weekday, trains));
 
-/** @param {Planner} planner @param {Point} from @param {Point} to */
-const ends = (planner, from, to) => [planner.near(from, NEAR_SECONDS), planner.near(to, NEAR_SECONDS)];
+// Walking into the stops near where the trip starts, out of those near where
+// it ends, through a metro station's exits (decision 51); a station picked
+// as the start or the end is its platforms, with no walk to them
+/** @param {Planner} planner @param {Point & { station?: string }} place @param {import('/tools/subway/city.js').Way} way */
+const endOf = (planner, place, way) => planner.near(place, NEAR_SECONDS, -1, place.station ? null : way);
+/** @param {Planner} planner @param {Point & { station?: string }} from @param {Point & { station?: string }} to */
+const ends = (planner, from, to) => [endOf(planner, from, 'in'), endOf(planner, to, 'out')];
 
 // How many stops past where a ride gets off it carries, for seeing a rider ride past their stop
 export const PAST_STOPS = 2;

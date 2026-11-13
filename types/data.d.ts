@@ -39,8 +39,8 @@ export interface Tram {
 export interface TramStop extends Station {
     /** The metro station this stop changes to, and its lines */
     metro?: { station: string; lines: string[] };
-    /** The metro stations or other stops a short walk from here, and the minutes it takes (data/curated/tram.json) */
-    walks?: { metro?: string; stop?: string; minutes: number }[];
+    /** The metro stations or other stops a short walk from here, and the minutes it takes (data/curated/tram.json); `exit`: the metro station's exit it uses, its place in the station's `exits` */
+    walks?: { metro?: string; stop?: string; minutes: number; exit?: number }[];
 }
 
 export interface TramLine {
@@ -63,6 +63,18 @@ export interface Station {
     suburban?: boolean;
     /** A suburban railway station OASA's ticket doesn't cover (withSuburban) */
     oasaTicket?: false;
+    /** A metro station's exits to the street with a place (data/curated/street.json), for the Trip page's walks (decision 51) */
+    exits?: Exit[];
+}
+
+/** An exit to the street, as the Trip page walks to it (streetExits in server/data/build-rail.js) */
+export interface Exit {
+    /** As its sign says it, without "Exit" or "Έξοδος"; either language while the other isn't known; none: not known */
+    name?: { el?: string; en?: string };
+    /** [latitude, longitude] */
+    at: [number, number];
+    /** How it's reached from inside, when that's not every way: 'stairs', 'escalator-up' (toward the street), 'escalator-down' */
+    way?: string[];
 }
 
 export interface Line {
