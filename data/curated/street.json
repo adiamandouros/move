@@ -91,5 +91,31 @@
     "lifts": [
       { "name": "Εξωτερικός προς Κασομούλη και Ελληνικό", "coords": [37.9576, 23.72837] }
     ]
+  },
+  "panepistimio": {
+    "exits": [
+      { "name": { "el": "Κοραή", "en": "Korai" }, "coords": [37.97978, 23.73262], "way": ["stairs"] },
+      { "name": { "el": "Ακαδημία", "en": "Akademia" }, "coords": [37.98076, 23.73274], "way": ["stairs", "escalator-up"] },
+      { "name": { "el": "Εθνική Βιβλιοθήκη", "en": "National Library" }, "coords": [37.98008, 23.73324], "way": ["stairs", "escalator-up"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός Κοραή", "coords": [37.98004, 23.73251] }
+    ]
+  },
+  "omonia": {
+    "exits": [
+      { "name": { "el": "3ης Σεπτεμβρίου", "en": "3rd Septemvriou" }, "coords": [37.98447, 23.72839], "way": ["stairs", "escalator-up", "escalator-down"] },
+      { "name": { "el": "Πανεπιστημίου", "en": "Panepistimiou" }, "coords": [37.98428, 23.72866], "way": ["stairs", "escalator-up", "escalator-down"] },
+      { "name": { "el": "Σταδίου/Πανεπιστημίου", "en": "Stadiou/Panepistimiou" }, "coords": [37.98412, 23.72841], "way": ["stairs", "escalator-up", "escalator-down"] },
+      { "name": { "el": "Σταδίου/Αθηνάς", "en": "Stadiou/Athinas" }, "coords": [37.98361, 23.72817], "way": ["stairs", "escalator-up", "escalator-down"] },
+      { "name": { "el": "Μαρ. Κοτοπούλη", "en": "Mar. Kotopouli" }, "coords": [37.98449, 23.72791], "way": ["stairs", "escalator-up", "escalator-down"] },
+      { "name": { "el": "Αγ. Κωνσταντίνου/Κοτοπούλη", "en": "Ag. Konstantinou/Kotopouli" }, "coords": [37.98498, 23.72712], "way": ["stairs", "escalator-up", "escalator-down"] },
+      { "name": { "el": "Πειραιώς/Αγ. Κωνσταντίνου", "en": "Pireos/Ag. Konstantinou" }, "coords": [37.98405, 23.72747], "way": ["stairs", "escalator-up", "escalator-down"] },
+      { "name": { "el": "No name", "en": "No name" }, "coords": [37.98372, 23.72755], "way": ["stairs", "escalator-up", "escalator-down"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός προς Πανεπιστημίου", "coords": [37.98414, 23.72872] },
+      { "name": "Εξωτερικός προς Κοτοπούλη", "coords": [37.9846, 23.72766] }
+    ]
   }
 }
