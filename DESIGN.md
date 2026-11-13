@@ -375,6 +375,14 @@ rules, with a picture of a way shown in full.
   are the Subway page's leg card, inside the trip's card. Every other way is one line. Nothing under the answer.
 - **A walk**: `~16'` on the left, "Walk to …" in plain text with the
   distance under it, walking directions at the far right.
+- **A metro station's exits** (decision 51): a walk into a station for a
+  ride from there says its way in before the distance, "Way in: Syntagma
+  Square · About 300 m", and its walking directions lead to that exit.
+  After a metro ride, the exit to leave by is a step of its own, "Way out:
+  Amalias/National Garden", with nothing on the left, and the walk after it
+  starts there. The exit's name is as its sign says it, in the page's
+  language or the other one when only one is recorded. A station without
+  exits recorded, or an exit without a name, says nothing.
 - **A bus ride**: on the left, the clock time it leaves, `md`, bold, the
   body colour, with `~` when it's from OASA's timetable. The heading is the
   M plate and "towards …" in words (a bus shows where it goes on its front,

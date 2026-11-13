@@ -94,14 +94,32 @@ const step = (when, content, { leaves = false, directions = null, mark = NONE } 
 const directionsTo = (place, name) => externalLink({ class: 'directions-btn d-flex align-items-center justify-content-center', href: walkingUrl(place.lat, place.lng) },
     html`${icon('walk')}<span class="sr-only">${format(t('trip.walking-directions-to'), { place: name })}</span>`, t('shell.new-tab'));
 
+// A metro station's exit, by its place in the station's `exits`: its name,
+// in the page's language or the other one, and where it is; none without a
+// name (decision 51)
+/** @param {import('../../../types/data.js').Exit[] | undefined} exits @param {number | undefined} i */
+function exitOf(exits, i) {
+    const exit = i === undefined ? null : exits?.[i];
+    const name = exit?.name?.[language] || exit?.name?.el || exit?.name?.en;
+    return name ? { name, place: { lat: exit.at[0], lng: exit.at[1] } } : null;
+}
+
 // A walk to `place`, `name`: from the door, or between two stations or stops,
 // whose minutes are the tram's walks (decision 28) and have no distance.
-// note: what the way needs saying, a suburban station's change (decision 41)
-function walkStep(walk, name, place, note = null, mark = NONE) {
+// note: what the way needs saying, a suburban station's change (decision 41).
+// into: the metro station's exit it goes in by, said before its distance,
+// and where its walking directions lead (decision 51)
+function walkStep(walk, name, place, note = null, mark = NONE, into = null) {
+    const said = [into && format(t('trip.way-in'), { exit: into.name }), walk.meters !== undefined && distance(walk.meters)].filter(Boolean);
     return step(walkMinutes(walk.minutes), html`<div>${format(t('trip.walk-to'), { place: name })}</div>
-        ${walk.meters !== undefined && html`<div class="trip-step-note">${distance(walk.meters)}</div>`}
-        ${note && html`<div class="trip-step-note">${localName(note, language)}</div>`}`, { directions: directionsTo(place, name), mark });
+        ${said.length > 0 && html`<div class="trip-step-note">${said.join(' · ')}</div>`}
+        ${note && html`<div class="trip-step-note">${localName(note, language)}</div>`}`, { directions: directionsTo(into?.place ?? place, name), mark });
 }
+
+// After a metro ride, the exit to leave the station by, a step of its own
+// before the walk from it (decision 51); `mark`: the walk's, the exit
+// behind the rider once they're on it
+const exitStep = (out, mark = NONE) => out && step('', html`<div>${format(t('trip.way-out'), { exit: out.name })}</div>`, { mark: mark === NOW ? DONE : mark });
 
 // A ride's heading: its line and where it goes, then its badges at the right end
 /** @param {unknown} line @param {string | false} toward @param {unknown} [badges] */
@@ -129,7 +147,14 @@ function legend(rail, o, when, open) {
 }
 
 const stationPlace = (rail, id) => ({ lat: rail.stations[id].coords[0], lng: rail.stations[id].coords[1] });
-const walkToStation = (rail, id, minutes, mark = NONE) => walkStep({ minutes }, stationName(rail, id), stationPlace(rail, id), null, mark);
+// A walk between two stations of `tram.json` (decision 25), `from` one to
+// another, through a metro station's exit where it says which (decision
+// 51): out of `from` as a step of its own after a ride (`leaving`), and in
+// to `id` for a ride from there (`boarding`)
+function walkToStation(rail, from, id, minutes, mark = NONE, { leaving = true, boarding = true } = {}) {
+    const exit = rail.walkExits?.[from]?.[id];
+    return html`${leaving && exitStep(exitOf(rail.stations[from]?.exits, exit), mark)}${walkStep({ minutes }, stationName(rail, id), stationPlace(rail, id), null, mark, boarding ? exitOf(rail.stations[id].exits, exit) : null)}`;
+}
 
 // The walk to where the first ride leaves: to the station, and on to a stop
 // beside it, if the trip starts there
@@ -231,15 +256,16 @@ function busStops(rail, stops, change, now, opened, mark = NONE, board = null) {
 // `stops`: the bus stops they opened
 function citySteps(rail, o, to, drawn, row = null, live = null, following = null) {
     const mark = marker(following, o.rides.length);
-    const walkTo = (walk, stop, note, at) => walk && walkStep(walk, stopName(rail, stop), stop, note, mark(at));
+    // A walk to `stop`, out of the metro station of the ride before it by its exit, a step of its own, and into `stop`'s
+    const walkTo = (walk, stop, note, at, before = null) => walk && html`${before && exitStep(exitOf(before.exits, walk.out), mark(at))}${walkStep(walk, stopName(rail, stop), stop, note, mark(at), exitOf(stop.exits, walk.in))}`;
     const rides = row?.bundle ? o.rides.slice(0, -1) : o.rides;
     const cards = wayLegs(rail, o, drawn);
     const last = o.rides.length - 1;
     return html`<ol class="trip-steps">
         ${rides.length > 0 && walkTo(o.firstWalk, o.rides[0].board, null, 0)}
-        ${rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board, ride.walkNote, i * 3)}${cards[i] ? railCard(rail, cards[i], drawn.now, false, drawn.stations, mark(i * 3 + 1, 2)) : rideStep(rail, ride, drawn, mark(i * 3 + 1, 2))}`)}
+        ${rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board, ride.walkNote, i * 3, o.rides[i - 1].alight)}${cards[i] ? railCard(rail, cards[i], drawn.now, false, drawn.stations, mark(i * 3 + 1, 2)) : rideStep(rail, ride, drawn, mark(i * 3 + 1, 2))}`)}
         ${row?.bundle && busStops(rail, live?.way.stops ?? row.stops, rides.length > 0, drawn.now, drawn.stops, mark(last * 3 + 1, 2), o.rides[last].board.id)}
-        ${o.lastWalk && walkStep(o.lastWalk, to.title, to, null, mark(o.rides.length * 3))}
+        ${o.lastWalk && html`${exitStep(exitOf(o.rides[last].alight.exits, o.lastWalk.out), mark(o.rides.length * 3))}${walkStep(o.lastWalk, to.title, to, null, mark(o.rides.length * 3))}`}
     </ol>`;
 }
 
@@ -277,14 +303,14 @@ function tripCard(rail, o, to, drawn, following = null) {
             <span class="trip-arrives">${when(o)}</span>
         </div>
         <ol class="trip-steps">
-            ${o.start.walk && walkStep(o.start.walk, stationName(rail, o.start.station), stationPlace(rail, o.start.station), null, mark(0))}
-            ${o.plan.walkFirst && walkToStation(rail, o.plan.legs[0].from, o.plan.walkFirst, mark(0))}
+            ${o.start.walk && walkStep(o.start.walk, stationName(rail, o.start.station), stationPlace(rail, o.start.station), null, mark(0), o.plan.walkFirst ? null : exitOf(rail.stations[o.start.station].exits, o.start.walk.in))}
+            ${o.plan.walkFirst && walkToStation(rail, o.start.station, o.plan.legs[0].from, o.plan.walkFirst, mark(0), { leaving: false })}
             ${o.plan.legs.map((leg, i) => {
                 const before = o.plan.legs[i - 1];
-                return html`${before && before.to !== leg.from && walkToStation(rail, leg.from, rail.walks[before.to][leg.from], mark(i * 3))}${railCard(rail, cards[i], drawn.now - o.dayStart, o.morning, drawn.stations, mark(i * 3 + 1, 2))}`;
+                return html`${before && before.to !== leg.from && walkToStation(rail, before.to, leg.from, rail.walks[before.to][leg.from], mark(i * 3))}${railCard(rail, cards[i], drawn.now - o.dayStart, o.morning, drawn.stations, mark(i * 3 + 1, 2))}`;
             })}
-            ${o.plan.walkLast && walkToStation(rail, o.end.station, o.plan.walkLast, mark(after))}
-            ${o.end.walk && walkStep(o.end.walk, to.title, to, null, mark(after))}
+            ${o.plan.walkLast && walkToStation(rail, o.plan.legs.at(-1).to, o.end.station, o.plan.walkLast, mark(after), { boarding: false })}
+            ${o.end.walk && html`${!o.plan.walkLast && exitStep(exitOf(rail.stations[o.end.station].exits, o.end.walk.out), mark(after))}${walkStep(o.end.walk, to.title, to, null, mark(after))}`}
         </ol>
     </div>`;
 }

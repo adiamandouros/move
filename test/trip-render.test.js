@@ -210,6 +210,50 @@ for (const lang of ['en', 'el']) {
         assert.ok(last.indexOf('line-m2') < last.indexOf(walkTo('neos-kosmos-tram')), 'after the last train');
     });
 
+    test(`${lang}: through a metro station's exits (decision 51): the way in under the walk to it, the way out a step of its own after the card, the walk on from there`, () => {
+        // From near Korydallos to Menelaou: in by Eleftherias square, the M3 to Syntagma, out by Amalias, the 040
+        const korydallos = { lat: 37.9775, lng: 23.6522, title: 'Οδός 1', exact: null };
+        const way = busOptions(city, korydallos, menelaou, NOW).find(o => o.rides.map(ride => ride.line).join() === 'M3,040');
+        const view = String(drawTrip(network, { options: [way], walk: { minutes: 99, meters: 9_000 }, walkFirst: false, longWalk: false }, menelaou));
+        check(view);
+        const exit = (station, i) => rail.stations[station].exits[i];
+        const name = (station, i) => exit(station, i).name[lang];
+        const [, first, second] = view.split('<li class="trip-step');
+        const meters = Math.round(way.firstWalk.meters / 50) * 50;
+        assert.ok(first.includes(`<div class="trip-step-note">${format(s['trip.way-in'], { exit: name('korydallos', way.firstWalk.in) })} · ${format(s['trip.walk-meters'], { meters })}</div>`), 'the way in, before the distance');
+        assert.equal(name('korydallos', way.firstWalk.in), lang === 'el' ? 'Πλατεία Ελευθερίας' : 'Eleftherias square');
+        const [lat, lng] = exit('korydallos', way.firstWalk.in).at;
+        assert.ok(first.includes(`destination=${lat},${lng}&amp;`), 'the walking directions to the exit');
+        const out = `<div>${format(s['trip.way-out'], { exit: name('syntagma', way.rides[1].walkBefore.out) })}</div>`;
+        assert.equal(name('syntagma', way.rides[1].walkBefore.out), lang === 'el' ? 'Αμαλίας/Εθνικός Κήπος' : 'Amalias/National Garden');
+        assert.ok(second.startsWith(`"><span class="trip-step-when"></span><div class="trip-step-what">${out}</div></li>`), 'a step of its own, with nothing on the left');
+        const stop = lang === 'el' ? way.rides[1].board.names.el : way.rides[1].board.names.en || latin(way.rides[1].board.names.el);
+        const at = text => view.indexOf(text);
+        assert.ok(at('line-m3') < at(out) && at(out) < at(s['trip.walk-to'].replace('{place}', stop)), 'after the card, before the walk to the bus');
+        // Followed (decision 50): on the walk to the 040, the way out is behind the rider, never the step they're on
+        const followed = String(drawTrip(network, { options: [way], walk: { minutes: 99, meters: 9_000 }, walkFirst: false, longWalk: false }, menelaou, { following: { kind: 'walk', ride: 1 } }));
+        assert.ok(followed.includes(`<li class="trip-step trip-step-done"><span class="trip-step-when"></span><div class="trip-step-what">${out}</div></li>`));
+        assert.equal(followed.match(/aria-current="step"/g).length, 1);
+        assert.ok(followed.includes(`<li class="trip-step trip-step-now" aria-current="step">`));
+        // Not named: an exit with no name says nothing, as a station with none recorded
+        const unnamed = { ...way, rides: way.rides.map((ride, i) => i ? ride : { ...ride, alight: { ...ride.alight, exits: ride.alight.exits.map(({ at: where }) => ({ at: where })) } }) };
+        assert.ok(!String(drawTrip(network, { options: [unnamed], walk: { minutes: 99, meters: 9_000 }, walkFirst: false, longWalk: false }, menelaou)).includes(s['trip.way-out'].split('{exit}')[0]));
+        const plain = String(drawTrip(rail, doorToDoor(rail, menelaou, syntagma, NOW), syntagma));
+        assert.ok(!plain.includes(s['trip.way-in'].split('{exit}')[0]) && !plain.includes(s['trip.way-out'].split('{exit}')[0]), 'from Tavros, Kallithea or Petralona, none recorded');
+    });
+
+    test(`${lang}: to the tram at Syntagma, out by the exit tram.json says, and the walk to the tram's stop on from there`, () => {
+        const station = id => ({ lat: network.stations[id].coords[0], lng: network.stations[id].coords[1], station: id, title: id, exact: null });
+        const trip = doorToDoor(network, station('korydallos'), station('kasomouli'), NOW);
+        assert.deepEqual(trip.options[0].plan.legs.map(leg => leg.line), ['M3', 'T6']);
+        const view = String(drawTrip(network, trip, station('kasomouli')));
+        check(view);
+        const out = `<span class="trip-step-when"></span><div class="trip-step-what"><div>${format(s['trip.way-out'], { exit: lang === 'el' ? 'Αμαλίας/Εθνικός Κήπος' : 'Amalias/National Garden' })}</div></div>`;
+        const walk = s['trip.walk-to'].replace('{place}', lang === 'el' ? 'Σύνταγμα (τραμ)' : 'Syntagma (tram)');
+        assert.ok(view.indexOf('line-m3') < view.indexOf(out) && view.indexOf(out) < view.indexOf(walk) && view.indexOf(walk) < view.indexOf('line-t6'), 'between the metro and the tram, no minutes of its own');
+        assert.ok(!view.includes(s['trip.way-in'].split('{exit}')[0]), 'a tram stop has no way in');
+    });
+
     test(`${lang}: a way by bus: the walk to its stop, its plate, its time with "~" ("about" to a screen reader), where it goes, nothing under it`, () => {
         const trip = doorToDoor(network, menelaou, syntagma, NOW, { buses: busOptions(city, menelaou, syntagma, NOW) });
         const view = String(drawTrip(network, trip, syntagma));

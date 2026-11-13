@@ -84,7 +84,9 @@ export function segmentMeters(p, a, b) {
 /**
  * The way `o` (one of the Trip page's options: a way of the city's search,
  * with each ride's stops, or a metro option of plan.js, whose stations
- * `rail` has) as the steps it's followed by, from `from` to `to`
+ * `rail` has) as the steps it's followed by, from `from` to `to`. A walk
+ * into a metro station ends at the exit it goes in by, and one out of it
+ * starts at the exit it comes out by (decision 51)
  * @param {any} o @param {Point} from @param {Point} to @param {import('/tools/subway/network.js').Rail} rail
  * @returns {Step[]}
  */
@@ -94,6 +96,12 @@ export function waySteps(o, from, to, rail) {
     let here = from;
     /** @param {number} ride @param {Point} to */
     const walk = (ride, to) => { steps.push({ kind: 'walk', ride, from: here, to }); here = to; };
+    // A station's exit, by its place in its exits, or `or` without one
+    /** @param {{ exits?: { at: [number, number] }[] } | undefined} station @param {number | undefined} i @param {Point} or */
+    const exitOr = (station, i, or) => {
+        const exit = i === undefined ? null : station?.exits?.[i];
+        return exit ? { lat: exit.at[0], lng: exit.at[1] } : or;
+    };
     /** @param {number} ride @param {Point[]} points @param {Point[]} past */
     const board = (ride, points, past) => {
         steps.push({ kind: 'wait', ride, at: points[0] }, { kind: 'ride', ride, points, past });
@@ -101,24 +109,35 @@ export function waySteps(o, from, to, rail) {
     };
     if (o.city) {
         o.rides.forEach((ride, i) => {
-            if (i === 0 ? o.firstWalk : ride.walkBefore) walk(i, point(ride.along[0]));
+            const before = i === 0 ? o.firstWalk : ride.walkBefore;
+            if (before) {
+                if (i > 0) here = exitOr(o.rides[i - 1].alight, before.out, here);
+                walk(i, exitOr(ride.board, before.in, point(ride.along[0])));
+            }
             board(i, ride.along.map(point), ride.past.map(point));
         });
-        if (o.lastWalk) steps.push({ kind: 'last', from: here, to });
+        if (o.lastWalk) steps.push({ kind: 'last', from: exitOr(o.rides.at(-1).alight, o.lastWalk.out, here), to });
     } else {
         const station = id => { const [lat, lng] = rail.stations[id].coords; return { lat, lng }; };
-        if (o.start.walk) walk(0, station(o.start.station));
-        if (o.plan.walkFirst) walk(0, station(o.plan.legs[0].from));
+        // A walk between two stations of tram.json, through the exit it says:
+        // out of one after a ride, into the other for a ride from there
+        const between = (ride, a, b, { leaving = true, boarding = true } = {}) => {
+            const exit = rail.walkExits?.[a]?.[b];
+            if (leaving) here = exitOr(rail.stations[a], exit, here);
+            walk(ride, boarding ? exitOr(rail.stations[b], exit, station(b)) : station(b));
+        };
+        if (o.start.walk) walk(0, o.plan.walkFirst ? station(o.start.station) : exitOr(rail.stations[o.start.station], o.start.walk.in, station(o.start.station)));
+        if (o.plan.walkFirst) between(0, o.start.station, o.plan.legs[0].from, { leaving: false });
         o.plan.legs.forEach((leg, i) => {
             const before = o.plan.legs[i - 1];
-            if (before && before.to !== leg.from) walk(i, station(leg.from));
+            if (before && before.to !== leg.from) between(i, before.to, leg.from);
             const { stops } = rail.lines[leg.line].directions[leg.dir];
             const at = stops.slice(leg.fromIndex, leg.toIndex + 1).map(stop => station(stop.station));
             board(i, at, stops.slice(leg.toIndex + 1, leg.toIndex + 3).map(stop => station(stop.station)));
         });
         // A walk to another station at the end counts as the last walk
-        if (o.plan.walkLast) walk(o.plan.legs.length, station(o.end.station));
-        if (o.end.walk) steps.push({ kind: 'last', from: here, to });
+        if (o.plan.walkLast) between(o.plan.legs.length, o.plan.legs.at(-1).to, o.end.station, { boarding: false });
+        if (o.end.walk) steps.push({ kind: 'last', from: o.plan.walkLast ? here : exitOr(rail.stations[o.end.station], o.end.walk.out, here), to });
     }
     return steps;
 }

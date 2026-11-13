@@ -231,6 +231,20 @@ test.describe('the trip page', () => {
         expect(await axe(page), 'axe-core violations').toEqual([]);
     });
 
+    test('through a metro station\'s exits (decision 51): the way in under the walk to it, the way out a step of its own after the train', async ({ page }) => {
+        await page.goto('/trip');
+        await from(page).fill('Ομήρου 10');
+        await list(page, 'from').first().click();
+        await to(page).fill('Σύνταγμα');
+        await list(page, 'to').first().click();
+        const card = page.locator('.trip-card').first();
+        await expect(card.locator('.trip-step-note').first()).toContainText('Way in: Kassomouli/Ilia Iliou · About');
+        await page.getByRole('button', { name: 'Swap' }).click();
+        await expect(card.locator('.trip-step', { hasText: 'Way out: Kassomouli/Ilia Iliou' })).toBeVisible();
+        await page.goto('/el/trip');
+        await expect(page.locator('.trip-card').first().locator('.trip-step', { hasText: 'Έξοδος: Κασομούλη/Ηλία Ηλιού' })).toBeVisible();
+    });
+
     test('in Greek too', async ({ page }) => {
         await page.goto('/el/trip');
         await page.getByRole('combobox', { name: 'Από' }).fill('Μενελάου 45');
@@ -541,7 +555,7 @@ test.describe('the trip page', () => {
 
             // Off at its last stop, 50 m from the station: that walk is done
             // too, the M2's card is the step; at Neos Kosmos, the walk to
-            // the park; there, arrived
+            // the park, its way out behind the rider (decision 51); there, arrived
             await moveTo(page, bus.at(-1));
             await run(1);
             await expect(current(page)).toContainText('M2');
@@ -553,11 +567,12 @@ test.describe('the trip page', () => {
             await moveTo(page, metro.at(-1));
             await run(1);
             await expect(current(page)).toContainText('Walk to Άλσος');
-            await expect(done(page)).toHaveCount(4);
+            await expect(done(page)).toHaveCount(5);
+            await expect(done(page).filter({ hasText: 'Way out: ' })).toHaveCount(1);
             await moveTo(page, PARK);
             await run(1);
             await expect(current(page)).toHaveCount(0);
-            await expect(done(page)).toHaveCount(5);
+            await expect(done(page)).toHaveCount(6);
             expect(await plans()).toHaveLength(1);
             await expect(status(page)).toHaveText('Following your ride');
             // axe-core waits for what's animating, which a stopped clock never lets settle
