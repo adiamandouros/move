@@ -1,6 +1,6 @@
 # 45. Our load on OASA and STASY, with My location following on the Trip page
 
-Decided 2026-11-11 · In force
+Decided 2026-11-11 · Replaced by [50](0050-trip-follows-the-ride.md)
 
 ## Situation
 

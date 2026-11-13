@@ -399,11 +399,24 @@ rules, with a picture of a way shown in full.
   are when it actually leaves. The legend of what the train shows comes
   under the way; no "Where to stand" button.
 - **Above the answer**: notices by their tones, and the step-free notice.
-- **My location** works exactly like Nearest. It re-plans when the rider is
-  200m or more from where the trip was last planned, at most every 2
-  minutes, and keeps following while they ride (numbers for OASA's sake,
-  decision 45).
-- **Later, agreed**: with "Following your own ride", a way 3' or more
+- **My location** works exactly like Nearest, and follows the rider's own
+  ride (decision 50). Until the way shown in full can be followed (walking
+  is quicker, no answer yet), it re-plans when the rider is 200m or more
+  from where the trip was last planned, at most every 2 minutes.
+- **Following your ride**: with My location on, once the rider is 100 m
+  from the start, the way shown in full is theirs. The step they're on has a
+  bar in the brand colour down its left (`aria-current="step"` for a screen
+  reader); the steps done stay where they are, in the secondary colour, a
+  ride's time no longer strong; where a bus can be any of several, only the
+  stop the way boards at is marked. The card's heading is when they arrive,
+  in place of the range, which was for someone still at the start. From's
+  status line says "Following your ride", or "Last position N′ ago" once no
+  position has come for 2 minutes (underground): nothing is assumed
+  without a fix, and the way stays timed as at the last one. Nothing new
+  to press: My location off (the button, typing a start, swapping) stops
+  it, and the trip is planned ahead as before. Off the way (300 m from the
+  step for a minute), the trip is planned again from where they are.
+- **Later, agreed**: with the ride followed, a way 3' or more
   sooner found on the way is switched to after 10 seconds unless the rider
   keeps theirs: a visible countdown that pauses while the notice is touched
   or has the keyboard, "Back to my route" after, a declined way not offered

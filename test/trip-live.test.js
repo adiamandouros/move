@@ -104,6 +104,66 @@ test('OASA with no bus the rider can catch: said, and the timetable\'s time stay
     assert.equal(unavailable.option.rides[0].live, undefined);
 });
 
+// ── Followed along the way (Plan 7, decision 50) ────────────────────────────
+
+const SYNTAGMA_STOP = point('syntagma');
+const followed = (row, step, stops = {}, now = at(10)) => liveWay(city, menelaou, SYNTAGMA_STOP, row, 0, now, stops, { step });
+// The timetable's ride from the 040's `offset`th stop to where it gets off, by the trip the way boards
+const rideFrom = offset => {
+    const times = city.routes[bus.route].trips.find(trip => trip[bus.boardIndex] === bus.boards);
+    return times[bus.alightIndex] - times[bus.boardIndex + offset];
+};
+
+test('on the bus: the ride gets off when the timetable says from the stop the rider is at, the train after it is timed from that, and the bus\'s stop isn\'t asked', () => {
+    const T = 10 * 3600 + 20 * MIN;
+    const way = followed(busThenTrain, { leg: 0, kind: 'ride', stop: 2, at: T, walk: 0 });
+    const [first, second] = way.option.rides;
+    assert.equal(first.boards, bus.boards, 'as the way had it');
+    assert.equal(first.arrives, T + rideFrom(2));
+    assert.ok(rideFrom(2) > 0 && rideFrom(2) < rideFrom(0), 'less of the ride left than from where it boards');
+    assert.ok(second.boards >= first.arrives + (train.walkBefore ?? 0), 'the M2 from when the bus gets there');
+    assert.deepEqual(way.asks, [], 'the stop boarded at is behind the rider');
+    assert.equal(first.live, undefined);
+    assert.equal(way.option.arrives, second.arrives, 'to the door at the station');
+});
+
+test('walking to the bus with 3 minutes to go: the first bus from then; waiting at its stop: the first from now; a bus OASA has coming is caught as before', () => {
+    const T = 10 * 3600 + 5 * MIN;
+    const walking = followed(busThenTrain, { leg: 0, kind: 'walk', stop: 0, at: T, walk: 180 });
+    assert.equal(walking.option.rides[0].boards, city.ride([bus], T + 180)[0].boards);
+    const waiting = followed(busThenTrain, { leg: 0, kind: 'wait', stop: 0, at: T, walk: 0 });
+    assert.equal(waiting.option.rides[0].boards, city.ride([bus], T)[0].boards);
+    assert.deepEqual(waiting.asks, [{ stop: BOARD, at: null }], 'still asked for');
+    const coming = followed(busThenTrain, { leg: 0, kind: 'wait', stop: 0, at: T, walk: 0 }, { [BOARD]: { buses: [{ route: ROUTE, line: '040', at: T - MIN }, { route: ROUTE, line: '040', at: T + 4 * MIN }] } });
+    assert.deepEqual(coming.option.rides[0].live, { at: T + 4 * MIN, next: null }, 'one gone a minute ago isn\'t theirs');
+    // Underground: timed as at the last fix, however late the clock is
+    const frozen = followed(busThenTrain, { leg: 0, kind: 'wait', stop: 0, at: T, walk: 0 }, {}, at(10.5));
+    assert.equal(frozen.option.rides[0].boards, waiting.option.rides[0].boards);
+});
+
+test('on the last walk, the door is as far as what\'s left of it; arrived, it\'s now; nothing asked for either', () => {
+    const T = 11 * 3600;
+    const walking = followed(busThenTrain, { leg: 2, kind: 'last', stop: 0, at: T, walk: 240 });
+    assert.equal(walking.option.arrives, T + 240);
+    assert.deepEqual(walking.option.rides.map(ride => ride.boards), busThenTrain.best[0].legs.map(leg => leg.boards), 'the rides as the way had them');
+    assert.deepEqual(walking.asks, []);
+    const arrived = followed(busThenTrain, { leg: 2, kind: 'arrived', stop: 0, at: T, walk: 0 });
+    assert.equal(arrived.option.arrives, T);
+    assert.deepEqual(arrived.asks, []);
+});
+
+test('a last bus that can be any of several: its stops while the rider walks to them or waits, none once they\'re on it', () => {
+    const anyBus = depends.find(row => row.bundle);
+    const last = anyBus.best[0].legs.length - 1;
+    const T = 10 * 3600 + 10 * MIN;
+    const waiting = followed(anyBus, { leg: last, kind: 'wait', stop: 0, at: T, walk: 0 });
+    assert.equal(waiting.stops.length, anyBus.stops.length);
+    assert.ok(waiting.asks.length > 0);
+    const riding = followed(anyBus, { leg: last, kind: 'ride', stop: 1, at: T, walk: 0 });
+    assert.deepEqual(riding.stops, []);
+    assert.deepEqual(riding.asks, []);
+});
+
 test('a way that can\'t be made from now, as its last bus has gone for the night, keeps its own times', () => {
     assert.equal(timed(busThenTrain, {}, at(27)), null);
     assert.equal(liveWay(city, menelaou, point('syntagma'), { ...busThenTrain, best: busThenTrain.best.map(() => null) }, 0, at(10), {}), null);
@@ -324,7 +384,27 @@ for (const lang of ['en', 'el']) {
     // The 040 then the M2 first, as the way shown in full
     const shown = { ...half, rows: half.rows.filter(row => !row.bundle) };
     const ways = r.halfWays(shown, now);
-    const drawn = way => String(r.renderHalf(network, shown.kind, ways, point('syntagma'), { now, weekday: 3, live: { way: view(way) } }));
+    const drawn = (way, more = {}) => String(r.renderHalf(network, shown.kind, ways, point('syntagma'), { now, weekday: 3, live: { way: view(way) }, ...more }));
+
+    test(`${lang}: followed along the way (decision 50): the step the rider is on marked and said, the steps done greyed, the heading when they arrive`, () => {
+        const way = timed(busThenTrain, {});
+        const steps = html => [...html.matchAll(/<li class="(trip-step|trip-leg)([^"]*)"( aria-current="step")?/g)].map(m => (m[3] ? 'now' : m[2].includes('done') ? 'done' : '') + (m[2].includes('now') && !m[3] ? '!' : ''));
+        // The walk to the 040, the 040, the walk to the M2, the M2's card (the door is the station)
+        assert.deepEqual(steps(drawn(way)), ['', '', '', '']);
+        const heading = html => html.match(/<h2 class="trip-total" tabindex="-1">(.*?)<\/h2>/)[1];
+        assert.ok(!heading(drawn(way)).startsWith(s['trip.arrive'].split('{')[0]), 'the range, for someone at the start');
+        const walking = drawn(way, { following: { kind: 'walk', ride: 0 } });
+        assert.deepEqual(steps(walking), ['now', '', '', '']);
+        assert.equal(heading(walking), s['trip.arrive'].replace('{time}', clock(way.option.arrives)), 'when they arrive');
+        assert.deepEqual(steps(drawn(way, { following: { kind: 'wait', ride: 0 } })), ['done', 'now', '', '']);
+        assert.deepEqual(steps(drawn(way, { following: { kind: 'ride', ride: 0 } })), ['done', 'now', '', '']);
+        assert.deepEqual(steps(drawn(way, { following: { kind: 'walk', ride: 1 } })), ['done', 'done', 'now', '']);
+        assert.deepEqual(steps(drawn(way, { following: { kind: 'wait', ride: 1 } })), ['done', 'done', 'done', 'now']);
+        assert.deepEqual(steps(drawn(way, { following: { kind: 'ride', ride: 1, stop: 2 } })), ['done', 'done', 'done', 'now']);
+        assert.deepEqual(steps(drawn(way, { following: { kind: 'last' } })), ['done', 'done', 'done', 'done']);
+        assert.deepEqual(steps(drawn(way, { following: { kind: 'arrived' } })), ['done', 'done', 'done', 'done']);
+        check(drawn(way, { following: { kind: 'ride', ride: 0 } }));
+    });
     // When a ride leaves, on the left of its step, strong
     const leaves = time => `<span class="trip-step-when trip-step-leaves">${time}</span>`;
     // The badges at the right of a bus ride's heading: OASA's, marked live, or the timetable's

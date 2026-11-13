@@ -61,11 +61,33 @@ function distance(meters) {
 // A walk's minutes, an estimate: "~16'"
 const walkMinutes = minutes => minutesMark(minutes, t, { about: true });
 
+// With the rider followed along the way (decision 50), where each step
+// stands against theirs: done, the one they're on (said to a screen reader),
+// or still to come. Each step's place in the way's order: the walk to ride
+// i, waiting for it, riding it; the last walk; arrived
+/** @typedef {{ kind: 'walk' | 'wait' | 'ride' | 'last' | 'arrived', ride?: number }} Following */
+const NONE = { cls: '', current: false };
+const DONE = { cls: ' trip-step-done', current: false };
+const NOW = { cls: ' trip-step-now', current: true };
+const ORDER = { walk: 0, wait: 1, ride: 2 };
+/** @param {Following} following @param {number} rides */
+const placeOf = ({ kind, ride = 0 }, rides) => kind === 'arrived' ? rides * 3 + 1 : kind === 'last' ? rides * 3 : ride * 3 + ORDER[kind];
+// A step's mark, by its place and how many places it spans (a ride's row
+// stands for waiting for it and riding it)
+/** @param {Following | null} following @param {number} rides */
+const marker = (following, rides) => {
+    const at = following ? placeOf(following, rides) : -1;
+    return (place, span = 1) => at < place ? NONE : at < place + span ? NOW : DONE;
+};
+/** @param {{ cls: string, current: boolean }} mark */
+const marked = mark => html`${mark.cls}"${mark.current && html` aria-current="step"`}`;
+
 // One step of a way: on the left a ride's clock time, strong, or a walk's
 // minutes, quiet (when, and how long); then what to do; and at the far right,
-// for a walk, its walking directions
-const step = (when, content, { leaves = false, directions = null } = {}) =>
-    html`<li class="trip-step"><span class="trip-step-when${leaves ? ' trip-step-leaves' : ''}">${when}</span><div class="trip-step-what">${content}</div>${directions}</li>`;
+// for a walk, its walking directions. `mark`: where it stands against the
+// rider's step
+const step = (when, content, { leaves = false, directions = null, mark = NONE } = {}) =>
+    html`<li class="trip-step${marked(mark)}><span class="trip-step-when${leaves ? ' trip-step-leaves' : ''}">${when}</span><div class="trip-step-what">${content}</div>${directions}</li>`;
 
 // Walking directions to `place`, `name`, as on a bus stop's row (DESIGN.md,
 // "Walking directions"): the walking figure, the words for screen readers
@@ -75,10 +97,10 @@ const directionsTo = (place, name) => externalLink({ class: 'directions-btn d-fl
 // A walk to `place`, `name`: from the door, or between two stations or stops,
 // whose minutes are the tram's walks (decision 28) and have no distance.
 // note: what the way needs saying, a suburban station's change (decision 41)
-function walkStep(walk, name, place, note = null) {
+function walkStep(walk, name, place, note = null, mark = NONE) {
     return step(walkMinutes(walk.minutes), html`<div>${format(t('trip.walk-to'), { place: name })}</div>
         ${walk.meters !== undefined && html`<div class="trip-step-note">${distance(walk.meters)}</div>`}
-        ${note && html`<div class="trip-step-note">${localName(note, language)}</div>`}`, { directions: directionsTo(place, name) });
+        ${note && html`<div class="trip-step-note">${localName(note, language)}</div>`}`, { directions: directionsTo(place, name), mark });
 }
 
 // A ride's heading: its line and where it goes, then its badges at the right end
@@ -91,9 +113,9 @@ const rideHead = (line, toward, badges = '') => html`<div class="trip-step-head"
 // morning's first trains; it says its ride's minutes always, as the trip's
 // are door to door; its stations on the way are open as the rider left them
 // (`stations`, by the leg's key)
-function railCard(rail, { leg, next }, now, morning, stations) {
+function railCard(rail, { leg, next }, now, morning, stations, mark = NONE) {
     const key = `${leg.line}/${leg.dir}/${leg.from}/${leg.to}`;
-    return html`<li class="trip-leg">${legCard(rail, leg, next, { seconds: now }, 3, morning, true, key, Boolean(stations[key]))}</li>`;
+    return html`<li class="trip-leg${marked(mark)}>${legCard(rail, leg, next, { seconds: now }, 3, morning, true, key, Boolean(stations[key]))}</li>`;
 }
 
 // Under the way shown in full, what its trains show, in words: only the
@@ -107,7 +129,7 @@ function legend(rail, o, when, open) {
 }
 
 const stationPlace = (rail, id) => ({ lat: rail.stations[id].coords[0], lng: rail.stations[id].coords[1] });
-const walkToStation = (rail, id, minutes) => walkStep({ minutes }, stationName(rail, id), stationPlace(rail, id));
+const walkToStation = (rail, id, minutes, mark = NONE) => walkStep({ minutes }, stationName(rail, id), stationPlace(rail, id), null, mark);
 
 // The walk to where the first ride leaves: to the station, and on to a stop
 // beside it, if the trip starts there
@@ -141,7 +163,7 @@ function busBadges(ride, now) {
 // as late as it runs, `trains` by number (decision 47); one to or from a
 // station OASA's ticket doesn't cover says it needs Hellenic Train's
 // (decision 41). `now`: seconds from midnight, for the minutes
-function rideStep(rail, ride, { now, trains }) {
+function rideStep(rail, ride, { now, trains }, mark = NONE) {
     const bus = ON_THE_ROAD.has(ride.mode);
     const place = stopName(rail, ride.alight);
     const live = ride.live && 'at' in ride.live;
@@ -150,7 +172,7 @@ function rideStep(rail, ride, { now, trains }) {
         ${rideHead(pill(rail, ride), ride.lines.length === 1 && cityName(ride.toward), bus && busBadges(ride, now))}
         ${ride.live && 'none' in ride.live && html`<div class="trip-step-note">${t('trip.live-none')}</div>`}
         <div class="trip-step-note">${ride.stops === 1 ? format(t('trip.stop'), { place }) : format(t('trip.stops'), { count: ride.stops, place })}</div>
-        ${beyond && html`<div class="trip-step-note">${format(t('trip.train-ticket'), { station: stopName(rail, beyond) })}</div>`}`, { leaves: true });
+        ${beyond && html`<div class="trip-step-note">${format(t('trip.train-ticket'), { station: stopName(rail, beyond) })}</div>`}`, { leaves: true, mark });
 }
 // A rail line's pill: the metro's and the tram's are in rail.json; the
 // suburban railway's are named as their ids, A1 to A4 (decision 41). Medium,
@@ -170,18 +192,21 @@ const STOPS_SHOWN = 3;
 // beside its code, the next bus of the rider's lines, and opened, every bus
 // of them the rider can catch there; not yet on live times, its lines.
 // `change`: after a ride, rather than from the door. `now`: seconds from
-// midnight, for the minutes; `opened`: the stops the rider opened, by code
-function busStops(rail, stops, change, now, opened) {
+// midnight, for the minutes; `opened`: the stops the rider opened, by code.
+// `mark`: where the ride stands against the rider's step; the one they're
+// on is only the stop the way boards at (`board`), the others are offers
+function busStops(rail, stops, change, now, opened, mark = NONE, board = null) {
     const stopStep = ({ stop, walk, lines, buses = null, arrivals = [] }, i) => {
         const code = stop.id.slice('bus:'.length);
         const name = stopName(rail, stop);
+        const own = mark.current ? stop.id === board ? NOW : NONE : mark;
         const plates = size => pillList(lines.map(line => busPlate(line, size)));
         // As the Buses page has a stop's answer, each bus's minutes from now
         const result = { arrivals: arrivals.map(bus => ({ line: bus.line, to: bus.to, minutes: minutesTo(bus.at, now) })) };
         // With none of them on OASA's live times, its lines, and that it has none
         const next = arrivals.length ? nextBus(result) : html`<span class="sr-only">. ${t('buses.lines')}: </span>${plates('m')}${buses && html`<span class="next-bus-dest text-body-secondary fst-italic"><span class="sr-only">. </span>${t('trip.live-none')}</span>`}`;
         // Marked trip-live with buses from OASA's live times, as a ride's badges are
-        return html`<li class="trip-stop${arrivals.length ? ' trip-live' : ''}">${stopRow({ code, name: { el: name, en: name }, lat: stop.lat, lng: stop.lng }, i, {
+        return html`<li class="trip-stop${arrivals.length ? ' trip-live' : ''}${marked(own)}>${stopRow({ code, name: { el: name, en: name }, lat: stop.lat, lng: stop.lng }, i, {
             id: 'trip-stop', star: false, open: opened?.has(code) ?? false,
             away: walk && html`<span class="sr-only">, </span>${minutesMark(walk.minutes, t, { about: true, said: t('trip.walk-short') })}`,
             next, badge: headerBadge(result), arrivals: arrivals.length > 0 && arrivalRows(result), lines: plates('s'),
@@ -204,15 +229,17 @@ function busStops(rail, stops, change, now, opened) {
 // how late the trains run when the way is timed with it, for its trains
 // (legs.js); `stations`: the cards' stations on the way the rider opened;
 // `stops`: the bus stops they opened
-function citySteps(rail, o, to, drawn, row = null, live = null) {
-    const walkTo = (walk, stop, note = null) => walk && walkStep(walk, stopName(rail, stop), stop, note);
+function citySteps(rail, o, to, drawn, row = null, live = null, following = null) {
+    const mark = marker(following, o.rides.length);
+    const walkTo = (walk, stop, note, at) => walk && walkStep(walk, stopName(rail, stop), stop, note, mark(at));
     const rides = row?.bundle ? o.rides.slice(0, -1) : o.rides;
     const cards = wayLegs(rail, o, drawn);
+    const last = o.rides.length - 1;
     return html`<ol class="trip-steps">
-        ${rides.length > 0 && walkTo(o.firstWalk, o.rides[0].board)}
-        ${rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board, ride.walkNote)}${cards[i] ? railCard(rail, cards[i], drawn.now, false, drawn.stations) : rideStep(rail, ride, drawn)}`)}
-        ${row?.bundle && busStops(rail, live?.way.stops ?? row.stops, rides.length > 0, drawn.now, drawn.stops)}
-        ${o.lastWalk && walkStep(o.lastWalk, to.title, to)}
+        ${rides.length > 0 && walkTo(o.firstWalk, o.rides[0].board, null, 0)}
+        ${rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board, ride.walkNote, i * 3)}${cards[i] ? railCard(rail, cards[i], drawn.now, false, drawn.stations, mark(i * 3 + 1, 2)) : rideStep(rail, ride, drawn, mark(i * 3 + 1, 2))}`)}
+        ${row?.bundle && busStops(rail, live?.way.stops ?? row.stops, rides.length > 0, drawn.now, drawn.stops, mark(last * 3 + 1, 2), o.rides[last].board.id)}
+        ${o.lastWalk && walkStep(o.lastWalk, to.title, to, null, mark(o.rides.length * 3))}
     </ol>`;
 }
 
@@ -220,13 +247,13 @@ function citySteps(rail, o, to, drawn, row = null, live = null) {
 const totalMinutes = o => minutesMark(o.minutes, t, { about: true });
 
 // A way of the city's search, step by step
-function cityCard(rail, o, to, drawn) {
+function cityCard(rail, o, to, drawn, following = null) {
     return html`<div class="trip-card result-card">
         <div class="trip-card-head">
             <h2 class="trip-total">${totalMinutes(o)}</h2>
             <span class="trip-arrives">${format(t('trip.arrive'), { time: clockTime(o.arrives) })}</span>
         </div>
-        ${citySteps(rail, o, to, drawn)}
+        ${citySteps(rail, o, to, drawn, null, null, following)}
     </div>`;
 }
 
@@ -238,24 +265,26 @@ function when(o) {
 }
 
 // The best way, step by step. `drawn`: when, and the stations on the way
-// the rider opened (citySteps)
-function tripCard(rail, o, to, drawn) {
-    if (o.city) return cityCard(rail, o, to, drawn);
+// the rider opened (citySteps). `following`: where the rider is on it
+function tripCard(rail, o, to, drawn, following = null) {
+    if (o.city) return cityCard(rail, o, to, drawn, following);
     const cards = wayLegs(rail, o, drawn);
+    const mark = marker(following, o.plan.legs.length);
+    const after = o.plan.legs.length * 3;
     return html`<div class="trip-card result-card">
         <div class="trip-card-head">
             ${!o.morning && html`<h2 class="trip-total">${totalMinutes(o)}</h2>`}
             <span class="trip-arrives">${when(o)}</span>
         </div>
         <ol class="trip-steps">
-            ${o.start.walk && walkStep(o.start.walk, stationName(rail, o.start.station), stationPlace(rail, o.start.station))}
-            ${o.plan.walkFirst && walkToStation(rail, o.plan.legs[0].from, o.plan.walkFirst)}
+            ${o.start.walk && walkStep(o.start.walk, stationName(rail, o.start.station), stationPlace(rail, o.start.station), null, mark(0))}
+            ${o.plan.walkFirst && walkToStation(rail, o.plan.legs[0].from, o.plan.walkFirst, mark(0))}
             ${o.plan.legs.map((leg, i) => {
                 const before = o.plan.legs[i - 1];
-                return html`${before && before.to !== leg.from && walkToStation(rail, leg.from, rail.walks[before.to][leg.from])}${railCard(rail, cards[i], drawn.now - o.dayStart, o.morning, drawn.stations)}`;
+                return html`${before && before.to !== leg.from && walkToStation(rail, leg.from, rail.walks[before.to][leg.from], mark(i * 3))}${railCard(rail, cards[i], drawn.now - o.dayStart, o.morning, drawn.stations, mark(i * 3 + 1, 2))}`;
             })}
-            ${o.plan.walkLast && walkToStation(rail, o.end.station, o.plan.walkLast)}
-            ${o.end.walk && walkStep(o.end.walk, to.title, to)}
+            ${o.plan.walkLast && walkToStation(rail, o.end.station, o.plan.walkLast, mark(after))}
+            ${o.end.walk && walkStep(o.end.walk, to.title, to, null, mark(after))}
         </ol>
     </div>`;
 }
@@ -342,9 +371,9 @@ function missing(noBuses, noTrains) {
 /**
  * @param {import('../../../types/data.js').Rail} rail @param {ReturnType<typeof import('./plan.js').doorToDoor>} trip
  * @param {import('./plan.js').Place} to
- * @param {{ now: number, weekday: number, date: string, expired?: boolean, noBuses?: boolean | 'updated', noTrains?: boolean, checking?: boolean, lifts?: any, liftsOpen?: boolean, stations?: Record<string, boolean>, legend?: boolean }} shown
+ * @param {{ now: number, weekday: number, date: string, expired?: boolean, noBuses?: boolean | 'updated', noTrains?: boolean, checking?: boolean, lifts?: any, liftsOpen?: boolean, stations?: Record<string, boolean>, legend?: boolean, following?: Following | null }} shown
  */
-export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { now, weekday, date, expired = false, noBuses = false, noTrains = false, checking = false, lifts = null, liftsOpen = true, stations = {}, legend: legendShown = true }) {
+export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { now, weekday, date, expired = false, noBuses = false, noTrains = false, checking = false, lifts = null, liftsOpen = true, stations = {}, legend: legendShown = true, following = null }) {
     const [best, ...others] = options;
     const trainsStopped = best?.morning;
     const drawn = { now, weekday, date, stations };
@@ -356,7 +385,7 @@ export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { n
         ${walkFirst && !trainsStopped && walkCard(walk, to)}
         ${best && (walkFirst && !trainsStopped
             ? html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>${otherCard(rail, best)}`
-            : html`${tripCard(rail, best, to, drawn)}${legend(rail, best, drawn, legendShown)}`)}
+            : html`${tripCard(rail, best, to, drawn, following)}${legend(rail, best, drawn, legendShown)}`)}
         ${checking && html`<p class="trip-other" id="trip-checking">${t('trip.half-checking')}</p>`}
         ${longWalk && !walkFirst && longWalkNotice()}
         ${others.length > 0 && !(walkFirst && !trainsStopped) && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
@@ -395,16 +424,18 @@ export function halfWays(view, now) {
 // the clear way. live: the way timed with OASA's live times, in its place.
 // taken: it's the quicker way the rider took, with the way back to the
 // directions. The heading can take the keyboard after a choice (main.js).
-// `drawn`: when, and the stations on the way the rider opened (citySteps)
-function halfCard(rail, { row, o }, to, drawn, best, live, taken = false) {
+// `drawn`: when, and the stations on the way the rider opened (citySteps).
+// `following`: where the rider is on it (decision 50): then the heading is
+// when they get there, the range being for someone still at the start
+function halfCard(rail, { row, o }, to, drawn, best, live, taken = false, following = null) {
     const shown = live?.way.option ?? o;
     return html`<div class="trip-card result-card">
         <div class="trip-card-head">
-            <h2 class="trip-total" tabindex="-1">${rangeMark(row)}</h2>
+            <h2 class="trip-total" tabindex="-1">${following ? format(t('trip.arrive'), { time: clockTime(shown.arrives) }) : rangeMark(row)}</h2>
             ${best && html`<span class="trip-arrives">${t('trip.half-best')}</span>`}
             ${taken && html`<span class="trip-arrives">${t('trip.quicker-taken')}</span>`}
         </div>
-        ${citySteps(rail, shown, to, drawn, row, live)}
+        ${citySteps(rail, shown, to, drawn, row, live, following)}
         ${taken && html`<button type="button" id="trip-quicker-back" class="btn btn-sm locate-btn trip-stand">${t('trip.quicker-back')}</button>`}
     </div>`;
 }
@@ -456,7 +487,7 @@ function halfOther(rail, { row, o }) {
 // times have it, or until they do, the half hour's own for that departure or
 // the first after it
 /** @param {import('./buses.js').HalfRow} row @param {number} departure */
-const takenOption = (row, departure) => row.options.find((o, d) => d >= departure && o) ?? row.options.find(Boolean);
+export const takenOption = (row, departure) => row.options.find((o, d) => d >= departure && o) ?? row.options.find(Boolean);
 
 // The next half hour's answer, in place of the answer for leaving now: the
 // way it stands for first (the clear way, the directions that stay on, or
@@ -473,7 +504,7 @@ const takenOption = (row, departure) => row.options.find((o, d) => d >= departur
 // 48). `rail`, `now`, `weekday`, `date`, stations, legend: as
 // renderTrip's. Nothing under it (decision 43) but the legend of what its
 // trains show
-export function renderHalf(rail, kind, ways, to, { now, weekday, date, expired = false, longWalk = false, live = null, offer = false, taken = null, noTrains = false, trains = null, lifts = null, liftsOpen = true, stations = {}, stops = new Set(), legend: legendShown = true }) {
+export function renderHalf(rail, kind, ways, to, { now, weekday, date, expired = false, longWalk = false, live = null, offer = false, taken = null, noTrains = false, trains = null, lifts = null, liftsOpen = true, stations = {}, stops = new Set(), legend: legendShown = true, following = null }) {
     const [first, ...rest] = ways;
     const others = taken ? rest.filter(({ row }) => row !== taken) : rest;
     // The first card's way, as halfCard shows it
@@ -485,8 +516,8 @@ export function renderHalf(rail, kind, ways, to, { now, weekday, date, expired =
         ${stepFree(rail, [shown, ...others.map(way => way.o)], lifts, liftsOpen)}
         ${kind === 'depends' && html`<p class="trip-intro">${t('trip.half-depends-intro')}</p>`}
         ${taken
-            ? halfCard(rail, { row: taken, o: takenOption(taken, first.departure) }, to, drawn, false, live, true)
-            : halfCard(rail, first, to, drawn, kind === 'clear', live)}
+            ? halfCard(rail, { row: taken, o: takenOption(taken, first.departure) }, to, drawn, false, live, true, following)
+            : halfCard(rail, first, to, drawn, kind === 'clear', live, false, following)}
         ${offer && live?.way.offer && quickerCard(rail, live.way.offer)}
         ${legend(rail, shown, drawn, legendShown)}
         ${longWalk && longWalkNotice()}
