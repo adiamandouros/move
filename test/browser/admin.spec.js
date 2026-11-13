@@ -191,7 +191,7 @@ test.describe('saved underground', () => {
         await expect(page.getByText('Missing: elevators.')).toBeVisible();
 
         await page.getByRole('radio', { name: 'Elevators', exact: true }).check();
-        const first = page.getByRole('group', { name: 'Elevator 1' });
+        const first = page.getByRole('group', { name: 'Elevator 1', exact: true });
         const name = first.getByLabel('Name', { exact: true });
         await name.fill('Προς Χ');
         await expect(first.getByText('Not one of STASY\'s names for this station.')).toBeVisible();
@@ -203,9 +203,9 @@ test.describe('saved underground', () => {
 
         // A second, removed again: the keyboard goes on from the button that adds one
         await page.getByRole('button', { name: 'Add elevator' }).click();
-        await expect(page.getByRole('group', { name: 'Elevator 2' }).getByLabel('Name', { exact: true })).toBeFocused();
+        await expect(page.getByRole('group', { name: 'Elevator 2', exact: true }).getByLabel('Name', { exact: true })).toBeFocused();
         await page.getByRole('button', { name: 'Remove elevator 2' }).click();
-        await expect(page.getByRole('group', { name: 'Elevator 2' })).toHaveCount(0);
+        await expect(page.getByRole('group', { name: 'Elevator 2', exact: true })).toHaveCount(0);
         await expect(page.getByRole('button', { name: 'Add elevator' })).toBeFocused();
 
         // Underground: kept on the phone
@@ -280,10 +280,10 @@ test('the station editor fills in STASY\'s elevators toward the platform\'s dire
     await page.getByLabel('Station', { exact: true }).selectOption('omonia');
     await page.getByRole('radio', { name: 'Elevators', exact: true }).check();
     // Of Omonia's two, «Προς Ανθούπολη» is the other platform's
-    const first = page.getByRole('group', { name: 'Elevator 1' });
+    const first = page.getByRole('group', { name: 'Elevator 1', exact: true });
     await expect(first.getByLabel('Name', { exact: true })).toHaveValue('Προς Ελληνικό');
     await expect(first.getByLabel('Where')).toHaveValue('');
-    await expect(page.getByRole('group', { name: 'Elevator 2' })).toHaveCount(0);
+    await expect(page.getByRole('group', { name: 'Elevator 2', exact: true })).toHaveCount(0);
     expect(await axe(page)).toEqual([]);
     // Not over one already listed: back to "not known", and the row stays as it was
     await first.getByLabel('Where').selectOption('back');
@@ -298,9 +298,9 @@ test('the station editor: an elevator needs to say where it is; "no elevator", o
 
     // An elevator not yet placed stops the save, with the browser saying why
     await page.getByRole('radio', { name: 'Elevators', exact: true }).check();
-    const where = page.getByRole('group', { name: 'Elevator 1' }).getByLabel('Where');
+    const where = page.getByRole('group', { name: 'Elevator 1', exact: true }).getByLabel('Where');
     // Its warnings can be read in light too (the tests' phone asks for dark)
-    await page.getByRole('group', { name: 'Elevator 1' }).getByLabel('Name', { exact: true }).fill('Προς Χ');
+    await page.getByRole('group', { name: 'Elevator 1', exact: true }).getByLabel('Name', { exact: true }).fill('Προς Χ');
     await page.emulateMedia({ colorScheme: 'light' });
     await expect(page.locator('html')).toHaveAttribute('data-bs-theme', 'light');
     await expect(page.getByText('Missing: elevators.')).toBeVisible();
@@ -310,7 +310,7 @@ test('the station editor: an elevator needs to say where it is; "no elevator", o
 
     // Left half filled, it doesn't count once there's no elevator
     await page.getByRole('radio', { name: 'No elevator' }).check();
-    await expect(page.getByRole('group', { name: 'Elevator 1' })).toBeHidden();
+    await expect(page.getByRole('group', { name: 'Elevator 1', exact: true })).toBeHidden();
     // (saved once the form says it's an edit, and the editor's data has it)
     const synced = page.locator('#entry-state[data-state="edited"]');
     await page.getByRole('button', { name: 'Save' }).click();

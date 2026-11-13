@@ -1,7 +1,7 @@
 // The site the browser tests and the server tests run against: the real app
 // (server/app.js) with the data in test/browser/data/, a fake OASA and fake
 // announcement and lift sources, so nothing reaches the network.
-import { copyFileSync, mkdtempSync, readFileSync, writeFileSync } from 'fs';
+import { copyFileSync, cpSync, mkdtempSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
@@ -9,6 +9,7 @@ import { gzipSync } from 'zlib';
 import express from 'express';
 import { buildIndex } from '../../scripts/places/build.js';
 import { createApp } from '../../server/app.js';
+import { loadCurated } from '../../server/data/index.js';
 import { loadConfig } from '../../server/config.js';
 import { LIFTS_PAGE } from '../../server/info/lifts.js';
 import { countsOf } from '../../server/places/published.js';
@@ -111,6 +112,20 @@ export function brokenData() {
     return dir;
 }
 
+// The station editor's data: data/curated as committed, but with Omonia's
+// M2 platforms' elevators left out, so STASY's names for them are there to
+// fill in (admin.spec.js) whatever the editor has saved since; its overlays
+// in a folder of its own, never data/local
+function editorCurated() {
+    const curatedDir = mkdtempSync(join(tmpdir(), 'wayhop-curated-'));
+    const overlayDir = mkdtempSync(join(tmpdir(), 'wayhop-overlay-'));
+    cpSync(fileURLToPath(new URL('../../data/curated/', import.meta.url)), curatedDir, { recursive: true });
+    const positions = JSON.parse(readFileSync(join(curatedDir, 'positions.json'), 'utf8'));
+    for (const platforms of Object.values(positions.M2)) delete platforms.omonia.elevators;
+    writeFileSync(join(curatedDir, 'positions.json'), JSON.stringify(positions));
+    return () => loadCurated({ curatedDir, overlayDir, log: () => {} });
+}
+
 // A cache folder with the address index of test/fixtures/places.js in it, as
 // if it had been downloaded
 function withPlaces(dir) {
@@ -191,8 +206,9 @@ export const scenarios = () => ({
     // Before the first data build: no rail.json or bus-stops.json
     'no-data': site({ buildDir: mkdtempSync(join(tmpdir(), 'wayhop-nodata-')) }),
     // With the admin pages, behind this password (test/browser/admin.spec.js);
-    // Omonia's lifts on M2 by STASY's names for them, for the station editor
-    admin: site({ env: { ADMIN_PASSWORD: ADMIN_TEST_PASSWORD }, fetch: fakeNetwork({ lifts: LIFTS_OUT }) }),
+    // Omonia's lifts on M2 by STASY's names for them, for the station editor,
+    // whose data is its own (editorCurated)
+    admin: site({ env: { ADMIN_PASSWORD: ADMIN_TEST_PASSWORD }, fetch: fakeNetwork({ lifts: LIFTS_OUT }), curated: editorCurated() }),
     // Omonia's page can't be drawn: the error page (its failure isn't logged here)
     'broken-data': site({ buildDir: brokenData(), logError: () => {} }),
 });

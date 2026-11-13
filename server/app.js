@@ -48,12 +48,14 @@ const DATA_DIR = path.join(ROOT, 'data');
 //   logError: where failed requests are logged (server/errors.js)
 //   processGuard: the hosting account's processes (server/processes.js);
 //             server.js starts it
+//   curated:  the station data the editor edits, with its overlays
+//             (loadCurated in server/data/index.js); tests give their own
 /**
  * @param {{
  *   config?: import('../types/config.js').Config, buildDir?: string, cacheDir?: string, usageFile?: string | null, passesDir?: string | null,
  *   fetch?: typeof globalThis.fetch, usage?: ReturnType<typeof createUsage>, oasaClient?: ReturnType<typeof createOasaClient>,
  *   limiter?: { take(key: string, stops: number): number }, logError?: (message: string) => void,
- *   processGuard?: ReturnType<typeof createProcessGuard>,
+ *   processGuard?: ReturnType<typeof createProcessGuard>, curated?: typeof loadCurated,
  * }} [options]
  */
 export function createApp({
@@ -69,6 +71,7 @@ export function createApp({
     limiter = undefined,
     logError = console.error,
     processGuard = createProcessGuard(),
+    curated = loadCurated,
 } = {}) {
     const { relays, cspMode } = config;
     // Pages first: the Content-Security-Policy is built from their inline scripts
@@ -133,7 +136,7 @@ export function createApp({
     const admin = createAdmin({
         password: config.adminPassword,
         exportKey: config.exportKey,
-        loadCurated,
+        loadCurated: curated,
         loadRail: () => readJson(path.join(buildDir, 'rail.json')),
         rebuild: rebuildSoon,
         render: pages.render,
