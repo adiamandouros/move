@@ -3,20 +3,37 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import * as metro from '../tools/info/client/map-layout.js';
 import * as tram from '../tools/info/client/tram-layout.js';
+import * as suburban from '../tools/info/client/suburban-layout.js';
 
-// The schematic maps' layouts (map-layout.js, tram-layout.js): every stop
-// has a place, lines run straight or at 45°, and lines only meet at stops.
-// Each line is checked through every stop each of its directions calls at.
+// The schematic maps' layouts (map-layout.js, tram-layout.js,
+// suburban-layout.js): every stop has a place, lines run straight or at 45°,
+// and lines only meet at stops. Each line is checked through every stop each
+// of its directions calls at (on the railway's map, those it draws).
 
 const json = path => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
 // The metro's stations in order, from the curated positions; the tram's from
-// the browser tests' copy of rail.json (real data), both ways round T7's loop
+// the browser tests' copy of rail.json (real data), both ways round T7's
+// loop; the railway's from their trains.json: every way its trains run, cut
+// to the stations it draws
 const positions = json('../data/curated/positions.json');
 const rail = json('./browser/data/rail.json');
+const trains = json('./browser/data/trains.json');
+const trainWays = {};
+for (const { line, stops } of Object.values(trains.dates).flat()) (trainWays[line] ??= []).push(stops.filter(id => suburban.STATIONS[id]));
 const MAPS = {
     metro: { layout: metro, lines: Object.fromEntries(Object.entries(positions).map(([line, dirs]) => [line, Object.values(dirs).map(d => Object.keys(d))])) },
     tram: { layout: tram, lines: Object.fromEntries(Object.entries(rail.tram.lines).map(([line, l]) => [line, Object.values(l.directions).map(d => d.stops.map(s => s.station))])) },
+    suburban: { layout: suburban, lines: trainWays },
 };
+
+test('suburban map: the stations inside the city ticket and the Airport, no others (decision 54)', () => {
+    const outside = new Set(trains.outside);
+    const city = Object.keys(trains.stations).filter(id => !outside.has(id) || id === 'airport');
+    assert.deepEqual(Object.keys(suburban.STATIONS).sort(), city.sort());
+    // Where the lines go on: A3 to Chalkida, A4 to Kiato, each from its last station on the map
+    assert.deepEqual(Object.keys(suburban.BEYOND).sort(), ['magoula', 'ska-a3']);
+    assert.deepEqual(Object.keys(suburban.LANES).sort(), Object.keys(trains.lines).sort());
+});
 
 // A run of stops as a list of segments [from point, to point], corners included
 function segments({ STATIONS, BENDS = {} }, ids) {
@@ -30,7 +47,7 @@ function segments({ STATIONS, BENDS = {} }, ids) {
 }
 
 for (const [name, { layout, lines }] of Object.entries(MAPS)) {
-    const { STATIONS, DASHED = {}, STUBS = {}, BADGES = {} } = layout;
+    const { STATIONS, DASHED = {}, STUBS = {}, BADGES = {}, CROSSINGS = [] } = layout;
     const runs = Object.entries(lines).flatMap(([line, dirs]) => dirs.map(ids => ({ line, ids })));
 
     test(`${name} map: every stop on every line has a place, and nothing else does`, () => {
@@ -39,7 +56,7 @@ for (const [name, { layout, lines }] of Object.entries(MAPS)) {
         assert.deepEqual(Object.keys(STATIONS).filter(id => !onLines.has(id)), []);
         for (const [id, [x, y, side]] of Object.entries(STATIONS)) {
             assert.ok(Number.isFinite(x) && Number.isFinite(y), id);
-            assert.ok(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'].includes(side), `${id}: label side "${side}"`);
+            assert.ok(side === null || ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'].includes(side), `${id}: label side "${side}"`);
         }
         for (const [line, [a, b]] of Object.entries(DASHED)) {
             assert.ok(lines[line].flat().includes(a) && lines[line].flat().includes(b), `dashed part of ${line}`);
@@ -73,7 +90,9 @@ for (const [name, { layout, lines }] of Object.entries(MAPS)) {
                 if (l1 === l2 || same(s1, s2)) continue;
                 const [a, b] = s1, [c, d] = s2;
                 const d1 = cross(c, d, a), d2 = cross(c, d, b), d3 = cross(a, b, c), d4 = cross(a, b, d);
-                const proper = d1 * d2 < 0 && d3 * d4 < 0;
+                // Two lines the layout says cross, as their tracks do (A3 under A1)
+                const crossing = CROSSINGS.some(pair => pair.includes(l1) && pair.includes(l2));
+                const proper = !crossing && d1 * d2 < 0 && d3 * d4 < 0;
                 // Touching points: endpoints lying on the other segment
                 const touches = [a, b].filter(p => onSegment(p, s2)).concat([c, d].filter(p => onSegment(p, s1)));
                 assert.ok(!proper, `${l1} and ${l2} cross between stops near ${a} → ${b}`);
@@ -83,9 +102,15 @@ for (const [name, { layout, lines }] of Object.entries(MAPS)) {
     });
 
     test(`${name} map: stubs to the other network at every stop that changes to it, and nowhere else`, () => {
-        // tram.json's tram stops with a metro station, and those metro stations
+        // tram.json's tram stops with a metro station, and those metro
+        // stations; the railway's stations a walk from the metro, and those
         const pairs = Object.entries(json('../data/curated/tram.json').stops).filter(([, s]) => s.metro);
-        const changes = name === 'metro' ? pairs.map(([, s]) => s.metro) : pairs.map(([id]) => id);
+        const walks = trains.walks.filter(([, to]) => to.startsWith('rail:')).map(([from, to]) => [from.slice(6), to.slice(5)]);
+        const changes = {
+            metro: [...pairs.map(([, s]) => s.metro), ...walks.map(([, metroId]) => metroId)],
+            tram: pairs.map(([id]) => id),
+            suburban: walks.map(([id]) => id),
+        }[name];
         assert.deepEqual(Object.keys(STUBS).sort(), [...new Set(changes)].sort());
         for (const side of Object.values(STUBS)) assert.ok(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'].includes(side), side);
     });

@@ -154,7 +154,7 @@ function mergeStops(sequences) {
  */
 export function withSuburban(rail, trains, date) {
     if (!trains?.dates?.[date]?.length) return rail;
-    const stationId = id => Object.hasOwn(rail.stations, id) ? `${id}-suburban` : id;
+    const stationId = id => suburbanId(rail, id);
 
     // Each line's trains by where they end, and those that can't share an order apart
     const groups = [];
@@ -219,6 +219,12 @@ export function withSuburban(rail, trains, date) {
     }
     return { ...rail, stations, lines: { ...rail.lines, ...lines }, walks, walkNotes };
 }
+
+// The id withSuburban gives trains.json's station `id` in `rail`, before
+// they're joined: its own, or with "-suburban" where a metro station or
+// tram stop has it (the Info page's map links to it)
+/** @param {Rail} rail @param {string} id */
+export const suburbanId = (rail, id) => Object.hasOwn(rail.stations, id) ? `${id}-suburban` : id;
 
 // The id withSuburban gave trains.json's station `id` in `rail`, joined:
 // its own, or with "-suburban" where a metro station or tram stop has it

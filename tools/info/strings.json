@@ -39,7 +39,11 @@
     "info.tram": "Tram",
     "info.tram-map-label": "Tram map",
     "info.stops-by-line": "Stops by line",
-    "info.other-way": "Toward {toward}, trams go back another way:"
+    "info.other-way": "Toward {toward}, trams go back another way:",
+    "info.suburban": "Suburban railway",
+    "info.suburban-map-label": "Suburban railway map",
+    "info.toward-end": "to {toward}",
+    "info.goes-on": "Trains go on to {toward}, outside the city."
   },
   "el": {
     "info.title": "Πληροφορίες",
@@ -81,6 +85,10 @@
     "info.tram": "Τραμ",
     "info.tram-map-label": "Χάρτης τραμ",
     "info.stops-by-line": "Στάσεις ανά γραμμή",
-    "info.other-way": "Προς {toward}, το τραμ επιστρέφει από άλλη διαδρομή:"
+    "info.other-way": "Προς {toward}, το τραμ επιστρέφει από άλλη διαδρομή:",
+    "info.suburban": "Προαστιακός",
+    "info.suburban-map-label": "Χάρτης Προαστιακού",
+    "info.toward-end": "προς {toward}",
+    "info.goes-on": "Οι συρμοί συνεχίζουν προς {toward}, εκτός πόλης."
   }
 }

@@ -70,7 +70,7 @@ export const STATIONS = {
     'nomismatokopio':       [11, -4, 'se'],
     'agia-paraskevi':       [12, -5, 'se'],
     'chalandri':            [13, -6, 'se'],
-    'doukissis-plakentias': [14, -7, 'n'],
+    'doukissis-plakentias': [14, -7, 'nw'],
     'pallini':              [15, -6, 'e'],
     'paiania-kantza':       [15, -4.5, 'e'],
     'koropi':               [15, -3, 'e'],
@@ -93,8 +93,9 @@ export const BENDS = {
     'victoria>attiki': [[-2, -4]],
 };
 
-// Where the tram stubs point from a station that changes to the tram
-// (tram.json's `metro`)
+// Where the stubs point from a station that changes to the tram (tram.json's
+// `metro`) or the suburban railway (a walk in suburban.json): one stub for both
+// at Piraeus
 export const STUBS = {
     'syntagma': 'ne',
     'syggrou-fix': 'w',
@@ -102,6 +103,13 @@ export const STUBS = {
     'faliro': 'e',
     'piraeus': 'sw',
     'dimotiko-theatro': 's',
+    'larissa-station': 'w',
+    'nerantziotissa': 'n',
+    'doukissis-plakentias': 'n',
+    'pallini': 'ne',
+    'paiania-kantza': 'ne',
+    'koropi': 'ne',
+    'airport': 'ne',
 };
 
 // Parts of a line drawn dashed: the airport branch runs every 36 minutes

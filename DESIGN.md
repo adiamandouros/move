@@ -151,7 +151,10 @@ The palettes and every contrast number are in the guide.
   `minutesMark` in `/js/core/times.js`): the "~" is the warning, so no
   sentence under the answer repeats it (decision 43). A live time has none:
   a bus on OASA's live times; a suburban train whose lateness is known.
-- The maps stay black in both themes.
+- The maps stay black in both themes. Lines that share track run side by
+  side, each in its own colour, and a station on several of them is a white
+  bar across them; a line that goes on past a map ends in a fading arrow
+  saying where to (the suburban railway's, decision 54).
 
 ### Light and dark
 

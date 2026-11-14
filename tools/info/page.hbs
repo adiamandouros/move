@@ -22,9 +22,9 @@
             <div id="metro-map" class="metro-map"></div>
             <div id="subway-map-help">
                 {{#ifLang "en"}}
-                <p class="info-source">Tap a station for directions to it, or pick one from the list of stations below. See also STASY's {{#external href="https://www.stasy.gr/en/timetables/map/"}}official map{{/external}}.</p>
+                <p class="info-source">The short coloured lines mark where you can change to the tram or the suburban railway. Tap a station for directions to it, or pick one from the list of stations below. See also STASY's {{#external href="https://www.stasy.gr/en/timetables/map/"}}official map{{/external}}.</p>
                 {{else}}
-                <p class="info-source">Πατήστε έναν σταθμό για οδηγίες προς αυτόν ή επιλέξτε τον από τη λίστα σταθμών παρακάτω. Δείτε και τον {{#external href="https://www.stasy.gr/%ce%b4%cf%81%ce%bf%ce%bc%ce%bf%ce%bb%cf%8c%ce%b3%ce%b9%ce%b1/%cf%87%ce%ac%cf%81%cf%84%ce%b7%cf%82/"}}επίσημο χάρτη{{/external}} της ΣΤΑΣΥ.</p>
+                <p class="info-source">Οι μικρές χρωματιστές γραμμές δείχνουν πού μπορείτε να αλλάξετε για το τραμ ή τον Προαστιακό. Πατήστε έναν σταθμό για οδηγίες προς αυτόν ή επιλέξτε τον από τη λίστα σταθμών παρακάτω. Δείτε και τον {{#external href="https://www.stasy.gr/%ce%b4%cf%81%ce%bf%ce%bc%ce%bf%ce%bb%cf%8c%ce%b3%ce%b9%ce%b1/%cf%87%ce%ac%cf%81%cf%84%ce%b7%cf%82/"}}επίσημο χάρτη{{/external}} της ΣΤΑΣΥ.</p>
                 {{/ifLang}}
             </div>
             <div class="station-index">
@@ -42,6 +42,19 @@
             </div>
             <div class="station-index">
                 {{#> subsection id="tram-stop-list" level=4 title="info.stops-by-line"}}{{/subsection}}
+            </div>
+            {{/subsection}}
+            {{#> subsection id="suburban" level=3 title="info.suburban"}}
+            <div id="suburban-map" class="metro-map"></div>
+            <div id="suburban-map-help">
+                {{#ifLang "en"}}
+                <p class="info-source">The map shows the stations in the city and the Airport. The short coloured lines mark where you can change to the metro, and the arrows where trains go on beyond the city. Tap a station for directions to it, or pick one from the list below.</p>
+                {{else}}
+                <p class="info-source">Ο χάρτης δείχνει τους σταθμούς της πόλης και το Αεροδρόμιο. Οι μικρές χρωματιστές γραμμές δείχνουν πού μπορείτε να αλλάξετε για το μετρό και τα βέλη πού συνεχίζουν οι συρμοί έξω από την πόλη. Πατήστε έναν σταθμό για οδηγίες προς αυτόν ή επιλέξτε τον από τη λίστα παρακάτω.</p>
+                {{/ifLang}}
+            </div>
+            <div class="station-index">
+                {{#> subsection id="suburban-station-list" level=4 title="info.stations-by-line"}}{{/subsection}}
             </div>
             {{/subsection}}
         {{/section}}
