@@ -339,12 +339,20 @@ test('the stations picked lately come first, in either field, and are still ther
     await expect(page.locator('#stop-suggestions-from .suggestion-name-en').nth(1)).toHaveText('Attiki');
 });
 
-test('tapping a field with a station selects its name, so typing replaces it, and lists the stations', async ({ page }) => {
+test('tapping into a field with a station selects its name, so typing replaces it, and lists the stations; a second tap places the cursor', async ({ page }) => {
     await page.goto('/subway?from=syntagma&to=airport');
     const to = page.locator('#stop-search-to');
+    const selected = () => to.evaluate(input => input.value.slice(input.selectionStart, input.selectionEnd));
     await to.tap();
     await expect(page.locator('#stop-suggestions-to')).toBeVisible();
-    expect(await to.evaluate(input => input.value.slice(input.selectionStart, input.selectionEnd))).toBe('Airport');
+    expect(await selected()).toBe('Airport');
+    // Tapped again, the name can be edited (selecting on every tap left Android no way to)
+    await to.tap({ position: { x: 4, y: 10 } });
+    expect(await selected()).toBe('');
+    // Left and tapped into again, it's selected again
+    await to.blur();
+    await to.tap();
+    expect(await selected()).toBe('Airport');
     await page.keyboard.type('Omon');
     await expect(to).toHaveValue('Omon');
     await expect(page.locator('#stop-suggestions-to .suggestion-name-en')).toHaveText(['Omonia']);

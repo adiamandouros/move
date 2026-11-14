@@ -3,6 +3,7 @@ import { html, icon, localName, setHtml } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
 import { liftWords, stationPlatforms, stepFreeGaps } from '/js/core/lifts.js';
 import { linePill } from '/js/core/lines.js';
+import { selectOnFirstTap } from '/js/core/select-on-tap.js';
 import { normalise } from '/js/core/text.js';
 import { addRecentStation, recentStations } from './recent.js';
 
@@ -133,10 +134,10 @@ export function stationSearch({ input, list, rail, onChange, announce, lifts = (
         render(suggestions());
     });
 
+    selectOnFirstTap(input, () => Boolean(selected));
     // Opened on click rather than focus: the focus comes back here after a
     // pick from the keyboard, and the list shouldn't open again then
     input.addEventListener('click', () => {
-        if (selected) input.select();
         if (list.hidden) render(suggestions());
     });
 

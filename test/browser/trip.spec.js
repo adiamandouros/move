@@ -87,6 +87,19 @@ test.describe('the trip page', () => {
         expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
     });
 
+    test('a tap into a field holding a choice selects it, so what\'s typed replaces it; a second tap places the cursor', async ({ page }) => {
+        await pickBoth(page);
+        const selected = () => to(page).evaluate(input => input.value.slice(input.selectionStart, input.selectionEnd));
+        await page.locator('.trip-card').first().tap();
+        await to(page).tap();
+        expect(await selected()).toBe('Syggrou Fix');
+        // Tapped again, the place can be edited (selecting on every tap left Android no way to)
+        await to(page).tap({ position: { x: 4, y: 10 } });
+        expect(await selected()).toBe('');
+        await page.keyboard.type('X');
+        await expect(to(page)).toHaveValue('XSyggrou Fix');
+    });
+
     test('a tap on a field holding a choice, My location or a place picked, selects it, so what\'s typed replaces it', async ({ page }) => {
         await page.goto('/trip');
         await expect(from(page)).toHaveValue('My location');
