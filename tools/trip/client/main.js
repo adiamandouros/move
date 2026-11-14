@@ -231,8 +231,12 @@ function start(metro) {
         /** @type {string | null} */ switched: null, /** @type {Set<string>} */ declined: new Set(),
     };
     // Someone is in the answer: the keyboard is there, or a pointer is held
-    // down on the switch (T14). It isn't drawn again under them till they're done
-    const inAnswer = () => live.held || result.contains(document.activeElement);
+    // down on the switch (T14). It isn't drawn again under them till they're done.
+    // The keyboard's focus only: Android's browser focuses a button that's
+    // tapped too, and that focus would stop every redraw for good (Road · 3)
+    /** @param {Element} box */
+    const keyboardIn = box => box.contains(document.activeElement) && document.activeElement.matches(':focus-visible');
+    const inAnswer = () => live.held || keyboardIn(result);
     const sameRow = (a, b) => a?.id === b?.id && a?.row === b?.row && Boolean(a?.taken) === Boolean(b?.taken) && (a?.switched ?? null) === (b?.switched ?? null);
     // The cards' stations on the way the rider opened or closed (by leg),
     // and the bus stops they opened (by code), kept through the refreshes
@@ -462,7 +466,7 @@ function start(metro) {
     // the keyboard; at none, taken
     const countDown = () => {
         const card = $('trip-quicker');
-        if (!live.countdown || !card || document.hidden || live.held || card.contains(document.activeElement)) return;
+        if (!live.countdown || !card || document.hidden || live.held || keyboardIn(card)) return;
         live.countdown.left--;
         if (live.countdown.left <= 0) { switchTo(live.countdown.key); return; }
         const timer = $('trip-switch-timer');

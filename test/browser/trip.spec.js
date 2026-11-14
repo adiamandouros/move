@@ -593,6 +593,37 @@ test.describe('the trip page', () => {
             expect(await axe(page), 'axe-core violations').toEqual([]);
         });
 
+        // Road · 3: Android's browser focuses a button that's tapped, and the
+        // answer, kept from redrawing under the keyboard, never drew again
+        test('a tap in the answer doesn\'t stop it: the step still marked as the rider moves, and the trip planned again off the way drawn', async ({ page }) => {
+            const { asks, run } = await watchRequests(page);
+            const plans = await watchPlans(page);
+            const liveWay = await watchLive(page);
+            const { bus } = await hereToPark(page, run, asks, liveWay);
+            const toggle = card(page).locator('.leg-stops-toggle').first();
+            await toggle.click();
+            await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+
+            await moveTo(page, bus[0]);
+            await run(1);
+            await expect(current(page)).toContainText('040');
+            await moveTo(page, bus[2]);
+            await run(35);
+            await expect(current(page)).toContainText('040');
+
+            // A minute off the way: the new plan drawn, its first step theirs
+            const aside = east(bus[2], -500);
+            await moveTo(page, aside);
+            await run(30);
+            await moveTo(page, aside);
+            await run(40);
+            await run(60);
+            await expect.poll(async () => (await plans()).length).toBe(2);
+            await page.waitForFunction(() => window.__pending === 0);
+            await expect(current(page)).toHaveCount(1);
+            await expect(current(page)).not.toContainText('040');
+        });
+
         test('off the way for a minute: planned again from there, once, 2 minutes after the last plan; typing a start stops following', async ({ page }) => {
             const { asks, run } = await watchRequests(page);
             const plans = await watchPlans(page);
@@ -788,8 +819,11 @@ test.describe('the trip page', () => {
                 await run(3);
                 await expect(timer(page)).toContainText('in 7 s');
                 await page.mouse.up();
-                // On the keyboard: it waits too
-                await page.getByRole('button', { name: 'Keep my route' }).focus();
+                // On the keyboard: it waits too. Reached by a key, as only the
+                // keyboard's focus holds it (a tapped button is focused too)
+                await page.locator('#trip-quicker-take').focus();
+                await page.keyboard.press('Tab');
+                await expect(page.getByRole('button', { name: 'Keep my route' })).toBeFocused();
                 await run(3);
                 await expect(timer(page)).toContainText('in 7 s');
                 await page.evaluate(() => /** @type {HTMLElement} */ (document.activeElement).blur());
