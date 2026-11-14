@@ -347,7 +347,8 @@ a start, from a recent position or a location the browser already allows;
 nothing asks for location when the page opens. Typing or picking a start,
 swapping, or blocked location turns it off; pressed again, it looks again.
 A field it filled, like one holding a station or a place picked, has its
-words selected on a tap, so typing replaces them.
+words selected by the tap into it, so typing replaces them; a tap once
+it's in the field places the cursor, to edit them.
 Its icon comes after the words, centred over the swap button below it.
 
 ### Switch
