@@ -1116,9 +1116,9 @@ test.describe('the trip page', () => {
         expect(trip).toBe(await top());
     });
 
-    // Decision 49: what's kept and for how long is tested in Node
+    // Decision 52: what's kept and for how long is tested in Node
     // (trip-kept.test.js); here, that the page shows it again
-    test.describe('the trip kept for the session', () => {
+    test.describe('the trip kept on the device', () => {
         const nav = (page, tool) => page.locator(`nav:visible a[data-tool="${tool}"]`);
 
         test('after another page the trip is there again, planned, in either language; its fields hold it', async ({ page }) => {
@@ -1139,13 +1139,16 @@ test.describe('the trip page', () => {
             await expect(page.locator('.trip-card').first()).toBeVisible();
         });
 
-        test('the trip tab, tapped on the trip page, starts over; another tab hasn\'t got it', async ({ page }) => {
+        // Road · 2: Android closes the installed app
+        // while the screen is off, and opened again it's a new session
+        test('the app closed and opened again, the trip is there; the trip tab, tapped on the trip page, starts over', async ({ page }) => {
             await pickBoth(page);
             await expect(page.locator('.trip-card').first()).toBeVisible();
-            const other = await page.context().newPage();
-            await other.goto('/trip');
-            await expect(other.locator('.trip-intro')).toBeVisible();
-            await other.close();
+            await page.close();
+            page = await page.context().newPage();
+            await page.goto('/trip');
+            await expect(to(page)).toHaveValue('Syggrou Fix');
+            await expect(page.locator('.trip-card').first()).toBeVisible();
 
             await nav(page, 'trip').click();
             await expect(page.locator('.trip-intro')).toBeVisible();
@@ -1153,11 +1156,11 @@ test.describe('the trip page', () => {
             await expect(from(page), 'My location starts it, as on a page opened afresh').toHaveValue('My location');
         });
 
-        test('forgotten 12 hours after it was set', async ({ page }) => {
+        test('forgotten 3 hours after it was set', async ({ page }) => {
             await pickBoth(page);
             await expect(page.locator('.trip-card').first()).toBeVisible();
             await page.goto('/info');
-            await page.clock.fastForward(12 * 60 * 60_000);
+            await page.clock.fastForward(3 * 60 * 60_000);
             await page.goto('/trip');
             await expect(page.locator('.trip-intro')).toBeVisible();
             await expect(to(page)).toHaveValue('');
@@ -1170,7 +1173,7 @@ test.describe('the trip page', () => {
                 await hereToSyntagma(page);
                 await expect(page.locator('.trip-card').first()).toBeVisible();
                 await page.goto('/info');
-                const kept = JSON.parse(await page.evaluate(() => sessionStorage.getItem('trip')));
+                const kept = JSON.parse(await page.evaluate(() => localStorage.getItem('trip')));
                 expect(kept.from).toBeNull();
                 expect(kept.to.placeKind).toBe('metro');
                 await page.goto('/trip');

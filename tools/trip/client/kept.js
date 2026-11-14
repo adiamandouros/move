@@ -1,19 +1,19 @@
-// The trip set on the Trip page is kept for this tab or app session, and for
-// KEEP_MS at most since it was last changed (decision 49), so the page shows
-// it again when the rider comes back. What's kept of each end is the place as
+// The trip set on the Trip page is kept on the device for KEEP_MS since it
+// was last changed (decision 52), so the page shows it again when the rider
+// comes back, after Android has closed the app too. What's kept of each end is the place as
 // search found it, so it's chosen again in the page's language and on the
 // network it plans on now; My location isn't kept, as the page starts from
 // where the rider is by itself. No DOM, so it's tested in Node; main.js
 // follows.
 
-export const KEEP_MS = 12 * 3_600_000;
+export const KEEP_MS = 3 * 3_600_000;
 const KEY = 'trip';
 
-// sessionStorage can be missing or blocked (private windows, some settings)
+// localStorage can be missing or blocked (private windows, some settings)
 const storage = {
-    get: () => { try { return sessionStorage.getItem(KEY); } catch { return null; } },
-    set: value => { try { sessionStorage.setItem(KEY, value); } catch { /* not kept: the page starts over */ } },
-    remove: () => { try { sessionStorage.removeItem(KEY); } catch { /* nothing kept */ } },
+    get: () => { try { return localStorage.getItem(KEY); } catch { return null; } },
+    set: value => { try { localStorage.setItem(KEY, value); } catch { /* not kept: the page starts over */ } },
+    remove: () => { try { localStorage.removeItem(KEY); } catch { /* nothing kept */ } },
 };
 
 function read() {
