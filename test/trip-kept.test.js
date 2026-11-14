@@ -2,14 +2,14 @@ import { beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { browserModule } from './support/browser-modules.js';
 
-// The trip kept on the Trip page for the session, 12 hours at most (decision
-// 49, tools/trip/client/kept.js). The page's side: test/browser/trip.spec.js.
+// The trip kept on the Trip page on the device, for 3 hours (decision 52,
+// tools/trip/client/kept.js). The page's side: test/browser/trip.spec.js.
 
 const { KEEP_MS, forgetTrip, keepTrip, keptTrip } = await browserModule('tools/trip/client/kept.js');
 
-// sessionStorage, as a page has it
+// localStorage, as a page has it
 const saved = new Map();
-globalThis.sessionStorage = {
+globalThis.localStorage = {
     getItem: key => saved.get(key) ?? null,
     setItem: (key, value) => saved.set(key, String(value)),
     removeItem: key => saved.delete(key),
@@ -21,8 +21,8 @@ const MENELAOU = { type: 'address', name: 'Μενελάου', n: '45', lat: 37.9
 const FIX = { type: 'place', placeKind: 'metro', name: 'Συγγρού-Φιξ', n: null, lat: 37.964, lng: 23.726 };
 const T = 1_000_000;
 
-test('12 hours at most', () => {
-    assert.equal(KEEP_MS, 12 * 60 * 60 * 1000);
+test('3 hours', () => {
+    assert.equal(KEEP_MS, 3 * 60 * 60 * 1000);
 });
 
 test('the trip comes back as it was set, one end set too', () => {
@@ -32,7 +32,7 @@ test('the trip comes back as it was set, one end set too', () => {
     assert.deepEqual(keptTrip(T + 1), { from: null, to: FIX });
 });
 
-test('forgotten 12 hours after it was set, and the same trip kept again doesn\'t make it younger', () => {
+test('forgotten 3 hours after it was set, and the same trip kept again doesn\'t make it younger', () => {
     keepTrip({ from: MENELAOU, to: FIX }, T);
     keepTrip({ from: MENELAOU, to: FIX }, T + KEEP_MS - 1);
     assert.deepEqual(keptTrip(T + KEEP_MS - 1), { from: MENELAOU, to: FIX });
@@ -60,13 +60,13 @@ test('no ends, the link to the page, or nothing readable: nothing kept', () => {
 });
 
 test('storage blocked: nothing kept, and nothing breaks', () => {
-    const own = globalThis.sessionStorage;
-    globalThis.sessionStorage = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); }, removeItem() { throw new Error('blocked'); } };
+    const own = globalThis.localStorage;
+    globalThis.localStorage = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); }, removeItem() { throw new Error('blocked'); } };
     try {
         keepTrip({ from: MENELAOU, to: FIX }, T);
         assert.equal(keptTrip(T), null);
         forgetTrip();
     } finally {
-        globalThis.sessionStorage = own;
+        globalThis.localStorage = own;
     }
 });

@@ -60,6 +60,7 @@ decisions, or makes one of the same weight, comes with its page.
 | 46 | [The trip page: metro and tram rides as the subway planner's cards](0046-trip-rail-rides-as-cards.md) | Replaced by 48 |
 | 47 | [The trip page: suburban rides as the subway planner's cards, a late train by when it leaves](0047-trip-suburban-cards.md) | In force |
 | 48 | [The trip page: a last bus's stops as the Buses page's stop rows](0048-trip-bus-stops-as-buses-rows.md) | Replaced by 51 |
-| 49 | [The trip page: the trip kept for the session, 12 hours at most](0049-trip-kept-for-the-session.md) | In force |
+| 49 | [The trip page: the trip kept for the session, 12 hours at most](0049-trip-kept-for-the-session.md) | Replaced by 52 |
 | 50 | [Our load on OASA and STASY, with the Trip page following the rider's ride](0050-trip-follows-the-ride.md) | In force |
 | 51 | [The trip page: walks through a metro station's exits](0051-trip-walks-through-exits.md) | In force |
+| 52 | [The trip page: the trip kept on the device for 3 hours](0052-trip-kept-on-the-device.md) | In force |

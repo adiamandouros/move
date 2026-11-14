@@ -1,6 +1,6 @@
 # 49. The trip page: the trip kept for the session, 12 hours at most
 
-Decided 2026-11-12 · In force
+Decided 2026-11-12 · Replaced by [52](0052-trip-kept-on-the-device.md)
 
 ## Situation
 

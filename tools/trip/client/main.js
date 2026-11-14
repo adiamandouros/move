@@ -124,7 +124,7 @@ function start(metro) {
     const rail = hidden ? metro : withTram(metro);
     let from = null;
     let to = null;
-    // Each end's place as search found it, kept for the session (kept.js)
+    // Each end's place as search found it, kept on the device (kept.js)
     /** @type {WeakMap<object, object>} */
     const foundOf = new WeakMap();
     const noSuburban = suburbanHidden();
