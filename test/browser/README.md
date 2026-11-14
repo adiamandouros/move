@@ -39,7 +39,9 @@ the run's `playwright-report` artifact.
   depending on its code (`arrivalsAt()`), named after the stop's own lines.
   The `trip-live` scenario names them by `buses.json`'s routes instead, so
   the trip page can tell which are its ways' buses; `trip-quicker` does the
-  same at one stop only, so a decision's quicker way is offered.
+  same at one stop only, so a decision's quicker way is offered; `trip-ride`
+  has each bus ride its route, 2 minutes a stop, as the same vehicle all the
+  way, so the trip page finds the bus boarded where the rider gets off.
 - **fake announcement sources**: two OASA posts and one STASY post.
 
 It also builds the copies where something goes wrong (`scenarios()`), and

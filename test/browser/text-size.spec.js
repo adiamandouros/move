@@ -188,10 +188,11 @@ test.describe('the Trip page\'s answers at 200% text', () => {
         });
     });
 
-    test('a bus ride by the timetable, its badges at the right of its heading', async ({ page }) => {
+    test('a bus ride by the timetable, its badges at the right of its heading, its stops on the way opened', async ({ page }) => {
         await pickPark(page);
         await expect(page.locator('.trip-card').first().locator('.trip-step-badges .time-badge').first()).toBeVisible();
         await expect(page.locator('#trip-checking')).toHaveCount(0);
+        await page.locator('.trip-card').first().locator('.trip-step .leg-stops-toggle').click();
         await big(page);
         expect(await page.evaluate(problems)).toEqual([]);
     });

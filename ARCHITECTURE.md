@@ -330,8 +330,10 @@ version they started with, and it takes over once they're closed
   `test/browser/bus-trace.spec.js` writes down every request of a scripted
   visit, second by second, so a change to them shows.
 - The Trip page's way shown in full ([tools/trip/client/live.js](tools/trip/client/live.js))
-  asks for at most 10 stops: where its rides by bus board, then the stops a
-  last bus that can be any of several leaves from. Each is asked again on
+  asks for at most 10 stops: where its rides by bus board, each followed by
+  where it gets off (the bus boarded, found there by its vehicle code, is
+  when the ride ends: [decision 53](docs/decisions/0053-trip-bus-ride-from-oasa.md)),
+  then the stops a last bus that can be any of several leaves from. Each is asked again on
   the bus page's tiers, by the first bus the rider can still catch there,
   so a change far down the trip is asked rarely until it nears; nothing
   while out of sight, and it pauses after 10 minutes untouched, as the bus
@@ -350,7 +352,7 @@ version they started with, and it takes over once they're closed
   DESIGN.md T14). Off
   the way, or with no way to follow yet, the trip is planned again from
   where they are, 200 m on and at most every 2 minutes
-  ([decision 50](docs/decisions/0050-trip-follows-the-ride.md)); its stops
+  ([decision 53](docs/decisions/0053-trip-bus-ride-from-oasa.md)); its stops
   keep their answers, so only those new to the way are asked at once. Its
   requests carry `&for=plan` (`plan-start` for a search, `plan-moved` for a
   re-plan, `plan-ride` for a stop first asked for the ride they're on).
@@ -375,7 +377,7 @@ version they started with, and it takes over once they're closed
 
 These numbers set our load on OASA, and so do the ones for STASY and the
 bus network below; changes to any of them are agreed first
-([decision 50](docs/decisions/0050-trip-follows-the-ride.md), which replaced 45, 38, 34, 26, 21 and 7).
+([decision 53](docs/decisions/0053-trip-bus-ride-from-oasa.md), which replaced 50, 45, 38, 34, 26, 21 and 7).
 
 Announcements ([server/info/announcements.js](server/info/announcements.js))
 are fetched from OASA's RSS and STASY's news page at most every 15 minutes,
@@ -584,8 +586,8 @@ hour's answer are the app's, in `tools/subway/client/`.
 - live arrivals have come in recently, or nothing needed them (a quiet
   night, a restart);
 - OASA answered and fast enough over the past hour, and the request budget
-  held, with room to spare ([decision 50](docs/decisions/0050-trip-follows-the-ride.md)
-  has the numbers);
+  held, with room to spare ([decision 53](docs/decisions/0053-trip-bus-ride-from-oasa.md)
+  has the numbers, with 50's);
 - every announcement source loaded;
 - last night's data build worked, and its checks of the metro timetable
   found no problems;

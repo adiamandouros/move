@@ -1942,6 +1942,12 @@ body {
     text-decoration: underline;
 }
 
+/* A bus ride's stops, in the trip's card rather than a card of their own:
+   the dots between its ends hollow in the trip card's colour */
+.trip-card .trip-step .leg-stations li:not(:first-child, :last-child)::before {
+    background: var(--bs-tertiary-bg);
+}
+
 .leg-stations li:first-child,
 .leg-stations li:last-child {
     font-weight: 600;

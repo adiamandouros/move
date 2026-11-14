@@ -42,15 +42,29 @@ export function arrivalsAt(code) {
 const timetable = JSON.parse(readFileSync(join(DATA, 'buses.json'), 'utf8'));
 const routesAt = new Map();
 for (const { line, code, stops: along } of timetable.routes) {
-    for (const i of along) {
+    for (const [index, i] of along.entries()) {
         const stop = timetable.stops[i][0];
         if (!routesAt.has(stop)) routesAt.set(stop, []);
-        routesAt.get(stop).push({ line, route: code });
+        routesAt.get(stop).push({ line, route: code, index });
     }
 }
 const timetableArrivalsAt = code => (routesAt.get(code) ?? []).flatMap(({ line, route }, i) => {
     const first = (Number(code) + i) % 5 * 3 + 4;
     return [first, first + 15].map((minutes, n) => ({ route, line, vehicle: `${route}-${n}`, minutes, to: { el: 'ΣΥΝΤΑΓΜΑ', en: 'SYNTAGMA' } }));
+});
+
+// As OASA would see buses riding their routes (scenario 'trip-ride'): one
+// leaving each route's first stop every 15 minutes, 2 minutes a stop after
+// that, each its own vehicle all the way, so a bus boarded is found again
+// where the rider gets off (decision 53); those due within the hour
+const RIDE_EVERY = 15;
+export const RIDE_STOP_MINUTES = 2;
+const ridingArrivalsAt = code => (routesAt.get(code) ?? []).flatMap(({ line, route, index }) => {
+    const buses = [];
+    for (let m = Math.ceil(-RIDE_STOP_MINUTES * index / RIDE_EVERY); RIDE_EVERY * m + RIDE_STOP_MINUTES * index <= 60; m++) {
+        buses.push({ route, line, vehicle: `${route}-${m}`, minutes: RIDE_EVERY * m + RIDE_STOP_MINUTES * index, to: { el: 'ΣΥΝΤΑΓΜΑ', en: 'SYNTAGMA' } });
+    }
+    return buses;
 });
 
 export const oasaClient = {
@@ -180,6 +194,12 @@ export const scenarios = () => ({
     // OASA's answers as the Trip page's ways can match them (timetableArrivalsAt)
     'trip-live': withArrivals((req, res) => res.json({ stops: Object.fromEntries(codesOf(req).map(code => [code, {
         arrivals: timetableArrivalsAt(code).sort((a, b) => a.minutes - b.minutes),
+        updated: Date.now(),
+        stale: false,
+    }])) })),
+    // Each bus riding its route, found again stop after stop (ridingArrivalsAt)
+    'trip-ride': withArrivals((req, res) => res.json({ stops: Object.fromEntries(codesOf(req).map(code => [code, {
+        arrivals: ridingArrivalsAt(code).sort((a, b) => a.minutes - b.minutes),
         updated: Date.now(),
         stale: false,
     }])) })),
