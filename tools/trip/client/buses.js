@@ -31,7 +31,7 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
  * the rider can catch, due `at` (seconds from midnight), and the next of its
  * line after it, null if none is on the road; or that OASA has none the rider
  * can catch there yet
- * @typedef {{ at: number, next: number | null } | { none: true }} RideLive
+ * @typedef {{ at: number, next: number | null, off?: number } | { none: true }} RideLive
  */
 /**
  * One ride of a way, as the page draws it: its stops (city.js), when it
@@ -49,9 +49,10 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
  * as it runs late when it's expected (trainRide in trains.js). `along`: where
  * each stop of the ride is, from where it boards to where it gets off, and
  * `past`, the stops after that, up to PAST_STOPS, by which the page follows
- * the rider along the ride and sees them ride past their stop (follow.js, Plan 7)
+ * the rider along the ride and sees them ride past their stop (follow.js, Plan 7);
+ * `on`, those stops themselves, for the list of a bus's stops on the way
  * @typedef {{ line: string, dir?: string, lines: string[], mode: string, board: import('/tools/subway/city.js').Stop, alight: import('/tools/subway/city.js').Stop,
- *   boards: number, arrives: number, stops: number, along: [number, number][], past: [number, number][], toward: { el: string, en: string }, walkBefore: Walk | null,
+ *   boards: number, arrives: number, stops: number, along: [number, number][], past: [number, number][], on: import('/tools/subway/city.js').Stop[], toward: { el: string, en: string }, walkBefore: Walk | null,
  *   walkNote: { el: string, en: string } | null, next?: number | null, live?: RideLive, train?: string | null, timetable?: number }} Ride
  */
 /**
@@ -111,7 +112,7 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
  * when its first train leaves (seconds from midnight; null: it has none), for how
  * often the trains are asked for again (decision 42)
  * @typedef {{ option: BusOption, stops: { stop: import('/tools/subway/city.js').Stop, walk: Walk | null, lines: string[], buses: { line: string, at: number }[] | null,
- *   arrivals: { line: string, to: Names | null, at: number }[] }[],
+ *   arrivals: { line: string, to: Names | null, at: number, vehicle: string | null }[] }[],
  *   asks: { stop: string, at: number | null, ride?: true }[], offer: Offer | null, switchTo: (Offer & { key: string }) | null, train: number | null }} LiveWay
  */
 /**
@@ -155,13 +156,15 @@ export const PAST_STOPS = 2;
 // A stop's position, to about a metre, as a ride carries its stops
 /** @param {import('/tools/subway/city.js').Stop} stop @returns {[number, number]} */
 const position = stop => [Math.round(stop.lat * 1e5) / 1e5, Math.round(stop.lng * 1e5) / 1e5];
-// Where a leg's stops are, boarding to getting off, and the stops after
+// A leg's stops, boarding to getting off, where they are, and where the stops after are
 /** @param {Planner} planner @param {{ route: number, boardIndex: number, alightIndex: number }} leg */
 function alongLeg(planner, leg) {
     const { stops } = planner.routes[leg.route];
     const at = i => position(planner.stops[stops[i]]);
+    const on = stops.slice(leg.boardIndex, leg.alightIndex + 1).map(stop => planner.stops[stop]);
     return {
-        along: stops.slice(leg.boardIndex, leg.alightIndex + 1).map((_, i) => at(leg.boardIndex + i)),
+        on,
+        along: on.map(position),
         past: stops.slice(leg.alightIndex + 1, leg.alightIndex + 1 + PAST_STOPS).map((_, i) => at(leg.alightIndex + 1 + i)),
     };
 }
@@ -330,11 +333,16 @@ export function routeCodes(planner, lines, board, ends) {
     return codes;
 }
 
+// When OASA has the bus `vehicle` due at the stop `code`, after `after`
+// (seconds from midnight); null when it doesn't say, or there's no code
+/** @param {Record<string, StopLive>} live @param {string | null} code @param {string | null | undefined} vehicle @param {number} after */
+const dueThere = (live, code, vehicle, after) => code && vehicle ? live[code]?.buses.find(bus => bus.vehicle === vehicle && bus.at >= after)?.at ?? null : null;
+
 // The buses at a stop of those routes that the rider, there at `ready`, can still catch, the first first
 /** @param {StopLive | undefined} live @param {Map<string, string>} codes @param {number} ready */
 const catchable = (live, codes, ready) => (live?.buses ?? [])
     .filter(bus => codes.has(bus.route) && bus.at >= ready)
-    .map(bus => ({ line: codes.get(bus.route), to: bus.to ?? null, at: bus.at }))
+    .map(bus => ({ line: codes.get(bus.route), to: bus.to ?? null, at: bus.at, vehicle: bus.vehicle ?? null }))
     .sort((a, b) => a.at - b.at);
 
 /**
@@ -471,10 +479,10 @@ function timedLegs(planner, row, way, now, live, access, { step, own, trains }, 
             const ride = leg.mode === 'suburban' ? trainRide(planner, leg, leg.boards, trains) : null;
             if (ride) train ??= ride.boards;
             const code = own && own.leg === i && ON_THE_ROAD.has(leg.mode) ? codeOf(planner.stops[leg.alight]) : null;
-            const due = code ? live[code]?.buses.find(bus => bus.vehicle === own.vehicle && bus.at >= step.at) ?? null : null;
-            ask(code, due?.at ?? null, true);
-            ownAt = due?.at ?? null;
-            legs.push(ride ?? { ...leg, arrives: due?.at ?? arrivalFrom(planner, leg, step.stop, step.at) });
+            const due = dueThere(live, code, own?.vehicle, step.at);
+            ask(code, due, true);
+            ownAt = due;
+            legs.push(ride ?? { ...leg, arrives: due ?? arrivalFrom(planner, leg, step.stop, step.at) });
             said.push(undefined);
             continue;
         }
@@ -492,11 +500,16 @@ function timedLegs(planner, row, way, now, live, access, { step, own, trains }, 
         const known = code && live[code] && !live[code].unavailable;
         const [bus, next] = code ? catchable(live[code], routeCodes(planner, [leg.line], leg.board, new Set([leg.alight])), ready) : [];
         ask(code, bus?.at ?? null);
-        said.push(known ? (bus ? { at: bus.at, next: next?.at ?? null } : { none: true }) : undefined);
+        // Where it gets off, asked on the same tiers: the bus it boards, due
+        // there by its vehicle code, is when the ride ends (decision 53)
+        const alight = code && codeOf(planner.stops[leg.alight]);
+        ask(alight, bus?.at ?? null);
+        const off = bus && dueThere(live, alight, bus.vehicle, bus.at);
+        said.push(known ? (bus ? { at: bus.at, next: next?.at ?? null, ...off && { off } } : { none: true }) : undefined);
         if (bus) {
-            // As long as the timetable's ride from then, or the way's own where there's none
+            // Or as long as the timetable's ride from then, or the way's own where there's none
             const [timed] = planner.ride([leg], bus.at) ?? [leg];
-            legs.push({ ...leg, boards: bus.at, arrives: bus.at + timed.arrives - timed.boards });
+            legs.push({ ...leg, boards: bus.at, arrives: off ?? bus.at + timed.arrives - timed.boards });
             continue;
         }
         const [timed] = planner.ride([leg], ready) ?? [];

@@ -1,6 +1,6 @@
 # 50. Our load on OASA and STASY, with the Trip page following the rider's ride
 
-Decided 2026-11-12 · In force
+Decided 2026-11-12 · Replaced by [53](0053-trip-bus-ride-from-oasa.md)
 
 ## Situation
 

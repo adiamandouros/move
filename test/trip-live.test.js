@@ -46,6 +46,8 @@ const depends = shownRows(answered(menelaou, station('syntagma'), at(10)));
 const busThenTrain = depends.find(row => row.key.startsWith('040'));
 const [bus, train] = busThenTrain.best[0].legs;
 const BOARD = codeOf(city.stops[bus.board]);
+// Where it gets off, asked on the same tiers, for the bus boarded's time there (decision 53)
+const ALIGHT = codeOf(city.stops[bus.alight]);
 const [ROUTE] = routesOf('040', bus.board, bus.alight);
 const timed = (row, stops, now = at(10)) => liveWay(city, menelaou, station('syntagma'), row, 0, now, stops);
 
@@ -65,7 +67,7 @@ test('which of OASA\'s routes ride a bus: the line\'s routes that get from its s
 
 test('before the live times come: the way for leaving now on the timetable, its bus\'s stop to ask, nothing said', () => {
     const way = timed(busThenTrain, {});
-    assert.deepEqual(way.asks, [{ stop: BOARD, at: null }]);
+    assert.deepEqual(way.asks, [{ stop: BOARD, at: null }, { stop: ALIGHT, at: null }]);
     assert.deepEqual(way.stops, []);
     assert.equal(way.option.rides[0].live, undefined);
     // The first 040 that can be walked to from now, as the search has it
@@ -91,7 +93,7 @@ test('a bus OASA has coming later than the timetable boards then, and the train 
     assert.ok(second.boards >= first.arrives + (train.walkBefore ?? 0), 'after the bus');
     assert.ok(second.boards > busThenTrain.best[0].legs[1].boards, 'a later train');
     assert.equal(second.live, undefined, 'a train has no live times');
-    assert.deepEqual(way.asks, [{ stop: BOARD, at: late }], 'asked again by when that bus comes');
+    assert.deepEqual(way.asks, [{ stop: BOARD, at: late }, { stop: ALIGHT, at: late }], 'asked again by when that bus comes, where it gets off too');
     assert.ok(way.option.arrives > timed(busThenTrain, {}).option.arrives);
 });
 
@@ -101,10 +103,36 @@ test('OASA with no bus the rider can catch: said, and the timetable\'s time stay
     const none = timed(busThenTrain, { [BOARD]: { buses: [{ route: away, line: '040', at: 10 * 3600 + 5 * MIN }, { route: '99999', line: '040', at: 10 * 3600 + 6 * MIN }] } });
     assert.deepEqual(none.option.rides[0].live, { none: true });
     assert.equal(none.option.rides[0].boards, timed(busThenTrain, {}).option.rides[0].boards);
-    assert.deepEqual(none.asks, [{ stop: BOARD, at: null }]);
+    assert.deepEqual(none.asks, [{ stop: BOARD, at: null }, { stop: ALIGHT, at: null }]);
 
     const unavailable = timed(busThenTrain, { [BOARD]: { buses: [], unavailable: true } });
     assert.equal(unavailable.option.rides[0].live, undefined);
+});
+
+test('the bus boarded due where it gets off, by its vehicle code: the ride ends then, said so, and the train after it is timed from there; any other bus, or none with a code, the timetable\'s ride', () => {
+    const boards = 10 * 3600 + 6 * MIN;
+    const off = boards + 25 * MIN;
+    const board = { buses: [{ route: ROUTE, vehicle: 'v1', line: '040', at: boards }] };
+    const way = timed(busThenTrain, { [BOARD]: board, [ALIGHT]: { buses: [
+        // Due there before it boards: another trip of the same bus
+        { route: ROUTE, vehicle: 'v1', line: '040', at: boards - MIN },
+        { route: ROUTE, vehicle: 'v2', line: '040', at: boards + 5 * MIN },
+        { route: ROUTE, vehicle: 'v1', line: '040', at: off },
+    ] } });
+    const [first, second] = way.option.rides;
+    assert.equal(first.boards, boards);
+    assert.equal(first.arrives, off, 'off when OASA has it there');
+    assert.deepEqual(first.live, { at: boards, next: null, off });
+    assert.ok(second.boards >= off + (train.walkBefore ?? 0), 'the M2 from then');
+    assert.deepEqual(way.asks, [{ stop: BOARD, at: boards }, { stop: ALIGHT, at: boards }], 'both on the tiers of the bus boarded');
+
+    const [timetable] = city.ride([bus], boards);
+    const byTimetable = ride => ride.arrives - ride.boards === timetable.arrives - timetable.boards && !('off' in ride.live);
+    const another = timed(busThenTrain, { [BOARD]: board, [ALIGHT]: { buses: [{ route: ROUTE, vehicle: 'v2', line: '040', at: off }] } });
+    assert.ok(byTimetable(another.option.rides[0]), 'another bus there');
+    const noCode = timed(busThenTrain, { [BOARD]: { buses: [{ route: ROUTE, vehicle: null, line: '040', at: boards }] }, [ALIGHT]: { buses: [{ route: ROUTE, vehicle: null, line: '040', at: off }] } });
+    assert.ok(byTimetable(noCode.option.rides[0]), 'no code to know it by');
+    assert.ok(byTimetable(timed(busThenTrain, { [BOARD]: board }).option.rides[0]), 'not answered there yet');
 });
 
 // ── Followed along the way (Plan 7, decision 50) ────────────────────────────
@@ -136,7 +164,7 @@ test('walking to the bus with 3 minutes to go: the first bus from then; waiting 
     assert.equal(walking.option.rides[0].boards, city.ride([bus], T + 180)[0].boards);
     const waiting = followed(busThenTrain, { leg: 0, kind: 'wait', stop: 0, at: T, walk: 0 });
     assert.equal(waiting.option.rides[0].boards, city.ride([bus], T)[0].boards);
-    assert.deepEqual(waiting.asks, [{ stop: BOARD, at: null }], 'still asked for');
+    assert.deepEqual(waiting.asks, [{ stop: BOARD, at: null }, { stop: ALIGHT, at: null }], 'still asked for');
     const coming = followed(busThenTrain, { leg: 0, kind: 'wait', stop: 0, at: T, walk: 0 }, { [BOARD]: { buses: [{ route: ROUTE, line: '040', at: T - MIN }, { route: ROUTE, line: '040', at: T + 4 * MIN }] } });
     assert.deepEqual(coming.option.rides[0].live, { at: T + 4 * MIN, next: null }, 'one gone a minute ago isn\'t theirs');
     // Underground: timed as at the last fix, however late the clock is
@@ -165,7 +193,6 @@ test('the rider\'s own bus: of their lines, the one due nearest when they boarde
     assert.equal(live.ownBus(undefined, ['040'], T), null, 'no answer yet');
     assert.equal(live.ownBus({ buses: [{ route: ROUTE, vehicle: null, line: '040', at: T }] }, ['040'], T), null, 'no code for it');
 
-    const ALIGHT = codeOf(city.stops[bus.alight]);
     const step = { leg: 0, kind: 'ride', stop: 2, at: T, walk: 0 };
     const own = { leg: 0, vehicle: 'b' };
     const asked = liveWay(city, menelaou, SYNTAGMA_STOP, busThenTrain, 0, at(10), {}, { step, own });
@@ -183,7 +210,7 @@ test('the rider\'s own bus: of their lines, the one due nearest when they boarde
     // Their bus is another ride's: nothing asked for this one
     assert.deepEqual(liveWay(city, menelaou, SYNTAGMA_STOP, busThenTrain, 0, at(10), {}, { step, own: { leg: 1, vehicle: 'b' } }).asks, []);
     // Still waiting for it: the stop they board at, as before
-    assert.deepEqual(liveWay(city, menelaou, SYNTAGMA_STOP, busThenTrain, 0, at(10), {}, { step: { ...step, kind: 'wait' }, own: null }).asks, [{ stop: BOARD, at: null }]);
+    assert.deepEqual(liveWay(city, menelaou, SYNTAGMA_STOP, busThenTrain, 0, at(10), {}, { step: { ...step, kind: 'wait' }, own: null }).asks, [{ stop: BOARD, at: null }, { stop: ALIGHT, at: null }]);
 });
 
 test('a stop first asked for the ride the rider is on says so', () => {
@@ -229,7 +256,7 @@ test('any bus from near the door: the stops with a bus the rider can catch first
     assert.deepEqual(order.slice(0, 2), [ids[2], ids[0]], 'the bus soonest first');
     assert.deepEqual(order.slice(2), ids.filter(id => id !== ids[0] && id !== ids[2]), 'then nearest first');
     assert.deepEqual(way.stops[0].buses, [{ line: busAt(third, 0).line, at: busAt(third, 2 * MIN).at }]);
-    assert.deepEqual(way.stops[0].arrivals, [{ line: busAt(third, 0).line, to: null, at: busAt(third, 2 * MIN).at }], 'for its row opened');
+    assert.deepEqual(way.stops[0].arrivals, [{ line: busAt(third, 0).line, to: null, at: busAt(third, 2 * MIN).at, vehicle: null }], 'for its row opened');
     assert.deepEqual(way.stops[2].buses, [], 'answered, but its bus can\'t be caught');
     assert.deepEqual(way.stops[2].arrivals, []);
     assert.equal(way.stops.at(-1).buses, null, 'not asked');
@@ -258,7 +285,7 @@ test('any bus after a train: the M2 to Syggrou-Fix, then the stops there, each c
     const way = liveWay(city, syntagma, menelaou, row, 0, at(8.5), { [code]: { buses: [{ route, line, to, at: ready + 12 * MIN }, { route, line, at: m2.arrives - MIN }, elsewhere, { route, line, to, at: ready + 4 * MIN }] } });
     assert.deepEqual(way.stops[0].buses, [{ line, at: ready + 4 * MIN }]);
     // Opened, its row lists every bus of the rider's lines they can still catch, soonest first, with where it goes (decision 48)
-    assert.deepEqual(way.stops[0].arrivals, [{ line, to, at: ready + 4 * MIN }, { line, to, at: ready + 12 * MIN }]);
+    assert.deepEqual(way.stops[0].arrivals, [{ line, to, at: ready + 4 * MIN, vehicle: null }, { line, to, at: ready + 12 * MIN, vehicle: null }]);
 });
 
 // ── The page's side (live.js) ───────────────────────────────────────────────
@@ -545,6 +572,38 @@ for (const lang of ['en', 'el']) {
         assert.ok(html.includes(leaves(about(clock(bus.boards)))));
         assert.ok(html.includes(badges(false, ...[bus.boards, bus.next].map(at => Math.floor((at - now) / 60)).filter(m => m < 60))), 'the timetable\'s, not marked live');
         assert.ok(nothingUnder(html), 'nothing under the answer');
+    });
+
+    test(`${lang}: a bus ride's foot, as a metro card's (decision 53): where to get off, its minutes, OASA's when it has the bus there, and its stops, a button that opens them`, () => {
+        const boards = now + 6 * MIN;
+        const off = boards + 23 * MIN;
+        const board = { buses: [{ route: ROUTE, vehicle: 'v1', line: '040', at: boards }] };
+        const way = timed(busThenTrain, { [BOARD]: board, [ALIGHT]: { buses: [{ route: ROUTE, vehicle: 'v1', line: '040', at: off }] } });
+        const [ride] = way.option.rides;
+        const key = `bus/040/${ride.board.id}/${ride.alight.id}`;
+        const id = `stations-${key.replace(/[^a-z0-9]+/gi, '-')}`;
+        const count = (ride.stops === 1 ? s['trip.bus-stop-count'] : s['trip.bus-stops-count']).replace('{count}', ride.stops);
+        const html = drawn(way);
+        check(html);
+        const name = lang === 'el' ? ride.alight.names.el : ride.alight.names.en || latinName(ride.alight.names.el);
+        assert.ok(html.includes(`${s['subway.exit-at']} <strong>${escaped(name)}</strong>`), 'where to get off');
+        assert.ok(html.includes(`<span class="leg-ride">${mark(23)} · <button type="button" class="leg-stops-toggle" data-leg="${key}" aria-expanded="false" aria-controls="${id}">${count}`), 'OASA\'s minutes, no "~"');
+        assert.ok(!html.includes(s['trip.stops'].split('{count}')[1].split('{place}')[0]), 'no "N stops to …" line');
+        // Its stops on the way, closed: every one from where it boards to where it gets off, each its row on the Buses page
+        const list = html.match(new RegExp(`<ol class="leg-stations" id="${id}" aria-label="${s['trip.bus-stops-on-way']}" hidden>([\\s\\S]*?)</ol>`));
+        assert.ok(list, 'closed');
+        const links = [...list[1].matchAll(/<a href="([^"]+)">/g)].map(m => m[1]);
+        assert.equal(links.length, ride.stops + 1);
+        assert.deepEqual(links.at(-1), `${lang === 'el' ? '/el' : ''}/buses?stop=${codeOf(ride.alight)}`);
+        // Where it gets off, by Syggrou-Fix: the M2's pill
+        assert.ok(list[1].split('</li>').at(-2).includes('pill-s'), 'the lines of the station by it');
+
+        const opened = String(r.renderHalf(network, shown.kind, ways, station('syntagma'), { now, weekday: 3, live: { way: view(way) }, stations: { [key]: true } }));
+        assert.ok(opened.includes(`aria-expanded="true" aria-controls="${id}"`) && opened.includes(`id="${id}" aria-label="${s['trip.bus-stops-on-way']}">`), 'open as the rider left it');
+
+        // Not there on OASA's word yet: the timetable's ride, with "~"
+        const guessed = timed(busThenTrain, { [BOARD]: board }).option.rides[0];
+        assert.ok(drawn(timed(busThenTrain, { [BOARD]: board })).includes(`<span class="leg-ride">${mark(Math.round((guessed.arrives - guessed.boards) / 60), { about: true })} · `));
     });
 
     test(`${lang}: any bus from near the door: each stop the Buses page's row, the one with a bus first, its next bus and every bus of the rider's lines when opened (decision 48)`, () => {

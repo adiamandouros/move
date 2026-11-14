@@ -1,3 +1,4 @@
+import { distanceMeters } from '/js/core/geo.js';
 import { externalLink, format, formatHtml, html, icon, localName, notice, walkingUrl } from '/js/core/html.js';
 import { language, localHref, t } from '/js/core/i18n.js';
 import { liftNotice, liftSummary, metroStations, ridePlatforms, stepFreeGaps } from '/js/core/lifts.js';
@@ -6,7 +7,7 @@ import { clockTime, diagramLegend, diagramSymbols } from '/js/core/metro.js';
 import { latinName } from '/js/core/text.js';
 import { aboutTime, minutesBadge, minutesMark, minutesWords } from '/js/core/times.js';
 import { legPositions } from '/tools/subway/network.js';
-import { arrivalRows, headerBadge, nextBus, stopRow } from '/tools/buses/render.js';
+import { arrivalRows, headerBadge, nextBus, stopRow, viewHref } from '/tools/buses/render.js';
 import { legCard } from '/tools/subway/render.js';
 import { asLate, wayLegs } from './legs.js';
 
@@ -181,14 +182,58 @@ function busBadges(ride, now) {
     return soon.length > 0 && html`<span class="trip-step-badges${live ? ' trip-live' : ''}">${soon.map((minutes, i) => minutesBadge(minutes, t, { said: i ? t('trip.next-in') : undefined }))}</span>`;
 }
 
+// A metro or tram station this close to a bus stop is where the bus meets
+// its lines, as the stops on the way show them (decision 53)
+const NEAR_STATION_METERS = 150;
+
+// The metro and tram lines at the stations near `stop`, as small pills
+function linesNear(rail, stop) {
+    const lines = new Set(Object.values(rail.stations)
+        .filter(({ coords }) => distanceMeters(stop.lat, stop.lng, coords[0], coords[1]) <= NEAR_STATION_METERS)
+        .flatMap(station => station.lines.filter(line => rail.lines[line])));
+    return [...lines].map(line => linePill(line, rail.lines[line].name, 's'));
+}
+
+// A bus ride's stops on the way, as a metro card's stations (legStations in
+// the Subway page's render.js): dots on a grey strip, as a bus has no line
+// colour, each linked to the stop on the Buses page, with the lines of the
+// stations by it. id: the list's, for its button. open: whether it's open
+function busStopsOnWay(rail, ride, id, open) {
+    return html`<ol class="leg-stations" id="${id}" aria-label="${t('trip.bus-stops-on-way')}"${!open && html` hidden`}>
+        ${ride.on.map(stop => {
+            const lines = linesNear(rail, stop);
+            return html`<li><a href="${viewHref({ stop: stop.id.slice('bus:'.length) })}">${stopName(rail, stop)}</a>${lines.length > 0 && html` ${pillList(lines)}`}</li>`;
+        })}
+    </ol>`;
+}
+
+// A bus ride's last line, as a metro card's (legCard): where to get off on
+// the left; on the right, its ride's minutes, OASA's when it has the bus due
+// where it gets off, or else "~", and its stops, a button that opens them
+// (decision 53). `stations`: the stops on the way the rider opened, by the
+// ride's key, as a card's stations are
+function busAction(rail, ride, stations) {
+    const key = `bus/${ride.line}/${ride.board.id}/${ride.alight.id}`;
+    const id = `stations-${key.replace(/[^a-z0-9]+/gi, '-')}`;
+    const open = Boolean(stations[key]);
+    const minutes = minutesMark(Math.round((ride.arrives - ride.boards) / 60), t, { about: !(ride.live && 'off' in ride.live) });
+    return html`<div class="leg-action mt-2">
+            <span>${icon('get-off', 'me-2')}${t('subway.exit-at')} <strong>${stopName(rail, ride.alight)}</strong></span><span class="sr-only">, </span>
+            <span class="leg-ride">${minutes} · <button type="button" class="leg-stops-toggle" data-leg="${key}" aria-expanded="${String(open)}" aria-controls="${id}">${format(t(ride.stops === 1 ? 'trip.bus-stop-count' : 'trip.bus-stops-count'), { count: ride.stops })}${icon('more', 'leg-stops-chevron')}</button></span>
+        </div>
+        ${busStopsOnWay(rail, ride, id, open)}`;
+}
+
 // A bus ride of a way, or a suburban train's until its card can be drawn
 // (legs.js): a bus's time is the timetable's, an estimate (decision 11), so
 // it says "~", unless OASA has the bus coming (decision 35); its badge and
-// the next one's beside its heading. A train's is when it actually leaves,
-// as late as it runs, `trains` by number (decision 47); one to or from a
-// station OASA's ticket doesn't cover says it needs Hellenic Train's
-// (decision 41). `now`: seconds from midnight, for the minutes
-function rideStep(rail, ride, { now, trains }, mark = NONE) {
+// the next one's beside its heading, and at its foot, as a metro card's,
+// where to get off, its minutes and its stops (busAction). A train's is
+// when it actually leaves, as late as it runs, `trains` by number (decision
+// 47), with how many stops to where it gets off; one to or from a station
+// OASA's ticket doesn't cover says it needs Hellenic Train's (decision 41).
+// `now`: seconds from midnight, for the minutes
+function rideStep(rail, ride, { now, trains, stations }, mark = NONE) {
     const bus = ON_THE_ROAD.has(ride.mode);
     const place = stopName(rail, ride.alight);
     const live = ride.live && 'at' in ride.live;
@@ -196,7 +241,7 @@ function rideStep(rail, ride, { now, trains }, mark = NONE) {
     return step(!bus ? clockTime(asLate(trains, ride.train, ride.timetable)) : live ? clockTime(ride.boards) : aboutTime(clockTime(ride.boards), t), html`
         ${rideHead(pill(rail, ride), ride.lines.length === 1 && cityName(ride.toward), bus && busBadges(ride, now))}
         ${ride.live && 'none' in ride.live && html`<div class="trip-step-note">${t('trip.live-none')}</div>`}
-        <div class="trip-step-note">${ride.stops === 1 ? format(t('trip.stop'), { place }) : format(t('trip.stops'), { count: ride.stops, place })}</div>
+        ${bus ? busAction(rail, ride, stations ?? {}) : html`<div class="trip-step-note">${ride.stops === 1 ? format(t('trip.stop'), { place }) : format(t('trip.stops'), { count: ride.stops, place })}</div>`}
         ${beyond && html`<div class="trip-step-note">${format(t('trip.train-ticket'), { station: stopName(rail, beyond) })}</div>`}`, { leaves: true, mark });
 }
 // A rail line's pill: the metro's and the tram's are in rail.json; the

@@ -2,6 +2,7 @@
 // cases, and search being down. What's worked out and drawn is tested in Node
 // (trip-plan.test.js, trip-render.test.js); here, that the page puts it
 // together. The addresses are test/fixtures/places.js.
+import { RIDE_STOP_MINUTES } from '../support/test-site.js';
 import { watchRequests } from './bus-requests.js';
 import { axe, expect, keyboardWalk, onlyOn, test } from './fixtures.js';
 import { from, hereToSyntagma, list, MEGARA, MENELAOU_45, MENELAOU_85, moveTo, PARK, pickBoth, pickDecision, pickPark, STAVROU_1, to, watchLive, watchPlans } from './trip-page.js';
@@ -289,6 +290,36 @@ test.describe('the trip page', () => {
         await expect(page.locator('#trip-half')).toHaveText(/\d+ ms, (one clear way|a decision on the way|it depends|no way found)$/);
     });
 
+    // DESIGN.md, "The Trip page", and decision 53
+    test.describe('with OASA\'s buses riding their routes', () => {
+        test.use({ scenario: 'trip-ride' });
+
+        test('a bus ride ends as a metro card: where to get off, OASA\'s minutes to there, and its stops, opened by tap or keyboard, kept open, each to its Buses page', async ({ page }) => {
+            await pickPark(page);
+            const ride = page.locator('.trip-card').first().locator('li.trip-step', { has: page.locator('.trip-step-badges.trip-live') });
+            await expect(ride).toHaveCount(1);
+            await expect(ride.locator('.leg-action')).toContainText(/^\s*Exit at \S/);
+            const toggle = ride.getByRole('button', { name: /^\d+ stops?$/ });
+            const stops = parseInt(await toggle.textContent(), 10);
+            // OASA has the bus boarded there 2 minutes a stop later: no "~"
+            await expect(ride.locator('.leg-ride > [aria-hidden="true"]').first()).toHaveText(`${stops * RIDE_STOP_MINUTES}'`);
+            const list = ride.getByRole('list', { name: 'Stops on the way' });
+            await expect(list).toBeHidden();
+            await toggle.click();
+            await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+            await expect(list.getByRole('listitem')).toHaveCount(stops + 1);
+            await expect(list.getByRole('link').first()).toHaveAttribute('href', /^\/buses\?stop=\d+$/);
+            expect(await axe(page), 'axe-core violations').toEqual([]);
+            // Still open after the minute's redraw
+            await page.clock.runFor(61_000);
+            await expect(list).toBeVisible();
+            // And closed again from the keyboard
+            await toggle.focus();
+            await page.keyboard.press('Enter');
+            await expect(list).toBeHidden();
+        });
+    });
+
     test.describe('with OASA\'s live times', () => {
         test.use({ scenario: 'trip-live' });
 
@@ -554,16 +585,17 @@ test.describe('the trip page', () => {
 
             // On the bus, two stops on: still the 040's step; the stop it
             // boarded at is behind the rider, so no longer asked, and the
-            // stop they get off is asked for their own bus, saying so
-            // (decision 50); no new plan
+            // stop they get off is asked for their own bus (decision 50) on
+            // its tiers, as the Trip page's: it was asked from the start,
+            // for the bus's time there (decision 53), so it isn't new; no new plan
             const boarded = (await asks()).length;
+            expect((await asks()).find(a => a.code === alight)).toMatchObject({ for: 'plan' });
             await moveTo(page, bus[2]);
             await run(35);
             await expect(current(page)).toContainText('040');
             const since = (await asks()).slice(boarded);
             expect(since.map(a => a.code)).not.toContain(board);
-            expect(since.find(a => a.code === alight)).toMatchObject({ for: 'plan-ride' });
-            expect(since.filter(a => a.code === alight).map(a => a.for)).toEqual(['plan-ride', ...since.filter(a => a.code === alight).slice(1).map(() => 'plan')]);
+            expect(since.filter(a => a.code === alight).every(a => a.for === 'plan')).toBe(true);
             expect(await plans()).toHaveLength(1);
 
             // Off at its last stop, 50 m from the station: that walk is done

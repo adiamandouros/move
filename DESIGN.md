@@ -389,8 +389,13 @@ rules, with a picture of a way shown in full.
   M plate and "towards …" in words (a bus shows where it goes on its front,
   so no station sign). At the right end of the heading's line, the bus's
   badge and the next one's; none an hour or more away, as the clock time
-  says it. Where any of several buses will do, each stop is the Buses page's
-  stop row (decision 48), across the step with nothing on the left: the
+  says it. Its foot is a metro card's (decision 53): "Exit at" and the stop
+  on the left; on the right, the ride's minutes, `~` unless OASA has the
+  bus boarded due there, then "N stops", a button that opens the stops on
+  the way: the card's list on a grey strip, each stop linked to its Buses
+  page, with the metro and tram pills of a station within 150 m. Where
+  any of several buses will do, each stop is the Buses page's stop row
+  (decision 48), across the step with nothing on the left: the
   walk to it (`~4'`) where the Buses page shows how far, the next bus of the
   rider's lines with where it goes and its badge, the walking figure; no
   star. Opened, every bus of the rider's lines they can still catch there.

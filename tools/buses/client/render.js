@@ -14,7 +14,7 @@ function formatDistance(meters) {
 }
 
 // The address of a view of the bus page: viewHref({ stop: '10341' }), viewHref({ line: '040' })
-const viewHref = params => `${localHref('/buses')}?${new URLSearchParams(params)}`;
+export const viewHref = params => `${localHref('/buses')}?${new URLSearchParams(params)}`;
 
 // A line's plate, for a screen reader "Line 040"
 const plate = (line, size) => busPlate(line, size, t('buses.line'));
