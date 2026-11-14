@@ -117,5 +117,42 @@
       { "name": "Εξωτερικός προς Πανεπιστημίου", "coords": [37.98414, 23.72872] },
       { "name": "Εξωτερικός προς Κοτοπούλη", "coords": [37.9846, 23.72766] }
     ]
+  },
+  "panormou": {
+    "exits": [
+      { "name": { "el": "Λ. Ριανκούρ", "en": "L. Riankour" }, "coords": [37.99291, 23.76377], "way": ["stairs"] },
+      { "name": { "el": "Πανόρμου/Μπέλλου", "en": "Panormou/Belou" }, "coords": [37.99305, 23.76371], "way": ["stairs"] },
+      { "name": { "el": "Πανόρμου/Χατζηκωνσταντή", "en": "Panormou/Hatzikonstanti" }, "coords": [37.99329, 23.76424], "way": ["escalator-up"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός Πανόρμου", "coords": [37.99292, 23.764] }
+    ]
+  },
+  "ampelokipoi": {
+    "exits": [
+      { "name": { "el": "Αλεξάνδρας/Σούτσου", "en": "Alexandras/Soutsou" }, "coords": [37.98711, 23.75683], "way": ["stairs", "escalator-up", "escalator-down"] },
+      { "name": { "el": "Αλεξάνδρας/Πανόρμου", "en": "Alexandras/Panormou" }, "coords": [37.9875, 23.75719], "way": ["stairs", "escalator-up", "escalator-down"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός Λεωφ. Αλεξάνδρας", "coords": [37.9872, 23.75699] }
+    ]
+  },
+  "megaro-mousikis": {
+    "exits": [
+      { "name": { "el": "Βασ. Σοφίας/Αιγινήτειο Νοσ.", "en": "Vas. Sofias/Eginitio Hosp." }, "coords": [37.97902, 23.75315], "way": ["stairs", "escalator-up"] },
+      { "name": { "el": "Βασ. Σοφίας/Πάρκο Ελευθερίας", "en": "Vas. Sofias/Eleftherias Park" }, "coords": [37.97931, 23.75288], "way": ["stairs", "escalator-up"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός Βασ. Σοφίας", "coords": [37.97955, 23.75311] }
+    ]
+  },
+  "evangelismos": {
+    "exits": [
+      { "name": { "el": "Βασ. Σοφίας/Ριζάρη", "en": "Vas. Sofias/Rizari" }, "coords": [37.97586, 23.74695], "way": ["stairs"] },
+      { "name": { "el": "Βασ. Σοφίας/Νοσ. Ευαγγελισμός", "en": "Vas. Sofias/Evangelismos Hosp." }, "coords": [37.9764, 23.74743], "way": ["stairs", "escalator-up"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός Βασ. Σοφίας", "coords": [37.97605, 23.74694] }
+    ]
   }
 }
