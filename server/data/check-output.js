@@ -237,6 +237,11 @@ function checkTrains(data) {
     const problems = [];
     const stations = data.stations && typeof data.stations === 'object' ? data.stations : {};
     if (!Object.keys(stations).length) problems.push('trains.json: no stations');
+    const lines = data.lines && typeof data.lines === 'object' ? data.lines : {};
+    if (!Object.keys(lines).length) problems.push('trains.json: no lines');
+    for (const [id, line] of Object.entries(lines)) {
+        if (typeof line?.name !== 'string' || !line.name || !/^#[0-9a-f]{6}$/i.test(line?.color)) problems.push(`trains.json: line ${id} must have its name and a #rrggbb colour`);
+    }
     for (const [id, station] of Object.entries(stations)) {
         const [lat, lng, el, en] = Array.isArray(station) ? station : [];
         if (!inAttica(lat, lng) || typeof el !== 'string' || !el || typeof en !== 'string' || !en) problems.push(`trains.json: station ${id} must be [lat, lng, Greek name, English name]`);

@@ -1,6 +1,7 @@
 // The Info page: its sections (Bootstrap's accordion) with the keyboard, the
-// metro and tram maps, and every section open passing axe and the keyboard walk.
-import { axe, expect, keyboardWalk, openSection, test } from './fixtures.js';
+// metro, tram and suburban railway maps, and every section open passing axe
+// and the keyboard walk.
+import { axe, expect, keyboardWalk, onlyOn, openSection, test } from './fixtures.js';
 
 for (const lang of ['', '/el']) {
     test(`${lang || '/'}info sections, maps and station lists`, async ({ page }, { project }) => {
@@ -26,9 +27,12 @@ for (const lang of ['', '/el']) {
         await expect(page.locator('h3:has(#toggle-metro)')).toHaveCSS('border-top-width', '0px');
         await press('#toggle-metro', 'Enter');
         await expect(page.locator('#metro-map > .map-svg .map-station').first()).toBeAttached();
-        // Stubs to the tram, each ending in its line's badge
-        await expect(page.locator('#metro-map .map-stub')).toHaveCount(6);
+        // Stubs to the tram and the suburban railway, each ending in its line's
+        // badge; A1 and A2 thin beside M3 to the Airport
+        await expect(page.locator('#metro-map .map-stub')).toHaveCount(15);
+        await expect(page.locator('#metro-map .map-guest')).toHaveCount(2);
         await expect(page.locator('#metro-map .map-badge.line-t6')).toHaveCount(3);
+        await expect(page.locator('#metro-map .map-badge.line-a3')).toHaveCount(1);
         // The zoom buttons hold only their icons
         const button = page.locator('.map-btn').first();
         await expect(button).toHaveText('');
@@ -56,6 +60,17 @@ for (const lang of ['', '/el']) {
         await expect(page.locator('#tram-stop-list h5')).toHaveCount(2);
         await expect(page.locator('#tram-stop-list a')).toHaveCount(0);
         await expect(page.locator('#tram-stop-list .station-way')).toContainText(lang ? 'Προς Ακτή Ποσειδώνος' : 'Toward Akti Posidonos');
+
+        // The railway: the city's stations and the Airport, where lines go on, and its stations as links
+        await press('#toggle-suburban', 'Enter');
+        const suburban = page.locator('#suburban-map');
+        await expect(suburban.locator('.map-station')).toHaveCount(25);
+        await expect(suburban.locator('.map-beyond-name')).toHaveText(lang ? ['προς Χαλκίδα', 'προς Κιάτο'] : ['to Chalkida', 'to Kiato']);
+        await expect(suburban.locator('.map-guest')).toHaveCount(1);
+        await expect(suburban.locator('.map-svg')).toHaveAttribute('aria-label', lang ? 'Χάρτης Προαστιακού' : 'Suburban railway map');
+        await press('#toggle-suburban-station-list', ' ');
+        await expect(page.locator('#suburban-station-list h5')).toHaveCount(4);
+        await expect(page.locator('#suburban-station-list a')).toHaveCount(47);
 
         await page.locator('#toggle-announcements').click();
         await expect(page.locator('#sec-announcements')).toBeVisible();
@@ -95,4 +110,32 @@ test('the tram map zooms with the keyboard and its buttons', async ({ page }) =>
     await expect(tram).not.toHaveClass(/zoomed/);
     // The metro map is still closed, and undrawn
     await expect(page.locator('#metro-map .map-svg')).toHaveCount(0);
+});
+
+test('a station on the suburban railway map opens the subway page with it as the destination, the railway switched on', async ({ page }) => {
+    await page.goto('/info');
+    await openSection(page, '#toggle-map');
+    await page.locator('#toggle-suburban').click();
+    const piraeus = page.locator('#suburban-map [data-station="piraeus"] .map-capsule');
+    await expect(piraeus).toBeAttached();
+    await piraeus.click();
+    await expect(page).toHaveURL(/\/subway\?to=piraeus-suburban$/);
+    await expect(page.locator('#stop-search-to')).toHaveValue('Piraeus (suburban)');
+    await expect(page.getByRole('switch', { name: 'Suburban railway' })).toBeChecked();
+});
+
+test.describe('with a keyboard', () => {
+    test.beforeEach(onlyOn('phone', 'desktop'));
+
+    test('the suburban railway\'s list of stations opens the same', async ({ page }) => {
+        await page.goto('/info');
+        await openSection(page, '#toggle-map');
+        await page.locator('#toggle-suburban').click();
+        await page.locator('#toggle-suburban-station-list').click();
+        const athens = page.locator('#suburban-station-list a', { hasText: /^Athens$/ }).first();
+        await athens.focus();
+        await page.keyboard.press('Enter');
+        await expect(page).toHaveURL(/\/subway\?to=athens$/);
+        await expect(page.locator('#stop-search-to')).toHaveValue('Athens');
+    });
 });

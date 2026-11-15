@@ -5,12 +5,15 @@ import { browserModule } from './support/browser-modules.js';
 import { bareLineProblems } from './support/markup.js';
 import * as metroLayout from '../tools/info/client/map-layout.js';
 import * as tramLayout from '../tools/info/client/tram-layout.js';
+import * as suburbanLayout from '../tools/info/client/suburban-layout.js';
 
 // What the Info page's maps draw (tools/info/client/map.js), from the browser
-// tests' copy of rail.json (real data): the metro's links, the tram's loop
-// arrows, metro stubs and line badges, and the lists of stops beside them
+// tests' copies of rail.json and trains.json (real data): the metro's links,
+// the tram's loop arrows, metro stubs and line badges, the railway's lines
+// side by side and where they go on, and the lists of stops beside them
 
 const rail = JSON.parse(readFileSync(new URL('./browser/data/rail.json', import.meta.url), 'utf8'));
+const trains = JSON.parse(readFileSync(new URL('./browser/data/trains.json', import.meta.url), 'utf8'));
 const count = (html, pattern) => (`${html}`.match(pattern) ?? []).length;
 
 const colors = { ...rail.lines, ...rail.tram.lines };
@@ -96,4 +99,111 @@ test('lists of stops: metro stations are links; tram stops aren\'t, with their c
     assert.equal(count(tram, /station-way/g), 1);
     // Every line in them is its pill
     assert.deepEqual([...bareLineProblems(metro), ...bareLineProblems(tram)], []);
+});
+
+// A path's points, as [x, y]
+const pointsOf = d => [...d.matchAll(/[ML]([-\d.e]+) ([-\d.e]+)/g)].map(m => [Math.round(+m[1] * 10) / 10, Math.round(+m[2] * 10) / 10]);
+const lineOf = (svg, color) => pointsOf(`${svg}`.match(new RegExp(`<path class="map-line" d="([^"]+)" stroke="${color}"`))[1]);
+
+test('the suburban railway map: the city\'s stations and the Airport, side by side on shared track, arrows where lines go on (decision 54)', async () => {
+    const { drawMap, suburbanNetwork, suburbanLink, metroChangesOfRailway, suburbanWalks, allColors } = await browserModule('tools/info/client/map.js', 'el');
+    const network = suburbanNetwork(trains);
+    // Each line's longest ways, both ways round, A1's from the Airport first (the way LANES follow)
+    assert.deepEqual(Object.keys(network.lines.A1.directions), ['piraeus-0', 'airport-1']);
+    assert.deepEqual(Object.keys(network.lines.A3.directions), ['chalkida-0', 'athens-1']);
+    assert.equal(network.lines.A2.color, '#753bbd');
+    const svg = `${drawMap(network, suburbanLayout, { id: 'suburban-map', colors: allColors(rail, trains), link: suburbanLink(rail), changes: metroChangesOfRailway(rail, trains), walks: suburbanWalks(trains) })}`;
+
+    // 25 stations, each opening the subway page with it as the destination, by the id the planner gives it
+    assert.equal(count(svg, /class="map-station[^"]*map-link"/g), 25);
+    assert.doesNotMatch(svg, /data-station="megara"/);
+    assert.equal(suburbanLink(rail)('piraeus'), '/el/subway?to=piraeus-suburban');
+    assert.equal(suburbanLink(rail)('ska'), '/el/subway?to=ska');
+
+    // Into Athens from Agioi Anargyroi (44 px a unit): A3 to the east of A1, A4 to the west, 11 px apart
+    assert.ok(lineOf(svg, '#ffcd00').some(([x, y]) => x === 0 && y === 0));
+    assert.deepEqual(lineOf(svg, '#78be20').slice(0, 2), [[11, 0], [11, -88]]);
+    assert.ok(lineOf(svg, '#00a3e0').some(([x, y]) => x === -11 && y === 0));
+    // From Athens to Piraeus, A1 and A4 only: each 5.5 px off the middle, across the line (south-east and north-west)
+    const off = 5.5 * Math.SQRT1_2;
+    const near = (points, [x, y]) => points.some(([px, py]) => Math.abs(px - x) < 0.2 && Math.abs(py - y) < 0.2);
+    assert.ok(near(lineOf(svg, '#ffcd00'), [-176 + off, 176 + off]), 'A1 south-east of Lefka');
+    assert.ok(near(lineOf(svg, '#00a3e0'), [-176 - off, 176 - off]), 'A4 north-west of Lefka');
+    // A station on lines side by side is a bar across them; one on a line of its own a dot in its colour
+    assert.match(svg, /data-station="lefka">\s*<title>Λεύκα<\/title>\s*<path class="map-capsule-edge"/);
+    assert.match(svg, /data-station="zefyri">\s*<title>[^<]+<\/title>\s*<circle [^>]*r="6" stroke="#00a3e0"\/>/);
+
+    // A3 goes on to Chalkida past SKA, A4 to Kiato past Magoula
+    assert.deepEqual([...svg.matchAll(/class="map-beyond-name"><text [^>]*>([^<]+)/g)].map(m => m[1]), ['προς Χαλκίδα', 'προς Κιάτο']);
+    assert.match(svg, /id="suburban-map-beyond-magoula-A4"/);
+    // SKA's two stations a footbridge apart, close together as they are, the A3 one without a name of its own
+    const [walk] = [...svg.matchAll(/class="map-walk" d="M([-\d.]+) ([-\d.]+)L([-\d.]+) ([-\d.]+)"/g)].map(m => m.slice(1).map(Number));
+    assert.ok(Math.hypot(walk[2] - walk[0], walk[3] - walk[1]) < 44, `${walk}`);
+    assert.equal(count(svg, /class="map-walk"/g), 1);
+    const skaA3 = svg.match(/<g [^>]*data-station="ska-a3">.*?<\/g>/s)[0];
+    assert.match(skaA3, /<circle /);
+    assert.doesNotMatch(skaA3, /<text/);
+    // Stubs to the metro at its walks: Piraeus M1 and M3, Athens to Larissa Station's M2, Nerantziotissa M1, M3 at Doukissis Plakentias
+    assert.deepEqual([...svg.matchAll(/id="suburban-map-stub-([^"]+)"/g)].map(m => m[1]),
+        ['piraeus-M1', 'piraeus-M3', 'athens-M2', 'nerantziotissa-M1', 'doukissis-plakentias-M3']);
+    // From there to the Airport M3 runs on the railway's track: thin, beside A2 to the north-east, 14.5 px off the middle
+    const guests = [...svg.matchAll(/class="map-guest" d="([^"]+)" stroke="([^"]+)"/g)];
+    assert.deepEqual(guests.map(m => m[2]), [rail.lines.M3.color]);
+    const across = ([x, y]) => (x - 7 * 44 - (y + 12 * 44)) * Math.SQRT1_2;
+    for (const point of pointsOf(guests[0][1])) assert.ok(Math.abs(across(point) - 14.52) < 0.15, `${point}`);
+    assert.match(svg, /data-station="koropi">\s*<title>[^<]+<\/title>\s*<path class="map-capsule-edge"/);
+    assert.deepEqual(terminalsOf(svg), ['airport', 'ano-liosia', 'athens', 'piraeus']);
+    // A badge beside each line
+    for (const line of ['a1', 'a2', 'a3', 'a4']) assert.equal(count(svg, new RegExp(`class="map-badge line-${line}"`, 'g')), 1, line);
+});
+
+test('a trains.json from before its lines\' colours still draws both maps: the railway\'s lines grey, by their ids', async () => {
+    const { drawMap, suburbanNetwork, subwayLink, metroStationChanges, allColors } = await browserModule('tools/info/client/map.js', 'en');
+    const { lines, ...old } = trains;
+    const network = suburbanNetwork(old);
+    assert.deepEqual(Object.keys(network.lines), Object.keys(lines).sort());
+    assert.deepEqual(network.lines.A1.name, 'A1');
+    assert.match(`${drawMap(network, suburbanLayout, { id: 'suburban-map', colors: allColors(rail, old), link: () => null, changes: () => [] })}`, /class="map-line" d="[^"]+" stroke="#6c757d"/);
+    const svg = `${drawMap(rail, metroLayout, { id: 'metro-map', colors: allColors(rail, old), link: subwayLink, changes: metroStationChanges(rail, old) })}`;
+    assert.equal(count(svg, /id="metro-map-stub-larissa-station-A\d"/g), 3);
+});
+
+test('the metro map with the railway: its stubs at the walks to it, after the tram\'s; without trains.json, the tram\'s only', async () => {
+    const { drawMap, subwayLink, metroStationChanges, allColors } = await browserModule('tools/info/client/map.js', 'en');
+    const svg = `${drawMap(rail, metroLayout, { id: 'metro-map', colors: allColors(rail, trains), link: subwayLink, changes: metroStationChanges(rail, trains) })}`;
+    const stubs = [...svg.matchAll(/id="metro-map-stub-([^"]+)"/g)].map(m => m[1]);
+    assert.deepEqual(stubs.filter(id => id.startsWith('piraeus-')), ['piraeus-T7', 'piraeus-A1', 'piraeus-A4']);
+    assert.deepEqual(stubs.filter(id => id.startsWith('larissa-station-')), ['larissa-station-A1', 'larissa-station-A3', 'larissa-station-A4']);
+    // From Doukissis Plakentias to the Airport A1 and A2 run on M3's track: one stub where they come
+    // from, then thin beside M3, on its west (x = 15 units), not a stub at every station
+    assert.deepEqual(stubs.filter(id => id.startsWith('doukissis-plakentias-')), ['doukissis-plakentias-A1', 'doukissis-plakentias-A2']);
+    assert.deepEqual(stubs.filter(id => /^(pallini|paiania-kantza|koropi|airport)-/.test(id)), []);
+    assert.equal(stubs.length, 15);
+    const guests = [...svg.matchAll(/class="map-guest" d="([^"]+)" stroke="([^"]+)"/g)];
+    assert.deepEqual(guests.map(m => m[2]), ['#ffcd00', '#753bbd']);
+    const atAirport = guests.map(m => pointsOf(m[1]).find(([, y]) => y === -66));
+    assert.ok(Math.abs(atAirport[0][0] - (660 - 8.8)) < 0.1 && Math.abs(atAirport[1][0] - (660 - 14.85)) < 0.1, `${atAirport}`);
+    assert.match(svg, /data-station="airport">\s*<title>[^<]+<\/title>\s*<path class="map-capsule-edge"/);
+    assert.match(svg, /<g class="map-badge line-a2"><rect [^>]*fill="#753bbd"\/>/);
+    // Larissa Station named beside its mark, as Piraeus is; its stubs go down to the left, the badges in a row
+    assert.match(svg, /data-station="larissa-station">\s*<title>[^<]+<\/title>\s*<circle cx="-132" cy="-176"[^>]*\/>\s*<text x="-145" y="-176"/);
+    const badgeYs = [...svg.matchAll(/<g class="map-badge line-(a\d)"><rect x="[-\d.]+" y="([-\d.]+)"/g)].map(m => m.slice(1));
+    const larissaY = badgeYs.find(([line]) => line === 'a3')[1];
+    assert.deepEqual(badgeYs.filter(([, y]) => y === larissaY).map(([line]) => line), ['a1', 'a3', 'a4']);
+
+    const without = `${drawMap(rail, metroLayout, { id: 'metro-map', colors: allColors(rail, null), link: subwayLink, changes: metroStationChanges(rail, null) })}`;
+    assert.equal(count(without, /class="map-stub"/g), 6);
+});
+
+test('the railway\'s list: only the stations on its map, as links, with their changes, then where the trains go on', async () => {
+    const { stationList, suburbanNetwork, suburbanLink, metroChangesOfRailway } = await browserModule('tools/info/client/map.js', 'en');
+    const list = `${stationList(suburbanNetwork(trains), { link: suburbanLink(rail), changes: metroChangesOfRailway(rail, trains), shown: id => !!suburbanLayout.STATIONS[id] })}`;
+    // A1 19, A2 12, A3 3, A4 13
+    assert.equal(count(list, /<li>/g), 47);
+    assert.equal(count(list, /<a href=/g), 47);
+    assert.match(list, /pill-m line-a4">A4<\/span> Kiato – Piraeus<\/h5>/);
+    assert.match(list, /<li><a href="\/subway\?to=athens">Athens<\/a> <span class="station-change">· change to <span class="line-pill pill-s line-a1">A1<\/span><span class="sr-only">,<\/span> <span class="line-pill pill-s line-a3">A3<\/span><span class="sr-only">,<\/span> <span class="line-pill pill-s line-m2">M2<\/span><\/span><\/li>/);
+    assert.doesNotMatch(list, /Megara/);
+    assert.deepEqual([...list.matchAll(/<p class="station-way">([^<]+)<\/p>/g)].map(m => m[1]), ['Trains go on to Chalkida, outside the city.', 'Trains go on to Kiato, outside the city.']);
+    assert.deepEqual(bareLineProblems(list), []);
 });

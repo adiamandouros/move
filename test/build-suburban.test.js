@@ -26,6 +26,8 @@ test('each date\'s suburban trains by their stops: one route each way, its profi
     const { data, warnings } = buildTrains({ '2026-11-08': board('2026-11-08') }, suburbanCurated());
     assert.deepEqual(warnings, []);
     assert.equal(data.schema, SCHEMA);
+    // Each line's name and colour, for the Info page's map
+    assert.deepEqual(data.lines, { A1: { name: 'A1', color: '#ffcd00' }, A2: { name: 'A2', color: '#753bbd' }, A3: { name: 'A3', color: '#78be20' } });
     assert.deepEqual(data.stations, {
         piraeus: [37.94913, 23.64372, 'Πειραιάς', 'Piraeus'],
         athens: [37.99284, 23.72015, 'Αθήνα', 'Athens'],
@@ -107,6 +109,7 @@ test('trains.json\'s checks catch a broken file', () => {
     const good = buildTrains({ '2026-11-08': board('2026-11-08') }, suburbanCurated()).data;
     const broken = structuredClone(good);
     broken.stations.athens = [0, 0, 'Αθήνα', ''];
+    broken.lines.A2.color = 'purple';
     broken.dates['2026-11-08'][0].stops.push('nowhere');
     broken.dates['2026-11-08'][1].profiles = [[0, 600, 300]];
     broken.dates['2026-11-08'][1].trips = [[100, 3, '1201']];
@@ -114,6 +117,7 @@ test('trains.json\'s checks catch a broken file', () => {
     broken.walks.push(['train:nowhere', 'rail:b', 60], ['train:athens', 'rail:b', 0], ['train:athens', 'train:ska2', 60, { el: 'Μόνο ελληνικά' }]);
     broken.outside.push('nowhere');
     assert.deepEqual(checkOutput('trains.json', broken), [
+        'trains.json: line A2 must have its name and a #rrggbb colour',
         'trains.json: station athens must be [lat, lng, Greek name, English name]',
         'trains.json: walk ["train:nowhere","rail:b",60] must be [a station, a station or the metro\'s, seconds, a note in both languages or none]',
         'trains.json: walk ["train:athens","rail:b",0] must be [a station, a station or the metro\'s, seconds, a note in both languages or none]',
@@ -128,6 +132,6 @@ test('trains.json\'s checks catch a broken file', () => {
     const unnamed = structuredClone(good);
     unnamed.dates['2026-11-08'][0].trips[1] = [9 * H, 0];
     assert.deepEqual(checkOutput('trains.json', unnamed), ['trains.json: 2026-11-08 line A1: each trip needs its start in seconds, a profile and its train\'s number']);
-    assert.deepEqual(checkOutput('trains.json', { schema: 1, stations: {}, walks: [], outside: [], dates: {} }), ['trains.json: no stations']);
+    assert.deepEqual(checkOutput('trains.json', { schema: 1, lines: {}, stations: {}, walks: [], outside: [], dates: {} }), ['trains.json: no stations', 'trains.json: no lines']);
     assert.deepEqual(checkOutput('trains.json', {}), ['trains.json: wrong schema number']);
 });

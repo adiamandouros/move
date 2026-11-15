@@ -2636,10 +2636,60 @@ body {
     stroke-linejoin: round;
 }
 
+/* The other network's lines on the same track, thin beside this one's
+   (the railway beside M3 to the Airport) */
+.map-guest {
+    fill: none;
+    stroke-width: 4;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
 /* Changes to the other network, fading out */
 .map-stub {
     fill: none;
     stroke-width: 7;
+}
+
+/* A station on lines side by side (the suburban railway's): the
+   interchange's white, as a bar across them, with its dark edge */
+.map-capsule,
+.map-capsule-edge {
+    fill: none;
+    stroke-linecap: round;
+}
+
+.map-capsule {
+    stroke: #fff;
+    stroke-width: 15;
+}
+
+.map-capsule-edge {
+    stroke: var(--wh-map-bg);
+    stroke-width: 21;
+}
+
+/* Two stations a short walk apart (SKA's) */
+.map-walk {
+    fill: none;
+    stroke: #fff;
+    stroke-width: 4;
+}
+
+/* Where a line goes on past the map, fading out, and where to */
+.map-beyond {
+    fill: none;
+    stroke-width: 9;
+}
+
+.map-beyond-name text {
+    fill: var(--wh-map-text);
+    font-size: 14px;
+    font-style: italic;
+    paint-order: stroke;
+    stroke: var(--wh-map-bg);
+    stroke-width: 4px;
+    stroke-linejoin: round;
 }
 
 /* Line badges on the maps: the text colour is .line-m1's etc. */

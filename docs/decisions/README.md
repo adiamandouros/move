@@ -65,3 +65,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 51 | [The trip page: walks through a metro station's exits](0051-trip-walks-through-exits.md) | In force |
 | 52 | [The trip page: the trip kept on the device for 3 hours](0052-trip-kept-on-the-device.md) | In force |
 | 53 | [The trip page: a bus ride timed by OASA where it gets off, and its stops on the way](0053-trip-bus-ride-from-oasa.md) | In force |
+| 54 | [The Info page: a map of the suburban railway in the city](0054-suburban-railway-map.md) | In force |

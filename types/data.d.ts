@@ -192,6 +192,8 @@ export interface Buses {
 /** data/build/trains.json, built by server/data/build-suburban.js: the suburban railway's trains by date, from railway.gov.gr (decision 41) */
 export interface Trains {
     schema: number;
+    /** suburban.json's lines: what each is called and its colour (#rrggbb), for the Info page's map */
+    lines: Record<string, { name: string, color: string }>;
     /** By id in data/curated/suburban.json: [lat, lng, Greek name, English name] */
     stations: Record<string, [number, number, string, string]>;
     /** suburban.json's walks, as the trip search names its stops ('train:piraeus', 'rail:piraeus'): [from, to, seconds, note where the way needs one] */

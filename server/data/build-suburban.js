@@ -15,6 +15,7 @@
 //
 // {
 //   schema: 1,
+//   lines: { A1: { name: 'A1', color: '#ffcd00' }, … },
 //   stations: { piraeus: [lat, lng, Greek, English], … },
 //   walks: [['train:piraeus', 'rail:piraeus', 240, { el, en }], ['train:athens', 'rail:larissa-station', 240], …],
 //   outside: ['airport', …],
@@ -22,7 +23,8 @@
 // }
 // walks: suburban.json's, both ways round in the search, in seconds, as the
 // search names its stops, each with its note where it has one; outside: the
-// stations OASA's ticket doesn't cover
+// stations OASA's ticket doesn't cover; lines: suburban.json's names and
+// colours, for the Info page's map
 
 export const SCHEMA = 1;
 
@@ -48,7 +50,7 @@ export function athensSeconds(iso, date) {
 
 /**
  * @param {Record<string, { schedules: any[] }>} boards by date
- * @param {{ lines: Record<string, { corridor: string, stopsAt?: string }>, stations: Record<string, SuburbanStation> }} suburban
+ * @param {{ lines: Record<string, { name: string, color: string, corridor: string, stopsAt?: string }>, stations: Record<string, SuburbanStation> }} suburban
  * @returns {{ data: import('../../types/data.js').Trains, warnings: string[] }}
  */
 export function buildTrains(boards, suburban) {
@@ -106,5 +108,6 @@ export function buildTrains(boards, suburban) {
         `train:${id}`, walk.metro ? `rail:${walk.metro}` : `train:${walk.station}`, walk.minutes * 60, ...walk.note ? [walk.note] : [],
     ])));
     const outside = entries.filter(([, s]) => s.oasaTicket === false).map(([id]) => id);
-    return { data: { schema: SCHEMA, stations, walks, outside, dates }, warnings };
+    const names = Object.fromEntries(lines.map(([id, { name, color }]) => [id, { name, color }]));
+    return { data: { schema: SCHEMA, lines: names, stations, walks, outside, dates }, warnings };
 }

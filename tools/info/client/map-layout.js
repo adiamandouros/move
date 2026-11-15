@@ -40,7 +40,7 @@ export const STATIONS = {
     'kifisia':              [10, -15, 'e'],
 
     // M2 north
-    'metaxourghio':         [-3, -3, 'w'],
+    'metaxourghio':         [-3, -3, 'sw'],
     'larissa-station':      [-3, -4, 'w'],
     'sepolia':              [-4, -5, 'n'],
     'agios-antonios':       [-5, -6, 'sw'],
@@ -69,8 +69,8 @@ export const STATIONS = {
     'cholargos':            [10, -3, 'se'],
     'nomismatokopio':       [11, -4, 'se'],
     'agia-paraskevi':       [12, -5, 'se'],
-    'chalandri':            [13, -6, 'se'],
-    'doukissis-plakentias': [14, -7, 'n'],
+    'chalandri':            [13, -6, 'nw'],
+    'doukissis-plakentias': [14, -7, 'nw'],
     'pallini':              [15, -6, 'e'],
     'paiania-kantza':       [15, -4.5, 'e'],
     'koropi':               [15, -3, 'e'],
@@ -93,8 +93,10 @@ export const BENDS = {
     'victoria>attiki': [[-2, -4]],
 };
 
-// Where the tram stubs point from a station that changes to the tram
-// (tram.json's `metro`)
+// Where the stubs point from a station that changes to the tram (tram.json's
+// `metro`) or the suburban railway (a walk in suburban.json): one stub for both
+// at Piraeus. Past Doukissis Plakentias the railway runs beside M3 instead
+// (ALONGSIDE).
 export const STUBS = {
     'syntagma': 'ne',
     'syggrou-fix': 'w',
@@ -102,7 +104,17 @@ export const STUBS = {
     'faliro': 'e',
     'piraeus': 'sw',
     'dimotiko-theatro': 's',
+    'larissa-station': 'sw',
+    'nerantziotissa': 'n',
+    'doukissis-plakentias': 'n',
 };
+
+// Where the other network's trains run on this one's track, drawn thin beside
+// it: A1 and A2 share M3's from Doukissis Plakentias to the Airport
+export const ALONGSIDE = [['doukissis-plakentias', 'airport']];
+
+// Which side of M3 they're on, in widths of a line (map.js)
+export const LANES = { A1: 0.8, A2: 1.35 };
 
 // Parts of a line drawn dashed: the airport branch runs every 36 minutes
 export const DASHED = {
