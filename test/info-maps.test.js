@@ -157,6 +157,17 @@ test('the suburban railway map: the city\'s stations and the Airport, side by si
     for (const line of ['a1', 'a2', 'a3', 'a4']) assert.equal(count(svg, new RegExp(`class="map-badge line-${line}"`, 'g')), 1, line);
 });
 
+test('a trains.json from before its lines\' colours still draws both maps: the railway\'s lines grey, by their ids', async () => {
+    const { drawMap, suburbanNetwork, subwayLink, metroStationChanges, allColors } = await browserModule('tools/info/client/map.js', 'en');
+    const { lines, ...old } = trains;
+    const network = suburbanNetwork(old);
+    assert.deepEqual(Object.keys(network.lines), Object.keys(lines).sort());
+    assert.deepEqual(network.lines.A1.name, 'A1');
+    assert.match(`${drawMap(network, suburbanLayout, { id: 'suburban-map', colors: allColors(rail, old), link: () => null, changes: () => [] })}`, /class="map-line" d="[^"]+" stroke="#6c757d"/);
+    const svg = `${drawMap(rail, metroLayout, { id: 'metro-map', colors: allColors(rail, old), link: subwayLink, changes: metroStationChanges(rail, old) })}`;
+    assert.equal(count(svg, /id="metro-map-stub-larissa-station-A\d"/g), 3);
+});
+
 test('the metro map with the railway: its stubs at the walks to it, after the tram\'s; without trains.json, the tram\'s only', async () => {
     const { drawMap, subwayLink, metroStationChanges, allColors } = await browserModule('tools/info/client/map.js', 'en');
     const svg = `${drawMap(rail, metroLayout, { id: 'metro-map', colors: allColors(rail, trains), link: subwayLink, changes: metroStationChanges(rail, trains) })}`;

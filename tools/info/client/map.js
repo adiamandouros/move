@@ -504,9 +504,11 @@ export function suburbanNetwork(trains) {
         }
     }
     const name = id => ({ el: trains.stations[id][2], en: trains.stations[id][3] });
+    // A trains.json from before its lines' colours (kept for offline, or not yet rebuilt): grey lines by id
+    const known = trains.lines ?? Object.fromEntries([...ways.keys()].sort().map(id => [id, { name: id, color: '' }]));
     const lines = {};
     const calledAt = new Map();
-    for (const [id, { name: lineName, color }] of Object.entries(trains.lines)) {
+    for (const [id, { name: lineName, color }] of Object.entries(known)) {
         const mine = ways.get(id)?.sort((a, b) => a[0].localeCompare(b[0]) || a.at(-1).localeCompare(b.at(-1)));
         if (!mine) continue;
         lines[id] = { name: lineName, color, directions: Object.fromEntries(mine.map((stops, i) => [`${stops.at(-1)}-${i}`, { toward: name(stops.at(-1)), stops: stops.map(station => ({ station })) }])) };
