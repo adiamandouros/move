@@ -1,6 +1,7 @@
 import { html, setHtml } from '/js/core/html.js';
 import { t } from '/js/core/i18n.js';
 import { selectOnFirstTap } from '/js/core/select-on-tap.js';
+import { addRecentPlace, recentFirst, recentPlaces } from './recent.js';
 import { howExact, placeOption } from './render.js';
 
 // A field that finds a place on our server as it's typed (POST /api/places;
@@ -8,13 +9,17 @@ import { howExact, placeOption } from './render.js';
 // was chosen, and how exact it is is said under the field. `chosen()`:
 // whether the field holds what was chosen (a place picked, or My location)
 // rather than what's being typed; tapped into then, its words are selected,
-// so typing replaces them (selectOnFirstTap). Nothing typed is kept, and it's never put in the page's address.
+// so typing replaces them (selectOnFirstTap). Nothing typed is kept, and it's never put in the page's address;
+// the last 3 places picked are (recent.js): tapped, or ArrowDown, with
+// nothing in it, the field lists them, and they come first while one that
+// matches is typed.
 
 const WAIT_MS = 200;
 const FEWEST_LETTERS = 2;
 
-// What can be said above the list, or ''
-export function listNote({ results, notInTown, noSuchTown, corrected }) {
+// What can be said above the list, or ''. `recent`: the places picked lately
+export function listNote({ results, notInTown, noSuchTown, corrected, recent }) {
+    if (recent) return t('trip.recent');
     if (!results.length) return t('trip.nothing-found');
     if (noSuchTown) return t('trip.no-such-town');
     if (notInTown) return t('trip.not-in-town');
@@ -33,14 +38,19 @@ export function placePicker({ input, list, status, rail, onChange, chosen }) {
     let found = [];
     let timer = null;
     let asking = null;
+    // Whether the list shows the places picked lately, as said above it
+    let offering = false;
 
+    const say = message => { status.textContent = message; };
     const hide = () => {
         list.hidden = true;
         input.setAttribute('aria-expanded', 'false');
+        if (offering) say('');
+        offering = false;
     };
-    const say = message => { status.textContent = message; };
 
     function show(answer) {
+        offering = Boolean(answer.recent);
         found = answer.results;
         say(listNote(answer));
         setHtml(list, html`${found.map((place, i) => placeOption(place, i, rail, list.id))}`);
@@ -52,7 +62,8 @@ export function placePicker({ input, list, status, rail, onChange, chosen }) {
         asking?.abort();
         const mine = asking = new AbortController();
         try {
-            show(await findPlaces(q, mine.signal));
+            const answer = await findPlaces(q, mine.signal);
+            show({ ...answer, results: recentFirst(recentPlaces(), answer.results, q) });
         } catch {
             if (mine.signal.aborted) return;
             found = [];
@@ -66,7 +77,16 @@ export function placePicker({ input, list, status, rail, onChange, chosen }) {
         if (!place) return;
         hide();
         say(howExact(place)?.words ?? '');
+        addRecentPlace(place);
         onChange(place);
+    }
+
+    // With nothing in the field, the places picked lately, if there are any
+    function offerRecent() {
+        if (input.value.trim()) return false;
+        const recent = recentPlaces();
+        if (recent.length) show({ results: recent, recent: true });
+        return recent.length > 0;
     }
 
     selectOnFirstTap(input, chosen);
@@ -76,12 +96,20 @@ export function placePicker({ input, list, status, rail, onChange, chosen }) {
         asking?.abort();
         onChange(null);
         const q = input.value.trim();
-        if (q.length < FEWEST_LETTERS) { found = []; hide(); say(''); return; }
+        if (q.length < FEWEST_LETTERS) { found = []; hide(); say(''); offerRecent(); return; }
         timer = setTimeout(() => search(q), WAIT_MS);
     });
 
+    // Opened on click rather than focus, as the Subway page's: the focus
+    // comes back here after a pick from the keyboard
+    input.addEventListener('click', () => {
+        if (list.hidden) offerRecent();
+    });
+
     input.addEventListener('keydown', e => {
-        if (e.key === 'ArrowDown' && !list.hidden) {
+        if (e.key === 'ArrowDown' && list.hidden) {
+            if (offerRecent()) e.preventDefault();
+        } else if (e.key === 'ArrowDown') {
             e.preventDefault();
             list.querySelector('[role="option"]')?.focus();
         } else if (e.key === 'Enter') {

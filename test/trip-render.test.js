@@ -105,6 +105,7 @@ for (const lang of ['en', 'el']) {
         assert.equal(listNote({ results: one, notInTown: 'x' }), s['trip.not-in-town']);
         assert.equal(listNote({ results: one, corrected: true }), s['trip.mended']);
         assert.equal(listNote({ results: one }), '');
+        assert.equal(listNote({ results: one, recent: true }), s['trip.recent']);
     });
 
     test(`${lang}: the trip: the walk, then each train as the Subway page's own card, where to stand on it included`, () => {

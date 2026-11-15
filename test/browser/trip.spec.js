@@ -40,6 +40,40 @@ test.describe('the trip page', () => {
         await expect(from(page)).toHaveValue(/Σταύρου 1/);
     });
 
+    test('the places picked lately are offered in an empty field, and first while one is typed', async ({ page }) => {
+        await page.goto('/trip');
+        await to(page).click();
+        await expect(list(page, 'to')).toHaveCount(0);
+        await expect(page.locator('#trip-to-list')).toBeHidden();
+        await pickBoth(page);
+        await expect(page.locator('.trip-card').first()).toBeVisible();
+        // A new page of the trip, from the navigation: the trip starts over, the places stay
+        await page.locator('nav:visible a[data-tool="trip"]').click();
+        await expect(to(page)).toHaveValue('');
+        await to(page).click();
+        await expect(list(page, 'to')).toHaveCount(2);
+        await expect(list(page, 'to').first()).toContainText(/Συγγρού|Syggrou/);
+        await expect(list(page, 'to').nth(1)).toContainText('Μενελάου 45');
+        await expect(page.locator('#trip-to-status')).toHaveText('Places you picked lately');
+        expect(await axe(page), 'axe-core violations').toEqual([]);
+        // Escape closes it, and what was said above it goes with it
+        await page.keyboard.press('Escape');
+        await expect(page.locator('#trip-to-list')).toBeHidden();
+        await expect(page.locator('#trip-to-status')).toHaveText('');
+        // ArrowDown opens it too, and the keyboard picks from it
+        await page.keyboard.press('ArrowDown');
+        await expect(list(page, 'to')).toHaveCount(2);
+        await page.keyboard.press('ArrowDown');
+        await page.keyboard.press('ArrowDown');
+        await page.keyboard.press('Enter');
+        await expect(to(page)).toHaveValue('Μενελάου 45');
+        // Typed in Latin letters, the place picked lately comes first, once
+        await from(page).click();
+        await page.keyboard.type('menelaou');
+        await expect(list(page, 'from').first()).toContainText('Μενελάου 45');
+        await expect(list(page, 'from').filter({ hasText: 'Μενελάου 45' })).toHaveCount(1);
+    });
+
     test('axe-core is clean with the list open and with a trip', async ({ page }) => {
         await page.goto('/trip');
         await from(page).fill('Μενελάου');
