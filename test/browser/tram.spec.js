@@ -39,7 +39,9 @@ test('with two changes the page shows every leg, and a train diagram on the metr
     await expect(tramCard.locator('.train-diagram')).toHaveCount(0);
     await expect(option.filter({ has: page.locator('.leg-title .line-m1') }).first().locator('.train-diagram')).toBeVisible();
     await expect(tramCard).toContainText('Exit at Zappio');
-    await expect(tramCard.locator('a')).toHaveCount(0);
+    // Its stops link to the tram's pages (decision 55)
+    await expect(tramCard.locator('a[href^="/tram/stops/"]').first()).toBeVisible();
+    await expect(tramCard.locator('a:not([href^="/tram/stops/"])')).toHaveCount(0);
     expect(await axe(page)).toEqual([]);
 });
 

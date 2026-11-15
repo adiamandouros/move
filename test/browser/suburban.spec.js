@@ -28,7 +28,9 @@ test('Megara to Syntagma: the A4 toward where it ends, with no train diagram and
     await expect(first.locator('.station-sign')).toHaveText('Piraeus');
     await expect(first.locator('.train-diagram')).toHaveCount(0);
     await expect(first).toContainText('Needs a Hellenic Train ticket, as OASA\'s ticket doesn\'t cover Megara.');
-    await expect(first.locator('a')).toHaveCount(0);
+    // Its stations link to their own pages (decision 55)
+    await expect(first.locator('a').first()).toHaveAttribute('href', '/suburban/stations/megara');
+    await expect(first.locator('a[href^="/subway/stations"]')).toHaveCount(0);
     await expect(page.locator('#subway-result')).toContainText('Walk to Larissa Station');
     await expect(page.locator('.result-card').nth(1).locator('.train-diagram')).toBeVisible();
     await expect(page.locator('#subway-result')).not.toContainText('railway.gov.gr');

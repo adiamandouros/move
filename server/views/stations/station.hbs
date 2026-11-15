@@ -1,4 +1,5 @@
-{{!-- A metro station's page (server/pages/stations.js, stationView) --}}
+{{!-- A station's page: a metro station's (server/pages/stations.js, stationView),
+a tram stop's or a suburban station's (server/pages/network-stations.js) --}}
 <div class="station-view">
 {{> breadcrumb crumbs}}
     {{!-- The star at the far right of the sign's line, or under it (/js/core/station-title.js, from shell.js) --}}
@@ -6,14 +7,28 @@
         <h1 class="station-name">{{sign}}</h1>
         {{favourite}}
     </div>
-    <p class="text-body-secondary mb-3">{{t "stations.lines-here"}}{{#each lines}} {{badge}}{{/each}}</p>
+    <p class="text-body-secondary mb-3">{{here}}{{#each lines}} {{badge}}{{/each}}</p>
+{{#if lifts}}
     {{!-- Its lifts out of service, if any, as STASY says (/js/core/lifts.js, from shell.js) --}}
     <div id="lift-status" aria-live="polite" data-station="{{id}}" data-name="{{name}}"></div>
+{{/if}}
+{{#if ticket}}
+    <p class="small">{{icon "info" "me-1"}}{{ticket}}</p>
+{{/if}}
     <div class="station-actions d-flex flex-wrap gap-2 mb-4">
-        <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?from={{id}}">{{icon "trip-from" "me-1"}}{{t "stations.plan-from"}}</a>
-        <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?to={{id}}">{{icon "trip-to" "me-1"}}{{t "stations.plan-to"}}</a>
+        <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?from={{plannerId}}">{{icon "trip-from" "me-1"}}{{t "stations.plan-from"}}</a>
+        <a class="btn btn-sm btn-outline-primary rounded-pill" href="/subway?to={{plannerId}}">{{icon "trip-to" "me-1"}}{{t "stations.plan-to"}}</a>
         {{#external href=walking class="btn btn-sm btn-outline-secondary rounded-pill"}}{{icon "walk" "me-1"}}{{t "stations.walk"}}{{/external}}
     </div>
+{{#if changes.length}}
+    {{!-- The walks to the other networks' stations (server/pages/station-changes.js) --}}
+    <h2 class="station-subheading">{{t "stations.changes-heading"}}</h2>
+    <ul class="list-unstyled station-changes mb-4">
+{{#each changes}}
+        <li>{{icon "walk" "me-1"}}{{text}}{{#if note}}<br><span class="small text-body-secondary">{{note}}</span>{{/if}}</li>
+{{/each}}
+    </ul>
+{{/if}}
     {{!-- Each card names its line: no heading per line --}}
     <div class="station-section">
 {{#each lines}}
@@ -30,6 +45,9 @@
 {{/if}}
 {{#if timetable.stasy}}
     <p class="schedule-disclaimer">{{icon "info" "me-1"}}{{t "stations.timetable-stasy" date=timetable.stasy}}</p>
+{{/if}}
+{{#if timetable.suburban}}
+    <p class="schedule-disclaimer">{{icon "info" "me-1"}}{{t "stations.timetable-suburban"}}</p>
 {{/if}}
 {{#if timetable.gtfs}}
     <p class="schedule-disclaimer">{{icon "info" "me-1"}}{{#if timetable.gtfs.old}}{{t "stations.timetable-old" date=timetable.gtfs.date}}{{else}}{{t "stations.timetable" date=timetable.gtfs.date}}{{/if}}</p>

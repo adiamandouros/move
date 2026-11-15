@@ -503,11 +503,13 @@ test('a tram has no train diagram and nothing about where to stand; a metro leg 
     assert.match(alone, /line-t6/);
 });
 
-test('tram stops are named, not linked: they have no page of their own', async () => {
+test('tram stops link to their own pages, by their own ids: Syntagma the tram stop without "-tram" (decision 55)', async () => {
     const render = await browserModule('tools/subway/client/render.js', 'en');
     const { html } = drawTram(render, 'kifisia', 'zappeio');
     assert.match(html, /href="\/subway\/stations\/kifisia"/);
-    assert.doesNotMatch(html, /stations\/zappeio|stations\/syntagma-tram|stations\/fix"/);
+    assert.match(html, /href="\/tram\/stops\/zappeio"/);
+    assert.match(html, /href="\/tram\/stops\/syntagma"/);
+    assert.doesNotMatch(html, /subway\/stations\/(zappeio|syntagma-tram)|-tram"/);
     assert.match(spoken(html), /Exit at Zappio/);
 });
 
@@ -571,8 +573,8 @@ test('a trip by suburban train: its line toward where the train ends, as signed,
     assert.match(text, /Walk to Larissa Station about 4 minutes/);
     // The M2's card has its train diagram, the A4's none; the suburban stations aren't links
     assert.equal((html.match(/class="train-diagram/g) ?? []).length, 1);
-    assert.match(html, /At Megara:/);
-    assert.match(html, /Transfer at <strong>Athens<\/strong>/);
+    assert.match(html, /At <a href="\/suburban\/stations\/megara">Megara<\/a>:/, 'its station linked to its page');
+    assert.match(html, /Transfer at <strong><a href="\/suburban\/stations\/athens">Athens<\/a><\/strong>/);
     assert.match(html, /<a href="\/subway\/stations\/larissa-station">Larissa Station<\/a>/);
     assert.doesNotMatch(html, /railway\.gov\.gr/, 'credited on the About page, not under the answer (decision 43)');
     assert.match(render.routeSummary(suburban, plans, now, tomorrow), /A4 toward Piraeus/);

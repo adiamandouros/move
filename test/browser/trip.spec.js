@@ -959,7 +959,7 @@ test.describe('the trip page', () => {
             await expect(trainBadge(page)).toHaveText(/^3[45]'$/);
             await expect(card.locator('.train-diagram'), 'no train diagram').toHaveCount(0);
             await expect(card.locator('.trip-step-when'), 'nothing on its left').toHaveCount(0);
-            await expect(card.locator('.leg-boarding a'), 'no station pages').toHaveCount(0);
+            await expect(card.locator('.leg-boarding a'), 'its station\'s page (decision 55)').toHaveAttribute('href', /\/suburban\/stations\/[a-z-]+$/);
             await expect(card).toContainText('Needs a Hellenic Train ticket, as OASA\'s ticket doesn\'t cover Megara.');
             await expect(card.locator('.leg-action')).toContainText('Exit at Megara');
             await expect(page.locator('#trip-result')).not.toContainText('railway.gov.gr');

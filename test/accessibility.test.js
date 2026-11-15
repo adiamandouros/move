@@ -6,6 +6,7 @@ import { loadConfig } from '../server/config.js';
 import { renderPages } from '../server/pages/index.js';
 import { mergeStrings } from '../server/pages/i18n.js';
 import { loadTools, stringTables } from '../server/pages/registry.js';
+import { suburbanStationPage, tramStopPage } from '../server/pages/network-stations.js';
 import { stationPage } from '../server/pages/stations.js';
 import { rail } from './fixtures/rail.js';
 import { bareLineProblems, formProblems, headingProblems, iconProblems, idProblems, nameProblems, newTabProblems, untranslatedProblems } from './support/markup.js';
@@ -20,6 +21,15 @@ const tools = loadTools();
 // The station pages, from a small network (the real rail.json isn't in the repository)
 const stationPages = Object.fromEntries(['en', 'el'].flatMap(lang => [null, 'x', 'a', 'b', 'c'].map(id =>
     [`(station ${id ?? 'index'}, ${lang})`, renderPage(stationPage(rail, id, { tools }), lang)])));
+// The tram's and the suburban railway's, from the browser tests' data, the
+// railway's on a day it has trains and on one with none
+const browserData = name => JSON.parse(readFileSync(new URL(`./browser/data/${name}`, import.meta.url), 'utf8'));
+const [testRail, testTrains] = [browserData('rail.json'), browserData('trains.json')];
+const quietTrains = { ...testTrains, dates: { ...testTrains.dates, '2026-10-22': [] } };
+const networkPages = Object.fromEntries(['en', 'el'].flatMap(lang => [
+    ...[null, 'syntagma', 'kallithea'].map(id => [`(tram stop ${id ?? 'index'}, ${lang})`, renderPage(tramStopPage(testRail, id, { tools, trains: testTrains }), lang)]),
+    ...[null, 'piraeus', 'airport'].map(id => [`(suburban station ${id ?? 'index'}, ${lang})`, renderPage(suburbanStationPage(testRail, quietTrains, id, { tools, today: '2026-10-21' }), lang)]),
+]));
 // And the pages that have ads, with every ad setting on
 const adPages = (() => {
     const withAds = renderPages(tools, loadConfig({ ADSENSE_CLIENT: 'ca-pub-1234567890123456', ADSENSE_SLOT_HOME: '1111111111', ADSENSE_SLOT_INFO: '2222222222', ADSENSE_SLOT_STATION: '3333333333' }));
@@ -30,7 +40,7 @@ const adPages = (() => {
         '(station x, with ads)': withAds.renderPage(stationPage(rail, 'x', { tools }), 'el'),
     };
 })();
-const all = { ...pages, '(404)': notFound('/nope'), '(404, Greek)': notFound('/el/nope'), '(error)': errorPage('/subway/stations/x'), '(error, Greek)': errorPage('/el/subway/stations/x'), ...stationPages, ...adPages };
+const all = { ...pages, '(404)': notFound('/nope'), '(404, Greek)': notFound('/el/nope'), '(error)': errorPage('/subway/stations/x'), '(error, Greek)': errorPage('/el/subway/stations/x'), ...stationPages, ...networkPages, ...adPages };
 
 // Every string in each language: the shell's, the station pages', each tool's and the tools' names
 const STRINGS = mergeStrings(...stringTables(tools));

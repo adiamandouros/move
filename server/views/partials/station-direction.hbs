@@ -40,7 +40,7 @@ first and last trains from here --}}
             <thead><tr><th scope="col">{{t "stations.days"}}</th><th scope="col">{{t "stations.first"}}</th><th scope="col">{{t "stations.last"}}</th></tr></thead>
             <tbody>
 {{#each times}}
-                <tr><th scope="row">{{days}}</th><td>{{first}}</td><td>{{last}}</td></tr>
+                <tr><th scope="row">{{days}}</th>{{#if none}}<td colspan="2">{{none}}</td>{{else}}<td>{{first}}</td><td>{{last}}</td>{{/if}}</tr>
 {{/each}}
             </tbody>
         </table>
