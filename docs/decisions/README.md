@@ -62,9 +62,10 @@ decisions, or makes one of the same weight, comes with its page.
 | 48 | [The trip page: a last bus's stops as the Buses page's stop rows](0048-trip-bus-stops-as-buses-rows.md) | Replaced by 51 |
 | 49 | [The trip page: the trip kept for the session, 12 hours at most](0049-trip-kept-for-the-session.md) | Replaced by 52 |
 | 50 | [Our load on OASA and STASY, with the Trip page following the rider's ride](0050-trip-follows-the-ride.md) | Replaced by 53 |
-| 51 | [The trip page: walks through a metro station's exits](0051-trip-walks-through-exits.md) | In force |
+| 51 | [The trip page: walks through a metro station's exits](0051-trip-walks-through-exits.md) | Replaced by 57 |
 | 52 | [The trip page: the trip kept on the device for 3 hours](0052-trip-kept-on-the-device.md) | In force |
 | 53 | [The trip page: a bus ride timed by OASA where it gets off, and its stops on the way](0053-trip-bus-ride-from-oasa.md) | In force |
 | 54 | [The Info page: a map of the suburban railway in the city](0054-suburban-railway-map.md) | In force |
 | 55 | [Station pages for the tram and the suburban railway: one page per network](0055-tram-and-suburban-station-pages.md) | In force |
 | 56 | [The trip page: the last three places picked, kept on the device](0056-trip-recent-places.md) | In force |
+| 57 | [The trip page: walks through a metro station's exits, OpenStreetMap's where no field trip has been](0057-osm-exits-until-field-trips.md) | In force |

@@ -10,7 +10,8 @@ downloaded). A file with errors fails the build, and the site keeps serving the
 previous build.
 
 These files are under CC BY-SA 4.0, not the code's license, apart from
-suburban.json's OpenStreetMap coordinates: see [LICENSE.md](LICENSE.md).
+suburban.json's OpenStreetMap coordinates and osm.json, OpenStreetMap's:
+see [LICENSE.md](LICENSE.md).
 
 ## Editing on the go: /admin/stations
 
@@ -74,14 +75,45 @@ and direction it's seen from, each exit on a line of its own:
 |---|---|
 | `exits` | Its exits to the street. Each has `name` (as the signs inside write it: `el`, and `en` when they say it in English too) and `coords`, or one of them while the other isn't known yet, and `way`: how it's reached from inside, any of `stairs`, `escalator-up` (toward the street) and `escalator-down`. The Trip page walks to the nearest exit that goes the rider's way: in by the stairs or an escalator down, out by the stairs or an escalator up (decision 51); its name is said without the sign's "Exit" or "Έξοδος". |
 | `lifts` | Its elevators that come out on the street. Each has `name` (as [STASY's lift page](https://www.stasy.gr/elevators/) writes it, like the platforms' elevators in positions.json) and `coords`, or one of them while the other isn't known yet. One that goes from a platform straight to the street is in both files under the same name. |
+| `osm` | OpenStreetMap's exits at the station (osm.json) a field trip has dealt with, by their ids: each confirmed (then one of `exits`) or found not to be there. Those offered as needing data until then. |
 
 `coords` are `[latitude, longitude]`, to 5 decimals (about 1 m), around Athens
 (`ATHENS` in `server/data/validate.js`). The editor takes them from the
 phone's location ("Here") or as written, like a map copies them, and says how
 far each is from the station. A station without an entry has nothing
 recorded yet; the editor marks it, an exit missing its Greek name, its place
-or how it's reached, an elevator missing its name or place, and STASY's lifts
-recorded nowhere at the station yet.
+or how it's reached, an elevator missing its name or place, STASY's lifts
+recorded nowhere at the station yet, and OpenStreetMap's exits not dealt with.
+
+## osm.json — OpenStreetMap's exits at the metro's stations
+
+OpenStreetMap's entrances at each metro station (`railway=subway_entrance`
+within 300 m of it), made by `node scripts/osm-exits.js`, which asks Overpass
+once and writes this file. Run it by hand now and then, after a data build
+(it reads where the stations are from `data/build/rail.json`); the site never
+asks Overpass. Under the ODbL ([LICENSE.md](LICENSE.md)).
+
+```json
+"syntagma": [
+  { "ids": ["n1449578612", "n1449578613"], "name": { "el": "Πλατεία Συντάγματος", "en": "Syntagma Square" }, "coords": [37.97546, 23.73535] },
+  { "ids": ["n2484160810"], "name": { "el": "Αμαλίας" }, "coords": [37.97468, 23.73568], "only": "out" }
+]
+```
+
+Entrances that are elevators, and ones closed to the public, are left out.
+A building's doors of the same name side by side (within 30 m of each other)
+are one exit, as the editor records them, at their middle, with each door's
+id (`n` a node, `w` a way). A name that's only the station's is left out.
+`only` is OpenStreetMap's `entrance=exit` (`out`) or `entrance=entrance`
+(`in`).
+
+Where a field trip hasn't been, the Trip page walks through them as through
+street.json's exits, nothing telling them apart, and the editor offers them as
+needing data (decision 57). One isn't offered once street.json stands for
+it: one of the station's exits within 30 m of it or of the same name (the
+streets it names, however written), or its id in the station's `osm`. What's
+recorded always wins; `offeredExits` in `public/js/core/osm-exits.js` is the
+one rule for both.
 
 ## stations.json — stations and their GTFS platforms
 

@@ -97,6 +97,9 @@ test('a station\'s street entry: names trimmed, places to about 1 m, ways in the
         lifts: [{ name: 'Εξωτερικός', coords: [37.97548, 23.73502] }],
     });
     assert.deepEqual(tidyStreet({ exits: [], lifts: [] }), {});
+    // OpenStreetMap's exits dealt with: each once, in order, after the rest
+    assert.deepEqual(tidyStreet({ osm: ['n12', 'n9', 'n12'], lifts: [{ name: 'x' }] }), { lifts: [{ name: 'x' }], osm: ['n9', 'n12'] });
+    assert.deepEqual(tidyStreet({ osm: [] }), {});
     // A place that isn't one stays as it is, for the checks to refuse
     assert.deepEqual(tidyStreet({ lifts: [{ name: 'x', coords: [1] }] }), { lifts: [{ name: 'x', coords: [1] }] });
 });

@@ -131,7 +131,8 @@ test('the station editor records whether a platform is step-free, and "not known
 // files: each is recorded, { kind: 'positions' or 'street', ref, entry }
 // (null: reverted), and the station data the editor fetches after it has
 // the edits. While `online()` is false, they fail as with no connection.
-async function fakeSaves(page, online = () => true) {
+// `osm`: OpenStreetMap's exits the station data has, by station.
+async function fakeSaves(page, online = () => true, osm = {}) {
     const saved = [];
     const edits = new Map();
     const answer = route => {
@@ -151,6 +152,7 @@ async function fakeSaves(page, online = () => true) {
         let state;
         // (a test that has seen what it waited for may end during the fetch)
         try { state = await (await route.fetch()).json(); } catch { return; }
+        Object.assign(state.osm, osm);
         for (const [key, entry] of edits) {
             const [kind, line, dir, station] = JSON.parse(key);
             if (kind === 'street') state.street.overlay[line] = entry;
@@ -271,6 +273,54 @@ test.describe('saved underground', () => {
         await expect(page.locator('#entry-state')).toHaveAttribute('data-state', 'edited');
         await expect(page.getByLabel('Name, as signed')).toHaveValue('Ακτή');
     });
+});
+
+test('the station editor offers OpenStreetMap\'s exits as needing data: checked on site or changed, they\'re saved as ours; removed, they\'re gone (decision 57)', async ({ page }) => {
+    const saved = await fakeSaves(page, () => true, {
+        piraeus: [
+            { ids: ['n1'], name: { el: 'Ακτή Καλλιμασιώτη', en: 'Akti Kallimasioti' }, coords: [37.9483, 23.6431] },
+            { ids: ['n2', 'n3'], coords: [37.9490, 23.6440], only: 'out' },
+            { ids: ['n4'], name: { el: 'Πλατεία' }, coords: [37.9476, 23.6425] },
+        ],
+    });
+    await openEditor(page);
+    expect(await marks(page)).toContain('unconfirmed exits');
+    expect(await marks(page)).not.toContain('street exits');
+    await expect(page.locator('#street-missing')).toHaveText(/unconfirmed exits/);
+    const exit = n => page.getByRole('group', { name: `Exit ${n}`, exact: true });
+    await expect(exit(1).getByText('Need data: from OpenStreetMap, not checked on site.')).toBeVisible();
+    await expect(exit(2).getByText('OpenStreetMap says it\'s a way out only.', { exact: false })).toBeVisible();
+    await expect(exit(1).getByLabel('Name, as signed')).toHaveValue('Ακτή Καλλιμασιώτη');
+    expect(await axe(page)).toEqual([]);
+
+    // Saving something else leaves them as they are
+    await page.getByLabel('Note').fill('Two buildings');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect.poll(() => saved.length).toBe(1);
+    expect(saved[0].kind).toBe('positions');
+
+    // One checked as it is, one changed, one not there
+    await exit(1).getByRole('checkbox', { name: 'Checked on site' }).check();
+    await exit(2).getByRole('checkbox', { name: 'Stairs' }).check();
+    await expect(exit(2).getByRole('checkbox', { name: 'Checked on site' })).toBeChecked();
+    await page.getByRole('button', { name: 'Remove exit 3' }).click();
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect.poll(() => saved.length).toBe(2);
+    expect(saved[1]).toEqual({
+        kind: 'street', ref: ['piraeus'],
+        entry: {
+            exits: [
+                { name: { el: 'Ακτή Καλλιμασιώτη', en: 'Akti Kallimasioti' }, coords: [37.9483, 23.6431], way: [] },
+                { name: { el: '', en: '' }, coords: [37.949, 23.644], way: ['stairs'] },
+            ],
+            lifts: [],
+            osm: ['n1', 'n2', 'n3', 'n4'],
+        },
+    });
+    await expect(page.locator('#street-state')).toHaveAttribute('data-state', 'edited');
+    expect(await marks(page)).not.toContain('unconfirmed exits');
+    await expect(page.getByText('Need data: from OpenStreetMap, not checked on site.')).toHaveCount(0);
+    await expect(exit(3)).toHaveCount(0);
 });
 
 test('the station editor fills in STASY\'s elevators toward the platform\'s direction, leaving where each is', async ({ page }) => {

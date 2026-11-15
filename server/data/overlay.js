@@ -155,7 +155,8 @@ function tidyElevators(elevators) {
 // A station's entry in street.json: its exits, then its lifts, each in the
 // order they were recorded, with names trimmed, places to 5 decimals (about
 // 1 m) and an exit's ways in their own order. One with neither a name nor
-// a place, and empty fields, are left out.
+// a place, and empty fields, are left out. OpenStreetMap's exits dealt
+// with come last, each once, in order.
 export function tidyStreet(entry) {
     const exits = (Array.isArray(entry?.exits) ? entry.exits : []).flatMap(exit => {
         const [el, en] = [trimmed(exit?.name?.el), trimmed(exit?.name?.en)];
@@ -169,7 +170,8 @@ export function tidyStreet(entry) {
         const coords = tidyCoords(lift?.coords);
         return name || coords ? [{ ...(name && { name }), ...(coords && { coords }) }] : [];
     });
-    return { ...(exits.length && { exits }), ...(lifts.length && { lifts }) };
+    const osm = Array.isArray(entry?.osm) ? [...new Set(entry.osm)].sort((a, b) => String(a).localeCompare(String(b), 'en', { numeric: true })) : [];
+    return { ...(exits.length && { exits }), ...(lifts.length && { lifts }), ...(osm.length && { osm }) };
 }
 
 // [lat, lng] to 5 decimals; anything else as it is, for the checks to refuse

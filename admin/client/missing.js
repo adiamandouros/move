@@ -19,13 +19,15 @@ export function missing(entry) {
 
 // What a station still needs recorded, from whichever line and direction it's
 // seen: `street` its entry in street.json, `stasy` STASY's names for its lifts,
-// `platforms` the entries of all its platforms
+// `platforms` the entries of all its platforms, `offered` OpenStreetMap's
+// exits there no field trip has dealt with (offeredExits)
 /** @returns {string[]} */
-export function missingAtStation(street, stasy, platforms) {
+export function missingAtStation(street, stasy, platforms, offered = []) {
     const exits = street?.exits ?? [];
     const lifts = street?.lifts ?? [];
     return [
-        !exits.length && 'street exits',
+        !exits.length && !offered.length && 'street exits',
+        offered.length > 0 && 'unconfirmed exits',
         exits.some(exit => !exit.name?.el || !exit.coords || !exit.way?.length) && 'exit details',
         lifts.some(lift => !lift.name) && 'elevator names',
         lifts.some(lift => !lift.coords) && 'elevator locations',

@@ -2,6 +2,7 @@
 // server, so saving works underground; the queue is flushed whenever the
 // connection comes back.
 import { distanceMeters } from '/js/core/geo.js';
+import { offeredExits } from '/js/core/osm-exits.js';
 import { namesToward } from './lift-names.js';
 import { checks, field, rowList } from './lists.js';
 import { missing, missingAtStation } from './missing.js';
@@ -95,9 +96,13 @@ const platformsOf = station => state.stations[station].lines.flatMap(line =>
         .filter(([, d]) => d.stations.includes(station))
         .map(([dir]) => ({ line, dir, station })));
 
+// OpenStreetMap's exits at the station no field trip has dealt with (an
+// older copy of the data has none)
+const offeredAt = station => offeredExits(state.osm?.[station], currentEntry(stationRef(station)));
+
 // What the station needs, whichever platform it's seen from
 const stationGaps = station => missingAtStation(
-    currentEntry(stationRef(station)), state.stasyLifts?.[station] ?? [], platformsOf(station).map(currentEntry));
+    currentEntry(stationRef(station)), state.stasyLifts?.[station] ?? [], platformsOf(station).map(currentEntry), offeredAt(station));
 
 // ── Pickers ─────────────────────────────────────────────────────────────────
 
@@ -206,13 +211,28 @@ function elevatorRow(fields, lift) {
 }
 
 // One exit to the street: its name as the signs inside write it, in English
-// too when they do, where it comes out and how it's reached from inside
+// too when they do, where it comes out and how it's reached from inside.
+// One of OpenStreetMap's (`osm`, its ids) needs data until it's checked on
+// site, which changing any of it says too; only then is it saved as ours.
 function exitRow(fields, exit) {
+    if (exit.osm) {
+        const note = document.createElement('p');
+        note.className = 'list-hint list-hint-warn';
+        note.textContent = `Need data: from OpenStreetMap, not checked on site.${exit.only ? ` OpenStreetMap says it's a way ${exit.only} only.` : ''}`;
+        fields.append(note);
+    }
     const el = field(fields, 'Name, as signed', exit.name?.el, { wide: true });
     const en = field(fields, 'In English, if signed', exit.name?.en, { wide: true });
     const coords = place(fields, exit.coords);
     const way = checks(fields, 'How it\'s reached', state.exitWays.map(w => [w, WAY_LABELS[w] ?? w]), exit.way);
-    return () => ({ name: { el: el.value.trim(), en: en.value.trim() }, coords: coords(), way: way() });
+    const read = () => ({ name: { el: el.value.trim(), en: en.value.trim() }, coords: coords(), way: way() });
+    if (!exit.osm) return read;
+    const checked = checks(fields, 'OpenStreetMap\'s exit', [['checked', 'Checked on site']]);
+    const box = fields.querySelector('.list-checks:last-of-type input');
+    const tick = e => { if (e.target !== box) box.checked = true; };
+    fields.addEventListener('input', tick);
+    fields.addEventListener('change', tick);
+    return () => ({ ...read(), osm: exit.osm, checked: checked().length > 0 });
 }
 
 // One elevator to the street: its name and where it comes out
@@ -299,7 +319,7 @@ function renderForm() {
     $('street-part').hidden = !state.street;
     const station = stationRef(ref.station);
     const street = currentEntry(station);
-    exitRows.set(street.exits ?? []);
+    exitRows.set([...street.exits ?? [], ...offeredAt(ref.station).map(exit => ({ name: exit.name, coords: exit.coords, osm: exit.ids, only: exit.only }))]);
     streetLiftRows.set(street.lifts ?? []);
 
     shown = new Map([[refKey(ref), JSON.stringify(readPlatform())], [refKey(station), JSON.stringify(readStation())]]);
@@ -330,7 +350,21 @@ function readPlatform() {
     };
 }
 
-const readStation = () => ({ exits: exitRows.read(), lifts: streetLiftRows.read() });
+// The station's entry from the form: its exits, OpenStreetMap's checked on
+// site among them, and OpenStreetMap's dealt with: checked, or removed as
+// not there (or the same as one of ours)
+function readStation() {
+    const rows = exitRows.read();
+    const kept = new Set(rows.flatMap(row => row.osm ?? []));
+    const removed = offeredAt(selection.station).flatMap(exit => exit.ids).filter(id => !kept.has(id));
+    const checked = rows.filter(row => row.osm && row.checked).flatMap(row => row.osm);
+    const osm = [...currentEntry(stationRef(selection.station)).osm ?? [], ...checked, ...removed];
+    return {
+        exits: rows.filter(row => !row.osm || row.checked).map(({ osm: _ids, checked: _checked, ...exit }) => exit),
+        lifts: streetLiftRows.read(),
+        ...(osm.length && { osm }),
+    };
+}
 
 // The parts of the form that changed since it was drawn, as [ref, entry]
 function changes() {

@@ -39,8 +39,8 @@ const SUBURBAN = { lat: [37.8, 38.6], lng: [22.6, 24.1] };
 // Check the hand-maintained files in data/curated for mistakes. Returns
 // { errors, warnings }; any error fails the build. Kept independent of the
 // GTFS feed so it can run in tests and before every build.
-/** @param {{ stations: any, lines: any, positions: any, airport?: any, tram?: any, street?: any, suburban?: any }} curated */
-export function validateCurated({ stations, lines, positions, airport, tram, street, suburban }) {
+/** @param {{ stations: any, lines: any, positions: any, airport?: any, tram?: any, street?: any, suburban?: any, osm?: any }} curated */
+export function validateCurated({ stations, lines, positions, airport, tram, street, suburban, osm }) {
     const errors = [];
     const warnings = [];
 
@@ -134,13 +134,15 @@ export function validateCurated({ stations, lines, positions, airport, tram, str
     if (tram !== undefined) checkTram(tram, stationIds, seenCodes, errors);
     if (street !== undefined) checkStreet(street, stationIds, errors);
     if (suburban !== undefined) checkSuburban(suburban, stationIds, errors);
+    if (osm !== undefined) checkOsm(osm, stationIds, errors);
     return { errors, warnings };
 }
 
 // street.json: each station's exits to the street and its lifts there, each
 // with its name (an exit's as its signs write it, in Greek and, when signed,
 // English; a lift's as STASY's lift page does) and where it is, or one of
-// them while the other isn't known yet
+// them while the other isn't known yet; and `osm`, OpenStreetMap's exits
+// there (osm.json) the field trips have dealt with, by their ids
 function checkStreet(street, stationIds, errors) {
     const text = value => typeof value === 'string' && value.trim() !== '';
     const checkCoords = (where, coords) => {
@@ -159,7 +161,8 @@ function checkStreet(street, stationIds, errors) {
     for (const [stationId, entry] of Object.entries(street ?? {})) {
         const where = `street.json: ${stationId}`;
         if (!stationIds.has(stationId)) { errors.push(`${where}: unknown station`); continue; }
-        if (!checkFields(where, entry, ['exits', 'lifts'])) continue;
+        if (!checkFields(where, entry, ['exits', 'lifts', 'osm'])) continue;
+        if (entry.osm !== undefined && (!Array.isArray(entry.osm) || entry.osm.some(id => !OSM_ID.test(id)))) errors.push(`${where}.osm must be a list of OpenStreetMap ids, like "n2484170076"`);
         for (const key of ['exits', 'lifts']) if (entry[key] !== undefined && !Array.isArray(entry[key])) errors.push(`${where}.${key} must be a list`);
         for (const [i, exit] of (Array.isArray(entry.exits) ? entry.exits : []).entries()) {
             const at = `${where}.exits[${i}]`;
@@ -176,6 +179,27 @@ function checkStreet(street, stationIds, errors) {
             if (lift.name !== undefined && !text(lift.name)) errors.push(`${at}.name must be text`);
             if (lift.name === undefined && lift.coords === undefined) errors.push(`${at} needs its name or where it is`);
             checkCoords(at, lift.coords);
+        }
+    }
+}
+
+// An OpenStreetMap element: n, w or r (node, way, relation) and its number
+const OSM_ID = /^[nwr][1-9]\d*$/;
+
+// osm.json: OpenStreetMap's exits at each metro station that has any
+// (scripts/osm-exits.js): each with the ids of its doors there, where it
+// is, its name when it has one and, for an exit one way only, which
+function checkOsm(osm, stationIds, errors) {
+    if (!/^\d{4}-\d\d-\d\d$/.test(osm?.fetched ?? '')) errors.push('osm.json: "fetched" must be a date, YYYY-MM-DD');
+    for (const [stationId, exits] of Object.entries(osm?.exits ?? {})) {
+        const where = `osm.json: ${stationId}`;
+        if (!stationIds.has(stationId)) { errors.push(`${where}: unknown station`); continue; }
+        for (const [i, exit] of (Array.isArray(exits) ? exits : []).entries()) {
+            const at = `${where}[${i}]`;
+            if (!Array.isArray(exit?.ids) || !exit.ids.length || exit.ids.some(id => !OSM_ID.test(id))) errors.push(`${at}.ids must list OpenStreetMap ids, like "n2484170076"`);
+            const [lat, lng] = Array.isArray(exit?.coords) ? exit.coords : [];
+            if (!(lat >= ATHENS.lat[0] && lat <= ATHENS.lat[1] && lng >= ATHENS.lng[0] && lng <= ATHENS.lng[1])) errors.push(`${at}.coords must be [latitude, longitude] around Athens`);
+            if (exit?.only !== undefined && !['in', 'out'].includes(exit.only)) errors.push(`${at}.only must be "in" or "out"`);
         }
     }
 }

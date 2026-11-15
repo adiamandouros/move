@@ -285,9 +285,10 @@ function publish(dirs) {
 }
 
 // airport.json (STASY's airport trains), tram.json (the tram map's stops),
-// street.json (the stations' exits and lifts on the street) and
-// suburban.json (the suburban railway's stations) can be missing
-const OPTIONAL_CURATED = ['airport', 'tram', 'street', 'suburban'];
+// street.json (the stations' exits and lifts on the street),
+// suburban.json (the suburban railway's stations) and osm.json
+// (OpenStreetMap's exits at the metro's stations) can be missing
+const OPTIONAL_CURATED = ['airport', 'tram', 'street', 'suburban', 'osm'];
 
 // Read the curated files and apply the editor's overlays on top of the ones
 // it edits (positions.json, street.json): `data` as the site uses it, and
@@ -295,8 +296,8 @@ const OPTIONAL_CURATED = ['airport', 'tram', 'street', 'suburban'];
 // committed file now matches are pruned.
 export function loadCurated({ curatedDir = CURATED_DIR, overlayDir = OVERLAY_DIR, log = console.log } = {}) {
     const hash = createHash('sha256');
-    const data = /** @type {{ stations: any, lines: any, positions: any, airport?: any, tram?: any, street?: any, suburban?: any }} */ ({});
-    for (const name of ['stations', 'lines', 'positions', 'airport', 'tram', 'street', 'suburban']) {
+    const data = /** @type {{ stations: any, lines: any, positions: any, airport?: any, tram?: any, street?: any, suburban?: any, osm?: any }} */ ({});
+    for (const name of ['stations', 'lines', 'positions', 'airport', 'tram', 'street', 'suburban', 'osm']) {
         if (OPTIONAL_CURATED.includes(name) && !existsSync(join(curatedDir, `${name}.json`))) continue;
         const raw = readFileSync(join(curatedDir, `${name}.json`), 'utf8');
         hash.update(raw);

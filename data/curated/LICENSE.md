@@ -24,5 +24,14 @@ Those stay under the ODbL; what Wayhop added (its ids, the other English
 names, the lines, the walks and their notes, which stations OASA's ticket
 covers) is under CC BY-SA 4.0, as above.
 
+`osm.json` holds OpenStreetMap's entrances at the metro's stations, made
+from OpenStreetMap's data by `scripts/osm-exits.js`, © OpenStreetMap
+contributors, under the
+[Open Database License](https://opendatacommons.org/licenses/odbl/) (ODbL),
+all of it. `street.json` names some of them by their OpenStreetMap ids
+(`osm`), and an exit there that a field trip confirmed from one of them
+keeps its place and name from OpenStreetMap, under the ODbL too; the rest
+of `street.json` is Wayhop's.
+
 The code that reads these files is under the GNU AGPL, like the rest of the
 project (see [LICENSE](../../LICENSE)).

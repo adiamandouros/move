@@ -4,7 +4,7 @@ import { readFileSync } from 'fs';
 import { validateCurated } from '../server/data/validate.js';
 
 const load = name => JSON.parse(readFileSync(new URL(`../data/curated/${name}.json`, import.meta.url), 'utf8'));
-const real = () => ({ stations: load('stations'), lines: load('lines'), positions: load('positions'), airport: load('airport'), tram: load('tram'), street: load('street'), suburban: load('suburban') });
+const real = () => ({ stations: load('stations'), lines: load('lines'), positions: load('positions'), airport: load('airport'), tram: load('tram'), street: load('street'), suburban: load('suburban'), osm: load('osm') });
 
 test('the committed curated files are valid', () => {
     const { errors } = validateCurated(real());
@@ -82,6 +82,24 @@ test('street.json: each station\'s exits and elevators on the street, by name an
         'street.json: omonia.lifts[0] needs its name or where it is',
         'street.json: omonia.lifts[1].coords must be [latitude, longitude] around Athens, like [37.97552, 23.73481]',
         'street.json: monastiraki.exits must be a list',
+    ]);
+});
+
+test('osm.json: OpenStreetMap\'s exits by station, each with its doors\' ids and place; street.json says which the field trips dealt with', () => {
+    const c = real();
+    c.street = { syntagma: { exits: [{ coords: [37.97552, 23.73481] }], osm: ['n1', 'w22'] } };
+    c.osm = { fetched: '2026-11-15', exits: { syntagma: [{ ids: ['n1', 'n2'], name: { el: 'Βουλή' }, coords: [37.97552, 23.73481], only: 'out' }] } };
+    assert.deepEqual(validateCurated(c).errors, []);
+
+    c.street = { syntagma: { osm: [12] } };
+    c.osm = { fetched: 'today', exits: { nowhere: [], syntagma: [{ ids: [], coords: [23.7, 37.9], only: 'up' }] } };
+    assert.deepEqual(validateCurated(c).errors, [
+        'street.json: syntagma.osm must be a list of OpenStreetMap ids, like "n2484170076"',
+        'osm.json: "fetched" must be a date, YYYY-MM-DD',
+        'osm.json: nowhere: unknown station',
+        'osm.json: syntagma[0].ids must list OpenStreetMap ids, like "n2484170076"',
+        'osm.json: syntagma[0].coords must be [latitude, longitude] around Athens',
+        'osm.json: syntagma[0].only must be "in" or "out"',
     ]);
 });
 
