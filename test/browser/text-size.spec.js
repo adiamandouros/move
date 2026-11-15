@@ -87,7 +87,10 @@ for (const [path, , url] of EVERY_PAGE) {
         await page.goto(url);
         if (READY[path]) await expect(page.locator(READY[path]).first()).toBeAttached();
         await big(page);
-        expect(await page.evaluate(problems)).toEqual([]);
+        // Checked again until it holds: a page fits some of itself to the
+        // text size on the next frame (a station's title, station-title.js),
+        // which a slow machine measures before
+        await expect.poll(() => page.evaluate(problems)).toEqual([]);
     });
 }
 
@@ -194,7 +197,10 @@ test.describe('the Trip page\'s answers at 200% text', () => {
         await expect(page.locator('#trip-checking')).toHaveCount(0);
         await page.locator('.trip-card').first().locator('.trip-step .leg-stops-toggle').click();
         await big(page);
-        expect(await page.evaluate(problems)).toEqual([]);
+        // Checked again until it holds: a page fits some of itself to the
+        // text size on the next frame (a station's title, station-title.js),
+        // which a slow machine measures before
+        await expect.poll(() => page.evaluate(problems)).toEqual([]);
     });
 
     test.describe('on a decision', () => {
