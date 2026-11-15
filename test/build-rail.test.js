@@ -62,6 +62,27 @@ test('a station\'s exits with a place, for the Trip page\'s walks (decision 51):
     assert.deepEqual(streetExits(undefined), []);
 });
 
+test('OpenStreetMap\'s exits no field trip has dealt with join a station\'s, the same to the Trip page; a way one way only as its escalator (decision 57)', async () => {
+    const street = { a: { exits: [{ name: { el: 'Πλατεία' }, coords: [37.1, 23.1], way: ['stairs'] }], osm: ['n9'] } };
+    const osm = {
+        fetched: '2026-11-15',
+        exits: {
+            a: [
+                { ids: ['n1'], name: { el: 'Πλατεία' }, coords: [37.1001, 23.1001] },
+                { ids: ['n2'], name: { el: 'Έξοδος Κρήτης', en: 'Kritis' }, coords: [37.2, 23.2], only: 'out' },
+                { ids: ['n9'], coords: [37.3, 23.3] },
+            ],
+            b: [{ ids: ['n3'], coords: [37.4, 23.4], only: 'in' }],
+        },
+    };
+    const { data } = await buildRail({ dir: feed(), curated: curated({ street, osm }), today: '20261003' });
+    assert.deepEqual(data.stations.a.exits, [
+        { name: { el: 'Πλατεία' }, at: [37.1, 23.1], way: ['stairs'] },
+        { name: { el: 'Κρήτης', en: 'Kritis' }, at: [37.2, 23.2], way: ['escalator-up'] },
+    ]);
+    assert.deepEqual(data.stations.b.exits, [{ at: [37.4, 23.4], way: ['escalator-down'] }], 'nothing recorded: OpenStreetMap\'s alone');
+});
+
 test('a train the feed lists twice is kept once, the night before\'s copy on the earlier day', async () => {
     const { data, warnings } = await buildRail({ dir: feed({ copies: true }), curated: curated(), today: '20261003' });
     const { profiles, patterns, days } = data.lines.M9.directions.north.timetable;

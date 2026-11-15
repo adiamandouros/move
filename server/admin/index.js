@@ -175,7 +175,7 @@ export function createAdmin({ password, exportKey = '', loadCurated, loadRail, r
     router.get('/api/state', (_req, res) => {
         const rail = loadRail();
         if (!rail) return res.status(503).json({ error: 'rail.json has not been built yet' });
-        const { edits } = loadCurated();
+        const { data, edits } = loadCurated();
         res.set('Cache-Control', 'no-cache').json({
             positions: POSITIONS,
             // What the editor offers and checks before a save, as the server does
@@ -194,6 +194,8 @@ export function createAdmin({ password, exportKey = '', loadCurated, loadRail, r
             committed: edits.positions.committed,
             overlay: edits.positions.overlay,
             street: { committed: edits.street.committed, overlay: edits.street.overlay },
+            // OpenStreetMap's exits, offered where the field trips haven't dealt with them
+            osm: data.osm?.exits ?? {},
             stasyLifts: liftNames(),
         });
     });

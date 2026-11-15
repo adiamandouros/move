@@ -1,7 +1,7 @@
 // The site the browser tests and the server tests run against: the real app
 // (server/app.js) with the data in test/browser/data/, a fake OASA and fake
 // announcement and lift sources, so nothing reaches the network.
-import { copyFileSync, cpSync, mkdtempSync, readFileSync, writeFileSync } from 'fs';
+import { copyFileSync, cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
@@ -128,8 +128,9 @@ export function brokenData() {
 
 // The station editor's data: data/curated as committed, but with Omonia's
 // M2 platforms' elevators left out, so STASY's names for them are there to
-// fill in (admin.spec.js) whatever the editor has saved since; its overlays
-// in a folder of its own, never data/local
+// fill in (admin.spec.js) whatever the editor has saved since, and without
+// OpenStreetMap's exits (a test gives its own); its overlays in a folder of
+// its own, never data/local
 function editorCurated() {
     const curatedDir = mkdtempSync(join(tmpdir(), 'wayhop-curated-'));
     const overlayDir = mkdtempSync(join(tmpdir(), 'wayhop-overlay-'));
@@ -137,6 +138,7 @@ function editorCurated() {
     const positions = JSON.parse(readFileSync(join(curatedDir, 'positions.json'), 'utf8'));
     for (const platforms of Object.values(positions.M2)) delete platforms.omonia.elevators;
     writeFileSync(join(curatedDir, 'positions.json'), JSON.stringify(positions));
+    rmSync(join(curatedDir, 'osm.json'), { force: true });
     return () => loadCurated({ curatedDir, overlayDir, log: () => {} });
 }
 

@@ -4,6 +4,7 @@ import { readCsv, readCsvAll } from './csv.js';
 import { DAY_NAMES, addDays, crowdedDates, isoDate, pickWeek, serviceDates, toSeconds, weekday } from './calendar.js';
 import { applyHours } from './stasy.js';
 import { EXIT_WAYS, POSITIONS } from './validate.js';
+import { offeredExits } from '../../public/js/core/osm-exits.js';
 
 // Build rail.json — everything the subway page needs, offline:
 //
@@ -34,8 +35,9 @@ import { EXIT_WAYS, POSITIONS } from './validate.js';
 // simply trips whose profile covers fewer stops. Trains the feed lists twice
 // are kept once (see dropCopies). A stop's `hours` are STASY's first and last
 // trains from there, [{ to, first, last }] (stasy.js, readLine).
-// A station's `exits` are street.json's exits that have a place (streetExits),
-// for the Trip page's walks to and from them (decision 51).
+// A station's `exits` are street.json's exits that have a place, and
+// OpenStreetMap's (osm.json) that the field trips haven't dealt with
+// (streetExits), for the Trip page's walks to and from them (decision 57).
 
 const RAIL_SCHEMA = 1;
 const DAY = 86_400;
@@ -46,7 +48,7 @@ const DAY = 86_400;
  * @returns {Promise<{ data: import('../../types/data.js').Rail, warnings: string[], notes: string[], calendar: import('./build-tram.js').Calendar }>}
  */
 export async function buildRail({ dir, curated, today, stasy = null }) {
-    const { stations, lines, positions, airport = null, street = {} } = curated;
+    const { stations, lines, positions, airport = null, street = {}, osm = null } = curated;
     const file = name => join(dir, name);
     const warnings = [];
 
@@ -197,7 +199,7 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
     for (const [id, s] of Object.entries(stations.stations)) {
         const sum = coordSums.get(id);
         if (!stationLines.has(id)) { warnings.push(`stations.json: ${id} is not served by any trip`); continue; }
-        const exits = streetExits(street[id]);
+        const exits = streetExits(street[id], osm?.exits?.[id]);
         stationsOut[id] = {
             name: s.name,
             coords: [round(sum.lat / sum.n, 5), round(sum.lng / sum.n, 5)],
@@ -241,13 +243,23 @@ export const exitLabel = name => {
     return said && !NO_NAME.test(said) ? said : undefined;
 };
 
+// One way only, as OpenStreetMap says it, as the ways the Trip page reads:
+// out as up toward the street, in as down from it
+const ONE_WAY = { out: ['escalator-up'], in: ['escalator-down'] };
+
 // A station's exits in street.json as the Trip page walks to them: those
 // with a place, each with its name (either language, while the other isn't
 // known), where it is, and how it's reached from inside when that's
-// recorded and isn't every way (EXIT_WAYS)
-/** @param {{ exits?: { name?: { el?: string, en?: string }, coords?: [number, number], way?: string[] }[] } | undefined} entry */
-export function streetExits(entry) {
-    return (entry?.exits ?? []).filter(exit => exit.coords).map(exit => {
+// recorded and isn't every way (EXIT_WAYS); then OpenStreetMap's exits
+// there that street.json doesn't stand for (offeredExits), the same way.
+// Nothing says which is which: it's the same for a rider.
+/**
+ * @param {import('../../public/js/core/osm-exits.js').StreetEntry & { exits?: { way?: string[] }[] } | undefined} entry
+ * @param {import('../../public/js/core/osm-exits.js').OsmExit[]} [osm]
+ */
+export function streetExits(entry, osm) {
+    const offered = offeredExits(osm, entry).map(exit => ({ name: exit.name, coords: exit.coords, ...(exit.only && { way: ONE_WAY[exit.only] }) }));
+    return [...(entry?.exits ?? []), ...offered].filter(exit => exit.coords).map(exit => {
         const el = exitLabel(exit.name?.el);
         const en = exitLabel(exit.name?.en);
         const way = exit.way && EXIT_WAYS.filter(w => exit.way.includes(w));

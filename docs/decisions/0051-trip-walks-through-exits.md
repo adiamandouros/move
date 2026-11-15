@@ -1,6 +1,6 @@
 # 51. The trip page: walks through a metro station's exits
 
-Decided 2026-11-13 · In force
+Decided 2026-11-13 · Replaced by [57](0057-osm-exits-until-field-trips.md)
 
 ## Situation
 

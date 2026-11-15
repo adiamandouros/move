@@ -29,6 +29,12 @@ test('a station needs its exits on the street, each with its name, place and how
     assert.deepEqual(missingAtStation({ exits: [exit], lifts: [{ coords: [37.97, 23.73] }, { name: 'Εξωτερικός' }] }, [], []), ['elevator names', 'elevator locations']);
 });
 
+test('OpenStreetMap\'s exits not checked on site yet need data; with them, a station isn\'t without exits', () => {
+    const offered = [{ ids: ['n1'], coords: [37.97, 23.73] }];
+    assert.deepEqual(missingAtStation(undefined, [], [], offered), ['unconfirmed exits']);
+    assert.deepEqual(missingAtStation({ exits: [{ name: { el: 'Βουλή' }, coords: [37.97552, 23.73481], way: ['stairs'] }] }, [], [], offered), ['unconfirmed exits']);
+});
+
 test('STASY\'s lifts at a station not recorded yet, on a platform or the street; a name it gives two needs two', () => {
     const stasy = ['Εξωτερικός Ακτή Καλλιμασιώτη', 'Προς Αεροδρόμιο', 'Εξωτερικός Ακτή Καλλιμασιώτη', 'Προς Δημοτικό Θέατρο'];
     const platforms = [

@@ -499,8 +499,11 @@ it was (`publish`), so its ETag stays and browsers keep their copy; that's
 why `rail.json` and the bus files don't say when they were built or fetched
 (`meta.json` does). Where to stand on each
 train (`positions.json`) and each station's exits and elevators on the street
-(`street.json`, not used by the pages yet) are curated by hand in
-`data/curated/` ([README](data/curated/README.md)),
+(`street.json`) are curated by hand in
+`data/curated/` ([README](data/curated/README.md)), beside OpenStreetMap's
+exits at the stations (`osm.json`, from `scripts/osm-exits.js`, run by hand),
+offered where no field trip has dealt with them
+([decision 57](docs/decisions/0057-osm-exits-until-field-trips.md)),
 and can be edited from a phone at `/admin/stations`, which nothing may block
 ([decision 16](docs/decisions/0016-station-editor.md)). Each night a GitHub
 workflow (`.github/workflows/station-edits.yml`) reads the editor's export
@@ -528,13 +531,14 @@ first search and dropped for a new one, and `/api/health` warns when it's
 over three weeks old.
 
 The trip page (`tools/trip/`, [decisions 47](docs/decisions/0047-trip-suburban-cards.md)
-and [51](docs/decisions/0051-trip-walks-through-exits.md)) is what uses it. `client/picker.js` finds places as they're typed,
+and [57](docs/decisions/0057-osm-exits-until-field-trips.md)) is what uses it. `client/picker.js` finds places as they're typed,
 `client/plan.js` works out the trip in the browser from the Subway's
 `network.js`, on the metro and the tram unless the Subway page's switch hides
 the tram (`tram-switch.js`). Its walks are the city's (`walkMeters` in
 `city.js`, the straight line × 1.4), into and out of a metro station
 through its nearest exit that goes the rider's way (`streetEnd`, from the
-station editor's `street.json`, carried in `rail.json`). It tries the three metro stations nearest each
+station editor's `street.json` and OpenStreetMap's `osm.json`, carried in
+`rail.json`). It tries the three metro stations nearest each
 end and every station or stop within 16 minutes' walk: every trip between the
 nearest is planned, and the search (`arrivalsFrom`) picks the 6 quickest of
 the rest. `client/buses.js` adds the ways with a bus or a suburban train from the city's search (`city.js`,

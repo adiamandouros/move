@@ -47,11 +47,12 @@ async function ask(server, query, get) {
     return response.ok ? elementsOf(await response.text()) : null;
 }
 
-export async function fetchOne(name, { get = fetch, wait = pause, log = console.log, rounds = 4 } = {}) {
+// `query`: one of its own, for another script's question (osm-exits.js)
+export async function fetchOne(name, { query = QUERIES[name], get = fetch, wait = pause, log = console.log, rounds = 4 } = {}) {
     for (let round = 1; round <= rounds; round++) {
         for (const server of SERVERS) {
             log(`${name}: ${server}, round ${round}`);
-            const elements = await ask(server, QUERIES[name], get).catch(err => { log(`  ${err.message}`); return null; });
+            const elements = await ask(server, query, get).catch(err => { log(`  ${err.message}`); return null; });
             if (elements) return elements;
             await wait(45_000);
         }
