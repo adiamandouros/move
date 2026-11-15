@@ -35,8 +35,13 @@ Agreed with the rider on 15 November 2026.
 - **Changes only where the planner walks**: the metro map gets stubs to the
   railway's lines at the 8 walks (after the tram's, at Piraeus), the
   railway's map stubs to the metro's; SKA's two stations are joined by
-  their footbridge. Tavros and Irakleio get none. The tram's map doesn't
-  change.
+  their footbridge, drawn close together, as they are. Tavros and Irakleio
+  get none. The tram's map doesn't change.
+- **Where the railway and the metro share track**, A1, A2 and M3 from
+  Doukissis Plakentias to the Airport, each map draws the other's lines
+  thin beside its own, with one stub at Doukissis Plakentias where they
+  come from, not the same stubs at every station (the rider's ask: four
+  stations with the same two badges read as clutter).
 - No mark for the ticket zone: what's drawn is inside it, but for the
   Airport, which the Tickets section covers.
 
@@ -52,6 +57,9 @@ Agreed with the rider on 15 November 2026.
   3.1:1).
 - A3's line crosses A1's between stations, as the tracks do; the layout
   says so (`CROSSINGS`), and the layout test allows only that.
+- A layout says where the other network runs alongside (`ALONGSIDE`, its
+  side in `LANES`); the thin lines are those every station on the stretch
+  changes to.
 
 ## Look again when
 

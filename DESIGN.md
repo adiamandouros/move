@@ -154,7 +154,11 @@ The palettes and every contrast number are in the guide.
 - The maps stay black in both themes. Lines that share track run side by
   side, each in its own colour, and a station on several of them is a white
   bar across them; a line that goes on past a map ends in a fading arrow
-  saying where to (the suburban railway's, decision 54).
+  saying where to (the suburban railway's, decision 54). The other
+  network's lines on the same track run thin beside a map's own (the
+  railway beside M3 to the Airport) instead of a stub at every station.
+  Badges at the end of a stub sit side by side across one going up, down or
+  at 45°, one above another across one going sideways.
 
 ### Light and dark
 

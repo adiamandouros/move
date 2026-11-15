@@ -27,8 +27,10 @@ for (const lang of ['', '/el']) {
         await expect(page.locator('h3:has(#toggle-metro)')).toHaveCSS('border-top-width', '0px');
         await press('#toggle-metro', 'Enter');
         await expect(page.locator('#metro-map > .map-svg .map-station').first()).toBeAttached();
-        // Stubs to the tram and the suburban railway, each ending in its line's badge
-        await expect(page.locator('#metro-map .map-stub')).toHaveCount(23);
+        // Stubs to the tram and the suburban railway, each ending in its line's
+        // badge; A1 and A2 thin beside M3 to the Airport
+        await expect(page.locator('#metro-map .map-stub')).toHaveCount(15);
+        await expect(page.locator('#metro-map .map-guest')).toHaveCount(2);
         await expect(page.locator('#metro-map .map-badge.line-t6')).toHaveCount(3);
         await expect(page.locator('#metro-map .map-badge.line-a3')).toHaveCount(1);
         // The zoom buttons hold only their icons
@@ -64,6 +66,7 @@ for (const lang of ['', '/el']) {
         const suburban = page.locator('#suburban-map');
         await expect(suburban.locator('.map-station')).toHaveCount(25);
         await expect(suburban.locator('.map-beyond-name')).toHaveText(lang ? ['προς Χαλκίδα', 'προς Κιάτο'] : ['to Chalkida', 'to Kiato']);
+        await expect(suburban.locator('.map-guest')).toHaveCount(1);
         await expect(suburban.locator('.map-svg')).toHaveAttribute('aria-label', lang ? 'Χάρτης Προαστιακού' : 'Suburban railway map');
         await press('#toggle-suburban-station-list', ' ');
         await expect(page.locator('#suburban-station-list h5')).toHaveCount(4);

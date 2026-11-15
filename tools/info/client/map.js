@@ -27,7 +27,7 @@ const GAP = 11;           // between two lines side by side (a layout's LANES)
 const BEYOND_LENGTH = 1.4 * UNIT;
 const NS = 'http://www.w3.org/2000/svg';
 
-/** @typedef {{ STATIONS: Record<string, any[]>, BENDS?: Record<string, number[][]>, DASHED?: Record<string, string[]>, STUBS?: Record<string, string>, BADGES?: Record<string, number[][]>, LANES?: Record<string, number>, BEYOND?: Record<string, string> }} Layout */
+/** @typedef {{ STATIONS: Record<string, any[]>, BENDS?: Record<string, number[][]>, DASHED?: Record<string, string[]>, STUBS?: Record<string, string>, BADGES?: Record<string, number[][]>, LANES?: Record<string, number>, BEYOND?: Record<string, string>, ALONGSIDE?: string[][] }} Layout */
 
 // A direction's station ids, in travel order
 const directionStations = direction => direction.stops.map(s => s.station);
@@ -103,18 +103,39 @@ function terminals(network, layout) {
     ]);
 }
 
+// The other network's lines that run on this one's track (a layout's
+// ALONGSIDE: the railway and M3 from Doukissis Plakentias to the Airport),
+// drawn thin beside it: the lines every station of that stretch changes to
+/** @param {{ lines: Record<string, any> }} network @param {Layout} layout @param {(id: string) => string[]} changes */
+function alongside(network, layout, changes) {
+    return (layout.ALONGSIDE ?? []).flatMap(([from, to]) => {
+        const run = Object.values(network.lines).map(line => lineStations(line).filter(id => layout.STATIONS[id]))
+            .find(ids => ids.includes(from) && ids.includes(to));
+        if (!run) return [];
+        const [a, b] = [run.indexOf(from), run.indexOf(to)].sort((x, y) => x - y);
+        const ids = run.slice(a, b + 1);
+        return changes(ids[0]).filter(line => ids.every(id => changes(id).includes(line))).map(line => ({ line, ids }));
+    });
+}
+
 // Lines side by side where they share track (a layout's LANES): on each hop
 // between two stations, each line on it is moved across by its lane less the
 // mean lane of the lines there, so together they sit centred on the stations.
 // A higher lane is to the left of the way the hop's first line (in the
 // network's order) runs it, whichever way another line does: so LANES follow
 // the first line's run (lineStations) along all its shared track. Without
-// LANES every line runs through the stations' places.
-/** @param {{ lines: Record<string, any> }} network @param {Layout} layout */
-function lanes(network, layout) {
+// LANES every line runs through the stations' places. The other network's
+// lines alongside (`guests`) don't move this one's: they sit beside them.
+/** @param {{ lines: Record<string, any> }} network @param {Layout} layout @param {{ line: string, ids: string[] }[]} guests */
+function lanes(network, layout, guests) {
     const placed = id => !!layout.STATIONS[id];
     const key = (a, b) => a < b ? `${a}>${b}` : `${b}>${a}`;
-    const runs = Object.fromEntries(Object.entries(network.lines).map(([id, line]) => [id, lineStations(line).filter(placed)]));
+    const lane = id => layout.LANES?.[id] ?? 0;
+    const runs = Object.fromEntries([
+        ...Object.entries(network.lines).map(([id, line]) => [id, lineStations(line).filter(placed)]),
+        ...guests.map(({ line, ids }) => [line, ids]),
+    ]);
+    const guest = new Set(guests.map(({ line }) => line));
     const onHop = new Map();
     const firstWay = new Map();
     for (const [id, ids] of Object.entries(runs)) {
@@ -127,9 +148,9 @@ function lanes(network, layout) {
     // How far line `id` is moved to the left of a → b, in px
     const across = (id, a, b) => {
         if (!layout.LANES) return 0;
-        const ids = onHop.get(key(a, b)) ?? [id];
-        const mean = ids.reduce((sum, l) => sum + layout.LANES[l], 0) / ids.length;
-        return (layout.LANES[id] - mean) * GAP * (firstWay.get(key(a, b)) === a ? 1 : -1);
+        const ids = (onHop.get(key(a, b)) ?? [id]).filter(l => !guest.has(l));
+        const mean = ids.length ? ids.reduce((sum, l) => sum + lane(l), 0) / ids.length : lane(id);
+        return (lane(id) - mean) * GAP * (firstWay.get(key(a, b)) === a ? 1 : -1);
     };
     return { runs, sharing, across };
 }
@@ -192,7 +213,8 @@ export function drawMap(network, layout, { id: mapId, colors, link, changes, wal
     const { point, linePoints } = geometry(layout);
     const lines = Object.entries(network.lines);
     const placed = id => !!layout.STATIONS[id];
-    const { runs, sharing, across } = lanes(network, layout);
+    const guests = alongside(network, layout, changes);
+    const { runs, sharing, across } = lanes(network, layout, guests);
     const trackPoints = (lineId, ids) => layout.LANES
         ? shifted(ids.slice(1).map((b, i) => ({ points: linePoints([ids[i], b]), by: across(lineId, ids[i], b) })))
         : linePoints(ids);
@@ -228,10 +250,13 @@ export function drawMap(network, layout, { id: mapId, colors, link, changes, wal
         return html`<path class="map-line" d="${pathData(trackPoints(id, ids))}" stroke="${stroke}"/>${extra.map(run => html`<path class="map-line" d="${pathData(linePoints(run.filter(placed)))}" stroke="${stroke}"/>`)}${dashed && html`<path class="map-line-dash" d="${pathData(linePoints(ids.slice(a, b + 1)))}"/>`}${oneWay.filter(hop => hop.every(placed)).map(hop => arrow(linePoints(hop)))}`;
     });
 
+    const beside = guests.map(({ line, ids }) => html`<path class="map-guest" d="${pathData(trackPoints(line, ids))}" stroke="${lineColor(colors[line])}"/>`);
+
     // Short strokes, fading out, in the colours of the lines of the other
     // network a stop changes to (metro ↔ tram), each ending in its
     // line's badge, so the change doesn't rest on colour alone. The badges
-    // sit side by side across a stub going up or down, else one above another.
+    // sit side by side across a stub going up, down or at 45°, one above
+    // another across one going sideways.
     const stubs = Object.entries(layout.STUBS ?? {}).filter(([id]) => network.stations[id] && changes(id).length).map(([id, side]) => {
         const [x, y] = extent(id).middle;
         const [dx, dy] = COMPASS[side];
@@ -246,9 +271,11 @@ export function drawMap(network, layout, { id: mapId, colors, link, changes, wal
                 <stop offset="0.5" stop-color="${lineColor(colors[lineId])}"/><stop offset="1" stop-color="${lineColor(colors[lineId])}" stop-opacity="0"/>
             </linearGradient><path class="map-stub" d="M${x1} ${y1}L${x2} ${y2}" stroke="url(#${gradient})"/>`;
         });
-        const [ex, ey] = [x + dx * STUB_LENGTH, y + dy * STUB_LENGTH];
+        // At 45° the row hangs out past the stub's end, clear of the line
+        const out = dx && dy ? Math.sign(dx) * (others.length - 1) / 2 * (BADGE.w + 4) : 0;
+        const [ex, ey] = [x + dx * STUB_LENGTH + out, y + dy * STUB_LENGTH];
         // In the stubs' order (they're shifted across by -dy, dx)
-        const pills = others.map((lineId, i) => dx === 0
+        const pills = others.map((lineId, i) => dy !== 0
             ? badge(ex - Math.sign(dy) * middle(i) * (BADGE.w + 4), ey, lineId, colors[lineId])
             : badge(ex, ey + Math.sign(dx) * middle(i) * (BADGE.h + 3), lineId, colors[lineId]));
         return { strokes, pills };
@@ -296,8 +323,7 @@ export function drawMap(network, layout, { id: mapId, colors, link, changes, wal
         if (!side) return html`<g class="${classes}" data-station="${id}"><title>${name}</title>${mark}</g>`;
         const [dx, dy] = labelStep(side);
         const [anchor, baseline] = SIDES[side];
-        // A label on its stubs' side goes past their badges (Larissa Station)
-        const gap = LABEL_GAP + half + (layout.STUBS?.[id] === side && changes(id).length ? STUB_LENGTH + BADGE.w / 2 : 0);
+        const gap = LABEL_GAP + half;
         return html`<g class="${classes}" data-station="${id}">
             <title>${name}</title>
             ${mark}
@@ -305,7 +331,7 @@ export function drawMap(network, layout, { id: mapId, colors, link, changes, wal
         </g>`;
     });
 
-    return html`<g class="map-content">${stubs.map(s => s.strokes)}${beyond}${tracks}${badges}${walkLinks}${stations}${stubs.map(s => s.pills)}</g>`;
+    return html`<g class="map-content">${stubs.map(s => s.strokes)}${beyond}${tracks}${beside}${badges}${walkLinks}${stations}${stubs.map(s => s.pills)}</g>`;
 }
 
 /**

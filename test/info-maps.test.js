@@ -136,14 +136,22 @@ test('the suburban railway map: the city\'s stations and the Airport, side by si
     // A3 goes on to Chalkida past SKA, A4 to Kiato past Magoula
     assert.deepEqual([...svg.matchAll(/class="map-beyond-name"><text [^>]*>([^<]+)/g)].map(m => m[1]), ['προς Χαλκίδα', 'προς Κιάτο']);
     assert.match(svg, /id="suburban-map-beyond-magoula-A4"/);
-    // SKA's two stations a footbridge apart, the A3 one without a name of its own
+    // SKA's two stations a footbridge apart, close together as they are, the A3 one without a name of its own
+    const [walk] = [...svg.matchAll(/class="map-walk" d="M([-\d.]+) ([-\d.]+)L([-\d.]+) ([-\d.]+)"/g)].map(m => m.slice(1).map(Number));
+    assert.ok(Math.hypot(walk[2] - walk[0], walk[3] - walk[1]) < 44, `${walk}`);
     assert.equal(count(svg, /class="map-walk"/g), 1);
     const skaA3 = svg.match(/<g [^>]*data-station="ska-a3">.*?<\/g>/s)[0];
     assert.match(skaA3, /<circle /);
     assert.doesNotMatch(skaA3, /<text/);
-    // Stubs to the metro at its 8 walks: Piraeus M1 and M3, Athens to Larissa Station's M2, M3 at the A1/A2 stations
+    // Stubs to the metro at its walks: Piraeus M1 and M3, Athens to Larissa Station's M2, Nerantziotissa M1, M3 at Doukissis Plakentias
     assert.deepEqual([...svg.matchAll(/id="suburban-map-stub-([^"]+)"/g)].map(m => m[1]),
-        ['piraeus-M1', 'piraeus-M3', 'athens-M2', 'nerantziotissa-M1', 'doukissis-plakentias-M3', 'pallini-M3', 'paiania-kantza-M3', 'koropi-M3', 'airport-M3']);
+        ['piraeus-M1', 'piraeus-M3', 'athens-M2', 'nerantziotissa-M1', 'doukissis-plakentias-M3']);
+    // From there to the Airport M3 runs on the railway's track: thin, beside A2 to the north-east, 14.5 px off the middle
+    const guests = [...svg.matchAll(/class="map-guest" d="([^"]+)" stroke="([^"]+)"/g)];
+    assert.deepEqual(guests.map(m => m[2]), [rail.lines.M3.color]);
+    const across = ([x, y]) => (x - 7 * 44 - (y + 12 * 44)) * Math.SQRT1_2;
+    for (const point of pointsOf(guests[0][1])) assert.ok(Math.abs(across(point) - 14.52) < 0.15, `${point}`);
+    assert.match(svg, /data-station="koropi">\s*<title>[^<]+<\/title>\s*<path class="map-capsule-edge"/);
     assert.deepEqual(terminalsOf(svg), ['airport', 'ano-liosia', 'athens', 'piraeus']);
     // A badge beside each line
     for (const line of ['a1', 'a2', 'a3', 'a4']) assert.equal(count(svg, new RegExp(`class="map-badge line-${line}"`, 'g')), 1, line);
@@ -155,13 +163,22 @@ test('the metro map with the railway: its stubs at the walks to it, after the tr
     const stubs = [...svg.matchAll(/id="metro-map-stub-([^"]+)"/g)].map(m => m[1]);
     assert.deepEqual(stubs.filter(id => id.startsWith('piraeus-')), ['piraeus-T7', 'piraeus-A1', 'piraeus-A4']);
     assert.deepEqual(stubs.filter(id => id.startsWith('larissa-station-')), ['larissa-station-A1', 'larissa-station-A3', 'larissa-station-A4']);
-    assert.deepEqual(stubs.filter(id => id.startsWith('airport-')), ['airport-A1', 'airport-A2']);
-    assert.equal(stubs.length, 23);
+    // From Doukissis Plakentias to the Airport A1 and A2 run on M3's track: one stub where they come
+    // from, then thin beside M3, on its west (x = 15 units), not a stub at every station
+    assert.deepEqual(stubs.filter(id => id.startsWith('doukissis-plakentias-')), ['doukissis-plakentias-A1', 'doukissis-plakentias-A2']);
+    assert.deepEqual(stubs.filter(id => /^(pallini|paiania-kantza|koropi|airport)-/.test(id)), []);
+    assert.equal(stubs.length, 15);
+    const guests = [...svg.matchAll(/class="map-guest" d="([^"]+)" stroke="([^"]+)"/g)];
+    assert.deepEqual(guests.map(m => m[2]), ['#ffcd00', '#753bbd']);
+    const atAirport = guests.map(m => pointsOf(m[1]).find(([, y]) => y === -66));
+    assert.ok(Math.abs(atAirport[0][0] - (660 - 8.8)) < 0.1 && Math.abs(atAirport[1][0] - (660 - 14.85)) < 0.1, `${atAirport}`);
+    assert.match(svg, /data-station="airport">\s*<title>[^<]+<\/title>\s*<path class="map-capsule-edge"/);
     assert.match(svg, /<g class="map-badge line-a2"><rect [^>]*fill="#753bbd"\/>/);
-    // Larissa Station, on the stubs' side, is named past their badges
-    assert.match(svg, /class="map-station map-interchange map-link" data-station="larissa-station">\s*<title>[^<]+<\/title>\s*<circle cx="-132" cy="-176"[^>]*\/>\s*<text x="(-[\d.]+)"/);
-    const labelX = +svg.match(/data-station="larissa-station">[^]*?<text x="(-[\d.]+)"/)[1];
-    assert.ok(labelX < -132 - 1.1 * 44, `${labelX}`);
+    // Larissa Station named beside its mark, as Piraeus is; its stubs go down to the left, the badges in a row
+    assert.match(svg, /data-station="larissa-station">\s*<title>[^<]+<\/title>\s*<circle cx="-132" cy="-176"[^>]*\/>\s*<text x="-145" y="-176"/);
+    const badgeYs = [...svg.matchAll(/<g class="map-badge line-(a\d)"><rect x="[-\d.]+" y="([-\d.]+)"/g)].map(m => m.slice(1));
+    const larissaY = badgeYs.find(([line]) => line === 'a3')[1];
+    assert.deepEqual(badgeYs.filter(([, y]) => y === larissaY).map(([line]) => line), ['a1', 'a3', 'a4']);
 
     const without = `${drawMap(rail, metroLayout, { id: 'metro-map', colors: allColors(rail, null), link: subwayLink, changes: metroStationChanges(rail, null) })}`;
     assert.equal(count(without, /class="map-stub"/g), 6);

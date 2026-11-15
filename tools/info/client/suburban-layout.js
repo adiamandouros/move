@@ -30,8 +30,8 @@ export const STATIONS = {
     'magoula':              [-6.5, -6, 's'],
 
     // A2 and A3 at SKA, a footbridge apart; A3 goes on to Chalkida
-    'ska':                  [-1, -7, 'n'],
-    'ska-a3':               [0, -6, null],
+    'ska':                  [-0.5, -7, 'nw'],
+    'ska-a3':               [0, -6.5, null],
 
     // A1 and A2 to the Airport
     'metamorfosi':          [2, -7, 'se'],
@@ -52,8 +52,13 @@ export const BENDS = {
 };
 
 // Lines side by side on shared track: a higher lane to the left of A1's way
-// from the Airport (A3 east of A1 into Athens, A4 west; A2 north-west of it)
-export const LANES = { A1: 0, A2: -1, A3: 1, A4: -1 };
+// from the Airport (A3 east of A1 into Athens, A4 west; A2 north-west of it;
+// M3, thin, beside them to the Airport)
+export const LANES = { A1: 0, A2: -1, A3: 1, A4: -1, M3: -1.82 };
+
+// Where the metro runs on the railway's track: M3 from Doukissis Plakentias
+// to the Airport, drawn thin beside A1 and A2
+export const ALONGSIDE = [['doukissis-plakentias', 'airport']];
 
 // Where the lines go on past the city, and which way the arrow points
 export const BEYOND = {
@@ -66,16 +71,12 @@ export const BEYOND = {
 export const CROSSINGS = [['A1', 'A3']];
 
 // Where the metro stubs point from a station a walk from the metro
-// (suburban.json's walks)
+// (suburban.json's walks); past Doukissis Plakentias M3 runs alongside
 export const STUBS = {
     'piraeus': 'w',
     'athens': 'w',
     'nerantziotissa': 'nw',
     'doukissis-plakentias': 'w',
-    'pallini': 'ne',
-    'paiania-kantza': 'ne',
-    'koropi': 'ne',
-    'airport': 's',
 };
 
 // A badge beside each line near an end (A1's yellow and A3's green can look

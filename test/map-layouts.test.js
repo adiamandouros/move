@@ -32,7 +32,8 @@ test('suburban map: the stations inside the city ticket and the Airport, no othe
     assert.deepEqual(Object.keys(suburban.STATIONS).sort(), city.sort());
     // Where the lines go on: A3 to Chalkida, A4 to Kiato, each from its last station on the map
     assert.deepEqual(Object.keys(suburban.BEYOND).sort(), ['magoula', 'ska-a3']);
-    assert.deepEqual(Object.keys(suburban.LANES).sort(), Object.keys(trains.lines).sort());
+    // A lane for each line, and for M3 beside them to the Airport
+    assert.deepEqual(Object.keys(suburban.LANES).sort(), [...Object.keys(trains.lines), 'M3'].sort());
 });
 
 // A run of stops as a list of segments [from point, to point], corners included
@@ -47,8 +48,15 @@ function segments({ STATIONS, BENDS = {} }, ids) {
 }
 
 for (const [name, { layout, lines }] of Object.entries(MAPS)) {
-    const { STATIONS, DASHED = {}, STUBS = {}, BADGES = {}, CROSSINGS = [] } = layout;
+    const { STATIONS, DASHED = {}, STUBS = {}, BADGES = {}, CROSSINGS = [], ALONGSIDE = [] } = layout;
     const runs = Object.entries(lines).flatMap(([line, dirs]) => dirs.map(ids => ({ line, ids })));
+    // The stations of each stretch where the other network runs alongside, in order
+    const stretches = ALONGSIDE.map(([from, to]) => {
+        const ids = runs.map(r => r.ids).find(ids => ids.includes(from) && ids.includes(to));
+        assert.ok(ids, `${name} map: ${from} and ${to} on one line`);
+        const [a, b] = [ids.indexOf(from), ids.indexOf(to)];
+        return a < b ? ids.slice(a, b + 1) : ids.slice(b, a + 1).reverse();
+    });
 
     test(`${name} map: every stop on every line has a place, and nothing else does`, () => {
         const onLines = new Set(runs.flatMap(r => r.ids));
@@ -101,7 +109,7 @@ for (const [name, { layout, lines }] of Object.entries(MAPS)) {
         }
     });
 
-    test(`${name} map: stubs to the other network at every stop that changes to it, and nowhere else`, () => {
+    test(`${name} map: stubs to the other network at every stop that changes to it, and nowhere else; where it runs alongside, only at the first`, () => {
         // tram.json's tram stops with a metro station, and those metro
         // stations; the railway's stations a walk from the metro, and those
         const pairs = Object.entries(json('../data/curated/tram.json').stops).filter(([, s]) => s.metro);
@@ -111,7 +119,8 @@ for (const [name, { layout, lines }] of Object.entries(MAPS)) {
             tram: pairs.map(([id]) => id),
             suburban: walks.map(([id]) => id),
         }[name];
-        assert.deepEqual(Object.keys(STUBS).sort(), [...new Set(changes)].sort());
+        const beside = new Set(stretches.flatMap(ids => ids.slice(1)));
+        assert.deepEqual(Object.keys(STUBS).sort(), [...new Set(changes)].filter(id => !beside.has(id)).sort());
         for (const side of Object.values(STUBS)) assert.ok(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'].includes(side), side);
     });
 }

@@ -2636,6 +2636,15 @@ body {
     stroke-linejoin: round;
 }
 
+/* The other network's lines on the same track, thin beside this one's
+   (the railway beside M3 to the Airport) */
+.map-guest {
+    fill: none;
+    stroke-width: 4;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
 /* Changes to the other network, fading out */
 .map-stub {
     fill: none;
