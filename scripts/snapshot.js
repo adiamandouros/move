@@ -33,7 +33,9 @@ try {
 
     const rail = JSON.parse(readFileSync(join(ROOT, 'test', 'browser', 'data', 'rail.json'), 'utf8'));
     const english = [...sitePages(loadTools()).map(p => p.path), '/subway/stations',
-        ...Object.keys(rail.stations).map(id => `/subway/stations/${id}`), '/nope'];
+        ...Object.keys(rail.stations).map(id => `/subway/stations/${id}`),
+        '/tram/stops', ...Object.keys(rail.tram?.stations ?? {}).map(id => `/tram/stops/${id}`),
+        '/suburban/stations', '/suburban/stations/piraeus', '/nope'];
     const urls = [...english, ...english.map(p => p === '/' ? '/el' : `/el${p}`),
         '/sw.js', '/robots.txt', '/sitemap.xml', '/manifest.webmanifest', '/el/manifest.webmanifest', '/icons.svg'];
 

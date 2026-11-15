@@ -8,11 +8,12 @@ import express from 'express';
 import { favouriteButton } from '../../public/js/core/favourites.js';
 import { format, formatDate, localName, walkingUrl } from '../../public/js/core/html.js';
 import { linePill, pillList, stationSign } from '../../public/js/core/lines.js';
-import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, lineEnd, liftCaution, stopNote } from '../../public/js/core/metro.js';
+import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, lineEnd, liftCaution, STATION_PAGES, stopNote } from '../../public/js/core/metro.js';
 import { athensDate } from '../../tools/subway/client/network.js';
 import { sendFresh } from '../http.js';
 import { LANGS, localPath, mergeStrings, stringGetter } from './i18n.js';
 import { railReader } from './rail-file.js';
+import { stationChanges } from './station-changes.js';
 import { view } from './templates.js';
 
 // A page for every metro station, and an index of them, in English and Greek:
@@ -24,7 +25,7 @@ import { view } from './templates.js';
 
 // The station pages' own strings; they use the subway page's too
 export const STATION_STRINGS = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'views', 'stations.json'), 'utf8'));
-export const STATIONS_PATH = '/subway/stations';
+export const STATIONS_PATH = STATION_PAGES.metro;
 // Before the first data build there's no rail.json: the pages can't be drawn
 // yet, which isn't the same as there being no such page (errors.js: 503)
 const NOT_BUILT_YET = Object.assign(new Error('rail.json is not built yet'), { status: 503, retryAfter: 300 });
@@ -105,7 +106,7 @@ export function mainDestination(hours, direction, index) {
 }
 
 // "Mon–Fri", or "Sat, Sun", for a run of days (0 = Sunday)
-const daysText = (list, s) => list.length > 2
+export const daysText = (list, s) => list.length > 2
     ? `${s(`stations.day.${list[0]}`)}–${s(`stations.day.${list.at(-1)}`)}`
     : list.map(d => s(`stations.day.${d}`)).join(', ');
 
@@ -127,7 +128,7 @@ function otherDestination(hours, main, further, name, time, s) {
     return format(s(further ? 'stations.other-further' : 'stations.other-shorter'), { name: name(hours.to), times });
 }
 
-const lineNumber = lineId => lineId.replace(/^\D+/, '');
+export const lineNumber = lineId => lineId.replace(/^\D+/, '');
 
 // Where a station's page (or the index, for id null) sits in the site:
 // [{ name, path }] from the subway page to itself. Its view's breadcrumb and
@@ -141,14 +142,36 @@ export function breadcrumb(rail, id, lang, s) {
     ];
 }
 
+// What every station page's card for one direction starts with
+// (station-direction.hbs): its heading, the line and the sign of where it
+// goes; the stops on either side, as { href, name } (null: none); and this
+// direction's platform from the street: how without steps, steps only, or
+// not known yet (stepFree undefined). n numbers the page's cards.
+/**
+ * @param {{ n: number, lineId: string, lineName: string, dirId: string, end: string,
+ *   previous: { href: string, name: string } | null, next: { href: string, name: string } | null,
+ *   stepFree?: import('../../types/data.js').StepFree, s: (key: string) => string }} card
+ */
+export function directionCard({ n, lineId, lineName, dirId, end, previous, next, stepFree, s }) {
+    return {
+        headingId: `${lineId}-${dirId}-${n}`.toLowerCase(),
+        lineBadge: linePill(lineId, lineName, 'l'),
+        endSign: stationSign(end, [lineId]),
+        previous,
+        next,
+        stepFree: { text: s(`stations.step-free.${stepFree ?? 'unknown'}`), none: stepFree === 'no' },
+    };
+}
+
 // What a station's page shows, as data for server/views/stations/station.hbs:
 // its lines, and per direction the stops on either side, where to ride when
 // arriving here and the first and last trains from here. s(key) gives the
 // page's strings, for the texts that are put together here.
 /**
  * @param {Rail} rail @param {string} id @param {Lang} lang @param {(key: string) => string} s
+ * @param {import('../../types/data.js').Trains | null} [trains] for the walks to the suburban railway
  */
-export function stationView(rail, id, lang, s) {
+export function stationView(rail, id, lang, s, trains = null) {
     const station = rail.stations[id];
     const name = stationId => localName(rail.stations[stationId].name, lang);
     const link = stationId => stationId ? { href: `${STATIONS_PATH}/${stationId}`, name: name(stationId) } : null;
@@ -170,14 +193,7 @@ export function stationView(rail, id, lang, s) {
                 const order = direction.stops.map(s => s.station);
                 const row = t => ({ days: daysText(t.days, s), first: time(t.first), last: time(t.last) });
                 return {
-                    headingId: `${lineId}-${dirId}-${n++}`.toLowerCase(),
-                    // The card's heading: the line, and the sign of where it goes
-                    lineBadge: linePill(lineId, rail.lines[lineId].name, 'l'),
-                    endSign: stationSign(name(lineEnd(rail, lineId, dirId)), [lineId]),
-                    previous: link(previous),
-                    next: link(next),
-                    // This direction's platform from the street: how without steps, steps only, or not known yet
-                    stepFree: { text: s(`stations.step-free.${stop.stepFree ?? 'unknown'}`), none: stop.stepFree === 'no' },
+                    ...directionCard({ n: n++, lineId, lineName: rail.lines[lineId].name, dirId, end: name(lineEnd(rail, lineId, dirId)), previous: link(previous), next: link(next), stepFree: stop.stepFree, s }),
                     // Arriving here (not at the first stop): where to ride for the exit and for each connection
                     arriving: previous ? {
                         exitsKnown: stop.exits.length > 0,
@@ -214,11 +230,18 @@ export function stationView(rail, id, lang, s) {
         .flatMap(diagramSymbols))];
     return {
         id,
+        // The subway planner's id for it, for planning a trip from or to here
+        plannerId: id,
         name: name(id),
         // The title: the station's sign, as at its entrances
         sign: stationSign(name(id), station.lines, 'l'),
+        here: s('stations.lines-here'),
+        // Its lifts out of service, from STASY
+        lifts: true,
         crumbs: breadcrumb(rail, id, lang, s),
         lines,
+        // The walks to the tram and the suburban railway (station-changes.js)
+        changes: stationChanges(rail, trains, `metro:${id}`, lang, s),
         walking: walkingUrl(lat, lng),
         // Its star, shown and set by the page's script
         favourite: favouriteButton({ kind: 'station', key: id, text: s('favourites.star'), cls: 'btn btn-sm btn-outline-secondary rounded-pill', hidden: true }),
@@ -238,6 +261,9 @@ export function stationView(rail, id, lang, s) {
 export function indexView(rail, lang, s) {
     return {
         crumbs: breadcrumb(rail, null, lang, s),
+        title: s('stations.title'),
+        intro: s('stations.index-intro'),
+        seeAlso: seeAlso('metro', s),
         lines: Object.entries(rail.lines).map(([lineId, line]) => ({
             key: lineId.toLowerCase(),
             heading: linePill(lineId, line.name, 'l'),
@@ -255,15 +281,29 @@ export function indexView(rail, lang, s) {
     };
 }
 
+// The other networks' indexes, for the foot of a network's index
+/** @param {'metro' | 'tram' | 'suburban'} network @param {(key: string) => string} s */
+export const seeAlso = (network, s) => Object.entries({ metro: 'stations.title', tram: 'stations.tram-title', suburban: 'stations.suburban-title' })
+    .filter(([other]) => other !== network)
+    .map(([other, key]) => ({ href: STATION_PAGES[other], name: s(key) }));
+
 // Structured data: the station with its location, and where it sits in the
 // site (origin: the public address, SITE_URL)
 function stationData(rail, id, lang, s, origin) {
+    return placeData({ type: 'SubwayStation', name: localName(rail.stations[id].name, lang), coords: rail.stations[id].coords, crumbs: breadcrumb(rail, id, lang, s) }, lang, origin);
+}
+
+// Any station page's structured data: the station of schema.org's `type`
+// with its location, and its breadcrumb (the last crumb is the page itself)
+/**
+ * @param {{ type: string, name: string, coords: [number, number], crumbs: { name: string, path: string }[] }} place
+ * @param {Lang} lang @param {string} origin
+ */
+export function placeData({ type, name, coords: [latitude, longitude], crumbs }, lang, origin) {
     const url = path => origin + localPath(path, lang);
-    const name = localName(rail.stations[id].name, lang);
-    const [latitude, longitude] = rail.stations[id].coords;
     const graph = [
-        { '@type': 'SubwayStation', name, ...(origin && { url: url(`${STATIONS_PATH}/${id}`) }), geo: { '@type': 'GeoCoordinates', latitude, longitude } },
-        ...(origin ? [{ '@type': 'BreadcrumbList', itemListElement: breadcrumb(rail, id, lang, s)
+        { '@type': type, name, ...(origin && { url: url(crumbs.at(-1).path) }), geo: { '@type': 'GeoCoordinates', latitude, longitude } },
+        ...(origin ? [{ '@type': 'BreadcrumbList', itemListElement: crumbs
             .map((crumb, i) => ({ '@type': 'ListItem', position: i + 1, name: crumb.name, item: url(crumb.path) })) }] : []),
     ];
     return { '@context': 'https://schema.org', '@graph': graph };
@@ -274,10 +314,10 @@ function stationData(rail, id, lang, s, origin) {
 // the structured data.
 /**
  * @param {Rail} rail @param {string | null} id
- * @param {{ tools: import('../../types/pages.js').Tool[], origin?: string }} options
+ * @param {{ tools: import('../../types/pages.js').Tool[], origin?: string, trains?: import('../../types/data.js').Trains | null }} options
  * @returns {import('../../types/pages.js').Page}
  */
-export function stationPage(rail, id, { tools, origin = '' }) {
+export function stationPage(rail, id, { tools, origin = '', trains = null }) {
     const common = { active: 'subway', ad: 'station', readyBuses: true, strings: mergeStrings(STATION_STRINGS, tools.find(t => t.id === 'subway')?.strings ?? {}) };
     if (!id) {
         return {
@@ -292,55 +332,85 @@ export function stationPage(rail, id, { tools, origin = '' }) {
         description: 'stations.description',
         values: lang => ({ name: localName(rail.stations[id].name, lang), lines: rail.stations[id].lines.map(l => rail.lines[l].name).join(', ') }),
         structuredData: (lang, s) => stationData(rail, id, lang, s, origin),
-        content: (lang, strings) => view('server/views/stations/station.hbs')(stationView(rail, id, lang, stringGetter(strings, lang)), { lang, strings }),
+        content: (lang, strings) => view('server/views/stations/station.hbs')(stationView(rail, id, lang, stringGetter(strings, lang), trains), { lang, strings }),
     };
 }
 
-// → { router, paths() }. renderPage puts a page in its language and the
-// layout (index.js, renderPages); paths() lists the English paths for the sitemap.
-// opened(req, lang): each page sent, for the count of pages opened (index.js).
+// A network's station pages, as an express router: `base` (an index) and
+// `base`/<id> in each language. read() → { key, data }: the data the pages
+// are drawn from (null before the first build: 503), and a key that changes
+// with it; rendered pages are kept until it does. ids(data): the stations
+// with a page; page(data, id): one's page, or the index for id null, as a
+// page of the site (registry.js lists the fields). renderPage puts a page in
+// its language and the layout (index.js, renderPages); paths() lists the
+// English paths for the sitemap. opened(req, lang): each page sent, for the
+// count of pages opened (index.js).
 /**
- * @param {{ railFile: string, renderPage: (page: import('../../types/pages.js').Page, lang: Lang) => string,
- *   tools: import('../../types/pages.js').Tool[], origin?: string,
+ * @template T
+ * @param {{ base: string, read: () => { key: string | null, data: T | null }, ids: (data: T) => string[],
+ *   page: (data: T, id: string | null) => import('../../types/pages.js').Page,
+ *   renderPage: (page: import('../../types/pages.js').Page, lang: Lang) => string,
  *   opened?: (req: import('express').Request, lang: Lang) => void }} options
  */
-export function createStationPages({ railFile, renderPage, tools, origin = '', opened = () => {} }) {
-    const read = railReader(railFile);
-    // Rendered pages are kept until rail.json changes (or the day does)
+export function stationRouter({ base, read, ids, page, renderPage, opened = () => {} }) {
     let drawn = { key: null, html: new Map() };
     function current() {
-        const { key, rail } = read();
+        const { key, data } = read();
         if (key !== drawn.key) drawn = { key, html: new Map() };
-        return { rail, html: drawn.html };
+        return { data, html: drawn.html };
     }
 
-    function page(id, lang) {
-        const { rail, html } = current();
-        if (!rail) throw NOT_BUILT_YET;
-        // Object.hasOwn: "constructor" or "__proto__" in the address isn't a station
-        if (id && !Object.hasOwn(rail.stations, id)) return null;
+    function html(id, lang) {
+        const { data, html } = current();
+        if (!data) throw NOT_BUILT_YET;
+        // includes: "constructor" or "__proto__" in the address isn't a station
+        if (id && !ids(data).includes(id)) return null;
         const cacheKey = `${lang} ${id ?? ''}`;
-        if (!html.has(cacheKey)) html.set(cacheKey, renderPage(stationPage(rail, id, { tools, origin }), lang));
+        if (!html.has(cacheKey)) html.set(cacheKey, renderPage(page(data, id), lang));
         return html.get(cacheKey);
     }
 
     const router = express.Router();
     for (const lang of LANGS) {
-        const base = localPath(STATIONS_PATH, lang);
-        const send = (req, res, next, html) => {
-            if (!html) return next();
+        const path = localPath(base, lang);
+        const send = (req, res, next, sent) => {
+            if (!sent) return next();
             opened(req, lang);
-            sendFresh(res, 'html', html);
+            sendFresh(res, 'html', sent);
         };
-        router.get(base, (req, res, next) => send(req, res, next, page(null, lang)));
-        router.get(`${base}/:id`, (req, res, next) => send(req, res, next, page(req.params.id, lang)));
+        router.get(path, (req, res, next) => send(req, res, next, html(null, lang)));
+        router.get(`${path}/:id`, (req, res, next) => send(req, res, next, html(req.params.id, lang)));
     }
 
     return {
         router,
         paths: () => {
-            const { rail } = current();
-            return rail ? [STATIONS_PATH, ...Object.keys(rail.stations).map(id => `${STATIONS_PATH}/${id}`)] : [];
+            const { data } = current();
+            return data ? [base, ...ids(data).map(id => `${base}/${id}`)] : [];
         },
     };
+}
+
+// The metro's station pages: → { router, paths() } (stationRouter). They list
+// the walks to the tram and the suburban railway, so they follow trains.json
+// too (trainsFile; none: no walks to the railway).
+/**
+ * @param {{ railFile: string, trainsFile?: string, renderPage: (page: import('../../types/pages.js').Page, lang: Lang) => string,
+ *   tools: import('../../types/pages.js').Tool[], origin?: string,
+ *   opened?: (req: import('express').Request, lang: Lang) => void }} options
+ */
+export function createStationPages({ railFile, trainsFile, renderPage, tools, origin = '', opened }) {
+    const rail = railReader(railFile);
+    const trains = trainsFile ? railReader(trainsFile) : () => ({ key: null, rail: null });
+    return stationRouter({
+        base: STATIONS_PATH,
+        read: () => {
+            const [r, t] = [rail(), trains()];
+            return { key: r.key && `${r.key} ${t.key}`, data: r.rail && { rail: r.rail, trains: /** @type {any} */ (t.rail) } };
+        },
+        ids: ({ rail }) => Object.keys(rail.stations),
+        page: ({ rail, trains }, id) => stationPage(rail, id, { tools, origin, trains }),
+        renderPage,
+        opened,
+    });
 }

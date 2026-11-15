@@ -3,17 +3,16 @@ import { format, formatDate, formatHtml, html, icon, localName, notice, walkingU
 import { liftNotice, liftSummary, metroStations, ridePlatforms, stationPlatforms, stepFreeGaps } from '/js/core/lifts.js';
 import { linePill, pillList, stationSign } from '/js/core/lines.js';
 import { minutesMark, minutesWords, soonTier, timeBadge } from '/js/core/times.js';
-import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, lineEnd, stopNote } from '/js/core/metro.js';
+import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, lineEnd, stationPath, stopNote } from '/js/core/metro.js';
 import { legPositions, tripTime } from './network.js';
 
 // What the subway page draws, with html`` (every value escaped)
 
 const stationName = (rail, id) => localName(rail.stations[id].name, language);
 
-// A station's name, linked to its own page (server/pages/stations.js); tram
-// stops and suburban railway stations have none
-const stationLink = (rail, id) => rail.stations[id].tram || rail.stations[id].suburban
-    ? stationName(rail, id) : html`<a href="${localHref(`/subway/stations/${id}`)}">${stationName(rail, id)}</a>`;
+// A station's name, linked to its own page: a metro station's, a tram stop's
+// or a suburban station's (stationPath)
+const stationLink = (rail, id) => html`<a href="${localHref(stationPath(rail, id))}">${stationName(rail, id)}</a>`;
 
 // "At Syntagma:", above each leg, with the station linked
 function boardAt(rail, id) {

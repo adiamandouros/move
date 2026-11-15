@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { STASY_LIFTS_PAGE } from '../../public/js/core/metro.js';
+import { STASY_LIFTS_PAGE, STATION_PAGES } from '../../public/js/core/metro.js';
 import { loadConfig } from '../config.js';
 import { mergeStrings, SHELL_STRINGS, stringGetter, toolNames } from './i18n.js';
 import { fares } from './fares.js';
@@ -117,7 +117,8 @@ export const NOT_FOUND = { title: 'notfound.title', index: false, content: (lang
 /** @type {Page} */
 export const SERVER_ERROR = { title: 'error.title', index: false, content: (lang, strings) => view('server/views/error.hbs')({}, { lang, strings }) };
 
-export const STATION_PATHS = [STATIONS_PATH, `${STATIONS_PATH}/*`];
+// Every network's station pages (stations.js, network-stations.js)
+export const STATION_PATHS = Object.values(STATION_PAGES).flatMap(base => [base, `${base}/*`]);
 
 // ── Tools ───────────────────────────────────────────────────────────────────
 

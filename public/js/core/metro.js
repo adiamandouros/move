@@ -18,6 +18,22 @@ export const STASY_LIFTS_PAGE = {
 /** @param {'en' | 'el'} lang @param {(key: string) => string} s */
 export const liftCaution = (lang, s) => formatHtml(s('lifts.caution'), { link: externalLink({ href: STASY_LIFTS_PAGE[lang] }, s('lifts.caution-link'), s('shell.new-tab')) });
 
+// Where each network's station pages are (server/pages/stations.js and
+// server/pages/network-stations.js), one page per network (decision 55)
+export const STATION_PAGES = { metro: '/subway/stations', tram: '/tram/stops', suburban: '/suburban/stations' };
+
+// A station's own page, by the id the subway planner gives it in `rail`:
+// a tram stop or a suburban station by its own id, without the "-tram" or
+// "-suburban" a metro station's id gave it (withTram, withSuburban in
+// tools/subway/client/network.js)
+/** @param {import('../../../types/data.js').Rail} rail @param {string} id */
+export function stationPath(rail, id) {
+    const station = rail.stations[id];
+    if (station?.tram) return `${STATION_PAGES.tram}/${id.replace(/-tram$/, '')}`;
+    if (station?.suburban) return `${STATION_PAGES.suburban}/${id.replace(/-suburban$/, '')}`;
+    return `${STATION_PAGES.metro}/${id}`;
+}
+
 // The station a direction of a line ends at, as its signs name it, even
 // when the next train turns back sooner (M3 toward Doukissis / Airport:
 // "airport")

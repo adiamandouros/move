@@ -13,6 +13,7 @@ import { loadTools, NOT_FOUND, SERVER_ERROR, sitePages, STATION_PATHS } from './
 import { OPENED_HEADER, renderServiceWorker } from './service-worker.js';
 import { robotsTxt, sitemapXml } from './seo.js';
 import { railReader } from './rail-file.js';
+import { createNetworkStationPages } from './network-stations.js';
 import { createStationPages } from './stations.js';
 
 // Fetches the Trip page's buses.json in the background, on the pages marked readyBuses (decision 39)
@@ -27,7 +28,8 @@ const READY_BUSES = '/js/core/ready-buses.js';
 //   assets.js           stylesheets, scripts and their versions
 //   icons.js            the icon sprite
 //   service-worker.js   what the service worker caches for offline use
-//   stations.js         the station pages, built from rail.json
+//   stations.js         the metro's station pages, built from rail.json
+//   network-stations.js the tram's and the suburban railway's, from rail.json and trains.json
 
 // Every page in sitePages (registry.js), rendered in each language, by path;
 // renderPage(page, lang), for pages of the same shape built later (the
@@ -104,9 +106,9 @@ function appManifest(lang, description) {
 // for and the one served (server/oasa/usage.js)
 /**
  * @param {import('../../types/pages.js').Tool[]} [tools]
- * @param {{ railFile?: string, config?: import('../../types/config.js').Config, usage?: Pick<import('../oasa/usage.js').Usage, 'page'> }} [options]
+ * @param {{ railFile?: string, trainsFile?: string, config?: import('../../types/config.js').Config, usage?: Pick<import('../oasa/usage.js').Usage, 'page'> }} [options]
  */
-export function createPages(tools = loadTools(), { railFile, config = loadConfig({}), usage = { page() {} } } = {}) {
+export function createPages(tools = loadTools(), { railFile, trainsFile, config = loadConfig({}), usage = { page() {} } } = {}) {
     const rail = railFile ? railReader(railFile) : () => ({ key: null, rail: null });
     const { pages, railPages, indexed, notFound, errorPage, render, renderPage } = renderPages(tools, config, () => rail().rail);
     const serviceWorker = renderServiceWorker(tools, pages);
@@ -121,8 +123,11 @@ export function createPages(tools = loadTools(), { railFile, config = loadConfig
             usage.page(askedLanguage(req.get('Accept-Language')), lang);
         }
     };
-    // The station pages, built from rail.json (when there is one)
-    const stations = railFile ? createStationPages({ railFile, renderPage, tools, origin: config.siteUrl, opened }) : null;
+    // The station pages of each network, built from rail.json and trains.json (when there is one)
+    const stations = railFile ? [
+        createStationPages({ railFile, trainsFile, renderPage, tools, origin: config.siteUrl, opened }),
+        ...createNetworkStationPages({ railFile, trainsFile, renderPage, tools, origin: config.siteUrl, opened }),
+    ] : [];
     // A page drawn from rail.json, drawn again once it changes (the others are drawn once, above)
     let drawn = { key: rail().key, html: {} };
     const pageAt = path => {
@@ -161,7 +166,7 @@ export function createPages(tools = loadTools(), { railFile, config = loadConfig
     router.get('/ads.txt', (_req, res, next) => ads ? sendFresh(res, 'text', ads) : next());
 
     router.get('/sitemap.xml', (req, res) => {
-        sendFresh(res, 'xml', sitemapXml(origin(req), [...indexed, ...(stations?.paths() ?? [])]));
+        sendFresh(res, 'xml', sitemapXml(origin(req), [...indexed, ...stations.flatMap(pages => pages.paths())]));
     });
 
     for (const path of Object.keys(pages)) {
@@ -171,7 +176,7 @@ export function createPages(tools = loadTools(), { railFile, config = loadConfig
         });
     }
 
-    if (stations) router.use(stations.router);
+    for (const pages of stations) router.use(pages.router);
 
     for (const tool of tools) router.use(`/tools/${tool.id}`, staticFiles(tool.clientDir));
 

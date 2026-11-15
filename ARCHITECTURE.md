@@ -60,6 +60,7 @@ lists them all and says where the rest are:
 | Subway, Buses, Info | `tools/<id>/tool.json` | `tools/<id>/page.hbs`, see [tools/README.md](tools/README.md) |
 | About, Privacy, Terms of use, Contact | `registry.js` | `server/views/pages/<name>.<lang>.hbs`, one file per language |
 | Metro stations | `server/pages/stations.js` | `server/views/stations/*.hbs`, from `rail.json` on request |
+| Tram stops, suburban railway stations | `server/pages/network-stations.js` | the same views, from `rail.json` and `trains.json` on request; the walks between networks from `station-changes.js` |
 | Not found (404) | `registry.js` (`NOT_FOUND`) | `server/views/notfound.hbs` |
 | Error (500) | `registry.js` (`SERVER_ERROR`) | `server/views/error.hbs` |
 | Admin | `server/admin/` | `admin/*.hbs`, English only |
@@ -85,9 +86,11 @@ All in [server/pages/](server/pages/):
    the files it changed. Node keeps a file for good at its current version
    and checks it every time at any other (`cacheControl`).
 3. The HTML is kept in memory and sent as it is. Station pages are
-   rendered from `rail.json` when first asked for (by the same
+   rendered from `rail.json` (and `trains.json`) when first asked for (by the same
    `renderPage`), and kept until it changes: `stations.js` works out what each one shows as plain data
-   (`stationView`, `indexView`, tested without HTML) and its views draw it.
+   (`stationView`, `indexView`, tested without HTML) and its views draw it;
+   `network-stations.js` does the same for the tram's and the suburban
+   railway's, through the same router (`stationRouter`).
 
 ### Views
 

@@ -188,7 +188,7 @@ for (const lang of ['en', 'el']) {
         const card = trainCard(html);
         assert.ok(card.includes(chips(at(17).seconds, A4, A4 + H)), '1323 at 17:08, then 1325 at 18:08');
         assert.ok(!html.includes(leaves(clock(A4))), 'not a row');
-        assert.ok(card.includes(`<p class="leg-boarding">${s['subway.board-at'].replace('{station}', name('megara'))}</p>`), 'its station not a link');
+        assert.ok(card.includes(`<p class="leg-boarding">${s['subway.board-at'].replace('{station}', `<a href="${lang === 'el' ? '/el' : ''}/suburban/stations/megara">${name('megara')}</a>`)}</p>`), 'its station linked to its page');
         assert.match(card, new RegExp(`class="direction-text">[\\s\\S]*${name('piraeus')}<`), 'toward where its train ends, without "(suburban)"');
         assert.ok(card.includes(ticket('subway.train-ticket')), 'Megara is outside OASA\'s ticket');
         assert.ok(!card.includes('train-diagram') && !card.includes(s['subway.no-position-data']), 'no train diagram');

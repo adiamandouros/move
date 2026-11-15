@@ -12,6 +12,11 @@ export const PAGES = [
     '/subway/stations/omonia',
     // STASY's first and last trains, with the airport ones under the table
     '/subway/stations/dimotiko-theatro',
+    // The tram's and the suburban railway's (decision 55)
+    '/tram/stops',
+    '/tram/stops/syntagma',
+    '/suburban/stations',
+    '/suburban/stations/piraeus',
     '/nope',
 ];
 
