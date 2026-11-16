@@ -151,7 +151,7 @@
       "cholargos": { "exits": ["center-front"], "elevators": [{ "at": "center" }], "escalators": ["center-front"], "stepFree": "lift" },
       "nomismatokopio": { "exits": ["center-back"], "escalators": ["center-back"], "stepFree": "lift" },
       "agia-paraskevi": { "exits": ["center-back"], "escalators": ["center-back"], "stepFree": "lift" },
-      "chalandri": { "exits": ["center", "front"], "elevators": [{ "at": "center", "name": "Εξωτερικός προς Βριλήσια και προς Αεροδρόμιο" }], "escalators": ["center", "front"], "stairs": ["center", "front"] },
+      "chalandri": { "exits": ["center", "front"], "elevators": [{ "at": "center", "name": "Εξωτερικός προς Βριλήσια και προς Αεροδρόμιο" }], "escalators": ["center", "front"], "stairs": ["center", "front"], "stepFree": "lift" },
       "doukissis-plakentias": { "exits": ["center"], "elevators": [{ "at": "center-front" }], "escalators": ["center"], "stepFree": "lift" },
       "pallini": { "exits": ["center-front"], "elevators": [{ "at": "front" }], "centralPlatform": true, "stepFree": "yes", "note": "Unreliable data" },
       "paiania-kantza": { "exits": ["center-back"], "elevators": [{ "at": "center" }], "centralPlatform": true, "stepFree": "yes", "note": "Unreliable data" },
