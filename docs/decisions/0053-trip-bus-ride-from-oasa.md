@@ -1,6 +1,6 @@
 # 53. The trip page: a bus ride timed by OASA where it gets off, and its stops on the way
 
-Decided 2026-11-14 · In force
+Decided 2026-11-14 · Replaced by [60](0060-trip-follows-within-20-metres.md)
 
 ## Situation
 

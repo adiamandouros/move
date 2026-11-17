@@ -632,13 +632,14 @@ test.describe('the trip page', () => {
             expect(since.filter(a => a.code === alight).every(a => a.for === 'plan')).toBe(true);
             expect(await plans()).toHaveLength(1);
 
-            // Off at its last stop, 50 m from the station: that walk is done
-            // too, the M2's card is the step; at Neos Kosmos, the walk to
-            // the park, its way out behind the rider (decision 51); there, arrived
+            // Off at its last stop, 50 m from the station: the walk to it is
+            // the step, as 20 m is the nearest a fix counts as there (decision
+            // 60); at the station, the M2's card is; at Neos Kosmos, the walk
+            // to the park, its way out behind the rider (decision 51); there, arrived
             await moveTo(page, bus.at(-1));
             await run(1);
-            await expect(current(page)).toContainText('M2');
-            await expect(done(page)).toHaveCount(3);
+            await expect(current(page)).toContainText('Walk to');
+            await expect(done(page)).toHaveCount(2);
             await moveTo(page, metro[0]);
             await run(1);
             await expect(current(page)).toContainText('M2');
@@ -743,7 +744,7 @@ test.describe('the trip page', () => {
             const { asks, run } = await watchRequests(page);
             const plans = await watchPlans(page);
             const liveWay = await watchLive(page);
-            const { bus } = await hereToPark(page, run, asks, liveWay);
+            const { bus, metro } = await hereToPark(page, run, asks, liveWay);
             await moveTo(page, bus[0]);
             await run(1);
             await moveTo(page, bus[2]);
@@ -761,7 +762,7 @@ test.describe('the trip page', () => {
             await run(1);
             await expect(status(page)).toHaveText('Following your ride');
             expect(await plans(), 'searched again from where it was planned').toEqual([{ ...start, at: expect.any(Number) }]);
-            await moveTo(page, bus.at(-1));
+            await moveTo(page, metro[0]);
             await run(1);
             await expect(current(page)).toContainText('M2');
             expect(await plans()).toHaveLength(1);

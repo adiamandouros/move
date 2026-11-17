@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { browserModule } from './support/browser-modules.js';
 
-// My location following the rider on the Trip page (decision 45): when the
+// My location following the rider on the Trip page (decisions 45 and 60): when the
 // trip is planned again from where they are, and, with Plan 7 (agreed 12
 // Nov 2026), where each fix puts them on the way they're on
 // (tools/trip/client/follow.js). The page's side: test/browser/location.spec.js.
@@ -16,38 +16,47 @@ const north = (metres, from = SYNTAGMA) => ({ lat: from.lat + metres / 111_195, 
 const east = (metres, from = SYNTAGMA) => ({ lat: from.lat, lng: from.lng + metres / (111_195 * Math.cos(from.lat * Math.PI / 180)) });
 const T = 1_000_000;
 
-test('the numbers agreed for OASA: 200 m from where the trip was planned, at most every 2 minutes', () => {
-    assert.equal(MOVED_METRES, 200);
+test('the numbers agreed for OASA: 20 m from where the trip was planned, at most every 2 minutes', () => {
+    assert.equal(MOVED_METRES, 20);
     assert.equal(REPLAN_MS, 120_000);
 });
 
-test('planned again once the rider is 200 m or more from where it was planned, and 2 minutes or more after', () => {
+test('planned again once the rider is 20 m or more from where it was planned, and 2 minutes or more after', () => {
     const planned = { ...SYNTAGMA, at: T };
-    assert.equal(replanDue(planned, north(200), T + REPLAN_MS), true);
+    assert.equal(replanDue(planned, north(20), T + REPLAN_MS), true);
     assert.equal(replanDue(planned, north(2_000), T + 10 * REPLAN_MS), true);
     // Not far enough, however long
-    assert.equal(replanDue(planned, north(195), T + 10 * REPLAN_MS), false);
+    assert.equal(replanDue(planned, north(18), T + 10 * REPLAN_MS), false);
     assert.equal(replanDue(planned, SYNTAGMA, T + 10 * REPLAN_MS), false);
     // Far enough, but too soon, however far: a ride doesn't plan it again every second
-    assert.equal(replanDue(planned, north(200), T + REPLAN_MS - 1), false);
+    assert.equal(replanDue(planned, north(20), T + REPLAN_MS - 1), false);
     assert.equal(replanDue(planned, north(5_000), T + 1_000), false);
+});
+
+test('a fix less exact than 20 m must move as far as its accuracy: GPS wandering isn\'t moving', () => {
+    const planned = { ...SYNTAGMA, at: T };
+    assert.equal(replanDue(planned, { ...north(40), accuracy: 50 }, T + REPLAN_MS), false);
+    assert.equal(replanDue(planned, { ...north(50), accuracy: 50 }, T + REPLAN_MS), true);
+    assert.equal(replanDue(planned, { ...north(20), accuracy: 8 }, T + REPLAN_MS), true, 'more exact than 20 m: 20 m');
+    assert.equal(replanDue(planned, { ...north(20), accuracy: null }, T + REPLAN_MS), true, 'no accuracy given: 20 m');
 });
 
 test('the distance is from where it was planned, in any direction', () => {
     const planned = { ...SYNTAGMA, at: T };
-    assert.equal(replanDue(planned, east(250), T + REPLAN_MS), true);
-    assert.equal(replanDue({ ...north(300), at: T }, north(150), T + REPLAN_MS), false);
+    assert.equal(replanDue(planned, east(25), T + REPLAN_MS), true);
+    assert.equal(replanDue({ ...north(30), at: T }, north(15), T + REPLAN_MS), false);
 });
 
 // ── Following the way (Plan 7) ──────────────────────────────────────────────
 
-test('the numbers agreed 12 Nov 2026 for following a ride', () => {
+test('the numbers agreed 12 Nov 2026 for following a ride, its distances 20 m since 17 Nov', () => {
     assert.equal(follow.ROUGH_METRES, 200);
-    assert.equal(follow.NEAR_METRES, 100);
+    assert.equal(follow.NEAR_METRES, 20);
     assert.equal(follow.OFF_METRES, 300);
+    assert.equal(follow.OFF_CLOSE_METRES, 100);
     assert.equal(follow.OFF_MS, 60_000);
     assert.equal(follow.GAP_MS, 120_000);
-    assert.equal(follow.LEFT_METRES, 100);
+    assert.equal(follow.LEFT_METRES, 20);
     assert.equal(follow.STILL_METRES, 50);
     assert.equal(follow.STILL_MS, 600_000);
 });
@@ -80,7 +89,7 @@ test('a way with a bus as the steps it\'s followed by: the walk, waiting, the ri
     assert.deepEqual(steps, [
         { kind: 'walk', ride: 0, from: SYNTAGMA, to: BOARD },
         { kind: 'wait', ride: 0, at: BOARD },
-        { kind: 'ride', ride: 0, points: STOPS, past: PAST },
+        { kind: 'ride', ride: 0, points: STOPS, past: PAST, close: true },
         { kind: 'last', from: STOPS[4], to: DOOR },
     ]);
     // Starting at the stop, and getting off at the door: no walks
@@ -103,10 +112,10 @@ test('a metro option as its steps, the stations from rail: the walk to the stati
     assert.deepEqual(waySteps(metro, SYNTAGMA, DOOR, rail), [
         { kind: 'walk', ride: 0, from: SYNTAGMA, to: BOARD },
         { kind: 'wait', ride: 0, at: BOARD },
-        { kind: 'ride', ride: 0, points: [BOARD, STOPS[1], STOPS[2]], past: [STOPS[3], STOPS[4]] },
+        { kind: 'ride', ride: 0, points: [BOARD, STOPS[1], STOPS[2]], past: [STOPS[3], STOPS[4]], close: false },
         { kind: 'walk', ride: 1, from: STOPS[2], to: east(200, STOPS[4]) },
         { kind: 'wait', ride: 1, at: east(200, STOPS[4]) },
-        { kind: 'ride', ride: 1, points: [east(200, STOPS[4]), STOPS[4], STOPS[3]], past: [] },
+        { kind: 'ride', ride: 1, points: [east(200, STOPS[4]), STOPS[4], STOPS[3]], past: [], close: false },
         { kind: 'last', from: STOPS[3], to: DOOR },
     ]);
     // A walk from the first station to the line, and from the line to the last station (plan.js walkFirst, walkLast)
@@ -152,8 +161,11 @@ test('each fix places the rider: along the walk, at the stop, on the bus stop by
     place(east(150), T + 60_000);
     assert.equal(kind(), 'walk');
     assert.equal(state.moved, false);
-    // At the stop (within 100 m): waiting
-    place(east(240), T + 120_000);
+    // 60 m short of the stop with a fix good to 10 m: still walking
+    place(east(240), T + 100_000, { accuracy: 10 });
+    assert.equal(kind(), 'walk');
+    // At the stop (within 20 m): waiting
+    place(east(285), T + 120_000);
     assert.equal(kind(), 'wait');
     assert.deepEqual([state.moved, state.at], [true, T + 120_000]);
     // Drifting 80 m while waiting isn't boarding
@@ -165,9 +177,12 @@ test('each fix places the rider: along the walk, at the stop, on the bus stop by
     assert.deepEqual([state.stop, state.moved], [1, true]);
     place(north(850, BOARD), T + 300_000);
     assert.deepEqual([state.stop, state.moved], [2, true]);
-    // A wander 150 m to the side of the road: the same stop, not off
-    place(east(150, STOPS[2]), T + 330_000);
+    // A wander 80 m to the side of the road: the same stop, not off
+    place(east(80, STOPS[2]), T + 330_000);
     assert.deepEqual([state.stop, state.moved, state.off, state.offSince], [2, false, false, null]);
+    // 150 m: off the bus's road, off the way once that lasts a minute (decision 60)
+    place(east(150, STOPS[2]), T + 340_000);
+    assert.deepEqual([state.stop, state.off, state.offSince], [2, false, T + 340_000]);
     // GPS behind the bus never moves the rider back
     place(north(500, BOARD), T + 360_000);
     assert.equal(state.stop, 2);
@@ -179,7 +194,7 @@ test('each fix places the rider: along the walk, at the stop, on the bus stop by
     assert.equal(state.moved, true);
     place(east(150, STOPS[4]), T + 540_000);
     assert.equal(kind(), 'last');
-    place(east(260, STOPS[4]), T + 600_000);
+    place(east(285, STOPS[4]), T + 600_000);
     assert.equal(kind(), 'arrived');
     assert.deepEqual([state.moved, state.off], [true, false]);
     // Arrived, nothing more happens
@@ -259,9 +274,41 @@ test('boarded with no fix at the stop: off the walk but on its ride past the fir
     assert.deepEqual([stepOf(steps, before).kind, before.off], ['walk', true]);
 });
 
-test('a fix still near the walk stays on it, though it\'s nearer a later stop of the ride than the first (a walk beside the bus\'s road)', () => {
+test('on the walk to a stop whose place is off where people wait: once the bus leaves, the first fix by its road a stop on boards them (decision 60)', () => {
+    // Waiting 30 m from the stop's place, GPS good to 5 m: still the walk
+    let state = placeOn(steps, starting(), fixAt(east(270), T, { accuracy: 5 }), T);
+    assert.equal(stepOf(steps, state).kind, 'walk');
+    // The bus leaves: by its road, nearer the next stop than this one
+    state = placeOn(steps, state, fixAt(north(250, BOARD), T + 60_000, { accuracy: 5 }), T + 60_000);
+    assert.deepEqual([stepOf(steps, state).kind, state.stop, state.moved, state.off], ['ride', 1, true, false]);
+    // Nearer the stop it walks to than any later: still walking
+    const short = placeOn(steps, starting(), fixAt(north(150, BOARD), T, { accuracy: 5 }), T);
+    assert.equal(stepOf(steps, short).kind, 'walk');
+    // Walking to the stop along the ride's road, past its next stop: walking, as the walk's as near
+    const along = { ...bus, rides: [{ ...bus.rides[0], along: [pair(BOARD), pair(SYNTAGMA), pair(north(400))] }] };
+    const alongSteps = waySteps(along, east(-200), DOOR, null);
+    const by = placeOn(alongSteps, starting(), fixAt(east(50), T), T);
+    assert.equal(stepOf(alongSteps, by).kind, 'walk');
+});
+
+test('waiting at the stop: off the way 100 m from it, or the fix\'s accuracy; a metro ride\'s line 300 m (decision 60)', () => {
+    const waiting = placeOn(steps, starting(), fixAt(BOARD, T), T);
+    assert.equal(stepOf(steps, waiting).kind, 'wait');
+    assert.equal(placeOn(steps, waiting, fixAt(east(90, BOARD), T + 1_000), T + 1_000).offSince, null);
+    assert.equal(placeOn(steps, waiting, fixAt(east(110, BOARD), T + 1_000), T + 1_000).offSince, T + 1_000);
+    assert.equal(placeOn(steps, waiting, fixAt(east(110, BOARD), T + 1_000, { accuracy: 120 }), T + 1_000).offSince, null);
+    // A suburban train's line between stations far apart: 300 m
+    const train = { ...bus, rides: [{ ...bus.rides[0], mode: 'suburban' }] };
+    const trainSteps = waySteps(train, SYNTAGMA, DOOR, null);
+    const riding = onBus(STOPS[1], T, trainSteps);
+    assert.equal(stepOf(trainSteps, riding).kind, 'ride');
+    assert.equal(placeOn(trainSteps, riding, fixAt(east(250, STOPS[2]), T + 1_000), T + 1_000).offSince, null);
+    assert.equal(placeOn(trainSteps, riding, fixAt(east(350, STOPS[2]), T + 1_000), T + 1_000).offSince, T + 1_000);
+});
+
+test('a fix still near the walk stays on it, though it\'s nearer a later stop of the ride than the first (a walk beside the bus\'s road, 150 m from it)', () => {
     const halfway = placeOn(steps, starting(), fixAt(east(150), T), T);
-    const beside = east(200, north(250));
+    const beside = east(150, north(250));
     assert.ok(segmentMeters(beside, SYNTAGMA, BOARD) <= 300);
     const state = placeOn(steps, halfway, fixAt(beside, T + 60_000), T + 60_000);
     assert.deepEqual([stepOf(steps, state).kind, state.moved, state.off, state.offSince], ['walk', false, false, null]);
@@ -290,9 +337,19 @@ test('a rough fix (over 200 m) places nobody and isn\'t remembered', () => {
     assert.equal(fine.stop, 3);
 });
 
-test('left the start at 100 m; standing still 10 minutes with the page untouched as long pauses', () => {
-    assert.equal(leftStart(north(99), SYNTAGMA), false);
-    assert.equal(leftStart(north(100), SYNTAGMA), true);
+test('at a stop within 20 m, or within a less exact fix\'s accuracy', () => {
+    const at = (point, accuracy) => stepOf(steps, placeOn(steps, starting(), fixAt(point, T, { accuracy }), T)).kind;
+    assert.equal(at(east(285), 5), 'wait');
+    assert.equal(at(east(240), 10), 'walk', '60 m short with a fix good to 10 m');
+    assert.equal(at(east(240), 70), 'wait', '60 m short with a fix good to 70 m');
+});
+
+test('left the start at 20 m; standing still 10 minutes with the page untouched as long pauses', () => {
+    assert.equal(leftStart(fixAt(north(19), T), SYNTAGMA), false);
+    assert.equal(leftStart(fixAt(north(20), T), SYNTAGMA), true);
+    // A fix less exact than that: its accuracy instead
+    assert.equal(leftStart(fixAt(north(30), T, { accuracy: 35 }), SYNTAGMA), false);
+    assert.equal(leftStart(fixAt(north(35), T, { accuracy: 35 }), SYNTAGMA), true);
 
     let state = placeOn(steps, starting(), fixAt(SYNTAGMA, T), T);
     assert.deepEqual(state.anchor, { ...SYNTAGMA, at: T });
