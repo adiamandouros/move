@@ -16,6 +16,10 @@ import { howExact, placeOption } from './render.js';
 
 const WAIT_MS = 200;
 const FEWEST_LETTERS = 2;
+// With no signal a request hangs rather than fails: after this long the
+// search is said to be unavailable (Road · 13). An answer takes well under
+// 2 seconds, the first after a deploy, which loads the index, longer
+const ANSWER_WITHIN_MS = 10_000;
 
 // What can be said above the list, or ''. `recent`: the places picked lately
 export function listNote({ results, notInTown, noSuchTown, corrected, recent }) {
@@ -61,14 +65,19 @@ export function placePicker({ input, list, status, rail, onChange, chosen }) {
     async function search(q) {
         asking?.abort();
         const mine = asking = new AbortController();
+        let late = false;
+        const timer = setTimeout(() => { late = true; mine.abort(); }, ANSWER_WITHIN_MS);
         try {
             const answer = await findPlaces(q, mine.signal);
             show({ ...answer, results: recentFirst(recentPlaces(), answer.results, q) });
         } catch {
-            if (mine.signal.aborted) return;
+            // Stopped for a newer search: that one says what it finds
+            if (mine.signal.aborted && !late) return;
             found = [];
             hide();
             say(t('trip.search-unavailable'));
+        } finally {
+            clearTimeout(timer);
         }
     }
 

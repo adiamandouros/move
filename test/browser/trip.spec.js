@@ -1221,6 +1221,19 @@ test.describe('the trip page', () => {
         });
     });
 
+    // Road · 13: with no signal the request hangs rather than fails, and
+    // nothing was said for as long as it did
+    test('with no signal, the search says it isn\'t available after 10 seconds', async ({ page }) => {
+        await page.goto('/trip');
+        const asked = new Promise(resolve => page.route('**/api/places', resolve));
+        await from(page).fill('Μενελάου 45');
+        await asked;
+        await page.clock.fastForward(9_000);
+        await expect(page.locator('#trip-from-status')).toHaveText('');
+        await page.clock.fastForward(1_500);
+        await expect(page.locator('#trip-from-status')).toContainText('isn\'t available');
+    });
+
     test('in Greek, with the credit to OpenStreetMap', async ({ page }) => {
         await page.goto('/el/trip');
         await expect(page.getByRole('heading', { level: 1 })).toHaveText('Σχεδιασμός διαδρομής');
