@@ -4,13 +4,17 @@ import { watchLifts } from '/js/core/lifts.js';
 import { legendOpen, liftsOpen } from '/js/core/metro.js';
 import { language, t } from '/js/core/i18n.js';
 import { remember } from '/js/core/remember.js';
-import { athensNow, closestStation, isTimetableExpired, planTrip, withSuburban, withTram } from './network.js';
+import { countBadges } from '/js/core/times.js';
+import { athensClock, athensNow, closestStation, isTimetableExpired, planTrip, withSuburban, withTram } from './network.js';
 import { stationSearch } from './search.js';
 import { renderError, renderIntro, renderMessage, renderResult, renderWalkOnly, routeSummary, walkOnly, walkingUrl, watchLegStations } from './render.js';
 import { SUBURBAN_HIDDEN, TRAM_HIDDEN, suburbanHidden, tramHidden } from './tram-switch.js';
 
-// Keeps the "in N minutes" chips current while the page is open
+// Plans again while the page is open, for what the clock changes (the next
+// trains, the last one); the chips count down in between, each second
+// (decision 61)
 const REFRESH_MS = 30_000;
+const COUNT_MS = 1_000;
 
 const result = document.getElementById('subway-result');
 
@@ -102,7 +106,7 @@ function start(metro, trains) {
             if (speak) announce(walkOnly(walk));
             return;
         }
-        const today = athensNow();
+        const today = athensClock();
         // After the last train, tomorrow's first ones
         const { plans, now, tomorrow } = planTrip(rail, origin, destination, today);
         const focus = focused();
@@ -256,6 +260,8 @@ function start(metro, trains) {
     });
 
     setInterval(render, REFRESH_MS);
+    // A train gone from a card: planned again, so the next one takes its place
+    setInterval(() => { if (!document.hidden && countBadges(result, t)) render(); }, COUNT_MS);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
 
     // ── The nearest station ──

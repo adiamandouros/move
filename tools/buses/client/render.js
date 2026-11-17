@@ -103,10 +103,15 @@ export function nextBus(result, { waiting = true } = {}) {
         : html`<span class="next-bus-dest text-body-secondary"><span class="sr-only">. </span>${t('buses.open-for-times')}</span>`;
 }
 
+// A bus's badge. The Buses page counts its stops down itself (timing.js);
+// the Trip page's rows give each bus's `at`, seconds since 1970, for the
+// badge to count down by itself (decision 61)
+const busBadge = a => minutesBadge(a.minutes, t, { at: a.at ?? null });
+
 // The next bus's minutes, beside the button
 export function headerBadge(result) {
     const first = result?.arrivals?.[0];
-    return first ? minutesBadge(first.minutes, t) : html``;
+    return first ? busBadge(first) : html``;
 }
 
 // One arrival: the line, where it goes and in how many minutes
@@ -117,7 +122,7 @@ export function arrivalRow(a) {
                     ${plate(lineLabel(a), 'm')}
                     <span class="arrival-dest"><span class="sr-only">, </span>${destination(a)}<span class="sr-only">, </span></span>
                 </span>
-                ${minutesBadge(a.minutes, t)}
+                ${busBadge(a)}
             </li>`;
 }
 

@@ -23,7 +23,7 @@ import { createPlanner } from './raptor.js';
  * @typedef {{ legs: Leg[], walkFirst?: number, walkLast?: number }} Route
  */
 /** @typedef {Route & { legs: (Leg & { departures: Departure[] })[], arrives: number | null }} PlannedRoute */
-/** @typedef {{ weekday: number, seconds: number, date: string }} AthensTime */
+/** @typedef {{ weekday: number, seconds: number, date: string, epoch?: number }} AthensTime */
 /** @typedef {import('../../../types/data.js').Timetable} Timetable */
 
 const DAY = 86_400;
@@ -69,6 +69,11 @@ export function athensNow(date = new Date()) {
     const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(parts.weekday);
     return { weekday, seconds: +parts.hour * 3600 + +parts.minute * 60 + +parts.second, date: athensDate(date) };
 }
+
+// athensNow, and the same moment in seconds since 1970 (`epoch`), for the
+// times drawn from it to count down by themselves (decision 61)
+/** @returns {AthensTime & { epoch: number }} */
+export const athensClock = (date = new Date()) => ({ ...athensNow(date), epoch: Math.floor(date.getTime() / 1000) });
 
 export function athensDate(date = new Date()) {
     return ATHENS_DATE.format(date);

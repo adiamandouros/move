@@ -539,6 +539,35 @@ for (const lang of ['en', 'el']) {
         assert.deepEqual(steps(drawn(way, { following: { kind: 'arrived' } })), ['done', 'done', 'done', 'done']);
         check(drawn(way, { following: { kind: 'ride', ride: 0 } }));
     });
+    test(`${lang}: a ride's times while it's to come, none once the rider is on it or past it (decision 61, Road · 9)`, () => {
+        const way = timed(busThenTrain, { [BOARD]: { buses: [{ route: ROUTE, line: '040', at: now + 5 * MIN }] } });
+        // The 040's badges, and the M2 card's
+        const times = following => {
+            const steps = drawn(way, { following }).split('<li class="trip-');
+            return [steps.find(part => part.includes('trip-step-leaves')), steps.find(part => part.startsWith('leg'))].map(part => part.includes('time-badge'));
+        };
+        assert.deepEqual(times(null), [true, true], 'at the start, both');
+        assert.deepEqual(times({ kind: 'wait', ride: 0 }), [true, true], 'waiting for the bus: its times are what they need');
+        assert.deepEqual(times({ kind: 'ride', ride: 0 }), [false, true], 'on the bus: none for it');
+        assert.deepEqual(times({ kind: 'walk', ride: 1 }), [false, true]);
+        assert.deepEqual(times({ kind: 'wait', ride: 1 }), [false, true]);
+        assert.deepEqual(times({ kind: 'ride', ride: 1, stop: 2 }), [false, false], 'on the train: none for it either');
+        assert.deepEqual(times({ kind: 'arrived' }), [false, false]);
+        check(drawn(way, { following: { kind: 'ride', ride: 1, stop: 2 } }));
+    });
+
+    test(`${lang}: a bus's time carries when it comes, to count down by itself; drawn again past its minute, it's gone, not 0' (decision 61)`, () => {
+        const epoch = 1_800_000_000;
+        const way = timed(busThenTrain, { [BOARD]: { buses: [{ route: ROUTE, line: '040', at: now + 4 * MIN }] } });
+        const html = drawn(way, { epoch });
+        check(html);
+        assert.ok(html.includes(`data-at="${epoch + 4 * MIN}" data-minutes="4"`), 'the bus\'s badge counts to its time');
+        assert.ok(!drawn(way).includes('data-at'), 'with no epoch (the server, tests), as before');
+        const busBadges = later => drawn(way, { now: now + later }).match(/<span class="trip-step-badges[^"]*">(.*?)<\/div>/)?.[1] ?? '';
+        assert.ok(busBadges(4 * MIN + 59).includes('>0\'<'), 'OASA\'s 4\': 0\' for the minute after');
+        assert.equal(busBadges(5 * MIN), '', 'then gone');
+    });
+
     // When a ride leaves, on the left of its step, strong
     const leaves = time => `<span class="trip-step-when trip-step-leaves">${time}</span>`;
     // The badges at the right of a bus ride's heading: OASA's, marked live, or the timetable's
@@ -549,8 +578,9 @@ for (const lang of ['en', 'el']) {
         const html = drawn(way);
         check(html);
         assert.ok(html.includes(leaves(clock(now + 6 * MIN + 30))), 'no "~": it\'s OASA\'s');
-        assert.ok(html.includes(`<span class="time-badge time-close"><span aria-hidden="true">6'</span><span class="sr-only">${s['shell.minutes'].replace('{minutes}', 6)}</span></span>`));
-        assert.ok(html.includes(`${badges(true, 6, 14)}</div>`), 'the next one, "14\'" too, "next in 14 minutes" to a screen reader, ending the heading');
+        // OASA's whole minutes, as the Buses page counts them: 6'30" is 7' (decision 61)
+        assert.ok(html.includes(`<span class="time-badge time-close"><span aria-hidden="true">7'</span><span class="sr-only">${s['shell.minutes'].replace('{minutes}', 7)}</span></span>`));
+        assert.ok(html.includes(`${badges(true, 7, 14)}</div>`), 'the next one, "14\'" too, "next in 14 minutes" to a screen reader, ending the heading');
         assert.ok(html.includes(`<span class="sr-only">${s['trip.next-in'].replace('{minutes}', s['shell.minutes'].replace('{minutes}', 14))}</span>`));
         assert.ok(html.includes(firstTrain(way.option.rides[1].boards, now)), 'the train after it, timed from it');
         assert.ok(nothingUnder(html), 'nothing under the answer');
@@ -634,7 +664,7 @@ for (const lang of ['en', 'el']) {
         // The next bus as on the Buses page: its large plate, where it goes, its minutes beside the button
         assert.ok(first.includes(`<span class="next-bus-line"><span class="bus-plate pill-l">${line}</span></span>`), first);
         assert.ok(first.includes(`<span class="next-bus-dest">${glyfada[lang]}</span>`));
-        const due = Math.floor((second.walk + 9 * MIN) / 60);
+        const due = Math.ceil((second.walk + 9 * MIN) / 60);
         assert.ok(first.includes(`<span class="header-badge-wrap" aria-hidden="true"><span class="time-badge time-later"><span aria-hidden="true">${due}'`), 'counted from now');
         assert.ok(first.includes(`aria-label="${s['trip.stop-buses'].replace('{stop}', (names => lang === 'el' ? names.el : names.en || latinName(names.el))(city.stops[second.stop].names))}"`), 'only the rider\'s buses, so not "all arrivals"');
         // Opened: both its buses, each with where it goes; its lines, not links away from the trip

@@ -3,8 +3,8 @@ import { language, t } from '/js/core/i18n.js';
 import { watchLifts } from '/js/core/lifts.js';
 import { legendOpen, liftsOpen } from '/js/core/metro.js';
 import { lastPosition, locationPermission, onLocation, onLocationProblem, showFollowing, startLocation } from '/js/core/location.js';
-import { minutesMark, minutesWords } from '/js/core/times.js';
-import { athensNow, closestStation, isTimetableExpired, withSuburban, withTram } from '/tools/subway/network.js';
+import { countBadges, minutesMark, minutesWords } from '/js/core/times.js';
+import { athensClock, athensNow, closestStation, isTimetableExpired, withSuburban, withTram } from '/tools/subway/network.js';
 import { watchLegStations } from '/tools/subway/render.js';
 import { suburbanHidden, tramHidden } from '/tools/subway/tram-switch.js';
 import { walkSeconds } from '/tools/subway/city.js';
@@ -24,12 +24,14 @@ const fromInput = /** @type {HTMLInputElement} */ ($('trip-from'));
 const toInput = /** @type {HTMLInputElement} */ ($('trip-to'));
 const locate = $('trip-locate');
 
-// Keeps the times current while the page is open
+// The answer worked out again while the page is open; its times count down
+// by themselves in between, each TICK_MS (decision 61)
 const REFRESH_MS = 60_000;
 // The next half hour is worked out again once it's this old, while the page
 // is open (decision 33)
 const HALF_REWORK_SECONDS = 600;
-// How often the live times' stops are checked for being due (live.js), as on the Buses page
+// How often the times count down, and the live times' stops are checked for
+// being due (live.js), as on the Buses page
 const TICK_MS = 1_000;
 // On a ride followed, the search ahead runs at each stop reached, at most
 // this often (decision 50); a way 3' or more sooner it finds is switched to
@@ -405,7 +407,7 @@ function start(metro) {
         // The minutes count from the clock, not from when the search was made;
         // the cards' trains are the day's (legs.js), as late as they run
         // when the way is timed with it (decision 47)
-        const { seconds: clock, weekday, date } = athensNow();
+        const { seconds: clock, epoch, weekday, date } = athensClock();
         const cards = { weekday, date, stations: openedLegs(), stops: openedStops(), legend: legendOpen() };
         // The switch to a way 3' or more sooner, counting down from when it
         // first comes up, with a buzz where the phone can (T14); in place of
@@ -426,9 +428,9 @@ function start(metro) {
             : !trip.walkFirst && !trip.options[0]?.morning ? trip.options[0] ?? null : null;
         followWay(following ? card : null, date);
         const shown = ways.length
-            ? renderHalf(drawnOn(date), half.view.kind, ways, to, { now: clock, expired, longWalk: isLongWalk(ways[0].o), live: timed, offer: !choice, taken: choice === 'taken' ? half.view.quicker : null,
+            ? renderHalf(drawnOn(date), half.view.kind, ways, to, { now: clock, epoch, expired, longWalk: isLongWalk(ways[0].o), live: timed, offer: !choice, taken: choice === 'taken' ? half.view.quicker : null,
                 switching: switching && { offer: switching, seconds: live.countdown.left }, switched: Boolean(switched), noTrains, trains: lateness(), lifts: known, liftsOpen: liftsOpen(), following: followingShown(), ...cards })
-            : renderTrip(drawnOn(date), trip, to, { now: clock, expired, noBuses, noTrains: noTrains && !noBuses, checking: Boolean(searches) && !forTrip(half), lifts: known, liftsOpen: liftsOpen(), following: followingShown(), ...cards });
+            : renderTrip(drawnOn(date), trip, to, { now: clock, epoch, expired, noBuses, noTrains: noTrains && !noBuses, checking: Boolean(searches) && !forTrip(half), lifts: known, liftsOpen: liftsOpen(), following: followingShown(), ...cards });
         const answer = html`${shown}${TIMING && timingBox(timing)}`;
         setHtml(result, answer);
         // The rider's choice redraws the answer at once. From the keyboard,
@@ -507,6 +509,12 @@ function start(metro) {
         if (!from || !to || inAnswer()) return;
         if (!searches) draw(athensNow(), [], false);
         else if (forTrip(found) && !holding()) draw(found.now, found.options, false);
+    };
+    // The times count down, signal or not, and while the answer is held too
+    // (badges only, so the keyboard stays where it is); one gone draws the
+    // answer again, for what comes after it, once nobody's in it (decision 61)
+    const countTimes = () => {
+        if (!document.hidden && countBadges(result, t)) redraw();
     };
     // Lifts out of service and the lift status (STASY), for the step-free
     // notice: asked for at once, so they're in by the first answer, and
@@ -820,6 +828,7 @@ function start(metro) {
     const pauseDue = () => riding() ? stillDue(ride.state, live.touched, Date.now()) : isIdle(live.touched, Date.now());
     setInterval(() => {
         countDown();
+        countTimes();
         replanIfMoved();
         replanIfOff();
         sayRide();
@@ -836,6 +845,8 @@ function start(metro) {
     document.addEventListener('visibilitychange', () => {
         // Where the rider is, kept as the phone may close the app now
         if (document.hidden) { keepFollowed(); return; }
+        // Timers wait while the phone is locked: the times catch up at once
+        countTimes();
         replanIfMoved();
         replanIfOff();
         interact();

@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { minutesLeft } from '../public/js/core/times.js';
 import { countDown, dueStops, elapsedMinutes, IDLE_MS, isIdle, refreshEvery, REFRESH, REFRESH_SLOW_MS, SLACK_MS } from '../tools/buses/client/timing.js';
 
 // Which stops the bus page asks for, when it asks again, and how the minutes
@@ -46,6 +47,15 @@ test('counting down takes minutes off and drops buses that should have come', ()
     assert.equal(countDown(undefined, 3), undefined);
     const unavailable = { arrivals: [], unavailable: true };
     assert.equal(countDown(unavailable, 3), unavailable);
+});
+
+test('the Buses page counts down by the rule every page does (times.js minutesLeft, decision 61)', () => {
+    for (let minutes = 0; minutes <= 12; minutes++) {
+        for (let ms = 0; ms <= 14 * 60_000; ms += 7_000) {
+            const [shown] = countDown(at([minutes]), elapsedMinutes(1, 1 + ms)).arrivals;
+            assert.equal(shown?.minutes ?? null, minutesLeft(minutes * 60, ms / 1000), `${minutes}' after ${ms / 1000} s`);
+        }
+    }
 });
 
 test('a stop counted down into a faster tier is refreshed sooner', () => {
