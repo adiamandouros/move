@@ -63,6 +63,20 @@ function fakeLocation(settings) {
     }
 }
 
+// WebKit reports a fetch to the site that's cut off by leaving the page (like
+// the background /data/buses.json when a test goes to the next page) as
+// "Fetch API cannot load http://…/x due to access control checks.", which
+// Playwright hands on as a page error split at its first colon, the character
+// after it dropped ("http" and "/localhost…"). The page catches it; there's no
+// cross-origin request to fail for real.
+export function cancelledFetch(error, pageUrl) {
+    const scheme = /^Fetch API cannot load (https?)$/.exec(error.name)?.[1];
+    const rest = /^\/(\S+) due to access control checks\.$/.exec(error.message)?.[1];
+    if (!scheme || !rest) return false;
+    const url = `${scheme}://${rest}`;
+    return URL.canParse(url) && new URL(url).origin === new URL(pageUrl).origin;
+}
+
 export const test = base.extend({
     now: ['2026-10-21T12:00:00+03:00', { option: true }],
     location: [LOCATION, { option: true }],
@@ -81,7 +95,10 @@ export const test = base.extend({
         // browsers name its address differently, so any 404 document counts
         let notFoundPage = false;
         page.on('response', r => { if (r.status() === 404 && r.request().resourceType() === 'document') notFoundPage = true; });
-        page.on('pageerror', e => errors.push(`${page.url()}: ${e.message}`));
+        page.on('pageerror', e => {
+            if (cancelledFetch(e, page.url())) return;
+            errors.push(`${page.url()}: ${e.message}`);
+        });
         page.on('console', m => {
             if (m.type() !== 'error' || (notFoundPage && /^Failed to load resource: .*404/.test(m.text()))) return;
             if (allowErrors.some(pattern => pattern.test(m.text()))) return;

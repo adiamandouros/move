@@ -68,6 +68,9 @@ Import `test` and `expect` from `./fixtures.js`. Every test gets:
   sends the page's watches a new fix at once, like a phone does every
   second or so.
 - **no script errors**: a test fails if the page throws or logs an error.
+  Not for WebKit's "Fetch API cannot load … due to access control checks"
+  on a fetch to the site that going to the next page cut off (the
+  background `buses.json`, say): the page caught it.
 - **no service worker**, so pages don't come from the offline cache at
   random; `offline.spec.js` turns it on to test that cache.
 
