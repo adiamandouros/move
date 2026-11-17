@@ -20,15 +20,15 @@ export function renderServiceWorker(tools, pages) {
     const offlineTools = tools.filter(t => t.offline);
     // Pages in every language, so the Greek ones work offline too
     const inLangs = path => LANGS.map(lang => localPath(path, lang));
-    const precache = [
+    // A tool's scripts and those of the tools it borrows from (tool.json "borrows")
+    const withBorrowed = t => [t, ...(t.borrows ?? []).map(id => tools.find(other => other.id === id))];
+    const scripts = t => listFiles(t.clientDir).map(f => versioned(urlPath(`/tools/${t.id}`, t.clientDir, f)));
+    const precache = [...new Set([
         ...inLangs('/'), ...inLangs('/offline'),
         ...shellUrls(),
-        ...offlineTools.flatMap(t => [
-            ...inLangs(t.path),
-            ...listFiles(t.clientDir).map(f => versioned(urlPath(`/tools/${t.id}`, t.clientDir, f))),
-        ]),
-    ];
-    const precacheData = offlineTools.flatMap(t => t.precache);
+        ...offlineTools.flatMap(t => [...inLangs(t.path), ...withBorrowed(t).flatMap(scripts)]),
+    ])];
+    const precacheData = [...new Set(offlineTools.flatMap(t => t.precache))];
     // The home page is where the installed app opens
     const offlinePages = [...inLangs('/'), ...offlineTools.flatMap(t => inLangs(t.path))];
 

@@ -295,15 +295,20 @@ pages use.
 `server/views/sw.js` is the service worker; `service-worker.js` fills in its
 version and what it caches at install: the home and offline pages, the files
 every page needs, and the tools with `"offline": true` in `tool.json`
-(Subway and Info) with their data (`rail.json`). The home page and those
-tools open from the cache at once and update in the background. Other pages
-come from the network first, for 3 seconds if there's a saved copy to fall
-back on and 8 if there's only the offline page, because with no signal
-requests hang instead of failing. A page fetched because it was opened carries a
+(Trip, Subway and Info) with their data (`rail.json`, `trains.json`, and
+the Trip page's `buses.json`) and the scripts of the tools they borrow from.
+The home page and those tools open from the cache at once and update in the
+background. Other pages come from the network first, for 3 seconds if there's
+a saved copy to fall back on and 8 if there's only the offline page, because
+with no signal requests hang instead of failing. A page fetched because it was opened carries a
 `Wayhop-Opened` header, so the server counts it and not the copies cached at
 install. `/api` and `/admin` are never cached. Scripts asked for without a `?v=` (only a worker's imports are, as the
 page's import map doesn't reach a worker) come from the server first, so
-they're the same deploy as the page. A service worker from before that
+they're the same deploy as the page, and like a page fall back on the saved
+copy after 3 seconds. Once anything has waited its time for nothing, the
+network is taken for gone for 30 seconds (or until an answer comes) and saved
+copies are used at once, so a worker's imports, which come one after another,
+don't each wait. A service worker from before that
 served them from its cache, so the Trip page's searches could be an older
 copy that fails: when they fail and a newer version waits, the page says to
 close Wayhop everywhere and open it again (`fail` in
@@ -311,7 +316,7 @@ close Wayhop everywhere and open it again (`fail` in
 the version, which replaces the whole cache. A new version installs in the
 background and waits (no `skipWaiting`, no reload): open pages keep the
 version they started with, and it takes over once they're closed
-([decision 24](docs/decisions/0024-opening-without-signal.md)).
+([decision 59](docs/decisions/0059-trip-opens-without-signal.md)).
 
 ## Live bus times and the load on OASA
 

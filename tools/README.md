@@ -20,7 +20,7 @@ tools/<id>/
 | `order` | Position in the navigation |
 | `icon` | [Bootstrap icon](https://icons.getbootstrap.com/) name, without `bi-`; add it to `ICONS` in `server/pages/icons.js` |
 | `title`, `shortTitle`, `description` | `{ "en": …, "el": … }`. `shortTitle` is used in the mobile nav, if given |
-| `offline` | `true` to cache the page and its `client/` files for offline use |
+| `offline` | `true` to cache the page and its `client/` files (and those of the tools it borrows from) for offline use |
 | `scripts` | Files in `client/` to load as modules, e.g. `["main.js"]` |
 | `precache` | Data URLs to cache for offline use, e.g. `["/data/rail.json"]` (best-effort: a missing file doesn't break the cache) |
 | `rail` | `true` to draw the page from rail.json too: its `data.json` `lastTrains` rows (`{ line, from, to }`) get their times as `metro` (`server/pages/last-trains.js`), and the page is drawn again when rail.json changes |

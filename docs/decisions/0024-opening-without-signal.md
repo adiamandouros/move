@@ -1,6 +1,6 @@
 # 24. Offline, and opening at once with no signal
 
-Decided 2026-11-01 · In force
+Decided 2026-11-01 · Replaced by [59](0059-trip-opens-without-signal.md)
 
 ## Situation
 

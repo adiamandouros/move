@@ -35,7 +35,7 @@ decisions, or makes one of the same weight, comes with its page.
 | 21 | [Our load on OASA and STASY, with the bus trip finder](0021-load-on-oasa-with-trips.md) | Replaced by 26 |
 | 22 | [Address search from OpenStreetMap, built on GitHub](0022-address-search.md) | In force |
 | 23 | [The trip page: door to door, beside Subway and Buses](0023-trip-page.md) | Replaced by 29 |
-| 24 | [Offline, and opening at once with no signal](0024-opening-without-signal.md) | In force |
+| 24 | [Offline, and opening at once with no signal](0024-opening-without-signal.md) | Replaced by 59 |
 | 25 | [Trams in the subway planner](0025-trams-in-the-planner.md) | Replaced by 28 |
 | 26 | [Our load on OASA and STASY, with the bus-pass collector](0026-bus-pass-collector.md) | Replaced by 34 |
 | 27 | [Reaching OASA and STASY: direct first, now that OASA answers from abroad](0027-oasa-direct-first.md) | In force |
@@ -70,3 +70,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 56 | [The trip page: the last three places picked, kept on the device](0056-trip-recent-places.md) | In force |
 | 57 | [The trip page: walks through a metro station's exits, OpenStreetMap's where no field trip has been](0057-osm-exits-until-field-trips.md) | In force |
 | 58 | [The trip page: the ride followed kept with the trip](0058-trip-ride-kept.md) | In force |
+| 59 | [The trip page opens with no signal, its answer from the saved copy](0059-trip-opens-without-signal.md) | In force |
