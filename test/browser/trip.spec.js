@@ -769,6 +769,31 @@ test.describe('the trip page', () => {
             expect(await axe(page), 'axe-core violations').toEqual([]);
         });
 
+        // Road · 7: GPS gone before the stop (a station's stairs), the first
+        // fix minutes later on the ride took the rider for one off the way
+        test('no fix from before the stop until three stops on: on the ride, nothing planned again', async ({ page }) => {
+            const { asks, run } = await watchRequests(page);
+            const plans = await watchPlans(page);
+            const liveWay = await watchLive(page);
+            const { bus } = await hereToPark(page, run, asks, liveWay);
+            // A third of the way to the stop, then nothing for 3 minutes
+            const short = { lat: MENELAOU_45.lat + (bus[0].lat - MENELAOU_45.lat) * 2 / 3, lng: MENELAOU_45.lng + (bus[0].lng - MENELAOU_45.lng) * 2 / 3 };
+            await moveTo(page, short);
+            await run(1);
+            await expect(status(page)).toHaveText('Following your ride');
+            await page.clock.runFor(185_000);
+            await page.waitForFunction(() => window.__pending === 0);
+            await expect(status(page)).toHaveText('Last position 3 minutes ago');
+
+            // Three stops on, over 400 m from the walk
+            await moveTo(page, bus[3]);
+            await run(1);
+            await expect(status(page)).toHaveText('Following your ride');
+            await expect(current(page)).toContainText('040');
+            await expect(done(page)).toHaveCount(1);
+            expect(await plans()).toHaveLength(1);
+        });
+
         test('no fix for minutes (underground): nothing assumed, the status says how old the position is, nothing planned again; standing still 10 minutes pauses the live times, moving on resumes them', async ({ page }) => {
             const { asks, run } = await watchRequests(page);
             const plans = await watchPlans(page);
