@@ -199,7 +199,9 @@ function offBy(step, stop, fix) {
  * Where `fix` (at `nowMs`) puts the rider on the way's `steps`, from where
  * `state` had them: on to the next step once they're at the stop a walk ends
  * at, on the ride once they're nearer one of its later stops than the one
- * they waited at, along the ride by its nearest stop ahead (never back), off
+ * they waited at (or walked to, when off the walk would make them off the
+ * way but they're on the ride: boarded unseen), along the ride by its
+ * nearest stop ahead (never back), off
  * it at its last stop, and arrived at the door. `moved`: whether that changed. `off`: they're
  * off the way: OFF_METRES from every point of their step for OFF_MS, or at
  * once after GAP_MS without a fix, or nearer a stop past where the ride gets
@@ -211,12 +213,22 @@ export function placeOn(steps, state, fix, nowMs) {
     if (fix.accuracy != null && fix.accuracy > ROUGH_METRES) return { ...state, moved: false, off: false };
     let { step, stop } = state;
     let past = false;
+    const gap = Boolean(state.fix && fix.at - state.fix.at > GAP_MS);
     for (;;) {
         const current = steps[step];
         if (!current) break;
         if (current.kind === 'walk' || current.kind === 'last') {
-            if (!near(fix, current.to)) break;
-            step++;
+            if (near(fix, current.to)) { step++; continue; }
+            // Off the walk, but on the ride it leads to past its first stop,
+            // when that would put them off the way (after a gap, or for
+            // OFF_MS): boarded with no fix at the stop (GPS lost on a
+            // station's stairs, Road · 7), so on the ride instead
+            const ride = current.kind === 'walk' ? steps[step + 2] : null;
+            const due = gap || (state.offSince !== null && nowMs - state.offSince >= OFF_MS);
+            if (!due || current.kind !== 'walk' || ride?.kind !== 'ride' || ride.ride !== current.ride || offBy(current, 0, fix) <= OFF_METRES
+                || nearest(fix, ride.points) === 0 || offBy(ride, 0, fix) > OFF_METRES) break;
+            step += 2;
+            stop = 0;
             continue;
         }
         if (current.kind === 'wait') {
@@ -240,7 +252,6 @@ export function placeOn(steps, state, fix, nowMs) {
     const moved = step !== state.step || stop !== state.stop;
     const current = steps[step];
     const away = current ? offBy(current, stop, fix) : 0;
-    const gap = state.fix && fix.at - state.fix.at > GAP_MS;
     const offSince = away > OFF_METRES ? state.offSince ?? nowMs : null;
     const off = past || (offSince !== null && (gap || nowMs - offSince >= OFF_MS));
     const anchor = !state.anchor || metres(fix, state.anchor) >= STILL_METRES ? { lat: fix.lat, lng: fix.lng, at: nowMs } : state.anchor;

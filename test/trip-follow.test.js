@@ -233,6 +233,40 @@ test('after two minutes without a fix (underground), one fix that doesn\'t fit i
     assert.deepEqual([stepOf(steps, fits).kind, fits.stop, fits.off], ['ride', 3, false]);
 });
 
+// Road · 7: GPS gone on a station's stairs, the walk to it never ended, and
+// the first fix on the train, minutes later, put the rider off the way
+test('boarded with no fix at the stop: off the walk but on its ride past the first stop, on the ride once that would be off the way; off both, or by the first stop, off the way', () => {
+    const halfway = placeOn(steps, starting(), fixAt(east(150), T), T);
+    assert.equal(stepOf(steps, halfway).kind, 'walk');
+    // Underground for 4 minutes, then two stops on: at once
+    let state = placeOn(steps, halfway, fixAt(STOPS[2], T + 240_000), T + 240_000);
+    assert.deepEqual([stepOf(steps, state).kind, state.stop, state.moved, state.off, state.offSince], ['ride', 2, true, false, null]);
+    // With fixes coming, not on one (a stray fix boards nobody), but after a minute of them
+    let seen = placeOn(steps, halfway, fixAt(STOPS[2], T + 1_000), T + 1_000);
+    assert.deepEqual([stepOf(steps, seen).kind, seen.off, seen.offSince], ['walk', false, T + 1_000]);
+    seen = placeOn(steps, seen, fixAt(STOPS[3], T + 60_000), T + 60_000);
+    assert.equal(stepOf(steps, seen).kind, 'walk');
+    seen = placeOn(steps, seen, fixAt(STOPS[3], T + 61_000), T + 61_000);
+    assert.deepEqual([stepOf(steps, seen).kind, seen.stop, seen.off, seen.offSince], ['ride', 3, false, null]);
+    // The ride goes on from there
+    state = placeOn(steps, state, fixAt(STOPS[4], T + 360_000), T + 360_000);
+    assert.equal(stepOf(steps, state).kind, 'last');
+    // Off the walk and the ride, after the gap: off the way, as before
+    const elsewhere = placeOn(steps, halfway, fixAt(east(600, STOPS[2]), T + 240_000), T + 240_000);
+    assert.deepEqual([stepOf(steps, elsewhere).kind, elsewhere.off], ['walk', true]);
+    // Off the walk, by the stop it goes to rather than any later: not boarded
+    const before = placeOn(steps, halfway, fixAt(north(-350, BOARD), T + 240_000), T + 240_000);
+    assert.deepEqual([stepOf(steps, before).kind, before.off], ['walk', true]);
+});
+
+test('a fix still near the walk stays on it, though it\'s nearer a later stop of the ride than the first (a walk beside the bus\'s road)', () => {
+    const halfway = placeOn(steps, starting(), fixAt(east(150), T), T);
+    const beside = east(200, north(250));
+    assert.ok(segmentMeters(beside, SYNTAGMA, BOARD) <= 300);
+    const state = placeOn(steps, halfway, fixAt(beside, T + 60_000), T + 60_000);
+    assert.deepEqual([stepOf(steps, state).kind, state.moved, state.off, state.offSince], ['walk', false, false, null]);
+});
+
 test('riding past the stop: nearer a stop after it than to it, off at once', () => {
     let state = onBus(north(1_250, BOARD), T);
     assert.equal(state.stop, 3);
