@@ -245,9 +245,9 @@ for (const lang of ['en', 'el']) {
 
     test(`${lang}: to the tram at Syntagma, out by the exit tram.json says, and the walk to the tram's stop on from there`, () => {
         const station = id => ({ lat: network.stations[id].coords[0], lng: network.stations[id].coords[1], station: id, title: id, exact: null });
-        const trip = doorToDoor(network, station('korydallos'), station('kasomouli'), NOW);
+        const trip = doorToDoor(network, station('korydallos'), station('zappeio'), NOW);
         assert.deepEqual(trip.options[0].plan.legs.map(leg => leg.line), ['M3', 'T6']);
-        const view = String(drawTrip(network, trip, station('kasomouli')));
+        const view = String(drawTrip(network, trip, station('zappeio')));
         check(view);
         const out = `<span class="trip-step-when"></span><div class="trip-step-what"><div>${format(s['trip.way-out'], { exit: lang === 'el' ? 'Αμαλίας/Εθνικός Κήπος' : 'Amalias/National Garden' })}</div></div>`;
         const walk = s['trip.walk-to'].replace('{place}', lang === 'el' ? 'Σύνταγμα (τραμ)' : 'Syntagma (tram)');

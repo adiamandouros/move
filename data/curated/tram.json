@@ -45,7 +45,7 @@
     "moschato": {"name": {"el": "Μοσχάτο", "en": "Moschato"}, "gtfs": ["MOSNF", "MOSPF"]},
     "mousson": {"name": {"el": "Μουσών", "en": "Mousson"}, "gtfs": ["MOUPF", "MOUSY"]},
     "neo-faliro": {"name": {"el": "Νέο Φάληρο", "en": "Neo Faliro"}, "gtfs": ["NFANF", "NFAPF"], "metro": "faliro", "walks": [{"metro": "faliro", "minutes": 7}, {"stop": "sef", "minutes": 7}]},
-    "neos-kosmos": {"name": {"el": "Νέος Κόσμος", "en": "Neos Kosmos"}, "gtfs": ["NKOPF", "NKOSY"], "metro": "neos-kosmos", "walks": [{"metro": "neos-kosmos", "minutes": 4, "exit": "Κασομούλη/Πίσσα"}]},
+    "neos-kosmos": {"name": {"el": "Νέος Κόσμος", "en": "Neos Kosmos"}, "gtfs": ["NKOPF", "NKOSY"], "metro": "neos-kosmos", "walks": [{"metro": "neos-kosmos", "minutes": 2, "exit": "Κασομούλη/Πίσσα"}]},
     "palaio-dimarcheio": {"name": {"el": "Παλαιό Δημαρχείο", "en": "Paleo Dimarchio"}, "gtfs": ["PDIGL", "PDIPF"]},
     "panagitsa": {"name": {"el": "Παναγίτσα", "en": "Panagitsa"}, "gtfs": ["PANPF", "PANSY"]},
     "paralia-glyfadas": {"name": {"el": "Παραλία Γλυφάδας", "en": "Paralia Glyfadas"}, "gtfs": ["PGLGL", "PGLPF"]},
