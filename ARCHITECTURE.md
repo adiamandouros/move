@@ -224,10 +224,15 @@ pages use.
   go (a station page's "Plan a trip from here", the bus page's way back to
   the stops nearby) work as they always did. The Trip page keeps no
   address, so it keeps its trip itself (`tools/trip/client/kept.js`,
-  [decision 52](docs/decisions/0052-trip-kept-on-the-device.md)): each
+  [decision 58](docs/decisions/0058-trip-ride-kept.md)): each
   end's place as search found it, on the device (`localStorage`) for 3
-  hours since it was last changed, so it outlasts Android closing the app;
-  My location isn't kept, as the page starts from it by itself.
+  hours since it was last changed or followed, so it outlasts Android
+  closing the app; My location isn't kept as an end, as the page starts
+  from it by itself. A ride followed from My location is kept with it:
+  where and for when it was searched, the way's steps and where the rider
+  was on them. Opened again, the page searches the same again, so the same
+  way comes back, and places the rider where they were on it; nothing is
+  planned again from where they are until a fix puts them off it.
 - Scripts import each other by absolute URL (`/js/core/i18n.js`). An import
   map in every page points each of those URLs at its version (`?v=<hash>`;
   [decision 1](docs/decisions/0001-no-build-step.md)).

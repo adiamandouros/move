@@ -737,6 +737,38 @@ test.describe('the trip page', () => {
             await expect(current(page)).toHaveCount(0);
         });
 
+        // Road · 8: on the tram, Android closed the app; opened again, the
+        // trip was planned anew from where the rider was, told to walk to a stop
+        test('the app closed on the way and opened again: the ride taken up where it was, from where it was planned, not planned anew (decision 58)', async ({ page }) => {
+            const { asks, run } = await watchRequests(page);
+            const plans = await watchPlans(page);
+            const liveWay = await watchLive(page);
+            const { bus } = await hereToPark(page, run, asks, liveWay);
+            await moveTo(page, bus[0]);
+            await run(1);
+            await moveTo(page, bus[2]);
+            await run(1);
+            await expect(current(page)).toContainText('040');
+            const [start] = await plans();
+
+            // Opened again a stop on, where the phone now is
+            await page.addInitScript(at => window.__setLocation({ at }), bus[3]);
+            await page.reload();
+            await run(2);
+            await expect(from(page)).toHaveValue('My location');
+            await expect(current(page)).toContainText('040');
+            await expect(done(page)).toHaveCount(1);
+            await run(1);
+            await expect(status(page)).toHaveText('Following your ride');
+            expect(await plans(), 'searched again from where it was planned').toEqual([{ ...start, at: expect.any(Number) }]);
+            await moveTo(page, bus.at(-1));
+            await run(1);
+            await expect(current(page)).toContainText('M2');
+            expect(await plans()).toHaveLength(1);
+            await page.clock.resume();
+            expect(await axe(page), 'axe-core violations').toEqual([]);
+        });
+
         test('no fix for minutes (underground): nothing assumed, the status says how old the position is, nothing planned again; standing still 10 minutes pauses the live times, moving on resumes them', async ({ page }) => {
             const { asks, run } = await watchRequests(page);
             const plans = await watchPlans(page);
@@ -1235,7 +1267,7 @@ test.describe('the trip page', () => {
         test.describe('from My location', () => {
             test.use({ location: { at: MEGARA } });
 
-            test('My location isn\'t kept, and where it was isn\'t either: the page starts from where the rider is, as it does by itself', async ({ page }) => {
+            test('My location isn\'t kept, and before the rider has left, where it was isn\'t either: the page starts from where the rider is, as it does by itself', async ({ page }) => {
                 await hereToSyntagma(page);
                 await expect(page.locator('.trip-card').first()).toBeVisible();
                 await page.goto('/info');

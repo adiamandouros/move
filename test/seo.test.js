@@ -40,22 +40,24 @@ test('the about, privacy, terms and contact pages are written in each language a
         assert.match(pages[`/${name}`], /<html lang="en"/);
         assert.match(pages[`/el/${name}`], /<html lang="el"/);
     }
-    assert.match(pages['/privacy'], /<h1>Privacy<\/h1>[\s\S]*Last updated: 14 November 2026/);
+    assert.match(pages['/privacy'], /<h1>Privacy<\/h1>[\s\S]*Last updated: 17 November 2026/);
     assert.match(pages['/privacy'], /The addresses and places you search for/);
     assert.match(pages['/el/privacy'], /Οι διευθύνσεις και τα μέρη που αναζητάτε/);
     assert.match(pages['/privacy'], /The last three metro stations you picked/);
     assert.match(pages['/privacy'], /The metro stations, bus stops and bus lines you starred as favourites/);
     assert.match(pages['/privacy'], /nearby stops, and the stops you starred, by their number/);
     assert.match(pages['/el/privacy'], /Οι σταθμοί μετρό, οι στάσεις και οι γραμμές λεωφορείων που σημειώσατε ως αγαπημένα/);
-    assert.match(pages['/el/privacy'], /<h1>Απόρρητο<\/h1>[\s\S]*Τελευταία ενημέρωση: 14 Νοεμβρίου 2026/);
+    assert.match(pages['/el/privacy'], /<h1>Απόρρητο<\/h1>[\s\S]*Τελευταία ενημέρωση: 17 Νοεμβρίου 2026/);
     assert.match(pages['/el/privacy'], /Οι τρεις τελευταίοι σταθμοί μετρό που επιλέξατε/);
     // A closed legend stays closed (/js/core/metro.js)
     assert.match(pages['/privacy'], /Whether you closed the explanation of what the train shows/);
     assert.match(pages['/el/privacy'], /Αν κλείσατε την εξήγηση για το τι δείχνει το τρένο/);
     // Everything else kept on the device: remember.js, the Trip page's kept.js, install.js, location.js
     assert.match(pages['/privacy'], /<strong>Where you left each tool<\/strong> \(the stations or the bus stop you were looking at\), while the tab or app stays open/);
-    assert.match(pages['/privacy'], /<strong>The trip you set on the Trip page<\/strong> \(the places you picked for its start and end\), for 3 hours after you last changed it, even if the tab or app is closed/);
-    assert.match(pages['/el/privacy'], /<strong>Η διαδρομή που ορίσατε στη σελίδα Διαδρομή<\/strong>[^<]*για 3 ώρες από την τελευταία φορά που την αλλάξατε, ακόμη κι αν κλείσει η καρτέλα ή η εφαρμογή/);
+    assert.match(pages['/privacy'], /<strong>The trip you set on the Trip page<\/strong> \(the places you picked for its start and end\), for 3 hours after you last changed it or it last followed your ride, even if the tab or app is closed/);
+    assert.match(pages['/privacy'], /it also keeps the lines and stops you're taking, where they were planned from and where you last were on them/);
+    assert.match(pages['/el/privacy'], /<strong>Η διαδρομή που ορίσατε στη σελίδα Διαδρομή<\/strong>[^<]*για 3 ώρες από την τελευταία φορά που την αλλάξατε ή που ακολούθησε τη διαδρομή σας, ακόμη κι αν κλείσει η καρτέλα ή η εφαρμογή/);
+    assert.match(pages['/el/privacy'], /κρατά επίσης τις γραμμές και τις στάσεις που παίρνετε/);
     assert.match(pages['/privacy'], /<strong>Whether you closed the offer to install the app<\/strong> with "Not now"/);
     assert.match(pages['/privacy'], /Wayhop also notes that you allowed it, so the next page doesn't have to ask first\./);
     assert.match(pages['/el/privacy'], /<strong>Πού αφήσατε κάθε εργαλείο<\/strong>/);

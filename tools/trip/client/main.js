@@ -10,7 +10,7 @@ import { suburbanHidden, tramHidden } from '/tools/subway/tram-switch.js';
 import { walkSeconds } from '/tools/subway/city.js';
 import { isIdle } from '/tools/buses/timing.js';
 import { carry, GAP_MS, leftStart, offDue, placeOn, replanDue, REPLAN_MS, startOver, starting, stepOf, stillDue, waySteps } from './follow.js';
-import { forgetTrip, keepTrip, keptTrip } from './kept.js';
+import { forgetTrip, keepRide, keepTrip, keptTrip } from './kept.js';
 import { arrivalsUrl, dueStops, liveStatus, ownBus, stopLive, unanswered } from './live.js';
 import { doorToDoor, isLongWalk } from './plan.js';
 import { placePicker } from './picker.js';
@@ -168,22 +168,48 @@ function start(metro) {
     // them, whether they've left the start, and what From's status line says
     // of it. `following` itself is My location's switch (below)
     // `carrying`: the next way is one switched to on the way, or back, so the
-    // rider's place carries over (carry)
+    // rider's place carries over (carry). `restore`: the ride kept when the
+    // page was last open (decision 58), its way's key and steps and where
+    // the rider was on them, till the way drawn is its own (or the half
+    // hour is in); meanwhile nothing is planned again from where they are
     let following = false;
-    const ride = { key: null, way: null, steps: null, state: starting(), left: false, said: null, carrying: false };
+    const ride = { key: null, way: null, steps: null, state: starting(), left: false, said: null, carrying: false, restore: null };
     const riding = () => Boolean(following && to && ride.left && ride.steps);
     const keyOf = o => o.city ? o.rides.map(r => `${r.board.id}>${r.alight.id}`).join() : o.plan.legs.map(leg => `${leg.from}>${leg.to}`).join();
     // The steps are made again only for another way: a trip planned again,
     // or the quicker way taken; the rider's place on them starts over, where
-    // the last fix had them, but for a way switched to on the way or back
+    // the last fix had them, but for a way switched to on the way or back,
+    // and for the ride kept: where they were on its own way, carried over
+    // to another (a way switched to isn't searched again)
     const followWay = (o, date) => {
         const key = o ? keyOf(o) : null;
-        if (key === ride.key) return;
+        const { restore } = ride;
+        const final = restore && (key === restore.key || forTrip(half));
+        if (key === ride.key) {
+            if (final) ride.restore = null;
+            return;
+        }
         const steps = o ? waySteps(o, from, to, drawnOn(date)) : null;
-        const state = ride.carrying && ride.steps && steps ? carry(ride.steps, ride.state, steps) : startOver(ride.state);
+        const state = restore && steps ? key === restore.key ? restore.state : carry(restore.steps, restore.state, steps)
+            : ride.carrying && ride.steps && steps ? carry(ride.steps, ride.state, steps) : startOver(ride.state);
+        if (final) ride.restore = null;
         Object.assign(ride, { key, way: o, steps, state, carrying: false });
+        keepFollowed();
     };
-    const resetRide = () => Object.assign(ride, { key: null, way: null, steps: null, state: starting(), left: false, said: null, carrying: false });
+    const resetRide = () => {
+        Object.assign(ride, { key: null, way: null, steps: null, state: starting(), left: false, said: null, carrying: false, restore: null });
+        keepRide(null, Date.now());
+    };
+    // The ride followed, kept with the trip for the page opened again
+    // (decision 58): where and for when the way was searched, its steps and
+    // where the rider is on them. Not while the kept one is still being
+    // taken up, nor while a new plan is being searched
+    const keepFollowed = () => {
+        if (ride.restore || !forTrip(found)) return;
+        keepRide(riding() ? { from: { lat: from.lat, lng: from.lng }, now: found.now, at: planned.at, key: ride.key, steps: ride.steps, state: ride.state, choice: live.choice, own: live.own } : null, Date.now());
+    };
+    // The ride kept, as render's next search takes it up: searched for when it was
+    let resuming = null;
     // Where the rider is, for the worker to time the way from (buses.js
     // LiveStep): as of now, or of the last fix when none has come for a while
     // (underground), so nothing slides to the next train; a walk by what's
@@ -503,7 +529,9 @@ function start(metro) {
         const ready = from && to;
         if (!ready) { setHtml(result, html`<p class="trip-intro">${t('trip.intro')}</p>`); return; }
         if (!forTrip(planned)) planned = { from, to, at: Date.now() };
-        const now = athensNow();
+        const resumed = resuming;
+        resuming = null;
+        const now = resumed?.now ?? athensNow();
         if (!searches) { draw(now, [], speak); return; }
         const same = forTrip(found);
         // Followed along the way, the rider has left: the answer isn't
@@ -525,6 +553,7 @@ function start(metro) {
             setHtml(result, html`<p class="trip-intro" role="status">${t('trip.working')}</p>`);
             timing.half = null;
             resetLive();
+            if (resumed) Object.assign(live, { choice: resumed.choice ?? null, own: resumed.own ?? null });
         }
         searches.postMessage({ id, from, to, now, half: halfToo });
     };
@@ -614,6 +643,19 @@ function start(metro) {
         showFollowing(locate, on);
     };
     const here = position => ({ lat: position.lat, lng: position.lng, title: t('trip.my-location') });
+    // The ride kept, taken up (decision 58): the trip searched again from
+    // where and for when it was, so the same way comes back, and the rider
+    // placed where they were on it; the next fix places them from there
+    const resumeRide = kept => {
+        from = here(kept.from);
+        fromInput.value = t('trip.my-location');
+        follow(true);
+        planned = { from, to, at: kept.at };
+        Object.assign(ride, { left: true, restore: { key: kept.key, steps: kept.steps, state: kept.state } });
+        resuming = kept;
+        fromPicker.say('');
+        render({ speak: true });
+    };
     const useLocation = position => {
         from = here(position);
         fromInput.value = t('trip.my-location');
@@ -624,7 +666,7 @@ function start(metro) {
     // In sight only, and not while the keyboard is in the answer, as for a
     // refresh. With a way to follow, the fixes place the rider on it instead (placeFix)
     const replanIfMoved = (position = null) => {
-        if (!following || !from || !to || ride.steps || document.hidden || inAnswer()) return;
+        if (!following || !from || !to || ride.steps || ride.restore || document.hidden || inAnswer()) return;
         const now = position ?? lastPosition();
         if (!now || !replanDue({ lat: from.lat, lng: from.lng, at: planned.at }, now, Date.now())) return;
         from = here(now);
@@ -659,6 +701,7 @@ function start(metro) {
         }
         const nowMs = Date.now();
         ride.state = placeOn(ride.steps, ride.state, fix, nowMs);
+        if (ride.state.moved) keepFollowed();
         sayRide();
         // Boarding a bus: the one of the way's lines OASA had due at that
         // stop nearest then is theirs, known again where they get off
@@ -695,6 +738,9 @@ function start(metro) {
     const kept = !fromInput.value && !toInput.value ? keptTrip(Date.now()) : null;
     if (kept?.from) { from = placeFor(kept.from); fromInput.value = from.title; sayExact(fromPicker, from); }
     if (kept?.to) { to = placeFor(kept.to); toInput.value = to.title; sayExact(toPicker, to); }
+    // The ride followed from My location when the page was last open
+    // (decision 58): taken up below, in place of a start from where the rider is
+    const resume = kept?.ride && !kept.from && to ? kept.ride : null;
     // The link to this page starts it over, as on the other tools (remember.js)
     document.querySelectorAll('a[data-tool="trip"]').forEach(link => link.addEventListener('click', forgetTrip));
 
@@ -751,7 +797,8 @@ function start(metro) {
     // asks for the location here, and what's typed meanwhile wins
     if (!fromInput.value) {
         const last = lastPosition();
-        if (last && !inFrom()) useLocation(last);
+        if (resume) resumeRide(resume);
+        else if (last && !inFrom()) useLocation(last);
         locationPermission().then(permission => {
             if (permission === 'denied') follow(false);
             if (permission !== 'granted' || (fromInput.value && !following)) return;
@@ -787,7 +834,8 @@ function start(metro) {
     document.addEventListener('pointerdown', interact, { passive: true });
     document.addEventListener('keydown', interact);
     document.addEventListener('visibilitychange', () => {
-        if (document.hidden) return;
+        // Where the rider is, kept as the phone may close the app now
+        if (document.hidden) { keepFollowed(); return; }
         replanIfMoved();
         replanIfOff();
         interact();
