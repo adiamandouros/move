@@ -100,6 +100,16 @@ test('a decision: the directions that stay on come first, whatever the weights s
     assert.equal(clear.quicker, null, 'no decision, nothing quicker');
 });
 
+test('from the tram to the M3: off at Neos Kosmos for two stops of M2 is one of the ways, by the 2′ walk measured there (Road · 12)', () => {
+    // At the first guess's 4′ the tram to Syntagma was the one clear way, and Neos Kosmos never shown
+    const tram = id => ({ lat: network.stations[id].coords[0], lng: network.stations[id].coords[1], station: id, title: id, exact: null });
+    const view = viewOf(tram('agia-paraskevi-tram'), station('korydallos', 'Κορυδαλλός'), at(8.5));
+    assert.equal(view.kind, 'depends');
+    const ways = view.rows.map(row => row.options.find(Boolean).rides.map(ride => `${ride.line} ${ride.alight.station}`).join());
+    assert.ok(ways.includes('T6 neos-kosmos-tram,M2 syntagma,M3 korydallos'), ways.join(' | '));
+    assert.ok(ways.includes('T6 syntagma-tram,M3 korydallos'), ways.join(' | '));
+});
+
 test('nothing found in the half hour: nothing to show', () => {
     assert.deepEqual(halfView(city, menelaou, fix, { kind: 'none', rows: [], departures: [] }).rows, []);
 });
