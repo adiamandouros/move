@@ -43,7 +43,8 @@ phone gives up on the request.
 - Each deploy, installing Wayhop downloads `buses.json` again (about 300 KB
   compressed). Home already fetches it on every visit.
 - The address search needs the server: with no signal only the places picked
-  lately ([56](0056-trip-recent-places.md)) can be chosen.
+  lately ([56](0056-trip-recent-places.md)) can be chosen, and a search
+  typed says it isn't available after 10 seconds.
 - The Trip page can be one visit behind after a deploy, as Subway can.
 - Its searches' scripts can be an older copy only when the network is gone,
   which the page already handles (#208).
