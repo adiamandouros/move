@@ -422,10 +422,11 @@ rules, with a picture of a way shown in full.
 - **Above the answer**: notices by their tones, and the step-free notice.
 - **My location** works exactly like Nearest, and follows the rider's own
   ride (decision 50). Until the way shown in full can be followed (walking
-  is quicker, no answer yet), it re-plans when the rider is 200m or more
-  from where the trip was last planned, at most every 2 minutes.
-- **Following your ride**: with My location on, once the rider is 100 m
-  from the start, the way shown in full is theirs. The step they're on has a
+  is quicker, no answer yet), it re-plans when the rider is 20 m or more
+  from where the trip was last planned (or the fix's accuracy, when that's
+  worse), at most every 2 minutes.
+- **Following your ride**: with My location on, once the rider is 20 m
+  from the start (or the fix's accuracy, when that's worse), the way shown in full is theirs. The step they're on has a
   bar in the brand colour down its left (`aria-current="step"` for a screen
   reader); the steps done stay where they are, in the secondary colour, a
   ride's time no longer strong; where a bus can be any of several, only the

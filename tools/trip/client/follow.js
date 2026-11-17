@@ -10,12 +10,15 @@ import { distanceMeters } from '/js/core/geo.js';
 // the way, still no sooner than REPLAN_MS after the last. No DOM, so it's
 // tested in Node; main.js follows.
 
-export const MOVED_METRES = 200;
+// Each distance below in metres is at least the fix's own accuracy when that's
+// worse (within): GPS wanders about that much while the rider stands still
+// (decision 60)
+export const MOVED_METRES = 20;
 export const REPLAN_MS = 2 * 60_000;
 // A fix less exact than this (a cell or Wi-Fi guess, not GPS) places nobody
 export const ROUGH_METRES = 200;
 // Within this of a stop, a station or the door, the rider is there
-export const NEAR_METRES = 100;
+export const NEAR_METRES = 20;
 // Further than this from every point of the step they're on, for this long,
 // the rider is off the way
 export const OFF_METRES = 300;
@@ -24,7 +27,7 @@ export const OFF_MS = 60_000;
 // way is enough: there's nothing to confirm it against
 export const GAP_MS = 2 * 60_000;
 // This far from the start, the rider has left
-export const LEFT_METRES = 100;
+export const LEFT_METRES = 20;
 // Not moved this far for this long: standing still (the pause rule, with
 // the page untouched as long: timing.js IDLE_MS)
 export const STILL_METRES = 50;
@@ -32,6 +35,12 @@ export const STILL_MS = 10 * 60_000;
 
 /** @typedef {{ lat: number, lng: number }} Point */
 /** @typedef {{ lat: number, lng: number, at: number, accuracy?: number | null }} Fix */
+
+/**
+ * `metres`, or `fix`'s accuracy when that's more
+ * @param {number} metres @param {{ accuracy?: number | null }} fix
+ */
+export const within = (metres, fix) => Math.max(metres, fix.accuracy ?? 0);
 /**
  * A step of the way, as it's followed: a walk from `from` to `to` (the
  * first, or between rides) to ride `ride`, waiting at a stop for ride
@@ -55,11 +64,11 @@ export const STILL_MS = 10 * 60_000;
  * Whether to plan the trip again from `position`, `planned` being where it
  * was last planned from and when (ms)
  * @param {{ lat: number, lng: number, at: number }} planned
- * @param {{ lat: number, lng: number }} position
+ * @param {{ lat: number, lng: number, accuracy?: number | null }} position
  * @param {number} nowMs
  */
 export const replanDue = (planned, position, nowMs) => nowMs - planned.at >= REPLAN_MS
-    && distanceMeters(planned.lat, planned.lng, position.lat, position.lng) >= MOVED_METRES;
+    && distanceMeters(planned.lat, planned.lng, position.lat, position.lng) >= within(MOVED_METRES, position);
 
 /** @param {Point} a @param {Point} b */
 const metres = (a, b) => distanceMeters(a.lat, a.lng, b.lat, b.lng);
@@ -177,8 +186,8 @@ export const stepOf = (steps, state) => steps[state.step] ?? { kind: 'arrived' }
 // Which of `points` is nearest `fix`
 /** @param {Point} fix @param {Point[]} points */
 const nearest = (fix, points) => points.reduce((best, p, i) => metres(fix, p) < metres(fix, points[best]) ? i : best, 0);
-/** @param {Point} fix @param {Point} p */
-const near = (fix, p) => metres(fix, p) <= NEAR_METRES;
+/** @param {Fix} fix @param {Point} p */
+const near = (fix, p) => metres(fix, p) <= within(NEAR_METRES, fix);
 
 // How far `fix` is from the step the rider is on: the walk's line, the stop
 // they wait at, the ride from the stop they're at to where it gets off
@@ -266,9 +275,9 @@ export function placeOn(steps, state, fix, nowMs) {
  */
 export const offDue = (state, nowMs) => state.off || (state.offSince !== null && nowMs - state.offSince >= OFF_MS);
 
-/** The rider has left the start: LEFT_METRES or more from it */
-/** @param {Point} fix @param {Point} from */
-export const leftStart = (fix, from) => metres(fix, from) >= LEFT_METRES;
+/** The rider has left the start: LEFT_METRES or more from it, or the fix's accuracy */
+/** @param {Fix} fix @param {Point} from */
+export const leftStart = (fix, from) => metres(fix, from) >= within(LEFT_METRES, fix);
 
 /**
  * Standing still: not moved STILL_METRES for STILL_MS, and the page untouched
