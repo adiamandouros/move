@@ -20,8 +20,14 @@ export const ROUGH_METRES = 200;
 // Within this of a stop, a station or the door, the rider is there
 export const NEAR_METRES = 20;
 // Further than this from every point of the step they're on, for this long,
-// the rider is off the way
+// the rider is off the way: a walk's straight line can be far from the
+// streets, a train's from its track between stations kilometres apart
 export const OFF_METRES = 300;
+// Waiting at a stop, or on a bus, a trolley or a tram, whose stops are close
+// enough for the road to keep near the line between them: this instead
+// (decision 60). And on a walk to a ride, within this of the ride past its
+// first stop and nearer it than the walk: boarded
+export const OFF_CLOSE_METRES = 100;
 export const OFF_MS = 60_000;
 // After this long without a fix (underground), one fix that doesn't fit the
 // way is enough: there's nothing to confirm it against
@@ -45,10 +51,10 @@ export const within = (metres, fix) => Math.max(metres, fix.accuracy ?? 0);
  * A step of the way, as it's followed: a walk from `from` to `to` (the
  * first, or between rides) to ride `ride`, waiting at a stop for ride
  * `ride`, ride `ride` along `points` (boarding to getting off) with the
- * stops `past` it, or the last walk to the door. `arrived` once every step
- * is done
+ * stops `past` it (`close`: by bus, trolley or tram, its stops close
+ * together), or the last walk to the door. `arrived` once every step is done
  * @typedef {{ kind: 'walk', ride: number, from: Point, to: Point } | { kind: 'wait', ride: number, at: Point }
- *   | { kind: 'ride', ride: number, points: Point[], past: Point[] } | { kind: 'last', from: Point, to: Point } | { kind: 'arrived' }} Step
+ *   | { kind: 'ride', ride: number, points: Point[], past: Point[], close: boolean } | { kind: 'last', from: Point, to: Point } | { kind: 'arrived' }} Step
  */
 /**
  * Where the rider is on the way: which step (an index into the steps), at
@@ -74,6 +80,8 @@ export const replanDue = (planned, position, nowMs) => nowMs - planned.at >= REP
 const metres = (a, b) => distanceMeters(a.lat, a.lng, b.lat, b.lng);
 /** @param {[number, number]} pair */
 const point = ([lat, lng]) => ({ lat, lng });
+// The city's search's rides by rail, whose stations are far apart
+const RAIL = new Set(['metro', 'suburban']);
 
 // Metres on the flat around `p`, as the address search measures them
 const M_LAT = 111_195;
@@ -111,9 +119,9 @@ export function waySteps(o, from, to, rail) {
         const exit = i === undefined ? null : station?.exits?.[i];
         return exit ? { lat: exit.at[0], lng: exit.at[1] } : or;
     };
-    /** @param {number} ride @param {Point[]} points @param {Point[]} past */
-    const board = (ride, points, past) => {
-        steps.push({ kind: 'wait', ride, at: points[0] }, { kind: 'ride', ride, points, past });
+    /** @param {number} ride @param {Point[]} points @param {Point[]} past @param {boolean} close */
+    const board = (ride, points, past, close) => {
+        steps.push({ kind: 'wait', ride, at: points[0] }, { kind: 'ride', ride, points, past, close });
         here = points.at(-1);
     };
     if (o.city) {
@@ -123,7 +131,7 @@ export function waySteps(o, from, to, rail) {
                 if (i > 0) here = exitOr(o.rides[i - 1].alight, before.out, here);
                 walk(i, exitOr(ride.board, before.in, point(ride.along[0])));
             }
-            board(i, ride.along.map(point), ride.past.map(point));
+            board(i, ride.along.map(point), ride.past.map(point), !RAIL.has(ride.mode));
         });
         if (o.lastWalk) steps.push({ kind: 'last', from: exitOr(o.rides.at(-1).alight, o.lastWalk.out, here), to });
     } else {
@@ -142,7 +150,7 @@ export function waySteps(o, from, to, rail) {
             if (before && before.to !== leg.from) between(i, before.to, leg.from);
             const { stops } = rail.lines[leg.line].directions[leg.dir];
             const at = stops.slice(leg.fromIndex, leg.toIndex + 1).map(stop => station(stop.station));
-            board(i, at, stops.slice(leg.toIndex + 1, leg.toIndex + 3).map(stop => station(stop.station)));
+            board(i, at, stops.slice(leg.toIndex + 1, leg.toIndex + 3).map(stop => station(stop.station)), Boolean(rail.lines[leg.line].tram));
         });
         // A walk to another station at the end counts as the last walk
         if (o.plan.walkLast) between(o.plan.legs.length, o.plan.legs.at(-1).to, o.end.station, { boarding: false });
@@ -204,6 +212,10 @@ function offBy(step, stop, fix) {
     }
 }
 
+// How far from `step` `fix` may be before the rider is off the way
+/** @param {Step} step @param {Fix} fix */
+const offLimit = (step, fix) => step.kind === 'wait' || (step.kind === 'ride' && step.close) ? within(OFF_CLOSE_METRES, fix) : OFF_METRES;
+
 /**
  * Where `fix` (at `nowMs`) puts the rider on the way's `steps`, from where
  * `state` had them: on to the next step once they're at the stop a walk ends
@@ -212,7 +224,8 @@ function offBy(step, stop, fix) {
  * way but they're on the ride: boarded unseen), along the ride by its
  * nearest stop ahead (never back), off
  * it at its last stop, and arrived at the door. `moved`: whether that changed. `off`: they're
- * off the way: OFF_METRES from every point of their step for OFF_MS, or at
+ * off the way: OFF_METRES (OFF_CLOSE_METRES waiting, or on a bus, a trolley
+ * or a tram) from every point of their step for OFF_MS, or at
  * once after GAP_MS without a fix, or nearer a stop past where the ride gets
  * off than to it. A fix rougher than ROUGH_METRES changes nothing
  * @param {Step[]} steps @param {State} state @param {Fix} fix @param {number} nowMs
@@ -228,13 +241,28 @@ export function placeOn(steps, state, fix, nowMs) {
         if (!current) break;
         if (current.kind === 'walk' || current.kind === 'last') {
             if (near(fix, current.to)) { step++; continue; }
+            const ride = current.kind === 'walk' ? steps[step + 2] : null;
+            const onRide = current.kind === 'walk' && ride?.kind === 'ride' && ride.ride === current.ride;
+            // Still by the walk, but nearer a later stop of the ride than its
+            // first, close to the ride and nearer it than the walk: boarded
+            // with no fix at the stop that counted (a stop's place 20 m from
+            // where people wait, decision 60). Further off: Road · 7's below
+            if (onRide) {
+                const i = nearest(fix, ride.points);
+                const by = offBy(ride, 0, fix);
+                const walk = offBy(current, 0, fix);
+                if (i > 0 && walk <= OFF_METRES && by <= within(OFF_CLOSE_METRES, fix) && by < walk) {
+                    step += 2;
+                    stop = i;
+                    continue;
+                }
+            }
             // Off the walk, but on the ride it leads to past its first stop,
             // when that would put them off the way (after a gap, or for
             // OFF_MS): boarded with no fix at the stop (GPS lost on a
             // station's stairs, Road · 7), so on the ride instead
-            const ride = current.kind === 'walk' ? steps[step + 2] : null;
             const due = gap || (state.offSince !== null && nowMs - state.offSince >= OFF_MS);
-            if (!due || current.kind !== 'walk' || ride?.kind !== 'ride' || ride.ride !== current.ride || offBy(current, 0, fix) <= OFF_METRES
+            if (!due || !onRide || offBy(current, 0, fix) <= OFF_METRES
                 || nearest(fix, ride.points) === 0 || offBy(ride, 0, fix) > OFF_METRES) break;
             step += 2;
             stop = 0;
@@ -261,7 +289,7 @@ export function placeOn(steps, state, fix, nowMs) {
     const moved = step !== state.step || stop !== state.stop;
     const current = steps[step];
     const away = current ? offBy(current, stop, fix) : 0;
-    const offSince = away > OFF_METRES ? state.offSince ?? nowMs : null;
+    const offSince = current && away > offLimit(current, fix) ? state.offSince ?? nowMs : null;
     const off = past || (offSince !== null && (gap || nowMs - offSince >= OFF_MS));
     const anchor = !state.anchor || metres(fix, state.anchor) >= STILL_METRES ? { lat: fix.lat, lng: fix.lng, at: nowMs } : state.anchor;
     return { step, stop, at: moved || state.at === null ? nowMs : state.at, offSince, fix, anchor, moved, off };

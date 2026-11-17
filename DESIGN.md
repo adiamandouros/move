@@ -436,8 +436,9 @@ rules, with a picture of a way shown in full.
   position has come for 2 minutes (underground): nothing is assumed
   without a fix, and the way stays timed as at the last one. Nothing new
   to press: My location off (the button, typing a start, swapping) stops
-  it, and the trip is planned ahead as before. Off the way (300 m from the
-  step for a minute), the trip is planned again from where they are.
+  it, and the trip is planned ahead as before. Off the way (for a minute,
+  100 m from the stop waited at or a bus or tram's road, 300 m from a walk
+  or a train's line), the trip is planned again from where they are.
 - **A quicker way on the way** (T14): with the ride followed, at each stop
   the page looks ahead from the stops still to come. A way 3' or more
   sooner (a bus only when OASA has it coming in time) is the quicker way's

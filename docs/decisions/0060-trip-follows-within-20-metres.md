@@ -1,4 +1,4 @@
-# 60. The trip page follows the rider within 20 metres, or the fix's accuracy
+# 60. The trip page follows the rider within 20 metres, or the fix's accuracy, and off the way at 100 by bus
 
 Decided 2026-11-17 · In force
 
@@ -14,9 +14,20 @@ rider on the Trip page, kept by [53](0053-trip-bus-ride-from-oasa.md):
   the trip is planned again once they're 200 m from where it was planned,
   at most every 2 minutes ([45](0045-load-on-oasa-my-location-follows.md)).
 
+Off the way was 300 m from every point of the step the rider is on, for a
+minute, whatever the step.
+
 From the road, 17 November 2026: 100 m is far too long. The rider walks a
 block before the page starts following, and a step is done well before
-they get there.
+they get there. And 300 m off is huge.
+
+The steps are straight lines, as Wayhop has no streets or tracks: a walk
+from its start to its end, a ride from stop to stop. A walk along the
+streets can be hundreds of metres from its straight line (across a grid,
+700 m east and 700 m north, the corner is 500 m from it), and so can a
+suburban train from the line between stations kilometres apart. A bus,
+a trolley or a tram stops every 300 to 400 m, so its road keeps near the
+line between them.
 
 ## Decision
 
@@ -32,8 +43,26 @@ without moving. A fix the phone says is good to 35 m has to be 35 m from
 the start to count as left, and counts as at a stop 35 m away. A position
 with no accuracy (the one kept on the device between pages) counts as 20 m.
 
-A fix less exact than 200 m still places nobody, off the way is still
-300 m for a minute, and standing still is still 50 m for 10 minutes.
+Off the way (for a minute, as before) is 100 m, or the fix's accuracy,
+while waiting at a stop and on a bus, a trolley or a tram
+(`OFF_CLOSE_METRES`); on a walk, the metro and the suburban railway it
+stays 300 m.
+
+On a walk to a ride, a fix nearer one of the ride's later stops than its
+first, within 100 m (or the accuracy) of the ride and nearer it than the
+walk, puts the rider on the ride at that stop at once: the stop's place
+can be off where people wait, so no fix at the stop counted, and the bus
+has left. Only while still within the walk's 300 m: further off, a single
+fix could be a stray one, and Road · 7's rule (after 2 minutes without a
+fix, or a minute off the walk) places them.
+
+A fix less exact than 200 m still places nobody, and standing still is
+still 50 m for 10 minutes.
+
+Agreed as a start: the rider's notes of 17 November for a redesign go by
+speed and direction instead (on a ride once moving like a train or a bus,
+over 25 km/h the right way; walked once 100 m from the stop never going
+faster), on the roadmap.
 
 ## What follows
 
@@ -52,16 +81,22 @@ A fix less exact than 200 m still places nobody, off the way is still
   bus 50 m from the station, the walk to it is the step until they reach it.
 - Where a stop's position in OASA's data is more than about 20 m from where
   people wait, and GPS is good, the walk to it stays the step while the
-  rider waits. Once on the bus, they're placed on it when a fix after 2
-  minutes without one, or a minute's fixes 300 m off the walk, put them on
-  the ride ([50](0050-trip-follows-the-ride.md), Road · 7).
+  rider waits; the first fix by the bus's road a stop on boards them.
+- Walking up a street parallel to the bus's road, within 100 m of it and
+  past the stop, counts as boarding: without speed that can't be told from
+  the bus. The redesign's speed settles it.
+- Waiting, or on a bus or a tram, a minute 100 m away plans the trip again,
+  so a re-plan comes sooner than at 300 m: a rider who walked off is
+  offered stops near where they are.
 
 ## Look again when
 
-- Riders find the walk to a stop still marked while they wait at it, or on
-  the bus: a stop's position too far from where people wait, so a walk's
-  end may need its own distance, or the ride counted as boarded from the
-  walk as from waiting.
+- The redesign by speed and direction (roadmap): it replaces the
+  distances here.
+- Riders find the walk to a stop still marked while they wait at it, or
+  boarded while walking beside the road.
+- Riders on a bus or a tram planned again while on it: a road far from the
+  line between its stops.
 - Riders find following starts, or a step ends, while they stand still:
   phones reporting an accuracy better than their fixes really are.
 - /admin/usage's re-plans column, against the quarter more above.
