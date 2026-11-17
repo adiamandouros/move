@@ -1,6 +1,6 @@
 # 52. The trip page: the trip kept on the device for 3 hours
 
-Decided 2026-11-14 · In force
+Decided 2026-11-14 · Replaced by [58](0058-trip-ride-kept.md)
 
 ## Situation
 
