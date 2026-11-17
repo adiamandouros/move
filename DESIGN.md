@@ -324,6 +324,12 @@ means). The tints are 10% of their colour, which keeps the text on them at
 A late suburban train's badge is when it actually leaves: no timetable
 time and no "running late" line (decision 47).
 
+A badge of minutes counts down by itself, every page alike, until a fresh
+answer draws it again, and is gone once it would read -1': a timetable's
+train as it leaves, OASA's bus a minute after its time (decision 61). It's
+drawn with `minutesBadge(…, { at })`, which keeps its time on it for
+`countBadges()`. A ride the rider is on, or has done, shows no badges.
+
 ### Tag
 
 A short fact about the thing beside it ("Doors open on the left", "Only

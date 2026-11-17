@@ -2,7 +2,7 @@ import { language, localHref, t } from '/js/core/i18n.js';
 import { format, formatDate, formatHtml, html, icon, localName, notice, walkingUrl as walkingTo } from '/js/core/html.js';
 import { liftNotice, liftSummary, metroStations, ridePlatforms, stationPlatforms, stepFreeGaps } from '/js/core/lifts.js';
 import { linePill, pillList, stationSign } from '/js/core/lines.js';
-import { minutesMark, minutesWords, soonTier, timeBadge } from '/js/core/times.js';
+import { epochAt, minutesBadge, minutesLeft, minutesMark, minutesWords, timeBadge } from '/js/core/times.js';
 import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, lineEnd, stationPath, stopNote } from '/js/core/metro.js';
 import { legPositions, tripTime } from './network.js';
 
@@ -53,22 +53,22 @@ const wordsFor = (rail, leg) => rail.lines[leg.line].tram ? TRAM_WORDS : TRAIN_W
 const asClock = (departures, now, tomorrow) => tomorrow || departures[0].departs - now.seconds > HOUR;
 
 // One train: in how many minutes it leaves, or at what time (clock), marked
-// when it's the last or second to last
+// when it's the last or second to last. Its minutes count down by
+// themselves to when it leaves, then it's gone (decision 61): nothing once
+// it has left
 export function departureChip(d, now, clock, words = TRAIN_WORDS) {
-    const minutes = Math.max(0, Math.floor((d.departs - now.seconds) / 60));
     const note = d.isLast ? t(words.last) : d.isSecondLast ? t(words.secondLast) : '';
-    const tier = d.isLast ? 'last' : d.isSecondLast ? 'second-last' : clock ? 'later' : soonTier(minutes);
-    // "12'" on screen, "12 minutes" for screen readers; or "05:32" for both
-    const time = clock
-        ? html`${clockTime(d.departs)}<span class="sr-only">${note && ` (${note})`},</span>`
-        : minutesMark(minutes, t, { then: `${note && ` (${note})`},` });
-    return timeBadge(tier, time, note);
+    const tier = d.isLast ? 'last' : d.isSecondLast ? 'second-last' : null;
+    // "05:32" for both; or "12'" on screen, "12 minutes" for screen readers
+    if (clock) return timeBadge(tier ?? 'later', html`${clockTime(d.departs)}<span class="sr-only">${note && ` (${note})`},</span>`, note);
+    const minutes = minutesLeft(d.departs, now.seconds, true);
+    return minutes !== null && minutesBadge(minutes, t, { then: `${note && ` (${note})`},`, tier, soon: false, title: note, at: epochAt(d.departs, now), exact: true });
 }
 
 function departureChips(departures, now, tomorrow, words) {
     if (!departures.length) return html`<span class="schedule-label">${t(words.none)}</span>`;
     const clock = asClock(departures, now, tomorrow);
-    const chips = departures.map(d => departureChip(d, now, clock, words));
+    const chips = departures.map(d => departureChip(d, now, clock, words)).filter(Boolean);
     return html`<span class="schedule-label">${t(clock ? 'subway.schedule-at' : 'subway.schedule-in')}</span><span class="schedule-chips">${chips}</span>`;
 }
 
@@ -115,7 +115,8 @@ function legStations(rail, leg, id, open) {
 // suburban train, whose stations aren't recorded. A suburban train to or from
 // a station OASA's ticket doesn't cover says it needs Hellenic Train's
 // (decision 41). The Trip page draws its metro and tram rides with it too
-// (decision 46).
+// (decision 46), with no times (`now` null) on a ride the rider is on or has
+// done (decision 61).
 export function legCard(rail, leg, next, now, level, tomorrow, timed, key, open) {
     const line = rail.lines[leg.line];
     const words = wordsFor(rail, leg);
@@ -143,9 +144,9 @@ export function legCard(rail, leg, next, now, level, tomorrow, timed, key, open)
                     ${linePill(leg.line, line.name, 'l')}
                     <span class="direction-text"><span aria-hidden="true">→ </span><span class="sr-only">${t('subway.toward')} </span>${stationSign(toward, [leg.line])}</span>
                 </${heading}>
-                <div class="schedule-section ms-auto">${departureChips(leg.departures, now, tomorrow, words)}</div>
+                <div class="schedule-section ms-auto">${now && departureChips(leg.departures, now, tomorrow, words)}</div>
             </div>
-            ${lastTrainWords(leg.departures, words)}
+            ${now && lastTrainWords(leg.departures, words)}
             ${!line.tram && !line.suburban && exitDiagram(rail.positions, where, t)}
             ${stopNote(stop.note)}
             ${beyond && stopNote(format(t('subway.train-ticket'), { station: stationName(rail, beyond) }))}

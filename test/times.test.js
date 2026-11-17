@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { loadTools, stringTables } from '../server/pages/registry.js';
-import { aboutTime, minutesBadge, minutesMark, minutesWords, soonTier, timeBadge } from '../public/js/core/times.js';
+import { aboutTime, countBadges, epochAt, minutesBadge, minutesLeft, minutesMark, minutesWords, soonTier, timeBadge } from '../public/js/core/times.js';
 import { strings } from './support/browser-modules.js';
 
 // The time badge (public/js/core/times.js): how soon, on one scale for buses
@@ -59,6 +59,65 @@ test('a bus coming: its minutes in a badge of how soon, "arriving soon" when it\
     assert.equal(String(minutesBadge(3, tEn)), '<span class="time-badge time-due"><span aria-hidden="true">3\'</span><span class="sr-only">3 minutes, arriving soon</span></span>');
     assert.equal(String(minutesBadge(4, tEl)), '<span class="time-badge time-close"><span aria-hidden="true">4\'</span><span class="sr-only">4 λεπτά</span></span>');
     assert.equal(String(minutesBadge(12, tEn)), '<span class="time-badge time-later"><span aria-hidden="true">12\'</span><span class="sr-only">12 minutes</span></span>');
+});
+
+// Every time counts down by itself (decision 61)
+
+test('a timetable\'s time to the second: 4\'30" reads 4\', 0\' in its last minute, gone as it leaves', () => {
+    const at = 1000;
+    assert.deepEqual([at - 270, at - 60, at - 59, at - 1, at, at + 1].map(now => minutesLeft(at, now, true)), [4, 1, 0, 0, 0, null]);
+});
+
+test('OASA\'s whole minutes: "2\'" reads 0\' for the minute after its time, then it\'s gone, as the Buses page counts', () => {
+    const at = 1000;
+    assert.deepEqual([at - 120, at - 61, at - 60, at - 1, at, at + 59, at + 60].map(now => minutesLeft(at, now)), [2, 2, 1, 1, 0, 0, null]);
+    assert.ok(Object.is(minutesLeft(at, at + 30), 0), 'never -0');
+});
+
+test('a time from midnight as seconds since 1970, only with the moment\'s epoch', () => {
+    assert.equal(epochAt(12 * 3600 + 90, { seconds: 12 * 3600, epoch: 1_800_000_000 }), 1_800_000_090);
+    assert.equal(epochAt(12 * 3600 + 90, { seconds: 12 * 3600 }), null);
+});
+
+test('a badge with its time keeps how it was drawn; without, it\'s as before', () => {
+    assert.equal(String(minutesBadge(5, tEn, { at: 1_800_000_300 })), '<span class="time-badge time-close" data-at="1800000300" data-minutes="5"><span aria-hidden="true">5\'</span><span class="sr-only">5 minutes</span></span>');
+    assert.equal(String(minutesBadge(5, tEn, { said: 'next in {minutes}', at: 1_800_000_300, exact: true })),
+        '<span class="time-badge time-close" data-at="1800000300" data-minutes="5" data-exact data-said="next in {minutes}"><span aria-hidden="true">5\'</span><span class="sr-only">next in 5 minutes</span></span>');
+});
+
+// A page's badges, as countBadges sees them: their data, title, and what
+// replaced or removed them
+function badgesIn(...drawn) {
+    const page = drawn.map(view => {
+        const [, attributes] = String(view).match(/^<span ([^>]*)>/);
+        const dataset = Object.fromEntries([...attributes.matchAll(/data-([a-z]+)(?:="([^"]*)")?/g)].map(([, name, value = '']) => [name, value.replaceAll('&#x3D;', '=')]));
+        const badge = { dataset, title: attributes.match(/title="([^"]*)"/)?.[1] ?? '', now: String(view), remove() { badge.now = null; } };
+        Object.defineProperty(badge, 'outerHTML', { set(view) { badge.now = view; } });
+        return badge;
+    });
+    return { querySelectorAll: () => page, page };
+}
+
+test('counting badges: each drawn again as its minute changes, the same way; gone at -1\'; the others left as they are', () => {
+    const epoch = 1_800_000_000;
+    const root = badgesIn(
+        minutesBadge(9, tEn, { at: epoch + 9 * 60 }),
+        minutesBadge(5, tEn, { said: 'next in {minutes}', at: epoch + 5 * 60 + 30, exact: true }),
+        minutesBadge(1, tEn, { at: epoch + 60 }),
+        minutesBadge(2, tEn, { then: ' (Last train),', tier: 'last', soon: false, title: 'Last train', at: epoch + 150, exact: true }),
+    );
+    const before = root.page.map(badge => badge.now);
+    assert.equal(countBadges(root, tEn, epoch + 30), false, 'nothing gone yet');
+    assert.deepEqual(root.page.map(badge => badge.now), before, 'nor any minute changed: nothing drawn again');
+    assert.equal(countBadges(root, tEn, epoch + 6 * 60 + 1), true, 'one gone');
+    const [nine, five, one, last] = root.page.map(badge => badge.now);
+    assert.equal(nine, String(minutesBadge(3, tEn, { at: epoch + 9 * 60 })), 'OASA\'s 9\', 6 minutes on: 3\', and due now');
+    assert.equal(five, null, '5\'30" by the timetable, 6 minutes on: gone');
+    assert.equal(one, null);
+    assert.equal(last, null);
+    const kept = badgesIn(minutesBadge(2, tEn, { then: ' (Last train),', tier: 'last', soon: false, title: 'Last train', at: epoch + 150, exact: true }));
+    countBadges(kept, tEn, epoch + 61);
+    assert.equal(kept.page[0].now, String(minutesBadge(1, tEn, { then: ' (Last train),', tier: 'last', soon: false, title: 'Last train', at: epoch + 150, exact: true })), 'the last train stays red, its words kept');
 });
 
 // DESIGN.md, "Type": minutes are written 7' everywhere, never ′ or "min",

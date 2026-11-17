@@ -256,8 +256,18 @@ test('one train: minutes on screen and in full for screen readers, or a clock ti
     const tier = (minutes, clock = false) => String(departureChip({ departs: now.seconds + minutes * 60 }, now, clock)).match(/time-(\S+?)"/)[1];
     assert.deepEqual([0, 3, 4, 8, 9, 30].map(m => tier(m)), ['due', 'due', 'close', 'close', 'later', 'later']);
     assert.equal(tier(2, true), 'later');
-    // A train that's already due: 0, never less
-    assert.match(String(departureChip({ departs: now.seconds - 30 }, now, false)), />0'</);
+    // Leaving within the minute: 0'; gone once it has left, never less (decision 61)
+    assert.match(String(departureChip({ departs: now.seconds + 59 }, now, false)), />0'</);
+    assert.equal(departureChip({ departs: now.seconds - 1 }, now, false), false);
+});
+
+test('a train\'s minutes carry when it leaves, to count down by themselves; a clock time doesn\'t (decision 61)', async () => {
+    const { departureChip } = await browserModule('tools/subway/client/render.js', 'en');
+    const now = { seconds: 12 * 3600, epoch: 1_800_000_000 };
+    assert.equal(String(departureChip({ departs: now.seconds + 12 * 60 + 30 }, now, false)),
+        '<span class="time-badge time-later" data-at="1800000750" data-minutes="12" data-exact data-then="," data-quiet><span aria-hidden="true">12\'</span><span class="sr-only">12 minutes,</span></span>');
+    assert.match(String(departureChip({ departs: now.seconds + 60, isLast: true }, now, false)), /^<span class="time-badge time-last" title="Last train" data-at="1800000060" data-minutes="1" data-exact data-then=" \(Last train\)," data-tier="last" data-quiet>/);
+    assert.doesNotMatch(String(departureChip({ departs: now.seconds + 60, isLast: true }, now, true)), /data-at/);
 });
 
 test('the one-sentence summary for screen readers', async () => {

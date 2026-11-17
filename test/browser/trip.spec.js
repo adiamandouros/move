@@ -424,6 +424,38 @@ test.describe('the trip page', () => {
             await expect(stop.locator('.arrival-row').first()).toBeVisible();
         });
 
+        // Decision 61 (Road · 14, Road · 9)
+        test('with no signal, the times count down by themselves, even with the keyboard in the answer; a bus past its minute is gone, not 0\'', async ({ page }) => {
+            await watchRequests(page);
+            await pickBoth(page);
+            await expect(page.locator('.trip-card').first().locator('.trip-live .time-badge').first()).toBeVisible();
+            await page.waitForFunction(() => window.__pending === 0);
+            // A stop whose first bus is 4 minutes or more away, by its code
+            const codes = await page.locator('.trip-card').first().locator('li.trip-stop.trip-live').evaluateAll(stops => stops
+                .map(stop => [stop.querySelector('.stop-item').dataset.stop, parseInt(stop.querySelector('.header-badge-wrap .time-badge [aria-hidden="true"]').textContent, 10)]));
+            const [code, minutes] = codes.find(([, m]) => m >= 4);
+            const stop = page.locator(`li.trip-stop:has(.stop-item[data-stop="${code}"])`);
+            const badge = stop.locator('.header-badge-wrap .time-badge [aria-hidden="true"]');
+            // No signal: every request hangs, as underground
+            await page.route('**/*', () => {});
+            // The keyboard in the answer, on the stop's button: the answer isn't drawn again
+            await stop.locator('.stop-toggle').focus();
+            await page.keyboard.press('Shift+Tab');
+            await page.keyboard.press('Tab');
+            await expect(stop.locator('.stop-toggle')).toBeFocused();
+            await stop.locator('.stop-item').evaluate(row => { row.dataset.drawnBefore = 'yes'; });
+            await page.clock.runFor(3 * 60_000);
+            await expect(badge).toHaveText(`${minutes - 3}'`);
+            await expect(stop.locator('.stop-item[data-drawn-before]')).toHaveCount(1);
+            await expect(stop.locator('.stop-toggle')).toBeFocused();
+            // A minute after its time (OASA's whole minutes): gone, not 0'
+            await page.clock.runFor((minutes - 3) * 60_000);
+            await expect(badge).toHaveText('0\'');
+            await page.clock.runFor(60_000);
+            await expect(stop.locator('.header-badge-wrap .time-badge')).toHaveCount(0);
+            await expect(stop.locator('.stop-toggle')).toBeFocused();
+        });
+
         test('asked again as their buses near, nothing while out of sight, paused after 10 minutes untouched until a tap', async ({ page }) => {
             const { asks, run } = await watchRequests(page);
             await pickBoth(page);

@@ -221,6 +221,22 @@ test('a slower option starts closed; opened, it stays open through the refresh, 
     await expect(slower.locator('.result-card').first()).toBeHidden();
 });
 
+// Decision 61
+test('a train\'s minutes count down by themselves; in its last minute 0\', and gone as it leaves', async ({ page }) => {
+    await page.goto('/subway?from=syntagma&to=airport');
+    const chip = content(page).locator('.schedule-chips .time-badge[data-at]').first();
+    const at = Number(await chip.getAttribute('data-at'));
+    const left = at - await page.evaluate(() => Date.now() / 1000);
+    expect(left).toBeGreaterThan(60);
+    const train = content(page).locator(`.time-badge[data-at="${at}"]`).first();
+    await expect(train.locator('[aria-hidden="true"]')).toHaveText(`${Math.floor(left / 60)}'`);
+    await page.clock.runFor(Math.ceil(left - 2) * 1000);
+    await expect(train.locator('[aria-hidden="true"]')).toHaveText('0\'');
+    await page.clock.runFor(3_000);
+    await expect(content(page).locator(`.time-badge[data-at="${at}"]`)).toHaveCount(0);
+    expect(await axe(page)).toEqual([]);
+});
+
 test('a leg\'s stops open its stations on the way, by tap or keyboard; open through the refresh, until the stations change', async ({ page }) => {
     await page.goto('/subway?from=syntagma&to=airport');
     const toggle = content(page).locator('.leg-stops-toggle').first();

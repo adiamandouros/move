@@ -72,3 +72,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 58 | [The trip page: the ride followed kept with the trip](0058-trip-ride-kept.md) | In force |
 | 59 | [The trip page opens with no signal, its answer from the saved copy](0059-trip-opens-without-signal.md) | In force |
 | 60 | [The trip page follows the rider within 20 metres, or the fix's accuracy, and off the way at 100 by bus](0060-trip-follows-within-20-metres.md) | In force |
+| 61 | [Every time counts down by itself, and is gone once past](0061-times-count-down.md) | In force |
