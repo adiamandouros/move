@@ -115,6 +115,18 @@ test('the service worker precaches the versioned stylesheets and scripts', async
     for (const url of assets) assert.equal((await fetch(base + url)).status, 200, url);
 });
 
+test('the Trip page works offline: its page, the scripts it borrows and its data, each once', async () => {
+    const sw = await (await fetch(`${base}/sw.js`)).text();
+    const list = name => JSON.parse(sw.match(new RegExp(`const ${name} = (\\[[\\s\\S]*?\\]);`))[1]);
+    const precache = list('PRECACHE');
+    for (const url of ['/trip', '/el/trip', '/tools/trip/searcher.js', '/tools/subway/city.js', '/tools/buses/timing.js']) {
+        assert.ok(precache.includes(url.startsWith('/tools/') ? versioned(url) : url), url);
+    }
+    assert.equal(new Set(precache).size, precache.length);
+    assert.deepEqual(list('PRECACHE_DATA').sort(), ['/data/buses.json', '/data/rail.json', '/data/trains.json']);
+    assert.ok(list('OFFLINE_PAGES').includes('/el/trip'), 'it opens from the cache at once');
+});
+
 test('Roboto: both files are served as fonts, kept for 30 days, and work offline', async () => {
     const sw = await (await fetch(`${base}/sw.js`)).text();
     const precache = JSON.parse(sw.match(/const PRECACHE = (\[[\s\S]*?\]);/)[1]);

@@ -65,6 +65,35 @@ test('no signal: the app opens at once, in both languages', async ({ page, conte
     }
 });
 
+// Road · 13: the trip's answer waited on its worker's scripts, which waited
+// on the network for as long as the phone did (about a minute)
+test('no signal: the Trip page opens at once with the trip kept, and its answer comes from the cache', async ({ page, context }) => {
+    await installed(page);
+    await pickBoth(page);
+    await expect(page.locator('.trip-card').first()).toBeVisible();
+    await noSignal(context);
+
+    const started = Date.now();
+    await page.goto('/trip');
+    await expect(page.getByRole('combobox', { name: 'To' })).toHaveValue('Syggrou Fix');
+    expect(Date.now() - started).toBeLessThan(2_500);
+    // A worker's script waits 3 seconds for the network, then the ones after it none
+    await expect(page.locator('.trip-card').first()).toBeVisible({ timeout: 6_000 });
+});
+
+test('no signal: the Trip page opens at once though not opened since Wayhop was installed, in both languages', async ({ page, context }) => {
+    await installed(page);
+    await noSignal(context);
+
+    for (const [path, title] of [['/trip', 'Plan a trip'], ['/el/trip', 'Σχεδιασμός διαδρομής']]) {
+        const started = Date.now();
+        await page.goto(path);
+        await expect(page.locator('h1')).toHaveText(title);
+        expect(Date.now() - started, path).toBeLessThan(2_500);
+    }
+    expect(await axe(page)).toEqual([]);
+});
+
 test('no signal: a page seen before comes from the cache, one that wasn\'t gets the offline page', async ({ page, context }) => {
     await installed(page);
     await page.goto('/about');

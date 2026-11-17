@@ -5,8 +5,8 @@
   "title": { "en": "Plan a trip", "el": "Σχεδιασμός διαδρομής" },
   "shortTitle": { "en": "Trip", "el": "Διαδρομή" },
   "description": { "en": "From one address to another: walks, the metro, the tram and buses, door to door", "el": "Από διεύθυνση σε διεύθυνση: περπάτημα, μετρό, τραμ και λεωφορεία, από πόρτα σε πόρτα" },
-  "offline": false,
+  "offline": true,
   "scripts": ["main.js"],
   "borrows": ["subway", "buses"],
-  "precache": []
+  "precache": ["/data/rail.json", "/data/trains.json", "/data/buses.json"]
 }

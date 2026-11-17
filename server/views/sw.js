@@ -9,11 +9,18 @@ const PRECACHE = {{precache}};
 const PRECACHE_DATA = {{precacheData}};
 // Pages that must open instantly even with a bad connection (e.g. underground)
 const OFFLINE_PAGES = {{offlinePages}};
-// How long a page waits for the network. With no signal requests often don't
-// fail, they hang. With a copy saved that's soon enough to show it; without
-// one, a slow connection gets longer before the offline page takes over.
+// How long a page (or a worker's script) waits for the network. With no
+// signal requests often don't fail, they hang. With a copy saved that's soon
+// enough to show it; without one, a slow connection gets longer before the
+// offline page takes over.
 const WAIT_WITH_COPY_MS = 3_000;
 const WAIT_WITHOUT_COPY_MS = 8_000;
+// Once a request has waited its time for nothing, the network is taken for
+// gone this long, and a request with a copy saved gets it at once: a worker's
+// imports come one after another, and 3 seconds each added up (Road · 13).
+// Any answer from the network ends it.
+const NO_SIGNAL_MS = 30_000;
+let noSignalUntil = 0;
 // Sent when fetching a page because it was opened, not to cache it, so the
 // server counts it (server/pages/index.js)
 const OPENED = {{opened}};
@@ -62,7 +69,7 @@ self.addEventListener('fetch', e => {
     // reach a worker (tools/trip/client/worker.js): from the server, so they're
     // the same deploy as the page, and from the cache only with no connection
     if (url.pathname.endsWith('.js') && !url.searchParams.has('v')) {
-        e.respondWith(networkThenCache(e.request));
+        e.respondWith(networkThenCache(e, e.request));
         return;
     }
 
@@ -86,25 +93,41 @@ async function staleWhileRevalidate(e, request, isPage = false) {
 async function networkFirst(e, request) {
     const cache = await caches.open(CACHE);
     const cached = await cache.match(request);
+    return (await fromNetwork(e, request, cache, cached ? waitWithCopy() : WAIT_WITHOUT_COPY_MS)) ?? cached ?? offlinePage(request);
+}
+
+// With no copy saved it waits as long as the network takes: there's nothing
+// else to give
+async function networkThenCache(e, request) {
+    const cache = await caches.open(CACHE);
+    // This deploy's copy is saved with its ?v= (PRECACHE)
+    const cached = await cache.match(request, { ignoreSearch: true });
+    return (await fromNetwork(e, request, cache, cached ? waitWithCopy() : Infinity)) ?? cached ?? Response.error();
+}
+
+const waitWithCopy = () => Date.now() < noSignalUntil ? 0 : WAIT_WITH_COPY_MS;
+
+// The network's answer, saved when it's good, or nothing if it fails or
+// `wait` is up first. It carries on after that: a late answer is saved for
+// next time
+async function fromNetwork(e, request, cache, wait) {
     const network = fetch(request).then(res => {
+        noSignalUntil = 0;
         if (res.ok) cache.put(request, res.clone());
         return res;
     });
-    // Carries on after the time is up: a late answer is saved for next time
     e.waitUntil(network.catch(() => {}));
-    const timeUp = new Promise(resolve => setTimeout(resolve, cached ? WAIT_WITH_COPY_MS : WAIT_WITHOUT_COPY_MS));
-    const res = await Promise.race([network, timeUp]).catch(() => {});
-    return res ?? cached ?? offlinePage(request);
-}
-
-async function networkThenCache(request) {
-    const cache = await caches.open(CACHE);
+    if (wait === 0) return undefined;
+    let timer;
+    const timeUp = new Promise(resolve => {
+        if (wait !== Infinity) timer = setTimeout(() => { noSignalUntil = Date.now() + NO_SIGNAL_MS; resolve(); }, wait);
+    });
     try {
-        const res = await fetch(request);
-        if (res.ok) cache.put(request, res.clone());
-        return res;
+        return await Promise.race([network, timeUp]);
     } catch {
-        return (await cache.match(request)) ?? Response.error();
+        return undefined;
+    } finally {
+        clearTimeout(timer);
     }
 }
 
