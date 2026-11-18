@@ -593,6 +593,18 @@ function halfOther(rail, { row, o }, timed = null, clock = { seconds: 0, epoch: 
     </div>`;
 }
 
+// Another way shown to a rider followed along the way (decision 63), on from
+// where they are: as another way OASA times, its rides from where it leaves
+// the one they're on, never one that can be any of several
+/** @param {import('./buses.js').BusOption} o @param {{ seconds: number, epoch: number | null }} clock */
+const onwardOther = (rail, o, clock) => halfOther(rail, { row: { bundle: false, lines: [] }, o }, { option: o }, clock);
+
+/** @param {import('./buses.js').BusOption[]} onward @param {{ seconds: number, epoch: number | null }} clock */
+function onwardOthers(rail, onward, clock) {
+    const sorted = [...onward].sort((a, b) => a.arrives - b.arrives);
+    return html`${sorted.length > 0 && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}${sorted.map(o => onwardOther(rail, o, clock))}`;
+}
+
 // The quicker way the rider took, for the departure shown: as OASA's live
 // times have it, or until they do, the half hour's own for that departure or
 // the first after it
@@ -617,8 +629,10 @@ export const takenOption = (row, departure) => row.options.find((o, d) => d >= d
 // way 3' or more sooner, with the seconds till it's taken by itself, in the
 // quicker way's place; `switched`: the rider is on that way now, which
 // `live` has, with the way back. `othersTimed`: the other ways OASA's live
-// times time (otherWay in buses.js, decision 62), by row
-export function renderHalf(rail, kind, ways, to, { now, epoch = null, weekday, date, expired = false, longWalk = false, live = null, offer = false, taken = null, switching = null, switched = false, othersTimed = new Map(), noTrains = false, trains = null, lifts = null, liftsOpen = true, stations = {}, stops = new Set(), legend: legendShown = true, following = null }) {
+// times time (otherWay in buses.js, decision 62), by row. `onward`: to a
+// rider followed along the way, the other ways on from where they are, in
+// place of the half hour's (decision 63), the soonest there first
+export function renderHalf(rail, kind, ways, to, { now, epoch = null, weekday, date, expired = false, longWalk = false, live = null, offer = false, taken = null, switching = null, switched = false, othersTimed = new Map(), onward = null, noTrains = false, trains = null, lifts = null, liftsOpen = true, stations = {}, stops = new Set(), legend: legendShown = true, following = null }) {
     const [first, ...rest] = ways;
     // The other ways, in the half hour's order until OASA times one, then
     // the soonest there first
@@ -640,8 +654,9 @@ export function renderHalf(rail, kind, ways, to, { now, epoch = null, weekday, d
         ${switching ? quickerCard(rail, switching.offer, switching.seconds) : offer && live?.way.offer && quickerCard(rail, live.way.offer)}
         ${legend(rail, shown, drawn, legendShown)}
         ${longWalk && longWalkNotice()}
-        ${others.length > 0 && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
-        ${others.map(way => halfOther(rail, way, othersTimed.get(way.row) ?? null, { seconds: now, epoch }))}`;
+        ${onward ? onwardOthers(rail, onward, { seconds: now, epoch }) : html`
+            ${others.length > 0 && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
+            ${others.map(way => halfOther(rail, way, othersTimed.get(way.row) ?? null, { seconds: now, epoch }))}`}`;
 }
 
 // What's said of the live times above the answer (live.js liveStatus), as on

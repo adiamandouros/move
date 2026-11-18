@@ -11,13 +11,14 @@ import { suburbanCurated, train } from './fixtures/railway.js';
 // full timed again with live times (decision 35), with the quicker way on a
 // decision (decision 36), and with the rider followed, the search ahead and
 // the way switched to (T14, decision 50); and the other ways shown, timed
-// the same way (decision 62). The page's side:
+// the same way (decision 62), to a followed rider the ways on from where
+// they are (decision 63). The page's side:
 // test/browser/trip.spec.js.
 
 const rail = JSON.parse(readFileSync(new URL('browser/data/rail.json', import.meta.url), 'utf8'));
 const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.meta.url), 'utf8'));
 const { searcher } = await browserModule('tools/trip/client/searcher.js');
-const { busOptions, cityPlanner, halfHour, liveWay, otherWay, searchAhead, shownRows } = await browserModule('tools/trip/client/buses.js');
+const { aheadWays, busOptions, cityPlanner, halfHour, hereWays, liveWay, onwardWay, OTHERS, otherWay, routeCodes, searchAhead, shownRows } = await browserModule('tools/trip/client/buses.js');
 
 // A Wednesday in the timetable, 10:00
 const NOW = { weekday: 3, seconds: 10 * 3600 };
@@ -128,13 +129,13 @@ test('the latest half hour\'s way shown in full is timed again with live times, 
     const steps = halfHour(planner, menelaou, syntagma, NOW);
     let step = steps.next();
     while (!step.done) step = steps.next();
-    assert.deepEqual(posted, [{ id: 1, live: { seq: 2, way: liveWay(planner, menelaou, syntagma, shownRows(step.value)[1], 0, NOW, {}) } }]);
+    assert.deepEqual(posted, [{ id: 1, live: { seq: 2, way: liveWay(planner, menelaou, syntagma, shownRows(step.value)[1], 0, NOW, {}), others: null } }]);
     assert.ok(posted[0].live.way.asks.length > 0);
     // A row there isn't, or a way that can't be made: nothing to time
     posted.length = 0;
     await handle(liveAsk(1, 3, { row: 9 }));
     await handle(liveAsk(1, 4, { row: 1, now: { ...NOW, seconds: 27 * 3600 } }));
-    assert.deepEqual(posted, [{ id: 1, live: { seq: 3, way: null } }, { id: 1, live: { seq: 4, way: null } }]);
+    assert.deepEqual(posted, [{ id: 1, live: { seq: 3, way: null, others: null } }, { id: 1, live: { seq: 4, way: null, others: null } }]);
 });
 
 test('the other ways shown are timed with live times as the page asks, each for its departure; only the latest half hour\'s, and a row there isn\'t is none', async () => {
@@ -187,15 +188,15 @@ test('on a decision, the directions are timed with the quicker way, and once it\
     await handle(liveAsk(1, 2, { departure, now: noon, taken: true }));
     await handle(liveAsk(1, 3, { row: 1, departure, now: noon, taken: true }));
     assert.deepEqual(posted, [
-        { id: 1, live: { seq: 1, way: liveWay(planner, from, to, rows[0], departure, noon, {}, { decision }) } },
-        { id: 1, live: { seq: 2, way: liveWay(planner, from, to, rows[0], departure, noon, {}, { decision, taken: true }) } },
-        { id: 1, live: { seq: 3, way: liveWay(planner, from, to, rows[1], departure, noon, {}) } },
+        { id: 1, live: { seq: 1, way: liveWay(planner, from, to, rows[0], departure, noon, {}, { decision }), others: null } },
+        { id: 1, live: { seq: 2, way: liveWay(planner, from, to, rows[0], departure, noon, {}, { decision, taken: true }), others: null } },
+        { id: 1, live: { seq: 3, way: liveWay(planner, from, to, rows[1], departure, noon, {}), others: null } },
     ]);
     assert.equal(posted[0].live.way.asks[0].stop, planner.stops[decision.stop].id.replace('bus:', ''), 'the quicker way\'s stop asked');
     assert.notDeepEqual(posted[1].live.way.option.rides, posted[0].live.way.option.rides, 'the quicker way, taken');
 });
 
-test('followed on the T6: asked to, it searches ahead, keeps the way found for the next timings, leaves out one declined; switched to, that way is timed', async () => {
+test('followed on the T6: asked to, it searches ahead, keeps the way found for the next timings, leaves out one declined; switched to, that way is timed; the other ways shown are those found ahead, but the switch\'s, one declined among them', async () => {
     const from = { lat: 37.9535, lng: 23.7255 };
     const to = { lat: 37.955, lng: 23.707 };
     const noon = { weekday: 3, seconds: 12 * 3600 };
@@ -214,15 +215,25 @@ test('followed on the T6: asked to, it searches ahead, keeps the way found for t
     const onTram = { leg: 0, kind: 'ride', stop: 1, at: directions.best[departure].legs[0].boards + 120, walk: 0 };
     const ahead = searchAhead(planner, from, to, directions, departure, noon, {}, { decision, step: onTram });
     assert.ok(ahead);
+    const found = aheadWays(planner, from, to, directions, departure, noon, {}, { decision, step: onTram });
+    assert.equal(found[0].key, ahead.key, 'the switch\'s is the first found');
+    assert.equal(found.length, 2, found.map(each => each.key).join(' / '));
+    // OASA has the switch's bus coming when the timetable says, so it's offered
+    const [, onward] = ahead.way.legs;
+    const [route] = routeCodes(planner, [onward.line], onward.board, new Set([onward.alight])).keys();
+    const stops = { [planner.stops[onward.board].id.slice('bus:'.length)]: { buses: [{ route, line: onward.line, at: onward.boards }], asked: onTram.at } };
+    const shownOf = ways => ways.slice(0, OTHERS).map(each => onwardWay(planner, from, to, each, noon, stops, { step: onTram }));
     posted.length = 0;
-    await handle(liveAsk(1, 1, { departure, now: noon, step: onTram, ahead: true }));
-    await handle(liveAsk(1, 2, { departure, now: noon, step: onTram }));
-    await handle(liveAsk(1, 3, { departure, now: noon, step: onTram, declined: [ahead.key] }));
-    const timed = liveWay(planner, from, to, directions, departure, noon, {}, { decision, step: onTram, ahead });
+    await handle(liveAsk(1, 1, { departure, now: noon, stops, step: onTram, ahead: true }));
+    await handle(liveAsk(1, 2, { departure, now: noon, stops, step: onTram }));
+    await handle(liveAsk(1, 3, { departure, now: noon, stops, step: onTram, declined: [ahead.key] }));
+    const timed = liveWay(planner, from, to, directions, departure, noon, stops, { decision, step: onTram, ahead });
+    assert.equal(timed.switchTo?.key, ahead.key, 'the switch offered');
     assert.deepEqual(posted, [
-        { id: 1, live: { seq: 1, way: timed } },
-        { id: 1, live: { seq: 2, way: timed } },
-        { id: 1, live: { seq: 3, way: liveWay(planner, from, to, directions, departure, noon, {}, { decision, step: onTram }) } },
+        { id: 1, live: { seq: 1, way: timed, others: shownOf(found.slice(1)) } },
+        { id: 1, live: { seq: 2, way: timed, others: shownOf(found.slice(1)) } },
+        // Declined, it's no longer the switch's, and is shown again (the rider may change their mind)
+        { id: 1, live: { seq: 3, way: liveWay(planner, from, to, directions, departure, noon, stops, { decision, step: onTram }), others: shownOf(found) } },
     ]);
     assert.ok(timed.asks.some(ask => ask.ride && ask.stop === planner.stops[ahead.way.legs[1].board].id.slice('bus:'.length)), 'its bus\'s stop asked for the ride');
 
@@ -231,11 +242,45 @@ test('followed on the T6: asked to, it searches ahead, keeps the way found for t
     await handle(liveAsk(1, 4, { departure, now: noon, step: onTram, switched: ahead.key }));
     await handle(liveAsk(1, 5, { row: 1, departure: 0, now: noon, step: onTram, switched: ahead.key }));
     const onto = liveWay(planner, from, to, { key: ahead.key, best: [ahead.way], bundle: false, lines: [], stops: [] }, 0, noon, {}, { step: onTram });
-    assert.deepEqual(posted, [{ id: 1, live: { seq: 4, way: onto } }, { id: 1, live: { seq: 5, way: onto } }]);
+    assert.deepEqual(posted, [{ id: 1, live: { seq: 4, way: onto, others: null } }, { id: 1, live: { seq: 5, way: onto, others: null } }], 'not searched from the way switched to yet');
     // A key it never found: the row's way, as the page asked
     posted.length = 0;
     await handle(liveAsk(1, 6, { departure, now: noon, step: onTram, switched: 'not found' }));
     assert.deepEqual(posted[0].live.way.option, timed.option);
+    // The page on to the half hour's next departure as the clock goes on: the
+    // same way followed, so its other ways are still timed, not dropped
+    posted.length = 0;
+    const next = directions.best.findIndex((way, d) => d > departure && way);
+    await handle(liveAsk(1, 7, { departure: next, now: noon, stops, step: onTram }));
+    assert.equal(posted[0].live.way.switchTo, null, 'the switch is for the departure it was searched from');
+    assert.deepEqual(posted[0].live.others, shownOf(found), 'so its way is one of them');
+});
+
+test('followed on foot: asked to, the other ways shown are those from where the rider is, leaving now, but the way shown; none past the last ride', async () => {
+    const { handle, posted, runOut } = started();
+    const done = handle(trip(1, { half: true }));
+    await new Promise(resolve => setImmediate(resolve));
+    await runOut();
+    await done;
+    const planner = cityPlanner(rail, buses, 3);
+    const steps = halfHour(planner, menelaou, syntagma, NOW);
+    let step = steps.next();
+    while (!step.done) step = steps.next();
+    // The 040 then the M2, walking to its stop, a few streets on
+    const rows = shownRows(step.value);
+    const row = rows.findIndex(each => each.key.startsWith('040'));
+    const here = { lat: 37.9562, lng: 23.7125 };
+    const walking = { leg: 0, kind: 'walk', stop: 0, at: NOW.seconds + 60, walk: 120 };
+    posted.length = 0;
+    await handle(liveAsk(1, 1, { row, step: walking, ahead: true, here }));
+    const found = hereWays(planner, here, syntagma, rows[row], 0, NOW);
+    assert.ok(found.length > 0 && found.every(each => each.leg === -1 && each.key !== rows[row].key), found.map(each => each.key).join(' / '));
+    assert.deepEqual(posted[0].live.others, found.slice(0, OTHERS).map(each => onwardWay(planner, here, syntagma, each, NOW, {}, { step: walking })));
+    assert.ok(posted[0].live.others.every(other => other.option.rides.length > 0));
+    // On the last walk: none to show
+    posted.length = 0;
+    await handle(liveAsk(1, 2, { row, step: { ...walking, leg: 2, kind: 'last' }, ahead: true, here }));
+    assert.deepEqual(posted[0].live.others, []);
 });
 
 test('live times are only for the latest half hour, and timing them never stops one being worked out', async () => {
