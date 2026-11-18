@@ -12,7 +12,7 @@ import { STOP_CODE } from '../data/check-output.js';
 const MAX_STOPS = 12;
 // What the Trip page says it asks for (see below), and where it's counted
 // (usage.js SEARCHES)
-const SEARCHES = new Map([['plan', 'plans'], ['plan-start', 'plans'], ['plan-moved', 'plans'], ['plan-ride', 'plans']]);
+const SEARCHES = new Map([['plan', 'plans'], ['plan-start', 'plans'], ['plan-moved', 'plans'], ['plan-ride', 'plans'], ['plan-other', 'plans']]);
 
 // /api routes for the bus page.
 //   GET /api/arrivals?stops=10361,10341
@@ -22,8 +22,9 @@ const SEARCHES = new Map([['plan', 'plans'], ['plan-start', 'plans'], ['plan-mov
 // request of a new search, &for=plan-moved on the first new stop after a
 // trip is planned again from where the rider moved to, decision 45, and
 // &for=plan-ride on a stop first asked for the ride the rider is on, their
-// own bus's, decision 50), so its searches, re-plans, the stops for a ride
-// and their answers are counted apart (usage.js). The bus trip finder's &for=trip went with it (decision 39)
+// own bus's, decision 50, and &for=plan-other on a stop first asked for
+// another way shown, decision 62), so its searches, re-plans, the stops for
+// a ride, for the other ways and their answers are counted apart (usage.js). The bus trip finder's &for=trip went with it (decision 39)
 // and is counted as any request.
 //
 // Only stops in `stopsFile` (bus-stops.json, which the bus page picks from)
@@ -92,6 +93,7 @@ export function createBusApi({ routesFile, statusFile, stopsFile, passesDir = nu
             if (String(req.query.for).endsWith('-start')) usage.tripSearch(searching);
             if (String(req.query.for).endsWith('-moved')) usage.tripMoved(searching);
             if (String(req.query.for).endsWith('-ride')) usage.tripRide(searching);
+            if (String(req.query.for).endsWith('-other')) usage.tripOther(searching);
             results.forEach((r, i) => usage.tripAnswer(cached[i] ? 'cache' : r.unavailable ? 'none' : r.stale ? 'old' : 'oasa', searching));
         }
         res.set('Cache-Control', 'no-store').json({ stops: Object.fromEntries(stops.map((s, i) => [s, results[i]])) });

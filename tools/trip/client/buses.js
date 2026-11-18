@@ -438,6 +438,36 @@ export function liveWay(planner, from, to, row, departure, now, live, { decision
     };
 }
 
+/**
+ * Another way of the half hour's answer, `row`'s for `departure`, timed for
+ * leaving at `now` with OASA's live times, `live`, as the way shown in full
+ * is (liveWay, decision 62): only the stop of its first bus is asked for, so
+ * it costs a stop at most, and that bus is the first OASA has coming that
+ * the rider can still catch there; any other bus takes what's there, as an
+ * answer for the way shown, or else the timetable's. Each bus ride says what
+ * OASA has of it (`live`), once its stop is answered. Null when a ride can't
+ * be made. How late the suburban `trains` run, by number, as liveWay's
+ * @param {Planner} planner @param {Point} from @param {Point} to
+ * @param {import('/tools/subway/answer.js').Row} row @param {number} departure
+ * @param {{ seconds: number }} now @param {Record<string, StopLive>} live
+ * @param {Record<string, import('./trains.js').TrainLate> | null} [trains]
+ * @returns {{ option: BusOption, asks: { stop: string, at: number | null }[] } | null}
+ */
+export function otherWay(planner, from, to, row, departure, now, live, trains = null) {
+    const way = row.best[departure];
+    if (!way) return null;
+    const [access, egress] = ends(planner, from, to);
+    /** @type {{ stop: string, at: number | null } | null} */
+    let first = null;
+    const timed = timedLegs(planner, row, way, now, live, access, { step: null, own: null, trains }, (code, at) => { if (code && !first) first = { stop: code, at }; });
+    if (!timed) return null;
+    const { legs, said } = timed;
+    const end = legs.at(-1);
+    const option = cityOption(planner, { ...way, legs, at: end.arrives + secondsTo(egress, end.alight) }, { access, egress, from, to }, now.seconds, linesOf(way, row.bundle, row.lines));
+    option.rides.forEach((ride, i) => { if (said[i]) ride.live = said[i]; });
+    return { option, asks: first ? [first] : [] };
+}
+
 // The ride the rider is on or walking to, by its index among the way's;
 // past them all, one more; -1 when they aren't followed
 /** @param {import('/tools/subway/ways.js').Way} way @param {LiveStep | null} step */

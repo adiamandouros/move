@@ -1,6 +1,6 @@
 # 60. The trip page follows the rider within 20 metres, or the fix's accuracy, and off the way at 100 by bus
 
-Decided 2026-11-17 · In force
+Decided 2026-11-17 · Replaced by [62](0062-other-ways-timed-by-oasa.md)
 
 ## Situation
 

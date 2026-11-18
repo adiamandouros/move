@@ -562,15 +562,34 @@ function quickerCard(rail, offer, seconds = null) {
     </div>`;
 }
 
+// What OASA says of a way's first bus, at the end of its line (decision
+// 62): its badge, counting down by itself, or that it has none the rider
+// can catch; nothing till its stop is answered
+/** @param {{ rides: { mode: string, live?: import('./buses.js').RideLive }[] }} o @param {{ seconds: number, epoch: number | null }} clock */
+function firstBusLive(o, clock) {
+    const said = o.rides.find(ride => ON_THE_ROAD.has(ride.mode))?.live;
+    if (!said) return '';
+    if (!('at' in said)) return html` · ${t('trip.live-none')}`;
+    const minutes = minutesLeft(said.at, clock.seconds, false);
+    return minutes !== null && minutes < HOUR_MINUTES && html` <span class="trip-live">${minutesBadge(minutes, t, { at: epochAt(said.at, clock), exact: false })}</span>`;
+}
+
 // Another way of the half hour, on one line: a last bus that can be any of
-// several shows them all, and one caught from the door says so
-function halfOther(rail, { row, o }) {
-    const rides = row.bundle ? o.rides.slice(0, -1) : o.rides;
+// several shows them all, and one caught from the door says so. Timed with
+// OASA's live times (`timed`, decision 62), its heading is its minutes and
+// when it gets there, as for leaving now, and its first bus says what OASA
+// has of it; until then, its range over the half hour
+function halfOther(rail, { row, o }, timed = null, clock = { seconds: 0, epoch: null }) {
+    const shown = timed?.option ?? o;
+    const rides = row.bundle ? shown.rides.slice(0, -1) : shown.rides;
     const pills = [...rides.map(ride => pill(rail, ride)), row.bundle && pillList(row.lines.map(line => busPlate(line, 'm')))];
     const fromDoor = row.bundle && !rides.length;
     return html`<div class="trip-card">
-        <div class="trip-card-head"><h3 class="trip-total trip-total-small">${rangeMark(row)}</h3></div>
-        <p class="trip-other">${!fromDoor && walkToFirst(o) > 0 && html`${walkShort(o)} · `}${pills} ${fromDoor ? t('trip.from-stops-nearby') : format(t('trip.from-station'), { station: stopName(rail, o.rides[0].board) })}</p>
+        <div class="trip-card-head">
+            <h3 class="trip-total trip-total-small">${timed ? totalMinutes(shown) : rangeMark(row)}</h3>
+            ${timed && html`<span class="trip-arrives">${format(t('trip.arrive'), { time: clockTime(shown.arrives) })}</span>`}
+        </div>
+        <p class="trip-other">${!fromDoor && walkToFirst(shown) > 0 && html`${walkShort(shown)} · `}${pills} ${fromDoor ? t('trip.from-stops-nearby') : format(t('trip.from-station'), { station: stopName(rail, shown.rides[0].board) })}${timed && firstBusLive(shown, clock)}</p>
     </div>`;
 }
 
@@ -597,10 +616,14 @@ export const takenOption = (row, departure) => row.options.find((o, d) => d >= d
 // trains show. On the way (T14, decision 50): `switching`, the switch to a
 // way 3' or more sooner, with the seconds till it's taken by itself, in the
 // quicker way's place; `switched`: the rider is on that way now, which
-// `live` has, with the way back
-export function renderHalf(rail, kind, ways, to, { now, epoch = null, weekday, date, expired = false, longWalk = false, live = null, offer = false, taken = null, switching = null, switched = false, noTrains = false, trains = null, lifts = null, liftsOpen = true, stations = {}, stops = new Set(), legend: legendShown = true, following = null }) {
+// `live` has, with the way back. `othersTimed`: the other ways OASA's live
+// times time (otherWay in buses.js, decision 62), by row
+export function renderHalf(rail, kind, ways, to, { now, epoch = null, weekday, date, expired = false, longWalk = false, live = null, offer = false, taken = null, switching = null, switched = false, othersTimed = new Map(), noTrains = false, trains = null, lifts = null, liftsOpen = true, stations = {}, stops = new Set(), legend: legendShown = true, following = null }) {
     const [first, ...rest] = ways;
-    const others = taken ? rest.filter(({ row }) => row !== taken) : rest;
+    // The other ways, in the half hour's order until OASA times one, then
+    // the soonest there first
+    const arrives = ({ row, o }) => othersTimed.get(row)?.option.arrives ?? o.arrives;
+    const others = (taken ? rest.filter(({ row }) => row !== taken) : [...rest]).sort((a, b) => othersTimed.size ? arrives(a) - arrives(b) : 0);
     // The first card's way, as halfCard shows it
     const shown = live?.way.option ?? (taken ? takenOption(taken, first.departure) : first.o);
     const drawn = { now, epoch, weekday, date, trains: live && trains, stations, stops };
@@ -618,7 +641,7 @@ export function renderHalf(rail, kind, ways, to, { now, epoch = null, weekday, d
         ${legend(rail, shown, drawn, legendShown)}
         ${longWalk && longWalkNotice()}
         ${others.length > 0 && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
-        ${others.map(way => halfOther(rail, way))}`;
+        ${others.map(way => halfOther(rail, way, othersTimed.get(way.row) ?? null, { seconds: now, epoch }))}`;
 }
 
 // What's said of the live times above the answer (live.js liveStatus), as on

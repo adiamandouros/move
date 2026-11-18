@@ -501,6 +501,31 @@ test.describe('the trip page', () => {
             await expect(page.locator('.trip-card').first().locator('.trip-live .time-badge').first()).toBeVisible();
         });
 
+        // Decision 62: from Μενελάου 45 to Syntagma at noon, any bus from
+        // near the door first, then the 550 and the 040 to the M2
+        test('the other ways are timed by OASA: their minutes and when they get there, their first bus\'s badge; its stop asked once, saying so', async ({ page }) => {
+            const { asks } = await watchRequests(page);
+            await page.goto('/trip');
+            await from(page).fill('Μενελάου 45');
+            await list(page, 'from').first().click();
+            await to(page).fill('Σύνταγμα');
+            await list(page, 'to').first().click();
+            const others = page.locator('.route-option-label ~ .trip-card');
+            await expect(others).toHaveCount(2);
+            for (const other of await others.all()) {
+                await expect(other.locator('.trip-live .time-badge')).toBeVisible();
+                await expect(other.locator('.trip-arrives')).toHaveText(/^Arrive about \d\d:\d\d$/);
+            }
+            await page.waitForFunction(() => window.__pending === 0);
+            const asked = await asks();
+            expect(asked.filter(a => a.for === 'plan-start')).toHaveLength(1);
+            expect(asked.some(a => a.for === 'plan-other')).toBe(true);
+            expect(new Set(asked.map(a => a.code)).size, 'each stop once').toBe(asked.length);
+            expect(await axe(page), 'axe-core violations').toEqual([]);
+            const walk = await keyboardWalk(page);
+            expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
+        });
+
         test('a bus ride OASA has coming: its time without "~", its badges marked as OASA\'s', async ({ page }) => {
             await pickPark(page);
             const ride = page.locator('.trip-card').first().locator('li.trip-step', { has: page.locator('.trip-step-badges') });

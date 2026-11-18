@@ -10,12 +10,13 @@ import { aboutTime, minutesBadge, minutesMark } from '../public/js/core/times.js
 // The next half hour's answer as the trip page shows it (decision 33): what
 // the worker picks from answer.js (halfView in tools/trip/client/buses.js),
 // which departure the page shows as the clock goes on, and the answer drawn
-// in both languages (render.js). Over the test data's metro, tram and the
+// in both languages (render.js), its other ways timed with OASA's live
+// times (decision 62). Over the test data's metro, tram and the
 // buses between Kallithea and Syntagma, on a Wednesday.
 
 const rail = JSON.parse(readFileSync(new URL('browser/data/rail.json', import.meta.url), 'utf8'));
 const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.meta.url), 'utf8'));
-const { cityPlanner, halfHour, halfView, PAST_STOPS } = await browserModule('tools/trip/client/buses.js');
+const { cityPlanner, halfHour, halfView, otherWay, PAST_STOPS, routeCodes, shownRows } = await browserModule('tools/trip/client/buses.js');
 const { planTrip, withTram } = await browserModule('tools/subway/client/network.js');
 const { walkingUrl } = await browserModule('public/js/core/html.js');
 const network = withTram(rail);
@@ -166,6 +167,38 @@ for (const lang of ['en', 'el']) {
         const second = ways[1].o;
         assert.deepEqual(second.rides.map(ride => ride.line), ['040', 'M2']);
         assert.ok(view.includes(s['trip.walk-short'].replace('{minutes}', mark(second.firstWalk.minutes, { about: true }))), 'walking there, "~" an estimate');
+    });
+
+    test(`${lang}: another way OASA times says its minutes and when it gets there, and its bus's badge; the soonest there first; none OASA has, said so`, () => {
+        const ways = r.halfWays(depends, at(10).seconds);
+        // The 040 then the M2, timed with OASA's 040 well after the timetable's
+        const row = shownRows(answered(menelaou, syntagma, at(10)))[1];
+        const [bus] = row.best[0].legs;
+        const code = city.stops[bus.board].id.replace('bus:', '');
+        const [route] = routeCodes(city, ['040'], bus.board, new Set([bus.alight])).keys();
+        const late = at(10).seconds + 25 * 60;
+        const timedWay = JSON.parse(JSON.stringify(otherWay(city, menelaou, syntagma, row, 0, at(10), { [code]: { buses: [{ route, line: '040', at: late }] } })));
+        const othersTimed = new Map([[depends.rows[1], timedWay]]);
+        const view = String(r.renderHalf(network, depends.kind, ways, syntagma, { ...at(10), now: at(10).seconds, othersTimed }));
+        check(view);
+        const { option } = timedWay;
+        assert.ok(view.includes(`<h3 class="trip-total trip-total-small">${mark(option.minutes, { about: true })}</h3>`), 'its minutes, from now');
+        assert.ok(view.includes(s['trip.arrive'].replace('{time}', clock(option.arrives))));
+        assert.ok(view.includes(`<span class="trip-live">${String(minutesBadge(25, key => s[key], { at: null, exact: false }))}</span>`), 'the 040\'s badge, as OASA has it');
+        // Later now than the Β2 way, by the half hour's: after it
+        const others = view.slice(view.indexOf(s['trip.other-ways']));
+        assert.ok(option.arrives > ways[2].o.arrives);
+        assert.ok(others.indexOf('Β2') < others.indexOf('040'), 'the soonest there first');
+
+        const gone = JSON.parse(JSON.stringify(otherWay(city, menelaou, syntagma, row, 0, at(10), { [code]: { buses: [{ route, line: '040', at: at(10).seconds + 60 }] } })));
+        const none = String(r.renderHalf(network, depends.kind, ways, syntagma, { ...at(10), now: at(10).seconds, othersTimed: new Map([[depends.rows[1], gone]]) }));
+        check(none);
+        assert.ok(none.includes(` · ${s['trip.live-none']}</p>`));
+        // Untimed, in the half hour's order, with their ranges
+        const untimed = String(r.renderHalf(network, depends.kind, ways, syntagma, { ...at(10), now: at(10).seconds }));
+        const after = untimed.slice(untimed.indexOf(s['trip.other-ways']));
+        assert.ok(after.indexOf('040') < after.indexOf('Β2'));
+        assert.ok(!untimed.includes('trip-live'));
     });
 
     test(`${lang}: a bus that's one line has its time by the clock, as an estimate; the train after it is a card, its first badge the train the way is timed on`, () => {

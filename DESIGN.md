@@ -387,6 +387,12 @@ rules, with a picture of a way shown in full.
   takes and when you arrive, both in the body colour. Walks and bus rides
   are rows with a 3rem column on the left; metro, tram and suburban rides
   are the Subway page's leg card, inside the trip's card. Every other way is one line. Nothing under the answer.
+- **Another way**, under "Other ways": its heading, then one line, the walk
+  to it, its pills and where it starts. Its heading is its range over the
+  half hour until OASA's live times time it (decision 62); then it's its
+  minutes and "Arrive about …", as for leaving now, and the line ends with
+  its first bus's badge, OASA's, or "· Not on live times yet". The other
+  ways come the soonest there first.
 - **A walk**: `~16'` on the left, "Walk to …" in plain text with the
   distance under it, walking directions at the far right.
 - **A metro station's exits** (decision 51): a walk into a station for a

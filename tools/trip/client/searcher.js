@@ -1,5 +1,5 @@
 import { trainDay } from '/tools/subway/city.js';
-import { busOptions, cityPlanner, halfHour, halfView, liveWay, searchAhead, shownRows } from './buses.js';
+import { busOptions, cityPlanner, halfHour, halfView, liveWay, otherWay, searchAhead, shownRows } from './buses.js';
 
 // The Trip page's searches with a bus, away from the page (decision 32):
 // worker.js runs them in a worker, so typing and tapping never wait for them.
@@ -14,7 +14,9 @@ import { busOptions, cityPlanner, halfHour, halfView, liveWay, searchAhead, show
 // rider followed on a ride (decision 50), the page asks it to search ahead
 // from the ride's stops still to come, at each one reached: the way found
 // is kept, and offered with the live times when it's 3' sooner (T14); once
-// the rider switches to it, it's the way timed.
+// the rider switches to it, it's the way timed. The other ways shown are
+// timed with the live times too, each asking only for its first bus's stop
+// (decision 62).
 // The day's city has the suburban railway's trains of that date, when
 // trains.json has them (decision 41). No DOM, so it's tested in Node.
 
@@ -32,11 +34,15 @@ import { busOptions, cityPlanner, halfHour, halfView, liveWay, searchAhead, show
  * the suburban trains run, by number (trains.js). Followed (decision 50):
  * where the rider is (`step`) on their `own` bus; `ahead`: search ahead
  * first, leaving out the ways `declined` (by key); `switched`: the key of
- * the way ahead they switched to, timed in place of the row's
+ * the way ahead they switched to, timed in place of the row's. And the
+ * other ways shown, each a `row` for its `departure`, timed the same way
+ * with only their first bus's stop asked for (otherWay, decision 62)
  * @typedef {{ rail: import('../../../types/data.js').Rail, suburban?: boolean }
  *   | { id: number, from: Point, to: Point, now: { weekday: number, seconds: number, date?: string }, half: boolean }
  *   | { id: number, live: { seq: number, row: number, departure: number, now: { seconds: number }, stops: Record<string, import('./buses.js').StopLive>, taken?: boolean, step?: import('./buses.js').LiveStep | null, own?: import('./buses.js').OwnBus | null,
- *     trains?: Record<string, import('./trains.js').TrainLate> | null, ahead?: boolean, declined?: string[], switched?: string | null } }} Asked
+ *     trains?: Record<string, import('./trains.js').TrainLate> | null, ahead?: boolean, declined?: string[], switched?: string | null } }
+ *   | { id: number, others: { seq: number, ways: { row: number, departure: number }[], now: { seconds: number }, stops: Record<string, import('./buses.js').StopLive>,
+ *     trains?: Record<string, import('./trains.js').TrainLate> | null } }} Asked
  */
 /**
  * What it answers: the ways with a bus or a train for leaving now, with how long they
@@ -44,11 +50,13 @@ import { busOptions, cityPlanner, halfHour, halfView, liveWay, searchAhead, show
  * made before) and whether the day's city has trains (`trains`: false when
  * trains.json has none for the date); later, the half hour's answer and how long it took;
  * or that there are no buses to be had, as their times couldn't be loaded or
- * the search failed; and the way shown in full timed with the live times,
- * null when it can't be
+ * the search failed; the way shown in full timed with the live times,
+ * null when it can't be; and the other ways shown, each the same, in the
+ * order asked
  * @typedef {{ id: number, options: BusOption[], trains: boolean, timing: { city: number | null, answer: number } }
  *   | { id: number, half: import('./buses.js').HalfView & { ms: number } }
  *   | { id: number, live: { seq: number, way: import('./buses.js').LiveWay | null } }
+ *   | { id: number, others: { seq: number, ways: ({ row: number, departure: number, option: import('./buses.js').BusOption, asks: { stop: string, at: number | null }[] } | null)[] } }
  *   | { id: number, error: true }} Answered
  */
 
@@ -111,6 +119,18 @@ export function searcher({ loadBuses, loadTrains = async () => null, post, pause
                 way = full ? liveWay(shown.planner, shown.from, shown.to, full, at, now, stops, { ...options, ahead: found }) : null;
             } catch { /* the way as the half hour has it */ }
             post({ id, live: { seq, way } });
+            return;
+        }
+        if ('others' in message) {
+            const { id, others: { seq, ways, now, stops, trains = null } } = message;
+            if (id !== shown?.id) return;
+            const timed = ways.map(({ row, departure }) => {
+                try {
+                    const way = shown.rows[row] ? otherWay(shown.planner, shown.from, shown.to, shown.rows[row], departure, now, stops, trains) : null;
+                    return way && { row, departure, ...way };
+                } catch { return null; }
+            });
+            post({ id, others: { seq, ways: timed } });
             return;
         }
         const { id, from, to, now, half } = message;

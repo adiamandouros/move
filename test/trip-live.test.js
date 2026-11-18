@@ -10,13 +10,14 @@ import { aboutTime, minutesBadge, minutesMark } from '../public/js/core/times.js
 // tools/trip/client/buses.js), which stops are asked for and when (live.js,
 // decision 34), and the way drawn with them (render.js), in both languages;
 // and on a decision, the quicker way offered and taken (decision 36); with
-// the rider followed, the search ahead and the switch (T14, decision 50).
+// the rider followed, the search ahead and the switch (T14, decision 50);
+// and the other ways shown, timed with them too (otherWay, decision 62).
 // Over the test data's metro, tram and the buses between Kallithea and
 // Syntagma, on a Wednesday. The page's side: test/browser/trip.spec.js.
 
 const rail = JSON.parse(readFileSync(new URL('browser/data/rail.json', import.meta.url), 'utf8'));
 const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.meta.url), 'utf8'));
-const { cityPlanner, halfHour, halfView, LIVE_STOPS, liveWay, routeCodes, searchAhead, shownRows } = await browserModule('tools/trip/client/buses.js');
+const { cityPlanner, halfHour, halfView, LIVE_STOPS, liveWay, otherWay, routeCodes, searchAhead, shownRows } = await browserModule('tools/trip/client/buses.js');
 const live = await browserModule('tools/trip/client/live.js');
 const { withTram } = await browserModule('tools/subway/client/network.js');
 const { latinName } = await browserModule('public/js/core/text.js');
@@ -107,6 +108,37 @@ test('OASA with no bus the rider can catch: said, and the timetable\'s time stay
 
     const unavailable = timed(busThenTrain, { [BOARD]: { buses: [], unavailable: true } });
     assert.equal(unavailable.option.rides[0].live, undefined);
+});
+
+// Another way shown, timed as the way shown in full is, with only its first bus's stop asked for (decision 62)
+const other = (row, stops) => otherWay(city, menelaou, station('syntagma'), row, 0, at(10), stops);
+
+test('another way shown: timed as the way shown in full is, but only its first bus\'s stop asked for, not where it gets off', () => {
+    const before = other(busThenTrain, {});
+    assert.deepEqual(before.asks, [{ stop: BOARD, at: null }]);
+    assert.deepEqual(before.option, timed(busThenTrain, {}).option, 'the timetable\'s, till its stop is answered');
+    assert.equal(before.option.rides[0].live, undefined);
+
+    // OASA has the 040 later than the timetable: it boards then, the M2 after it is later, and it gets there later
+    const late = 10 * 3600 + 9 * MIN;
+    const stops = { [BOARD]: { buses: [{ route: ROUTE, line: '040', at: 10 * 3600 + 1 * MIN }, { route: ROUTE, line: '040', at: late }] } };
+    const after = other(busThenTrain, stops);
+    assert.deepEqual(after.asks, [{ stop: BOARD, at: late }]);
+    assert.deepEqual(after.option.rides[0].live, { at: late, next: null });
+    assert.equal(after.option.rides[0].boards, late);
+    assert.deepEqual(after.option, timed(busThenTrain, stops).option, 'as the way shown in full would be');
+    assert.ok(after.option.arrives > before.option.arrives);
+    assert.equal(after.option.minutes, Math.round((after.option.arrives - at(10).seconds) / 60), 'its minutes from now');
+});
+
+test('another way shown with no bus OASA has that the rider can catch: said so, on the timetable\'s time; a last bus that can be any of several asks nothing', () => {
+    const gone = other(busThenTrain, { [BOARD]: { buses: [{ route: ROUTE, line: '040', at: 10 * 3600 + 1 * MIN }] } });
+    assert.deepEqual(gone.option.rides[0].live, { none: true });
+    assert.equal(gone.option.rides[0].boards, other(busThenTrain, {}).option.rides[0].boards);
+
+    const any = depends.find(row => row.bundle);
+    assert.ok(any, 'any bus from near the door is shown');
+    assert.deepEqual(other(any, {}).asks, []);
 });
 
 test('the bus boarded due where it gets off, by its vehicle code: the ride ends then, said so, and the train after it is timed from there; any other bus, or none with a code, the timetable\'s ride', () => {
@@ -213,8 +245,9 @@ test('the rider\'s own bus: of their lines, the one due nearest when they boarde
     assert.deepEqual(liveWay(city, menelaou, SYNTAGMA_STOP, busThenTrain, 0, at(10), {}, { step: { ...step, kind: 'wait' }, own: null }).asks, [{ stop: BOARD, at: null }, { stop: ALIGHT, at: null }]);
 });
 
-test('a stop first asked for the ride the rider is on says so', () => {
+test('a stop first asked for the ride the rider is on says so, and one first asked for another way shown', () => {
     assert.equal(live.arrivalsUrl('240115', 'ride'), '/api/arrivals?stops=240115&for=plan-ride');
+    assert.equal(live.arrivalsUrl('240115', 'other'), '/api/arrivals?stops=240115&for=plan-other');
 });
 
 test('a last bus that can be any of several: its stops while the rider walks to them or waits, none once they\'re on it', () => {
