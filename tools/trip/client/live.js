@@ -12,10 +12,11 @@ import { refreshEvery } from '/tools/buses/timing.js';
 
 // The address that asks for one stop. Its requests say they're the Trip
 // page's, and the first of a trip, the first new stop after the trip was
-// planned again from where the rider moved to (decision 45), or a stop
-// first asked for the ride they're on (decision 50), say that too, so
-// /admin/usage counts them apart (server/oasa/usage.js)
-/** @param {string} code @param {'start' | 'moved' | 'ride' | null} [opening] */
+// planned again from where the rider moved to (decision 45), a stop first
+// asked for the ride they're on (decision 50), or one first asked for
+// another way shown (decision 62), say that too, so /admin/usage counts
+// them apart (server/oasa/usage.js)
+/** @param {string} code @param {'start' | 'moved' | 'ride' | 'other' | null} [opening] */
 export const arrivalsUrl = (code, opening = null) => `/api/arrivals?stops=${code}&for=${opening ? `plan-${opening}` : 'plan'}`;
 
 /**

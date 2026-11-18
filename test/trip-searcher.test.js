@@ -10,13 +10,14 @@ import { suburbanCurated, train } from './fixtures/railway.js';
 // half hour, and only for the latest trip; and the half hour's way shown in
 // full timed again with live times (decision 35), with the quicker way on a
 // decision (decision 36), and with the rider followed, the search ahead and
-// the way switched to (T14, decision 50). The page's side:
+// the way switched to (T14, decision 50); and the other ways shown, timed
+// the same way (decision 62). The page's side:
 // test/browser/trip.spec.js.
 
 const rail = JSON.parse(readFileSync(new URL('browser/data/rail.json', import.meta.url), 'utf8'));
 const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.meta.url), 'utf8'));
 const { searcher } = await browserModule('tools/trip/client/searcher.js');
-const { busOptions, cityPlanner, halfHour, liveWay, searchAhead, shownRows } = await browserModule('tools/trip/client/buses.js');
+const { busOptions, cityPlanner, halfHour, liveWay, otherWay, searchAhead, shownRows } = await browserModule('tools/trip/client/buses.js');
 
 // A Wednesday in the timetable, 10:00
 const NOW = { weekday: 3, seconds: 10 * 3600 };
@@ -134,6 +135,33 @@ test('the latest half hour\'s way shown in full is timed again with live times, 
     await handle(liveAsk(1, 3, { row: 9 }));
     await handle(liveAsk(1, 4, { row: 1, now: { ...NOW, seconds: 27 * 3600 } }));
     assert.deepEqual(posted, [{ id: 1, live: { seq: 3, way: null } }, { id: 1, live: { seq: 4, way: null } }]);
+});
+
+test('the other ways shown are timed with live times as the page asks, each for its departure; only the latest half hour\'s, and a row there isn\'t is none', async () => {
+    const { handle, posted, runOut } = started();
+    const othersAsk = (id, seq, ways) => ({ id, others: { seq, ways, now: NOW, stops: {} } });
+    await handle(othersAsk(1, 1, [{ row: 1, departure: 0 }]));
+    assert.deepEqual(posted, [], 'nothing before a half hour has come');
+    const done = handle(trip(1, { half: true }));
+    await new Promise(resolve => setImmediate(resolve));
+    await runOut();
+    await done;
+    posted.length = 0;
+    await handle(othersAsk(1, 2, [{ row: 1, departure: 0 }, { row: 2, departure: 1 }, { row: 9, departure: 0 }]));
+    const planner = cityPlanner(rail, buses, 3);
+    const steps = halfHour(planner, menelaou, syntagma, NOW);
+    let step = steps.next();
+    while (!step.done) step = steps.next();
+    const rows = shownRows(step.value);
+    assert.deepEqual(posted, [{ id: 1, others: { seq: 2, ways: [
+        { row: 1, departure: 0, ...otherWay(planner, menelaou, syntagma, rows[1], 0, NOW, {}) },
+        { row: 2, departure: 1, ...otherWay(planner, menelaou, syntagma, rows[2], 1, NOW, {}) },
+        null,
+    ] } }]);
+    assert.equal(posted[0].others.ways[0].asks.length, 1, 'one stop each');
+    posted.length = 0;
+    await handle(othersAsk(0, 3, [{ row: 1, departure: 0 }]));
+    assert.deepEqual(posted, [], 'an older half hour\'s');
 });
 
 test('on a decision, the directions are timed with the quicker way, and once it\'s taken, the quicker way is timed instead', async () => {
