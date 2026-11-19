@@ -240,7 +240,10 @@ pages use.
   nearest stops in `tools/buses/client/stops.js`, finding a stop or a line in
   `tools/buses/client/search.js`, which stops the bus page asks for in
   `tools/buses/client/timing.js`, the Trip page's ways in
-  `tools/trip/client/plan.js` and `buses.js`) is tested in Node. `/js/core/text.js` has
+  `tools/trip/client/plan.js` and `buses.js`, and which of its answers
+  still count in `tickets.js`: only the newest of each kind of question,
+  for the current trip, [decision 65](docs/decisions/0065-one-rule-for-late-answers.md))
+  is tested in Node. `/js/core/text.js` has
   `normalise()`, how both searches compare what's typed with names.
 - Trips are worked out in the browser
   ([decision 5](docs/decisions/0005-trips-in-the-browser.md)), but
