@@ -5,7 +5,7 @@
 import { RIDE_STOP_MINUTES } from '../support/test-site.js';
 import { watchRequests } from './bus-requests.js';
 import { axe, expect, keyboardWalk, onlyOn, test } from './fixtures.js';
-import { from, hereToSyntagma, list, MEGARA, MENELAOU_45, MENELAOU_85, moveTo, PARK, pickBoth, pickDecision, pickPark, STAVROU_1, to, watchLive, watchPlans } from './trip-page.js';
+import { from, hereToSyntagma, list, MEGARA, MENELAOU_45, MENELAOU_85, moveTo, PARK, pickBoth, pickDecision, pickPark, STAVROU_1, to, watchLive, watchOnward, watchPlans } from './trip-page.js';
 
 test.describe('the trip page', () => {
     test.beforeEach(onlyOn('phone'));
@@ -717,6 +717,28 @@ test.describe('the trip page', () => {
             expect(await axe(page), 'axe-core violations').toEqual([]);
         });
 
+        // Road · 10, decision 63
+        test('on foot, the other ways are worked out from where the rider is, and timed: those drawn, the soonest there first', async ({ page }) => {
+            const { asks, run } = await watchRequests(page);
+            const liveWay = await watchLive(page);
+            const onward = await watchOnward(page);
+            const { bus } = await hereToPark(page, run, asks, liveWay);
+            expect(await onward()).toBeNull();
+            const others = page.locator('.route-option-label ~ .trip-card');
+            // A third of the way to the 040's stop: left the start, walking
+            const walking = { lat: MENELAOU_45.lat + (bus[0].lat - MENELAOU_45.lat) / 3, lng: MENELAOU_45.lng + (bus[0].lng - MENELAOU_45.lng) / 3 };
+            await moveTo(page, walking);
+            await run(1);
+            await expect(status(page)).toHaveText('Following your ride');
+            await expect.poll(async () => (await onward())?.length ?? -1).toBeGreaterThan(0);
+            const found = await onward();
+            await expect(others).toHaveCount(found.length);
+            const clock = at => `Arrive about ${String(Math.floor(at / 3600) % 24).padStart(2, '0')}:${String(Math.floor(at / 60) % 60).padStart(2, '0')}`;
+            await expect(others.locator('.trip-arrives')).toHaveText(found.map(other => other.option.arrives).sort((a, b) => a - b).map(clock));
+            await page.clock.resume();
+            expect(await axe(page), 'axe-core violations').toEqual([]);
+        });
+
         // Road · 3: Android's browser focuses a button that's tapped, and the
         // answer, kept from redrawing under the keyboard, never drew again
         test('a tap in the answer doesn\'t stop it: the step still marked as the rider moves, and the trip planned again off the way drawn', async ({ page }) => {
@@ -1028,6 +1050,26 @@ test.describe('the trip page', () => {
                 await run(70);
                 await expect(offer(page)).toHaveCount(0);
                 expect(await plans()).toHaveLength(1);
+            });
+
+            // Road · 10, decision 63
+            test('the other ways are those on from the tram, not from the start, their bus\'s stop asked as the other ways\'; kept, the way kept over is one of them', async ({ page }) => {
+                const { asks, run } = await watchRequests(page);
+                const liveWay = await watchLive(page);
+                await onTheTram(page, run, liveWay);
+                const others = page.locator('.route-option-label ~ .trip-card');
+                await expect(others).toHaveCount(1);
+                await expect(others.locator('.line-t6')).toHaveCount(0);
+                await expect(others).toContainText('136');
+                await expect(others.locator('.trip-arrives')).toHaveText(/^Arrive about \d\d:\d\d$/);
+                await page.waitForFunction(() => window.__pending === 0);
+                expect((await asks()).some(a => a.for === 'plan-other')).toBe(true);
+                await page.getByRole('button', { name: 'Keep my route' }).click();
+                await run(35);
+                await expect(others).toHaveCount(2);
+                await expect(offer(page)).toHaveCount(0);
+                await page.clock.resume();
+                expect(await axe(page), 'axe-core violations').toEqual([]);
             });
 
             test('kept: gone for the trip, as the tram goes on', async ({ page }) => {

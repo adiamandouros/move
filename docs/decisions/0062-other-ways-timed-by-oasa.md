@@ -1,6 +1,6 @@
 # 62. The trip page: the other ways timed by OASA, each by its first bus
 
-Decided 2026-11-18 · In force
+Decided 2026-11-18 · Replaced by [63](0063-other-ways-follow-the-rider.md)
 
 ## Situation
 

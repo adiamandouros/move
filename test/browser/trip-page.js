@@ -87,6 +87,24 @@ export async function watchLive(page) {
     return () => page.evaluate(() => window.__live);
 }
 
+// The other ways shown to a followed rider, as the worker last sent them
+// with the way shown in full (decision 63): [{ key, option }], or null
+// before any was searched. Returns a function that gives the latest
+export async function watchOnward(page) {
+    await page.addInitScript(() => {
+        window.__onward = null;
+        const listen = Worker.prototype.addEventListener;
+        Worker.prototype.addEventListener = function (type, fn, ...rest) {
+            const heard = type !== 'message' ? fn : event => {
+                if (event.data?.live?.others) window.__onward = event.data.live.others;
+                return fn.call(this, event);
+            };
+            return listen.call(this, type, heard, ...rest);
+        };
+    });
+    return () => page.evaluate(() => window.__onward);
+}
+
 // The park, Άλσος (test/fixtures/places.js): from Menelaou 45 at noon, the
 // walk to Pl. Dabaki, the 040, the walk to the park (pickPark)
 export const PARK = { lat: 37.9545, lng: 23.7305 };

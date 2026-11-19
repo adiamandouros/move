@@ -11,13 +11,14 @@ import { aboutTime, minutesBadge, minutesMark } from '../public/js/core/times.js
 // decision 34), and the way drawn with them (render.js), in both languages;
 // and on a decision, the quicker way offered and taken (decision 36); with
 // the rider followed, the search ahead and the switch (T14, decision 50);
-// and the other ways shown, timed with them too (otherWay, decision 62).
+// and the other ways shown, timed with them too (otherWay, decision 62),
+// to a followed rider the ways on from where they are (decision 63).
 // Over the test data's metro, tram and the buses between Kallithea and
 // Syntagma, on a Wednesday. The page's side: test/browser/trip.spec.js.
 
 const rail = JSON.parse(readFileSync(new URL('browser/data/rail.json', import.meta.url), 'utf8'));
 const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.meta.url), 'utf8'));
-const { cityPlanner, halfHour, halfView, LIVE_STOPS, liveWay, otherWay, routeCodes, searchAhead, shownRows } = await browserModule('tools/trip/client/buses.js');
+const { aheadWays, cityPlanner, halfHour, halfView, hereWays, LIVE_STOPS, liveWay, onwardWay, otherWay, routeCodes, searchAhead, shownRows } = await browserModule('tools/trip/client/buses.js');
 const live = await browserModule('tools/trip/client/live.js');
 const { withTram } = await browserModule('tools/subway/client/network.js');
 const { latinName } = await browserModule('public/js/core/text.js');
@@ -520,6 +521,41 @@ test('switched to: the way ahead is the way timed, from the same tram, its bus\'
     assert.notEqual(searchAhead(city, stavrou, menelaou45, row, 0, NOON, {}, { step: ON_TRAM })?.key, AHEAD.key, 'not the way it is');
 });
 
+// The other ways shown to a followed rider (Road · 10, decision 63)
+test('on the tram, every way the search ahead finds, one of each kind, the soonest there first, the switch\'s first; none off a ride', () => {
+    const found = aheadWays(city, stavrou, menelaou45, directions, DEPARTURE, NOON, {}, { step: ON_TRAM });
+    assert.equal(found[0].key, AHEAD.key);
+    assert.equal(new Set(found.map(each => each.key)).size, found.length, 'one of each kind');
+    assert.ok(found.every(each => each.leg === 0 && each.key !== directions.key), 'off the tram, never the way itself');
+    assert.deepEqual(found.map(each => each.way.at), found.map(each => each.way.at).toSorted((a, b) => a - b));
+    assert.deepEqual(aheadWays(city, stavrou, menelaou45, directions, DEPARTURE, NOON, {}, { step: { ...ON_TRAM, kind: 'wait', stop: 0 } }), []);
+});
+
+test('a way found ahead, shown: from where it leaves the tram, its bus\'s stop the one asked, timed by OASA and from where the rider is', () => {
+    const before = onwardWay(city, stavrou, menelaou45, AHEAD, NOON, {}, { step: ON_TRAM });
+    assert.equal(before.key, AHEAD.key);
+    assert.deepEqual(before.option.rides.map(ride => ride.line), AHEAD.way.legs.slice(1).map(leg => leg.line), 'the rides after the tram');
+    assert.deepEqual(before.option.firstWalk, before.option.rides[0].walkBefore, 'the walk to its bus');
+    assert.deepEqual(before.asks, [{ stop: ONWARD_STOP, at: null }], 'not asked for the ride: the rider isn\'t on it');
+    const timed = onwardWay(city, stavrou, menelaou45, AHEAD, NOON, onwardBus(2 * MIN), { step: ON_TRAM });
+    assert.deepEqual(timed.option.rides[0].live, { at: ONWARD.boards + 2 * MIN, next: null });
+    assert.equal(timed.option.arrives, before.option.arrives + 2 * MIN, 'later by as late as its bus');
+    assert.equal(timed.option.minutes, Math.round((timed.option.arrives - NOON.seconds) / 60));
+});
+
+test('walking or waiting: the ways from where the rider is, leaving now, one of each kind, but the way shown; timed as another way', () => {
+    const here = { lat: 37.9562, lng: 23.7125 };
+    const found = hereWays(city, here, station('syntagma'), busThenTrain, 0, at(10));
+    assert.ok(found.length > 1, found.map(each => each.key).join(' / '));
+    assert.ok(found.every(each => each.leg === -1 && each.key !== busThenTrain.key));
+    assert.equal(new Set(found.map(each => each.key)).size, found.length);
+    const way = onwardWay(city, here, station('syntagma'), found[0], at(10), {});
+    assert.deepEqual(way.option, otherWay(city, here, station('syntagma'), { ...found[0], best: [found[0].way], bundle: false, lines: [], stops: [] }, 0, at(10), {}).option, 'the whole way, from here');
+    assert.ok(way.asks.length <= 1);
+    // Nowhere near a stop: none
+    assert.deepEqual(hereWays(city, { lat: 38.3, lng: 23.2 }, station('syntagma'), busThenTrain, 0, at(10)), []);
+});
+
 test('what\'s said above the answer: paused, none to be had anywhere, or older times', () => {
     const asks = [{ stop: 'a', at: null }, { stop: 'b', at: null }];
     const answers = entries => new Map(entries);
@@ -718,6 +754,26 @@ for (const lang of ['en', 'el']) {
     const target = { ...menelaou45, title: 'Μενελάου 45', exact: null };
     const drawnDecided = (way, more = {}) => String(r.renderHalf(network, decidedView.kind, decidedWays, target, { now: NOON.seconds, weekday: NOON.weekday, live: way && { way: view(way) }, ...more }));
     const stopNamed = stop => lang === 'el' ? stop.names.el : stop.names.en || latinName(stop.names.el);
+
+    test(`${lang}: followed on the tram, the other ways are those on from there: the rides after it, their minutes and arrival, their bus's badge, the soonest first, in place of the half hour's`, () => {
+        const way = switching(onwardBus(2 * MIN));
+        const onward = aheadWays(city, stavrou, menelaou45, directions, DEPARTURE, NOON, {}, { step: ON_TRAM })
+            .map(each => view(onwardWay(city, stavrou, menelaou45, each, NOON, onwardBus(2 * MIN), { step: ON_TRAM }).option));
+        const html = drawnDecided(way, { onward: [...onward].reverse(), following: { kind: 'ride', ride: 0, stop: 1 } });
+        check(html);
+        const others = html.slice(html.indexOf(s['trip.other-ways']));
+        assert.equal(others.split('<h3 class="trip-total trip-total-small">').length - 1, onward.length, 'those, not the half hour\'s');
+        const sooner = [...onward].sort((a, b) => a.arrives - b.arrives);
+        const heads = [...others.matchAll(/<span class="trip-arrives">([^<]*)<\/span>/g)].map(m => m[1]);
+        assert.deepEqual(heads, sooner.map(o => s['trip.arrive'].replace('{time}', `${String(Math.floor(o.arrives / 3600)).padStart(2, '0')}:${String(Math.floor(o.arrives / 60) % 60).padStart(2, '0')}`)), 'the soonest there first');
+        assert.ok(others.includes('trip-live'), 'its bus as OASA has it');
+        assert.ok(html.slice(0, html.indexOf(s['trip.other-ways'])).includes('line-t6'), 'the tram in the way shown');
+        assert.ok(!others.includes('line-t6'), 'not in the others: they start from where they leave it');
+        // None found: none shown, not the half hour's from the start
+        const none = drawnDecided(way, { onward: [], following: { kind: 'ride', ride: 0, stop: 1 } });
+        check(none);
+        assert.ok(!none.includes(s['trip.other-ways']));
+    });
 
     test(`${lang}: the quicker way offered under the directions: how much sooner, where to get off the tram for which bus, the walk, the choice`, () => {
         const way = offered(quickerBus([16 * MIN]));

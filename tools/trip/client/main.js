@@ -34,8 +34,9 @@ const HALF_REWORK_SECONDS = 600;
 // being due (live.js), as on the Buses page
 const TICK_MS = 1_000;
 // On a ride followed, the search ahead runs at each stop reached, at most
-// this often (decision 50); a way 3' or more sooner it finds is switched to
-// after this many seconds unless the rider keeps theirs (T14)
+// this often (decision 50), and the search for the other ways shown, walking
+// or waiting too (decision 63); a way 3' or more sooner it finds is switched
+// to after this many seconds unless the rider keeps theirs (T14)
 const AHEAD_MS = 60_000;
 const SWITCH_SECONDS = 10;
 // Buses for everyone (decision 39). /trip?timing also says how long their
@@ -242,13 +243,16 @@ function start(metro) {
     // offered, so it's said once. How late the suburban trains run (decision
     // 42): the latest answer, for every train, so kept from trip to trip;
     // when it was asked for, and whether it's being asked for. On a ride
-    // followed (decision 50): when the search ahead last ran; the switch to
+    // followed (decision 50): when the search ahead last ran, and the
+    // search from where they are walking or waiting (decision 63); the switch to
     // the way it found counting down (`countdown`: its key, the seconds
     // left), held while a pointer is down on it; the way switched to, by
     // key; and the ways the rider kept theirs over, never offered again.
     // The other ways shown (decision 62): which they are (`wanted`: the half
     // hour `id`'s rows, each for its departure) and the worker's latest
-    // timing of each, `seq` counting what's asked of it
+    // timing of each, `seq` counting what's asked of it. To a rider followed
+    // along the way, the ways on from where they are instead (`onward`,
+    // decision 63), as last timed, kept till the next search finds others
     const live = {
         seq: 0, trip: 0, wanted: null, way: null,
         /** @type {Map<string, import('./buses.js').StopLive>} */ answers: new Map(),
@@ -258,9 +262,10 @@ function start(metro) {
         /** @type {import('./buses.js').OwnBus | null} */ own: null,
         /** @type {'taken' | 'kept' | null} */ choice: null, directions: null, offered: false,
         /** @type {import('./trains.js').TrainsLive | null} */ trains: null, trainsAsked: -Infinity, askingTrains: false,
-        aheadAt: -Infinity, /** @type {{ key: string, left: number } | null} */ countdown: null, held: false,
+        aheadAt: -Infinity, hereAt: -Infinity, /** @type {{ key: string, left: number } | null} */ countdown: null, held: false,
         /** @type {string | null} */ switched: null, /** @type {Set<string>} */ declined: new Set(),
         others: { seq: 0, /** @type {{ id: number, ways: { row: number, departure: number }[] } | null} */ wanted: null, /** @type {any[]} */ ways: [] },
+        /** @type {{ key: string, option: any, asks: { stop: string, at: number | null }[] }[] | null} */ onward: null,
     };
     // Someone is in the answer: the keyboard is there, or a pointer is held
     // down on the switch (T14). It isn't drawn again under them till they're done.
@@ -294,15 +299,17 @@ function start(metro) {
     const lateness = () => live.trains?.unavailable ? null : live.trains?.trains ?? null;
     // The way shown in full, timed again by the worker with the live times
     // there are, for leaving now; or nothing to time, as it has no bus.
-    // `ahead`: search ahead from the ride the rider is on first
+    // `ahead`: search first for the other ways shown to a followed rider,
+    // ahead from the ride they're on, or from where they are (decision 63)
     const retime = (want = live.wanted, ahead = false) => {
         live.wanted = want;
         if (!want || !searches) {
             if (live.way) { live.way = null; showLive(); }
             return;
         }
+        const fix = riding() ? ride.state.fix : null;
         searches.postMessage({ id: want.id, live: { seq: ++live.seq, row: want.row, departure: want.departure, now: athensNow(), stops: Object.fromEntries(live.answers), taken: want.taken, trains: lateness(), step: stepFor(), own: live.own,
-            ahead, declined: [...live.declined], switched: want.switched } });
+            ahead, declined: [...live.declined], switched: want.switched, here: fix && { lat: fix.lat, lng: fix.lng } } });
     };
     // The other ways shown, timed again by the worker with the live times
     // there are, each asking only for its first bus's stop (decision 62);
@@ -318,7 +325,7 @@ function start(metro) {
     const noOthers = () => ({ seq: live.others.seq + 1, wanted: null, ways: [] });
     const resetLive = () => {
         Object.assign(live, { trip: live.trip + 1, wanted: null, way: null, answers: new Map(), asked: new Map(), asking: new Set(), opening: 'start', choice: null, directions: null, offered: false, own: null,
-            aheadAt: -Infinity, countdown: null, switched: null, declined: new Set(), others: noOthers() });
+            aheadAt: -Infinity, hereAt: -Infinity, countdown: null, switched: null, declined: new Set(), others: noOthers(), onward: null });
         showLive();
     };
     // The trip planned again from where the rider moved to (decision 45):
@@ -326,15 +333,17 @@ function start(metro) {
     // stops new to its way are asked at once. The way being timed goes, and
     // an answer for it still to come from the worker is dropped
     const moveLive = () => {
-        Object.assign(live, { seq: live.seq + 1, wanted: null, way: null, opening: 'moved', choice: null, directions: null, offered: false, own: null, aheadAt: -Infinity, countdown: null, switched: null, others: noOthers() });
+        Object.assign(live, { seq: live.seq + 1, wanted: null, way: null, opening: 'moved', choice: null, directions: null, offered: false, own: null, aheadAt: -Infinity, hereAt: -Infinity, countdown: null, switched: null, others: noOthers(), onward: null });
         showLive();
     };
     // The stops to ask OASA for: the way shown in full's, then the other
-    // ways' first buses' (decision 62) that it doesn't have already
+    // ways' first buses' (decision 62), or a followed rider's (decision 63),
+    // that it doesn't have already
     const wayAsks = () => live.way?.way.asks ?? [];
     const otherAsks = () => {
         const shown = new Set(wayAsks().map(a => a.stop));
-        return live.others.ways.flatMap(way => way?.asks ?? []).filter(a => !shown.has(a.stop) && shown.add(a.stop));
+        const others = riding() ? live.onward ?? [] : live.others.ways;
+        return others.flatMap(way => way?.asks ?? []).filter(a => !shown.has(a.stop) && shown.add(a.stop));
     };
     // Paused, unavailable or older live times, said above the answer
     const showLive = () => {
@@ -462,6 +471,9 @@ function start(metro) {
         const others = riding() ? [] : ways.slice(1).filter(({ row, o }) => row !== takenRow && hasBus(o));
         const othersWant = others.length ? { id: half.id, ways: others.map(({ row, departure }) => ({ row: half.view.rows.indexOf(row), departure })) } : null;
         if (JSON.stringify(othersWant) !== JSON.stringify(live.others.wanted)) retimeOthers(othersWant);
+        // To a rider followed along the way, the ways on from where they
+        // are, once searched (decision 63), but the way switched to
+        const onward = riding() && live.onward ? live.onward.filter(other => other.key !== switched).map(other => other.option) : null;
         const othersTimed = new Map(live.others.ways
             .filter(way => way && others.some(other => other.row === half.view.rows[way.row] && other.departure === way.departure))
             .map(way => /** @type {[any, any]} */ ([half.view.rows[way.row], way])));
@@ -475,7 +487,7 @@ function start(metro) {
         followWay(following ? card : null, date);
         const shown = ways.length
             ? renderHalf(drawnOn(date), half.view.kind, ways, to, { now: clock, epoch, expired, longWalk: isLongWalk(ways[0].o), live: timed, offer: !choice, taken: choice === 'taken' ? half.view.quicker : null,
-                switching: switching && { offer: switching, seconds: live.countdown.left }, switched: Boolean(switched), othersTimed, noTrains, trains: lateness(), lifts: known, liftsOpen: liftsOpen(), following: followingShown(), ...cards })
+                switching: switching && { offer: switching, seconds: live.countdown.left }, switched: Boolean(switched), othersTimed, onward, noTrains, trains: lateness(), lifts: known, liftsOpen: liftsOpen(), following: followingShown(), ...cards })
             : renderTrip(drawnOn(date), trip, to, { now: clock, epoch, expired, noBuses, noTrains: noTrains && !noBuses, checking: Boolean(searches) && !forTrip(half), lifts: known, liftsOpen: liftsOpen(), following: followingShown(), ...cards });
         const answer = html`${shown}${TIMING && timingBox(timing)}`;
         setHtml(result, answer);
@@ -633,6 +645,7 @@ function start(metro) {
             if (data.live.seq !== live.seq) return;
             live.way = data.live.way && { ...live.wanted, way: data.live.way };
             if (live.way && !live.way.taken) live.directions = live.way;
+            if (data.live.others) live.onward = data.live.others;
             showLive();
             askDue();
             if (forTrip(found) && !inAnswer()) draw(found.now, found.options, false);
@@ -776,10 +789,16 @@ function start(metro) {
         }
         if (live.paused && ride.state.anchor?.at === nowMs) interact();
         if (offDue(ride.state, nowMs)) { replanIfOff(); return; }
-        if (!ride.state.moved) return;
-        // At a stop of the ride, the search ahead, at most once a minute
-        const ahead = step.kind === 'ride' && nowMs - live.aheadAt >= AHEAD_MS;
-        if (ahead) live.aheadAt = nowMs;
+        // The other ways shown searched again (decision 63): at a stop of the
+        // ride, the search ahead with them (decision 50), and walking or
+        // waiting with each fix, each at most once a minute
+        const onFoot = step.kind === 'walk' || step.kind === 'wait';
+        const ahead = onFoot ? nowMs - live.hereAt >= AHEAD_MS : ride.state.moved && nowMs - live.aheadAt >= AHEAD_MS;
+        if (ahead) live[onFoot ? 'hereAt' : 'aheadAt'] = nowMs;
+        if (!ride.state.moved) {
+            if (ahead) retime(live.wanted, true);
+            return;
+        }
         retime(live.wanted, ahead);
         redraw();
     };

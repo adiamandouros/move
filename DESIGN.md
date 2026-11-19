@@ -389,10 +389,13 @@ rules, with a picture of a way shown in full.
   are the Subway page's leg card, inside the trip's card. Every other way is one line. Nothing under the answer.
 - **Another way**, under "Other ways": its heading, then one line, the walk
   to it, its pills and where it starts. Its heading is its range over the
-  half hour until OASA's live times time it (decision 62); then it's its
+  half hour until OASA's live times time it (decision 63); then it's its
   minutes and "Arrive about …", as for leaving now, and the line ends with
   its first bus's badge, OASA's, or "· Not on live times yet". The other
-  ways come the soonest there first.
+  ways come the soonest there first. To a rider followed along the way
+  (decision 63) they're the ways on from where they are, the same way:
+  from where one leaves the ride they're on, its rides; never the way the
+  switch is offering.
 - **A walk**: `~16'` on the left, "Walk to …" in plain text with the
   distance under it, walking directions at the far right.
 - **A metro station's exits** (decision 51): a walk into a station for a
