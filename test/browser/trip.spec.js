@@ -690,6 +690,35 @@ test.describe('the trip page', () => {
                 expect((await asks()).slice(all.length).some(a => before.has(a.code))).toBe(true);
             });
 
+            // The minute's refresh while that search is still out isn't a new
+            // trip: the answer would be taken away to be worked out again, and
+            // every stop asked again, the first saying a search started
+            test('off the way, the minute\'s refresh before the answer planned again comes: the answer kept, not started over', async ({ page }) => {
+                const { asks, run } = await watchRequests(page);
+                const plans = await watchPlans(page);
+                const { hold, release } = await holdAnswers(page);
+                await hereToFix(page, run, asks);
+                await page.evaluate(() => new MutationObserver(() => {
+                    window.__blank ||= Boolean(document.querySelector('#trip-result .trip-intro, #trip-checking'));
+                }).observe(document.getElementById('trip-result'), { childList: true, subtree: true }));
+                // The searches' answers for leaving now held back from here
+                await hold('options');
+                await moveTo(page, MENELAOU_85);
+                for (let i = 0; i < 150 && (await plans()).length < 2; i++) await run(1);
+                const [, again] = await plans();
+                expect({ lat: again.lat, lng: again.lng }).toEqual(MENELAOU_85);
+                // A minute on, its answer still out: a refresh has come by
+                await run(61);
+                await release('options');
+                await expect.poll(async () => (await asks()).some(a => a.at >= again.at)).toBe(true);
+                await page.waitForFunction(() => window.__pending === 0);
+                await expect(page.locator('.trip-card').first().locator('.trip-live .time-badge').first()).toBeVisible();
+                expect(await page.evaluate(() => window.__blank), 'the answer stays').toBe(false);
+                const after = (await asks()).filter(a => a.at >= again.at);
+                expect(after[0].for, 'planned again, not started over').toBe('plan-moved');
+                expect(after.filter(a => a.for === 'plan-start')).toEqual([]);
+            });
+
             test('not planned again out of sight, but at once back in sight; still for 10 minutes, paused; moving on resumes, and off the way after that long without a fix plans again at once', async ({ page }) => {
                 const { asks, run } = await watchRequests(page);
                 const plans = await watchPlans(page);

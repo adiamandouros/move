@@ -151,6 +151,12 @@ export function tripController({ latest, buses, suburban }) {
         // searched again for someone leaving the start now, so the way shown
         // stays theirs (decision 50); it's timed from where they are (retime)
         if (same && (!refresh || riding)) return [...jobs, drawFound(speak)];
+        // Its own search still out (the minute's refresh, or the page opening,
+        // before its answer came): nothing more is asked, as the answer is on
+        // its way. Asked again, it would start the trip over: the answer kept
+        // while it's planned again from where the rider moved to taken away,
+        // every stop's live times asked again, a ride kept searched for now
+        if (!same && forTrip(asked)) return jobs;
         // A new trip's half hour, and one old enough to be worked out again
         // (or from before midnight); the old one stays until the new one comes
         const age = forTrip(half) ? now.seconds - half.view.departures[0] : 0;

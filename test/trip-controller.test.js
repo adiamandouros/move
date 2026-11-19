@@ -192,6 +192,48 @@ test('planned again, and the minute\'s refresh before its half hour is in: still
     assert.deepEqual(tell({ type: 'half', id, view: view(), held: false })[1].half, { say: false });
 });
 
+// Its own search still out: nothing more asked, as the answer is on its way.
+// Asked again, the trip started over: the answer kept while planned again
+// taken away for "Working out the trip…", every stop's live times asked again
+test('the minute\'s refresh before the answer planned again from where the rider moved to: nothing asked again, the answer before kept, the stops keep their answers', () => {
+    const { trip, latest, tell } = withHalf();
+    const stop = latest.take('stop 60002');
+    const { id } = asked(tell({ type: 'moved', place: ON }, clock(AT + 120)));
+    for (const riding of [false, true]) {
+        assert.deepEqual(did(tell({ type: 'refresh', riding, held: false }, clock(AT + 150))), ['keep', 'retime'], riding ? 'riding' : 'walking');
+    }
+    assert.equal(latest.counts('stop 60002', stop), true, 'not started over');
+    assert.equal(trip.stage, 'searching');
+    assert.deepEqual(tell({ type: 'answer', id, options: OPTIONS, trains: true, timing, held: false }), [], 'held till its half hour, as before');
+    assert.deepEqual(tell({ type: 'half', id, view: view(AT + 120), held: false })[1],
+        { do: 'draw', now: clock(AT + 120).now, buses: OPTIONS, speak: false, half: { say: false } });
+});
+
+test('the minute\'s refresh before a new trip\'s answer: not asked again, and the answer said as the end picked asked', () => {
+    const { tell } = page();
+    tell({ type: 'from', place: SYNTAGMA });
+    const search = asked(tell({ type: 'to', place: MENELAOU, say: true }));
+    assert.deepEqual(did(tell({ type: 'refresh', riding: false, held: false }, clock(AT + 60))), ['keep', 'retime']);
+    assert.deepEqual(tell({ type: 'answer', id: search.id, options: OPTIONS, trains: true, timing, held: false }), [{ do: 'draw', now: clock().now, buses: OPTIONS, speak: true }]);
+});
+
+test('the page opening once My location has asked for the trip kept: not asked again', () => {
+    const { tell } = page();
+    tell({ type: 'kept', from: null, to: MENELAOU });
+    const search = asked(tell({ type: 'from', place: HERE, say: false }));
+    assert.deepEqual(did(tell({ type: 'open' })), ['keep']);
+    assert.equal(drawn(tell({ type: 'answer', id: search.id, options: OPTIONS, trains: true, timing, held: false })).speak, false);
+});
+
+test('the minute\'s refresh while the ride kept is still being searched: not searched again for now, the ride still passed on once', () => {
+    const { tell } = page();
+    tell({ type: 'kept', from: null, to: MENELAOU });
+    const ride = { at: 5_000, now: clock(AT - 900).now, key: 'bus:1>bus:2' };
+    const search = asked(tell({ type: 'resume', place: ON, ride }));
+    assert.deepEqual(did(tell({ type: 'refresh', riding: true, held: false }, clock(AT + 60))), ['keep', 'retime']);
+    assert.deepEqual(drawn(tell({ type: 'answer', id: search.id, options: OPTIONS, trains: true, timing, held: false })).now, ride.now);
+});
+
 test('planned again: the half hour held in the answer, so the next answer after it is drawn', () => {
     const { trip, tell } = withHalf();
     const { id } = asked(tell({ type: 'moved', place: ON }));
