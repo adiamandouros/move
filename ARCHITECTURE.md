@@ -376,7 +376,9 @@ version they started with, and it takes over once they're closed
   they're the ways on from where they are: on a ride, what the search ahead
   finds (`aheadWays`, the switch's the first of them); walking or waiting,
   the ways from there (`hereWays`), at most once a minute; each timed by its
-  next bus (`onwardWay`).
+  next bus (`onwardWay`). A way taken ([decision 64](docs/decisions/0064-other-ways-can-be-taken.md))
+  whose bus OASA had coming has that stop asked again on the tap when its
+  answer is 30 s old or more, one request at most, said `plan-take`.
 - `limits.js`: each visitor may ask for 30 stops a minute that aren't cached.
 - `passes.js`: from every fresh answer, the buses that passed a stop (one 3
   minutes away or less, gone from the next answer), a line each in the day's
@@ -583,7 +585,13 @@ quicker in its place. The other ways shown are timed the same way
 minutes, when it gets there and OASA's word on that bus, and they're shown
 the soonest there first. Each can be taken (decision 64): before the rider leaves,
 the half hour's row of that key (`rowKey`, carried as each row's `key`)
-is the way shown in full, kept with the trip by `kept.js`.
+is the way shown in full, kept with the trip by `kept.js`; followed on a
+ride, a way off it is switched to as the switch's is (the worker finds it
+by its key among the ways it last found and sends it back, so the page
+keeps it with the ride); walking or waiting, the trip is planned again
+from where the rider is with that key picked. A way whose bus OASA had
+coming is checked first (`checkStop` and `stillCaught` in `client/live.js`):
+its bus gone, it isn't taken and the ways are worked out again.
 `client/live.js` says which stops to ask for and when, and
 `client/main.js` asks. `client/render.js` draws it, each metro, tram or
 suburban ride of the way shown in full as the Subway page's own card

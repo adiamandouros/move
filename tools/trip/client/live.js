@@ -13,10 +13,11 @@ import { refreshEvery } from '/tools/buses/timing.js';
 // The address that asks for one stop. Its requests say they're the Trip
 // page's, and the first of a trip, the first new stop after the trip was
 // planned again from where the rider moved to (decision 45), a stop first
-// asked for the ride they're on (decision 50), or one first asked for
-// another way shown (decision 62), say that too, so /admin/usage counts
-// them apart (server/oasa/usage.js)
-/** @param {string} code @param {'start' | 'moved' | 'ride' | 'other' | null} [opening] */
+// asked for the ride they're on (decision 50), one first asked for
+// another way shown (decision 62), or one asked again as the rider takes
+// another way (decision 64), say that too, so /admin/usage counts them
+// apart (server/oasa/usage.js)
+/** @param {string} code @param {'start' | 'moved' | 'ride' | 'other' | 'take' | null} [opening] */
 export const arrivalsUrl = (code, opening = null) => `/api/arrivals?stops=${code}&for=${opening ? `plan-${opening}` : 'plan'}`;
 
 /**
@@ -92,4 +93,40 @@ export function liveStatus(asks, answers, paused, trains = null) {
     if (trains?.unavailable) return buses ? 'all-unavailable' : 'trains-unavailable';
     if (buses) return 'unavailable';
     return shown.some(answer => answer.stale) || trains?.stale ? 'stale' : null;
+}
+
+// Another way taken is checked on the tap (decision 64): its first bus's
+// stop asked again when that answer is this old, as the server keeps a
+// stop's answer that long anyway; with no answer this long after the tap,
+// it's taken on the answer there is
+export const FRESH_MS = 30_000;
+export const CHECK_WAIT_MS = 5_000;
+
+/**
+ * The stop to ask again as the rider takes another way (decision 64): its
+ * first bus's (the one stop asked for it, `asks`), when OASA had that bus
+ * coming (`said`, what the way shows of it) and the stop's answer came
+ * FRESH_MS or longer before `nowMs` (`askedAt`). Null: taken at once, as
+ * its answer is fresh, or it has no bus OASA had coming to check
+ * @param {import('./buses.js').RideLive | undefined} said
+ * @param {{ stop: string }[]} asks @param {number | undefined} askedAt @param {number} nowMs
+ */
+export function checkStop(said, asks, askedAt, nowMs) {
+    const stop = asks[0]?.stop;
+    if (!stop || !said || !('at' in said)) return null;
+    return askedAt !== undefined && nowMs - askedAt < FRESH_MS ? null : stop;
+}
+
+/**
+ * Whether the bus a way showed as the rider tapped it (`before`) can still
+ * be caught, by what the way says of its first bus once timed again with
+ * the stop's new answer (`after`): the same vehicle, where OASA gives one,
+ * or any bus where it doesn't. With no bus shown, or no answer to go by,
+ * it's taken on what there is
+ * @param {import('./buses.js').RideLive | undefined} before @param {import('./buses.js').RideLive | undefined} after
+ */
+export function stillCaught(before, after) {
+    if (!before || !('at' in before) || !after) return true;
+    if (!('at' in after)) return false;
+    return !before.vehicle || !after.vehicle || before.vehicle === after.vehicle;
 }

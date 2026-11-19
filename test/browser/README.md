@@ -41,7 +41,10 @@ the run's `playwright-report` artifact.
   the trip page can tell which are its ways' buses; `trip-quicker` does the
   same at one stop only, so a decision's quicker way is offered; `trip-ride`
   has each bus ride its route, 2 minutes a stop, as the same vehicle all the
-  way, so the trip page finds the bus boarded where the rider gets off.
+  way, so the trip page finds the bus boarded where the rider gets off;
+  `trip-gone` is `trip-live` with every bus 12 minutes or more away (a
+  stop asked again only each minute or two), and the 550's first bus gone
+  from a stop checked as another way is taken (`&for=plan-take`).
 - **fake announcement sources**: two OASA posts and one STASY post.
 
 It also builds the copies where something goes wrong (`scenarios()`), and

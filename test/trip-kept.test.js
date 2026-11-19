@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { browserModule } from './support/browser-modules.js';
 
 // The trip kept on the Trip page on the device, for 3 hours, with the ride
-// followed on it and the way picked from the other ways (decisions 52, 58
-// and 64, tools/trip/client/kept.js). The page's side: test/browser/trip.spec.js.
+// followed on it, the way switched to on the ride and the way picked from
+// the other ways (decisions 52, 58 and 64, tools/trip/client/kept.js). The page's side: test/browser/trip.spec.js.
 
 const { KEEP_MS, forgetTrip, keepPicked, keepRide, keepTrip, keptTrip } = await browserModule('tools/trip/client/kept.js');
 
@@ -63,7 +63,7 @@ test('no ends, the link to the page, or nothing readable: nothing kept', () => {
 // A ride followed from My location, as main.js keeps it
 const RIDE = { from: { lat: 37.955, lng: 23.707 }, now: { weekday: 3, seconds: 43_200, date: '2026-10-21' }, at: T, key: 'bus:1>bus:2',
     steps: [{ kind: 'walk', ride: 0, from: { lat: 37.955, lng: 23.707 }, to: { lat: 37.9555, lng: 23.7017 } }], state: { step: 0, stop: 0, at: T, offSince: null, fix: null, anchor: null, moved: false, off: false },
-    choice: null, own: null };
+    choice: null, own: null, switched: null };
 
 test('the ride followed comes back with the trip, and goes with other ends or none', () => {
     keepRide(RIDE, T);
@@ -94,6 +94,22 @@ test('a kept ride in another shape (an older copy, broken): no ride, the trip st
     for (const ride of [{ ...RIDE, steps: null }, { ...RIDE, from: null }, { ...RIDE, state: {} }, { ...RIDE, now: null }, 'ride']) {
         keepRide(ride, T);
         assert.deepEqual(keptTrip(T), { from: null, to: FIX, ride: null, picked: null });
+    }
+});
+
+// A way switched to on the ride (decision 64): the way found ahead itself
+// (buses.js Ahead), and whose it was
+const AHEAD = { key: 'bus:1>bus:3 bus:3>bus:4', leg: 0, way: { at: 45_000, walk: 0, legs: [{ line: '040', board: 1, alight: 3 }, { line: '550', board: 3, alight: 4 }] } };
+
+test('a way switched to on the ride comes back with it, the switch\'s or one the rider took; in another shape, none, the ride still there', () => {
+    keepTrip({ from: null, to: FIX }, T);
+    for (const by of ['picked', 'quicker']) {
+        keepRide({ ...RIDE, switched: { way: AHEAD, by } }, T);
+        assert.deepEqual(keptTrip(T).ride.switched, { way: AHEAD, by });
+    }
+    for (const switched of [{ way: AHEAD, by: 'someone' }, { way: { ...AHEAD, key: 3 }, by: 'picked' }, { way: { ...AHEAD, way: {} }, by: 'picked' }, { way: { ...AHEAD, leg: null }, by: 'picked' }, 'way']) {
+        keepRide({ ...RIDE, switched }, T);
+        assert.deepEqual(keptTrip(T).ride, RIDE);
     }
 });
 

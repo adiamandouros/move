@@ -477,6 +477,16 @@ rules, with a picture of a way shown in full.
   back the same way; the keyboard goes on to its heading, a tap is said.
   When a new half hour no longer has it, a warning above the answer says
   it can't be caught any more, and the half hour's own is first again.
+  Followed, the ways on from where the rider is are buttons too: on a ride,
+  one is taken as the switch's quicker way is (T14), "The way you picked"
+  in place of "The quicker way", with "Back to my route", a countdown
+  called off; walking or waiting, the trip is planned again from where
+  they are with that way first, as off the way. A way whose bus OASA had
+  coming, with that answer 30 s old or more, says "Checking…" in its
+  chevron's place while its stop is asked (the button does nothing
+  meanwhile, at most 5 s); its bus gone, it isn't taken, a warning above
+  the answer says so, the keyboard stays on it, and the ways are worked out
+  again.
 
 ## Tests
 

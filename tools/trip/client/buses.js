@@ -28,10 +28,11 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
 /** @typedef {import('/tools/subway/city.js').Names} Names */
 /**
  * What OASA says of a bus ride of the way shown in full (liveWay): the bus
- * the rider can catch, due `at` (seconds from midnight), and the next of its
- * line after it, null if none is on the road; or that OASA has none the rider
- * can catch there yet
- * @typedef {{ at: number, next: number | null, off?: number } | { none: true }} RideLive
+ * the rider can catch, due `at` (seconds from midnight), its vehicle's code
+ * where OASA gives one, by which a way taken is checked (decision 64), and
+ * the next of its line after it, null if none is on the road; or that OASA
+ * has none the rider can catch there yet
+ * @typedef {{ at: number, next: number | null, off?: number, vehicle?: string } | { none: true }} RideLive
  */
 /**
  * One ride of a way, as the page draws it: its stops (city.js), when it
@@ -471,19 +472,20 @@ export function otherWay(planner, from, to, row, departure, now, live, trains = 
  * (`step`, on their `own` bus), and as the rides from where it leaves it,
  * the next bus's stop the one asked for; walking or waiting, a way from
  * where they are (hereWays, `leg` -1, `from` being there), the whole way.
- * With its key, by which the page tells it apart
+ * With its key, by which the page tells it apart, and its `leg`, by which
+ * the page takes it (decision 64)
  * @param {Planner} planner @param {Point} from @param {Point} to @param {Ahead} ahead
  * @param {{ seconds: number }} now @param {Record<string, StopLive>} live
  * @param {{ step?: LiveStep | null, own?: OwnBus | null, trains?: Record<string, import('./trains.js').TrainLate> | null }} [rider]
- * @returns {{ key: string, option: BusOption, asks: { stop: string, at: number | null }[] } | null}
+ * @returns {{ key: string, leg: number, option: BusOption, asks: { stop: string, at: number | null }[] } | null}
  */
 export function onwardWay(planner, from, to, { key, way, leg }, now, live, { step = null, own = null, trains = null } = {}) {
     const row = /** @type {import('/tools/subway/answer.js').Row} */ (/** @type {unknown} */ ({ key, best: [way], bundle: false, lines: [], stops: [] }));
     const timed = timedOther(planner, from, to, row, way, now, live, leg < 0 ? { trains } : { step, own, trains });
     if (!timed) return null;
-    if (leg < 0) return { key, ...timed };
+    if (leg < 0) return { key, leg, ...timed };
     const rides = timed.option.rides.slice(leg + 1);
-    return { key, asks: timed.asks, option: { ...timed.option, rides, firstWalk: rides[0].walkBefore, changes: rides.length - 1 } };
+    return { key, leg, asks: timed.asks, option: { ...timed.option, rides, firstWalk: rides[0].walkBefore, changes: rides.length - 1 } };
 }
 
 // A way timed as another way shown is (otherWay): the first stop asked for
@@ -596,7 +598,7 @@ function timedLegs(planner, row, way, now, live, access, { step, own, trains }, 
         const alight = code && codeOf(planner.stops[leg.alight]);
         ask(alight, bus?.at ?? null);
         const off = bus && dueThere(live, alight, bus.vehicle, bus.at);
-        said.push(known ? (bus ? { at: bus.at, next: next?.at ?? null, ...off && { off } } : { none: true }) : undefined);
+        said.push(known ? (bus ? { at: bus.at, next: next?.at ?? null, ...off && { off }, ...bus.vehicle && { vehicle: bus.vehicle } } : { none: true }) : undefined);
         if (bus) {
             // Or as long as the timetable's ride from then, or the way's own where there's none
             const [timed] = planner.ride([leg], bus.at) ?? [leg];

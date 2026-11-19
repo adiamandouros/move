@@ -507,23 +507,24 @@ export function halfWays(view, now) {
 
 // The way the half hour stands for, step by step, with its range. best: it's
 // the clear way. live: the way timed with OASA's live times, in its place.
-// taken: it's the quicker way the rider took, with the way back to the
-// directions. The heading can take the keyboard after a choice (main.js).
-// `drawn`: when, and the stations on the way the rider opened (citySteps).
-// `following`: where the rider is on it (decision 50): then the heading is
-// when they get there, the range being for someone still at the start.
-// `picked`: the rider took it from the other ways (decision 64)
-function halfCard(rail, { row, o }, to, drawn, best, live, taken = false, following = null, picked = false) {
+// `label`: whose way it is, at the right of its heading: 'quicker', the
+// quicker way the rider took (decision 36, T14), or 'picked', a way they
+// took from the other ways (decision 64); `back`: with the way back. The
+// heading can take the keyboard after a choice (main.js). `drawn`: when,
+// and the stations on the way the rider opened (citySteps). `following`:
+// where the rider is on it (decision 50): then the heading is when they
+// get there, the range being for someone still at the start
+const LABELS = { quicker: 'trip.quicker-taken', picked: 'trip.picked' };
+function halfCard(rail, { row, o }, to, drawn, best, live, { label = /** @type {'quicker' | 'picked' | null} */ (null), back = false, following = null } = {}) {
     const shown = live?.way.option ?? o;
     return html`<div class="trip-card result-card">
         <div class="trip-card-head">
             <h2 class="trip-total" tabindex="-1">${following ? format(t('trip.arrive'), { time: clockTime(shown.arrives) }) : rangeMark(row)}</h2>
             ${best && html`<span class="trip-arrives">${t('trip.half-best')}</span>`}
-            ${taken && html`<span class="trip-arrives">${t('trip.quicker-taken')}</span>`}
-            ${picked && !taken && html`<span class="trip-arrives">${t('trip.picked')}</span>`}
+            ${label && html`<span class="trip-arrives">${t(LABELS[label])}</span>`}
         </div>
         ${citySteps(rail, shown, to, drawn, row, live, following)}
-        ${taken && html`<button type="button" id="trip-quicker-back" class="btn btn-sm locate-btn trip-stand">${t('trip.quicker-back')}</button>`}
+        ${back && html`<button type="button" id="trip-quicker-back" class="btn btn-sm locate-btn trip-stand">${t('trip.quicker-back')}</button>`}
     </div>`;
 }
 
@@ -564,12 +565,16 @@ function quickerCard(rail, offer, seconds = null) {
     </div>`;
 }
 
+// What OASA says of a way's first bus (RideLive), once its stop is answered
+/** @param {{ rides: { mode: string, live?: import('./buses.js').RideLive }[] }} o */
+export const firstBusSaid = o => o.rides.find(ride => ON_THE_ROAD.has(ride.mode))?.live;
+
 // What OASA says of a way's first bus, at the end of its line (decision
 // 62): its badge, counting down by itself, or that it has none the rider
 // can catch; nothing till its stop is answered
 /** @param {{ rides: { mode: string, live?: import('./buses.js').RideLive }[] }} o @param {{ seconds: number, epoch: number | null }} clock */
 function firstBusLive(o, clock) {
-    const said = o.rides.find(ride => ON_THE_ROAD.has(ride.mode))?.live;
+    const said = firstBusSaid(o);
     if (!said) return '';
     if (!('at' in said)) return html` · ${t('trip.live-none')}`;
     const minutes = minutesLeft(said.at, clock.seconds, false);
@@ -582,8 +587,10 @@ function firstBusLive(o, clock) {
 // when it gets there, as for leaving now, and its first bus says what OASA
 // has of it; until then, its range over the half hour. With `take`, it's a
 // button that takes that way (T18, decision 64): the whole card, its key in
-// `data-way`, a chevron at its right, said as "Take this way: …"
-function halfOther(rail, { row, o }, timed = null, clock = { seconds: 0, epoch: null }, take = false) {
+// `data-way`, a chevron at its right, said as "Take this way: …";
+// `checking`, its bus is being checked as it's taken, said in the
+// chevron's place, the button doing nothing meanwhile
+function halfOther(rail, { row, o }, timed = null, clock = { seconds: 0, epoch: null }, take = false, checking = false) {
     const shown = timed?.option ?? o;
     const rides = row.bundle ? shown.rides.slice(0, -1) : shown.rides;
     const pills = [...rides.map(ride => pill(rail, ride)), row.bundle && pillList(row.lines.map(line => busPlate(line, 'm')))];
@@ -592,12 +599,12 @@ function halfOther(rail, { row, o }, timed = null, clock = { seconds: 0, epoch: 
     const arrives = timed && html`<span class="trip-arrives">${format(t('trip.arrive'), { time: clockTime(shown.arrives) })}</span>`;
     const line = html`${!fromDoor && walkToFirst(shown) > 0 && html`${walkShort(shown)} · `}${pills} ${fromDoor ? t('trip.from-stops-nearby') : format(t('trip.from-station'), { station: stopName(rail, shown.rides[0].board) })}${timed && firstBusLive(shown, clock)}`;
     if (take) {
-        return html`<button type="button" class="trip-card trip-take" data-way="${row.key}">
+        return html`<button type="button" class="trip-card trip-take" data-way="${row.key}" aria-disabled="${checking ? 'true' : 'false'}">
             <span class="trip-take-what">
                 <span class="trip-card-head"><span class="sr-only">${t('trip.take-way')} </span><span class="trip-total trip-total-small">${total}</span>${arrives}</span>
                 <span class="trip-other">${line}</span>
             </span>
-            ${icon('more', 'trip-take-chevron')}
+            ${checking ? html`<span class="trip-take-checking">${t('trip.take-checking')}</span>` : icon('more', 'trip-take-chevron')}
         </button>`;
     }
     return html`<div class="trip-card">
@@ -611,14 +618,15 @@ function halfOther(rail, { row, o }, timed = null, clock = { seconds: 0, epoch: 
 
 // Another way shown to a rider followed along the way (decision 63), on from
 // where they are: as another way OASA times, its rides from where it leaves
-// the one they're on, never one that can be any of several
-/** @param {import('./buses.js').BusOption} o @param {{ seconds: number, epoch: number | null }} clock */
-const onwardOther = (rail, o, clock) => halfOther(rail, { row: { bundle: false, lines: [] }, o }, { option: o }, clock);
+// the one they're on, never one that can be any of several; a button that
+// takes it, by its key (decision 64), `checking` while its bus is checked
+/** @param {any} rail @param {{ key: string, option: import('./buses.js').BusOption }} other @param {{ seconds: number, epoch: number | null }} clock @param {boolean} checking */
+const onwardOther = (rail, { key, option }, clock, checking) => halfOther(rail, { row: { key, bundle: false, lines: [] }, o: option }, { option }, clock, true, checking);
 
-/** @param {import('./buses.js').BusOption[]} onward @param {{ seconds: number, epoch: number | null }} clock */
-function onwardOthers(rail, onward, clock) {
-    const sorted = [...onward].sort((a, b) => a.arrives - b.arrives);
-    return html`${sorted.length > 0 && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}${sorted.map(o => onwardOther(rail, o, clock))}`;
+/** @param {{ key: string, option: import('./buses.js').BusOption }[]} onward @param {{ seconds: number, epoch: number | null }} clock @param {string | null} checking */
+function onwardOthers(rail, onward, clock, checking) {
+    const sorted = [...onward].sort((a, b) => a.option.arrives - b.option.arrives);
+    return html`${sorted.length > 0 && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}${sorted.map(other => onwardOther(rail, other, clock, other.key === checking))}`;
 }
 
 // The quicker way the rider took, for the departure shown: as OASA's live
@@ -643,16 +651,20 @@ export const takenOption = (row, departure) => row.options.find((o, d) => d >= d
 // renderTrip's. Nothing under it (decision 43) but the legend of what its
 // trains show. On the way (T14, decision 50): `switching`, the switch to a
 // way 3' or more sooner, with the seconds till it's taken by itself, in the
-// quicker way's place; `switched`: the rider is on that way now, which
-// `live` has, with the way back. `othersTimed`: the other ways OASA's live
+// quicker way's place; `switched`: the rider is on a way found ahead now,
+// which `live` has, with the way back: 'quicker', the switch's, or
+// 'picked', another way off the ride they took (decision 64). `othersTimed`: the other ways OASA's live
 // times time (otherWay in buses.js, decision 62), by row. `onward`: to a
 // rider followed along the way, the other ways on from where they are, in
-// place of the half hour's (decision 63), the soonest there first. To be
-// taken (decision 64): `take`, the half hour's other ways are buttons that
-// take that way; `picked`, the first way is one the rider took so, not the
-// one the half hour stands for; `lost`, the way they took can't be caught
-// any more, so the half hour's own is first again
-export function renderHalf(rail, kind, ways, to, { now, epoch = null, weekday, date, expired = false, longWalk = false, live = null, offer = false, taken = null, switching = null, switched = false, othersTimed = new Map(), onward = null, take = false, picked = false, lost = false, noTrains = false, trains = null, lifts = null, liftsOpen = true, stations = {}, stops = new Set(), legend: legendShown = true, following = null }) {
+// place of the half hour's (decision 63), the soonest there first, each
+// with its key, buttons that take that way. To be taken (decision 64):
+// `take`, the half hour's other ways are buttons that take that way;
+// `picked`, the first way is one the rider took so, not the one the half
+// hour stands for; `lost`, the way they took can't be caught any more, so
+// the half hour's own is first again; `checking`, the key of the way whose
+// bus is being checked as it's taken; `gone`, the way tapped wasn't taken,
+// as its bus has gone
+export function renderHalf(rail, kind, ways, to, { now, epoch = null, weekday, date, expired = false, longWalk = false, live = null, offer = false, taken = null, switching = null, switched = /** @type {false | 'quicker' | 'picked'} */ (false), othersTimed = new Map(), onward = null, take = false, picked = false, lost = false, checking = /** @type {string | null} */ (null), gone = false, noTrains = false, trains = null, lifts = null, liftsOpen = true, stations = {}, stops = new Set(), legend: legendShown = true, following = null }) {
     const [first, ...rest] = ways;
     // The other ways, in the half hour's order until OASA times one, then
     // the soonest there first
@@ -665,19 +677,20 @@ export function renderHalf(rail, kind, ways, to, { now, epoch = null, weekday, d
         ${missing(false, noTrains)}
         ${expired && notice('warn', 'warning', t('trip.timetable-ended'), 'mb-3')}
         ${lost && notice('warn', 'warning', t('trip.picked-lost'), 'mb-3')}
+        ${gone && notice('warn', 'warning', t('trip.take-gone'), 'mb-3')}
         ${stepFree(rail, [shown, ...others.map(way => way.o)], lifts, liftsOpen)}
         ${kind === 'depends' && html`<p class="trip-intro">${t('trip.half-depends-intro')}</p>`}
         ${switched
-            ? halfCard(rail, { row: { ...first.row, bundle: false }, o: shown }, to, drawn, false, live, true, following)
+            ? halfCard(rail, { row: { ...first.row, bundle: false }, o: shown }, to, drawn, false, live, { label: switched === 'picked' ? 'picked' : 'quicker', back: true, following })
             : taken
-                ? halfCard(rail, { row: taken, o: takenOption(taken, first.departure) }, to, drawn, false, live, true, following)
-                : halfCard(rail, first, to, drawn, kind === 'clear' && !picked, live, false, following, picked)}
+                ? halfCard(rail, { row: taken, o: takenOption(taken, first.departure) }, to, drawn, false, live, { label: 'quicker', back: true, following })
+                : halfCard(rail, first, to, drawn, kind === 'clear' && !picked, live, { label: picked ? 'picked' : null, following })}
         ${switching ? quickerCard(rail, switching.offer, switching.seconds) : offer && live?.way.offer && quickerCard(rail, live.way.offer)}
         ${legend(rail, shown, drawn, legendShown)}
         ${longWalk && longWalkNotice()}
-        ${onward ? onwardOthers(rail, onward, { seconds: now, epoch }) : html`
+        ${onward ? onwardOthers(rail, onward, { seconds: now, epoch }, checking) : html`
             ${others.length > 0 && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
-            ${others.map(way => halfOther(rail, way, othersTimed.get(way.row) ?? null, { seconds: now, epoch }, take))}`}`;
+            ${others.map(way => halfOther(rail, way, othersTimed.get(way.row) ?? null, { seconds: now, epoch }, take, take && way.row.key === checking))}`}`;
 }
 
 // What's said of the live times above the answer (live.js liveStatus), as on
