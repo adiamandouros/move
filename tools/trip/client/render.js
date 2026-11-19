@@ -10,11 +10,12 @@ import { legPositions } from '/tools/subway/network.js';
 import { arrivalRows, headerBadge, nextBus, stopRow, viewHref } from '/tools/buses/render.js';
 import { legCard } from '/tools/subway/render.js';
 import { asLate, wayLegs } from './legs.js';
+import { takenOption } from './half.js';
+import { firstBusSaid, ON_THE_ROAD } from './live.js';
 
 const stationName = (rail, id) => localName(rail.stations[id].name, language);
 // A stop of the city's search (buses.js): a station by its name, a bus stop
 // in Greek, or in Latin letters where OASA's English is just that
-const ON_THE_ROAD = new Set(['bus', 'trolley']);
 const stopName = (rail, stop) => stop.station ? stationName(rail, stop.station) : cityName(stop.names);
 const cityName = names => localName({ el: names.el, en: names.en || latinName(names.el) }, language);
 
@@ -166,10 +167,6 @@ function walkToStation(rail, from, id, minutes, mark = NONE, { leaving = true, b
 // The walk to where the first ride leaves: to the station, and on to a stop
 // beside it, if the trip starts there
 const walkToFirst = o => o.city ? o.firstWalk?.minutes ?? 0 : (o.start.walk?.minutes ?? 0) + (o.plan.walkFirst ?? 0);
-export const hasBus = o => o.city && o.rides.some(ride => ON_THE_ROAD.has(ride.mode));
-// A way with a suburban train (decision 41), whose times come from railway.gov.gr
-export const hasTrain = o => o.city && o.rides.some(ride => ride.mode === 'suburban');
-
 
 // Past an hour, a bus's minutes are no use: its clock time says it
 const HOUR_MINUTES = 60;
@@ -481,9 +478,6 @@ const longWalkNotice = () => notice('info', 'bus', html`${t('trip.long-walk')} <
 
 // ── The next half hour's answer (decision 33) ───────────────────────────────
 
-// A departure tried up to a minute ago still counts: the page redraws each minute
-const LATE_SECONDS = 60;
-
 // A way's minutes over the half hour, the quickest and slowest tenth left
 // out: "16–19'", or as a way's total when they're the same, "~17'"; and in
 // words, for a screen reader
@@ -491,19 +485,6 @@ const LATE_SECONDS = 60;
 const rangeOf = ({ range: [low, high] }) => low === high ? low : [low, high];
 const rangeMark = row => minutesMark(rangeOf(row), t, { about: !Array.isArray(rangeOf(row)) });
 export const rangeText = row => minutesWords(rangeOf(row), t, !Array.isArray(rangeOf(row)));
-
-// Each way the half hour's answer shows, as it is for the next departure
-// tried at `now` (seconds from midnight) or the first after it that has it,
-// and which departure that is
-/** @param {import('./buses.js').HalfView} view @param {number} now */
-export function halfWays(view, now) {
-    const next = view.departures.findIndex(at => at >= now - LATE_SECONDS);
-    if (next < 0) return [];
-    return view.rows.map(row => {
-        const departure = row.options.findIndex((o, d) => d >= next && o);
-        return { row, o: row.options[departure], departure };
-    }).filter(({ o }) => o);
-}
 
 // The way the half hour stands for, step by step, with its range. best: it's
 // the clear way. live: the way timed with OASA's live times, in its place.
@@ -565,10 +546,6 @@ function quickerCard(rail, offer, seconds = null) {
     </div>`;
 }
 
-// What OASA says of a way's first bus (RideLive), once its stop is answered
-/** @param {{ rides: { mode: string, live?: import('./buses.js').RideLive }[] }} o */
-export const firstBusSaid = o => o.rides.find(ride => ON_THE_ROAD.has(ride.mode))?.live;
-
 // What OASA says of a way's first bus, at the end of its line (decision
 // 62): its badge, counting down by itself, or that it has none the rider
 // can catch; nothing till its stop is answered
@@ -628,12 +605,6 @@ function onwardOthers(rail, onward, clock, checking) {
     const sorted = [...onward].sort((a, b) => a.option.arrives - b.option.arrives);
     return html`${sorted.length > 0 && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}${sorted.map(other => onwardOther(rail, other, clock, other.key === checking))}`;
 }
-
-// The quicker way the rider took, for the departure shown: as OASA's live
-// times have it, or until they do, the half hour's own for that departure or
-// the first after it
-/** @param {import('./buses.js').HalfRow} row @param {number} departure */
-export const takenOption = (row, departure) => row.options.find((o, d) => d >= departure && o) ?? row.options.find(Boolean);
 
 // The next half hour's answer, in place of the answer for leaving now: the
 // way it stands for first (the clear way, the directions that stay on, or

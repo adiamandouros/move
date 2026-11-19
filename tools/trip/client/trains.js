@@ -15,6 +15,9 @@ import { refreshEvery } from '/tools/buses/timing.js';
  */
 
 export const TRAINS_URL = '/api/trains';
+// A way with a suburban train (decision 41), timed with how late they run
+/** @param {{ city?: boolean, rides?: { mode: string }[] }} o */
+export const hasTrain = o => Boolean(o.city) && o.rides.some(ride => ride.mode === 'suburban');
 // A late train the timetable would miss is planned on when its lateness was
 // measured at a station and leaves this much to spare (the rider's call, 9
 // November 2026)
