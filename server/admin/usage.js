@@ -51,6 +51,8 @@ export function usageView(days) {
                 planRide: d.plans?.ride ?? '–',
                 // (none before decision 62)
                 planOther: d.plans?.other ?? '–',
+                // (none before decision 64)
+                planTake: d.plans?.take ?? '–',
                 // (nor the collector)
                 collector: d.requests.collector ?? '–',
                 collectorSkipped: d.dropped.collector ?? '–',

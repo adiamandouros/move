@@ -62,7 +62,12 @@ A tap on another way takes it, by where the rider is:
 
 - For OASA: nothing more before the rider leaves; the way picked is timed
   as the way shown in full always is, the one it replaced as another way.
-  The check on the tap is at most one request a tap.
+  The check on the tap is at most one request a tap, said `&for=plan-take`
+  and counted on /admin/usage ("Trip page stops checked as another way is
+  taken"). It asks only for a way whose bus OASA had coming, as only then
+  can that bus be gone: the same vehicle in the new answer (or any bus
+  where OASA gives no vehicle codes) is still caught; with no answer in
+  5 s, the way is taken on the answer there is.
 - A way picked is on the device with the trip, nothing more than the trip
   already is; the privacy page already says the lines and stops taken are
   kept.

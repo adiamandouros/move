@@ -98,7 +98,9 @@
     "trip.take-way": "Take this way:",
     "trip.picked": "The way you picked",
     "trip.picked-said": "Taking this way.",
-    "trip.picked-lost": "The way you picked can’t be caught any more, so the first way is shown again."
+    "trip.picked-lost": "The way you picked can’t be caught any more, so the first way is shown again.",
+    "trip.take-checking": "Checking…",
+    "trip.take-gone": "Its bus has gone, so that way wasn’t taken. These are the ways from now."
   },
   "el": {
     "trip.from": "Από",
@@ -199,6 +201,8 @@
     "trip.take-way": "Πάρε αυτόν τον δρόμο:",
     "trip.picked": "Ο δρόμος που διάλεξες",
     "trip.picked-said": "Παίρνεις αυτόν τον δρόμο.",
-    "trip.picked-lost": "Δεν προλαβαίνεις πια τον δρόμο που διάλεξες, οπότε φαίνεται ξανά ο πρώτος."
+    "trip.picked-lost": "Δεν προλαβαίνεις πια τον δρόμο που διάλεξες, οπότε φαίνεται ξανά ο πρώτος.",
+    "trip.take-checking": "Έλεγχος…",
+    "trip.take-gone": "Το λεωφορείο του έφυγε, οπότε ο δρόμος αυτός δεν πάρθηκε. Αυτοί είναι οι δρόμοι από τώρα."
   }
 }

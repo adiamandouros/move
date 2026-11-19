@@ -695,6 +695,107 @@ test.describe('the trip page', () => {
         });
     });
 
+    // Decision 64: from Μενελάου 45 to Syntagma at noon, any bus from near
+    // the door first, then the 550 and the 040 to the M2, every bus 12
+    // minutes or more away, so each stop is asked again only each minute or
+    // two; asked as another way is taken, the 550's first bus has gone
+    test.describe('another way taken, checked on the tap', () => {
+        test.use({ scenario: 'trip-gone' });
+        const others = page => page.locator('#trip-result button.trip-take');
+        const way = (page, line) => others(page).filter({ has: page.locator('.bus-plate', { hasText: new RegExp(`^${line}$`) }) });
+        const first = page => page.locator('.trip-card').first();
+        const takes = async asks => (await asks()).filter(a => a.for === 'plan-take');
+        const toSyntagma = async (page, run) => {
+            await page.goto('/trip');
+            await from(page).fill('Μενελάου 45');
+            await list(page, 'from').first().click();
+            await to(page).fill('Σύνταγμα');
+            await list(page, 'to').first().click();
+            await expect(others(page)).toHaveCount(2);
+            for (const line of ['550', '040']) await expect(way(page, line).locator('.trip-live .time-badge')).toBeVisible();
+            await page.waitForFunction(() => window.__pending === 0);
+            await run(1);
+        };
+
+        test('an answer under 30 s old: taken at once, nothing asked; older, its first bus\'s stop asked once, then taken; its bus gone, not taken, said, and the ways worked out again', async ({ page }) => {
+            const { asks, run } = await watchRequests(page);
+            const plans = await watchPlans(page);
+            // How many half hours the page asks its searches for
+            await page.addInitScript(() => {
+                window.__halves = 0;
+                const post = Worker.prototype.postMessage;
+                Worker.prototype.postMessage = function (data, ...rest) {
+                    if (data?.half === true) window.__halves++;
+                    return post.call(this, data, ...rest);
+                };
+            });
+            const halves = () => page.evaluate(() => window.__halves);
+            await toSyntagma(page, run);
+            const own = await others(page).evaluateAll(buttons => buttons.map(b => b.dataset.way));
+            // The half hour's own way, taken back: the one key not among the others before
+            const back = async () => {
+                const now = await others(page).evaluateAll(buttons => buttons.map(b => b.dataset.way));
+                const replaced = now.find(key => !own.includes(key));
+                await page.locator(`button.trip-take[data-way="${replaced}"]`).click();
+                await expect(first(page)).not.toContainText('The way you picked');
+                expect((await others(page).evaluateAll(buttons => buttons.map(b => b.dataset.way))).sort()).toEqual([...own].sort());
+            };
+
+            // Fresh: at once
+            await way(page, '040').click();
+            await expect(first(page)).toContainText('The way you picked');
+            expect(await takes(asks)).toEqual([]);
+            await back();
+
+            // 35 s on (nothing asked again meanwhile): the 040's stop asked once, its bus still coming, taken
+            await run(35);
+            const before = (await asks()).length;
+            await way(page, '040').click();
+            await expect(first(page)).toContainText('The way you picked');
+            const checked = await takes(asks);
+            expect(checked).toHaveLength(1);
+            expect((await asks()).slice(before), 'nothing else asked').toEqual(checked);
+            await back();
+
+            // The 550's bus gone by now, from the keyboard: not taken, said
+            // above the answer, the keyboard still on it; the ways worked out again
+            await way(page, '550').focus();
+            await page.keyboard.press('Enter');
+            await expect(page.locator('.notice')).toContainText('Its bus has gone, so that way wasn’t taken.');
+            await expect(first(page)).not.toContainText('The way you picked');
+            await expect(way(page, '550')).toBeFocused();
+            expect(await takes(asks)).toHaveLength(2);
+            expect(new Set((await takes(asks)).map(a => a.code)).size, 'each its own stop').toBe(2);
+            expect(await halves(), 'the half hour worked out again').toBe(2);
+            expect(await plans(), 'from the same start').toHaveLength(1);
+            await page.clock.resume();
+            expect(await axe(page), 'axe-core violations').toEqual([]);
+        });
+
+        test('while its stop is asked, the card says so and does nothing; with no answer in 5 s, taken on the answer there is', async ({ page }) => {
+            const { run } = await watchRequests(page);
+            await toSyntagma(page, run);
+            await run(35);
+            let release;
+            const held = new Promise(resolve => { release = resolve; });
+            await page.route('**/api/arrivals?*for=plan-take*', async route => { await held; await route.continue(); });
+            await way(page, '550').click();
+            await expect(way(page, '550')).toHaveAttribute('aria-disabled', 'true');
+            await expect(way(page, '550')).toContainText('Checking…');
+            await expect(way(page, '550').locator('.trip-take-chevron')).toHaveCount(0);
+            await expect(way(page, '040')).toHaveAttribute('aria-disabled', 'false');
+            // A second tap, on it or another, does nothing meanwhile
+            await way(page, '040').click();
+            await expect(first(page)).not.toContainText('The way you picked');
+            await page.clock.runFor(5000);
+            await expect(first(page)).toContainText('The way you picked');
+            await expect(first(page).locator('.bus-plate', { hasText: /^550$/ }).first()).toBeVisible();
+            release();
+            await page.clock.resume();
+            expect(await axe(page), 'axe-core violations').toEqual([]);
+        });
+    });
+
     test.describe('followed along the way (decision 50)', () => {
         test.use({ location: { at: MENELAOU_45 } });
 
@@ -805,6 +906,34 @@ test.describe('the trip page', () => {
             await expect(others).toHaveCount(found.length);
             const clock = at => `Arrive about ${String(Math.floor(at / 3600) % 24).padStart(2, '0')}:${String(Math.floor(at / 60) % 60).padStart(2, '0')}`;
             await expect(others.locator('.trip-arrives')).toHaveText(found.map(other => other.option.arrives).sort((a, b) => a - b).map(clock));
+            await page.clock.resume();
+            expect(await axe(page), 'axe-core violations').toEqual([]);
+        });
+
+        // Decision 64
+        test('on foot, another way tapped: planned again from where the rider is, that way first, followed', async ({ page }) => {
+            const { asks, run } = await watchRequests(page);
+            const plans = await watchPlans(page);
+            const liveWay = await watchLive(page);
+            const onward = await watchOnward(page);
+            const { bus } = await hereToPark(page, run, asks, liveWay);
+            const walking = { lat: MENELAOU_45.lat + (bus[0].lat - MENELAOU_45.lat) / 3, lng: MENELAOU_45.lng + (bus[0].lng - MENELAOU_45.lng) / 3 };
+            await moveTo(page, walking);
+            await run(1);
+            await expect.poll(async () => (await onward())?.length ?? -1).toBeGreaterThan(0);
+            const buttons = page.locator('#trip-result button.trip-take');
+            await expect(buttons).toHaveCount((await onward()).length);
+            const [tapped] = await onward();
+            const lines = tapped.option.rides.map(ride => ride.line);
+            expect(lines).not.toEqual(['040', 'M2']);
+            await page.locator(`button.trip-take[data-way="${tapped.key}"]`).click();
+            await expect.poll(plans).toHaveLength(2);
+            expect((await plans())[1], 'from where the rider is').toMatchObject(walking);
+            await run(1);
+            await expect.poll(async () => (await liveWay())?.rides.map(ride => ride.line)).toEqual(lines);
+            await expect(page.locator('.notice')).toHaveCount(0);
+            await expect(status(page)).toHaveText('Following your ride');
+            await expect(current(page)).toHaveCount(1);
             await page.clock.resume();
             expect(await axe(page), 'axe-core violations').toEqual([]);
         });
@@ -1140,6 +1269,55 @@ test.describe('the trip page', () => {
                 await expect(offer(page)).toHaveCount(0);
                 await page.clock.resume();
                 expect(await axe(page), 'axe-core violations').toEqual([]);
+            });
+
+            // Decision 64
+            test('another way off the tram, tapped: taken at once, the countdown called off, still on the tram, with the way back; kept when the app opens again; back, the directions again, still on the tram', async ({ page }) => {
+                const { run } = await watchRequests(page);
+                const plans = await watchPlans(page);
+                const liveWay = await watchLive(page);
+                const tram = await onTheTram(page, run, liveWay);
+                const taken = page.locator('#trip-result button.trip-take');
+                await expect(taken).toHaveCount(1);
+                await expect(taken).toContainText('136');
+                await expect(taken).toHaveAccessibleName(/^Take this way: /);
+                await taken.click();
+                const best = page.locator('.trip-card').first();
+                await expect(best).toContainText('The way you picked');
+                await expect(timer(page)).toHaveCount(0);
+                await expect(current(page)).toContainText('T6');
+                await expect.poll(async () => (await liveWay()).rides.map(ride => ride.line)).toContain('136');
+                await expect(page.getByRole('button', { name: 'Back to my route' })).toBeVisible();
+                expect(await plans()).toHaveLength(1);
+                await run(12);
+                await expect(best).toContainText('The way you picked');
+                await page.clock.resume();
+                expect(await axe(page), 'axe-core violations').toEqual([]);
+
+                // Android closes the app; opened again where the phone is, on the tram: still on that way
+                await page.addInitScript(at => window.__setLocation({ at }), tram[1]);
+                await page.reload();
+                await expect(page.locator('.trip-card').first()).toContainText('The way you picked');
+                await expect(current(page)).toContainText('T6');
+                await expect.poll(async () => (await liveWay())?.rides.map(ride => ride.line)).toContain('136');
+                await expect(page.getByRole('button', { name: 'Back to my route' })).toBeVisible();
+
+                // Back: the directions, still on the tram
+                await page.getByRole('button', { name: 'Back to my route' }).click();
+                await expect(page.locator('.trip-card').first()).not.toContainText('The way you picked');
+                await expect(current(page)).toContainText('T6');
+                await expect(page.getByRole('button', { name: 'Back to my route' })).toHaveCount(0);
+                expect(await plans(), 'nothing planned anew').toHaveLength(1);
+            });
+
+            test('from the keyboard alone: Enter takes it, and the keyboard goes on to the way back', async ({ page }) => {
+                const { run } = await watchRequests(page);
+                const liveWay = await watchLive(page);
+                await onTheTram(page, run, liveWay);
+                await page.locator('#trip-result button.trip-take').focus();
+                await page.keyboard.press('Enter');
+                await expect(page.locator('.trip-card').first()).toContainText('The way you picked');
+                await expect(page.getByRole('button', { name: 'Back to my route' })).toBeFocused();
             });
 
             test('kept: gone for the trip, as the tram goes on', async ({ page }) => {

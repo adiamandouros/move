@@ -196,7 +196,7 @@ test('on a decision, the directions are timed with the quicker way, and once it\
     assert.notDeepEqual(posted[1].live.way.option.rides, posted[0].live.way.option.rides, 'the quicker way, taken');
 });
 
-test('followed on the T6: asked to, it searches ahead, keeps the way found for the next timings, leaves out one declined; switched to, that way is timed; the other ways shown are those found ahead, but the switch\'s, one declined among them', async () => {
+test('followed on the T6: asked to, it searches ahead, keeps the way found for the next timings, leaves out one declined; switched to, that way is timed and sent back; the other ways shown are those found ahead, but the switch\'s, one declined among them; another of them taken is switched to the same way, and one the page kept too', async () => {
     const from = { lat: 37.9535, lng: 23.7255 };
     const to = { lat: 37.955, lng: 23.707 };
     const noon = { weekday: 3, seconds: 12 * 3600 };
@@ -242,7 +242,7 @@ test('followed on the T6: asked to, it searches ahead, keeps the way found for t
     await handle(liveAsk(1, 4, { departure, now: noon, step: onTram, switched: ahead.key }));
     await handle(liveAsk(1, 5, { row: 1, departure: 0, now: noon, step: onTram, switched: ahead.key }));
     const onto = liveWay(planner, from, to, { key: ahead.key, best: [ahead.way], bundle: false, lines: [], stops: [] }, 0, noon, {}, { step: onTram });
-    assert.deepEqual(posted, [{ id: 1, live: { seq: 4, way: onto, others: null } }, { id: 1, live: { seq: 5, way: onto, others: null } }], 'not searched from the way switched to yet');
+    assert.deepEqual(posted, [{ id: 1, live: { seq: 4, way: onto, others: null, switched: ahead } }, { id: 1, live: { seq: 5, way: onto, others: null, switched: ahead } }], 'not searched from the way switched to yet; the way itself, for the page to keep');
     // A key it never found: the row's way, as the page asked
     posted.length = 0;
     await handle(liveAsk(1, 6, { departure, now: noon, step: onTram, switched: 'not found' }));
@@ -254,6 +254,31 @@ test('followed on the T6: asked to, it searches ahead, keeps the way found for t
     await handle(liveAsk(1, 7, { departure: next, now: noon, stops, step: onTram }));
     assert.equal(posted[0].live.way.switchTo, null, 'the switch is for the departure it was searched from');
     assert.deepEqual(posted[0].live.others, shownOf(found), 'so its way is one of them');
+    assert.ok(shownOf(found).every(other => other.key && other.leg === 0), 'each with its key and the ride it leaves, for the page to take it by');
+
+    // Another of the ways found off the tram, taken by the rider (decision
+    // 64): timed in the row's place as the switch's is, and sent back
+    posted.length = 0;
+    const [, other] = found;
+    await handle(liveAsk(1, 8, { departure, now: noon, step: onTram, switched: other.key }));
+    const onOther = liveWay(planner, from, to, { key: other.key, best: [other.way], bundle: false, lines: [], stops: [] }, 0, noon, {}, { step: onTram });
+    assert.deepEqual(posted, [{ id: 1, live: { seq: 8, way: onOther, others: null, switched: other } }]);
+
+    // The app opened again on it: the way the page kept with the trip, as
+    // the search from the start doesn't find it
+    const reopened = started();
+    const again = reopened.handle(trip(1, { from, to, now: noon, half: true }));
+    await new Promise(resolve => setImmediate(resolve));
+    await reopened.runOut();
+    await again;
+    reopened.posted.length = 0;
+    await reopened.handle(liveAsk(1, 1, { departure, now: noon, step: onTram, switched: other.key, switchedWay: other }));
+    assert.deepEqual(reopened.posted, [{ id: 1, live: { seq: 1, way: onOther, others: null, switched: other } }]);
+    // A kept way that isn't one off a ride: the row's way, as the page asked
+    reopened.posted.length = 0;
+    await reopened.handle(liveAsk(1, 2, { departure, now: noon, step: onTram, switched: 'kept', switchedWay: { ...other, key: 'kept', leg: -1 } }));
+    assert.deepEqual(reopened.posted[0].live.way.option, liveWay(planner, from, to, directions, departure, noon, {}, { decision, step: onTram }).option);
+    assert.equal(reopened.posted[0].live.switched, undefined);
 });
 
 test('followed on foot: asked to, the other ways shown are those from where the rider is, leaving now, but the way shown; none past the last ride', async () => {

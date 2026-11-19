@@ -8,8 +8,9 @@
 // location, the ride is kept too (decision 58): where and for when it was
 // planned, the way's steps and where the rider was on them, so the page
 // takes it up again rather than planning anew from where they are. A way
-// the rider took from the other ways is kept too (decision 64), by its key,
-// so it's shown first again. No DOM, so it's tested in Node; main.js follows.
+// the rider took from the other ways is kept too (decision 64): before they
+// leave by its key, so it's shown first again; on a ride, the way switched
+// to itself, with the ride, as it can't be searched again from the start. No DOM, so it's tested in Node; main.js follows.
 
 export const KEEP_MS = 3 * 3_600_000;
 const KEY = 'trip';
@@ -32,7 +33,11 @@ function read() {
 
 // A ride as keepRide keeps it, or null for anything else (an older or broken copy)
 const rideOf = ride => typeof ride?.from?.lat === 'number' && typeof ride.from.lng === 'number' && typeof ride.key === 'string'
-    && Array.isArray(ride.steps) && typeof ride.state?.step === 'number' && typeof ride.now?.seconds === 'number' && typeof ride.at === 'number' ? ride : null;
+    && Array.isArray(ride.steps) && typeof ride.state?.step === 'number' && typeof ride.now?.seconds === 'number' && typeof ride.at === 'number' ? { ...ride, switched: switchedOf(ride.switched) } : null;
+// The way switched to on the ride (decision 64): the way found ahead itself
+// (buses.js Ahead) and whose it was, the switch's or the rider's pick
+const switchedOf = switched => typeof switched?.way?.key === 'string' && typeof switched.way.leg === 'number' && Array.isArray(switched.way.way?.legs)
+    && (switched.by === 'quicker' || switched.by === 'picked') ? switched : null;
 
 const endsOf = ({ from, to }) => JSON.stringify({ from: from ?? null, to: to ?? null });
 

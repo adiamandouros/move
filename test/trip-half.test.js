@@ -213,7 +213,7 @@ for (const lang of ['en', 'el']) {
     });
 
     // The ways a view's buttons take, by their keys, as the page reads them back
-    const takes = view => [...String(view).matchAll(/<button type="button" class="trip-card trip-take" data-way="([^"]*)">/g)]
+    const takes = view => [...String(view).matchAll(/<button type="button" class="trip-card trip-take" data-way="([^"]*)" aria-disabled="(?:true|false)">/g)]
         .map(([, key]) => key.replace(/&#x3D;/g, '=').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'));
 
     test(`${lang}: to be taken, each other way is one button, its key, "Take this way:" for a screen reader and a chevron; nothing in it but words (T18, decision 64)`, () => {
@@ -228,7 +228,14 @@ for (const lang of ['en', 'el']) {
             assert.ok(!/<(h\d|p|div|ul|li|a|button)[\s>]/.test(button.slice(1)), 'only words in a button');
         }
         for (const row of depends.rows.slice(1)) assert.ok(view.includes(`<span class="trip-total trip-total-small">${range(row.range)}</span>`), row.range.join());
-        // Not to be taken (a rider followed on a ride, for now): as before
+        // Its bus being checked as it's taken: said in the chevron's place, the button doing nothing meanwhile
+        const checking = String(r.renderHalf(network, depends.kind, ways, syntagma, { ...at(10), now: at(10).seconds, take: true, checking: depends.rows[1].key }));
+        check(checking);
+        assert.deepEqual(takes(checking), takes(view));
+        assert.equal(checking.split('aria-disabled="true"').length - 1, 1, 'that one only');
+        assert.equal(checking.split('trip-take-chevron').length - 1, depends.rows.length - 2, 'the others as they were');
+        assert.ok(checking.includes(`<span class="trip-take-checking">${s['trip.take-checking']}</span>`));
+        // Not to be taken (a rider followed with no other ways from where they are yet): as before
         const plain = String(r.renderHalf(network, depends.kind, ways, syntagma, { ...at(10), now: at(10).seconds }));
         assert.deepEqual(takes(plain), []);
         assert.ok(!plain.includes('trip-take'));

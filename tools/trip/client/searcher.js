@@ -35,15 +35,17 @@ import { aheadWays, busOptions, cityPlanner, halfHour, halfView, hereWays, liveW
  * the suburban trains run, by number (trains.js). Followed (decision 50):
  * where the rider is (`step`) on their `own` bus; `ahead`: search ahead
  * first, leaving out the ways `declined` (by key); `switched`: the key of
- * the way ahead they switched to, timed in place of the row's; `here`:
- * where they are, for the other ways shown to them walking or waiting
- * (decision 63). And the
+ * the way ahead they switched to (the switch's, or another way off the
+ * ride they took, decision 64), timed in place of the row's, the way itself
+ * (`switchedWay`) when the page kept it with the trip; `here`: where they
+ * are, for the other ways shown to them walking or waiting (decision 63).
+ * And the
  * other ways shown, each a `row` for its `departure`, timed the same way
  * with only their first bus's stop asked for (otherWay, decision 62)
  * @typedef {{ rail: import('../../../types/data.js').Rail, suburban?: boolean }
  *   | { id: number, from: Point, to: Point, now: { weekday: number, seconds: number, date?: string }, half: boolean }
  *   | { id: number, live: { seq: number, row: number, departure: number, now: { seconds: number }, stops: Record<string, import('./buses.js').StopLive>, taken?: boolean, step?: import('./buses.js').LiveStep | null, own?: import('./buses.js').OwnBus | null,
- *     trains?: Record<string, import('./trains.js').TrainLate> | null, ahead?: boolean, declined?: string[], switched?: string | null, here?: import('./buses.js').Point | null } }
+ *     trains?: Record<string, import('./trains.js').TrainLate> | null, ahead?: boolean, declined?: string[], switched?: string | null, switchedWay?: import('./buses.js').Ahead | null, here?: import('./buses.js').Point | null } }
  *   | { id: number, others: { seq: number, ways: { row: number, departure: number }[], now: { seconds: number }, stops: Record<string, import('./buses.js').StopLive>,
  *     trains?: Record<string, import('./trains.js').TrainLate> | null } }} Asked
  */
@@ -55,11 +57,13 @@ import { aheadWays, busOptions, cityPlanner, halfHour, halfView, hereWays, liveW
  * or that there are no buses to be had, as their times couldn't be loaded or
  * the search failed; the way shown in full timed with the live times,
  * null when it can't be, with the other ways shown to a followed rider
- * (`others`, decision 63; null until searched for that way); and the other
+ * (`others`, decision 63; null until searched for that way), each with
+ * which ride it leaves (`leg`, -1 from where they are), and the way
+ * switched to itself (`switched`), when it's timed; and the other
  * ways shown, each the same, in the order asked
  * @typedef {{ id: number, options: BusOption[], trains: boolean, timing: { city: number | null, answer: number } }
  *   | { id: number, half: import('./buses.js').HalfView & { ms: number } }
- *   | { id: number, live: { seq: number, way: import('./buses.js').LiveWay | null, others: { key: string, option: import('./buses.js').BusOption, asks: { stop: string, at: number | null }[] }[] | null } }
+ *   | { id: number, live: { seq: number, way: import('./buses.js').LiveWay | null, others: { key: string, leg: number, option: import('./buses.js').BusOption, asks: { stop: string, at: number | null }[] }[] | null, switched?: import('./buses.js').Ahead } }
  *   | { id: number, others: { seq: number, ways: ({ row: number, departure: number, option: import('./buses.js').BusOption, asks: { stop: string, at: number | null }[] } | null)[] } }
  *   | { id: number, error: true }} Answered
  */
@@ -105,14 +109,21 @@ export function searcher({ loadBuses, loadTrains = async () => null, post, pause
             return;
         }
         if ('live' in message) {
-            const { id, live: { seq, row, departure, now, stops, taken = false, trains = null, step = null, own = null, ahead = false, declined = [], switched = null, here = null } } = message;
+            const { id, live: { seq, row, departure, now, stops, taken = false, trains = null, step = null, own = null, ahead = false, declined = [], switched = null, switchedWay = null, here = null } } = message;
             if (id !== shown?.id) return;
             let way = null;
             let others = null;
+            let onto = null;
             try {
-                // The way ahead switched to, once it's the one found: as a row of its own
-                if (switched && shown.ahead?.found?.key === switched) shown.switched = shown.ahead.found;
-                const onto = switched && shown.switched?.key === switched ? shown.switched : null;
+                // The way switched to on a ride, as a row of its own: the
+                // switch's (T14), or another way off the ride the rider took
+                // (decision 64), among those last found or the search before;
+                // or the one the page kept with the trip (decision 58)
+                if (switched && shown.switched?.key !== switched) {
+                    const found = [shown.ahead?.found, ...shown.onward?.ways ?? [], ...shown.before ?? [], switchedWay];
+                    shown.switched = found.find(each => each?.key === switched && each.leg >= 0) ?? null;
+                }
+                onto = switched && shown.switched?.key === switched ? shown.switched : null;
                 const full = onto ? { key: onto.key, best: [onto.way], bundle: false, lines: [], stops: [] } : shown.rows[row];
                 const at = onto ? 0 : departure;
                 // The quicker way goes with the decision's directions
@@ -131,6 +142,7 @@ export function searcher({ loadBuses, loadTrains = async () => null, post, pause
                     const ways = kind === 'ride' ? aheadWays(shown.planner, shown.from, shown.to, full, at, now, stops, options)
                         : here && (kind === 'walk' || kind === 'wait') ? hereWays(shown.planner, here, shown.to, full, at, now) : [];
                     shown.ahead = { of, found: ways.find(each => each.leg >= 0 && !declined.includes(each.key)) ?? null };
+                    shown.before = shown.onward?.ways ?? [];
                     shown.onward = { of: followed, ways, here };
                 }
                 const found = shown.ahead?.of === of && !declined.includes(shown.ahead.found?.key) ? shown.ahead.found : null;
@@ -143,7 +155,8 @@ export function searcher({ loadBuses, loadTrains = async () => null, post, pause
                         .filter(Boolean);
                 }
             } catch { /* the way as the half hour has it */ }
-            post({ id, live: { seq, way, others } });
+            // The way switched to goes back with it, for the page to keep with the trip
+            post({ id, live: { seq, way, others, ...onto && { switched: onto } } });
             return;
         }
         if ('others' in message) {
@@ -182,7 +195,7 @@ export function searcher({ loadBuses, loadTrains = async () => null, post, pause
                 if (id !== latestHalf) return;
                 step = steps.next();
             }
-            shown = { id, planner, from, to, rows: shownRows(step.value), decision: step.value.decision ?? null, ahead: null, switched: null, onward: null };
+            shown = { id, planner, from, to, rows: shownRows(step.value), decision: step.value.decision ?? null, ahead: null, switched: null, onward: null, before: null };
             post({ id, half: { ...halfView(planner, from, to, step.value), ms: Math.round(clock() - started) } });
         } catch {
             if (id === latest) post({ id, error: true });

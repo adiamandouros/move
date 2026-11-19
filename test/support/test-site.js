@@ -179,6 +179,14 @@ const QUICKER_STOP = '340016';
 const AHEAD_STOP = '340104';
 const aheadArrivals = code => timetableArrivalsAt(code).map((arrival, i) => ({ ...arrival, minutes: 10 + i % 2 * 15 }));
 const codesOf = req => String(req.query.stops ?? '').split(',');
+// As timetableArrivalsAt, but each bus 8 minutes later, 12 or more away, so
+// the Trip page asks a stop again only each minute or two (live.js); and a
+// stop checked as another way is taken (&for=plan-take, decision 64) no
+// longer has the 550's first bus: it has gone (scenario 'trip-gone')
+const GONE_LINE = '550';
+const laterArrivalsAt = (code, take) => timetableArrivalsAt(code)
+    .map(arrival => ({ ...arrival, minutes: arrival.minutes + 8 }))
+    .filter(arrival => !(take && arrival.line === GONE_LINE && arrival.vehicle.endsWith('-0')));
 export const down = async () => { throw new Error('fake OASA: down'); };
 
 export const ADMIN_TEST_PASSWORD = 'test-password';
@@ -196,6 +204,13 @@ export const scenarios = () => ({
     // OASA's answers as the Trip page's ways can match them (timetableArrivalsAt)
     'trip-live': withArrivals((req, res) => res.json({ stops: Object.fromEntries(codesOf(req).map(code => [code, {
         arrivals: timetableArrivalsAt(code).sort((a, b) => a.minutes - b.minutes),
+        updated: Date.now(),
+        stale: false,
+    }])) })),
+    // Every bus 12 minutes or more away, the 550's first gone once a stop is
+    // checked as another way is taken (laterArrivalsAt)
+    'trip-gone': withArrivals((req, res) => res.json({ stops: Object.fromEntries(codesOf(req).map(code => [code, {
+        arrivals: laterArrivalsAt(code, req.query.for === 'plan-take').sort((a, b) => a.minutes - b.minutes),
         updated: Date.now(),
         stale: false,
     }])) })),

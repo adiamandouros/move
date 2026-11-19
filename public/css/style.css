@@ -1660,9 +1660,15 @@ body {
     min-width: 0;
 }
 
-.trip-take-chevron {
+.trip-take-chevron,
+.trip-take-checking {
     flex: none;
     color: var(--bs-secondary-color);
+}
+
+/* Its bus being checked as it's taken (decision 64): it does nothing meanwhile */
+.trip-take[aria-disabled="true"] {
+    cursor: progress;
 }
 
 @media (prefers-reduced-motion: reduce) {
