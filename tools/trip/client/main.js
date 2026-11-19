@@ -860,11 +860,12 @@ function start(metro) {
         fromPicker.say('');
         tell({ type: 'resume', place: here(kept.from), ride: kept });
     };
-    const useLocation = position => {
+    // `say`: its answer said once it's in
+    const useLocation = (position, say = true) => {
         fromInput.value = t('trip.my-location');
         follow(true);
         fromPicker.say('');
-        tell({ type: 'from', place: here(position), say: true });
+        tell({ type: 'from', place: here(position), say });
     };
     // In sight only, and not while the keyboard is in the answer, as for a
     // refresh. With a way to follow, the fixes place the rider on it instead (placeFix)
@@ -1004,11 +1005,12 @@ function start(metro) {
 
     // On when the page opens without a start: from a recent position at
     // once, then following it if the browser already allows that. Nothing
-    // asks for the location here, and what's typed meanwhile wins
+    // asks for the location here, and what's typed meanwhile wins. The
+    // answer isn't said, as nothing is said of a trip the page opens with
     if (!fromInput.value) {
         const last = lastPosition();
         if (resume) resumeRide(resume);
-        else if (last && !inFrom()) useLocation(last);
+        else if (last && !inFrom()) useLocation(last, false);
         locationPermission().then(permission => {
             if (permission === 'denied') follow(false);
             if (permission !== 'granted' || (fromInput.value && !following)) return;
