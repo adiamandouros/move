@@ -5,7 +5,7 @@
 import { RIDE_STOP_MINUTES } from '../support/test-site.js';
 import { watchRequests } from './bus-requests.js';
 import { axe, expect, keyboardWalk, onlyOn, test } from './fixtures.js';
-import { from, hereToSyntagma, list, MEGARA, MENELAOU_45, MENELAOU_85, moveTo, PARK, pickBoth, pickDecision, pickPark, STAVROU_1, to, watchLive, watchOnward, watchPlans } from './trip-page.js';
+import { from, hereToSyntagma, holdAnswers, list, MEGARA, MENELAOU_45, MENELAOU_85, moveTo, PARK, pickBoth, pickDecision, pickPark, STAVROU_1, to, watchLive, watchOnward, watchPlans } from './trip-page.js';
 
 test.describe('the trip page', () => {
     test.beforeEach(onlyOn('phone'));
@@ -388,6 +388,35 @@ test.describe('the trip page', () => {
             expect(await axe(page), 'axe-core violations').toEqual([]);
             const walk = await keyboardWalk(page);
             expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
+        });
+
+        // An answer about the trip before isn't the new trip's: its way's
+        // stops would all be asked at once, the first saying it starts a search
+        test('the way shown timed for a trip, answered once another trip is picked, is dropped: none of its stops asked, the new trip\'s first saying it starts a search', async ({ page }) => {
+            const { asks } = await watchRequests(page);
+            const { hold, held, release } = await holdAnswers(page);
+            await page.goto('/trip');
+            await hold('live');
+            await from(page).fill('Μενελάου 45');
+            await list(page, 'from').first().click();
+            await to(page).fill('Συγγρού-Φιξ');
+            await list(page, 'to').first().click();
+            // Its half hour in, the way shown is timed, and the answer waits
+            await expect.poll(held).toBeGreaterThan(0);
+            // Another trip, its half hour waiting too, so nothing of it is timed yet
+            await hold('half');
+            await to(page).fill('Σύνταγμα');
+            await list(page, 'to').first().click();
+            await page.waitForFunction(() => window.__pending === 0);
+            const before = (await asks()).length;
+            await release('live');
+            expect((await asks()).slice(before), 'asked for the trip before').toEqual([]);
+            await release('half');
+            await expect.poll(async () => (await asks()).length).toBeGreaterThan(before);
+            await page.waitForFunction(() => window.__pending === 0);
+            const asked = (await asks()).slice(before);
+            expect(asked[0].for).toBe('plan-start');
+            expect(asked.filter(a => a.for === 'plan-start')).toHaveLength(1);
         });
 
         // DESIGN.md, "The Trip page", and decision 48

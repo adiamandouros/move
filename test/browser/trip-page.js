@@ -105,6 +105,44 @@ export async function watchOnward(page) {
     return () => page.evaluate(() => window.__onward);
 }
 
+// The searches' answers of some kinds held back till the spec lets them
+// through, in the order they came, for a spec on an answer that comes too
+// late. `hold('live', 'half')`: from then on, the answers that have one of
+// those (searcher.js's Answered) wait; `held()`: how many wait;
+// `release('live')`: those of that kind are heard now, before the page
+// does anything else, and no longer held after
+export async function holdAnswers(page) {
+    await page.addInitScript(() => {
+        const waiting = [];
+        const holding = new Set();
+        window.__hold = (...kinds) => kinds.forEach(kind => holding.add(kind));
+        window.__held = () => waiting.length;
+        window.__release = kind => {
+            holding.delete(kind);
+            for (const each of waiting.filter(each => kind in each.data)) {
+                waiting.splice(waiting.indexOf(each), 1);
+                each.hear();
+            }
+        };
+        const listen = Worker.prototype.addEventListener;
+        Worker.prototype.addEventListener = function (type, fn, ...rest) {
+            const heard = type !== 'message' ? fn : event => {
+                if ([...holding].some(kind => kind in event.data)) {
+                    waiting.push({ data: event.data, hear: () => fn.call(this, event) });
+                    return undefined;
+                }
+                return fn.call(this, event);
+            };
+            return listen.call(this, type, heard, ...rest);
+        };
+    });
+    return {
+        hold: (...kinds) => page.evaluate(kinds => window.__hold(...kinds), kinds),
+        held: () => page.evaluate(() => window.__held()),
+        release: kind => page.evaluate(kind => window.__release(kind), kind),
+    };
+}
+
 // The park, Άλσος (test/fixtures/places.js): from Menelaou 45 at noon, the
 // walk to Pl. Dabaki, the 040, the walk to the park (pickPark)
 export const PARK = { lat: 37.9545, lng: 23.7305 };

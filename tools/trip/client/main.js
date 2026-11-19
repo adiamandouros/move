@@ -253,8 +253,9 @@ function start(metro) {
     // next new stop's request says (`opening`: a new trip's first, or the first
     // after it was planned again from where the rider moved to, decision 45),
     // and whether asking is paused. `seq`
-    // counts what's asked of the worker, as only its latest answer counts;
-    // `trip`, each new trip, so an answer for an older one is dropped. On a
+    // counts what's asked of the worker, as only its latest answer counts,
+    // and moves on with a new trip too; `trip`, each new trip, so a stop's
+    // answer for an older one is dropped. On a
     // decision (decision 36): the rider's choice of the quicker way, taken
     // or kept for the rest of the trip; the directions' latest timing, drawn
     // at once if the rider goes back to them; and whether a quicker way is
@@ -360,8 +361,10 @@ function start(metro) {
         clearTimeout(live.checking?.timer);
         return null;
     };
+    // A new trip: nothing asked for the one before counts, the way's timing
+    // still to come from the worker included
     const resetLive = () => {
-        Object.assign(live, { trip: live.trip + 1, wanted: null, way: null, answers: new Map(), asked: new Map(), asking: new Set(), opening: 'start', choice: null, directions: null, offered: false, own: null,
+        Object.assign(live, { seq: live.seq + 1, trip: live.trip + 1, wanted: null, way: null, answers: new Map(), asked: new Map(), asking: new Set(), opening: 'start', choice: null, directions: null, offered: false, own: null,
             aheadAt: -Infinity, hereAt: -Infinity, countdown: null, switched: null, declined: new Set(), others: noOthers(), onward: null, picked: null, lost: false,
             switchedBy: null, switchedWay: null, checking: noCheck(), gone: false });
         showLive();
