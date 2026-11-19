@@ -133,7 +133,11 @@ test.describe('with a keyboard', () => {
         await page.locator('#toggle-suburban').click();
         await page.locator('#toggle-suburban-station-list').click();
         const athens = page.locator('#suburban-station-list a', { hasText: /^Athens$/ }).first();
+        // The list on screen first: a link still in the closed list takes no
+        // focus, and Enter then does nothing (flaky on CI's phone, #269)
+        await expect(athens).toBeVisible();
         await athens.focus();
+        await expect(athens).toBeFocused();
         await page.keyboard.press('Enter');
         await expect(page).toHaveURL(/\/subway\?to=athens$/);
         await expect(page.locator('#stop-search-to')).toHaveValue('Athens');
