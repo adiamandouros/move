@@ -6,7 +6,7 @@ import { browserModule } from './support/browser-modules.js';
 // tools/trip/client/controller.js): given these events, these jobs. Each
 // test is a case main.js meets; the page's side: test/browser/trip.spec.js.
 
-const { HALF_REWORK_SECONDS, tripController } = await browserModule('tools/trip/client/controller.js');
+const { AHEAD_MS, HALF_REWORK_SECONDS, tripController } = await browserModule('tools/trip/client/controller.js');
 
 // A Wednesday morning in Athens, `seconds` since midnight, the page in sight
 const AT = 8.5 * 3600;
@@ -26,14 +26,31 @@ const view = (first = AT) => ({ kind: 'clear', departures: [first, first + 120],
 const timing = { city: 120, answer: 30 };
 
 // The page: the controller, told events at `clock()` unless said, opened at
-// AT; `rider`, what main.js keeps of the ride followed and the switch (not
-// followed unless a test says); `did` lists what the last jobs say to do
+// AT; `chosen`, what main.js keeps of the switch and the decision (nothing
+// chosen unless a test says); `did` lists what the last jobs say to do
 function page({ buses = true, suburban = true } = {}) {
-    const rider = { riding: false, step: null, here: null, own: null, declined: [], switchedWay: null };
-    const trip = tripController({ buses, suburban, at: AT * 1000, rider: () => rider });
+    const chosen = { choice: null, declined: [], switchedWay: null, switched: null };
+    const trip = tripController({ buses, suburban, at: AT * 1000, hereTitle: 'My location', railOn: () => null, chosen: () => chosen });
     const tell = (event, at = clock()) => trip.tell(event, at);
-    return { trip, rider, tell };
+    return { trip, chosen, tell };
 }
+// My location at `point`, as the controller makes it
+const mine = point => ({ lat: point.lat, lng: point.lng, title: 'My location' });
+// A fix from the phone at `point`, `seconds` after midnight, 5 m exact
+const fix = (point, seconds = AT) => ({ lat: point.lat, lng: point.lng, at: seconds * 1000, accuracy: 5 });
+
+// A way to follow, of the city's search: from START 300 m east to the 040's
+// stop, three stops north 400 m apart, then 300 m east to the door
+const north = (metres, from) => ({ lat: from.lat + metres / 111_195, lng: from.lng });
+const east = (metres, from) => ({ lat: from.lat, lng: from.lng + metres / (111_195 * Math.cos(from.lat * Math.PI / 180)) });
+const START = { lat: 37.9755, lng: 23.7353 };
+const BOARD = east(300, START);
+const STOPS = [0, 1, 2].map(i => north(i * 400, BOARD));
+const DOOR = { ...east(300, STOPS[2]), title: 'Door' };
+const BUS = { city: true, firstWalk: { minutes: 4, meters: 300 }, lastWalk: { minutes: 4, meters: 300 },
+    rides: [{ line: '040', lines: ['040'], mode: 'bus', board: { id: 'bus:60002' }, alight: { id: 'bus:60010' }, along: STOPS.map(({ lat, lng }) => [lat, lng]), past: [], walkBefore: null }] };
+// 50 m along the walk to the stop: the start left
+const LEFT = east(50, START);
 const did = jobs => jobs.map(job => job.do);
 const asked = jobs => jobs.find(job => job.do === 'search')?.ask;
 const drawn = jobs => jobs.find(job => job.do === 'draw');
@@ -45,6 +62,9 @@ const stopsAsked = jobs => jobs.filter(job => job.do === 'ask-stop');
 const want = (id, more = {}) => ({ id, row: 0, departure: AT, taken: false, switched: null, ...more });
 const liveWay = (stops, train = null) => ({ asks: stops.map(stop => ({ stop, at: null })), train });
 // A stop's answer from OASA: a bus `minutes` away
+// The clock's second and the page back in sight, no fix and nobody in the answer
+const SECOND = { type: 'second', position: null, held: false };
+const VISIBLE = { type: 'visible', position: null, held: false };
 const arrivals = (minutes = 4) => ({ buses: [{ route: '1', vehicle: null, line: '040', to: null, at: AT + minutes * 60 }], asked: AT });
 
 // A trip from Syntagma to Menelaou 45, asked, and its answer for leaving now in
@@ -55,6 +75,18 @@ function answered(options) {
     p.tell({ type: 'answer', id: search.id, options: OPTIONS, trains: true, timing, held: false });
     return { ...p, search };
 }
+// My location at START to the door, the bus way answered with its half hour
+// and drawn for following, and the rider 50 m along the walk to the stop
+function followed() {
+    const p = page();
+    p.tell({ type: 'to', place: DOOR });
+    const search = asked(p.tell({ type: 'use-location', position: fix(START), say: true }));
+    p.tell({ type: 'answer', id: search.id, options: [BUS], trains: true, timing, held: false });
+    p.tell({ type: 'half', id: search.id, view: view(), held: false });
+    p.tell({ type: 'card', way: BUS, date: '2026-11-18' });
+    p.tell({ type: 'located', position: fix(LEFT, AT + 10), typing: false, held: false }, clock(AT + 10));
+    return { ...p, search };
+}
 // And its half hour in too
 function withHalf(options) {
     const p = answered(options);
@@ -62,11 +94,11 @@ function withHalf(options) {
     return p;
 }
 
-test('one end only: the page says what it does, and keeps the end it has', () => {
+test('one end only: the page says what it does, and keeps the end it has (a start picked: My location off)', () => {
     const { trip, tell } = page();
     const jobs = tell({ type: 'from', place: SYNTAGMA, say: true });
-    assert.deepEqual(did(jobs), ['keep', 'intro']);
-    assert.deepEqual(jobs[0], { do: 'keep', from: SYNTAGMA, to: null });
+    assert.deepEqual(did(jobs), ['following', 'keep-ride', 'keep', 'intro']);
+    assert.deepEqual(jobs[2], { do: 'keep', from: SYNTAGMA, to: null });
     assert.equal(trip.stage, 'none');
 });
 
@@ -157,8 +189,7 @@ test('past midnight the half hour is worked out again', () => {
 });
 
 test('a refresh while the rider is followed along the way: drawn as it is, not searched for leaving the start now', () => {
-    const { rider, tell } = withHalf();
-    rider.riding = true;
+    const { tell } = followed();
     const jobs = tell({ type: 'refresh', held: false }, clock(AT + 60));
     assert.deepEqual(did(jobs), ['keep', 'draw', 'retime']);
     assert.equal(drawn(jobs).now.seconds, AT);
@@ -172,9 +203,9 @@ test('a refresh with no trip: nothing', () => {
 
 test('planned again from where the rider moved to: the answer before stays till the new half hour, which isn\'t said', () => {
     const { trip, tell } = withHalf();
-    const jobs = tell({ type: 'moved', place: ON }, clock(AT + 120));
+    const jobs = tell({ type: 'moved', position: ON }, clock(AT + 120));
     assert.deepEqual(did(jobs), ['keep', 'move-live', 'show-live', 'search'], 'not started over: the stops keep their answers');
-    assert.deepEqual(asked(jobs), { id: asked(jobs).id, from: ON, to: MENELAOU, now: clock(AT + 120).now, half: true });
+    assert.deepEqual(asked(jobs), { id: asked(jobs).id, from: mine(ON), to: MENELAOU, now: clock(AT + 120).now, half: true });
     assert.equal(trip.plannedAt, (AT + 120) * 1000);
     assert.equal(trip.stage, 'searching');
     const { id } = asked(jobs);
@@ -193,7 +224,7 @@ test('planned again from where the rider moved to: the answer before stays till 
 
 test('planned again, and the minute\'s refresh before its half hour is in: still held till the half hour, which isn\'t said', () => {
     const { trip, tell } = withHalf();
-    const { id } = asked(tell({ type: 'moved', place: ON }));
+    const { id } = asked(tell({ type: 'moved', position: ON }));
     tell({ type: 'answer', id, options: OPTIONS, trains: true, timing, held: false });
     const minute = tell({ type: 'refresh', held: false }, clock(AT + 60));
     assert.equal(asked(minute).half, false, 'its half hour is still being worked out');
@@ -206,14 +237,14 @@ test('planned again, and the minute\'s refresh before its half hour is in: still
 // Asked again, the trip started over: the answer kept while planned again
 // taken away for "Working out the trip…", every stop's live times asked again
 test('the minute\'s refresh before the answer planned again from where the rider moved to: nothing asked again, the answer before kept, the stops keep their answers', () => {
-    const { trip, rider, tell } = withHalf();
+    const { trip, tell } = withHalf();
     const [stop] = stopsAsked(tell({ type: 'check', code: '60002' }));
-    const { id } = asked(tell({ type: 'moved', place: ON }, clock(AT + 120)));
-    for (const riding of [false, true]) {
-        rider.riding = riding;
-        assert.deepEqual(did(tell({ type: 'refresh', held: false }, clock(AT + 150))), ['keep', 'retime'], riding ? 'riding' : 'walking');
-    }
-    rider.riding = false;
+    const { id } = asked(tell({ type: 'moved', position: ON }, clock(AT + 120)));
+    assert.deepEqual(did(tell({ type: 'refresh', held: false }, clock(AT + 150))), ['keep', 'retime']);
+    // The same followed along the way, off it
+    const riding = followed();
+    riding.tell({ type: 'moved', position: ON }, clock(AT + 120));
+    assert.deepEqual(did(riding.tell({ type: 'refresh', held: false }, clock(AT + 150))), ['keep', 'retime'], 'riding');
     assert.notDeepEqual(tell({ type: 'stop', code: '60002', ticket: stop.ticket, answer: arrivals() }), [], 'not started over: the stop\'s answer still counts');
     assert.equal(trip.stage, 'searching');
     assert.deepEqual(tell({ type: 'answer', id, options: OPTIONS, trains: true, timing, held: false }), [], 'held till its half hour, as before');
@@ -232,24 +263,23 @@ test('the minute\'s refresh before a new trip\'s answer: not asked again, and th
 test('the page opening once My location has asked for the trip kept: not asked again', () => {
     const { tell } = page();
     tell({ type: 'kept', from: null, to: MENELAOU });
-    const search = asked(tell({ type: 'from', place: HERE, say: false }));
+    const search = asked(tell({ type: 'use-location', position: fix(HERE), say: false }));
     assert.deepEqual(did(tell({ type: 'open' })), ['keep']);
     assert.equal(drawn(tell({ type: 'answer', id: search.id, options: OPTIONS, trains: true, timing, held: false })).speak, false);
 });
 
 test('the minute\'s refresh while the ride kept is still being searched: not searched again for now, the ride still passed on once', () => {
-    const { rider, tell } = page();
+    const { tell } = page();
     tell({ type: 'kept', from: null, to: MENELAOU });
-    const ride = { at: 5_000, now: clock(AT - 900).now, key: 'bus:1>bus:2' };
-    const search = asked(tell({ type: 'resume', place: ON, ride }));
-    rider.riding = true;
+    const ride = { from: ON, at: 5_000, now: clock(AT - 900).now, key: 'bus:1>bus:2', steps: [], state: {} };
+    const search = asked(tell({ type: 'resume', ride }));
     assert.deepEqual(did(tell({ type: 'refresh', held: false }, clock(AT + 60))), ['keep', 'retime']);
     assert.deepEqual(drawn(tell({ type: 'answer', id: search.id, options: OPTIONS, trains: true, timing, held: false })).now, ride.now);
 });
 
 test('planned again: the half hour held in the answer, so the next answer after it is drawn', () => {
     const { trip, tell } = withHalf();
-    const { id } = asked(tell({ type: 'moved', place: ON }));
+    const { id } = asked(tell({ type: 'moved', position: ON }));
     tell({ type: 'answer', id, options: OPTIONS, trains: true, timing, held: false });
     assert.deepEqual(tell({ type: 'half', id, view: view(), held: true }), [{ do: 'timing' }]);
     assert.equal(trip.holding(), false, 'the half hour is in');
@@ -261,7 +291,7 @@ test('the answers still to come: planned again drops the way\'s and the other wa
     const way = timedAsk(tell({ type: 'shown', want: want(search.id) })).live;
     const others = timedAsk(tell({ type: 'others-shown', want: { id: search.id, ways: [{ row: 1, departure: AT + 120 }] } })).others;
     const [stop, other] = ['60002', '240003'].map(code => stopsAsked(tell({ type: 'check', code }))[0]);
-    tell({ type: 'moved', place: ON });
+    tell({ type: 'moved', position: ON });
     assert.deepEqual(tell({ type: 'timed', seq: way.seq, way: liveWay(['60002']), others: null }), []);
     assert.deepEqual(tell({ type: 'others-timed', seq: others.seq, ways: [] }), []);
     assert.equal(trip.times.way, null);
@@ -282,7 +312,7 @@ test('a way whose bus had gone: searched again at once, its half hour too howeve
 test('the ends swapped: a new trip the other way', () => {
     const { trip, tell } = withHalf();
     const jobs = tell({ type: 'swap' });
-    assert.deepEqual(did(jobs), ['keep', 'new-trip', 'show-live', 'search']);
+    assert.deepEqual(did(jobs), ['following', 'keep-ride', 'keep', 'new-trip', 'show-live', 'search']);
     assert.equal(asked(jobs).from, MENELAOU);
     assert.equal(asked(jobs).to, SYNTAGMA);
     assert.equal(trip.halfHour(), null, 'the half hour was the other way\'s');
@@ -291,10 +321,10 @@ test('the ends swapped: a new trip the other way', () => {
 
 test('From following the rider before there\'s a To: nothing asked, and the trip starts from there', () => {
     const { trip, tell } = page();
-    tell({ type: 'from', place: HERE, say: true });
-    assert.deepEqual(tell({ type: 'here', place: ON }), []);
-    assert.equal(trip.from, ON);
-    assert.equal(asked(tell({ type: 'to', place: MENELAOU })).from, ON);
+    tell({ type: 'use-location', position: fix(HERE), say: true });
+    assert.deepEqual(tell({ type: 'located', position: fix(ON), typing: false, held: false }), []);
+    assert.deepEqual(trip.from, mine(ON));
+    assert.deepEqual(asked(tell({ type: 'to', place: MENELAOU })).from, mine(ON));
 });
 
 test('the trip kept: set as the page opens, asked once it\'s ready', () => {
@@ -308,17 +338,17 @@ test('the trip kept: set as the page opens, asked once it\'s ready', () => {
 });
 
 test('the ride kept taken up: searched for when it was, planned as of then, and passed on with the new trip', () => {
-    const { trip, rider, tell } = page();
+    const { trip, tell } = page();
     tell({ type: 'kept', from: null, to: MENELAOU });
-    const ride = { at: 5_000, now: clock(AT - 900).now, key: 'bus:1>bus:2', choice: 'taken' };
-    const jobs = tell({ type: 'resume', place: ON, ride });
-    assert.deepEqual(did(jobs), ['keep', 'new-trip', 'show-live', 'search']);
-    assert.equal(jobs[1].resumed, ride);
+    const ride = { from: ON, at: 5_000, now: clock(AT - 900).now, key: 'bus:1>bus:2', steps: [], state: {}, choice: 'taken' };
+    const jobs = tell({ type: 'resume', ride });
+    assert.deepEqual(did(jobs), ['from-here', 'following', 'keep', 'new-trip', 'show-live', 'search']);
+    assert.equal(jobs[3].resumed, ride);
+    assert.deepEqual(asked(jobs).from, mine(ON));
     assert.deepEqual(asked(jobs).now, ride.now);
     assert.equal(trip.plannedAt, 5_000);
     assert.equal(drawn(tell({ type: 'answer', id: asked(jobs).id, options: OPTIONS, trains: true, timing, held: false })).speak, true);
     // A refresh later keeps when it was planned
-    rider.riding = true;
     tell({ type: 'refresh', held: false }, clock(AT + 60));
     assert.equal(trip.plannedAt, 5_000);
 });
@@ -413,17 +443,17 @@ test('a stop\'s answer: counted, the way tapped told, both ways timed again with
     assert.deepEqual(answered[0], { do: 'stop-in', code: '60002' });
     assert.deepEqual(timedAsk(answered).live.stops, { '60002': arrivals() });
     assert.equal(trip.times.asked.get('60002'), (AT + 1) * 1000);
-    assert.deepEqual(tell({ type: 'second', idle: false }, clock(AT + 2)), [], 'one just answered, the other being asked');
-    assert.deepEqual(stopsAsked(tell({ type: 'second', idle: false }, clock(AT + 600))).map(job => [job.code, job.opening]), [['60002', null]]);
+    assert.deepEqual(tell(SECOND, clock(AT + 2)), [], 'one just answered, the other being asked');
+    assert.deepEqual(stopsAsked(tell(SECOND, clock(AT + 200))).map(job => [job.code, job.opening]), [['60002', null]]);
 });
 
 test('a stop with no answer: its last one kept, marked older, and said so; none before, unavailable', () => {
     const { trip, tell, jobs } = timedWay(['60002']);
     const [first] = stopsAsked(jobs);
     assert.deepEqual(tell({ type: 'stop', code: '60002', ticket: first.ticket, answer: null })[1], { do: 'show-live', status: 'unavailable' });
-    const [again] = stopsAsked(tell({ type: 'second', idle: false }, clock(AT + 600)));
+    const [again] = stopsAsked(tell(SECOND, clock(AT + 100)));
     tell({ type: 'stop', code: '60002', ticket: again.ticket, answer: arrivals() });
-    const [third] = stopsAsked(tell({ type: 'second', idle: false }, clock(AT + 1200)));
+    const [third] = stopsAsked(tell(SECOND, clock(AT + 300)));
     assert.deepEqual(tell({ type: 'stop', code: '60002', ticket: third.ticket, answer: null })[1], { do: 'show-live', status: 'stale' });
     assert.equal(trip.times.answers.get('60002').stale, true);
     assert.equal(trip.times.answers.get('60002').buses.length, 1);
@@ -431,9 +461,10 @@ test('a stop with no answer: its last one kept, marked older, and said so; none 
 
 test('paused once untouched long enough: said, nothing asked; a touch goes on, both ways timed again', () => {
     const { trip, tell } = timedWay(['60002']);
-    assert.deepEqual(tell({ type: 'second', idle: true }, clock(AT + 600)), [{ do: 'show-live', status: 'paused' }]);
+    assert.deepEqual(tell(SECOND, clock(AT + 600)), [], 'touched 10 minutes ago: not yet');
+    assert.deepEqual(tell(SECOND, clock(AT + 601)), [{ do: 'show-live', status: 'paused' }]);
     assert.equal(trip.times.paused, true);
-    assert.deepEqual(tell({ type: 'second', idle: false }, clock(AT + 601)), [], 'nothing asked while paused');
+    assert.deepEqual(tell(SECOND, clock(AT + 900)), [], 'nothing asked while paused');
     const touched = tell({ type: 'touch' }, clock(AT + 602));
     assert.deepEqual(did(touched), ['show-live', 'time']);
     assert.equal(touched[0].status, null);
@@ -446,26 +477,26 @@ test('out of sight: nothing asked; back in sight, what\'s due is asked at once',
     const { tell, jobs } = timedWay(['60002']);
     const [first] = stopsAsked(jobs);
     tell({ type: 'stop', code: '60002', ticket: first.ticket, answer: arrivals() });
-    assert.deepEqual(tell({ type: 'second', idle: false }, clock(AT + 600, true)), []);
-    assert.deepEqual(did(tell({ type: 'visible' }, clock(AT + 601))), ['ask-stop']);
+    assert.deepEqual(tell(SECOND, clock(AT + 300, true)), []);
+    assert.deepEqual(did(tell(VISIBLE, clock(AT + 301))), ['ask-stop']);
 });
 
 test('the worker\'s timing coming in out of sight (the phone locked): its stops asked once it\'s back', () => {
     const { tell, search } = withHalf();
     const way = timedAsk(tell({ type: 'shown', want: want(search.id) })).live;
     assert.deepEqual(stopsAsked(tell({ type: 'timed', seq: way.seq, way: liveWay(['60002']), others: null }, clock(AT, true))), []);
-    assert.deepEqual(stopsAsked(tell({ type: 'visible' }, clock(AT + 30))).map(job => [job.code, job.opening]), [['60002', 'start']]);
+    assert.deepEqual(stopsAsked(tell(VISIBLE, clock(AT + 30))).map(job => [job.code, job.opening]), [['60002', 'start']]);
 });
 
 test('nothing timed: the second asks nothing', () => {
     const { tell } = withHalf();
-    assert.deepEqual(tell({ type: 'second', idle: true }), []);
+    assert.deepEqual(tell(SECOND, clock(AT + 900)), []);
 });
 
 test('the way with a train: how late the trains run asked with its stops, once at a time; the answer timed with, or said to be missing', () => {
     const { tell, jobs } = timedWay(['60002'], { train: 1234 });
     assert.deepEqual(did(jobs), ['show-live', 'ask-stop', 'ask-trains', 'checked', 'draw-answer']);
-    assert.equal(did(tell({ type: 'second', idle: false }, clock(AT + 600))).includes('ask-trains'), false, 'being asked');
+    assert.equal(did(tell(SECOND, clock(AT + 200))).includes('ask-trains'), false, 'being asked');
     const missing = tell({ type: 'trains', answer: null }, clock(AT + 601));
     assert.deepEqual(missing[0], { do: 'show-live', status: 'trains-unavailable' });
     assert.equal(timedAsk(missing).live.trains, null);
@@ -506,10 +537,12 @@ test('the other ways shown: timed, each asking only for its first bus\'s stop, t
 });
 
 test('followed along the way: the ways on from where the rider is asked in place of the other ways, with where they are', () => {
-    const { trip, rider, tell, search } = withHalf();
-    Object.assign(rider, { riding: true, step: { leg: 0, kind: 'walk', stop: 0, at: AT, walk: 120 }, here: { lat: 37.96, lng: 23.72 }, own: { leg: 0, vehicle: '2041' }, declined: ['a'] });
-    const way = timedAsk(tell({ type: 'shown', want: want(search.id) })).live;
-    assert.deepEqual({ step: way.step, here: way.here, own: way.own, declined: way.declined }, { step: rider.step, here: rider.here, own: rider.own, declined: ['a'] });
+    const { trip, chosen, tell, search } = followed();
+    chosen.declined = ['a'];
+    const way = timedAsk(tell({ type: 'shown', want: want(search.id) }, clock(AT + 20))).live;
+    assert.deepEqual({ step: way.step, here: way.here, own: way.own, declined: way.declined },
+        { step: { leg: 0, kind: 'walk', stop: 0, at: AT + 20, walk: way.step.walk }, here: { lat: LEFT.lat, lng: LEFT.lng }, own: null, declined: ['a'] });
+    assert.ok(way.step.walk > 0, 'what\'s left of the walk to the stop');
     const onward = [{ key: 'b', leg: -1, option: OPTIONS[0], asks: [{ stop: '400100', at: null }] }];
     const jobs = tell({ type: 'timed', seq: way.seq, way: liveWay(['60002']), others: onward });
     assert.deepEqual(stopsAsked(jobs).map(job => [job.code, job.opening]), [['60002', 'start'], ['400100', 'other']]);
@@ -518,9 +551,9 @@ test('followed along the way: the ways on from where the rider is asked in place
 });
 
 test('a way switched to on the ride: timed in place of the row\'s, the way itself with it, and passed on as the worker timed it', () => {
-    const { rider, tell, search } = withHalf();
+    const { chosen, tell, search } = withHalf();
     const ahead = { key: 'c', leg: 0, way: { legs: [] } };
-    rider.switchedWay = ahead;
+    chosen.switchedWay = ahead;
     const way = timedAsk(tell({ type: 'shown', want: want(search.id, { switched: 'c' }) })).live;
     assert.equal(way.switched, 'c');
     assert.equal(way.switchedWay, ahead);
@@ -537,7 +570,7 @@ test('planned again from where the rider moved to: the stops keep their answers,
     const { tell, jobs } = timedWay(['60002']);
     const [first] = stopsAsked(jobs);
     tell({ type: 'stop', code: '60002', ticket: first.ticket, answer: arrivals() });
-    const moved = tell({ type: 'moved', place: ON }, clock(AT + 10));
+    const moved = tell({ type: 'moved', position: ON }, clock(AT + 10));
     assert.deepEqual(moved.find(job => job.do === 'show-live'), { do: 'show-live', status: null }, 'nothing timed yet');
     const { id } = asked(moved);
     tell({ type: 'answer', id, options: OPTIONS, trains: true, timing, held: false });
@@ -545,4 +578,232 @@ test('planned again from where the rider moved to: the stops keep their answers,
     const way = timedAsk(tell({ type: 'shown', want: want(id) }, clock(AT + 10))).live;
     const timed = tell({ type: 'timed', seq: way.seq, way: liveWay(['60002', '70000']), others: null }, clock(AT + 11));
     assert.deepEqual(stopsAsked(timed).map(job => [job.code, job.opening]), [['70000', 'moved']]);
+});
+
+// My location and the ride followed (decisions 45, 50, 58 and 63)
+
+const located = (point, seconds, more = {}) => ({ type: 'located', position: fix(point, seconds), typing: false, held: false, ...more });
+
+test('My location pressed with a position known: From from it, on, the location followed, the answer said', () => {
+    const { trip, tell } = page();
+    tell({ type: 'to', place: MENELAOU });
+    const jobs = tell({ type: 'locate', known: fix(HERE) });
+    assert.deepEqual(did(jobs), ['from-here', 'following', 'keep', 'new-trip', 'show-live', 'search', 'start-location']);
+    assert.deepEqual(jobs[1], { do: 'following', on: true });
+    assert.deepEqual(trip.from, mine(HERE));
+    assert.equal(drawn(tell({ type: 'answer', id: asked(jobs).id, options: OPTIONS, trains: true, timing, held: false })).speak, true);
+});
+
+test('My location pressed with none yet: said to be found, and the first fix fills From; blocked, said, and off', () => {
+    const { trip, tell } = page();
+    tell({ type: 'to', place: MENELAOU });
+    assert.deepEqual(tell({ type: 'locate', known: null }), [{ do: 'following', on: true }, { do: 'from-status', status: 'finding' }, { do: 'start-location' }]);
+    assert.deepEqual(did(tell(located(HERE, AT))).slice(0, 2), ['from-here', 'following']);
+    assert.deepEqual(trip.from, mine(HERE));
+    // Pressed again elsewhere with none, then blocked: said, off, the ride forgotten
+    const other = page();
+    other.tell({ type: 'locate', known: null });
+    assert.deepEqual(other.tell({ type: 'location-problem', problem: 'denied' }),
+        [{ do: 'from-status', status: 'denied' }, { do: 'following', on: false }, { do: 'keep-ride', ride: null }]);
+    assert.deepEqual(other.tell(located(HERE, AT)), [], 'off: a fix does nothing');
+    // Slow isn't said; unavailable is, and stays on
+    const slow = page();
+    slow.tell({ type: 'locate', known: null });
+    assert.deepEqual(slow.tell({ type: 'location-problem', problem: 'slow' }), []);
+    assert.deepEqual(slow.tell({ type: 'location-problem', problem: 'unavailable' }), [{ do: 'from-status', status: 'unavailable' }]);
+});
+
+test('a fix with no start fills From, but not while someone is in From', () => {
+    const { trip, tell } = page();
+    tell({ type: 'permission', permission: 'granted', typed: false });
+    assert.deepEqual(tell(located(HERE, AT, { typing: true })), []);
+    assert.equal(trip.from, null);
+    assert.deepEqual(did(tell(located(HERE, AT + 1))), ['from-here', 'following', 'keep', 'intro']);
+});
+
+test('the browser\'s word as the page opens: allowed, followed; blocked, off; a start typed meanwhile wins', () => {
+    assert.deepEqual(page().tell({ type: 'permission', permission: 'granted', typed: false }), [{ do: 'following', on: true }, { do: 'start-location' }]);
+    assert.deepEqual(page().tell({ type: 'permission', permission: 'denied', typed: false }), [{ do: 'following', on: false }, { do: 'keep-ride', ride: null }]);
+    assert.deepEqual(page().tell({ type: 'permission', permission: 'prompt', typed: false }), []);
+    assert.deepEqual(page().tell({ type: 'permission', permission: 'granted', typed: true }), [], 'typed, not on');
+});
+
+test('a start picked, or the ends swapped, turns My location off and forgets the ride', () => {
+    const { trip, tell } = followed();
+    const jobs = tell({ type: 'from', place: SYNTAGMA, say: true });
+    assert.deepEqual(jobs.slice(0, 2), [{ do: 'following', on: false }, { do: 'keep-ride', ride: null }]);
+    assert.equal(trip.riding, false);
+    assert.deepEqual(followed().tell({ type: 'swap' }).slice(0, 2), [{ do: 'following', on: false }, { do: 'keep-ride', ride: null }]);
+});
+
+test('before there\'s a way to follow: planned again from where the rider is once they\'ve moved 20 m, 2 minutes after the last plan, in sight and not under the keyboard', () => {
+    const { trip, tell } = page();
+    tell({ type: 'to', place: MENELAOU });
+    const { id } = asked(tell({ type: 'use-location', position: fix(HERE), say: true }));
+    tell({ type: 'answer', id, options: OPTIONS, trains: true, timing, held: false });
+    const away = north(100, HERE);
+    assert.deepEqual(tell(located(away, AT + 60), clock(AT + 60)), [], 'too soon');
+    assert.deepEqual(tell(located(away, AT + 120, { held: true }), clock(AT + 120)), [], 'the keyboard in the answer');
+    assert.deepEqual(tell(located(away, AT + 120), clock(AT + 120, true)), [], 'out of sight');
+    const jobs = tell(located(away, AT + 120), clock(AT + 120));
+    assert.deepEqual(did(jobs), ['keep', 'move-live', 'show-live', 'search']);
+    assert.deepEqual(asked(jobs).from, mine(away));
+    assert.equal(trip.plannedAt, (AT + 120) * 1000);
+    // The clock's second does it too, from the last fix there is
+    const second = page();
+    second.tell({ type: 'to', place: MENELAOU });
+    second.tell({ type: 'use-location', position: fix(HERE), say: true });
+    assert.deepEqual(did(second.tell({ ...SECOND, position: fix(away, AT + 120) }, clock(AT + 120))), ['keep', 'move-live', 'show-live', 'search']);
+});
+
+test('followed: the way drawn is the rider\'s once they\'ve left the start, each fix placing them on it, the ride kept with the trip', () => {
+    const p = page();
+    p.tell({ type: 'to', place: DOOR });
+    const search = asked(p.tell({ type: 'use-location', position: fix(START), say: true }));
+    p.tell({ type: 'answer', id: search.id, options: [BUS], trains: true, timing, held: false });
+    p.tell({ type: 'half', id: search.id, view: view(), held: false });
+    assert.deepEqual(p.tell({ type: 'card', way: BUS, date: '2026-11-18' }), [{ do: 'keep-ride', ride: null }], 'not left yet: nothing kept');
+    assert.equal(p.trip.stage, 'followed');
+    assert.deepEqual(p.tell({ type: 'card', way: BUS, date: '2026-11-18' }), [], 'the same way: the steps stay');
+    p.tell({ type: 'shown', want: want(search.id) });
+    assert.deepEqual(p.tell(located(east(10, START), AT + 5), clock(AT + 5)), [], 'within 20 m of the start');
+    assert.equal(p.trip.riding, false);
+    const jobs = p.tell(located(LEFT, AT + 10), clock(AT + 10));
+    assert.equal(p.trip.riding, true);
+    assert.equal(p.trip.stage, 'riding');
+    assert.deepEqual(p.trip.onStep(), { kind: 'walk', ride: 0, from: mine(START), to: BOARD });
+    assert.deepEqual(did(jobs), ['from-status', 'time'], 'on the walk it was on: not drawn again, nothing more kept');
+    assert.deepEqual(jobs[0], { do: 'from-status', status: 'following' });
+    assert.equal(timedAsk(jobs).live.ahead, true, 'walking: the ways from where they are searched first');
+    // At the stop: waiting, kept, timed from there and drawn; the ways from
+    // there searched no more than once a minute
+    const atStop = p.tell(located(BOARD, AT + 40), clock(AT + 40));
+    assert.equal(p.trip.onStep().kind, 'wait');
+    assert.deepEqual(did(atStop), ['keep-ride', 'time', 'draw']);
+    const kept = atStop[0].ride;
+    assert.deepEqual({ from: kept.from, at: kept.at, key: kept.key, own: kept.own }, { from: { lat: START.lat, lng: START.lng }, at: AT * 1000, key: 'bus:60002>bus:60010', own: null });
+    assert.equal(timedAsk(atStop).live.ahead, false);
+    // Still waiting a minute after the last search from where they are: searched again
+    assert.equal(AHEAD_MS, 60_000);
+    const later = AT + 10 + AHEAD_MS / 1000;
+    assert.equal(p.tell(located(BOARD, later - 1), clock(later - 1)).length, 0, 'not yet');
+    assert.equal(timedAsk(p.tell(located(BOARD, later), clock(later))).live.ahead, true);
+    // Nothing kept while out of sight but the ride itself
+    assert.deepEqual(did(p.tell({ type: 'hidden' })), ['keep-ride']);
+});
+
+test('followed: From says how long ago the last position came once it\'s 2 minutes, said once each minute', () => {
+    const { tell } = followed();
+    assert.deepEqual(tell(SECOND, clock(AT + 60)), [], 'following, as said');
+    assert.deepEqual(tell(SECOND, clock(AT + 10 + 121)).filter(job => job.do === 'from-status'), [{ do: 'from-status', status: 2 }]);
+    assert.deepEqual(tell(SECOND, clock(AT + 10 + 150)).filter(job => job.do === 'from-status'), []);
+    assert.deepEqual(tell(SECOND, clock(AT + 10 + 181)).filter(job => job.do === 'from-status'), [{ do: 'from-status', status: 3 }]);
+});
+
+test('boarding the bus: the rider\'s own is the one of its lines OASA had due nearest then, sent with the way\'s timing and kept with the ride', () => {
+    const { tell, search } = followed();
+    tell(located(BOARD, AT + 40), clock(AT + 40));
+    const [ask] = stopsAsked(tell({ type: 'check', code: '60002' }));
+    const due = { buses: [{ route: '1', vehicle: '2041', line: '040', to: null, at: AT + 90 }, { route: '2', vehicle: '9999', line: '550', to: null, at: AT + 95 }], asked: AT + 40 };
+    tell({ type: 'stop', code: '60002', ticket: ask.ticket, answer: due }, clock(AT + 41));
+    tell({ type: 'shown', want: want(search.id) }, clock(AT + 41));
+    const jobs = tell(located(STOPS[1], AT + 200), clock(AT + 200));
+    assert.deepEqual(timedAsk(jobs).live.own, { leg: 0, vehicle: '2041' });
+    assert.equal(timedAsk(jobs).live.ahead, true, 'at a stop of the ride: the search ahead');
+    // Kept with the ride from then on (the fix that boards keeps it before
+    // the bus is known, as before: the next one, or the page hidden, has it)
+    assert.equal(jobs.find(job => job.do === 'keep-ride').ride.own, null);
+    assert.deepEqual(tell({ type: 'hidden' })[0].ride.own, { leg: 0, vehicle: '2041' });
+});
+
+test('off the way for a minute: planned again from where the rider is, no sooner than 2 minutes after the last plan', () => {
+    const { trip, tell } = followed();
+    const off = north(500, START);
+    tell(located(off, AT + 130), clock(AT + 130));
+    const jobs = tell(located(off, AT + 200), clock(AT + 200));
+    assert.deepEqual(did(jobs).slice(-4), ['keep', 'move-live', 'show-live', 'search']);
+    assert.deepEqual(asked(jobs).from, mine(off));
+    assert.equal(trip.plannedAt, (AT + 200) * 1000);
+});
+
+test('followed and standing still 10 minutes, untouched: the live times paused; moving on goes on', () => {
+    const { trip, tell, search } = followed();
+    const way = timedAsk(tell({ type: 'shown', want: want(search.id) }, clock(AT + 10))).live;
+    tell({ type: 'timed', seq: way.seq, way: liveWay(['60002']), others: null }, clock(AT + 10));
+    tell({ type: 'touch' }, clock(AT + 10));
+    assert.equal(did(tell(SECOND, clock(AT + 10 + 599))).includes('show-live'), false);
+    assert.deepEqual(tell(SECOND, clock(AT + 10 + 600)).at(-1), { do: 'show-live', status: 'paused' });
+    const moved = tell(located(BOARD, AT + 700), clock(AT + 700));
+    assert.equal(trip.times.paused, false, 'moving on: on again');
+    assert.ok(moved.some(job => job.do === 'show-live' && job.status === null));
+});
+
+test('the ride kept taken up: From is My location, followed, placed where the rider was; on a way switched to, its steps at once', () => {
+    const { trip, tell } = page();
+    tell({ type: 'kept', from: null, to: DOOR });
+    const kept = { from: START, at: 5_000, now: clock(AT - 300).now, key: 'other', steps: [{ kind: 'walk', ride: 0, from: START, to: BOARD }], state: { step: 0, stop: 0, at: null, offSince: null, fix: fix(LEFT), anchor: null, moved: false, off: false },
+        own: { leg: 0, vehicle: '2041' }, switched: { way: { key: 'other', leg: 0, way: { legs: [] } }, by: 'picked' } };
+    const jobs = tell({ type: 'resume', ride: kept });
+    assert.deepEqual(did(jobs).slice(0, 2), ['from-here', 'following']);
+    assert.equal(trip.riding, true, 'on its steps at once');
+    assert.deepEqual(trip.onStep(), kept.steps[0]);
+    assert.equal(asked(jobs).now, kept.now);
+    // Its own bus as it was
+    const way = timedAsk(tell({ type: 'shown', want: want(asked(jobs).id) })).live;
+    assert.deepEqual(way.own, kept.own);
+});
+
+test('a way switched to on the ride: the rider\'s place on the old way carried to the new one', () => {
+    const { trip, tell } = followed();
+    tell(located(BOARD, AT + 40), clock(AT + 40));
+    tell(located(STOPS[1], AT + 200), clock(AT + 200));
+    assert.equal(trip.onStep().kind, 'ride');
+    tell({ type: 'switched' });
+    const other = { ...BUS, rides: [{ ...BUS.rides[0], alight: { id: 'bus:70000' }, along: [STOPS[0], STOPS[1], north(400, STOPS[1])].map(({ lat, lng }) => [lat, lng]) }] };
+    tell({ type: 'card', way: other, date: '2026-11-18' });
+    assert.equal(trip.onStep().kind, 'ride', 'still on the bus, not back at the start');
+});
+
+test('off the way under 2 minutes after the last plan: planned again once the 2 minutes are up, by the clock\'s second', () => {
+    const { tell } = followed();
+    const off = north(500, START);
+    tell(located(off, AT + 15), clock(AT + 15));
+    assert.equal(did(tell(located(off, AT + 80), clock(AT + 80))).includes('search'), false, 'a minute off, but planned 80 s ago');
+    assert.equal(did(tell(SECOND, clock(AT + 119))).includes('search'), false);
+    assert.deepEqual(asked(tell(SECOND, clock(AT + 120))).from, mine(off));
+});
+
+test('the fix that answers a press fills From once; the next one plans nothing until the rider has moved far enough', () => {
+    const { tell } = page();
+    tell({ type: 'to', place: MENELAOU });
+    tell({ type: 'locate', known: null });
+    assert.equal(did(tell(located(HERE, AT))).includes('search'), true);
+    assert.deepEqual(tell(located(north(5, HERE), AT + 1), clock(AT + 1)), []);
+});
+
+test('the ride kept, still being taken up: nothing kept over it until its way is drawn', () => {
+    const { tell } = page();
+    tell({ type: 'kept', from: null, to: DOOR });
+    const kept = { from: START, at: 5_000, now: clock(AT - 300).now, key: 'bus:60002>bus:60010', steps: [], state: {} };
+    const { id } = asked(tell({ type: 'resume', ride: kept }));
+    tell({ type: 'answer', id, options: [BUS], trains: true, timing, held: false });
+    assert.deepEqual(tell({ type: 'hidden' }), [], 'the ride kept stays as it was');
+});
+
+test('planned again from where the rider is: their own bus forgotten', () => {
+    const { tell, search } = followed();
+    tell(located(BOARD, AT + 40), clock(AT + 40));
+    const [ask] = stopsAsked(tell({ type: 'check', code: '60002' }));
+    tell({ type: 'stop', code: '60002', ticket: ask.ticket, answer: { buses: [{ route: '1', vehicle: '2041', line: '040', to: null, at: AT + 90 }], asked: AT + 40 } }, clock(AT + 41));
+    tell({ type: 'shown', want: want(search.id) }, clock(AT + 41));
+    tell(located(STOPS[1], AT + 200), clock(AT + 200));
+    const { id } = asked(tell({ type: 'moved', position: STOPS[1] }, clock(AT + 210)));
+    tell({ type: 'answer', id, options: [BUS], trains: true, timing, held: false });
+    assert.equal(timedAsk(tell({ type: 'shown', want: want(id) }, clock(AT + 211))).live.own, null);
+});
+
+test('a way drawn while My location is off isn\'t followed', () => {
+    const { trip, tell } = answered();
+    assert.deepEqual(tell({ type: 'card', way: BUS, date: '2026-11-18' }), []);
+    assert.equal(trip.stage, 'answered');
 });
