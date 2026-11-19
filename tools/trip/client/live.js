@@ -20,6 +20,16 @@ import { refreshEvery } from '/tools/buses/timing.js';
 /** @param {string} code @param {'start' | 'moved' | 'ride' | 'other' | 'take' | null} [opening] */
 export const arrivalsUrl = (code, opening = null) => `/api/arrivals?stops=${code}&for=${opening ? `plan-${opening}` : 'plan'}`;
 
+// The modes OASA has live times for: a way with one of them is timed with
+// them (decision 35), and what OASA says of its first bus is what's checked
+// as another way is taken (decision 64)
+export const ON_THE_ROAD = new Set(['bus', 'trolley']);
+/** @param {{ city?: boolean, rides?: { mode: string }[] }} o */
+export const hasBus = o => Boolean(o.city) && o.rides.some(ride => ON_THE_ROAD.has(ride.mode));
+// What OASA says of a way's first bus (RideLive), once its stop is answered
+/** @param {{ rides: { mode: string, live?: import('./buses.js').RideLive }[] }} o */
+export const firstBusSaid = o => o.rides.find(ride => ON_THE_ROAD.has(ride.mode))?.live;
+
 /**
  * The rider's own bus, as they board at `boardedAt` (seconds from midnight)
  * at a stop whose last answer is `answer`: OASA's code for the vehicle of

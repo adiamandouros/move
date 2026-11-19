@@ -25,6 +25,7 @@ const { withSuburban, withTram } = await browserModule('tools/subway/client/netw
 const { refreshEvery } = await browserModule('tools/buses/client/timing.js');
 const trains = await browserModule('tools/trip/client/trains.js');
 const live = await browserModule('tools/trip/client/live.js');
+const { halfWays } = await browserModule('tools/trip/client/half.js');
 const day = read('trains.json');
 const city = cityPlanner(rail, read('buses.json'), 3, trainDay(day, '2026-10-21'));
 const network = withTram(rail);
@@ -169,7 +170,7 @@ for (const lang of ['en', 'el']) {
     // The half hour's answer, its first way timed with these trains'
     // lateness, drawn on `on`: the page's network with its trains.json
     // joined (main.js), or without it, before it's in
-    const drawn = (way, late = null, now = at(17).seconds, on = joined) => String(r.renderHalf(on, half.kind, r.halfWays(half, now), syntagma, { now, weekday: 3, date: DATE, live: { way: json(way) }, trains: late }));
+    const drawn = (way, late = null, now = at(17).seconds, on = joined) => String(r.renderHalf(on, half.kind, halfWays(half, now), syntagma, { now, weekday: 3, date: DATE, live: { way: json(way) }, trains: late }));
     const minutes = m => String(minutesMark(m, k => s[k]));
     // A card's badges, as the Subway page draws them, counted from `now`
     const chips = (now, ...departs) => `<span class="schedule-chips">${departs.map(d => subway.departureChip({ departs: d, isLast: false, isSecondLast: false }, { seconds: now }, false)).join('')}</span>`;
@@ -229,7 +230,7 @@ for (const lang of ['en', 'el']) {
     test(`${lang}: the badges are the timetable's until the way is timed with the trains' lateness`, () => {
         const late = { 1323: { late: 5 * MIN, exact: true } };
         const now = at(17).seconds;
-        const untimed = String(r.renderHalf(joined, half.kind, r.halfWays(half, now), syntagma, { now, weekday: 3, date: DATE, trains: late }));
+        const untimed = String(r.renderHalf(joined, half.kind, halfWays(half, now), syntagma, { now, weekday: 3, date: DATE, trains: late }));
         check(untimed);
         assert.ok(trainCard(untimed).includes(chips(now, A4, A4 + H)));
     });

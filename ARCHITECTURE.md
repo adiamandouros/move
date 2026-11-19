@@ -602,17 +602,23 @@ The trip itself, its ends, its searches and their answers, its half hour,
 planning it again from where the rider moved to, its live times (which
 stops are due, by `client/live.js`, and what each request says, their
 answers, the pause, the trains' lateness, and the worker's timings of the
-way shown and the other ways), and My location following the ride (each
+way shown and the other ways), My location following the ride (each
 fix placed on the way by `client/follow.js`, the re-plans, the rider's own
-bus, the searches ahead and from where they are, the ride kept), is
-`client/controller.js`'s: `main.js` tells it what happened (an end picked,
-the minute gone by, the worker's answer, a stop's answer, a fix, a tap)
-with the time, and carries out the jobs it answers with (search, time, ask
-OASA for a stop, draw, follow the location, keep the trip and the ride), so
-it has no page, timers, network, worker, location or storage in it and is
-tested in Node, event by event (roadmap Trip · state). The switch, the
-decision's choice and the ways taken are still `main.js`'s, which the
-controller asks what it needs of them (`chosen`); they move in next. `client/render.js` draws it, each metro, tram or
+bus, the searches ahead and from where they are, the ride kept), and what
+the rider chooses (the decision's quicker way taken or kept, the switch's
+countdown, the ways kept over, the way switched to or picked, a tapped
+way's check and its wait) is `client/controller.js`'s: `main.js` tells it
+what happened (an end picked, the minute gone by, the worker's answer, a
+stop's answer, a fix, a tap) with the time, and carries out the jobs it
+answers with (search, time, ask OASA for a stop, draw this, say that, move
+the keyboard, follow the location, keep the trip, the way picked and the
+ride), so it has no page, timers, network, worker, location or storage in
+it and is tested in Node, event by event (roadmap Trip · state). Drawing
+goes through it too: `main.js` works out the answer for leaving now on the
+metro and the tram (`client/plan.js`) and tells it `drawing`; the
+controller picks the half hour's ways for the departure shown
+(`client/half.js`), decides what's shown of them and answers with a
+`render` job, which `main.js` draws. `client/render.js` draws it, each metro, tram or
 suburban ride of the way shown in full as the Subway page's own card
 (`legCard` in its `render.js`, the ride made into a leg by `client/legs.js`),
 and each stop of a last bus that can be any of several as the Buses page's

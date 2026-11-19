@@ -20,6 +20,7 @@ const rail = JSON.parse(readFileSync(new URL('browser/data/rail.json', import.me
 const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.meta.url), 'utf8'));
 const { aheadWays, cityPlanner, halfHour, halfView, hereWays, LIVE_STOPS, liveWay, onwardWay, otherWay, routeCodes, searchAhead, shownRows } = await browserModule('tools/trip/client/buses.js');
 const live = await browserModule('tools/trip/client/live.js');
+const { halfWays } = await browserModule('tools/trip/client/half.js');
 const { withTram } = await browserModule('tools/subway/client/network.js');
 const { latinName } = await browserModule('public/js/core/text.js');
 const network = withTram(rail);
@@ -618,7 +619,7 @@ for (const lang of ['en', 'el']) {
     const half = view(halfView(city, menelaou, station('syntagma'), answered(menelaou, station('syntagma'), at(10))));
     // The 040 then the M2 first, as the way shown in full
     const shown = { ...half, rows: half.rows.filter(row => !row.bundle) };
-    const ways = r.halfWays(shown, now);
+    const ways = halfWays(shown, now);
     const drawn = (way, more = {}) => String(r.renderHalf(network, shown.kind, ways, station('syntagma'), { now, weekday: 3, live: { way: view(way) }, ...more }));
 
     test(`${lang}: followed along the way (decision 50): the step the rider is on marked and said, the steps done greyed, the heading when they arrive`, () => {
@@ -750,7 +751,7 @@ for (const lang of ['en', 'el']) {
             [code]: { buses: [{ route, line, to: glyfada, at: 12 * 3600 + second.walk + 9 * MIN }, { route, line, to: glyfada, at: 12 * 3600 + second.walk + 25 * MIN }] },
             [codeOf(city.stops[nearest.stop])]: { buses: [] },
         });
-        const drawnWith = stops => String(r.renderHalf(network, half12.kind, r.halfWays(half12, 12 * 3600), fix, { now: 12 * 3600, weekday: 3, live: { way: view(way) }, stops }));
+        const drawnWith = stops => String(r.renderHalf(network, half12.kind, halfWays(half12, 12 * 3600), fix, { now: 12 * 3600, weekday: 3, live: { way: view(way) }, stops }));
         const html = drawnWith(new Set());
         check(html);
         assert.ok(!html.includes('stop-favourite'), 'no star on the Trip page');
@@ -782,7 +783,7 @@ for (const lang of ['en', 'el']) {
 
     // From Σταύρου 1 to Μενελάου 45 at noon, a decision (decision 36)
     const decidedView = view(halfView(city, stavrou, menelaou45, decided));
-    const decidedWays = r.halfWays(decidedView, NOON.seconds);
+    const decidedWays = halfWays(decidedView, NOON.seconds);
     const target = { ...menelaou45, title: 'Μενελάου 45', exact: null };
     const drawnDecided = (way, more = {}) => String(r.renderHalf(network, decidedView.kind, decidedWays, target, { now: NOON.seconds, weekday: NOON.weekday, live: way && { way: view(way) }, ...more }));
     const stopNamed = stop => lang === 'el' ? stop.names.el : stop.names.en || latinName(stop.names.el);
