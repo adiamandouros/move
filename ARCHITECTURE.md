@@ -581,7 +581,9 @@ the rider is on that first ride and followed, the search ahead offers what's
 quicker in its place. The other ways shown are timed the same way
 (`otherWay`), asking only for their first bus's stop: each then says its
 minutes, when it gets there and OASA's word on that bus, and they're shown
-the soonest there first.
+the soonest there first. Each can be taken (decision 64): before the rider leaves,
+the half hour's row of that key (`rowKey`, carried as each row's `key`)
+is the way shown in full, kept with the trip by `kept.js`.
 `client/live.js` says which stops to ask for and when, and
 `client/main.js` asks. `client/render.js` draws it, each metro, tram or
 suburban ride of the way shown in full as the Subway page's own card

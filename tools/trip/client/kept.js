@@ -7,8 +7,9 @@
 // is by itself. Once the rider has left on a ride followed from My
 // location, the ride is kept too (decision 58): where and for when it was
 // planned, the way's steps and where the rider was on them, so the page
-// takes it up again rather than planning anew from where they are. No DOM,
-// so it's tested in Node; main.js follows.
+// takes it up again rather than planning anew from where they are. A way
+// the rider took from the other ways is kept too (decision 64), by its key,
+// so it's shown first again. No DOM, so it's tested in Node; main.js follows.
 
 export const KEEP_MS = 3 * 3_600_000;
 const KEY = 'trip';
@@ -37,8 +38,8 @@ const endsOf = ({ from, to }) => JSON.stringify({ from: from ?? null, to: to ?? 
 
 /**
  * Keep the trip's ends, each the place found or null; neither forgets it.
- * The same ends keep the time they were first kept, and the ride followed
- * on them; other ends drop it
+ * The same ends keep the time they were first kept, the ride followed on
+ * them and the way picked; other ends drop them
  * @param {{ from: object | null, to: object | null }} trip
  * @param {number} nowMs
  */
@@ -46,7 +47,21 @@ export function keepTrip({ from, to }, nowMs) {
     if (!from && !to) { storage.remove(); return; }
     const kept = read();
     const same = kept && endsOf(kept) === endsOf({ from, to });
-    storage.set(JSON.stringify({ at: same ? kept.at : nowMs, from, to, ...same && kept.ride && { ride: kept.ride } }));
+    storage.set(JSON.stringify({ at: same ? kept.at : nowMs, from, to, ...same && kept.ride && { ride: kept.ride }, ...same && kept.picked && { picked: kept.picked } }));
+}
+
+/**
+ * Keep the way the rider took from the other ways on the trip kept, by its
+ * key (decision 64), or null for the half hour's own again: a change to the
+ * trip, so it's kept 3 hours from now. Nothing without a trip kept
+ * @param {string | null} key
+ * @param {number} nowMs
+ */
+export function keepPicked(key, nowMs) {
+    const kept = read();
+    if (!kept) return;
+    delete kept.picked;
+    storage.set(JSON.stringify(key ? { ...kept, at: nowMs, picked: key } : kept));
 }
 
 /**
@@ -64,13 +79,14 @@ export function keepRide(ride, nowMs) {
 }
 
 /**
- * The trip kept, { from, to, ride }, or null when there's none or it's too
- * old; `ride` is null when none was followed
+ * The trip kept, { from, to, ride, picked }, or null when there's none or
+ * it's too old; `ride` is null when none was followed, `picked` when no way
+ * was taken from the other ways
  * @param {number} nowMs
  */
 export function keptTrip(nowMs) {
     const kept = read();
-    if (kept && nowMs - kept.at < KEEP_MS && (kept.from || kept.to)) return { from: kept.from ?? null, to: kept.to ?? null, ride: rideOf(kept.ride) };
+    if (kept && nowMs - kept.at < KEEP_MS && (kept.from || kept.to)) return { from: kept.from ?? null, to: kept.to ?? null, ride: rideOf(kept.ride), picked: typeof kept.picked === 'string' ? kept.picked : null };
     storage.remove();
     return null;
 }

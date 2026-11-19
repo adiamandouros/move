@@ -111,6 +111,17 @@ test('from the tram to the M3: off at Neos Kosmos for two stops of M2 is one of 
     assert.ok(ways.includes('T6 syntagma-tram,M3 korydallos'), ways.join(' | '));
 });
 
+test('each way has its key, as answer.js tells the kinds of way apart, so a way picked is found again in the next half hour (decision 64)', () => {
+    const answer = answered(menelaou, syntagma, at(10));
+    assert.deepEqual(depends.rows.map(row => row.key), shownRows(answer).map(row => row.key));
+    assert.ok(depends.rows.every(row => typeof row.key === 'string' && row.key));
+    assert.equal(new Set(depends.rows.map(row => row.key)).size, depends.rows.length, 'one way of each kind');
+    // Ten minutes on, the same kinds of way have the same keys
+    const later = viewOf(menelaou, syntagma, at(10 + 1 / 6));
+    const same = later.rows.filter(row => depends.rows.some(each => each.key === row.key));
+    assert.ok(same.length >= 2, later.rows.map(row => row.key).join(' | '));
+});
+
 test('nothing found in the half hour: nothing to show', () => {
     assert.deepEqual(halfView(city, menelaou, fix, { kind: 'none', rows: [], departures: [] }).rows, []);
 });
@@ -199,6 +210,56 @@ for (const lang of ['en', 'el']) {
         const after = untimed.slice(untimed.indexOf(s['trip.other-ways']));
         assert.ok(after.indexOf('040') < after.indexOf('Β2'));
         assert.ok(!untimed.includes('trip-live'));
+    });
+
+    // The ways a view's buttons take, by their keys, as the page reads them back
+    const takes = view => [...String(view).matchAll(/<button type="button" class="trip-card trip-take" data-way="([^"]*)">/g)]
+        .map(([, key]) => key.replace(/&#x3D;/g, '=').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'));
+
+    test(`${lang}: to be taken, each other way is one button, its key, "Take this way:" for a screen reader and a chevron; nothing in it but words (T18, decision 64)`, () => {
+        const ways = r.halfWays(depends, at(10).seconds);
+        const view = String(r.renderHalf(network, depends.kind, ways, syntagma, { ...at(10), now: at(10).seconds, take: true }));
+        check(view);
+        assert.deepEqual(takes(view), depends.rows.slice(1).map(row => row.key), 'each other way, by its key; never the way shown');
+        const buttons = view.match(/<button type="button" class="trip-card trip-take"[\s\S]*?<\/button>/g);
+        for (const button of buttons) {
+            assert.ok(button.includes(`<span class="sr-only">${s['trip.take-way']} </span>`), 'said as taking it');
+            assert.ok(button.includes('trip-take-chevron'), 'the chevron at its right');
+            assert.ok(!/<(h\d|p|div|ul|li|a|button)[\s>]/.test(button.slice(1)), 'only words in a button');
+        }
+        for (const row of depends.rows.slice(1)) assert.ok(view.includes(`<span class="trip-total trip-total-small">${range(row.range)}</span>`), row.range.join());
+        // Not to be taken (a rider followed on a ride, for now): as before
+        const plain = String(r.renderHalf(network, depends.kind, ways, syntagma, { ...at(10), now: at(10).seconds }));
+        assert.deepEqual(takes(plain), []);
+        assert.ok(!plain.includes('trip-take'));
+    });
+
+    test(`${lang}: a way taken is the way shown in full, "The way you picked", and the one it replaced is among the other ways to take back`, () => {
+        const ways = r.halfWays(depends, at(10).seconds);
+        const picked = [ways[1], ways[0], ...ways.slice(2)];
+        const view = String(r.renderHalf(network, depends.kind, picked, syntagma, { ...at(10), now: at(10).seconds, take: true, picked: true }));
+        check(view);
+        const head = view.slice(0, view.indexOf(s['trip.other-ways']));
+        assert.ok(head.includes(`<h2 class="trip-total" tabindex="-1">${range(depends.rows[1].range)}</h2>`));
+        assert.ok(head.includes(`<span class="trip-arrives">${s['trip.picked']}</span>`));
+        assert.ok(head.includes('040'), 'its rides in full');
+        assert.deepEqual(takes(view), [depends.rows[0].key, ...depends.rows.slice(2).map(row => row.key)]);
+        // Not picked: no such words
+        assert.ok(!String(r.renderHalf(network, depends.kind, ways, syntagma, { ...at(10), now: at(10).seconds, take: true })).includes(s['trip.picked']));
+        // On a clear answer, a way picked over the clear one isn't "best on most departures"
+        const clearWays = [r.halfWays(depends, at(10).seconds)[1], ...r.halfWays(clear, at(12).seconds)];
+        const overClear = String(r.renderHalf(network, 'clear', clearWays, fix, { ...at(12), now: at(12).seconds, take: true, picked: true }));
+        assert.ok(!overClear.includes(s['trip.half-best']));
+        assert.ok(overClear.includes(s['trip.picked']));
+    });
+
+    test(`${lang}: a way picked that can't be caught any more is said above the answer`, () => {
+        const ways = r.halfWays(depends, at(10).seconds);
+        const view = String(r.renderHalf(network, depends.kind, ways, syntagma, { ...at(10), now: at(10).seconds, take: true, lost: true }));
+        check(view);
+        assert.ok(notices(view).some(({ tone, text }) => tone === 'warn' && text.includes(s['trip.picked-lost'])), JSON.stringify(notices(view)));
+        assert.ok(view.indexOf(s['trip.picked-lost']) < view.indexOf('trip-card'));
+        assert.ok(!String(r.renderHalf(network, depends.kind, ways, syntagma, { ...at(10), now: at(10).seconds, take: true })).includes(s['trip.picked-lost']));
     });
 
     test(`${lang}: a bus that's one line has its time by the clock, as an estimate; the train after it is a card, its first badge the train the way is timed on`, () => {

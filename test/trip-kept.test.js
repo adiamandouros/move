@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { browserModule } from './support/browser-modules.js';
 
 // The trip kept on the Trip page on the device, for 3 hours, with the ride
-// followed on it (decisions 52 and 58, tools/trip/client/kept.js). The page's side: test/browser/trip.spec.js.
+// followed on it and the way picked from the other ways (decisions 52, 58
+// and 64, tools/trip/client/kept.js). The page's side: test/browser/trip.spec.js.
 
-const { KEEP_MS, forgetTrip, keepRide, keepTrip, keptTrip } = await browserModule('tools/trip/client/kept.js');
+const { KEEP_MS, forgetTrip, keepPicked, keepRide, keepTrip, keptTrip } = await browserModule('tools/trip/client/kept.js');
 
 // localStorage, as a page has it
 const saved = new Map();
@@ -27,15 +28,15 @@ test('3 hours', () => {
 
 test('the trip comes back as it was set, one end set too', () => {
     keepTrip({ from: MENELAOU, to: FIX }, T);
-    assert.deepEqual(keptTrip(T + 1), { from: MENELAOU, to: FIX, ride: null });
+    assert.deepEqual(keptTrip(T + 1), { from: MENELAOU, to: FIX, ride: null, picked: null });
     keepTrip({ from: null, to: FIX }, T);
-    assert.deepEqual(keptTrip(T + 1), { from: null, to: FIX, ride: null });
+    assert.deepEqual(keptTrip(T + 1), { from: null, to: FIX, ride: null, picked: null });
 });
 
 test('forgotten 3 hours after it was set, and the same trip kept again doesn\'t make it younger', () => {
     keepTrip({ from: MENELAOU, to: FIX }, T);
     keepTrip({ from: MENELAOU, to: FIX }, T + KEEP_MS - 1);
-    assert.deepEqual(keptTrip(T + KEEP_MS - 1), { from: MENELAOU, to: FIX, ride: null });
+    assert.deepEqual(keptTrip(T + KEEP_MS - 1), { from: MENELAOU, to: FIX, ride: null, picked: null });
     assert.equal(keptTrip(T + KEEP_MS), null);
     assert.equal(saved.size, 0, 'an old trip is cleared away');
 });
@@ -43,7 +44,7 @@ test('forgotten 3 hours after it was set, and the same trip kept again doesn\'t 
 test('a changed trip counts from when it changed', () => {
     keepTrip({ from: MENELAOU, to: FIX }, T);
     keepTrip({ from: FIX, to: MENELAOU }, T + KEEP_MS - 1);
-    assert.deepEqual(keptTrip(T + KEEP_MS), { from: FIX, to: MENELAOU, ride: null });
+    assert.deepEqual(keptTrip(T + KEEP_MS), { from: FIX, to: MENELAOU, ride: null, picked: null });
 });
 
 test('no ends, the link to the page, or nothing readable: nothing kept', () => {
@@ -69,15 +70,15 @@ test('the ride followed comes back with the trip, and goes with other ends or no
     assert.equal(keptTrip(T), null, 'nothing without a trip kept');
     keepTrip({ from: null, to: FIX }, T);
     keepRide(RIDE, T + 1);
-    assert.deepEqual(keptTrip(T + 2), { from: null, to: FIX, ride: RIDE });
+    assert.deepEqual(keptTrip(T + 2), { from: null, to: FIX, ride: RIDE, picked: null });
     // The same ends kept again (each draw does) keep it
     keepTrip({ from: null, to: FIX }, T + 3);
     assert.deepEqual(keptTrip(T + 4).ride, RIDE);
     keepRide(null, T + 5);
-    assert.deepEqual(keptTrip(T + 6), { from: null, to: FIX, ride: null });
+    assert.deepEqual(keptTrip(T + 6), { from: null, to: FIX, ride: null, picked: null });
     keepRide(RIDE, T + 7);
     keepTrip({ from: null, to: MENELAOU }, T + 8);
-    assert.deepEqual(keptTrip(T + 9), { from: null, to: MENELAOU, ride: null });
+    assert.deepEqual(keptTrip(T + 9), { from: null, to: MENELAOU, ride: null, picked: null });
 });
 
 test('a ride followed keeps the trip from growing old; none kept doesn\'t', () => {
@@ -92,8 +93,34 @@ test('a kept ride in another shape (an older copy, broken): no ride, the trip st
     keepTrip({ from: null, to: FIX }, T);
     for (const ride of [{ ...RIDE, steps: null }, { ...RIDE, from: null }, { ...RIDE, state: {} }, { ...RIDE, now: null }, 'ride']) {
         keepRide(ride, T);
-        assert.deepEqual(keptTrip(T), { from: null, to: FIX, ride: null });
+        assert.deepEqual(keptTrip(T), { from: null, to: FIX, ride: null, picked: null });
     }
+});
+
+// A way's key, as the half hour's rows have it (rowKey in answer.js)
+const PICKED = 'M3 Syntagma>Neos Kosmos at Neos Kosmos, a bus';
+
+test('the way picked comes back with the trip, a pick counting as a change; it goes with other ends', () => {
+    keepPicked(PICKED, T);
+    assert.equal(keptTrip(T), null, 'nothing without a trip kept');
+    keepTrip({ from: MENELAOU, to: FIX }, T);
+    keepPicked(PICKED, T + KEEP_MS - 10);
+    assert.deepEqual(keptTrip(T + KEEP_MS + 10), { from: MENELAOU, to: FIX, ride: null, picked: PICKED });
+    // The same ends kept again (each draw does) keep it, and the ride followed beside it
+    keepTrip({ from: MENELAOU, to: FIX }, T + KEEP_MS + 11);
+    keepRide(RIDE, T + KEEP_MS + 12);
+    assert.deepEqual(keptTrip(T + KEEP_MS + 13), { from: MENELAOU, to: FIX, ride: RIDE, picked: PICKED });
+    keepPicked(null, T + KEEP_MS + 14);
+    assert.equal(keptTrip(T + KEEP_MS + 15).picked, null, 'the half hour\'s own again');
+    assert.deepEqual(keptTrip(T + KEEP_MS + 15).ride, RIDE, 'the ride stays');
+    keepPicked(PICKED, T + KEEP_MS + 16);
+    keepTrip({ from: FIX, to: MENELAOU }, T + KEEP_MS + 17);
+    assert.equal(keptTrip(T + KEEP_MS + 18).picked, null);
+});
+
+test('a kept pick that isn\'t a key (an older copy, broken): none, the trip still there', () => {
+    saved.set('trip', JSON.stringify({ at: T, from: MENELAOU, to: FIX, picked: 3 }));
+    assert.deepEqual(keptTrip(T), { from: MENELAOU, to: FIX, ride: null, picked: null });
 });
 
 test('storage blocked: nothing kept, and nothing breaks', () => {

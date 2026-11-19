@@ -69,8 +69,11 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
  * A way of the half hour's answer (answer.js): its range in minutes, the
  * quickest and slowest tenth left out; its last bus's lines and the stops
  * they leave from, nearest first, when any of several will do (`bundle`);
- * and the way itself for each departure tried, null where it isn't found
- * @typedef {{ range: [number, number], bundle: boolean, lines: string[],
+ * and the way itself for each departure tried, null where it isn't found.
+ * `key`: which kind of way it is (rowKey in answer.js: its rides, or for a
+ * last bus that can be any of several, where it's caught), the same from
+ * one half hour to the next, by which the rider's pick is found again
+ * @typedef {{ key: string, range: [number, number], bundle: boolean, lines: string[],
  *   stops: { stop: import('/tools/subway/city.js').Stop, walk: Walk | null, lines: string[] }[], options: (BusOption | null)[] }} HalfRow
  */
 /**
@@ -256,7 +259,8 @@ export function halfView(planner, from, to, answer) {
     const { kind, departures, decision } = answer;
     const shown = shownRows(answer);
     /** @param {import('/tools/subway/answer.js').Row} row @returns {HalfRow} */
-    const halfRow = ({ range, bundle, lines, stops, best }) => ({
+    const halfRow = ({ key, range, bundle, lines, stops, best }) => ({
+        key,
         range,
         bundle,
         lines,
