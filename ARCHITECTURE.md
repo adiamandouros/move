@@ -243,8 +243,8 @@ pages use.
   `tools/trip/client/plan.js` and `buses.js`, which of its answers
   still count in `tickets.js`: only the newest of each kind of question,
   for the current trip, [decision 65](docs/decisions/0065-one-rule-for-late-answers.md),
-  and its trip and search answers in `controller.js`, told what happened
-  and answering with what to do)
+  and its trip, search answers and live times in `controller.js`, told
+  what happened and answering with what to do)
   is tested in Node. `/js/core/text.js` has
   `normalise()`, how both searches compare what's typed with names.
 - Trips are worked out in the browser
@@ -598,15 +598,18 @@ keeps it with the ride); walking or waiting, the trip is planned again
 from where the rider is with that key picked. A way whose bus OASA had
 coming is checked first (`checkStop` and `stillCaught` in `client/live.js`):
 its bus gone, it isn't taken and the ways are worked out again.
-`client/live.js` says which stops to ask for and when, and
-`client/main.js` asks. The trip itself, its ends, its searches and their
-answers, its half hour and planning it again from where the rider moved
-to, is `client/controller.js`'s: `main.js` tells it what happened (an end
-picked, the minute gone by, the worker's answer) with the time, and carries
-out the jobs it answers with (search, draw, keep the trip, start the live
-times over), so it has no page, timers, worker or storage in it and is
-tested in Node, event by event (roadmap Trip · state; the live times,
-following the ride and the switch move in next). `client/render.js` draws it, each metro, tram or
+The trip itself, its ends, its searches and their answers, its half hour,
+planning it again from where the rider moved to, and its live times (which
+stops are due, by `client/live.js`, and what each request says, their
+answers, the pause, the trains' lateness, and the worker's timings of the
+way shown and the other ways), is `client/controller.js`'s: `main.js` tells
+it what happened (an end picked, the minute gone by, the worker's answer,
+a stop's answer, a tap) with the time, and carries out the jobs it answers
+with (search, time, ask OASA for a stop, draw, keep the trip), so it has no
+page, timers, network, worker or storage in it and is tested in Node, event
+by event (roadmap Trip · state). Following the ride and the switch are still
+`main.js`'s, which the controller asks what it needs of them (`rider`);
+they move in next. `client/render.js` draws it, each metro, tram or
 suburban ride of the way shown in full as the Subway page's own card
 (`legCard` in its `render.js`, the ride made into a leg by `client/legs.js`),
 and each stop of a last bus that can be any of several as the Buses page's
