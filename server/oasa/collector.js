@@ -12,6 +12,12 @@ import { athensNow } from '../../tools/subway/client/network.js';
 // The stops change each week (collector-stops.json, made by
 // scripts/collector-stops.js), counted in weeks from FIRST_WEEK, and start
 // again after the last.
+//
+// One change by hand (19 Nov 2026, roadmap Plan 3): week 4 asks Pl.
+// Syntagmatos (60002) and Efesou (240003), so the Α2 out of Syntagma to
+// Kallithea is measured, the ride the planner's Korydallos → Kallithea way
+// takes and no week paired; in place of the two stops that measured least
+// that week (10676, 10887). Made again by the script, keep that pair.
 
 export const ASK_EVERY_MS = 6_000;
 // Monday to Friday, Athens time: [from, to) in hours
