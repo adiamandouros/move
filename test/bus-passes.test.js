@@ -251,6 +251,14 @@ test('the committed stop sets: 10 weeks of 30 different stops, each named', () =
     }
 });
 
+test('a week asks both ends of the Α2 out of Syntagma to Kallithea, the ride the planner\'s Korydallos → Kallithea way takes (Plan 3)', () => {
+    // Pl. Syntagmatos (60002) and Efesou (240003), on the outbound Α2 in that order
+    const weeks = loadStopSets();
+    const week = weeks.findIndex(stops => stops.includes('60002') && stops.includes('240003'));
+    assert.equal(week, 3, 'week 4, from 23 November 2026');
+    assert.equal(stopsAt(weeks, Date.parse('2026-11-23T06:30:00Z')), weeks[3], 'asked on its Monday morning');
+});
+
 // A made-up network along one road east from Syntagma, with a branch north
 //   S ─ 1 km ─ A ─ 2 km ─ B ─ 2 km ─ C          (line 1: every 5 minutes)
 //              └─ 3 km north ─ N                (line 2: every 20 minutes)
