@@ -76,3 +76,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 62 | [The trip page: the other ways timed by OASA, each by its first bus](0062-other-ways-timed-by-oasa.md) | Replaced by 63 |
 | 63 | [The trip page: the other ways follow the rider, from where they are](0063-other-ways-follow-the-rider.md) | In force |
 | 64 | [The trip page: the other ways can be taken](0064-other-ways-can-be-taken.md) | In force |
+| 65 | [One rule for answers that come too late](0065-one-rule-for-late-answers.md) | In force |
