@@ -23,6 +23,8 @@ import { aheadWays, busOptions, cityPlanner, halfHour, halfView, hereWays, liveW
 
 /** @typedef {import('./buses.js').Point} Point */
 /** @typedef {import('./buses.js').BusOption} BusOption */
+// Asked and Answered are the messages both ways: the page (main.js) sends
+// and reads them through its Searches type, so both sides are checked
 /**
  * What the page asks: `rail` once, first, as the city is planned on (with its
  * tram or without it, decision 29), and `suburban: false` when the suburban
@@ -50,6 +52,17 @@ import { aheadWays, busOptions, cityPlanner, halfHour, halfView, hereWays, liveW
  *     trains?: Record<string, import('./trains.js').TrainLate> | null } }} Asked
  */
 /**
+ * One of the other ways shown to a followed rider (decision 63), timed: its
+ * key, the ride it leaves (-1 from where they are), the way, and the stops
+ * it asks OASA for, each with when its bus is due there (null: not known)
+ * @typedef {{ key: string, leg: number, option: BusOption, asks: { stop: string, at: number | null }[] }} OnwardWay
+ */
+/**
+ * One of the other ways shown (decision 62), timed: the half hour's `row`
+ * for its `departure`, the way, and the stops it asks OASA for, as above
+ * @typedef {{ row: number, departure: number, option: BusOption, asks: { stop: string, at: number | null }[] }} OtherWay
+ */
+/**
  * What it answers: the ways with a bus or a train for leaving now, with how long they
  * took here (`city`: making the day's city for this trip, null when it was
  * made before) and whether the day's city has trains (`trains`: false when
@@ -63,8 +76,8 @@ import { aheadWays, busOptions, cityPlanner, halfHour, halfView, hereWays, liveW
  * ways shown, each the same, in the order asked
  * @typedef {{ id: number, options: BusOption[], trains: boolean, timing: { city: number | null, answer: number } }
  *   | { id: number, half: import('./buses.js').HalfView & { ms: number } }
- *   | { id: number, live: { seq: number, way: import('./buses.js').LiveWay | null, others: { key: string, leg: number, option: import('./buses.js').BusOption, asks: { stop: string, at: number | null }[] }[] | null, switched?: import('./buses.js').Ahead } }
- *   | { id: number, others: { seq: number, ways: ({ row: number, departure: number, option: import('./buses.js').BusOption, asks: { stop: string, at: number | null }[] } | null)[] } }
+ *   | { id: number, live: { seq: number, way: import('./buses.js').LiveWay | null, others: OnwardWay[] | null, switched?: import('./buses.js').Ahead } }
+ *   | { id: number, others: { seq: number, ways: (OtherWay | null)[] } }
  *   | { id: number, error: true }} Answered
  */
 
