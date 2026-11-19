@@ -1628,6 +1628,49 @@ body {
     margin: 0;
 }
 
+/* Another way that takes that way (T18, decision 64): the whole card is the
+   button, its words on the left, a chevron at the right, as the home page's
+   tiles answer a pointer and the keyboard */
+.trip-take {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    font: inherit;
+    color: var(--bs-body-color);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s, background-color 0.15s;
+}
+
+.trip-take:hover {
+    border-color: var(--bs-primary);
+    background-color: var(--wh-tertiary-bg-hover);
+}
+
+.trip-take:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+.trip-take-what {
+    display: flex;
+    flex-direction: column;
+    gap: var(--wh-space-2);
+    flex: 1;
+    min-width: 0;
+}
+
+.trip-take-chevron {
+    flex: none;
+    color: var(--bs-secondary-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .trip-take {
+        transition: none;
+    }
+}
+
 /* Sized by its own width, for the rule after the steps' parts */
 .trip-steps {
     container-type: inline-size;

@@ -10,7 +10,7 @@ import { suburbanHidden, tramHidden } from '/tools/subway/tram-switch.js';
 import { walkSeconds } from '/tools/subway/city.js';
 import { isIdle } from '/tools/buses/timing.js';
 import { carry, GAP_MS, leftStart, offDue, placeOn, replanDue, REPLAN_MS, startOver, starting, stepOf, stillDue, waySteps } from './follow.js';
-import { forgetTrip, keepRide, keepTrip, keptTrip } from './kept.js';
+import { forgetTrip, keepPicked, keepRide, keepTrip, keptTrip } from './kept.js';
 import { arrivalsUrl, dueStops, liveStatus, ownBus, stopLive, unanswered } from './live.js';
 import { doorToDoor, isLongWalk } from './plan.js';
 import { placePicker } from './picker.js';
@@ -211,8 +211,11 @@ function start(metro) {
         if (ride.restore || !forTrip(found)) return;
         keepRide(riding() ? { from: { lat: from.lat, lng: from.lng }, now: found.now, at: planned.at, key: ride.key, steps: ride.steps, state: ride.state, choice: live.choice, own: live.own } : null, Date.now());
     };
-    // The ride kept, as render's next search takes it up: searched for when it was
+    // The ride kept, as render's next search takes it up: searched for when it
+    // was; and the way picked kept, put first again in the trip's first answer
     let resuming = null;
+    /** @type {string | null} */
+    let pickedKept = null;
     // Where the rider is, for the worker to time the way from (buses.js
     // LiveStep): as of now, or of the last fix when none has come for a while
     // (underground), so nothing slides to the next train; a walk by what's
@@ -252,7 +255,10 @@ function start(metro) {
     // hour `id`'s rows, each for its departure) and the worker's latest
     // timing of each, `seq` counting what's asked of it. To a rider followed
     // along the way, the ways on from where they are instead (`onward`,
-    // decision 63), as last timed, kept till the next search finds others
+    // decision 63), as last timed, kept till the next search finds others.
+    // The way the rider took from the other ways, by its key (`picked`,
+    // decision 64), shown first while the half hour has it; `lost`, it
+    // went, so the half hour's own is first again, which is said
     const live = {
         seq: 0, trip: 0, wanted: null, way: null,
         /** @type {Map<string, import('./buses.js').StopLive>} */ answers: new Map(),
@@ -266,6 +272,7 @@ function start(metro) {
         /** @type {string | null} */ switched: null, /** @type {Set<string>} */ declined: new Set(),
         others: { seq: 0, /** @type {{ id: number, ways: { row: number, departure: number }[] } | null} */ wanted: null, /** @type {any[]} */ ways: [] },
         /** @type {{ key: string, option: any, asks: { stop: string, at: number | null }[] }[] | null} */ onward: null,
+        /** @type {string | null} */ picked: null, lost: false,
     };
     // Someone is in the answer: the keyboard is there, or a pointer is held
     // down on the switch (T14). It isn't drawn again under them till they're done.
@@ -325,7 +332,7 @@ function start(metro) {
     const noOthers = () => ({ seq: live.others.seq + 1, wanted: null, ways: [] });
     const resetLive = () => {
         Object.assign(live, { trip: live.trip + 1, wanted: null, way: null, answers: new Map(), asked: new Map(), asking: new Set(), opening: 'start', choice: null, directions: null, offered: false, own: null,
-            aheadAt: -Infinity, hereAt: -Infinity, countdown: null, switched: null, declined: new Set(), others: noOthers(), onward: null });
+            aheadAt: -Infinity, hereAt: -Infinity, countdown: null, switched: null, declined: new Set(), others: noOthers(), onward: null, picked: null, lost: false });
         showLive();
     };
     // The trip planned again from where the rider moved to (decision 45):
@@ -431,7 +438,17 @@ function start(metro) {
     const draw = (now, buses, speak) => {
         const trip = doorToDoor(rail, from, to, now, { buses });
         const expired = isTimetableExpired(rail, now);
-        const ways = forTrip(half) && !trip.walkFirst && !trip.options[0]?.morning ? halfWays(half.view, now.seconds) : [];
+        const all = forTrip(half) && !trip.walkFirst && !trip.options[0]?.morning ? halfWays(half.view, now.seconds) : [];
+        // The way the rider took from the other ways first, while the half
+        // hour has it (decision 64); gone, the half hour's own, said once
+        const pickedWay = live.picked ? all.find(way => way.row.key === live.picked) : null;
+        if (live.picked && all.length && !pickedWay) {
+            Object.assign(live, { picked: null, lost: true });
+            keepPicked(null, Date.now());
+            announce(t('trip.picked-lost'));
+        }
+        const ways = pickedWay ? [pickedWay, ...all.filter(way => way !== pickedWay)] : all;
+        const picked = Boolean(pickedWay) && pickedWay !== all[0];
         // The way shown in full has OASA's live times when it has a bus, or
         // when it's a decision's directions, for the quicker way's bus, and
         // its trains' lateness when it has a train (decision 42): the
@@ -487,7 +504,7 @@ function start(metro) {
         followWay(following ? card : null, date);
         const shown = ways.length
             ? renderHalf(drawnOn(date), half.view.kind, ways, to, { now: clock, epoch, expired, longWalk: isLongWalk(ways[0].o), live: timed, offer: !choice, taken: choice === 'taken' ? half.view.quicker : null,
-                switching: switching && { offer: switching, seconds: live.countdown.left }, switched: Boolean(switched), othersTimed, onward, noTrains, trains: lateness(), lifts: known, liftsOpen: liftsOpen(), following: followingShown(), ...cards })
+                switching: switching && { offer: switching, seconds: live.countdown.left }, switched: Boolean(switched), othersTimed, onward, take: !riding(), picked, lost: live.lost, noTrains, trains: lateness(), lifts: known, liftsOpen: liftsOpen(), following: followingShown(), ...cards })
             : renderTrip(drawnOn(date), trip, to, { now: clock, epoch, expired, noBuses, noTrains: noTrains && !noBuses, checking: Boolean(searches) && !forTrip(half), lifts: known, liftsOpen: liftsOpen(), following: followingShown(), ...cards });
         const answer = html`${shown}${TIMING && timingBox(timing)}`;
         setHtml(result, answer);
@@ -561,6 +578,23 @@ function start(metro) {
     result.addEventListener('pointerdown', e => { live.held = Boolean(/** @type {HTMLElement} */ (e.target).closest('#trip-quicker')); });
     ['pointerup', 'pointercancel'].forEach(type => document.addEventListener(type, () => { live.held = false; }));
 
+    // Another way taken (decision 64): before the rider has left, it's the
+    // way shown in full, and the one it replaces goes among the other ways;
+    // kept with the trip. From the keyboard, the keyboard goes on to its
+    // heading; a tap is said
+    const takeWay = (key, event) => {
+        if (!forTrip(found) || holding()) return;
+        Object.assign(live, { picked: key, lost: false, choice: null });
+        keepPicked(key, Date.now());
+        draw(found.now, found.options, false);
+        if (event.detail === 0) /** @type {HTMLElement | null} */ (result.querySelector('.trip-card h2'))?.focus();
+        else announce(t('trip.picked-said'));
+    };
+    result.addEventListener('click', e => {
+        const button = /** @type {HTMLElement} */ (e.target).closest('[data-way]');
+        if (button instanceof HTMLElement && button.dataset.way) takeWay(button.dataset.way, e);
+    });
+
     // The answer drawn again with what came in, unless someone is in it:
     // then with the next refresh
     const redraw = () => {
@@ -620,6 +654,9 @@ function start(metro) {
             timing.half = null;
             resetLive();
             if (resumed) Object.assign(live, { choice: resumed.choice ?? null, own: resumed.own ?? null });
+            // The way picked when the page was last open, for the trip kept (decision 64)
+            if (pickedKept) live.picked = pickedKept;
+            pickedKept = null;
         }
         searches.postMessage({ id, from, to, now, half: halfToo });
     };
@@ -822,6 +859,7 @@ function start(metro) {
     // The ride followed from My location when the page was last open
     // (decision 58): taken up below, in place of a start from where the rider is
     const resume = kept?.ride && !kept.from && to ? kept.ride : null;
+    pickedKept = kept?.picked ?? null;
     // The link to this page starts it over, as on the other tools (remember.js)
     document.querySelectorAll('a[data-tool="trip"]').forEach(link => link.addEventListener('click', forgetTrip));
 

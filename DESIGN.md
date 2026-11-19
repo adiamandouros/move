@@ -467,6 +467,16 @@ rules, with a picture of a way shown in full.
   A way kept over, or gone back from, isn't offered again in the trip.
   Once the rider is on the first ride, this takes the place of the quicker
   way on a decision.
+- **Another way taken** (T18, decision 64): each of the other ways is one
+  button, the whole card, with a chevron (`more`) at its right: one Tab
+  stop each, said "Take this way: …" (its badge in the name, which changes
+  once a minute), the card's hover and focus as a home tile's. Taken
+  before the rider leaves, it's the way shown in full, "The way you
+  picked" at the right of its heading in place of "Best on most
+  departures", and the way it replaced is among the other ways, to take
+  back the same way; the keyboard goes on to its heading, a tap is said.
+  When a new half hour no longer has it, a warning above the answer says
+  it can't be caught any more, and the half hour's own is first again.
 
 ## Tests
 

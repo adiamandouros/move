@@ -526,6 +526,76 @@ test.describe('the trip page', () => {
             expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
         });
 
+        // Decision 64, T18: from Μενελάου 45 to Syntagma at noon, as above
+        test.describe('another way taken, before the rider has left', () => {
+            const others = page => page.locator('#trip-result button.trip-take');
+            const keys = async page => (await others(page).evaluateAll(buttons => buttons.map(b => b.dataset.way))).sort();
+            const first = page => page.locator('.trip-card').first();
+            const toSyntagma = async page => {
+                await page.goto('/trip');
+                await from(page).fill('Μενελάου 45');
+                await list(page, 'from').first().click();
+                await to(page).fill('Σύνταγμα');
+                await list(page, 'to').first().click();
+                await expect(others(page)).toHaveCount(2);
+            };
+
+            test('a tap makes it the way shown in full, the one it replaced among the other ways; a tap there takes it back; kept when the app opens again', async ({ page }) => {
+                await toSyntagma(page);
+                await expect(first(page)).not.toContainText('The way you picked');
+                const before = await keys(page);
+                const [taken] = before;
+                await expect(others(page).first()).toHaveAccessibleName(/^Take this way: /);
+                await page.locator(`button.trip-take[data-way="${taken}"]`).click();
+                await expect(first(page)).toContainText('The way you picked');
+                await expect(first(page).locator('.trip-step').first()).toBeVisible();
+                await expect(page.locator(`button.trip-take[data-way="${taken}"]`), 'not among the others now').toHaveCount(0);
+                const after = await keys(page);
+                expect(after).toHaveLength(2);
+                const replaced = after.find(key => !before.includes(key));
+                expect(replaced, 'the way it replaced, to take back').toBeTruthy();
+                expect(await axe(page), 'axe-core violations').toEqual([]);
+
+                // The app closed and opened again: still the way picked
+                await page.close();
+                page = await page.context().newPage();
+                await page.goto('/trip');
+                await expect(to(page)).toHaveValue(/Syntagma/);
+                await expect(first(page)).toContainText('The way you picked');
+                await expect(page.locator(`button.trip-take[data-way="${taken}"]`)).toHaveCount(0);
+
+                // Taken back: the half hour's own first, as it was
+                await page.locator(`button.trip-take[data-way="${replaced}"]`).click();
+                await expect(first(page)).not.toContainText('The way you picked');
+                expect(await keys(page)).toEqual(before);
+            });
+
+            test('from the keyboard alone: Enter takes it, and the keyboard goes on to the way shown\'s heading', async ({ page }) => {
+                await toSyntagma(page);
+                const [taken] = await keys(page);
+                const button = page.locator(`button.trip-take[data-way="${taken}"]`);
+                await button.focus();
+                await page.keyboard.press('Enter');
+                await expect(first(page)).toContainText('The way you picked');
+                await expect(first(page).locator('h2')).toBeFocused();
+                const walk = await keyboardWalk(page);
+                expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
+            });
+
+            test('in Greek too', async ({ page }) => {
+                await page.goto('/el/trip');
+                await page.getByRole('combobox', { name: 'Από' }).fill('Μενελάου 45');
+                await list(page, 'from').first().click();
+                await page.getByRole('combobox', { name: 'Προς' }).fill('Σύνταγμα');
+                await list(page, 'to').first().click();
+                await expect(others(page)).toHaveCount(2);
+                await expect(others(page).first()).toHaveAccessibleName(/^Πάρε αυτόν τον δρόμο: /);
+                await others(page).first().click();
+                await expect(first(page)).toContainText('Ο δρόμος που διάλεξες');
+                expect(await axe(page), 'axe-core violations').toEqual([]);
+            });
+        });
+
         test('a bus ride OASA has coming: its time without "~", its badges marked as OASA\'s', async ({ page }) => {
             await pickPark(page);
             const ride = page.locator('.trip-card').first().locator('li.trip-step', { has: page.locator('.trip-step-badges') });
