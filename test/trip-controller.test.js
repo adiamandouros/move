@@ -742,9 +742,9 @@ test('boarding the bus: the rider\'s own is the one of its lines OASA had due ne
     const jobs = tell(located(STOPS[1], AT + 200), clock(AT + 200));
     assert.deepEqual(timedAsk(jobs).live.own, { leg: 0, vehicle: '2041' });
     assert.equal(timedAsk(jobs).live.ahead, true, 'at a stop of the ride: the search ahead');
-    // Kept with the ride from then on (the fix that boards keeps it before
-    // the bus is known, as before: the next one, or the page hidden, has it)
-    assert.equal(jobs.find(job => job.do === 'keep-ride').ride.own, null);
+    // Kept with the ride from the fix that boards it, so a ride taken up
+    // from that save has its own bus (decision 58), and from then on
+    assert.deepEqual(jobs.find(job => job.do === 'keep-ride').ride.own, { leg: 0, vehicle: '2041' });
     assert.deepEqual(tell({ type: 'hidden' })[0].ride.own, { leg: 0, vehicle: '2041' });
 });
 
