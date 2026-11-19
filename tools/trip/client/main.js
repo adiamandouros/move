@@ -70,13 +70,26 @@ async function loadTrains() {
     }
 }
 
+/** @typedef {import('./searcher.js').Asked} Asked */
+/** @typedef {import('./searcher.js').Answered} Answered */
+/**
+ * The worker as the page talks to it: what it's asked and what it answers
+ * are searcher.js's, so a field one side names differently is a type error
+ * @typedef {Omit<Worker, 'postMessage' | 'addEventListener'> & {
+ *   postMessage(message: Asked): void,
+ *   addEventListener(type: 'message', listener: (event: MessageEvent<Answered>) => void): void,
+ *   addEventListener(type: 'error', listener: (event: Event) => void): void }} Searches
+ */
+
 // The searches with a bus run in the background (worker.js, decision 32),
 // started with the version the page's import map gives it. `rail` is what
 // the city is planned on. Null where a browser can't start it: then, as when
 // the buses' times can't be loaded, the trip is by metro and tram, and says so
 // `suburban`: whether they have the suburban railway, unless it's hidden on the Subway page (decision 41)
+/** @returns {Searches | null} */
 function startSearches(rail, suburban) {
     try {
+        /** @type {Searches} */
         const worker = new Worker(import.meta.resolve('./worker.js'), { type: 'module' });
         worker.postMessage({ rail, suburban });
         return worker;
@@ -279,8 +292,8 @@ function start(metro) {
         /** @type {import('./trains.js').TrainsLive | null} */ trains: null, trainsAsked: -Infinity, askingTrains: false,
         aheadAt: -Infinity, hereAt: -Infinity, /** @type {{ key: string, left: number } | null} */ countdown: null, held: false,
         /** @type {string | null} */ switched: null, /** @type {Set<string>} */ declined: new Set(),
-        others: { seq: 0, /** @type {{ id: number, ways: { row: number, departure: number }[] } | null} */ wanted: null, /** @type {any[]} */ ways: [] },
-        /** @type {{ key: string, leg: number, option: any, asks: { stop: string, at: number | null }[] }[] | null} */ onward: null,
+        others: { seq: 0, /** @type {{ id: number, ways: { row: number, departure: number }[] } | null} */ wanted: null, /** @type {(import('./searcher.js').OtherWay | null)[]} */ ways: [] },
+        /** @type {import('./searcher.js').OnwardWay[] | null} */ onward: null,
         /** @type {string | null} */ picked: null, lost: false,
         /** @type {'quicker' | 'picked' | null} */ switchedBy: null, /** @type {import('./buses.js').Ahead | null} */ switchedWay: null,
         /** @type {{ key: string, said: import('./buses.js').RideLive | undefined, stop: string, answered: boolean, onward: boolean, keyboard: boolean, timer: ReturnType<typeof setTimeout> } | null} */ checking: null,

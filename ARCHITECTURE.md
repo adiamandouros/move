@@ -564,7 +564,8 @@ nearest is planned, and the search (`arrivalsFrom`) picks the 6 quickest of
 the rest. `client/buses.js` adds the ways with a bus or a suburban train from the city's search (`city.js`,
 `ways.js`), the same ride on different buses as one; all of them go in order
 by `weights.js`. Those searches run in a worker (`client/worker.js`, its logic
-in `client/searcher.js`; `?timing` says how long they take on the device),
+in `client/searcher.js`, whose `Asked` and `Answered` types are what the page
+sends it and gets back, checked on both sides; `?timing` says how long they take on the device),
 which loads `buses.json` and `trains.json` and makes the day's city, with that date's trains (without `trains.json`, or a day it lacks, none, and the page says so; while the Subway page's switch hides the railway, it doesn't load it):
 it answers each trip for leaving now, then for the next half hour
 (`answer.js`, as the page shows it: `halfView`), a departure at a time, and
