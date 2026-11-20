@@ -610,10 +610,9 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
         }
         const nowMs = moment.ms;
         ride.state = placeOn(ride.steps, ride.state, fix, nowMs);
-        /** @type {TripJob[]} */
-        const jobs = [...ride.state.moved ? keepFollowed() : [], ...sayRide(moment)];
         // Boarding a bus: the one of the way's lines OASA had due at that
-        // stop nearest then is theirs, known again where they get off
+        // stop nearest then is theirs, known again where they get off, and
+        // kept with the ride from this fix on (decision 58)
         const step = stepOf(ride.steps, ride.state);
         if (ride.state.moved && step.kind === 'ride' && own?.leg !== step.ride) {
             const boarded = ride.way?.rides?.[step.ride];
@@ -621,6 +620,8 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
             const vehicle = code ? ownBus(times.answers.get(code), boarded.lines, moment.now.seconds) : null;
             own = vehicle ? { leg: step.ride, vehicle } : null;
         }
+        /** @type {TripJob[]} */
+        const jobs = [...ride.state.moved ? keepFollowed() : [], ...sayRide(moment)];
         if (times.paused && ride.state.anchor?.at === nowMs) jobs.push(...touch(moment));
         if (offDue(ride.state, nowMs)) return [...jobs, ...replanIfOff(moment)];
         // The other ways shown searched again (decision 63): at a stop of the
