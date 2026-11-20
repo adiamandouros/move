@@ -16,11 +16,11 @@ import { TRAINS_URL } from './trains.js';
 import { howExact, liveNotice, placeTitle, quickerSummary, rangeText, renderHalf, renderTrip, routeSummary, stepFreeSummary, switchIn } from './render.js';
 
 const $ = id => document.getElementById(id);
-const result = $('trip-result');
-const liveBox = $('trip-live-status');
+const result = /** @type {HTMLElement} */ ($('trip-result'));
+const liveBox = /** @type {HTMLElement} */ ($('trip-live-status'));
 const fromInput = /** @type {HTMLInputElement} */ ($('trip-from'));
 const toInput = /** @type {HTMLInputElement} */ ($('trip-to'));
-const locate = $('trip-locate');
+const locate = /** @type {HTMLElement} */ ($('trip-locate'));
 
 // The answer worked out again while the page is open; its times count down
 // by themselves in between, each TICK_MS (decision 61)
@@ -154,7 +154,10 @@ function start(metro) {
     // The keyboard's focus only: Android's browser focuses a button that's
     // tapped too, and that focus would stop every redraw for good (Road · 3)
     /** @param {Element} box */
-    const keyboardIn = box => box.contains(document.activeElement) && document.activeElement.matches(':focus-visible');
+    const keyboardIn = box => {
+        const active = document.activeElement;
+        return active !== null && box.contains(active) && active.matches(':focus-visible');
+    };
     const inAnswer = () => held || keyboardIn(result);
     // The cards' stations on the way the rider opened or closed (by leg),
     // and the bus stops they opened (by code), kept through the refreshes
@@ -186,6 +189,7 @@ function start(metro) {
     // A stop's live times asked of OASA, its answer told with the request's ticket
     /** @param {{ code: string, opening: import('./controller.js').Opening, ticket: number }} job */
     const askStop = async ({ code, opening, ticket }) => {
+        /** @type {import('./buses.js').StopLive | null} */
         let answer = null;
         try {
             const response = await fetch(arrivalsUrl(code, opening), { signal: AbortSignal.timeout(20_000) });
@@ -214,7 +218,9 @@ function start(metro) {
     // decide what's drawn of it (its render job, below)
     /** @param {import('/tools/subway/network.js').AthensTime} now @param {import('./buses.js').BusOption[]} buses @param {boolean} speak @param {boolean} sayHalf */
     const draw = (now, buses, speak, sayHalf) => {
-        tell({ type: 'drawing', now, answer: doorToDoor(rail, trip.from, trip.to, now, { buses }), speak, sayHalf });
+        const { from, to } = trip;
+        if (!from || !to) return;
+        tell({ type: 'drawing', now, answer: doorToDoor(rail, from, to, now, { buses }), speak, sayHalf });
     };
     // The answer drawn: in place of the answer for leaving now, the next half
     // hour's ways (decision 33), as the controller decided (`view`), unless
@@ -224,14 +230,16 @@ function start(metro) {
     // they run when the way is timed with it (decision 47)
     /** @param {Extract<import('./controller.js').TripJob, { do: 'render' }>} job */
     const render = ({ now, answer, ways, view, offered, speak, sayHalf }) => {
+        const { to } = trip;
+        if (!to) return;
         const expired = isTimetableExpired(rail, now);
         const { seconds: clock, epoch, weekday, date } = athensClock();
         const cards = { weekday, date, stations: openedLegs(), stops: openedStops(), legend: legendOpen() };
         const known = lifts();
         const shown = view
-            ? renderHalf(drawnOn(date), view.kind, ways, trip.to, { now: clock, epoch, expired, longWalk: isLongWalk(ways[0].o), ...view,
+            ? renderHalf(drawnOn(date), view.kind, ways, to, { now: clock, epoch, expired, longWalk: isLongWalk(ways[0].o), ...view,
                 noTrains: trip.noTrains, trains: trip.lateness(), lifts: known, liftsOpen: liftsOpen(), following: trip.onStep(), ...cards })
-            : renderTrip(drawnOn(date), answer, trip.to, { now: clock, epoch, expired, noBuses: trip.noBuses, noTrains: trip.noTrains && !trip.noBuses, checking: Boolean(searches) && !trip.halfHour(), lifts: known, liftsOpen: liftsOpen(), following: trip.onStep(), ...cards });
+            : renderTrip(drawnOn(date), answer, to, { now: clock, epoch, expired, noBuses: trip.noBuses, noTrains: trip.noTrains && !trip.noBuses, checking: Boolean(searches) && !trip.halfHour(), lifts: known, liftsOpen: liftsOpen(), following: trip.onStep(), ...cards });
         setHtml(result, html`${shown}${TIMING && timingBox(trip.timing)}`);
         if (offered) announce(offered.seconds !== null ? `${quickerSummary(offered.offer)} ${switchIn(offered.seconds)}` : quickerSummary(offered.offer));
         if (speak) {
@@ -271,7 +279,7 @@ function start(metro) {
     const carryOut = job => {
         switch (job.do) {
             case 'keep':
-                keepTrip({ from: foundOf.get(job.from) ?? null, to: foundOf.get(job.to) ?? null }, Date.now());
+                keepTrip({ from: job.from ? foundOf.get(job.from) ?? null : null, to: job.to ? foundOf.get(job.to) ?? null : null }, Date.now());
                 break;
             case 'intro':
                 setHtml(result, html`<p class="trip-intro">${t('trip.intro')}</p>`);
@@ -471,7 +479,7 @@ function start(metro) {
     // The link to this page starts it over, as on the other tools (remember.js)
     document.querySelectorAll('a[data-tool="trip"]').forEach(link => link.addEventListener('click', forgetTrip));
 
-    $('trip-swap').addEventListener('click', () => {
+    /** @type {HTMLElement} */ ($('trip-swap')).addEventListener('click', () => {
         [fromInput.value, toInput.value] = [toInput.value, fromInput.value];
         sayExact(fromPicker, trip.to);
         sayExact(toPicker, trip.from);
@@ -504,7 +512,7 @@ function start(metro) {
     // position there is; and the times counting down
     setInterval(() => {
         const card = $('trip-quicker');
-        tell({ type: 'second', position: lastPosition(), held: inAnswer(), counting: Boolean(card) && !held && !keyboardIn(card) });
+        tell({ type: 'second', position: lastPosition(), held: inAnswer(), counting: card !== null && !held && !keyboardIn(card) });
         countTimes();
     }, TICK_MS);
     // Any tap or key press counts as someone looking at the page
