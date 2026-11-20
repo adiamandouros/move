@@ -122,7 +122,7 @@ export function waySteps(o, from, to, rail) {
     /** @param {number} ride @param {Point[]} points @param {Point[]} past @param {boolean} close */
     const board = (ride, points, past, close) => {
         steps.push({ kind: 'wait', ride, at: points[0] }, { kind: 'ride', ride, points, past, close });
-        here = points.at(-1);
+        here = points[points.length - 1];
     };
     if (o.city) {
         o.rides.forEach((ride, i) => {
@@ -278,7 +278,7 @@ export function placeOn(steps, state, fix, nowMs) {
         }
         if (current.kind !== 'ride') break;
         // On the ride: by the nearest stop ahead, and past its last one
-        const last = current.points.at(-1);
+        const last = current.points[current.points.length - 1];
         stop += nearest(fix, current.points.slice(stop));
         if (stop !== current.points.length - 1) break;
         past = current.past.length > 0 && nearest(fix, [last, ...current.past]) > 0 && !near(fix, last);
@@ -313,4 +313,4 @@ export const leftStart = (fix, from) => metres(fix, from) >= within(LEFT_METRES,
  * rule, in place of the page's untouched one (agreed 12 Nov 2026)
  * @param {State} state @param {number} touchedMs @param {number} nowMs
  */
-export const stillDue = (state, touchedMs, nowMs) => Boolean(state.anchor) && nowMs - state.anchor.at >= STILL_MS && nowMs - touchedMs >= STILL_MS;
+export const stillDue = (state, touchedMs, nowMs) => !!state.anchor && nowMs - state.anchor.at >= STILL_MS && nowMs - touchedMs >= STILL_MS;

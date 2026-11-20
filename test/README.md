@@ -61,6 +61,11 @@ this way: [decision 20](../docs/decisions/0020-tests-and-when-they-run.md).
   functions; raise the numbers in `package.json` when it goes up. Browser
   code isn't counted there: Node's coverage counts each language's copy of
   a module separately, so its numbers for them are wrong.
+- **Null errors only go down.** `npm run typecheck` fails if a file has
+  more errors with `strictNullChecks` than `types/strict-null-checks.json`
+  allows it (a new file: none), or fewer than written there; then
+  `node scripts/strict-nulls.js --write` writes them down
+  ([decision 66](../docs/decisions/0066-strict-null-checks-step-by-step.md)).
 - **Fast stays fast.** The Node tests run in a few seconds: no real
   network, no real waiting (mock the timers), no real data build. A test
   starts its own server with `support/listen.js`, whose `close()` doesn't

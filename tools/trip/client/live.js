@@ -25,7 +25,7 @@ export const arrivalsUrl = (code, opening = null) => `/api/arrivals?stops=${code
 // as another way is taken (decision 64)
 export const ON_THE_ROAD = new Set(['bus', 'trolley']);
 /** @param {{ city?: boolean, rides?: { mode: string }[] }} o */
-export const hasBus = o => Boolean(o.city) && o.rides.some(ride => ON_THE_ROAD.has(ride.mode));
+export const hasBus = o => Boolean(o.city) && (o.rides ?? []).some(ride => ON_THE_ROAD.has(ride.mode));
 // What OASA says of a way's first bus (RideLive), once its stop is answered
 /** @param {{ rides: { mode: string, live?: import('./buses.js').RideLive }[] }} o */
 export const firstBusSaid = o => o.rides.find(ride => ON_THE_ROAD.has(ride.mode))?.live;
@@ -40,7 +40,7 @@ export const firstBusSaid = o => o.rides.find(ride => ON_THE_ROAD.has(ride.mode)
  */
 export function ownBus(answer, lines, boardedAt) {
     const theirs = (answer?.buses ?? []).filter(bus => bus.line && lines.includes(bus.line));
-    const nearest = theirs.reduce((best, bus) => !best || Math.abs(bus.at - boardedAt) < Math.abs(best.at - boardedAt) ? bus : best, null);
+    const nearest = theirs.reduce((best, bus) => !best || Math.abs(bus.at - boardedAt) < Math.abs(best.at - boardedAt) ? bus : best, /** @type {typeof theirs[number] | null} */ (null));
     return nearest?.vehicle ?? null;
 }
 
@@ -98,7 +98,7 @@ export function dueStops(asks, { asking, asked, answers }, nowMs, seconds) {
  */
 export function liveStatus(asks, answers, paused, trains = null) {
     if (paused) return 'paused';
-    const shown = asks.map(({ stop }) => answers.get(stop)).filter(Boolean);
+    const shown = asks.map(({ stop }) => answers.get(stop)).filter(answer => answer !== undefined);
     const buses = shown.length > 0 && shown.every(answer => answer.unavailable);
     if (trains?.unavailable) return buses ? 'all-unavailable' : 'trains-unavailable';
     if (buses) return 'unavailable';

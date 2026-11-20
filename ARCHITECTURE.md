@@ -744,7 +744,12 @@ and on `main` (`.github/workflows/checks.yml`), with Node 20 and 22.
   from the browser beyond the DOM (Bootstrap, AdSense) in
   `types/globals.d.ts`. Nothing is compiled, and editors show the types too.
   Where TypeScript can't know which element a query finds, a
-  `/** @type {HTMLElement} */ (…)` note says so.
+  `/** @type {HTMLElement} */ (…)` note says so. It also runs a second time
+  with `strictNullChecks`, file by file: `scripts/strict-nulls.js` holds
+  each file to its number of errors in `types/strict-null-checks.json`,
+  which only goes down, a new file allowed none, until every file is at
+  none and the check goes on for good
+  ([decision 66](docs/decisions/0066-strict-null-checks-step-by-step.md)).
 
 Every night `.github/workflows/nightly.yml` runs `npm run check` on `main`,
 and `npm run test:live` (`test/live/`): a few checks against wayhop.gr with
