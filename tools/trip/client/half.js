@@ -10,14 +10,18 @@ const LATE_SECONDS = 60;
 // Each way the half hour's answer shows, as it is for the next departure
 // tried at `now` (seconds from midnight) or the first after it that has it,
 // and which departure that is
-/** @param {import('./buses.js').HalfView} view @param {number} now */
+/**
+ * @param {import('./buses.js').HalfView} view @param {number} now
+ * @returns {{ row: import('./buses.js').HalfRow, o: import('./buses.js').BusOption, departure: number }[]}
+ */
 export function halfWays(view, now) {
     const next = view.departures.findIndex(at => at >= now - LATE_SECONDS);
     if (next < 0) return [];
-    return view.rows.map(row => {
+    return view.rows.flatMap(row => {
         const departure = row.options.findIndex((o, d) => d >= next && o);
-        return { row, o: row.options[departure], departure };
-    }).filter(({ o }) => o);
+        const o = row.options[departure];
+        return o ? [{ row, o, departure }] : [];
+    });
 }
 
 // The quicker way the rider took, for the departure shown: as OASA's live

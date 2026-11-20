@@ -90,7 +90,7 @@ export const SWITCH_SECONDS = 10;
  * (`onward`); whether the other ways can be taken (`take`); the first way
  * the rider's pick (`picked`), or theirs gone (`lost`); the way whose bus is
  * being checked (`checking`), or whose bus had gone (`gone`)
- * @typedef {{ kind: string, live: { way: import('./buses.js').LiveWay } | null, offer: boolean, taken: object | null,
+ * @typedef {{ kind: string, live: { way: import('./buses.js').LiveWay } | null, offer: boolean, taken: import('./buses.js').HalfRow | null,
  *   switching: { offer: import('./buses.js').Offer, seconds: number } | null, switched: false | 'quicker' | 'picked',
  *   othersTimed: Map<object, import('./searcher.js').OtherWay>, onward: import('./searcher.js').OnwardWay[] | null,
  *   take: boolean, picked: boolean, lost: boolean, checking: string | null, gone: boolean }} HalfShown
@@ -262,6 +262,7 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
     // again once the rider has moved far enough). While it's planned again
     // from where they moved to (`moving`), the answer shown stays until the
     // new one's next half hour is in
+    /** @type {{ from: Place | null, to: Place | null, at: number }} */
     let planned = { from, to, at: 0 };
     let moving = false;
     // The buses can't be had: their searches couldn't be started or failed
@@ -299,7 +300,7 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
         /** @type {TrainsLive | null} */ trains: null,
         trainsAsked: -Infinity,
         askingTrains: false,
-        others: { /** @type {OthersWant | null} */ wanted: null, /** @type {(import('./searcher.js').OtherWay | null)[]} */ ways: [] },
+        others: { wanted: /** @type {OthersWant | null} */ (null), ways: /** @type {(import('./searcher.js').OtherWay | null)[]} */ ([]) },
         /** @type {import('./searcher.js').OnwardWay[] | null} */ onward: null,
     };
     // A new trip: nothing of the one before; planned again from where the
@@ -323,8 +324,10 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
     // ran, and the search from where they are walking or waiting (decision 63)
     let following = false;
     let waiting = false;
-    const ride = { /** @type {string | null} */ key: null, /** @type {any} */ way: null, /** @type {any[] | null} */ steps: null,
-        state: starting(), left: false, /** @type {string | number | null} */ said: null, carrying: false, /** @type {{ key: string, steps: any[], state: any } | null} */ restore: null };
+    // (A property's type is given as a cast: TypeScript reads a type note
+    // before a property only when it starts the line)
+    const ride = { key: /** @type {string | null} */ (null), way: /** @type {any} */ (null), steps: /** @type {import('./follow.js').Step[] | null} */ (null),
+        state: starting(), left: false, said: /** @type {string | number | null} */ (null), carrying: false, restore: /** @type {{ key: string, steps: any[], state: any } | null} */ (null) };
     /** @type {import('./buses.js').OwnBus | null} */
     let own = null;
     let aheadAt = -Infinity;
@@ -353,8 +356,8 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
     const chosen = {
         /** @type {Choice} */ choice: null, offered: false,
         /** @type {{ key: string, left: number } | null} */ countdown: null,
-        /** @type {string | null} */ switched: null, /** @type {'quicker' | 'picked' | null} */ switchedBy: null,
-        /** @type {import('./buses.js').Ahead | null} */ switchedWay: null, /** @type {Set<string>} */ declined: new Set(),
+        /** @type {string | null} */ switched: null, switchedBy: /** @type {'quicker' | 'picked' | null} */ (null),
+        /** @type {import('./buses.js').Ahead | null} */ switchedWay: null, declined: /** @type {Set<string>} */ (new Set()),
         /** @type {string | null} */ picked: null, lost: false,
         /** @type {{ key: string, said: import('./buses.js').RideLive | undefined, stop: string, answered: boolean, onward: boolean, keyboard: boolean, position: Fix | null, ticket: number } | null} */ checking: null,
         gone: false, focusNext: false,
@@ -390,12 +393,15 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
     /** @param {any} o */
     const keyOf = o => o.city ? o.rides.map(r => `${r.board.id}>${r.alight.id}`).join() : o.plan.legs.map(leg => `${leg.from}>${leg.to}`).join();
 
-    /** @param {{ from: Place | null, to: Place | null } | null} what */
+    /**
+     * @template {{ from: Place | null, to: Place | null }} T
+     * @param {T | null} what @returns {what is T}
+     */
     const forTrip = what => what?.from === from && what?.to === to;
     const holding = () => moving && !forTrip(half);
     const halfNow = () => forTrip(half) ? half : null;
-    /** @returns {TripJob} */
-    const drawFound = (speak = false) => ({ do: 'draw', now: found.now, buses: found.options, speak });
+    /** @param {NonNullable<typeof found>} answer @returns {TripJob} */
+    const drawFound = (answer, speak = false) => ({ do: 'draw', now: answer.now, buses: answer.options, speak });
 
     // How late the suburban trains run, by number, as the way shown in full
     // is timed with it: none while it can't be had
@@ -501,7 +507,7 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
     const redraw = (held, moment) => {
         if (!from || !to || held) return [];
         if (noBuses) return [{ do: 'draw', now: moment.now, buses: [], speak: false }];
-        return forTrip(found) && !holding() ? [drawFound()] : [];
+        return forTrip(found) && !holding() ? [drawFound(found)] : [];
     };
 
     // Where the rider is, for the worker to time the way from (buses.js
@@ -510,12 +516,12 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
     // left of it from the last fix
     /** @param {Moment} moment @returns {import('./buses.js').LiveStep | null} */
     const stepFor = moment => {
-        if (!riding()) return null;
+        if (!riding() || !ride.steps) return null;
         const step = stepOf(ride.steps, ride.state);
         const { fix, at: atMs, stop } = ride.state;
         const frozen = fix && moment.ms - fix.at > GAP_MS;
         const walk = fix && (step.kind === 'walk' || step.kind === 'last') ? Math.round(walkSeconds(fix, step.to)) : 0;
-        return { leg: 'ride' in step ? step.ride : 0, kind: step.kind, stop, at: frozen ? athensNow(new Date(atMs)).seconds : moment.now.seconds, walk };
+        return { leg: 'ride' in step ? step.ride : 0, kind: step.kind, stop, at: frozen && atMs !== null ? athensNow(new Date(atMs)).seconds : moment.now.seconds, walk };
     };
     // The ride followed, kept with the trip for the page opened again
     // (decision 58): where and for when the way was searched, its steps and
@@ -524,7 +530,7 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
     // the kept one is still being taken up, nor while a new plan is being searched
     /** @returns {TripJob[]} */
     const keepFollowed = () => {
-        if (ride.restore || !forTrip(found)) return [];
+        if (ride.restore || !from || !forTrip(found)) return [];
         return [{ do: 'keep-ride', ride: riding() ? { from: { lat: from.lat, lng: from.lng }, now: found.now, at: planned.at, key: ride.key, steps: ride.steps, state: ride.state, choice: chosen.choice, own, switched: switchedNow() } : null }];
     };
     /** @returns {TripJob[]} */
@@ -554,7 +560,7 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
             if (final) ride.restore = null;
             return [];
         }
-        const steps = o ? waySteps(o, from, to, railOn(date)) : null;
+        const steps = o && from && to ? waySteps(o, from, to, railOn(date)) : null;
         const state = restore && steps ? key === restore.key ? restore.state : carry(restore.steps, restore.state, steps)
             : ride.carrying && ride.steps && steps ? carry(ride.steps, ride.state, steps) : startOver(ride.state);
         if (final) ride.restore = null;
@@ -594,7 +600,7 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
     // start, in sight and no sooner than 2 minutes after the last plan
     /** @param {Moment} moment @returns {TripJob[]} */
     const replanIfOff = moment => {
-        if (!riding() || !offDue(ride.state, moment.ms) || moment.hidden || moment.ms - planned.at < REPLAN_MS) return [];
+        if (!riding() || !ride.state.fix || !offDue(ride.state, moment.ms) || moment.hidden || moment.ms - planned.at < REPLAN_MS) return [];
         from = here(ride.state.fix);
         return render({ moved: true }, moment);
     };
@@ -604,8 +610,9 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
     // on resumes live times paused for standing still
     /** @param {Fix} fix @param {boolean} held @param {Moment} moment @returns {TripJob[]} */
     const placeFix = (fix, held, moment) => {
+        if (!ride.steps) return [];
         if (!ride.left) {
-            if (!leftStart(fix, from)) return [];
+            if (!from || !leftStart(fix, from)) return [];
             ride.left = true;
         }
         const nowMs = moment.ms;
@@ -675,14 +682,14 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
         // worker's latest timing of its row, until the next comes; the
         // quicker way's in its place once the rider takes it (decision 36)
         const [first] = ways;
-        const directions = Boolean(first) && shown.view.kind === 'decision' && first.row === rows[0];
+        const directions = Boolean(first) && shown?.view.kind === 'decision' && first.row === rows[0];
         const choice = directions ? chosen.choice : null;
         // On a ride followed, the way switched to on the way (T14)
         const switched = riding() ? chosen.switched : null;
         // Timed with the live times when it has a bus or a train, or on a
         // decision; and while the rider is followed along it, whatever it has
         /** @type {Want | null} */
-        const want = first && (hasBus(first.o) || hasTrain(first.o) || directions || riding())
+        const want = first && shown && (hasBus(first.o) || hasTrain(first.o) || directions || riding())
             ? { id: shown.id, row: rows.indexOf(first.row), departure: first.departure, taken: choice === 'taken', switched }
             : null;
         const last = [times.way, times.directions].find(way => want && sameRow(way, want));
@@ -700,22 +707,22 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
         // The other ways shown with a bus, timed with OASA's live times
         // (decision 62): not on a ride followed, where they're from the start
         // the rider has left
-        const takenRow = choice === 'taken' ? shown.view.quicker : null;
+        const takenRow = choice === 'taken' ? shown?.view.quicker ?? null : null;
         const others = riding() ? [] : ways.slice(1).filter(({ row, o }) => row !== takenRow && hasBus(o));
-        jobs.push(...othersShown(others.length ? { id: shown.id, ways: others.map(({ row, departure }) => ({ row: rows.indexOf(row), departure })) } : null, moment));
+        jobs.push(...othersShown(others.length && shown ? { id: shown.id, ways: others.map(({ row, departure }) => ({ row: rows.indexOf(row), departure })) } : null, moment));
         // To a rider followed along the way, the ways on from where they
         // are, once searched (decision 63), but the way switched to
         const onward = riding() && times.onward ? times.onward.filter(other => other.key !== switched) : null;
         const othersTimed = new Map(times.others.ways
-            .filter(way => way && others.some(other => other.row === rows[way.row] && other.departure === way.departure))
-            .map(way => /** @type {[any, import('./searcher.js').OtherWay]} */ ([rows[way.row], way])));
+            .flatMap(way => way && others.some(other => other.row === rows[way.row] && other.departure === way.departure)
+                ? [/** @type {[any, import('./searcher.js').OtherWay]} */ ([rows[way.row], way])] : []));
         // The way shown in full, for My location to follow the rider along
         // (decision 50): the first card's, or the answer for leaving now's
         // best; none when walking is quicker or the trains have stopped. Not
         // while a way switched to isn't timed yet: the first card is still
         // the way before
         const card = ways.length
-            ? timed?.way.option ?? (choice === 'taken' ? takenOption(shown.view.quicker, first.departure) : first.o)
+            ? timed?.way.option ?? (choice === 'taken' && takenRow ? takenOption(takenRow, first.departure) : first.o)
             : plain ? answer.options[0] ?? null : null;
         if (!(switched && !timed)) jobs.push(...followWay(following ? card : null, moment.now.date));
         // A quicker way coming up is said once, as it isn't where the
@@ -724,9 +731,9 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
         chosen.offered = Boolean(offer);
         buttons = { switching: switching?.key ?? null, switched: Boolean(switched) };
         /** @type {HalfShown | null} */
-        const view = ways.length ? {
+        const view = ways.length && shown ? {
             kind: shown.view.kind, live: timed, offer: !choice, taken: takenRow,
-            switching: switching && { offer: switching, seconds: chosen.countdown.left }, switched: switched ? chosen.switchedBy ?? 'quicker' : false,
+            switching: switching && chosen.countdown ? { offer: switching, seconds: chosen.countdown.left } : null, switched: switched ? chosen.switchedBy ?? 'quicker' : false,
             othersTimed, onward, take: !riding(), picked: Boolean(pickedWay) && pickedWay !== all[0], lost: chosen.lost,
             checking: chosen.checking?.key ?? null, gone: chosen.gone,
         } : null;
@@ -847,7 +854,7 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
         // Followed along the way, the rider has left: the answer isn't
         // searched again for someone leaving the start now, so the way shown
         // stays theirs (decision 50); it's timed from where they are (retime)
-        if (same && (!refresh || riding())) return [...jobs, drawFound(speak)];
+        if (forTrip(found) && (!refresh || riding())) return [...jobs, drawFound(found, speak)];
         // Its own search still out (the minute's refresh, or the page opening,
         // before its answer came): nothing more is asked, as the answer is on
         // its way. Asked again, it would start the trip over: the answer kept
@@ -924,7 +931,7 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
         },
         redraw: (event, moment) => redraw(event.held, moment),
         answer: event => {
-            if (!latest.counts('search', event.id)) return [];
+            if (!latest.counts('search', event.id) || !asked) return [];
             found = { from: asked.from, to: asked.to, now: asked.now, options: event.options };
             noTrains = event.trains === false && suburban;
             timing.city = event.timing.city ?? timing.city;
@@ -942,7 +949,7 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
         // goes on to its heading): then with the next refresh. Said, unless it
         // was planned again from where the rider moved to
         half: event => {
-            if (!latest.counts('half', event.id)) return [];
+            if (!latest.counts('half', event.id) || !askedHalf) return [];
             half = { id: event.id, from: askedHalf.from, to: askedHalf.to, view: event.view };
             timing.half = event.view;
             if (!forTrip(found) || (event.held && !chosen.focusNext)) return [{ do: 'timing' }];
@@ -950,7 +957,7 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
             moving = false;
             const focus = chosen.focusNext;
             chosen.focusNext = false;
-            return [{ do: 'timing' }, { ...drawFound(), half: { say } }, ...focus ? [/** @type {TripJob} */ ({ do: 'focus', on: 'heading' })] : []];
+            return [{ do: 'timing' }, { ...drawFound(found), half: { say } }, ...focus ? [/** @type {TripJob} */ ({ do: 'focus', on: 'heading' })] : []];
         },
         // By metro and tram from now on
         failed: (event, moment) => {
@@ -986,7 +993,7 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
         // The worker's timing of the way shown, with the ways on from where a
         // followed rider is and the way switched to, as it found them
         timed: (event, moment) => {
-            if (!latest.counts('way', event.seq)) return [];
+            if (!latest.counts('way', event.seq) || !times.wanted) return [];
             times.way = event.way && { ...times.wanted, way: event.way };
             if (times.way && !times.way.taken) times.directions = times.way;
             if (event.others) times.onward = event.others;
@@ -1135,14 +1142,14 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
         /** @returns {'none' | 'searching' | 'answered' | 'followed' | 'riding' | 'arrived'} */
         get stage() {
             if (!from || !to) return 'none';
-            if (riding()) return stepOf(ride.steps, ride.state).kind === 'arrived' ? 'arrived' : 'riding';
+            if (riding() && ride.steps) return stepOf(ride.steps, ride.state).kind === 'arrived' ? 'arrived' : 'riding';
             if (following && ride.steps) return 'followed';
             return noBuses || (forTrip(found) && !holding()) ? 'answered' : 'searching';
         },
         // Followed along the way, the rider has left: the step they're on, for
         // the answer drawn
         get riding() { return riding(); },
-        onStep: () => riding() ? stepOf(ride.steps, ride.state) : null,
+        onStep: () => riding() && ride.steps ? stepOf(ride.steps, ride.state) : null,
         // The latest answer for leaving now, and the latest half hour, while
         // they're this trip's
         answer: () => forTrip(found) ? found : null,
