@@ -83,17 +83,21 @@ import { aheadWays, busOptions, cityPlanner, halfHour, halfView, hereWays, liveW
 
 /**
  * @param {{ loadBuses: () => Promise<import('../../../types/data.js').Buses>,
- *   loadTrains?: () => Promise<import('../../../types/data.js').Trains>, post: (message: Answered) => void,
+ *   loadTrains?: () => Promise<import('../../../types/data.js').Trains | null>, post: (message: Answered) => void,
  *   pause?: () => Promise<void>, clock?: () => number }} io
  *   loadTrains: without it, or when it fails, the city has no trains
  *   pause: between two departures of a half hour, to let the page's next message in
  * @returns {(message: Asked) => Promise<void>}
  */
 export function searcher({ loadBuses, loadTrains = async () => null, post, pause = () => new Promise(resolve => setTimeout(resolve)), clock = () => performance.now() }) {
+    /** @type {import('../../../types/data.js').Rail | null} */
     let rail = null;
+    /** @type {Promise<import('../../../types/data.js').Buses | null> | null} */
     let buses = null;
+    /** @type {Promise<import('../../../types/data.js').Trains | null> | null} */
     let trains = null;
     // The city's search for the day, made when its first trip needs it
+    /** @type {{ weekday: number, date: string | undefined, trains: boolean, planner: import('./buses.js').Planner } | null} */
     let city = null;
     let latest = 0;
     let latestHalf = 0;
@@ -101,16 +105,23 @@ export function searcher({ loadBuses, loadTrains = async () => null, post, pause
     // decision, to time again with live times; the way the search ahead
     // found, for which way it was searched from, and the one switched to;
     // and the ways found for the other ways shown to a followed rider
+    /**
+     * @type {{ id: number, planner: import('./buses.js').Planner, from: Point, to: Point, rows: import('/tools/subway/answer.js').Row[],
+     *   decision: import('/tools/subway/answer.js').Decision | null, ahead: { of: string, found: import('./buses.js').Ahead | null } | null,
+     *   switched: import('./buses.js').Ahead | null, onward: { of: string, ways: import('./buses.js').Ahead[], here: Point | null } | null,
+     *   before: import('./buses.js').Ahead[] | null } | null}
+     */
     let shown = null;
 
-    // How long making it took, or null when it was made before
+    // The day's city, and how long making it took, or null when it was made before
     /** @param {import('../../../types/data.js').Buses} loaded @param {import('../../../types/data.js').Trains | null} day @param {{ weekday: number, date?: string }} now */
     const cityOn = (loaded, day, { weekday, date }) => {
-        if (city?.weekday === weekday && city.date === date) return null;
+        if (city?.weekday === weekday && city.date === date) return { today: city, made: null };
+        if (!rail) throw new Error('No rail');
         const started = clock();
         const trainsOf = day && date ? trainDay(day, date) : null;
         city = { weekday, date, trains: Boolean(trainsOf), planner: cityPlanner(rail, loaded, weekday, trainsOf) };
-        return Math.round(clock() - started);
+        return { today: city, made: Math.round(clock() - started) };
     };
 
     return async message => {
@@ -123,24 +134,29 @@ export function searcher({ loadBuses, loadTrains = async () => null, post, pause
         }
         if ('live' in message) {
             const { id, live: { seq, row, departure, now, stops, taken = false, trains = null, step = null, own = null, ahead = false, declined = [], switched = null, switchedWay = null, here = null } } = message;
-            if (id !== shown?.id) return;
+            const current = shown;
+            if (!current || id !== current.id) return;
+            /** @type {import('./buses.js').LiveWay | null} */
             let way = null;
+            /** @type {OnwardWay[] | null} */
             let others = null;
+            /** @type {import('./buses.js').Ahead | null} */
             let onto = null;
             try {
                 // The way switched to on a ride, as a row of its own: the
                 // switch's (T14), or another way off the ride the rider took
                 // (decision 64), among those last found or the search before;
                 // or the one the page kept with the trip (decision 58)
-                if (switched && shown.switched?.key !== switched) {
-                    const found = [shown.ahead?.found, ...shown.onward?.ways ?? [], ...shown.before ?? [], switchedWay];
-                    shown.switched = found.find(each => each?.key === switched && each.leg >= 0) ?? null;
+                if (switched && current.switched?.key !== switched) {
+                    const found = [current.ahead?.found, ...current.onward?.ways ?? [], ...current.before ?? [], switchedWay];
+                    current.switched = found.find(each => each?.key === switched && each.leg >= 0) ?? null;
                 }
-                onto = switched && shown.switched?.key === switched ? shown.switched : null;
-                const full = onto ? { key: onto.key, best: [onto.way], bundle: false, lines: [], stops: [] } : shown.rows[row];
+                onto = switched && current.switched?.key === switched ? current.switched : null;
+                // (a row of its own, as onwardWay in buses.js makes one: only what timing it reads)
+                const full = onto ? /** @type {import('/tools/subway/answer.js').Row} */ (/** @type {unknown} */ ({ key: onto.key, best: [onto.way], bundle: false, lines: [], stops: [] })) : current.rows[row];
                 const at = onto ? 0 : departure;
                 // The quicker way goes with the decision's directions
-                const decision = !onto && full && full === shown.decision?.stayOn ? shown.decision : null;
+                const decision = !onto && full && full === current.decision?.stayOn ? current.decision : null;
                 const options = { decision, taken: !onto && taken, trains, step, own };
                 // The way ahead is for the way it was searched from, and none the rider declined
                 const of = `${onto?.key ?? row} ${at} ${options.taken}`;
@@ -152,20 +168,22 @@ export function searcher({ loadBuses, loadTrains = async () => null, post, pause
                 // (decision 63); kept for the timings till the next search
                 if (ahead && full) {
                     const kind = step?.kind;
-                    const ways = kind === 'ride' ? aheadWays(shown.planner, shown.from, shown.to, full, at, now, stops, options)
-                        : here && (kind === 'walk' || kind === 'wait') ? hereWays(shown.planner, here, shown.to, full, at, now) : [];
-                    shown.ahead = { of, found: ways.find(each => each.leg >= 0 && !declined.includes(each.key)) ?? null };
-                    shown.before = shown.onward?.ways ?? [];
-                    shown.onward = { of: followed, ways, here };
+                    const ways = kind === 'ride' ? aheadWays(current.planner, current.from, current.to, full, at, now, stops, options)
+                        : here && (kind === 'walk' || kind === 'wait') ? hereWays(current.planner, here, current.to, full, at, now) : [];
+                    current.ahead = { of, found: ways.find(each => each.leg >= 0 && !declined.includes(each.key)) ?? null };
+                    current.before = current.onward?.ways ?? [];
+                    current.onward = { of: followed, ways, here };
                 }
-                const found = shown.ahead?.of === of && !declined.includes(shown.ahead.found?.key) ? shown.ahead.found : null;
-                way = full ? liveWay(shown.planner, shown.from, shown.to, full, at, now, stops, { ...options, ahead: found }) : null;
+                const found = current.ahead?.of === of && current.ahead.found && !declined.includes(current.ahead.found.key) ? current.ahead.found : null;
+                way = full ? liveWay(current.planner, current.from, current.to, full, at, now, stops, { ...options, ahead: found }) : null;
                 // The other ways shown to the rider, but the switch's, each timed
-                if (way && shown.onward?.of === followed) {
-                    const { ways, here: from } = shown.onward;
-                    others = ways.filter(each => each.key !== way.switchTo?.key).slice(0, OTHERS)
-                        .map(each => onwardWay(shown.planner, each.leg < 0 ? from : shown.from, shown.to, each, now, stops, { step, own, trains }))
-                        .filter(Boolean);
+                if (way && current.onward?.of === followed) {
+                    const { ways, here: from } = current.onward;
+                    const switchTo = way.switchTo?.key;
+                    others = ways.filter(each => each.key !== switchTo).slice(0, OTHERS).flatMap(each => {
+                        const timed = onwardWay(current.planner, each.leg < 0 && from ? from : current.from, current.to, each, now, stops, { step, own, trains });
+                        return timed ? [timed] : [];
+                    });
                 }
             } catch { /* the way as the half hour has it */ }
             // The way switched to goes back with it, for the page to keep with the trip
@@ -174,10 +192,11 @@ export function searcher({ loadBuses, loadTrains = async () => null, post, pause
         }
         if ('others' in message) {
             const { id, others: { seq, ways, now, stops, trains = null } } = message;
-            if (id !== shown?.id) return;
+            const current = shown;
+            if (!current || id !== current.id) return;
             const timed = ways.map(({ row, departure }) => {
                 try {
-                    const way = shown.rows[row] ? otherWay(shown.planner, shown.from, shown.to, shown.rows[row], departure, now, stops, trains) : null;
+                    const way = current.rows[row] ? otherWay(current.planner, current.from, current.to, current.rows[row], departure, now, stops, trains) : null;
                     return way && { row, departure, ...way };
                 } catch { return null; }
             });
@@ -192,14 +211,13 @@ export function searcher({ loadBuses, loadTrains = async () => null, post, pause
         try {
             if (!loaded) throw new Error('No buses');
             if (id === latest) {
-                const made = cityOn(loaded, day, now);
+                const { today, made } = cityOn(loaded, day, now);
                 const started = clock();
-                const options = busOptions(city.planner, from, to, now);
-                post({ id, options, trains: city.trains, timing: { city: made, answer: Math.round(clock() - started) } });
+                const options = busOptions(today.planner, from, to, now);
+                post({ id, options, trains: today.trains, timing: { city: made, answer: Math.round(clock() - started) } });
             }
             if (!half || id !== latestHalf) return;
-            cityOn(loaded, day, now);
-            const { planner } = city;
+            const { planner } = cityOn(loaded, day, now).today;
             const started = clock();
             const steps = halfHour(planner, from, to, now);
             let step = steps.next();
