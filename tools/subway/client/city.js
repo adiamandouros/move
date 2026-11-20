@@ -40,7 +40,7 @@ const M_LNG = 111_320 * Math.cos(37.97 * Math.PI / 180);
  * station's exits with a place, where they're known (decision 51)
  * @typedef {Point & { id: string, name: string, names?: Names, station?: string, oasaTicket?: false, exits?: Exit[] }} Stop
  */
-/** @typedef {import('./raptor.js').Route & { toward?: Names, dir?: string, code?: string, numbers?: (string | null)[] }} Route where it goes: a rail line's direction, a bus's last stop; dir: a metro or tram line's direction, as rail.json names it; code: a bus's OASA route, which its live times name; numbers: each suburban trip's train, which its live times name (decision 42) */
+/** @typedef {import('./raptor.js').Route & { toward: Names, dir?: string, code?: string, numbers?: (string | null)[] }} Route where it goes: a rail line's direction, a bus's last stop; dir: a metro or tram line's direction, as rail.json names it; code: a bus's OASA route, which its live times name; numbers: each suburban trip's train, which its live times name (decision 42) */
 /** @typedef {import('./raptor.js').Leg} Leg */
 /** @typedef {import('./raptor.js').Journey} Journey */
 /**

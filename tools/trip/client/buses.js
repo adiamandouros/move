@@ -222,7 +222,7 @@ function cityOption(planner, way, { access, egress, from, to }, now, lines = way
             ...leg.mode === 'suburban' && { train: leg.train ?? trainOf(planner, leg), timetable: leg.timetable ?? leg.boards },
         })),
         firstWalk: walkOf(secondsTo(access, way.legs[0].board), { in: doorExit(planner.stops[way.legs[0].board], from, 'in') }),
-        lastWalk: walkOf(secondsTo(egress, way.legs.at(-1).alight), { out: doorExit(planner.stops[way.legs.at(-1).alight], to, 'out') }),
+        lastWalk: walkOf(secondsTo(egress, way.legs[way.legs.length - 1].alight), { out: doorExit(planner.stops[way.legs[way.legs.length - 1].alight], to, 'out') }),
         arrives: way.at,
         minutes: Math.round((way.at - now) / 60),
         changes: way.legs.length - 1,
@@ -348,8 +348,10 @@ const dueThere = (live, code, vehicle, after) => code && vehicle ? live[code]?.b
 // The buses at a stop of those routes that the rider, there at `ready`, can still catch, the first first
 /** @param {StopLive | undefined} live @param {Map<string, string>} codes @param {number} ready */
 const catchable = (live, codes, ready) => (live?.buses ?? [])
-    .filter(bus => codes.has(bus.route) && bus.at >= ready)
-    .map(bus => ({ line: codes.get(bus.route), to: bus.to ?? null, at: bus.at, vehicle: bus.vehicle ?? null }))
+    .flatMap(bus => {
+        const line = codes.get(bus.route);
+        return line !== undefined && bus.at >= ready ? [{ line, to: bus.to ?? null, at: bus.at, vehicle: bus.vehicle ?? null }] : [];
+    })
     .sort((a, b) => a.at - b.at);
 
 /**
@@ -404,7 +406,7 @@ export function liveWay(planner, from, to, row, departure, now, live, { decision
     const timed = timedLegs(planner, row, way, now, live, access, { step, own, trains }, ask);
     if (!timed) return null;
     const { legs, said, train } = timed;
-    const end = legs.at(-1);
+    const end = legs[legs.length - 1];
     // Past every ride, the door is as far as the last walk; arrived, it's here
     const at = step?.kind === 'arrived' ? step.at : step?.kind === 'last' ? step.at + step.walk : end.arrives + secondsTo(egress, end.alight);
     const option = cityOption(planner, { ...way, legs, at }, { access, egress, from, to }, now.seconds, linesOf(way, row.bundle, row.lines));
@@ -414,32 +416,34 @@ export function liveWay(planner, from, to, row, departure, now, live, { decision
     // On a decision, where the quicker way would catch its bus: asked before
     // a last bus's stops; not once the rider is on the first ride, where the
     // search ahead finds what's quicker (decision 50)
-    const quick = decision && (current < 0 || (current === 0 && step.kind !== 'ride')) && quickerBus(planner, decision, way, departure, legs[0], doors);
-    if (quick) ask(quick.code, catchable(live[quick.code], quick.codes, quick.ready)[0]?.at ?? null);
+    const quick = decision && (current < 0 || (current === 0 && step?.kind !== 'ride')) && quickerBus(planner, decision, way, departure, legs[0], doors);
+    if (quick) ask(quick.code, catchable(quick.code ? live[quick.code] : undefined, quick.codes, quick.ready)[0]?.at ?? null);
     // The search ahead's way off the ride the rider is on: where its bus is
     // caught, asked for that ride, as their own bus is
     const leaving = ahead && leavingAhead(planner, ahead, legs, step);
     if (leaving?.code) ask(leaving.code, catchable(live[leaving.code], leaving.codes, leaving.ready)[0]?.at ?? null, true);
     // A last bus that can be any of several: its stops, until the rider is on it
-    const riding = current > last || (current === last && step.kind === 'ride');
+    const riding = current > last || (current === last && step?.kind === 'ride');
     const stops = row.bundle && !riding ? row.stops.map(({ stop, walk, lines }) => {
-        const ready = current === last ? step.at + (step.kind === 'walk' ? walk : 0)
+        const ready = current === last && step ? step.at + (step.kind === 'walk' ? walk : 0)
             : last ? legs[last - 1].arrives + (walk ? walk + AFTER_WALK_SECONDS : CHANGE_SECONDS) : now.seconds + walk;
         const code = codeOf(planner.stops[stop]);
-        const coming = catchable(live[code], routeCodes(planner, lines, stop, doors), ready);
+        const answer = code ? live[code] : undefined;
+        const coming = catchable(answer, routeCodes(planner, lines, stop, doors), ready);
         ask(code, coming[0]?.at ?? null);
+        /** @type {Map<string, number>} */
         const first = new Map();
         for (const bus of coming) if (!first.has(bus.line)) first.set(bus.line, bus.at);
-        const known = live[code] && !live[code].unavailable;
+        const known = answer && !answer.unavailable;
         return { stop: planner.stops[stop], walk: walkOf(walk), lines, buses: known ? [...first].map(([line, at]) => ({ line, at })) : null, arrivals: known ? coming : [] };
     }) : [];
-    const coming = stops.filter(({ buses }) => buses?.length).sort((a, b) => a.buses[0].at - b.buses[0].at);
+    const coming = stops.filter(({ buses }) => buses?.length).sort((a, b) => (a.buses?.[0].at ?? 0) - (b.buses?.[0].at ?? 0));
     const staying = riding ? option.arrives : stayingOn(planner, row, legs, egress, stops, option.arrives);
     return {
         option,
         stops: [...coming, ...stops.filter(stop => !coming.includes(stop))],
         asks: [...asks].map(([stop, what]) => ({ stop, ...what })),
-        offer: quick ? offerOf(quick, staying, live[quick.code]) : null,
+        offer: quick ? offerOf(quick, staying, quick.code ? live[quick.code] : undefined) : null,
         switchTo: leaving ? switchOf(planner, leaving, staying, live, timed.own) : null,
         train,
     };
@@ -503,7 +507,7 @@ function timedOther(planner, from, to, row, way, now, live, { step = null, own =
     const timed = timedLegs(planner, row, way, now, live, access, { step, own, trains }, (code, at, ride) => { if (code && !ride && !first) first = { stop: code, at }; });
     if (!timed) return null;
     const { legs, said } = timed;
-    const end = legs.at(-1);
+    const end = legs[legs.length - 1];
     const option = cityOption(planner, { ...way, legs, at: end.arrives + secondsTo(egress, end.alight) }, { access, egress, from, to }, now.seconds, linesOf(way, row.bundle, row.lines));
     option.rides.forEach((ride, i) => { if (said[i]) ride.live = said[i]; });
     return { option, asks: first ? [first] : [] };
@@ -555,7 +559,9 @@ function timedLegs(planner, row, way, now, live, access, { step, own, trains }, 
     const legs = [];
     /** @type {(RideLive | undefined)[]} */
     const said = [];
+    /** @type {number | null} */
     let train = null;
+    /** @type {number | null} */
     let ownAt = null;
     for (const [i, leg] of way.legs.entries()) {
         const before = legs.at(-1);
@@ -568,7 +574,7 @@ function timedLegs(planner, row, way, now, live, access, { step, own, trains }, 
         // The ride the rider is on: off it when OASA has their own bus due
         // where they get off, asked for it, or else when the timetable says
         // from where they are
-        if (i === current && step.kind === 'ride') {
+        if (i === current && step?.kind === 'ride') {
             const ride = leg.mode === 'suburban' ? trainRide(planner, leg, leg.boards, trains) : null;
             if (ride) train ??= ride.boards;
             const code = own && own.leg === i && ON_THE_ROAD.has(leg.mode) ? codeOf(planner.stops[leg.alight]) : null;
@@ -579,7 +585,7 @@ function timedLegs(planner, row, way, now, live, access, { step, own, trains }, 
             said.push(undefined);
             continue;
         }
-        const ready = i === current ? step.at + (step.kind === 'walk' ? step.walk + (i ? AFTER_WALK_SECONDS : 0) : 0)
+        const ready = i === current && step ? step.at + (step.kind === 'walk' ? step.walk + (i ? AFTER_WALK_SECONDS : 0) : 0)
             : before ? before.arrives + (leg.walkBefore ? leg.walkBefore + AFTER_WALK_SECONDS : CHANGE_SECONDS) : now.seconds + secondsTo(access, leg.board);
         if (leg.mode === 'suburban') {
             const ride = trainRide(planner, leg, ready, trains);
@@ -677,7 +683,8 @@ export function aheadWays(planner, from, to, row, departure, now, live, { decisi
     const seed = (stop, index, reaches, walk) => {
         const seconds = reaches - step.at + (walk ? walk + AFTER_WALK_SECONDS : CHANGE_SECONDS);
         seeds.push(stop, seconds);
-        if (!(seededBy.get(stop)?.seconds <= seconds)) seededBy.set(stop, { index, reaches, walk, seconds });
+        const seeded = seededBy.get(stop);
+        if (!seeded || !(seeded.seconds <= seconds)) seededBy.set(stop, { index, reaches, walk, seconds });
     };
     for (let i = here + 1; i <= riding.alightIndex; i++) {
         const reaches = step.at + trip[i] - trip[here] + Math.round(late * (i - here) / (riding.alightIndex - here));
@@ -746,7 +753,7 @@ function switchOf(planner, { ahead, ride, leave, onward, bus, ready, rest, code,
     }
     const answer = code ? live[code] : undefined;
     if (!answer || answer.stale) return null;
-    const predictions = answer.buses.filter(each => codes.has(each.route)).map(each => ({ line: codes.get(each.route), at: each.at }));
+    const predictions = answer.buses.flatMap(each => { const line = codes.get(each.route); return line === undefined ? [] : [{ line, at: each.at }]; });
     const found = quickerWay({ lines: [onward.line], ready, latest: staying - rest, reaches: leave.arrives }, predictions, answer.asked ?? 0, own === null ? {} : { here: leave.arrives });
     return found.offer ? { ...offer, line: found.line, at: found.at, sooner: found.sooner } : null;
 }
@@ -762,13 +769,15 @@ function switchOf(planner, { ahead, ride, leave, onward, bus, ready, rest, code,
  */
 function stayingOn(planner, row, legs, egress, stops, arrives) {
     if (!row.bundle || legs.length < 2) return arrives;
-    const change = legs.at(-2);
+    const change = legs[legs.length - 2];
     const rides = new Map(planner.onwardRides(change.alight, change.arrives, egress)
         .filter(({ leg }) => row.lines.includes(leg.line))
         .map(ride => [ride.leg.line, ride]));
     // A bus OASA has coming takes as long to the door as its line's ride
-    const live = stops.flatMap(({ buses }) => buses ?? []).filter(bus => rides.has(bus.line))
-        .map(bus => bus.at + rides.get(bus.line).at - rides.get(bus.line).leg.boards);
+    const live = stops.flatMap(({ buses }) => buses ?? []).flatMap(bus => {
+        const ride = rides.get(bus.line);
+        return ride ? [bus.at + ride.at - ride.leg.boards] : [];
+    });
     return Math.min(arrives, ...[...rides.values()].map(ride => ride.at), ...live);
 }
 
@@ -821,8 +830,8 @@ function quickerBus(planner, decision, way, departure, first, doors) {
  */
 function offerOf({ decision, first, onward, reaches, ready, rest, codes, change, stop }, staying, answer) {
     if (!answer || answer.stale) return null;
-    const predictions = answer.buses.filter(bus => codes.has(bus.route)).map(bus => ({ line: codes.get(bus.route), at: bus.at }));
-    const found = quickerWay({ lines: decision.lines, ready, latest: staying - rest, reaches }, predictions, answer.asked);
+    const predictions = answer.buses.flatMap(bus => { const line = codes.get(bus.route); return line === undefined ? [] : [{ line, at: bus.at }]; });
+    const found = quickerWay({ lines: decision.lines, ready, latest: staying - rest, reaches }, predictions, answer.asked ?? 0);
     if (!found.offer) return null;
     return { line: found.line, at: found.at, sooner: found.sooner, ride: { line: first.line, mode: first.mode }, change, stop, walk: walkOf(onward.walkBefore) };
 }

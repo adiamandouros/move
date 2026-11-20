@@ -192,7 +192,8 @@ export const lateness = ahead => LATENESS.find(([upTo]) => ahead <= upTo)[1];
  * @param {{ line: string, at: number }[]} predictions when each bus is due at the stop, seconds from midnight
  * @param {number} asked
  * @param {{ here?: number }} [live]
- * @returns {{ offer: boolean, why: 'quicker' | 'not-quicker' | 'missed' | 'none', line?: string, at?: number, sooner?: number }}
+ * @returns {{ offer: true, why: 'quicker', line: string, at: number, sooner: number } | { offer: false, why: 'not-quicker', line: string, at: number, sooner: number }
+ *   | { offer: false, why: 'missed' | 'none' }}
  */
 export function quickerWay({ lines, ready, latest, reaches }, predictions, asked, { here } = {}) {
     const late = here === undefined ? 0 : Math.max(0, here + lateness(here - asked) - reaches);
@@ -203,5 +204,5 @@ export function quickerWay({ lines, ready, latest, reaches }, predictions, asked
     const [bus] = caught;
     // Staying on gets there `latest` plus the ride; so does this bus, leaving when it's due
     const sooner = latest + late - (bus.at + lateness(bus.at - asked));
-    return { offer: sooner >= TIE_SECONDS, why: sooner >= TIE_SECONDS ? 'quicker' : 'not-quicker', ...bus, sooner };
+    return sooner >= TIE_SECONDS ? { offer: true, why: 'quicker', ...bus, sooner } : { offer: false, why: 'not-quicker', ...bus, sooner };
 }

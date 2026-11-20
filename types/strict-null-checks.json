@@ -71,7 +71,5 @@
     "tools/subway/client/render.js": 2,
     "tools/subway/client/search.js": 1,
     "tools/subway/client/ways.js": 1,
-    "tools/subway/client/weights.js": 2,
-    "tools/trip/client/buses.js": 42,
-    "tools/trip/client/searcher.js": 56
+    "tools/subway/client/weights.js": 2
 }
