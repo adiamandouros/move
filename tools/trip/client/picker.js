@@ -40,7 +40,9 @@ async function findPlaces(q, signal) {
 
 export function placePicker({ input, list, status, rail, onChange, chosen }) {
     let found = [];
-    let timer = null;
+    /** @type {ReturnType<typeof setTimeout> | undefined} */
+    let timer;
+    /** @type {AbortController | null} */
     let asking = null;
     // Whether the list shows the places picked lately, as said above it
     let offering = false;
@@ -132,7 +134,7 @@ export function placePicker({ input, list, status, rail, onChange, chosen }) {
     });
 
     list.addEventListener('keydown', e => {
-        const focused = /** @type {HTMLElement | null} */ (document.activeElement.closest('[role="option"]'));
+        const focused = /** @type {HTMLElement | null | undefined} */ (document.activeElement?.closest('[role="option"]'));
         if (!focused) return;
         if (e.key === 'ArrowDown') {
             e.preventDefault();

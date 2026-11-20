@@ -45,7 +45,7 @@ function rideLeg(rail, ride, weekday) {
  * by number (the rider's rule, 10 November 2026). Null when `rail` doesn't
  * have its train (trains.json not in yet, or another day's): a row then
  * @param {import('../../../types/data.js').Rail} rail
- * @param {{ line: string, board: { id: string }, alight: { id: string }, train?: string | null, timetable?: number }} ride
+ * @param {{ line: string, board: { id: string }, alight: { id: string }, train?: string | null, timetable: number }} ride
  * @param {When} when
  */
 function trainLeg(rail, ride, { weekday, date, trains }) {

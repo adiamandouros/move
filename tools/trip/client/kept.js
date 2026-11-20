@@ -24,7 +24,8 @@ const storage = {
 
 function read() {
     try {
-        const kept = JSON.parse(storage.get());
+        const text = storage.get();
+        const kept = text === null ? null : JSON.parse(text);
         return kept && typeof kept.at === 'number' ? kept : null;
     } catch {
         return null;

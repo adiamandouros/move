@@ -88,7 +88,7 @@ function option(rail, start, end, now) {
     const leave = later(now, start.walk?.minutes ?? 0);
     const { plans, now: day, tomorrow } = planTrip(rail, start.station, end.station, leave);
     const plan = plans.find(p => p.arrives !== null);
-    if (!plan) return null;
+    if (!plan || plan.arrives === null) return null;
     // The plan's times count from its day's midnight: `dayStart` seconds
     // after `now`'s, when it's tomorrow's
     const dayStart = day.date === now.date ? 0 : DAY;
@@ -144,7 +144,7 @@ export function doorToDoor(rail, from, to, now, { buses = [] } = {}) {
     const nearest = pairs.filter(({ start, end }) => start.nearest && end.nearest);
     const tried = [...nearest, ...soonest(rail, pairs.filter(pair => !nearest.includes(pair)), now).slice(0, SEARCHED_PAIRS)];
     const found = [
-        ...tried.map(({ start, end }) => option(rail, start, end, now)).filter(Boolean),
+        ...tried.map(({ start, end }) => option(rail, start, end, now)).filter(o => o !== null),
         ...buses,
     ];
     // The morning's first trains only if no trip can be made tonight

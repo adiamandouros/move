@@ -39,7 +39,7 @@ export function countDown(result, minutes) {
 
 /**
  * How long a stop's (counted-down) answer is good for, in ms.
- * @param {StopResult | undefined} result @param {{ opened?: boolean }} [options]
+ * @param {StopResult | null | undefined} result @param {{ opened?: boolean }} [options]
  */
 export function refreshEvery(result, { opened = false } = {}) {
     if (!result || result.unavailable || opened) return REFRESH[0][1] + SLACK_MS;
