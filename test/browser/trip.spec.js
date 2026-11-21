@@ -86,14 +86,17 @@ test.describe('the trip page', () => {
         const card = page.locator('.trip-card').first().locator('li.trip-leg', { has: page.locator('.line-pill.line-m2') });
         const schedule = card.locator('.schedule-section');
         await expect(schedule.locator('.schedule-label')).toHaveText('In', { useInnerText: true });
+        // The keyboard in the answer, reached by a key: it isn't drawn again,
+        // the badges count on. Again until it holds: an answer still coming
+        // (the city's search) can draw the card anew under the first try
+        await expect(async () => {
+            await card.locator('.leg-stops-toggle').focus();
+            await page.keyboard.press('Shift+Tab');
+            await page.keyboard.press('Tab');
+            await expect(card.locator('.leg-stops-toggle')).toBeFocused({ timeout: 1000 });
+        }).toPass();
         const last = Math.max(...(await schedule.locator('.time-badge[data-at]').evaluateAll(badges => badges.map(b => Number(b.dataset.at)))));
         await page.route('**/*', () => {});
-        // The keyboard in the answer, reached by a key: it isn't drawn again,
-        // the badges count on
-        await card.locator('.leg-stops-toggle').focus();
-        await page.keyboard.press('Shift+Tab');
-        await page.keyboard.press('Tab');
-        await expect(card.locator('.leg-stops-toggle')).toBeFocused();
         await page.clock.runFor(Math.ceil(last - await page.evaluate(() => Date.now() / 1000) + 2) * 1000);
         await expect(schedule.locator('.time-badge')).toHaveCount(0);
         await expect(schedule.locator('.schedule-label')).toHaveCount(0);
