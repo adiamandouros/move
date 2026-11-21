@@ -53,10 +53,14 @@ Agreed with the rider on 20 November 2026, every option as recommended.
 - The editor's own type check still runs with `strict: false` until the
   end, so the errors left show only with
   `node_modules/.bin/tsc -p jsconfig.json --strictNullChecks`.
+- **Done on 21 November 2026**, in seven pull requests (#282 to #286,
+  #288 and the server's, the scripts' and the relay's): every file at
+  none, `strictNullChecks` on in `jsconfig.json` for `npm run typecheck`
+  and editors alike, and the list and its script deleted. One real bug
+  found on the way, fixed on its own (#287).
 
 ## Look again when
 
-- Every file is at none: `strictNullChecks` on in `jsconfig.json`, the
-  list and the script deleted, and `noImplicitAny` planned the same way.
+- `noImplicitAny` is planned: the same way, file by file.
 - A pull request needs to raise many numbers at once: then the order
   above is wrong, or the type behind them is.

@@ -53,13 +53,13 @@ export function dataStatus({ buildDir, rawDir, now = Date.now }) {
     const unreadable = Boolean(readJson(stasyFetchFile(rawDir))?.unreadable);
     const fetched = rail?.hours?.fetched ?? null;
     const stasyDays = fetched ? Math.round((today - Date.parse(fetched)) / DAY_MS) : null;
-    const stasy = { ok: !unreadable && !(stasyDays > STASY_STALE_DAYS), fetched, daysOld: stasyDays, unreadable };
+    const stasy = { ok: !unreadable && !(stasyDays !== null && stasyDays > STASY_STALE_DAYS), fetched, daysOld: stasyDays, unreadable };
 
     const last = readJson(airportCheckFile(rawDir));
     const checked = last?.checked ?? null;
     const airportDays = checked ? Math.floor((now() - Date.parse(checked)) / DAY_MS) : null;
     const changed = Boolean(last?.changes?.length);
-    const airport = { ok: !changed && !(airportDays > AIRPORT_STALE_DAYS), checked, daysOld: airportDays, changed };
+    const airport = { ok: !changed && !(airportDays !== null && airportDays > AIRPORT_STALE_DAYS), checked, daysOld: airportDays, changed };
 
     const trains = readJson(join(buildDir, 'trains.json'));
     const fetch = readJson(railwayFetchFile(rawDir));

@@ -162,7 +162,7 @@ export function shared(a, b) {
 // The live route a list of the feed's stops belongs to, the plain one if a
 // variant with a note in brackets fits as well
 function bestRoute(stops, routes) {
-    let best = null;
+    let best = /** @type {{ route: any, pairs: [number, number][], score: number } | null} */ (null);
     for (const route of routes) {
         const codes = route.stops.map(stop => stop.code);
         const pairs = shared(stops, codes);
@@ -179,7 +179,7 @@ function bestRoute(stops, routes) {
 export function retimed(offsets, pairs, along) {
     const known = pairs.map(([stop, live]) => ({ time: offsets[stop], at: along[live] }));
     const first = known[0];
-    const last = known.at(-1);
+    const last = known[known.length - 1];
     const pace = last.at > first.at ? (last.time - first.time) / (last.at - first.at) : 0;
     let next = 0;
     return along.map(at => {

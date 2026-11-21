@@ -7,7 +7,7 @@ import { athensDate } from '../../tools/subway/client/network.js';
 // from it can be kept until then. Before the first build: { key: null, rail: null }.
 /** @param {string} file @returns {() => { key: string | null, rail: import('../../types/data.js').Rail | null }} */
 export function railReader(file) {
-    let loaded = { key: null, rail: null };
+    let loaded = /** @type {{ key: string | null, rail: import('../../types/data.js').Rail | null }} */ ({ key: null, rail: null });
     return () => {
         try {
             const key = `${statSync(file).mtimeMs} ${athensDate()}`;

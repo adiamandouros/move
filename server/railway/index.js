@@ -44,7 +44,7 @@ export function createTrainTimes({
 }) {
     const tracker = createTracker();
     // Each date's board as its trains, until the build replaces it (its file's time changes)
-    /** @type {Map<string, { changed: number, trains: ReturnType<typeof boardTrains> }>} */
+    /** @type {Map<string, { changed: number | null, trains: ReturnType<typeof boardTrains> }>} */
     const boards = new Map();
     let wantedAt = -Infinity;
     let lookedAt = -Infinity;
@@ -69,10 +69,11 @@ export function createTrainTimes({
         for (const date of boards.keys()) if (!dates.includes(date)) boards.delete(date);
         return new Map(dates.flatMap(date => {
             const file = join(boardsDir, `${date}.json`);
-            let changed = null;
+            let changed = /** @type {number | null} */ (null);
             try { changed = statSync(file).mtimeMs; } catch { /* not fetched */ }
-            if (boards.get(date)?.changed !== changed) boards.set(date, { changed, trains: changed === null ? new Map() : boardTrains(readJson(file), corridors) });
-            return [...boards.get(date).trains];
+            let board = boards.get(date);
+            if (!board || board.changed !== changed) boards.set(date, board = { changed, trains: changed === null ? new Map() : boardTrains(readJson(file), corridors) });
+            return [...board.trains];
         }));
     }
 

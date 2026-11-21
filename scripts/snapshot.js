@@ -32,7 +32,7 @@ try {
     }
 
     const rail = JSON.parse(readFileSync(join(ROOT, 'test', 'browser', 'data', 'rail.json'), 'utf8'));
-    const english = [...sitePages(loadTools()).map(p => p.path), '/subway/stations',
+    const english = [...sitePages(loadTools()).flatMap(p => p.path ? [p.path] : []), '/subway/stations',
         ...Object.keys(rail.stations).map(id => `/subway/stations/${id}`),
         '/tram/stops', ...Object.keys(rail.tram?.stations ?? {}).map(id => `/tram/stops/${id}`),
         '/suburban/stations', '/suburban/stations/piraeus', '/nope'];

@@ -70,7 +70,7 @@ function simplify(line, tolerance = 8) {
     keep[0] = keep[line.length - 1] = 1;
     const stack = [[0, line.length - 1]];
     while (stack.length) {
-        const [a, b] = stack.pop();
+        const [a, b] = /** @type {number[]} */ (stack.pop());
         const ax = line[a].lng * LNG, ay = line[a].lat;
         const dx = line[b].lng * LNG - ax, dy = line[b].lat - ay, length = Math.hypot(dx, dy) || 1e-12;
         let far = 0, at = -1;
@@ -89,7 +89,7 @@ function pointAt(line, share) {
     if (line.length < 2) return line[0];
     const walked = [0];
     for (let i = 1; i < line.length; i++) walked.push(walked[i - 1] + meters(line[i - 1], line[i]));
-    const want = walked.at(-1) * share;
+    const want = walked[walked.length - 1] * share;
     let i = 1;
     while (i < line.length - 1 && walked[i] < want) i++;
     const t = (want - walked[i - 1]) / ((walked[i] - walked[i - 1]) || 1);
@@ -264,7 +264,7 @@ function streetFinder(streets, count) {
         const around = [...new Set(near(p).flatMap(cell => [...(grid.get(cell) ?? [])]))];
         street = nearest(around.filter(s => [...s.names].some(n => sameRoadName(name, n))), p, 200);
         if (street) return ['part of the name, close by', street];
-        street = key.length >= 5 && nearest(around.filter(s => [...s.names].some(n => editOne(keyOf(n), key))), p, 200);
+        street = key.length < 5 ? null : nearest(around.filter(s => [...s.names].some(n => editOne(keyOf(n), key))), p, 200);
         return street ? ['misspelt by a letter, close by', street] : null;
     };
     // Numbers whose street isn't mapped: the name is still worth finding

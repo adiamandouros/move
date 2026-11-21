@@ -68,8 +68,9 @@ export function buildBusStops(network) {
         for (const stop of list) {
             // The live times only take numeric codes
             if (!STOP_CODE.test(stop.code)) { badCodes.add(stop.code); continue; }
-            if (!stops.has(stop.code)) stops.set(stop.code, { stop, lines: new Set() });
-            if (lineOf.has(route)) stops.get(stop.code).lines.add(lineOf.get(route));
+            let entry = stops.get(stop.code);
+            if (!entry) stops.set(stop.code, entry = { stop, lines: new Set() });
+            if (lineOf.has(route)) entry.lines.add(lineOf.get(route));
         }
     }
     /** @type {import('../../types/data.js').BusStops['stops']} */
@@ -87,7 +88,7 @@ export function buildBusStops(network) {
 // ΕΡΓΩΝ]" → "ΠΕΙΡΑΙΑΣ"): its last part, without notes in brackets
 /** @param {string} name */
 export function towardName(name) {
-    return name.replace(/\s*\[[^\]]*\]/g, '').split(' - ').at(-1).trim();
+    return name.replace(/\s*\[[^\]]*\]/g, '').split(' - ').at(-1)?.trim() ?? '';
 }
 
 const variant = route => /\[/.test(route.name.el);

@@ -92,6 +92,10 @@ function directionCards(network, id, lang, s, link, times) {
 // ── The tram ────────────────────────────────────────────────────────────────
 
 // The subway planner's id for tram stop `id`: "-tram" where a metro station has its id (withTram)
+// The tram's pages are drawn only from a rail.json with the tram (their ids are its stops)
+/** @param {Rail} rail */
+const tramOf = rail => /** @type {NonNullable<Rail['tram']>} */ (rail.tram);
+
 /** @param {Rail} rail @param {string} id */
 const tramPlannerId = (rail, id) => Object.hasOwn(rail.stations, id) ? `${id}-tram` : id;
 
@@ -100,7 +104,7 @@ function tramBreadcrumb(rail, id, lang, s) {
     return [
         { name: s('stations.subway'), path: '/subway' },
         { name: s('stations.tram-title'), path: TRAM_PATH },
-        ...(id ? [{ name: localName(rail.tram.stations[id].name, lang), path: `${TRAM_PATH}/${id}` }] : []),
+        ...(id ? [{ name: localName(tramOf(rail).stations[id].name, lang), path: `${TRAM_PATH}/${id}` }] : []),
     ];
 }
 
@@ -110,7 +114,7 @@ function tramBreadcrumb(rail, id, lang, s) {
  * @param {Trains | null} [trains] for the walks to the suburban railway
  */
 export function tramStopView(rail, id, lang, s, trains = null) {
-    const { tram } = rail;
+    const tram = tramOf(rail);
     const stop = tram.stations[id];
     const name = localName(stop.name, lang);
     const link = stopId => stopId ? { href: `${TRAM_PATH}/${stopId}`, name: localName(tram.stations[stopId].name, lang) } : null;
@@ -138,7 +142,7 @@ export function tramStopView(rail, id, lang, s, trains = null) {
 // The index of every tram stop by line
 /** @param {Rail} rail @param {Lang} lang @param {(key: string) => string} s */
 export function tramIndexView(rail, lang, s) {
-    const { tram } = rail;
+    const tram = tramOf(rail);
     return {
         crumbs: tramBreadcrumb(rail, null, lang, s),
         title: s('stations.tram-title'),
@@ -177,7 +181,7 @@ export function tramStopPage(rail, id, { tools, origin = '', trains = null }) {
             content: (lang, strings) => view('server/views/stations/index.hbs')(tramIndexView(rail, lang, stringGetter(strings, lang)), { lang, strings }),
         };
     }
-    const stop = rail.tram.stations[id];
+    const stop = tramOf(rail).stations[id];
     return {
         ...common,
         path: `${TRAM_PATH}/${id}`,
@@ -201,9 +205,13 @@ export function suburbanNetwork(trains) {
     return withSuburban(/** @type {Rail} */ ({ stations: {}, lines: {} }), trains, date);
 }
 
+// The suburban railway's pages are drawn only when it has trains (createNetworkStationPages)
+/** @param {Trains} trains */
+const networkOf = trains => /** @type {NonNullable<ReturnType<typeof suburbanNetwork>>} */ (suburbanNetwork(trains));
+
 /** @param {Trains} trains @param {string | null} id @param {Lang} lang @param {(key: string) => string} s */
 function suburbanBreadcrumb(trains, id, lang, s) {
-    const [, , el, en] = id ? trains.stations[id] : [];
+    const [, , el = '', en = ''] = id ? trains.stations[id] : [];
     return [
         { name: s('stations.subway'), path: '/subway' },
         { name: s('stations.suburban-title'), path: SUBURBAN_PATH },
@@ -218,7 +226,7 @@ function suburbanBreadcrumb(trains, id, lang, s) {
  * @param {string} [today]
  */
 export function suburbanStationView(rail, trains, id, lang, s, today = athensDate()) {
-    const network = suburbanNetwork(trains);
+    const network = networkOf(trains);
     const station = network.stations[id];
     const name = localName(station.name, lang);
     const link = stationId => stationId ? { href: `${SUBURBAN_PATH}/${stationId}`, name: localName(network.stations[stationId].name, lang) } : null;
@@ -247,7 +255,7 @@ export function suburbanStationView(rail, trains, id, lang, s, today = athensDat
 // The index of every suburban station by line
 /** @param {Rail} rail @param {Trains} trains @param {Lang} lang @param {(key: string) => string} s */
 export function suburbanIndexView(rail, trains, lang, s) {
-    const network = suburbanNetwork(trains);
+    const network = networkOf(trains);
     // The metro lines a short walk from each station
     const metro = {};
     for (const [a, b] of stationWalks(rail, trains)) {
@@ -293,7 +301,7 @@ export function suburbanStationPage(rail, trains, id, { tools, origin = '', toda
         path: `${SUBURBAN_PATH}/${id}`,
         title: 'stations.suburban-station-title',
         description: 'stations.suburban-description',
-        values: lang => ({ name: name(lang), lines: suburbanNetwork(trains).stations[id].lines.join(', ') }),
+        values: lang => ({ name: name(lang), lines: networkOf(trains).stations[id].lines.join(', ') }),
         structuredData: (lang, s) => placeData({ type: 'TrainStation', name: name(lang), coords: [lat, lng], crumbs: suburbanBreadcrumb(trains, id, lang, s) }, lang, origin),
         content: (lang, strings) => view('server/views/stations/station.hbs')(suburbanStationView(rail, trains, id, lang, stringGetter(strings, lang), today), { lang, strings }),
     };

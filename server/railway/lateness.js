@@ -56,22 +56,25 @@ export function createTracker() {
         const late = {};
         let newest = -Infinity;
         for (const p of positions) {
-            const train = p.scheduleNumber ? trains.get(p.scheduleNumber) : undefined;
+            const number = p.scheduleNumber;
+            const train = number ? trains.get(number) : undefined;
             const at = Date.parse(p.timestamp ?? '');
             const found = train ? train.stops.findIndex(([id]) => id === p.nextStationId) : -1;
-            if (!train || found < 0 || !Number.isFinite(at)) continue;
+            if (!number || !train || found < 0 || !Number.isFinite(at)) continue;
             newest = Math.max(newest, at);
-            const before = seen.get(p.scheduleNumber);
+            const before = seen.get(number);
             const stop = Math.max(found, before?.stop ?? 0);
             let measured = before?.measured ?? null;
-            if (before && stop > before.stop && train.stops[stop - 1][2] !== null) measured = (before.at + at) / 2 - train.stops[stop - 1][2];
-            seen.set(p.scheduleNumber, { stop, at, measured });
+            // (stop > before.stop: never the first stop)
+            const left = before && stop > before.stop ? train.stops[stop - 1][2] : null;
+            if (before && left !== null) measured = (before.at + at) / 2 - left;
+            seen.set(number, { stop, at, measured });
             // Its first stop has no arrival: there, still waiting to leave
             const [, arrives, departs] = train.stops[stop];
             const due = stop === 0 ? departs : arrives;
             const atLeast = due === null ? 0 : at - due;
             const exact = measured !== null && measured >= atLeast;
-            late[train.train] = { late: Math.max(0, Math.round((exact ? measured : atLeast) / 1000)), exact };
+            late[train.train] = { late: Math.max(0, Math.round((measured !== null && exact ? measured : atLeast) / 1000)), exact };
         }
         for (const [number, { at }] of seen) if (at < newest - FORGET_MS) seen.delete(number);
         return late;

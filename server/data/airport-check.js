@@ -30,7 +30,7 @@ export const airportCheckFile = rawDir => join(rawDir, 'stasy', 'airport-check.j
 const realSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // A link's file, as people read it: "ΔΙΕΛΕΥΣΕΙΣ-ΣΥΡΜΩΝ-….pdf"
-const fileName = url => decodeURIComponent(new URL(url).pathname.split('/').at(-1));
+const fileName = url => decodeURIComponent(new URL(url).pathname.split('/').at(-1) ?? '');
 // A link's path, the same however it's written (stasy.gr or www., encoded or not)
 const pathOf = url => decodeURIComponent(new URL(url).pathname);
 
@@ -46,7 +46,7 @@ export function airportLinks(html) {
  * airport: airport.json (none: nothing to check).
  * @returns {Promise<any>} the result, as kept in airport-check.json, or null when there's none
  */
-export async function checkAirport({ rawDir, client = null, airport = null, offline = false, now = Date.now, sleep = realSleep, log = console.log }) {
+export async function checkAirport({ rawDir, client = /** @type {ReturnType<typeof import('../stasy.js').createStasyClient> | null} */ (null), airport = /** @type {{ lines: Record<string, Record<string, { pdf: string, sha256: string }>> } | null} */ (null), offline = false, now = Date.now, sleep = realSleep, log = console.log }) {
     const last = readJson(airportCheckFile(rawDir));
     if (offline || !client || !airport) return last;
     const directions = Object.entries(airport.lines).flatMap(([lineId, dirs]) => Object.entries(dirs).map(([dirKey, d]) => ({ lineId, dirKey, ...d })));

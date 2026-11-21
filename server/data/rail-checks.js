@@ -113,7 +113,7 @@ function departuresFrom(timetable, wd, from, to) {
 // line's (line 3's second is the airport trains')
 export function readFrequencies(rows) {
     const out = [];
-    let days = null;
+    let days = /** @type {number[] | null} */ (null);
     // A period's rows run in time order: one starting earlier than the row
     // before is after midnight (Saturday's "00:20 - 05:30" is that night's)
     let previous = 0;

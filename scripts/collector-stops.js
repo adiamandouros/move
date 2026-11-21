@@ -44,7 +44,7 @@ export function pickWeeks(buses, live, { weeks = WEEKS, perWeek = PER_WEEK, area
     const routes = buses.routes.map(r => {
         const edges = r.stops.slice(1).map((s, i) => km(buses.stops[r.stops[i]], buses.stops[s]));
         const cum = [0];
-        for (const e of edges) cum.push(cum.at(-1) + e);
+        for (const e of edges) cum.push(cum[cum.length - 1] + e);
         const trips = r.trips.filter(([start]) => RUSH.some(([from, to]) => start >= from && start < to)).length;
         return { stops: r.stops, idx: new Map(r.stops.map((s, i) => [s, i])), edges, cum, trips, covered: new Uint8Array(edges.length) };
     }).filter(r => r.trips);
@@ -86,8 +86,9 @@ export function pickWeeks(buses, live, { weeks = WEEKS, perWeek = PER_WEEK, area
     for (let w = 0; w < weeks; w++) {
         const chosen = [];
         // Per route: this week's stop indexes, and the edges they cover
-        const at = new Map(routes.map(r => [r, []]));
-        const weekCover = new Map(routes.map(r => [r, new Uint8Array(r.edges.length)]));
+        // (Map<object, any>: every route is in both)
+        const at = /** @type {Map<object, any>} */ (new Map(routes.map(r => [r, []])));
+        const weekCover = /** @type {Map<object, any>} */ (new Map(routes.map(r => [r, new Uint8Array(r.edges.length)])));
         const gain = s => through.get(s).reduce((sum, r) => {
             const now = stretches(r, at.get(r));
             const next = stretches(r, [...at.get(r), r.idx.get(s)].sort((x, y) => x - y));

@@ -45,9 +45,10 @@ function described(rail, trains, key, lang) {
     if (network === 'metro' && rail.stations[id]) {
         return { name: localName(rail.stations[id].name, lang), lines: rail.stations[id].lines.map(l => linePill(l, rail.lines[l].name, 's')), path };
     }
-    const stop = rail.tram?.stations[id];
-    if (network === 'tram' && stop) {
-        return { name: localName(stop.name, lang), lines: stop.lines.map(l => linePill(l, rail.tram.lines[l].name, 's')), path };
+    const tram = rail.tram;
+    const stop = tram?.stations[id];
+    if (network === 'tram' && tram && stop) {
+        return { name: localName(stop.name, lang), lines: stop.lines.map(l => linePill(l, tram.lines[l].name, 's')), path };
     }
     const row = trains?.stations[id];
     if (network === 'suburban' && row) {

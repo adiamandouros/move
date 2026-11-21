@@ -109,7 +109,7 @@ export function createLifts({ fetch = globalThis.fetch, now = Date.now, log = co
     // The last good copy: { fetched, stations, checked, unknown }
     let state = cacheFile ? readJson(cacheFile) : null;
     let checkedAt = state?.fetched ? Date.parse(state.fetched) : 0;
-    let refreshing = null;
+    let refreshing = /** @type {Promise<void> | null} */ (null);
     // For the diagnostics: { ok, at, error, route }
     let health = {};
     const stasy = createStasyClient({ fetch, now, relays, userAgent });

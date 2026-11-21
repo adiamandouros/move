@@ -25,7 +25,7 @@ export function dataChecks(dataDir, now) {
         out.push(check('Data', 'Last data build', status.build.tooOld ? 'warn' : 'ok', `${meta.generated.slice(0, 16).replace('T', ' ')} UTC (${hours} h ago)`,
             status.build.tooOld ? `Over ${BUILD_MAX_AGE_MS / 3_600_000} h: builds run daily at 04:30 and on app start. Is the app running? Check the log for "[data]" lines.` : undefined));
         const { timetableEnds: ends, timetableDaysLeft: left } = status.build;
-        if (ends) {
+        if (ends && left !== null) {
             out.push(left < TIMETABLE_WARN_DAYS
                 ? check('Data', 'Metro timetable', 'warn', `${left < 0 ? `Ended on ${ends}` : `Ends on ${ends} (in ${left} days)`}, and no newer one has been published yet`,
                     'A new feed is picked up by the nightly build as soon as OASA publishes it. After the last day, the planner uses the feed\'s last full week.')

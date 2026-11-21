@@ -73,7 +73,7 @@ export function createHealth({ busStatus, announcementStatus, liftStatus = () =>
         return {
             ok: working.length > 0 || !asked,
             asked,
-            route: working.sort((a, b) => b.lastOk - a.lastOk)[0]?.name ?? null,
+            route: working.sort((a, b) => (b.lastOk ?? 0) - (a.lastOk ?? 0))[0]?.name ?? null,
             lastOk: last ? new Date(last).toISOString() : null,
         };
     }
@@ -106,7 +106,7 @@ export function createHealth({ busStatus, announcementStatus, liftStatus = () =>
         return { ok: s.ok ?? true, updated: s.updated };
     }
 
-    let kept = null;
+    let kept = /** @type {{ at: number, versions: Promise<any> } | null} */ (null);
     function relayVersions() {
         if (!kept || now() - kept.at >= CACHE_MS) kept = { at: now(), versions: askRelays() };
         return kept.versions;

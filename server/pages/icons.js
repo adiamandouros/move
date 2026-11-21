@@ -99,12 +99,13 @@ export const iconFiles = meaning => [
 /** @param {string} id @param {string} file */
 function symbolOf(id, file) {
     const svg = readFileSync(join(ICONS_DIR, file), 'utf8');
-    const viewBox = svg.match(/viewBox="([^"]+)"/)[1];
+    const viewBox = svg.match(/viewBox="([^"]+)"/)?.[1];
+    if (!viewBox) throw new Error(`${file} has no viewBox`);
     const inner = svg.slice(svg.indexOf('>') + 1, svg.lastIndexOf('</svg>')).trim();
     return `<symbol id="${id}" viewBox="${viewBox}">${inner}</symbol>`;
 }
 
-let sprite = null;
+let sprite = /** @type {string | null} */ (null);
 /** @returns {string} */
 export function iconSprite() {
     if (sprite) return sprite;

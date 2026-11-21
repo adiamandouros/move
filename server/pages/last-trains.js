@@ -51,7 +51,10 @@ export function lastTrains(rail, spec, lang, s) {
     const time = seconds => seconds === null ? s('info.all-night') : seconds === undefined ? '–' : clockTime(seconds);
     const name = id => localName(rail.stations[id].name, lang);
     let stasy = true;
-    const found = spec.table.map(row => ({ row, times: trains(rail, row) })).filter(r => r.times);
+    const found = spec.table.flatMap(row => {
+        const times = trains(rail, row);
+        return times ? [{ row, times }] : [];
+    });
     const rows = found.map(({ row, times }, k) => {
         stasy &&= times.stasy;
         const texts = COLUMNS.map(d => time(times.last[d]));

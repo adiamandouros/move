@@ -43,7 +43,7 @@ const READY_BUSES = '/js/core/ready-buses.js';
  */
 export function renderPages(tools = loadTools(), config = loadConfig({}), rail = () => null) {
     const list = sitePages(tools, config, rail);
-    const pagePaths = [...list.map(page => page.path), ...STATION_PATHS];
+    const pagePaths = [...list.flatMap(page => page.path ? [page.path] : []), ...STATION_PATHS];
     const render = createRenderer(tools, pagePaths, config);
     const stringsFor = pageStrings(tools);
 

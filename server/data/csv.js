@@ -27,16 +27,16 @@ export function parseLine(line) {
 // Stream a CSV file, yielding one object per row keyed by the header names.
 // Throws if the file is empty or any `required` column is missing, so a change
 // in the feed's shape fails the build instead of producing garbage.
-export async function* readCsv(path, { required = [] } = {}) {
+export async function* readCsv(path, { required = /** @type {string[]} */ ([]) } = {}) {
     const rl = createInterface({ input: createReadStream(path, 'utf8'), crlfDelay: Infinity });
-    let header = null;
+    let header = /** @type {string[] | null} */ (null);
     for await (const line of rl) {
         if (!line.trim()) continue;
         const cols = parseLine(line);
         if (!header) {
             header = cols;
-            header[0] = header[0].replace(/^\uFEFF/, '');
-            const missing = required.filter(c => !header.includes(c));
+            cols[0] = cols[0].replace(/^\uFEFF/, '');
+            const missing = required.filter(c => !cols.includes(c));
             if (missing.length) throw new Error(`${path}: missing column(s) ${missing.join(', ')}`);
             continue;
         }

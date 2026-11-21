@@ -23,6 +23,10 @@ const NOT_THERE = ['Μενελάου 25, Νέα Σμύρνη'];
 
 // What's wrong with an index, in words; none means it can go out.
 // previous: the published index's counts, if there is one.
+/**
+ * @param {any} index
+ * @param {{ previous?: ReturnType<typeof countsOf> | null, floors?: typeof FLOORS, answers?: typeof ANSWERS, notThere?: string[] }} [options]
+ */
 export function problemsWith(index, { previous = null, floors = FLOORS, answers = ANSWERS, notThere = NOT_THERE } = {}) {
     const counts = countsOf(index);
     const problems = lostSince(counts, previous);
