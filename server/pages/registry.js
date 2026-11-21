@@ -87,7 +87,7 @@ export function sitePages(tools, config = loadConfig({}), rail = () => null) {
                     ...tool.data.fares && { prices: fares(tool.data.fares, lang) },
                 }, { lang, strings }),
                 // With the strings of the tools it borrows from (tool.json "borrows")
-                strings: tool.borrows ? mergeStrings(...tool.borrows.map(id => tools.find(other => other.id === id).strings), tool.strings) : tool.strings,
+                strings: tool.borrows ? mergeStrings(...tool.borrows.map(id => /** @type {Tool} */ (tools.find(other => other.id === id)).strings), tool.strings) : tool.strings,
                 scripts: tool.scripts.map(s => `/tools/${tool.id}/${s}`),
                 active: tool.id,
                 ad: tool.ad,

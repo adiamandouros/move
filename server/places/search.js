@@ -21,7 +21,7 @@ const round = n => Math.round(n * 1e5) / 1e5;
 
 // Closest point on a street's lines
 function snap(street, p) {
-    let best = null, bestD = Infinity;
+    let best = /** @type {{ lat: number, lng: number } | null} */ (null), bestD = Infinity;
     for (const line of street.lines) {
         for (let i = 0; i < line.length - 1 || i === 0; i++) {
             const a = line[i], b = line[i + 1] ?? a;
@@ -179,7 +179,7 @@ function wordRange(vocabulary, w) {
 
 // The entries with every word (the last ones may be cut short), with how well
 function match(db, words) {
-    let found = null;
+    let found = /** @type {Map<number, number> | null} */ (null);
     for (const word of words) {
         const typed = Array.isArray(word) ? word : [word];
         const forms = typed.flatMap(w => [w, ...(w.includes('ks') ? [w.replaceAll('ks', 'h')] : [])]);
@@ -192,7 +192,10 @@ function match(db, words) {
         if (found === null) found = here;
         else {
             const both = new Map();
-            for (const [id, s] of here) if (found.has(id)) both.set(id, found.get(id) + s);
+            for (const [id, s] of here) {
+                const before = found.get(id);
+                if (before !== undefined) both.set(id, before + s);
+            }
             found = both;
         }
         if (!found.size) break;
@@ -311,7 +314,7 @@ export function search(db, query, limit = 10) {
     if (!query.trim()) return out;
     // Each word's fold, and the word as typed
     const typed = new Map(plain(query).split(/[^\p{L}\p{N}]+/u).flatMap(t => fold(t).split(' ').map(w => [w, t])));
-    let elsewhere = null;
+    let elsewhere = /** @type {{ reading: any, list: { e: any, s: number }[], fixed: boolean } | null} */ (null);
     // A town after a comma can be cut short at once; one with no comma only
     // once nothing else has made sense of the words
     const tries = readings(query).flatMap(r => [{ ...r, partly: r.explicit }]);
@@ -343,7 +346,7 @@ export function search(db, query, limit = 10) {
                 if (!reading.explicit) { elsewhere ??= { reading, list, fixed }; continue; }
                 out.notInTown = reading.town.join(' ');
                 out.noSuchTown = !where;
-            } else list = where.partly ? near.map(x => ({ ...x, s: x.s + (where.towns.includes(x.e.town) ? 8 : 0) })) : near;
+            } else if (where) list = where.partly ? near.map(x => ({ ...x, s: x.s + (where.towns.includes(x.e.town) ? 8 : 0) })) : near;
         }
         if (!list.length) continue;
         out.corrected = fixed;

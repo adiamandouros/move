@@ -20,7 +20,7 @@ export function errorHandler({ page, log = console.error }) {
         res.status(status).set('Cache-Control', 'no-store');
         if (status === 503 && err.retryAfter) res.set('Retry-After', String(err.retryAfter));
         if (/^\/(admin\/)?api\//.test(req.path)) return res.json({ error: STATUS_CODES[status] });
-        let html = null;
+        let html = /** @type {string | null} */ (null);
         try { html = page(req.path); } catch { /* the page itself can't be drawn: plain text */ }
         if (html) res.type('html').send(html);
         else res.type('text').send(STATUS_CODES[status]);

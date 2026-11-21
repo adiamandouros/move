@@ -24,7 +24,7 @@ export function createRelayServer(env) {
             for (const name of ['x-relay-key', 'user-agent']) {
                 if (typeof req.headers[name] === 'string') headers.set(name, req.headers[name]);
             }
-            const request = new Request(new URL(req.url, 'http://relay'), { method: req.method, headers });
+            const request = new Request(new URL(req.url ?? '/', 'http://relay'), { method: req.method, headers });
             response = await worker.fetch(request, env);
         } catch {
             // e.g. a method the Request constructor rejects, like CONNECT

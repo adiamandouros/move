@@ -262,7 +262,8 @@ export function streetExits(entry, osm) {
     return [...(entry?.exits ?? []), ...offered].filter(exit => exit.coords).map(exit => {
         const el = exitLabel(exit.name?.el);
         const en = exitLabel(exit.name?.en);
-        const way = exit.way && EXIT_WAYS.filter(w => exit.way.includes(w));
+        const ways = exit.way;
+        const way = ways && EXIT_WAYS.filter(w => ways.includes(w));
         return {
             ...((el || en) && { name: { ...(el && { el }), ...(en && { en }) } }),
             at: exit.coords,

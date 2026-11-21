@@ -112,7 +112,7 @@ export function createBusApi({ routesFile, statusFile, stopsFile, passesDir = nu
 // changes at most once a minute (it's rebuilt weekly). Until it exists (the
 // first build still running) every code is accepted.
 function knownStops(file, now) {
-    let codes = null;
+    let codes = /** @type {Set<string> | null} */ (null);
     let mtime = 0;
     let checked = -Infinity;
     return code => {

@@ -86,7 +86,7 @@ export async function relayChecks(fetch, relay) {
     ]);
     const location = where.ok && where.json?.loc ? where.json : null;
 
-    let info = null;
+    let info = /** @type {string | null} */ (null);
     let result;
     if (isApiAnswer(keyed)) {
         result = check('Services', `${Name} with your key`, 'ok', `${describeArrivals(keyed.json)}, ${keyed.ms} ms`);

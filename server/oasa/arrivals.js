@@ -32,7 +32,7 @@ const STALE_MAX_MS = 5 * 60_000;
 const ROUTES_TTL_MS = 7 * 86_400_000;
 const MAX_CACHED_STOPS = 5000;
 
-export function createArrivals({ client, routesFile, passes = null, now = Date.now, log = console.warn, usage = /** @type {Pick<import('./usage.js').Usage, 'answer' | 'horizon'>} */ ({ answer() {}, horizon() {} }) }) {
+export function createArrivals({ client, routesFile, passes = /** @type {ReturnType<typeof import('./passes.js').createPasses> | null} */ (null), now = Date.now, log = console.warn, usage = /** @type {Pick<import('./usage.js').Usage, 'answer' | 'horizon'>} */ ({ answer() {}, horizon() {} }) }) {
     const cache = new Map();      // stop → { at, arrivals }
     const inflight = new Map();   // stop → Promise
     const routeLookups = new Map();
@@ -40,7 +40,7 @@ export function createArrivals({ client, routesFile, passes = null, now = Date.n
 
     // ── Route names ─────────────────────────────────────────────────────────
 
-    let saveTimer = null;
+    let saveTimer = /** @type {ReturnType<typeof setTimeout> | undefined} */ (undefined);
     function saveRoutesSoon() {
         if (!routesFile) return;
         clearTimeout(saveTimer);

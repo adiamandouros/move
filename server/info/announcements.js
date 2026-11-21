@@ -71,8 +71,11 @@ const STASY_SKIP = /ΠΡΟΚΗΡΥΞ|ΠΡΟΣΚΛΗΣ|ΔΙΑΓΩΝΙΣ|ΣΥΝΕ�
 export function parseStasyList(html) {
     const seen = new Set();
     return [...html.matchAll(/<article id="post-\d+" class="clearfix">\s*<a href="([^"]+)"[\s\S]*?<span class="light">([\s\S]*?)<\/span>/g)]
-        .map(([, link, title]) => ({ title: decode(title), link: safeUrl(decode(link)) }))
-        .filter(({ title, link }) => title && link && !STASY_SKIP.test(fold(title)) && !seen.has(link) && seen.add(link));
+        .flatMap(([, link, title]) => {
+            const url = safeUrl(decode(link));
+            return url ? [{ title: decode(title), link: url }] : [];
+        })
+        .filter(({ title, link }) => title && !STASY_SKIP.test(fold(title)) && !seen.has(link) && seen.add(link));
 }
 
 // → ISO date or null
@@ -97,7 +100,7 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
         state = { ...state, ...readJson(cacheFile) };
     }
     let checkedAt = 0;
-    let refreshing = null;
+    let refreshing = /** @type {Promise<void> | null} */ (null);
     // Per source, for the diagnostics: { ok, at, error, route, leftOut? }
     const health = {};
     const stasy = createStasyClient({ fetch, now, relays, userAgent });

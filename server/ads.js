@@ -17,7 +17,8 @@
 /** @param {AdSense} adsense @param {string | null} place @returns {{ client: string, slot: string } | null} */
 export function adUnit(adsense, place) {
     const slot = place && adsense.slots[place];
-    return slot ? { client: adsense.client, slot } : null;
+    // A slot comes only with a client (server/config.js)
+    return slot && adsense.client ? { client: adsense.client, slot } : null;
 }
 
 // /ads.txt: Google is allowed to sell this site's ad space (null when off)

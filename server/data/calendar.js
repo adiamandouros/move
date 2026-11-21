@@ -85,7 +85,7 @@ export function crowdedDates(dateServices, tripsPerService) {
 // lines: Map<line, trips> }; the usual number of trips (the median), and
 // whether a date is crowded (a line with over 1.5 times its median)
 function weekdayDates(dateServices, tripsPerService) {
-    const byWeekday = Array.from({ length: 7 }, () => []);
+    const byWeekday = Array.from({ length: 7 }, () => /** @type {{ date: string, trips: number, lines: Map<string, number> }[]} */ ([]));
     for (const [date, services] of dateServices) {
         const lines = new Map();
         for (const s of services) {

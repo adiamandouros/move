@@ -49,9 +49,9 @@ export function exitsByStation(elements, stations) {
         const el = own(tags['name:el'] ?? tags.name);
         const en = own(tags['name:en']);
         const door = { id: `${element.type[0]}${element.id}`, coords, el, en, only: ONLY[tags.entrance] };
-        if (!byStation.has(station)) byStation.set(station, []);
         const key = nameParts(el ?? en).join('/');
-        const exits = byStation.get(station);
+        let exits = byStation.get(station);
+        if (!exits) byStation.set(station, exits = []);
         const same = exits.find(exit => exit.key === key && exit.doors.some(d => distanceMeters(...d.coords, ...coords) <= SAME_EXIT_M));
         if (same) same.doors.push(door);
         else exits.push({ key, doors: [door] });

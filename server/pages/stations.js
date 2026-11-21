@@ -98,7 +98,7 @@ export function mainDestination(hours, direction, index) {
         for (const [, p] of patterns[day]) {
             const { stops } = profiles[p];
             if (!stops.includes(index) || stops.at(-1) === index) continue;
-            const reached = ends.reduce((found, end, k) => end <= stops.at(-1) ? k : found, -1);
+            const reached = ends.reduce((found, end, k) => end <= stops[stops.length - 1] ? k : found, -1);
             if (reached !== -1) trains[reached]++;
         }
     }
@@ -212,7 +212,7 @@ export function stationView(rail, id, lang, s, trains = null) {
                         : (next ? firstAndLast(direction.timetable, index) : []).map(row),
                     // Where the table's trains go, for its caption
                     timesToward: main ? name(main.to) : localName(direction.toward, lang),
-                    others: main ? stop.hours.filter(h => h !== main)
+                    others: main ? (stop.hours ?? []).filter(h => h !== main)
                         .map(h => otherDestination(h, main, order.indexOf(h.to) > order.indexOf(main.to), name, time, s))
                         .filter(Boolean) : [],
                     fromStasy: Boolean(main),
@@ -302,7 +302,7 @@ function stationData(rail, id, lang, s, origin) {
 export function placeData({ type, name, coords: [latitude, longitude], crumbs }, lang, origin) {
     const url = path => origin + localPath(path, lang);
     const graph = [
-        { '@type': type, name, ...(origin && { url: url(crumbs.at(-1).path) }), geo: { '@type': 'GeoCoordinates', latitude, longitude } },
+        { '@type': type, name, ...(origin && { url: url(crumbs[crumbs.length - 1].path) }), geo: { '@type': 'GeoCoordinates', latitude, longitude } },
         ...(origin ? [{ '@type': 'BreadcrumbList', itemListElement: crumbs
             .map((crumb, i) => ({ '@type': 'ListItem', position: i + 1, name: crumb.name, item: url(crumb.path) })) }] : []),
     ];
@@ -353,7 +353,7 @@ export function stationPage(rail, id, { tools, origin = '', trains = null }) {
  *   opened?: (req: import('express').Request, lang: Lang) => void }} options
  */
 export function stationRouter({ base, read, ids, page, renderPage, opened = () => {} }) {
-    let drawn = { key: null, html: new Map() };
+    let drawn = /** @type {{ key: string | null, html: Map<string, string> }} */ ({ key: null, html: new Map() });
     function current() {
         const { key, data } = read();
         if (key !== drawn.key) drawn = { key, html: new Map() };

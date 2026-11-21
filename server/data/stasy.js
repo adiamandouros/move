@@ -107,7 +107,7 @@ function readHeading(text, names) {
     const word = upper(text.replace(/[([][^)\]]*[)\]]/g, '')).replace(/[\s*]/g, '');
     const kind = /^ΠΡΩΤΟΣ?$/.test(word) ? 'first' : /^ΤΕΛΕΥΤΑΙΟΣ?$/.test(word) ? 'last' : /^ΔΕΥΤΕΡΟΣ?$/.test(word) ? null : undefined;
     if (kind === undefined) throw new Error(`unknown column "${text}"`);
-    let days = null;
+    let days = /** @type {number[] | null} */ (null);
     for (const [, group] of text.matchAll(/[([]([^)\]]*)[)\]]/g)) {
         const groupDays = readDays(group);
         if (groupDays && !days) days = groupDays;
@@ -224,7 +224,7 @@ export function applyHours(lines, copy, stations, warnings) {
         try {
             if (!copy.lines[lineId]) throw new Error('not in the copy');
             const placed = readLine(lineId, copy.lines[lineId], names).map(({ stations: list, hours }) => {
-                const found = Object.entries(line.directions).find(([, d]) => d.stops.at(-1).station === list.at(-1));
+                const found = Object.entries(line.directions).find(([, d]) => d.stops[d.stops.length - 1].station === list.at(-1));
                 if (!found) throw new Error(`a table ends at ${list.at(-1)}, where no direction ends`);
                 const order = found[1].stops.map(s => s.station);
                 list.forEach((station, i) => {
@@ -255,7 +255,7 @@ export function applyHours(lines, copy, stations, warnings) {
  * stations: stations.json's stations, to check the pages can be read.
  * @returns {Promise<{ copy: { fetched: string, lines: Record<string, any> } | null, error?: string }>}
  */
-export async function stasyTables({ rawDir, client = null, stations, offline = false, now = Date.now, sleep = realSleep, log = console.log }) {
+export async function stasyTables({ rawDir, client = /** @type {ReturnType<typeof import('../stasy.js').createStasyClient> | null} */ (null), stations, offline = false, now = Date.now, sleep = realSleep, log = console.log }) {
     const kept = readJson(tablesFile(rawDir));
     const keep = error => kept ? { copy: kept } : { copy: null, error };
     if (offline || !client) return keep('STASY\'s timetables haven\'t been fetched yet');

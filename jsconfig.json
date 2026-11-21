@@ -4,6 +4,8 @@
     // same JavaScript. Editors use this file too. Packages without types count
     // as untyped (maxNodeModuleJsDepth), and '/js/…' is public/js/ and
     // '/tools/subway/…' the subway's client files, as in the pages' import map.
+    // strictNullChecks: a value that can be null or missing can't be used as
+    // if it couldn't (decision 66).
     "compilerOptions": {
         "target": "es2023",
         "module": "nodenext",
@@ -15,6 +17,7 @@
         "maxNodeModuleJsDepth": 0,
         "noEmit": true,
         "strict": false,
+        "strictNullChecks": true,
         "skipLibCheck": true,
         "paths": { "/js/*": ["./public/js/*"], "/tools/subway/*": ["./tools/subway/client/*"], "/tools/buses/*": ["./tools/buses/client/*"] }
     },

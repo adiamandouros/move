@@ -57,7 +57,7 @@ const list = (body, what) => {
  * the usage of OASA, server/oasa/usage.js)
  * @returns {Promise<{ network: any, requests: number }>}
  */
-export async function fetchNetwork({ request, previous = null, now = Date.now, sleep = realSleep, log = console.log, saved = /** @type {(code: string, entry: any) => void} */ (() => {}), progress = /** @type {any} */ ({}) }) {
+export async function fetchNetwork({ request, previous = /** @type {{ stops?: Record<string, { at: string }> } | null} */ (null), now = Date.now, sleep = realSleep, log = console.log, saved = /** @type {(code: string, entry: any) => void} */ (() => {}), progress = /** @type {any} */ ({}) }) {
     let requests = 0;
     // One request → its list. `none`: OASA's null is an empty list. Tried
     // again after each of RETRY_WAITS_MS; a request we got wrong (HTTP 4xx) isn't.

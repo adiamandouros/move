@@ -79,14 +79,15 @@ const kindOf = (act, lane) => act === 'webRoutesForStop' ? 'route-names' : lane 
 const NO_USAGE = { request() {}, call() {}, waited() {}, dropped() {}, paused() {} };
 
 // relays: config.relays; userAgent: config.userAgent (server/config.js)
-export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sleep = realSleep, log = console.warn, relays = [], userAgent = userAgentFor(null), usage = NO_USAGE } = {}) {
+export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sleep = realSleep, log = console.warn, relays = /** @type {Pick<import('../../types/config.js').Relay, 'name' | 'url' | 'key'>[]} */ ([]), userAgent = userAgentFor(null), usage = NO_USAGE } = {}) {
     let nextSlot = 0;
     // Requests waiting for a slot, per lane: { go(ok), since }
-    const lanes = { high: [], normal: [], low: [] };
+    /** @typedef {{ go: (ok: boolean) => void, since: number }} Waiting */
+    const lanes = { high: /** @type {Waiting[]} */ ([]), normal: /** @type {Waiting[]} */ ([]), low: /** @type {Waiting[]} */ ([]) };
     let pumping = false;
     // When OASA was last needed, whether or not it was asked: a quiet night
     // isn't an outage (server/health.js). Route tests don't count
-    let lastAsked = null;
+    let lastAsked = /** @type {number | null} */ (null);
 
     // Per route: consecutive failures, and while resting, the time it may be
     // tried again. `working`: a route with a fallback has passed its test.
@@ -127,6 +128,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
             const wait = nextSlot - now();
             if (wait > 0) await sleep(wait);
             const next = lanes.high.shift() ?? lanes.normal.shift() ?? lanes.low.shift();
+            if (!next) break; // can't happen: only the loop takes them out
             if (now() - next.since > MAX_WAIT_MS + INTERVAL_MS) {
                 next.go(false);
                 continue;

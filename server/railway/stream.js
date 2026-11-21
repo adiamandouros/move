@@ -63,7 +63,7 @@ export function eventReader(wanted) {
     // The line so far, and whether it's being dropped
     let line = '';
     let dropping = false;
-    let found = null;
+    let found = /** @type {string | null} */ (null);
     const ended = text => {
         const at = text.indexOf(':');
         const field = at < 0 ? text : text.slice(0, at);

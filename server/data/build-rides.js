@@ -73,7 +73,7 @@ export function ridesFrom(passes, network) {
             // Round a loop a stop can come twice: the nearest pair in order.
             // Never from the first stop: there a bus is seen arriving, not
             // leaving, so the ride would include its wait (the B2 at Fix)
-            let best = null;
+            let best = /** @type {number | null} */ (null);
             stops.forEach((s, i) => {
                 if (s !== a.stop || i === 0) return;
                 const j = stops.indexOf(b.stop, i + 1);

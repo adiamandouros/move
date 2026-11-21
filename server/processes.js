@@ -53,7 +53,7 @@ export function readProcesses(procDir = '/proc') {
             // spaces and brackets itself), from the 3rd; the start time is the 22nd
             const stat = readFileSync(join(dir, 'stat'), 'utf8');
             const startTicks = Number(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19]);
-            let cwd = null;
+            let cwd = /** @type {string | null} */ (null);
             try { cwd = readlinkSync(join(dir, 'cwd')); } catch { /* another user's */ }
             out.push({
                 pid: Number(name), ppid: field('PPid'), uid: field('Uid'), threads: field('Threads'),

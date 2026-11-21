@@ -76,7 +76,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         stops: STOPS,
         until: values.until ? Date.parse(values.until) : undefined,
         rounds: values.rounds ? Number(values.rounds) : undefined,
-        write: line => appendFileSync(values.out, `${JSON.stringify(line)}\n`),
+        write: line => appendFileSync(/** @type {string} */ (values.out), `${JSON.stringify(line)}\n`),
     });
     console.log(`${new Date().toISOString()} ${asked} rounds written to ${values.out}`);
 }

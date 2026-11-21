@@ -36,10 +36,11 @@ export function createPlaces({ dir, fetch = globalThis.fetch, now = Date.now, li
     const metaFile = join(dir, 'places-index.meta.json');
     /** @type {{ built: string, counts: Record<string, number> } | null} */
     let meta = readJson(metaFile);
-    let db = null;
+    let db = /** @type {ReturnType<typeof load> | null} */ (null);
     let failed = false;
 
-    const ageDays = () => (now() - Date.parse(meta.built)) / DAY_MS;
+    /** @param {{ built: string }} kept */
+    const ageDays = kept => (now() - Date.parse(kept.built)) / DAY_MS;
 
     function database() {
         if (meta) db ??= load(unpack(readFileSync(indexFile)));
@@ -88,8 +89,8 @@ export function createPlaces({ dir, fetch = globalThis.fetch, now = Date.now, li
 
     return Object.assign(router, {
         refresh,
-        refreshIfDue: async () => { if (!meta || ageDays() >= REFRESH_AFTER_DAYS) await refresh(); },
+        refreshIfDue: async () => { if (!meta || ageDays(meta) >= REFRESH_AFTER_DAYS) await refresh(); },
         // Not tried yet counts as fine, as a fresh start hasn't had the chance
-        status: () => ({ ok: meta ? ageDays() < STALE_AFTER_DAYS : !failed, built: meta?.built ?? null }),
+        status: () => ({ ok: meta ? ageDays(meta) < STALE_AFTER_DAYS : !failed, built: meta?.built ?? null }),
     });
 }

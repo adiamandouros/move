@@ -130,9 +130,9 @@ export async function runBuild({
     overlayDir = OVERLAY_DIR,
     fetch = globalThis.fetch,
     userAgent = userAgentFor(null),
-    oasa = null,
-    stasy = null,
-    railway = null,
+    oasa = /** @type {ReturnType<typeof createOasaClient>['request'] | null} */ (null),
+    stasy = /** @type {ReturnType<typeof createStasyClient> | null} */ (null),
+    railway = /** @type {typeof globalThis.fetch | null} */ (null),
     today = athensToday(),
     now = Date.now,
     sleep = undefined,
@@ -230,7 +230,7 @@ export function runBuildInChild({ force = false, offline = false } = {}) {
         // Without the server's own flags: `node --watch-path` (npm run dev) would keep the build running
         const child = fork(fileURLToPath(import.meta.url), args, { execArgv: [] });
         // Lower priority than the server (19 is the lowest), so visitors come first
-        try { setPriority(child.pid, Math.min(19, getPriority() + 10)); } catch { /* not allowed here: same priority, still a separate process */ }
+        try { if (child.pid !== undefined) setPriority(child.pid, Math.min(19, getPriority() + 10)); } catch { /* not allowed here: same priority, still a separate process */ }
         child.on('error', err => {
             console.log(`[data] Couldn't start the build: ${err.message}`);
             resolve('failed');
@@ -243,7 +243,7 @@ export function runBuildInChild({ force = false, offline = false } = {}) {
 // without re-downloading feeds. Saves in quick succession share one build, and
 // a save during a running build triggers another one afterwards.
 const REBUILD_DELAY_MS = 2000;
-let rebuildTimer = null;
+let rebuildTimer = /** @type {ReturnType<typeof setTimeout> | undefined} */ (undefined);
 let rebuildRunning = false;
 let rebuildAgain = false;
 
