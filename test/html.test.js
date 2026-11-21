@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Html, closableNotice, escapeHtml, externalLink, format, formatDate, formatHtml, html, icon, localName, notice, raw, safeUrl, setHtml, walkingUrl } from '../public/js/core/html.js';
-import { busPlate, linePill, pillList, stationSign } from '../public/js/core/lines.js';
+import { busPlate, exitSign, linePill, pillList, stationSign } from '../public/js/core/lines.js';
 import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, exitKind, lineEnd, stopNote, trainDiagram } from '../public/js/core/metro.js';
 
 // Building HTML (public/js/core/html.js): html`` escapes every value put into
@@ -177,6 +177,12 @@ test('a station\'s sign: its metro lines on its edges, the lower number on top',
     assert.equal(String(stationSign('Syntagma', ['T6', 'M3', 'M2'])), '<span class="station-sign sign-m sign-top-m2 sign-bottom-m3">Syntagma</span>');
     assert.equal(String(stationSign('Edem', ['T7'])), '<span class="station-sign sign-m">Edem</span>');
     assert.doesNotMatch(String(stationSign('<b>', ['M1"><b>'])), /<b>/);
+});
+
+test('a way out\'s sign: a station sign with a grey top edge (decision 68), its name escaped', () => {
+    assert.equal(String(exitSign('Amalias/National Garden')), '<span class="station-sign exit-sign sign-m">Amalias/National Garden</span>');
+    assert.equal(String(exitSign('Πλατεία', 'l')), '<span class="station-sign exit-sign sign-l">Πλατεία</span>');
+    assert.doesNotMatch(String(exitSign('<b>')), /<b>/);
 });
 
 test('where a direction of a line ends: its last stop, as the signs say', () => {

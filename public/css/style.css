@@ -81,6 +81,8 @@
     --wh-line-a4: #00a3e0;
     /* A station sign's panel: off-white, as in the stations, in every colour mode */
     --wh-sign: #f4f5f7;
+    /* A way out's sign: the station sign with a grey top edge (decision 68) */
+    --wh-sign-exit: #8c939d;
     /* The maps stay black: their lines are made for it */
     --wh-map-bg: #000;
     --wh-map-text: #e8eaf0;
@@ -1356,6 +1358,7 @@ body {
 .sign-bottom-m1 { border-bottom-color: var(--wh-line-m1); }
 .sign-bottom-m2 { border-bottom-color: var(--wh-line-m2); }
 .sign-bottom-m3 { border-bottom-color: var(--wh-line-m3); }
+.exit-sign { border-top-color: var(--wh-sign-exit); }
 
 /* Roboto draws a 1 left of the middle of its space: M1's pill moves its
    text right by as much, so it looks centred */

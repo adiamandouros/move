@@ -68,7 +68,7 @@ decisions, or makes one of the same weight, comes with its page.
 | 54 | [The Info page: a map of the suburban railway in the city](0054-suburban-railway-map.md) | In force |
 | 55 | [Station pages for the tram and the suburban railway: one page per network](0055-tram-and-suburban-station-pages.md) | In force |
 | 56 | [The trip page: the last three places picked, kept on the device](0056-trip-recent-places.md) | In force |
-| 57 | [The trip page: walks through a metro station's exits, OpenStreetMap's where no field trip has been](0057-osm-exits-until-field-trips.md) | In force |
+| 57 | [The trip page: walks through a metro station's exits, OpenStreetMap's where no field trip has been](0057-osm-exits-until-field-trips.md) | Replaced by 68 |
 | 58 | [The trip page: the ride followed kept with the trip](0058-trip-ride-kept.md) | In force |
 | 59 | [The trip page opens with no signal, its answer from the saved copy](0059-trip-opens-without-signal.md) | In force |
 | 60 | [The trip page follows the rider within 20 metres, or the fix's accuracy, and off the way at 100 by bus](0060-trip-follows-within-20-metres.md) | Replaced by 62 |
@@ -79,3 +79,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 65 | [One rule for answers that come too late](0065-one-rule-for-late-answers.md) | In force |
 | 66 | [Stricter type checks, file by file, the count only going down](0066-strict-null-checks-step-by-step.md) | In force |
 | 67 | [The trip page: followed onto whichever of "Any of these buses" is boarded](0067-trip-follows-any-of-these-buses.md) | In force |
+| 68 | [The trip page: exits and metro stations as the signs riders follow](0068-trip-exits-and-stations-as-signs.md) | In force |

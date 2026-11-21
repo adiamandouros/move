@@ -211,7 +211,12 @@ value outside those blocks.
   (Syntagma: M2 above, M3 below) until the field trip checks the other
   interchanges. They show the direction of travel: the leg card's header
   (`[M1] → [Kifisia]`) and the station page's direction cards, both with
-  the large pill; and the station page's title, in the large size.
+  the large pill; the station page's title, in the large size; and on the
+  Trip page, the station a walk goes to for a metro ride (decision 68).
+- **Exit signs** (`exitSign`), like the ways out in the stations: the
+  station sign with a grey top edge (`--wh-sign-exit`) in place of a line's
+  colour, and nothing on its bottom edge. Used on the Trip page's "Way out:".
+  Tram, suburban and bus stops have no signs: they stay as words.
 - **A direction's sign names where the line ends**, as the real ones do,
   even when the next train turns back sooner: M3 toward the airport is
   "Airport", not "Doukissis / Airport" (`lineEnd` in `/js/core/metro.js`).
@@ -396,18 +401,22 @@ rules, with a picture of a way shown in full.
   (decision 63) they're the ways on from where they are, the same way:
   from where one leaves the ride they're on, its rides; never the way the
   switch is offering.
-- **A walk**: `~16'` on the left, "Walk to …" in plain text with the
-  distance under it, walking directions at the far right.
-- **A metro station's exits** (decision 51): a walk into a station for a
-  ride from there says its way in before the distance, "Way in: Syntagma
-  Square · About 300 m", and its walking directions lead to that exit.
-  After a metro ride, the exit to leave by is a step of its own, "Way out:
-  Amalias/National Garden", with nothing on the left, and the walk after it
-  starts there. The exit's name is as its sign says it, in the page's
-  language or the other one when only one is recorded. A station without
-  exits recorded, or an exit without a name, says nothing. Before "Then
-  any of these buses", each stop can be nearest a different exit, so each
-  says its own, "Way out: …" above its row, and its walk is from there.
+- **A walk**: `~16'` on the left, "Walk to …" with the distance under it,
+  walking directions at the far right. A walk to a metro ride's station names
+  it as its station sign, "Walk to [Syntagma]" (decision 68). A tram,
+  suburban or bus stop, or the destination, stays as words. When the rider
+  is followed, a walk behind them drops its distance.
+- **A metro station's exits** (decisions 51, 68): a walk into a station
+  for a ride from there names no way in, because the street has only the
+  station's sign. Its walking directions still lead to the exit Wayhop
+  picked. After a metro ride, the exit to leave by is a step of its own,
+  "Way out:" and then the exit sign, with nothing on the left, and the walk
+  after it starts there. The exit's name is as its sign says it, in the
+  page's language or the other one when only one is recorded. A station
+  without exits recorded, or an exit without a name, says nothing. Before
+  "Then any of these buses", each stop can be nearest a different exit, so
+  each says its own, "Way out: [exit]" above its row, and its walk is from
+  there.
 - **A bus ride**: on the left, the clock time it leaves, `md`, bold, the
   body colour, with `~` when it's from OASA's timetable. The heading is the
   M plate and "towards …" in words (a bus shows where it goes on its front,

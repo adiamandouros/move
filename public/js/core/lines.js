@@ -45,3 +45,9 @@ export function stationSign(name, lines, size = 'm') {
     const [top, bottom] = lines.filter(id => /^M\d+$/.test(id)).sort().map(id => id.toLowerCase());
     return html`<span class="station-sign sign-${size}${top ? ` sign-top-${top}` : ''}${bottom ? ` sign-bottom-${bottom}` : ''}">${name}</span>`;
 }
+
+// A metro station's way out, as its sign in the station says it: a station
+// sign with a grey top edge in place of a line's colour (decision 68).
+// name: the exit's, in the page's language only. A label, never a link.
+/** @param {string} name @param {'m' | 'l'} [size] */
+export const exitSign = (name, size = 'm') => html`<span class="station-sign exit-sign sign-${size}">${name}</span>`;

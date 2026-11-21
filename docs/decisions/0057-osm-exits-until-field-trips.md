@@ -1,6 +1,6 @@
 # 57. The trip page: walks through a metro station's exits, OpenStreetMap's where no field trip has been
 
-Decided 2026-11-15 · In force
+Decided 2026-11-15 · Replaced by [68](0068-trip-exits-and-stations-as-signs.md)
 
 ## Situation
 
