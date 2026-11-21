@@ -9,17 +9,20 @@
 const DISMISSED_KEY = 'install-dismissed';
 
 const card = document.getElementById('install');
-const button = document.getElementById('install-btn');
+const button = /** @type {HTMLElement} */ (document.getElementById('install-btn'));
 const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 const isApple = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+/** @type {string | null} */
 let dismissed = null;
 try { dismissed = localStorage.getItem(DISMISSED_KEY); } catch { /* storage blocked: offer it */ }
+// beforeinstallprompt's event (Chrome's BeforeInstallPromptEvent, not in TypeScript's types)
+/** @type {(Event & { prompt: () => void, userChoice: Promise<unknown> }) | null} */
 let offer = null;
 
 if (card && !installed && !dismissed) {
     window.addEventListener('beforeinstallprompt', event => {
         event.preventDefault();
-        offer = event;
+        offer = /** @type {NonNullable<typeof offer>} */ (event);
         button.hidden = false;
         card.hidden = false;
     });
@@ -36,13 +39,13 @@ if (card && !installed && !dismissed) {
     window.addEventListener('appinstalled', () => { card.hidden = true; });
 
     if (isApple) {
-        document.getElementById('install-ios').hidden = false;
+        /** @type {HTMLElement} */ (document.getElementById('install-ios')).hidden = false;
         card.hidden = false;
     }
 
-    document.getElementById('install-close').addEventListener('click', () => {
+    /** @type {HTMLElement} */ (document.getElementById('install-close')).addEventListener('click', () => {
         card.hidden = true;
         try { localStorage.setItem(DISMISSED_KEY, '1'); } catch { /* just this page */ }
-        document.getElementById('app-content').focus();
+        /** @type {HTMLElement} */ (document.getElementById('app-content')).focus();
     });
 }

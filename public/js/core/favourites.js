@@ -24,8 +24,9 @@ export const lineFavourite = (line, dir) => `${line}/${dir}`;
 
 /** @returns {Record<Kind, string[]>} */
 export function favourites() {
+    /** @type {any} */
     let saved = null;
-    try { saved = JSON.parse(storage.get(KEY)); } catch { /* none */ }
+    try { saved = JSON.parse(storage.get(KEY) ?? 'null'); } catch { /* none */ }
     const list = kind => Array.isArray(saved?.[kind]) ? saved[kind].filter(key => typeof key === 'string') : [];
     return { station: list('station'), stop: list('stop'), line: list('line') };
 }
@@ -58,10 +59,10 @@ export function favouriteButton({ kind, key, on = false, text = '', label = '', 
 // A star shows whether what it stars is starred now
 /** @param {HTMLElement} button */
 function show(button) {
-    const on = isFavourite(/** @type {Kind} */ (button.dataset.favourite), button.dataset.key);
+    const on = isFavourite(/** @type {Kind} */ (button.dataset.favourite), button.dataset.key ?? '');
     button.setAttribute('aria-pressed', String(on));
     const use = button.querySelector('use');
-    use?.setAttribute('href', use.getAttribute('href').replace(/#.*$/, `#favourite${on ? '-filled' : ''}`));
+    use?.setAttribute('href', (use.getAttribute('href') ?? '').replace(/#.*$/, `#favourite${on ? '-filled' : ''}`));
     button.hidden = false;
 }
 
@@ -77,6 +78,7 @@ export function startFavourites() {
         const button = /** @type {HTMLElement | null} */ (/** @type {HTMLElement} */ (e.target).closest?.('[data-favourite]'));
         if (!button) return;
         const { favourite: kind, key } = button.dataset;
+        if (!key) return;
         const on = toggleFavourite(/** @type {Kind} */ (kind), key);
         showAll();
         document.dispatchEvent(new CustomEvent('favourites-change', { detail: { kind, key, on, source: button } }));

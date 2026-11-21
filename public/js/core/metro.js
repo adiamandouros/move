@@ -38,7 +38,10 @@ export function stationPath(rail, id) {
 // when the next train turns back sooner (M3 toward Doukissis / Airport:
 // "airport")
 /** @param {import('../../../types/data.js').Rail} rail @param {string} line @param {string} dir */
-export const lineEnd = (rail, line, dir) => rail.lines[line].directions[dir].stops.at(-1).station;
+export const lineEnd = (rail, line, dir) => {
+    const { stops } = rail.lines[line].directions[dir];
+    return stops[stops.length - 1].station;
+};
 
 // "05:32" for a time in seconds after midnight; trains after midnight belong
 // to the day before (24:15 → "00:15")

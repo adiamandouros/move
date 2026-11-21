@@ -27,11 +27,16 @@ const BACKGROUND_TIMEOUT_MS = 10 * 60_000;
 // recent or approximate position the phone already has
 const QUICK_FIX = { enableHighAccuracy: false, maximumAge: 5 * 60_000, timeout: 10_000 };
 
+/** @type {number | null} */
 let watchId = null;
 let wanted = false;
+/** @typedef {{ lat: number, lng: number, at: number, accuracy: number | null, speed: number | null }} Position */
+/** @type {Position | null} */
 let current = null;
-let slowTimer = null;
-let backgroundTimer = null;
+/** @type {ReturnType<typeof setTimeout> | undefined} */
+let slowTimer;
+/** @type {ReturnType<typeof setTimeout> | undefined} */
+let backgroundTimer;
 const positionListeners = new Set();
 const problemListeners = new Set();
 
@@ -51,7 +56,7 @@ export function lastPosition() {
     const fresh = position => position && Date.now() - position.at < KEEP_MS;
     if (fresh(current)) return current;
     let saved = null;
-    try { saved = JSON.parse(storage.get(KEY)); } catch { /* not a position */ }
+    try { saved = JSON.parse(storage.get(KEY) ?? 'null'); } catch { /* not a position */ }
     if (fresh(saved)) return saved;
     if (saved) storage.remove(KEY);
     return null;
@@ -61,6 +66,7 @@ export function lastPosition() {
 // asking: 'granted', 'prompt' (it would ask), or 'denied'
 export async function locationPermission() {
     if (!navigator.geolocation) return 'denied';
+    /** @type {PermissionState | null} */
     let state = null;
     try { state = (await navigator.permissions.query({ name: 'geolocation' })).state; } catch { /* no Permissions API */ }
     if (state === 'denied') return 'denied';
@@ -116,9 +122,10 @@ function onPosition(pos) {
     const at = pos.timestamp || Date.now();
     // The quick fix can be older than what the watch already gave
     if (current && at <= current.at) return;
-    current = { lat: pos.coords.latitude, lng: pos.coords.longitude, at, accuracy: pos.coords.accuracy ?? null, speed: pos.coords.speed ?? null };
+    const position = { lat: pos.coords.latitude, lng: pos.coords.longitude, at, accuracy: pos.coords.accuracy ?? null, speed: pos.coords.speed ?? null };
+    current = position;
     clearTimeout(slowTimer);
-    storage.set(KEY, JSON.stringify({ lat: round(current.lat), lng: round(current.lng), at }));
+    storage.set(KEY, JSON.stringify({ lat: round(position.lat), lng: round(position.lng), at }));
     storage.set(ALLOWED_KEY, '1');
     positionListeners.forEach(fn => fn(current));
 }

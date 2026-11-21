@@ -24,6 +24,7 @@ const MAX_AGE_MS = 2 * 3_600_000;
 /** @param {() => void} onChange @param {{ fetch?: typeof globalThis.fetch, now?: () => number }} [options] */
 export function watchLifts(onChange, { fetch = globalThis.fetch, now = Date.now } = {}) {
     // /api/lifts's last answer, { stations, age }, and when the page got it
+    /** @type {{ stations: Record<string, any>, age: number } | null} */
     let copy = null;
     let got = -Infinity;
     let asked = -Infinity;
@@ -52,7 +53,7 @@ export function watchLifts(onChange, { fetch = globalThis.fetch, now = Date.now 
         // How old STASY's page was when the server sent it, and since: the
         // phone's own clock only counts the time since, so it needn't be right
         const age = copy ? copy.age + now() - got : Infinity;
-        return { stations: age < MAX_AGE_MS ? copy.stations : {}, unavailable: age >= STALE_MS };
+        return { stations: copy && age < MAX_AGE_MS ? copy.stations : {}, unavailable: age >= STALE_MS };
     };
 }
 
@@ -160,7 +161,8 @@ export function startStationLifts() {
     const slot = document.getElementById('lift-status');
     if (!slot) return;
     const { station, name } = slot.dataset;
-    const lifts = watchLifts(() => setHtml(slot, liftNotice(lifts(), [station], () => name, [], liftsOpen())));
+    if (!station) return;
+    const lifts = watchLifts(() => setHtml(slot, liftNotice(lifts(), [station], () => name ?? station, [], liftsOpen())));
     lifts();
     // Opened offline: asked once the connection is back
     addEventListener('online', () => lifts());
