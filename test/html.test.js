@@ -170,12 +170,15 @@ test('a bus line\'s plate, with words for screen readers when asked', () => {
     assert.doesNotMatch(String(busPlate('<b>', 's', '<i>')), /<b>|<i>/);
 });
 
-test('a station\'s sign: its metro lines on its edges, the lower number on top', () => {
+test('a station\'s sign: its metro lines on its edges, M1 on the bottom, otherwise the lower number on top', () => {
     assert.equal(String(stationSign('Kifisia', ['M1'])), '<span class="station-sign sign-m sign-top-m1">Kifisia</span>');
     assert.equal(String(stationSign('Σύνταγμα', ['M3', 'M2'], 'l')), '<span class="station-sign sign-l sign-top-m2 sign-bottom-m3">Σύνταγμα</span>');
     // Tram lines aren't edges; a third line would have no edge left
     assert.equal(String(stationSign('Syntagma', ['T6', 'M3', 'M2'])), '<span class="station-sign sign-m sign-top-m2 sign-bottom-m3">Syntagma</span>');
     assert.equal(String(stationSign('Edem', ['T7'])), '<span class="station-sign sign-m">Edem</span>');
+    // M1 below the other line, as at Piraeus, Omonia, Attiki and Monastiraki
+    assert.equal(String(stationSign('Piraeus', ['M1', 'M3'])), '<span class="station-sign sign-m sign-top-m3 sign-bottom-m1">Piraeus</span>');
+    assert.equal(String(stationSign('Ομόνοια', ['M2', 'M1'], 'l')), '<span class="station-sign sign-l sign-top-m2 sign-bottom-m1">Ομόνοια</span>');
     assert.doesNotMatch(String(stationSign('<b>', ['M1"><b>'])), /<b>/);
 });
 

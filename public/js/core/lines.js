@@ -35,14 +35,16 @@ export const pillList = pills => html`${pills.map((pill, i) => html`${i ? html`<
 
 // A station's sign, as in the stations: an off-white panel with a line's
 // colour on its top edge and, at a station on two lines, the other's on its
-// bottom edge. Only metro lines have edges, and the lower number goes on
-// top (Syntagma: M2 above, M3 below) until the real signs at the other
-// interchanges are checked. name: in the page's language only. A label,
+// bottom edge. Only metro lines have edges. M1 goes on the bottom, as the
+// real signs have it (Piraeus, Omonia, Attiki, Monastiraki: M3 or M2
+// above, M1 below); otherwise the lower number on top (Syntagma: M2 above,
+// M3 below). name: in the page's language only. A label,
 // never a link: 'm' for the direction of travel beside a large pill, 'l' as
 // a station page's title.
 /** @param {string} name @param {string[]} lines @param {'m' | 'l'} [size] */
 export function stationSign(name, lines, size = 'm') {
-    const [top, bottom] = lines.filter(id => /^M\d+$/.test(id)).sort().map(id => id.toLowerCase());
+    const metro = lines.filter(id => /^M\d+$/.test(id)).sort();
+    const [top, bottom] = (metro.length > 1 && metro[0] === 'M1' ? [...metro.slice(1), 'M1'] : metro).map(id => id.toLowerCase());
     return html`<span class="station-sign sign-${size}${top ? ` sign-top-${top}` : ''}${bottom ? ` sign-bottom-${bottom}` : ''}">${name}</span>`;
 }
 
