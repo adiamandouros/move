@@ -169,6 +169,8 @@ async function start() {
     }
     showView();
     if (state.loadFailed) return;
+    // What was typed while the stop list loaded is searched now
+    if (input.value.trim()) search();
     poll();
 
     setInterval(tick, TICK_MS);

@@ -178,6 +178,16 @@ test('an unknown stop or line says so', async ({ page }) => {
     await expect(page.getByRole('link', { name: 'Stops near you' })).toBeVisible();
 });
 
+test('what is typed before the stop list is in is searched once it is', async ({ page }) => {
+    let release;
+    const held = new Promise(resolve => { release = resolve; });
+    await page.route('**/data/bus-stops.json', async route => { await held; await route.continue(); });
+    await page.goto('/buses');
+    await search(page).fill('syntagma');
+    release();
+    await expect(stopLinks(page).first()).toContainText('SYNTAGMA');
+});
+
 test.describe('the lines can\'t be loaded', () => {
     test.use({ allowErrors: [/status of 503/] });
 
