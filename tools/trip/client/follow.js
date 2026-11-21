@@ -60,7 +60,7 @@ export const within = (metres, fix) => Math.max(metres, fix.accuracy ?? 0);
  * @typedef {{ kind: 'walk', ride: number, from: Point, to: Point, any?: AnyRide[] } | { kind: 'wait', ride: number, at: Point, any?: AnyRide[] }
  *   | { kind: 'ride', ride: number, points: Point[], past: Point[], close: boolean, any?: AnyRide[] } | { kind: 'last', from: Point, to: Point } | { kind: 'arrived' }} Step
  */
-/** @typedef {{ board: string, line: string, points: Point[], past: Point[] }} AnyRide one of the rides a last bus can be: the line `line` from the stop `board` (its id) */
+/** @typedef {{ board: string, line: string, points: Point[], past: Point[], route: number, from: number, to: number }} AnyRide one of the rides a last bus can be: the line `line` from the stop `board` (its id); `route`, `from`, `to`: the worker's, to time the way as it (buses.js AnyRide) */
 /**
  * Where the rider is on the way: which step (an index into the steps), at
  * which of a ride's points (`stop`), since when (`at`, ms; null before any
@@ -135,7 +135,7 @@ export function waySteps(o, from, to, rail) {
         o.rides.forEach((ride, i) => {
             const before = i === 0 ? o.firstWalk : ride.walkBefore;
             /** @type {AnyRide[] | undefined} */
-            const any = ride.any?.length ? ride.any.map((/** @type {any} */ r) => ({ board: r.board, line: r.line, points: r.along.map(point), past: r.past.map(point) })) : undefined;
+            const any = ride.any?.length ? ride.any.map((/** @type {any} */ r) => ({ board: r.board, line: r.line, points: r.along.map(point), past: r.past.map(point), route: r.route, from: r.from, to: r.to })) : undefined;
             if (before) {
                 if (i > 0) here = exitOr(o.rides[i - 1].alight, before.out, here);
                 walk(i, exitOr(ride.board, before.in, point(ride.along[0])), any);
@@ -195,7 +195,7 @@ export function carry(before, state, steps) {
     if (!was || !now || was.kind !== now.kind || ride(was) !== ride(now)) return startOver(state);
     // The ride boarded of a last bus's several, where the new way has it too
     const boarded = state.any !== null && 'any' in was ? was.any?.[state.any] : null;
-    const any = boarded && 'any' in now ? now.any?.findIndex(r => r.board === boarded.board && r.line === boarded.line) ?? -1 : -1;
+    const any = boarded && now.kind === 'ride' ? now.any?.findIndex(r => r.board === boarded.board && r.line === boarded.line) ?? -1 : -1;
     const points = now.kind === 'ride' ? any >= 0 && now.any ? now.any[any].points : now.points : null;
     return { ...state, stop: points ? Math.min(state.stop, points.length - 1) : state.stop, offSince: null, moved: false, off: false, any: any >= 0 ? any : null };
 }
@@ -211,17 +211,21 @@ const shaped = (step, any) => step.kind === 'ride' && any !== null && step.any?.
  * The ride of a last bus's several (those `only` takes) that `fix` is on
  * past its first stop, within `limit` of it, nearer it than `than`: its
  * place in `any`, and the stop it's at; null when none is. The nearest of
- * them when several are
- * @param {AnyRide[] | undefined} any @param {Fix} fix @param {number} limit @param {number} [than] @param {(r: AnyRide) => boolean} [only]
+ * them when several are; of those as near (within NEAR_METRES, as two
+ * routes of a line along the same road are), the one from the stop nearest
+ * `from`, where the rider was (the stop they waited at)
+ * @param {AnyRide[] | undefined} any @param {Fix} fix @param {number} limit @param {number} [than] @param {(r: AnyRide) => boolean} [only] @param {Point | null} [from]
  * @returns {{ any: number, stop: number } | null}
  */
-function boardedAny(any, fix, limit, than = Infinity, only = () => true) {
+function boardedAny(any, fix, limit, than = Infinity, only = () => true, from = null) {
     let found = /** @type {{ any: number, stop: number } | null} */ (null);
-    let least = Infinity;
+    let least = [Infinity, Infinity];
     (any ?? []).forEach((r, k) => {
         const stop = nearest(fix, r.points);
         const by = offBy({ kind: 'ride', ride: 0, points: r.points, past: r.past, close: true }, 0, fix);
-        if (only(r) && stop > 0 && !near(fix, r.points[0]) && by <= limit && by < than && by < least) [least, found] = [by, { any: k, stop }];
+        if (!only(r) || stop === 0 || near(fix, r.points[0]) || by > limit || by >= than) return;
+        const score = [Math.round(by / NEAR_METRES), from ? metres(from, r.points[0]) : 0];
+        if (score[0] < least[0] || (score[0] === least[0] && score[1] < least[1])) [least, found] = [score, { any: k, stop }];
     });
     return found;
 }
@@ -288,15 +292,16 @@ export function placeOn(steps, state, fix, nowMs) {
             const onRide = current.kind === 'walk' && ride?.kind === 'ride' && ride.ride === current.ride;
             // A last bus that can be any of several (Road · 15): boarded
             // whichever of its rides from the walk's own stop the fix is on
-            // past its first stop, close to it and nearer it than the walk
-            // (a ride from another of its stops once they've been there: a
-            // walk past a stop along a bus's road looks the same); off the
-            // walk after a gap or a minute, Road · 7's rule for any of them
+            // past its first stop, close to it and nearer it than the walk,
+            // or off the walk after a gap or a minute, Road · 7's rule. A
+            // ride from another of its stops once they've been there: a walk
+            // past a stop along a bus's road looks the same, and off the
+            // walk, dozens of its rides can be within 300 m
             if (onRide && ride.any) {
                 const walked = offBy(current, 0, fix);
                 const fromHere = (/** @type {AnyRide} */ r) => metres(r.points[0], ride.points[0]) < 1;
                 const got = (walked <= OFF_METRES ? boardedAny(ride.any, fix, within(OFF_CLOSE_METRES, fix), walked, fromHere) : null)
-                    ?? (walked > OFF_METRES && (gap || (state.offSince !== null && nowMs - state.offSince >= OFF_MS)) ? boardedAny(ride.any, fix, OFF_METRES) : null);
+                    ?? (walked > OFF_METRES && (gap || (state.offSince !== null && nowMs - state.offSince >= OFF_MS)) ? boardedAny(ride.any, fix, OFF_METRES, Infinity, fromHere) : null);
                 if (!got) break;
                 step += 2;
                 ({ stop, any } = got);
@@ -331,7 +336,10 @@ export function placeOn(steps, state, fix, nowMs) {
             // Waiting at any of a last bus's stops (Road · 15): on whichever
             // of its rides they're on past its first stop
             if (current.any) {
-                const got = boardedAny(current.any, fix, within(OFF_CLOSE_METRES, fix));
+                // At any of its stops, still waiting: one can be a later stop
+                // of a ride from another (the same line, a stop before)
+                if (current.any.some(r => near(fix, r.points[0]))) break;
+                const got = boardedAny(current.any, fix, within(OFF_CLOSE_METRES, fix), Infinity, undefined, state.fix);
                 if (!got) break;
                 step++;
                 ({ stop, any } = got);
@@ -348,7 +356,8 @@ export function placeOn(steps, state, fix, nowMs) {
         // Off the one of a last bus's several they were taken to be on, but
         // on another (one sharing its road so far): that one
         if (current.any && offBy(shaped(current, any), stop, fix) > offLimit(current, fix)) {
-            const got = boardedAny(current.any, fix, within(OFF_CLOSE_METRES, fix));
+            const was = any === null ? null : current.any[any];
+            const got = boardedAny(current.any, fix, within(OFF_CLOSE_METRES, fix), Infinity, undefined, was ? was.points[0] : state.fix);
             if (got) ({ stop, any } = got);
         }
         const shape = shaped(current, any);

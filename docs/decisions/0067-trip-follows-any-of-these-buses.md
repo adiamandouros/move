@@ -43,7 +43,14 @@ way and its card.
   nearer a later stop of one of those rides than its first, within 100 m
   of it (or the fix's accuracy), and nearer it than the walk. Further off,
   after a gap or a minute, within 300 m (Road · 7's rule). With several
-  matching, the nearest. Two lines sharing a road from the same stop: the
+  matching, the nearest; of those as near, the one from the stop nearest
+  where the rider was. At any of its stops the rider is waiting, never
+  riding: a stop can be a later stop of a ride from another (the same
+  line, a stop before). From the walk, only a ride from the walk's own
+  stop boards, by either rule: a walk past another stop along a bus's
+  road looks the same, and off the walk dozens of its rides can be within
+  300 m (36 rides from Menelaou 45 to Syggrou-Fix in the test data). A
+  ride from another of its stops boards from that stop's wait. Two lines sharing a road from the same stop: the
   rider is taken for one, and moved to the other once the fix is on its
   road and off the first.
 - **The way becomes that bus** (the second pull request): the way's last

@@ -998,6 +998,46 @@ test.describe('the trip page', () => {
             expect(await axe(page), 'axe-core violations').toEqual([]);
         });
 
+        // Road · 15, decision 67: from Menelaou 45 to Syggrou-Fix, any of the
+        // buses from the stops near the door, the way's own the 126 from
+        // 340081; the rider walks to another of its stops, 240047, and rides
+        // the 910 from there, along another road
+        test('on one of "Any of these buses" from another of its stops: followed on it, and the way becomes that bus\'s ride, Exit at where it gets off; nothing planned again', async ({ page }) => {
+            const { asks, run } = await watchRequests(page);
+            const plans = await watchPlans(page);
+            const liveWay = await watchLive(page);
+            await page.goto('/trip');
+            await expect(page.getByRole('button', { name: 'My location' })).toHaveAttribute('aria-pressed', 'true');
+            await to(page).fill('Συγγρού-Φιξ');
+            await list(page, 'to').first().click();
+            await expect(card(page)).toContainText('Any of these buses');
+            await expect.poll(async () => (await asks()).length).toBeGreaterThan(0);
+            await page.waitForFunction(() => window.__pending === 0);
+            await expect.poll(liveWay).not.toBeNull();
+            await run(1);
+            const own = (await liveWay()).rides.at(-1);
+            const ride = own.any.find(r => r.line === '910' && r.board === 'bus:240047');
+            expect(ride && own.board.id).not.toBe('bus:240047');
+            const stops = ride.along.map(([lat, lng]) => ({ lat, lng }));
+
+            // At its stop, then two stops on the 910
+            await moveTo(page, stops[0]);
+            await run(1);
+            await expect(status(page)).toHaveText('Following your ride');
+            await moveTo(page, stops[1]);
+            await run(1);
+            await moveTo(page, stops[2]);
+            await run(35);
+            await expect(card(page)).not.toContainText('Any of these buses');
+            await expect(current(page)).toContainText('910');
+            await expect(current(page).locator('.leg-action')).toContainText('Exit at');
+            await expect.poll(async () => (await liveWay()).rides.at(-1)).toMatchObject({ line: '910', boarded: true, board: { id: 'bus:240047' } });
+            expect(await plans()).toHaveLength(1);
+            await expect(status(page)).toHaveText('Following your ride');
+            await page.clock.resume();
+            expect(await axe(page), 'axe-core violations').toEqual([]);
+        });
+
         // Road · 10, decision 63
         test('on foot, the other ways are worked out from where the rider is, and timed: those drawn, the soonest there first', async ({ page }) => {
             const { asks, run } = await watchRequests(page);
