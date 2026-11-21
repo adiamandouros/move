@@ -121,6 +121,7 @@ test.describe('the trip page', () => {
             const stops = card.locator('li.trip-stop');
             await expect(card.getByText('Then any of these buses, whichever comes first:')).toBeVisible();
             await expect(stops.locator('.trip-stop-exit')).toHaveText(['Way out: Amalias/National Garden', 'Way out: Syntagma Square', 'Way out: Amalias/National Garden']);
+            await expect(stops.locator('.trip-stop-exit .exit-sign')).toHaveText(['Amalias/National Garden', 'Syntagma Square', 'Amalias/National Garden']);
             await expect(stops.first().locator('.trip-stop-exit + .stop-item')).toHaveCount(1);
             expect(await axe(page), 'axe-core violations').toEqual([]);
         });
@@ -331,18 +332,22 @@ test.describe('the trip page', () => {
         expect(await axe(page), 'axe-core violations').toEqual([]);
     });
 
-    test('through a metro station\'s exits (decision 51): the way in under the walk to it, the way out a step of its own after the train', async ({ page }) => {
+    test('through a metro station\'s exits (decisions 51, 68): the walk to it says no way in, the station as its sign; the way out as its sign, a step of its own after the train', async ({ page }) => {
         await page.goto('/trip');
         await from(page).fill('Ομήρου 10');
         await list(page, 'from').first().click();
         await to(page).fill('Σύνταγμα');
         await list(page, 'to').first().click();
         const card = page.locator('.trip-card').first();
-        await expect(card.locator('.trip-step-note').first()).toContainText('Way in: Kassomouli/Ilia Iliou · About');
+        const walk = card.locator('.trip-step').first();
+        await expect(walk.locator('.station-sign')).toHaveText('Neos Kosmos');
+        await expect(walk.locator('.trip-step-note')).toHaveText(/^About \d+ m$/);
+        await expect(card).not.toContainText('Kassomouli');
         await page.getByRole('button', { name: 'Swap' }).click();
-        await expect(card.locator('.trip-step', { hasText: 'Way out: Kassomouli/Ilia Iliou' })).toBeVisible();
+        await expect(card.locator('.trip-step', { hasText: 'Way out: Kassomouli/Ilia Iliou' }).locator('.exit-sign')).toHaveText('Kassomouli/Ilia Iliou');
         await page.goto('/el/trip');
-        await expect(page.locator('.trip-card').first().locator('.trip-step', { hasText: 'Έξοδος: Κασομούλη/Ηλία Ηλιού' })).toBeVisible();
+        await expect(page.locator('.trip-card').first().locator('.trip-step', { hasText: 'Έξοδος: Κασομούλη/Ηλία Ηλιού' }).locator('.exit-sign')).toBeVisible();
+        expect(await axe(page), 'axe-core violations').toEqual([]);
     });
 
     test('in Greek too', async ({ page }) => {
@@ -987,6 +992,8 @@ test.describe('the trip page', () => {
             await expect(current(page)).toContainText('Walk to Άλσος');
             await expect(done(page)).toHaveCount(5);
             await expect(done(page).filter({ hasText: 'Way out: ' })).toHaveCount(1);
+            // The walks behind the rider say no distance (decision 68)
+            await expect(done(page).filter({ hasText: 'Walk to' }).locator('.trip-step-note')).toHaveCount(0);
             await moveTo(page, PARK);
             await run(1);
             await expect(current(page)).toHaveCount(0);

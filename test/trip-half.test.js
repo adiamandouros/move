@@ -6,6 +6,7 @@ import { markupProblems, nothingUnder, notices } from './support/markup.js';
 import { buildTrains } from '../server/data/build-suburban.js';
 import { suburbanCurated, train } from './fixtures/railway.js';
 import { aboutTime, minutesBadge, minutesMark } from '../public/js/core/times.js';
+import { exitSign } from '../public/js/core/lines.js';
 
 // The next half hour's answer as the trip page shows it (decision 33): what
 // the worker picks from answer.js (halfView in tools/trip/client/buses.js),
@@ -256,8 +257,8 @@ for (const lang of ['en', 'el']) {
         check(view);
         assert.ok(view.includes(s['trip.any-bus-then']));
         const { exits } = rail.stations.syntagma;
-        const outs = [...view.matchAll(/<div class="trip-stop-exit">([^<]*)<\/div>\s*<div class="accordion-item stop-item" data-stop="(\d+)"/g)].map(([, said, code]) => [code, said]);
-        assert.deepEqual(outs, afterMetro.rows[index].stops.map(({ stop, walk }) => [stop.id.slice('bus:'.length), s['trip.way-out'].replace('{exit}', exits[walk.out].name[lang])]));
+        const outs = [...view.matchAll(/<div class="trip-stop-exit">([^<]*<span class="station-sign exit-sign sign-m">[^<]*<\/span>)<\/div>\s*<div class="accordion-item stop-item" data-stop="(\d+)"/g)].map(([, said, code]) => [code, said]);
+        assert.deepEqual(outs, afterMetro.rows[index].stops.map(({ stop, walk }) => [stop.id.slice('bus:'.length), s['trip.way-out'].replace('{exit}', String(exitSign(exits[walk.out].name[lang])))]));
         // From the door, none
         const fromDoor = String(r.renderHalf(network, clear.kind, halfWays(clear, at(12).seconds), fix, { ...at(12), now: at(12).seconds }));
         assert.ok(!fromDoor.includes('trip-stop-exit'));
