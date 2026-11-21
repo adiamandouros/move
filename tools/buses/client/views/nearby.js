@@ -16,6 +16,7 @@ const RADIUS_M = 500;
 const WIDER_RADIUS_M = 1500;
 
 function pickStops() {
+    if (!state.coords || !state.allStops) return;
     const { lat, lng } = state.coords;
     state.pickedAt = { lat, lng };
     const stops = nearestStops(state.allStops, lat, lng, {
@@ -44,7 +45,7 @@ export async function renderFavourites() {
     const shown = state.view.kind === 'nearby' && state.allStops ? favourites() : { stop: [], line: [] };
     state.favouriteStops = shown.stop.map(code => state.byCode.get(code)).filter(Boolean).map(withMeters);
     // The ones opened stay open
-    const opened = new Set([...$('favourite-stops').querySelectorAll('.stop-toggle[aria-expanded="true"]')].map(toggle => toggle.closest('.stop-item').getAttribute('data-stop')));
+    const opened = new Set([...$('favourite-stops').querySelectorAll('.stop-toggle[aria-expanded="true"]')].map(toggle => toggle.closest('.stop-item')?.getAttribute('data-stop')));
     setHtml($('favourite-stops'), html`${state.favouriteStops.map((stop, i) => stopItem(stop, i, { id: 'fav-stop', open: opened.has(stop.code) }))}`);
     setHtml($('favourite-lines'), '');
     $('favourites').hidden = !state.favouriteStops.length && !shown.line.length;

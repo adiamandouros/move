@@ -12,7 +12,18 @@ export const PAGE_SIZE = 6;
 // Stops listed at a time when searching
 export const RESULTS_SIZE = 20;
 
-export const $ = id => document.getElementById(id);
+/** @typedef {import('./stops.js').BusStop} BusStop */
+/** @typedef {import('./search.js').BusLine} BusLine */
+/** @typedef {BusStop & { meters?: number }} ShownStop */
+/** @typedef {import('./timing.js').StopResult & { stale?: boolean }} Result */
+/** @typedef {'denied' | 'unavailable' | 'slow' | 'unsupported'} Problem */
+/**
+ * What the page shows (readView)
+ * @typedef {{ kind: 'nearby' } | { kind: 'stop', code: string } | { kind: 'line', line: string, direction: 0 | 1 }} View
+ */
+
+// One of the page's own elements, always in its template
+export const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.getElementById(id));
 export const accordion = $('stops-accordion');
 const busView = $('bus-view');
 export const header = $('view-header');
@@ -22,37 +33,41 @@ export const input = /** @type {HTMLInputElement} */ ($('bus-search-input'));
 // What the page shows, from its address: the stops nearby (/buses), one stop
 // (?stop=10341) or a line's stops in order (?line=040, &dir=1 the other way).
 // A link to the trip finder (?trip, gone with decision 39) shows the stops nearby
+/** @returns {View} */
 export function readView() {
     const params = new URLSearchParams(location.search);
-    if (params.get('stop')) return { kind: 'stop', code: params.get('stop') };
-    if (params.get('line')) return { kind: 'line', line: params.get('line'), direction: params.get('dir') === '1' ? 1 : 0 };
+    const stop = params.get('stop');
+    if (stop) return { kind: 'stop', code: stop };
+    const line = params.get('line');
+    if (line) return { kind: 'line', line, direction: params.get('dir') === '1' ? 1 : 0 };
     return { kind: 'nearby' };
 }
 
 export const state = {
     view: readView(),
-    allStops: null,
+    allStops: /** @type {BusStop[] | null} */ (null),
+    /** @type {Map<string, BusStop>} */
     byCode: new Map(),
     // bus-lines.json, loaded when first needed (a search or a line)
-    lines: null,
-    linesLoad: null,
-    coords: null,
-    pickedAt: null,
+    lines: /** @type {BusLine[] | null} */ (null),
+    linesLoad: /** @type {Promise<BusLine[] | null> | null} */ (null),
+    coords: /** @type {{ lat: number, lng: number } | null} */ (null),
+    pickedAt: /** @type {{ lat: number, lng: number } | null} */ (null),
     limit: PAGE_SIZE,
-    stops: [],
+    stops: /** @type {ShownStop[]} */ ([]),
     // The starred stops, above the stops nearby (only there)
-    favouriteStops: [],
-    results: {},
+    favouriteStops: /** @type {ShownStop[]} */ ([]),
+    results: /** @type {Record<string, Result>} */ ({}),
     // Per stop code: when its last answer came in (its minutes count down from
     // then), when it was last asked for, answered or not (its refreshes are
     // timed from then), and how many minutes it had been counted down by
     // when last drawn
-    fetched: {},
-    asked: {},
-    drawnElapsed: {},
+    fetched: /** @type {Record<string, number>} */ ({}),
+    asked: /** @type {Record<string, number>} */ ({}),
+    drawnElapsed: /** @type {Record<string, number>} */ ({}),
     // Stops being asked for (codes), and the stop rows on screen (only their
     // stops are refreshed)
-    asking: new Set(),
+    asking: /** @type {Set<string>} */ (new Set()),
     /** @type {Set<Element>} */
     onScreen: new Set(),
     lastInteraction: Date.now(),
@@ -62,9 +77,9 @@ export const state = {
     loadFailed: false,
     // The location: the browser's permission, whether it's being followed,
     // and what went wrong last (shown when the nearby stops are)
-    permission: null,
+    permission: /** @type {PermissionState | null} */ (null),
     locating: false,
-    problem: null,
+    problem: /** @type {Problem | null} */ (null),
     shownResults: RESULTS_SIZE,
     // Each view drawn gets a number, so a line that loads late is drawn only if it's still wanted
     drawn: 0,
@@ -116,8 +131,8 @@ export function applyFilter() {
     btn.setAttribute('aria-pressed', String(state.hideEmpty));
     const swap = document.createElement('span');
     setHtml(swap, icon(state.hideEmpty ? 'show-empty' : 'hide-empty', 'me-2'));
-    btn.querySelector('.icon').replaceWith(swap.firstElementChild);
-    btn.querySelector('span').textContent = t(state.hideEmpty ? 'buses.show-all' : 'buses.hide-empty');
+    /** @type {Element} */ (btn.querySelector('.icon')).replaceWith(/** @type {Element} */ (swap.firstElementChild));
+    /** @type {Element} */ (btn.querySelector('span')).textContent = t(state.hideEmpty ? 'buses.show-all' : 'buses.hide-empty');
 }
 
 // The stops whose answers are on screen
@@ -142,12 +157,16 @@ function renderStatus() {
 
 // A message in place of the stops, with an optional button ({ label, run }).
 // If the keyboard was on the old message's button, it moves to the new message.
+/**
+ * @param {string} symbol @param {string} title @param {string} [subtitle]
+ * @param {{ label: string, run: () => void } | null} [action]
+ */
 export function showMessage(symbol, title, subtitle = '', action = null) {
     const box = $('bus-message');
     const hadFocus = box.contains(document.activeElement);
     setHtml(box, message(symbol, title, subtitle, action?.label));
     const button = box.querySelector('.message-action');
-    button?.addEventListener('click', action.run);
+    if (action) button?.addEventListener('click', action.run);
     if (hadFocus) /** @type {HTMLElement} */ (button ?? box.firstElementChild).focus();
 }
 
