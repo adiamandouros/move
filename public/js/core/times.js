@@ -87,7 +87,8 @@ export function minutesBadge(minutes, t, { said = '{minutes}', then = '', tier =
 
 // Counts on every badge under `root` that has its time (minutesBadge's
 // `at`) to `now` (seconds since 1970): drawn again as its minute changes,
-// removed once gone. Badges only, so the keyboard and the scroll stay where
+// removed once gone, and with the last of a holder marked data-badges, all
+// it holds (an "In:" label with no times after it is nothing). Badges only, so the keyboard and the scroll stay where
 // they are, and it counts while the page holds its redraws. Whether any
 // went: what came after it may need the page's own redraw (the next bus
 // moving up)
@@ -98,7 +99,9 @@ export function countBadges(root, t, now = Date.now() / 1000) {
         const { at, minutes: was, exact, said, then, tier, quiet } = badge.dataset;
         const minutes = minutesLeft(Number(at), now, exact !== undefined);
         if (minutes === null) {
+            const holder = badge.closest('[data-badges]');
             badge.remove();
+            if (holder && !holder.querySelector('.time-badge')) holder.replaceChildren();
             gone = true;
         } else if (minutes !== Number(was)) {
             badge.outerHTML = String(minutesBadge(minutes, t, { at: Number(at), exact: exact !== undefined, said, then, tier: /** @type {TimeTier | undefined} */ (tier) ?? null, soon: quiet === undefined, title: badge.title }));

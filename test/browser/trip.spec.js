@@ -74,6 +74,37 @@ test.describe('the trip page', () => {
         await expect(list(page, 'from').filter({ hasText: 'Μενελάου 45' })).toHaveCount(1);
     });
 
+    // Road · 18: underground, every train shown counts down and goes; the
+    // "In:" goes with them while the answer is held (the keyboard in it, or
+    // followed on the way), and isn't drawn alone once it's drawn again
+    test('with no signal, a metro card\'s trains all gone: no "In:" left with nothing after it', async ({ page }) => {
+        await page.goto('/trip');
+        await from(page).fill('Syntagma');
+        await list(page, 'from').first().click();
+        await to(page).fill('Agios Dimitrios');
+        await list(page, 'to').first().click();
+        const card = page.locator('.trip-card').first().locator('li.trip-leg', { has: page.locator('.line-pill.line-m2') });
+        const schedule = card.locator('.schedule-section');
+        await expect(schedule.locator('.schedule-label')).toHaveText('In', { useInnerText: true });
+        const last = Math.max(...(await schedule.locator('.time-badge[data-at]').evaluateAll(badges => badges.map(b => Number(b.dataset.at)))));
+        await page.route('**/*', () => {});
+        // The keyboard in the answer, reached by a key: it isn't drawn again,
+        // the badges count on
+        await card.locator('.leg-stops-toggle').focus();
+        await page.keyboard.press('Shift+Tab');
+        await page.keyboard.press('Tab');
+        await expect(card.locator('.leg-stops-toggle')).toBeFocused();
+        await page.clock.runFor(Math.ceil(last - await page.evaluate(() => Date.now() / 1000) + 2) * 1000);
+        await expect(schedule.locator('.time-badge')).toHaveCount(0);
+        await expect(schedule.locator('.schedule-label')).toHaveCount(0);
+        // Out of the answer: drawn again, an "In:" only with the trains the
+        // timetable has next
+        await from(page).focus();
+        await page.clock.runFor(31_000);
+        await expect(page.locator('.schedule-section:has(.schedule-label):not(:has(.time-badge))')).toHaveCount(0);
+        expect(await axe(page), 'axe-core violations').toEqual([]);
+    });
+
     test('axe-core is clean with the list open and with a trip', async ({ page }) => {
         await page.goto('/trip');
         await from(page).fill('Μενελάου');
