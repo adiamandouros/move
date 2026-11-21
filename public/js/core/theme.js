@@ -24,7 +24,10 @@ const storage = {
 };
 
 const phone = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: light)') : null;
-const chosen = () => CHOICES.includes(storage.get()) ? storage.get() : 'auto';
+const chosen = () => {
+    const saved = storage.get();
+    return saved !== null && CHOICES.includes(saved) ? saved : 'auto';
+};
 
 // Show the mode for a choice: the page, the bar and the switches
 function applyTheme(choice) {
@@ -44,7 +47,8 @@ export function startTheme() {
     for (const group of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.theme-switch'))) group.hidden = false;
     for (const button of document.querySelectorAll('[data-theme-choice]')) {
         button.addEventListener('click', () => {
-            current = button.getAttribute('data-theme-choice');
+            // Picked by that attribute, so it has one
+            current = /** @type {string} */ (button.getAttribute('data-theme-choice'));
             storage.set(current);
             applyTheme(current);
         });

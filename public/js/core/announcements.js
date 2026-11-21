@@ -19,7 +19,8 @@ const SHOWN = 3;
 const SOURCES = { el: ['stasy', 'oasaEl'], en: ['stasy', 'oasaEn'] };
 
 const list = document.getElementById('announcements');
-const banner = document.getElementById('disruptions');
+const banner = /** @type {HTMLElement} */ (document.getElementById('disruptions'));
+/** @type {{ rail: any[], bus: Record<string, any[]>, available: string[] } | null} */
 let data = null;
 let failed = false;
 
@@ -60,6 +61,7 @@ export function disruptionView({ rail, bus, available }) {
 }
 
 function render() {
+    if (!list) return;
     if (failed) {
         setHtml(list, html`<p class="text-body-secondary">${t('announcements.error')}</p>`);
         setHtml(banner, '');

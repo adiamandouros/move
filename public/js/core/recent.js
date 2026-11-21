@@ -19,7 +19,7 @@ const storage = {
 export function recentList(key, { valid, same = (a, b) => a === b, keep = 3 }) {
     const list = () => {
         try {
-            const items = JSON.parse(storage.get(key));
+            const items = JSON.parse(storage.get(key) ?? 'null');
             return Array.isArray(items) ? items.filter(valid) : [];
         } catch {
             return [];

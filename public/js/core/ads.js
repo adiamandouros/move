@@ -29,6 +29,6 @@ choices?.addEventListener('click', () => {
     window.googlefc = window.googlefc || {};
     window.googlefc.callbackQueue = window.googlefc.callbackQueue || [];
     window.googlefc.callbackQueue.push({
-        CONSENT_DATA_READY: () => window.googlefc.showRevocationMessage?.(),
+        CONSENT_DATA_READY: () => window.googlefc?.showRevocationMessage?.(),
     });
 });

@@ -17,7 +17,7 @@ const fetchBuses = () => {
 };
 
 if (!navigator.connection?.saveData) {
-    const whenIdle = () => (window.requestIdleCallback ? requestIdleCallback(fetchBuses, { timeout: IDLE_MS }) : setTimeout(fetchBuses, IDLE_MS));
+    const whenIdle = () => ('requestIdleCallback' in window ? requestIdleCallback(fetchBuses, { timeout: IDLE_MS }) : setTimeout(fetchBuses, IDLE_MS));
     if (document.readyState === 'complete') whenIdle();
     else window.addEventListener('load', whenIdle, { once: true });
 }

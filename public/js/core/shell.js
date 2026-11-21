@@ -68,10 +68,10 @@ if (suggestion && !storage.get('language') && !storage.get('language-suggested')
         .find(l => l === 'en' || l === 'el');
     if (preferred && preferred !== document.documentElement.lang) {
         suggestion.hidden = false;
-        suggestion.querySelector('button').addEventListener('click', () => {
+        /** @type {HTMLElement} */ (suggestion.querySelector('button')).addEventListener('click', () => {
             suggestion.hidden = true;
             storage.set('language-suggested', '1');
-            document.getElementById('app-content').focus();
+            /** @type {HTMLElement} */ (document.getElementById('app-content')).focus();
         });
     }
 }
