@@ -133,7 +133,7 @@ export function fold(ways) {
 /** @param {Planner} planner @param {Way} way */
 export function spine({ stops }, way) {
     const rail = way.legs.filter(leg => leg.mode === 'metro' || leg.mode === 'tram');
-    return rail.length ? `${rail.map(leg => leg.line).join('+')} to ${stops[rail.at(-1).alight].name}` : 'buses only';
+    return rail.length ? `${rail.map(leg => leg.line).join('+')} to ${stops[rail[rail.length - 1].alight].name}` : 'buses only';
 }
 
 const clock = seconds => `${String(Math.floor(seconds / 3600) % 24).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;

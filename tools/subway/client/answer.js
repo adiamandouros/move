@@ -61,7 +61,7 @@ export function rowKey(planner, way) {
     if (!lastIsBus(way)) return wayKey(planner, way);
     const before = way.legs.slice(0, -1);
     if (!before.length) return 'a bus from the start';
-    return `${wayKey(planner, { ...way, legs: before })} at ${planner.stops[before.at(-1).alight].name}, a bus`;
+    return `${wayKey(planner, { ...way, legs: before })} at ${planner.stops[before[before.length - 1].alight].name}, a bus`;
 }
 
 // The value a share `q` of the way up a sorted list
@@ -124,7 +124,7 @@ export function* answering(planner, access, egress, now, { window = WINDOW_SECON
             key, best, lines: [...lines].sort(), onward: [...onward].sort(), bundle: lines.size > 1,
             way: best.find(Boolean),
             range: /** @type {[number, number]} */ ([quantile(found, RANGE_TAIL), quantile(found, 1 - RANGE_TAIL)].map(s => Math.round(s / 60))),
-            every: leaving.length > 1 ? Math.round((leaving.at(-1) - leaving[0]) / (leaving.length - 1)) : null,
+            every: leaving.length > 1 ? Math.round((leaving[leaving.length - 1] - leaving[0]) / (leaving.length - 1)) : null,
             first: best.filter((way, d) => way?.at === fastest[d]).length / departures.length,
             close: best.filter((way, d) => way && way.at <= fastest[d] + TIE_SECONDS).length / departures.length,
             cost: quantile(costs, 0.5),
@@ -153,12 +153,14 @@ function decisionIn(rows, departures) {
     for (const [i, a] of often.entries()) {
         for (const b of often.slice(i + 1)) {
             const d = departures.findIndex((_, j) => sameFirstRide(a.best[j], b.best[j]) && byBus(a.best[j], b.best[j]));
-            if (d < 0 || share(a, b) < DECISION_SHARE || share(b, a) < DECISION_SHARE) continue;
-            const [getOff, stayOn] = a.best[d].legs[0].arrives < b.best[d].legs[0].arrives ? [a, b] : [b, a];
-            const off = getOff.best[d];
+            const [wa, wb] = [a.best[d], b.best[d]];
+            if (d < 0 || !wa || !wb || share(a, b) < DECISION_SHARE || share(b, a) < DECISION_SHARE) continue;
+            const aFirst = wa.legs[0].arrives < wb.legs[0].arrives;
+            const [getOff, stayOn] = aFirst ? [a, b] : [b, a];
+            const [off, kept] = aFirst ? [wa, wb] : [wb, wa];
             const [, onward] = off.legs;
             // From the onward bus leaving to the door takes the same whenever it leaves
-            const latest = stayOn.best[d].at - (off.at - onward.boards);
+            const latest = kept.at - (off.at - onward.boards);
             const ready = off.legs[0].arrives + (onward.walkBefore ? onward.walkBefore + AFTER_WALK_SECONDS : CHANGE_SECONDS);
             return { stayOn, getOff, stop: onward.board, lines: getOff.onward, ready, latest, reaches: off.legs[0].arrives };
         }
@@ -176,7 +178,7 @@ const byBus = (a, b) => ON_THE_ROAD.has((a.legs[0].arrives < b.legs[0].arrives ?
 
 // How much later a bus predicted `ahead` seconds out comes, as a rule
 /** @param {number} ahead */
-export const lateness = ahead => LATENESS.find(([upTo]) => ahead <= upTo)[1];
+export const lateness = ahead => /** @type {number[]} */ (LATENESS.find(([upTo]) => ahead <= upTo))[1];
 
 /**
  * Whether to offer the rider a quicker way: the directions stay on the first
@@ -196,7 +198,7 @@ export const lateness = ahead => LATENESS.find(([upTo]) => ahead <= upTo)[1];
  *   | { offer: false, why: 'missed' | 'none' }}
  */
 export function quickerWay({ lines, ready, latest, reaches }, predictions, asked, { here } = {}) {
-    const late = here === undefined ? 0 : Math.max(0, here + lateness(here - asked) - reaches);
+    const late = here === undefined || reaches === undefined ? 0 : Math.max(0, here + lateness(here - asked) - reaches);
     const ours = predictions.filter(({ line }) => lines.includes(line)).sort((a, b) => a.at - b.at);
     if (!ours.length) return { offer: false, why: 'none' };
     const caught = ours.filter(({ at }) => at >= ready + late);

@@ -74,8 +74,10 @@ function lineParts(line) {
     const hops = dirs.flatMap(ids => ids.slice(1).map((id, i) => [ids[i], id]));
     const has = (a, b) => hops.some(([x, y]) => x === a && y === b);
     const firstHas = (a, b) => dirs[0].some((id, i) => i > 0 && ((dirs[0][i - 1] === a && id === b) || (dirs[0][i - 1] === b && id === a)));
+    /** @type {string[][]} */
     const extra = [];
     for (const ids of dirs.slice(1)) {
+        /** @type {string[] | null} */
         let run = null;
         ids.slice(1).forEach((id, i) => {
             if (firstHas(ids[i], id)) { run = null; return; }
@@ -435,6 +437,7 @@ function createRailMap(container, network, layout, { label, describedBy, colors 
     // still reaches its link; a drag swallows the click that follows it.
     const pointers = new Map();
     let moved = 0;
+    /** @type {{ dist: number, mid: [number, number] } | null} */
     let gesture = null; // { dist, mid } of the last two-finger frame
 
     svg.addEventListener('pointerdown', e => {

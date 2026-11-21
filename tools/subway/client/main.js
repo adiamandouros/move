@@ -16,7 +16,7 @@ import { SUBURBAN_HIDDEN, TRAM_HIDDEN, suburbanHidden, tramHidden } from './tram
 const REFRESH_MS = 30_000;
 const COUNT_MS = 1_000;
 
-const result = document.getElementById('subway-result');
+const result = /** @type {HTMLElement} */ (document.getElementById('subway-result'));
 
 // rail.json is precached by the service worker, so this works offline
 async function loadRail() {
@@ -60,7 +60,7 @@ function start(metro, trains) {
         }
         return networks.get(key);
     };
-    const named = mode => ['from', 'to'].some(key => network(true, true).stations[params.get(key)]?.[mode]);
+    const named = mode => ['from', 'to'].some(key => network(true, true).stations[params.get(key) ?? '']?.[mode]);
     let showTram = !tramHidden() || named('tram');
     let showSuburban = !suburbanHidden();
     let rail = network(showTram, showSuburban);
@@ -76,10 +76,10 @@ function start(metro, trains) {
     // step-free notice or the legend), to give it back after a refresh
     const focused = () => {
         const toggle = document.activeElement?.closest('#subway-result .leg-stops-toggle');
-        if (toggle) return `.leg-stops-toggle[data-leg="${CSS.escape(toggle.getAttribute('data-leg'))}"]`;
+        if (toggle) return `.leg-stops-toggle[data-leg="${CSS.escape(toggle.getAttribute('data-leg') ?? '')}"]`;
         const details = document.activeElement?.closest('#subway-result details');
         if (!details) return null;
-        if (details.hasAttribute('data-route')) return `details[data-route="${CSS.escape(details.getAttribute('data-route'))}"] > summary`;
+        if (details.hasAttribute('data-route')) return `details[data-route="${CSS.escape(details.getAttribute('data-route') ?? '')}"] > summary`;
         return `${details.matches('.lift-notice') ? 'details.lift-notice' : 'details.diagram-legend'} > summary`;
     };
     const refocus = selector => { if (selector) /** @type {HTMLElement | null} */ (result.querySelector(selector))?.focus(); };
@@ -122,8 +122,10 @@ function start(metro, trains) {
     // follows the location isn't: by then it may be another one.
     const syncUrl = () => {
         const query = new URLSearchParams();
-        if (from.get()) query.set('from', from.get());
-        if (to.get()) query.set('to', to.get());
+        const origin = from.get();
+        const destination = to.get();
+        if (origin) query.set('from', origin);
+        if (destination) query.set('to', destination);
         const search = query.toString();
         history.replaceState(null, '', search ? `${location.pathname}?${search}` : location.pathname);
         if (followLocation) query.delete('from');
@@ -133,10 +135,11 @@ function start(metro, trains) {
     // The walking figure beside the boarding station: walking directions to it
     const walk = /** @type {HTMLAnchorElement} */ (document.getElementById('walk-btn'));
     const syncWalk = () => {
-        walk.hidden = !from.get();
-        if (walk.hidden) return;
-        walk.href = walkingUrl(rail, from.get());
-        document.getElementById('walk-station').textContent = localName(rail.stations[from.get()].name, language);
+        const origin = from.get();
+        walk.hidden = !origin;
+        if (!origin) return;
+        walk.href = walkingUrl(rail, origin);
+        /** @type {HTMLElement} */ (document.getElementById('walk-station')).textContent = localName(rail.stations[origin].name, language);
     };
 
     const changed = () => { opened = {}; stationsOpen = {}; syncUrl(); syncWalk(); render({ speak: true }); };
@@ -144,7 +147,7 @@ function start(metro, trains) {
     // A click on a summary (also Enter or Space) comes before the toggle
     result.addEventListener('click', e => {
         const details = /** @type {Element} */ (e.target).closest?.('details[data-route]');
-        if (details && /** @type {Element} */ (e.target).closest('summary')) opened[details.getAttribute('data-route')] = !details.hasAttribute('open');
+        if (details && /** @type {Element} */ (e.target).closest('summary')) opened[details.getAttribute('data-route') ?? ''] = !details.hasAttribute('open');
     });
 
     // A leg's stops: open or close its stations
@@ -154,7 +157,7 @@ function start(metro, trains) {
     // user's location until they pick one themselves. The "Nearest" button
     // shows it: pressed (blue, its icon filled) while it does.
     let followLocation = false;
-    const locate = document.getElementById('locate-btn');
+    const locate = /** @type {HTMLElement} */ (document.getElementById('locate-btn'));
     const follow = on => {
         followLocation = on;
         showFollowing(locate, on);
@@ -165,7 +168,7 @@ function start(metro, trains) {
     const toInput = /** @type {HTMLInputElement} */ (document.getElementById('stop-search-to'));
     const from = stationSearch({
         input: fromInput,
-        list: document.getElementById('stop-suggestions-from'),
+        list: /** @type {HTMLElement} */ (document.getElementById('stop-suggestions-from')),
         rail,
         onChange: () => { follow(false); changed(); },
         announce,
@@ -174,7 +177,7 @@ function start(metro, trains) {
     fromInput.addEventListener('input', () => follow(false));
     const to = stationSearch({
         input: toInput,
-        list: document.getElementById('stop-suggestions-to'),
+        list: /** @type {HTMLElement} */ (document.getElementById('stop-suggestions-to')),
         rail,
         onChange: changed,
         announce,
@@ -194,7 +197,7 @@ function start(metro, trains) {
     });
     changed();
 
-    document.getElementById('subway-form').addEventListener('submit', e => e.preventDefault());
+    /** @type {HTMLElement} */ (document.getElementById('subway-form')).addEventListener('submit', e => e.preventDefault());
 
     // Plan on what's shown now: a station picked that's gone goes with it,
     // and the nearest station is looked for again among those there are
@@ -214,7 +217,7 @@ function start(metro, trains) {
         { id: 'suburban', key: SUBURBAN_HIDDEN, shown: () => showSuburban, show: on => { showSuburban = on; } },
     ];
     const syncSwitches = () => switches.forEach(({ id, shown }) => {
-        document.getElementById(`${id}-switch`).hidden = id === 'tram' ? network(true, false) === metro : network(false, true) === metro;
+        /** @type {HTMLElement} */ (document.getElementById(`${id}-switch`)).hidden = id === 'tram' ? network(true, false) === metro : network(false, true) === metro;
         /** @type {HTMLInputElement} */ (document.getElementById(`show-${id}`)).checked = shown();
     });
     syncSwitches();
@@ -240,8 +243,9 @@ function start(metro, trains) {
         showSuburban ||= named('suburban');
         if (network(showTram, showSuburban) !== rail) replan();
         for (const { key, field, input } of [{ key: 'from', field: from, input: fromInput }, { key: 'to', field: to, input: toInput }]) {
-            if (!field.get() && !input.value && rail.stations[params.get(key)]) {
-                field.set(params.get(key), { notify: false });
+            const id = params.get(key);
+            if (!field.get() && !input.value && id && rail.stations[id]) {
+                field.set(id, { notify: false });
                 if (key === 'from') follow(false);
             }
         }
@@ -251,7 +255,7 @@ function start(metro, trains) {
         render();
     });
 
-    document.getElementById('swap-stations').addEventListener('click', () => {
+    /** @type {HTMLElement} */ (document.getElementById('swap-stations')).addEventListener('click', () => {
         follow(false);
         const origin = from.get();
         from.set(to.get(), { notify: false });
@@ -269,7 +273,7 @@ function start(metro, trains) {
     // from new ones while followLocation lasts. The "Nearest" button turns
     // that back on and asks for it (the browser asks the first time). Pressed
     // again while on, it looks again: picking a station is what turns it off.
-    const status = document.getElementById('locate-status');
+    const status = /** @type {HTMLElement} */ (document.getElementById('locate-status'));
     let requested = false;
 
     const setNearest = ({ lat, lng }, { always = false } = {}) => {

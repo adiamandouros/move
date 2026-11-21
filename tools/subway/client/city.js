@@ -76,7 +76,7 @@ export const walkSeconds = (a, b) => walkMeters(a, b) / METERS_PER_MINUTE * 60;
  * @returns {{ exit: number | null, at: Point }}
  */
 export function streetEnd(station, point, way) {
-    let found = { exit: null, at: { lat: station.lat, lng: station.lng } };
+    let found = /** @type {{ exit: number | null, at: Point }} */ ({ exit: null, at: { lat: station.lat, lng: station.lng } });
     let least = Infinity;
     (station.exits ?? []).forEach((exit, i) => {
         if (exit.way && !exit.way.some(w => THROUGH[way].includes(w))) return;
@@ -117,13 +117,13 @@ export function changeWalk(a, b) {
 export function busDay({ stops, routes }, weekday) {
     const used = new Set();
     const day = routes.flatMap(({ line, mode, code, stops: along, runs, patterns, days }) => {
-        const profiles = runs.map(run => run.reduce((offsets, seconds) => [...offsets, offsets.at(-1) + seconds], [0]));
+        const profiles = runs.map(run => run.reduce((offsets, seconds) => [...offsets, offsets[offsets.length - 1] + seconds], [0]));
         const tripsOf = (pattern, shift) => {
             let start = 0;
             return patterns[pattern].map(([after, profile]) => /** @type {[number, number]} */ ([(start += after) + shift, profile]));
         };
         const trips = [
-            ...tripsOf(days[(weekday + 6) % 7], -DAY).filter(([start, profile]) => start + profiles[profile].at(-1) >= 0),
+            ...tripsOf(days[(weekday + 6) % 7], -DAY).filter(([start, profile]) => start + profiles[profile][profiles[profile].length - 1] >= 0),
             ...tripsOf(days[weekday], 0),
         ];
         if (!trips.length) return [];
@@ -147,7 +147,7 @@ export function trainDay({ stations, walks, outside, dates }, date) {
     if (!dates[date]) return null;
     const before = new Date(Date.parse(`${date}T00:00:00Z`) - DAY * 1000).toISOString().slice(0, 10);
     const late = (dates[before] ?? []).flatMap(route => {
-        const trips = route.trips.filter(([start, profile]) => start + route.profiles[profile].at(-1) >= DAY)
+        const trips = route.trips.filter(([start, profile]) => start + route.profiles[profile][route.profiles[profile].length - 1] >= DAY)
             .map(([start, profile, train]) => /** @type {[number, number, string?]} */ ([start - DAY, profile, train]));
         return trips.length ? [{ ...route, trips }] : [];
     });
