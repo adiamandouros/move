@@ -69,6 +69,9 @@ function departureChips(departures, now, tomorrow, words) {
     if (!departures.length) return html`<span class="schedule-label">${t(words.none)}</span>`;
     const clock = asClock(departures, now, tomorrow);
     const chips = departures.map(d => departureChip(d, now, clock, words)).filter(Boolean);
+    // Every train shown has left (an answer drawn again as it was, with no
+    // signal): no "In:" with nothing after it
+    if (!chips.length) return '';
     return html`<span class="schedule-label">${t(clock ? 'subway.schedule-at' : 'subway.schedule-in')}</span><span class="schedule-chips">${chips}</span>`;
 }
 
@@ -144,7 +147,7 @@ export function legCard(rail, leg, next, now, level, tomorrow, timed, key, open)
                     ${linePill(leg.line, line.name, 'l')}
                     <span class="direction-text"><span aria-hidden="true">→ </span><span class="sr-only">${t('subway.toward')} </span>${stationSign(toward, [leg.line])}</span>
                 </${heading}>
-                <div class="schedule-section ms-auto">${now && departureChips(leg.departures, now, tomorrow, words)}</div>
+                <div class="schedule-section ms-auto" data-badges>${now && departureChips(leg.departures, now, tomorrow, words)}</div>
             </div>
             ${now && lastTrainWords(leg.departures, words)}
             ${!line.tram && !line.suburban && exitDiagram(rail.positions, where, t)}

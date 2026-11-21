@@ -91,7 +91,7 @@ function badgesIn(...drawn) {
     const page = drawn.map(view => {
         const [, attributes] = String(view).match(/^<span ([^>]*)>/);
         const dataset = Object.fromEntries([...attributes.matchAll(/data-([a-z]+)(?:="([^"]*)")?/g)].map(([, name, value = '']) => [name, value.replaceAll('&#x3D;', '=')]));
-        const badge = { dataset, title: attributes.match(/title="([^"]*)"/)?.[1] ?? '', now: String(view), remove() { badge.now = null; } };
+        const badge = { dataset, title: attributes.match(/title="([^"]*)"/)?.[1] ?? '', now: String(view), closest: () => null, remove() { badge.now = null; } };
         Object.defineProperty(badge, 'outerHTML', { set(view) { badge.now = view; } });
         return badge;
     });
@@ -118,6 +118,23 @@ test('counting badges: each drawn again as its minute changes, the same way; gon
     const kept = badgesIn(minutesBadge(2, tEn, { then: ' (Last train),', tier: 'last', soon: false, title: 'Last train', at: epoch + 150, exact: true }));
     countBadges(kept, tEn, epoch + 61);
     assert.equal(kept.page[0].now, String(minutesBadge(1, tEn, { then: ' (Last train),', tier: 'last', soon: false, title: 'Last train', at: epoch + 150, exact: true })), 'the last train stays red, its words kept');
+});
+
+// Road · 18: the Subway and Trip pages' "In:" goes with its last train,
+// while the answer is held too
+test('counting badges: the last badge of a holder marked data-badges takes all it holds with it', () => {
+    const epoch = 1_800_000_000;
+    const holder = { emptied: false, badges: [], querySelector: () => holder.badges.find(b => b.now) ?? null, replaceChildren() { holder.emptied = true; } };
+    const root = badgesIn(minutesBadge(1, tEn, { at: epoch + 60, exact: true }), minutesBadge(5, tEn, { at: epoch + 5 * 60, exact: true }));
+    holder.badges = root.page;
+    for (const badge of root.page) badge.closest = () => holder;
+    countBadges(root, tEn, epoch + 61);
+    assert.equal(holder.emptied, false, 'one train still to come: the label stays');
+    countBadges(root, tEn, epoch + 5 * 60 + 1);
+    assert.equal(holder.emptied, true, 'none left: label and all');
+    // A badge in no such holder: only itself, as before
+    const alone = badgesIn(minutesBadge(1, tEn, { at: epoch + 60, exact: true }));
+    assert.equal(countBadges(alone, tEn, epoch + 61), true);
 });
 
 // DESIGN.md, "Type": minutes are written 7' everywhere, never ′ or "min",

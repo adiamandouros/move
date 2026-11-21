@@ -261,6 +261,19 @@ test('one train: minutes on screen and in full for screen readers, or a clock ti
     assert.equal(departureChip({ departs: now.seconds - 1 }, now, false), false);
 });
 
+// Road · 18: an answer drawn again as it was, with no signal, after every
+// train it shows has left
+test('every train shown gone: no "In:" left with nothing after it', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    const trip = planTrip(rail, 'syntagma', 'airport', NOON);
+    const drawn = now => String(render.renderResult(rail, trip.plans.slice(0, 1), now, { expired: false, tomorrow: false }));
+    assert.match(drawn(trip.now), /<div class="schedule-section ms-auto" data-badges><span class="schedule-label">In<\/span>/);
+    const later = { ...trip.now, seconds: trip.now.seconds + 3 * 3600 };
+    const gone = drawn(later);
+    assert.match(gone, /<div class="schedule-section ms-auto" data-badges><\/div>/);
+    assert.doesNotMatch(gone, /schedule-label|time-badge/);
+});
+
 test('a train\'s minutes carry when it leaves, to count down by themselves; a clock time doesn\'t (decision 61)', async () => {
     const { departureChip } = await browserModule('tools/subway/client/render.js', 'en');
     const now = { seconds: 12 * 3600, epoch: 1_800_000_000 };
