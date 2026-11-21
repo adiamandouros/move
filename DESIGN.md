@@ -207,9 +207,10 @@ value outside those blocks.
   readers (`pillList`).
 - **Station signs** (`stationSign`), like the real ones: an off-white
   panel, the same in both themes, with the line colours on its top and
-  bottom edges. Only metro lines are edges, the lower number on top
-  (Syntagma: M2 above, M3 below) until the field trip checks the other
-  interchanges. They show the direction of travel: the leg card's header
+  bottom edges. Only metro lines are edges. M1 is always on the bottom,
+  as the real signs have it (Piraeus, Monastiraki: M3 above, M1 below;
+  Omonia, Attiki: M2 above, M1 below); otherwise the lower number on top
+  (Syntagma: M2 above, M3 below). They show the direction of travel: the leg card's header
   (`[M1] → [Kifisia]`) and the station page's direction cards, both with
   the large pill; the station page's title, in the large size; and on the
   Trip page, the station a walk goes to for a metro ride (decision 68).
