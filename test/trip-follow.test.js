@@ -389,3 +389,92 @@ test('switched to a way that leaves the bus sooner, or back: still on the bus at
     assert.deepEqual([over.step, over.stop, over.at], [0, 0, riding.fix.at]);
     assert.deepEqual(over, follow.startOver(riding));
 });
+
+// Road · 15: a way's last bus that can be any of several. As on the road on
+// 21 Nov: the way's own bus (here the 040) from its stop, BOARD, and "the
+// 856" from another of its stops, OTHER, 110 m away, along another road;
+// the rider walks to OTHER and boards the 856
+const OTHER = east(110, BOARD);
+const OTHER_STOPS = [0, 1, 2, 3].map(i => east(i * 400, OTHER));
+const OTHER_PAST = [4].map(i => east(i * 400, OTHER));
+// Two lines from BOARD that share its road for two stops, then part
+const FORK = [0, 1, 2, 3, 4].map(i => i < 2 ? north(i * 400, BOARD) : east((i - 1) * 400, north(400, BOARD)));
+const anyBus = { ...bus, rides: [{ ...bus.rides[0], any: [
+    { board: 'bus:1', line: '040', along: STOPS.map(pair), past: PAST.map(pair) },
+    { board: 'bus:2', line: '856', along: OTHER_STOPS.map(pair), past: OTHER_PAST.map(pair) },
+    { board: 'bus:1', line: '829', along: FORK.map(pair), past: [] },
+] }] };
+const anySteps = waySteps(anyBus, SYNTAGMA, DOOR, null);
+
+test('a last bus that can be any of several: its walk, wait and ride carry every ride it can be (Road · 15)', () => {
+    const any = [{ board: 'bus:1', line: '040', points: STOPS, past: PAST }, { board: 'bus:2', line: '856', points: OTHER_STOPS, past: OTHER_PAST }, { board: 'bus:1', line: '829', points: FORK, past: [] }];
+    assert.deepEqual(anySteps, [
+        { kind: 'walk', ride: 0, from: SYNTAGMA, to: BOARD, any },
+        { kind: 'wait', ride: 0, at: BOARD, any },
+        { kind: 'ride', ride: 0, points: STOPS, past: PAST, close: true, any },
+        { kind: 'last', from: STOPS[4], to: DOOR },
+    ]);
+    assert.equal(starting().any, null);
+});
+
+test('walked to another of its stops, waiting there, and on its bus: followed on that ride to where it gets off, never off the way (Road · 15)', () => {
+    let state = starting();
+    const place = (point, at) => { state = placeOn(anySteps, state, fixAt(point, at), at); return state; };
+    place(SYNTAGMA, T);
+    // At the 856's stop, not the way's own: waiting
+    place(OTHER, T + 120_000);
+    assert.deepEqual([stepOf(anySteps, state).kind, state.any], ['wait', null]);
+    // Three minutes there, 110 m from the way's own stop: still waiting, not off
+    place(OTHER, T + 300_000);
+    assert.deepEqual([stepOf(anySteps, state).kind, state.off, state.offSince], ['wait', false, null]);
+    // On the 856 past its first stop: riding it
+    place(east(380, OTHER), T + 360_000);
+    assert.deepEqual([stepOf(anySteps, state).kind, state.any, state.stop, state.moved], ['ride', 1, 1, true]);
+    // Along its road, nowhere near the way's own bus: on, stop by stop
+    place(east(820, OTHER), T + 420_000);
+    assert.deepEqual([state.stop, state.off, state.offSince], [2, false, null]);
+    // At its last stop: off it, on the last walk
+    place(OTHER_STOPS[3], T + 480_000);
+    assert.equal(stepOf(anySteps, state).kind, 'last');
+    // The same ride on the way's own steps alone (before Road · 15): off the way
+    let before = starting();
+    const steps040 = waySteps(bus, SYNTAGMA, DOOR, null);
+    for (const [point, at] of [[SYNTAGMA, T], [OTHER, T + 120_000], [east(380, OTHER), T + 360_000], [east(820, OTHER), T + 420_000]]) before = placeOn(steps040, before, fixAt(point, at), at);
+    assert.equal(offDue(before, T + 480_000), true);
+});
+
+test('boarded with no fix at its stop: from the walk, a ride from its own stop at once; from another of its stops once off the walk, after a gap or a minute (Road · 15)', () => {
+    let state = placeOn(anySteps, starting(), fixAt(SYNTAGMA, T), T);
+    state = placeOn(anySteps, state, fixAt(east(820, OTHER), T + 300_000), T + 300_000);
+    assert.deepEqual([stepOf(anySteps, state).kind, state.any, state.stop], ['ride', 1, 2]);
+    // A moment on from the walk, on the 856's road past its stop: a walk past
+    // a stop along a bus's road looks the same, so still walking
+    const walking = placeOn(anySteps, starting(), fixAt(east(150), T), T);
+    const along = placeOn(anySteps, walking, fixAt(east(380, OTHER), T + 20_000), T + 20_000);
+    assert.equal(stepOf(anySteps, along).kind, 'walk');
+    // On the road from the walk's own stop, as the way's own bus: boarded at once
+    const own = placeOn(anySteps, walking, fixAt(north(250, BOARD), T + 20_000), T + 20_000);
+    assert.deepEqual([stepOf(anySteps, own).kind, anySteps[2].any[own.any].board, own.stop], ['ride', 'bus:1', 1]);
+    // By its first stop only: still walking
+    const waiting = placeOn(anySteps, placeOn(anySteps, starting(), fixAt(SYNTAGMA, T), T), fixAt(east(60, BOARD), T + 60_000), T + 60_000);
+    assert.equal(stepOf(anySteps, waiting).kind, 'walk');
+});
+
+test('two of its lines sharing a road from the stop: taken for one, then on the other\'s once they part (Road · 15)', () => {
+    let state = placeOn(anySteps, starting(), fixAt(BOARD, T), T);
+    state = placeOn(anySteps, state, fixAt(north(400, BOARD), T + 60_000), T + 60_000);
+    assert.deepEqual([stepOf(anySteps, state).kind, state.stop], ['ride', 1]);
+    assert.equal(anySteps[2].any[state.any].board, 'bus:1');
+    // Where they part, on the 829's road: on the 829, not off the way
+    state = placeOn(anySteps, state, fixAt(east(800, north(400, BOARD)), T + 120_000), T + 120_000);
+    assert.deepEqual([anySteps[2].any[state.any].line, state.stop, state.offSince], ['829', 3, null]);
+});
+
+test('the way timed again with the same bus boarded: still on it, at the same stop; one without it, on the way\'s own (Road · 15)', () => {
+    const riding = placeOn(anySteps, placeOn(anySteps, placeOn(anySteps, starting(), fixAt(OTHER, T), T), fixAt(OTHER, T + 1_000), T + 1_000), fixAt(east(380, OTHER), T + 60_000), T + 60_000);
+    assert.equal(riding.any, 1);
+    const reordered = waySteps({ ...anyBus, rides: [{ ...anyBus.rides[0], any: [anyBus.rides[0].any[1], anyBus.rides[0].any[0]] }] }, SYNTAGMA, DOOR, null);
+    const carried = follow.carry(anySteps, riding, reordered);
+    assert.deepEqual([carried.step, carried.stop, carried.any], [2, 1, 0]);
+    assert.deepEqual([follow.carry(anySteps, riding, waySteps(bus, SYNTAGMA, DOOR, null)).any], [null]);
+});

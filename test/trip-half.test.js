@@ -151,6 +151,38 @@ test('the stops a last bus can be caught at after a metro ride: each walked to b
     assert.deepEqual(Object.fromEntries(timed.stops.map(({ stop, walk }) => [stop.id, walk?.out])), Object.fromEntries(row.stops.map(({ stop, walk }) => [stop.id, walk?.out])));
 });
 
+// Road · 15: a last bus that can be any of several carries every ride it
+// can be, each line from each of its stops to the stop nearest the door, so
+// the page follows the rider onto whichever they board
+test('a last bus that can be any of several carries every ride it can be: each line from each of its stops, to its stop nearest the door', () => {
+    const row = afterMetro.rows.find(({ key }) => key === 'M3 at Σύνταγμα, a bus');
+    const options = row.options.filter(Boolean);
+    assert.ok(options.length > 0);
+    const position = stop => [Math.round(stop.lat * 1e5) / 1e5, Math.round(stop.lng * 1e5) / 1e5];
+    for (const option of options) {
+        const last = option.rides.at(-1);
+        assert.ok(last.any?.length, 'on the last bus');
+        assert.ok(option.rides.slice(0, -1).every(ride => !ride.any), 'only there');
+        // The way's own ride is one of them
+        assert.ok(last.any.some(r => r.board === last.board.id && r.line === last.line && JSON.stringify(r.along) === JSON.stringify(last.along)), `${last.line} from ${last.board.id}`);
+    }
+    const { any } = options[0].rides.at(-1);
+    // Every line at every stop of the step, from that stop
+    for (const { stop, lines } of row.stops) {
+        for (const line of lines) assert.ok(any.some(r => r.board === stop.id && r.line === line && JSON.stringify(r.along[0]) === JSON.stringify(position(stop))), `${line} from ${stop.id}`);
+    }
+    assert.ok(any.every(r => r.along.length >= 2 && r.past.length <= PAST_STOPS));
+    // Once each
+    assert.equal(new Set(any.map(r => `${r.line} ${JSON.stringify(r.along)}`)).size, any.length);
+    // From the door, the same; a way with no bundle, none
+    assert.ok(clear.rows[0].options.filter(Boolean).every(o => o.rides.at(-1).any?.length));
+    const single = [...byRail.rows, ...depends.rows, ...afterMetro.rows].filter(row => !row.bundle);
+    assert.ok(single.length > 0 && single.every(row => row.options.every(o => !o || o.rides.every(ride => !ride.any))));
+    // Timed with OASA's live times (liveWay) too
+    const answerRow = shownRows(answered(korydallos, menelaou, at(12))).find(({ key }) => key === row.key);
+    assert.deepEqual(JSON.parse(JSON.stringify(liveWay(city, korydallos, menelaou, answerRow, 0, at(12), {}).option.rides.at(-1).any)), any);
+});
+
 for (const lang of ['en', 'el']) {
     const r = await browserModule('tools/trip/client/render.js', lang);
     const subway = await browserModule('tools/subway/client/render.js', lang);
