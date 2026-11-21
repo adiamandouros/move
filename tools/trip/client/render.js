@@ -320,13 +320,16 @@ function citySteps(rail, o, to, drawn, row = null, live = null, following = null
     // A walk to `stop`, out of the metro station of the ride before it by its exit, a step of its own, and into `stop`'s
     /** @param {any} walk @param {any} stop @param {any} note @param {number} at @param {{ exits?: any } | null} [before] */
     const walkTo = (walk, stop, note, at, before = null) => walk && html`${before && exitStep(exitOf(before.exits, walk.out), mark(at))}${walkStep(walk, stopName(rail, stop), stop, note, mark(at), exitOf(stop.exits, walk.in))}`;
-    const rides = row?.bundle ? o.rides.slice(0, -1) : o.rides;
+    // A last bus that can be any of several is its stops, until the rider
+    // has boarded one: then that bus's ride (decision 67)
+    const bundled = row?.bundle && !o.rides.at(-1)?.boarded;
+    const rides = bundled ? o.rides.slice(0, -1) : o.rides;
     const cards = wayLegs(rail, o, drawn);
     const last = o.rides.length - 1;
     return html`<ol class="trip-steps">
         ${rides.length > 0 && walkTo(o.firstWalk, o.rides[0].board, null, 0)}
         ${rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board, ride.walkNote, i * 3, o.rides[i - 1].alight)}${cards[i] ? railCard(rail, cards[i], { seconds: drawn.now, epoch: drawn.epoch }, false, drawn.stations, mark(i * 3 + 1, 2)) : rideStep(rail, ride, drawn, mark(i * 3 + 1, 2))}`)}
-        ${row?.bundle && busStops(rail, live?.way.stops ?? row.stops, rides.length > 0 ? o.rides[last - 1].alight : null, { seconds: drawn.now, epoch: drawn.epoch }, drawn.stops, mark(last * 3 + 1, 2), o.rides[last].board.id)}
+        ${bundled && busStops(rail, live?.way.stops ?? row.stops, rides.length > 0 ? o.rides[last - 1].alight : null, { seconds: drawn.now, epoch: drawn.epoch }, drawn.stops, mark(last * 3 + 1, 2), o.rides[last].board.id)}
         ${o.lastWalk && html`${exitStep(exitOf(o.rides[last].alight.exits, o.lastWalk.out), mark(o.rides.length * 3))}${walkStep(o.lastWalk, to.title, to, null, mark(o.rides.length * 3))}`}
     </ol>`;
 }

@@ -400,14 +400,15 @@ const OTHER_PAST = [4].map(i => east(i * 400, OTHER));
 // Two lines from BOARD that share its road for two stops, then part
 const FORK = [0, 1, 2, 3, 4].map(i => i < 2 ? north(i * 400, BOARD) : east((i - 1) * 400, north(400, BOARD)));
 const anyBus = { ...bus, rides: [{ ...bus.rides[0], any: [
-    { board: 'bus:1', line: '040', along: STOPS.map(pair), past: PAST.map(pair) },
-    { board: 'bus:2', line: '856', along: OTHER_STOPS.map(pair), past: OTHER_PAST.map(pair) },
-    { board: 'bus:1', line: '829', along: FORK.map(pair), past: [] },
+    { board: 'bus:1', line: '040', along: STOPS.map(pair), past: PAST.map(pair), route: 0, from: 0, to: 4 },
+    { board: 'bus:2', line: '856', along: OTHER_STOPS.map(pair), past: OTHER_PAST.map(pair), route: 1, from: 2, to: 5 },
+    { board: 'bus:1', line: '829', along: FORK.map(pair), past: [], route: 2, from: 0, to: 4 },
 ] }] };
 const anySteps = waySteps(anyBus, SYNTAGMA, DOOR, null);
 
 test('a last bus that can be any of several: its walk, wait and ride carry every ride it can be (Road · 15)', () => {
-    const any = [{ board: 'bus:1', line: '040', points: STOPS, past: PAST }, { board: 'bus:2', line: '856', points: OTHER_STOPS, past: OTHER_PAST }, { board: 'bus:1', line: '829', points: FORK, past: [] }];
+    const any = [{ board: 'bus:1', line: '040', points: STOPS, past: PAST, route: 0, from: 0, to: 4 }, { board: 'bus:2', line: '856', points: OTHER_STOPS, past: OTHER_PAST, route: 1, from: 2, to: 5 },
+        { board: 'bus:1', line: '829', points: FORK, past: [], route: 2, from: 0, to: 4 }];
     assert.deepEqual(anySteps, [
         { kind: 'walk', ride: 0, from: SYNTAGMA, to: BOARD, any },
         { kind: 'wait', ride: 0, at: BOARD, any },
@@ -443,10 +444,15 @@ test('walked to another of its stops, waiting there, and on its bus: followed on
     assert.equal(offDue(before, T + 480_000), true);
 });
 
-test('boarded with no fix at its stop: from the walk, a ride from its own stop at once; from another of its stops once off the walk, after a gap or a minute (Road · 15)', () => {
-    let state = placeOn(anySteps, starting(), fixAt(SYNTAGMA, T), T);
-    state = placeOn(anySteps, state, fixAt(east(820, OTHER), T + 300_000), T + 300_000);
-    assert.deepEqual([stepOf(anySteps, state).kind, state.any, state.stop], ['ride', 1, 2]);
+test('boarded with no fix at its stop: from the walk, only a ride from the walk\'s own stop, at once or off the walk after a gap; one from another of its stops, from its wait (Road · 15)', () => {
+    const start = placeOn(anySteps, starting(), fixAt(SYNTAGMA, T), T);
+    // After a gap, far along the 040 from the walk's own stop: on it (Road · 7's rule)
+    const gapOwn = placeOn(anySteps, start, fixAt(north(1_200, BOARD), T + 300_000), T + 300_000);
+    assert.deepEqual([stepOf(anySteps, gapOwn).kind, anySteps[2].any[gapOwn.any].line, gapOwn.stop], ['ride', '040', 3]);
+    // After a gap, far along the 856 from another stop: off the way, as dozens
+    // of a step's rides can be within 300 m of anywhere near it
+    const gapOther = placeOn(anySteps, start, fixAt(east(820, OTHER), T + 300_000), T + 300_000);
+    assert.deepEqual([stepOf(anySteps, gapOther).kind, gapOther.off], ['walk', true]);
     // A moment on from the walk, on the 856's road past its stop: a walk past
     // a stop along a bus's road looks the same, so still walking
     const walking = placeOn(anySteps, starting(), fixAt(east(150), T), T);
@@ -468,6 +474,20 @@ test('two of its lines sharing a road from the stop: taken for one, then on the 
     // Where they part, on the 829's road: on the 829, not off the way
     state = placeOn(anySteps, state, fixAt(east(800, north(400, BOARD)), T + 120_000), T + 120_000);
     assert.deepEqual([anySteps[2].any[state.any].line, state.stop, state.offSince], ['829', 3, null]);
+});
+
+test('at one of its stops that is a later stop of a ride from another (the same line, a stop before): waiting there, then on the ride from there (Road · 15)', () => {
+    // The 856 also from a stop before OTHER, on the same road
+    const BEFORE = east(-400, OTHER);
+    const twice = waySteps({ ...anyBus, rides: [{ ...anyBus.rides[0], any: [
+        { board: 'bus:3', line: '856', along: [BEFORE, ...OTHER_STOPS].map(pair), past: OTHER_PAST.map(pair), route: 1, from: 1, to: 5 },
+        ...anyBus.rides[0].any,
+    ] }] }, SYNTAGMA, DOOR, null);
+    let state = placeOn(twice, starting(), fixAt(SYNTAGMA, T), T);
+    state = placeOn(twice, state, fixAt(OTHER, T + 120_000), T + 120_000);
+    assert.equal(stepOf(twice, state).kind, 'wait', 'at OTHER, waiting, not one stop on from BEFORE');
+    state = placeOn(twice, state, fixAt(east(380, OTHER), T + 300_000), T + 300_000);
+    assert.deepEqual([stepOf(twice, state).kind, twice[2].any[state.any].board, state.stop], ['ride', 'bus:2', 1], 'the one from where they waited');
 });
 
 test('the way timed again with the same bus boarded: still on it, at the same stop; one without it, on the way\'s own (Road · 15)', () => {

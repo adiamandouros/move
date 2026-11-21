@@ -54,14 +54,17 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
  * `on`, those stops themselves, for the list of a bus's stops on the way
  * @typedef {{ line: string, dir?: string, lines: string[], mode: string, board: import('/tools/subway/city.js').Stop, alight: import('/tools/subway/city.js').Stop,
  *   boards: number, arrives: number, stops: number, along: [number, number][], past: [number, number][], on: import('/tools/subway/city.js').Stop[], toward: { el: string, en: string }, walkBefore: Walk | null,
- *   walkNote: { el: string, en: string } | null, next?: number | null, live?: RideLive, train?: string | null, timetable?: number, any?: AnyRide[] }} Ride
- * `any`: on a way's last bus that can be any of several, every ride it can be (anyRides)
+ *   walkNote: { el: string, en: string } | null, next?: number | null, live?: RideLive, train?: string | null, timetable?: number, any?: AnyRide[], boarded?: true }} Ride
+ * `any`: on a way's last bus that can be any of several, every ride it can be
+ * (anyRides); `boarded`: that bus, as the one of them the rider boarded
  */
 /**
  * One of the rides a way's last bus can be when any of several will do
  * (Road · 15): the line `line` from the stop `board` (its id), `along` and
- * `past` as a ride's, to the stop it gets off at nearest the door
- * @typedef {{ board: string, line: string, along: [number, number][], past: [number, number][] }} AnyRide
+ * `past` as a ride's, to the stop it gets off at nearest the door; `route`
+ * and the places `from` and `to` in its stops, by which the way is timed as
+ * that bus once the rider is on it (liveWay)
+ * @typedef {{ board: string, line: string, along: [number, number][], past: [number, number][], route: number, from: number, to: number }} AnyRide
  */
 /**
  * A way with a bus, as one of the Trip page's options: `rides`, its walks
@@ -201,7 +204,7 @@ export function anyRides(planner, stops, egress) {
     /** @type {AnyRide[]} */
     const rides = [];
     for (const { stop, lines } of stops) {
-        for (const route of planner.routes) {
+        for (const [index, route] of planner.routes.entries()) {
             const at = lines.includes(route.line) ? route.stops.indexOf(stop) : -1;
             if (at < 0) continue;
             let off = -1;
@@ -214,7 +217,7 @@ export function anyRides(planner, stops, egress) {
             seen.add(key);
             const where = (/** @type {number} */ i) => position(planner.stops[route.stops[i]]);
             rides.push({
-                board: planner.stops[stop].id, line: route.line,
+                board: planner.stops[stop].id, line: route.line, route: index, from: at, to: off,
                 along: route.stops.slice(at, off + 1).map((_, i) => where(at + i)),
                 past: route.stops.slice(off + 1, off + 1 + PAST_STOPS).map((_, i) => where(off + 1 + i)),
             });
@@ -347,6 +350,26 @@ export function shownRows({ rows, clear, decision }) {
 /** @param {import('/tools/subway/ways.js').Way} way @param {boolean} bundle @param {string[]} lines */
 const linesOf = (way, bundle, lines) => way.legs.map((leg, i) => bundle && i === way.legs.length - 1 ? lines : [leg.line]);
 
+/**
+ * The ride of a last bus's several the rider boarded (`any`, LiveStep's), as
+ * the leg in place of `way`'s last: its trip the one at the stop they're at
+ * (`step`) nearest when they were there, the walk to it the step's own
+ * (decision 67)
+ * @param {Planner} planner @param {import('/tools/subway/answer.js').Row} row @param {import('/tools/subway/ways.js').Way} way
+ * @param {{ route: number, from: number, to: number }} any @param {LiveStep} step
+ */
+function boardedLeg(planner, row, way, { route, from, to }, step) {
+    const { line, mode, stops, trips } = planner.routes[route];
+    const here = Math.min(from + step.stop, to);
+    const trip = trips.length ? trips.reduce((best, times) => Math.abs(times[here] - step.at) < Math.abs(best[here] - step.at) ? times : best) : null;
+    const board = stops[from];
+    return {
+        ...way.legs[way.legs.length - 1], line, mode, route, boardIndex: from, alightIndex: to, board, alight: stops[to],
+        boards: trip ? trip[from] : step.at, arrives: trip ? trip[to] : step.at,
+        walkBefore: row.stops.find(stop => stop.stop === board)?.walk ?? 0,
+    };
+}
+
 // The most stops the way shown asks OASA for (agreed 6 Nov 2026, decision 34; kept in 45)
 export const LIVE_STOPS = 10;
 
@@ -355,8 +378,10 @@ export const LIVE_STOPS = 10;
  * on which ride (`leg`: its index among the way's), doing what, at which of
  * the ride's stops (`stop`, from where it boards), since `at` (seconds from
  * midnight: now, or when the last fix came when none has for a while, so
- * nothing slides underground), with `walk` seconds still to walk on a walk
- * @typedef {{ leg: number, kind: 'walk' | 'wait' | 'ride' | 'last' | 'arrived', stop: number, at: number, walk: number }} LiveStep
+ * nothing slides underground), with `walk` seconds still to walk on a walk;
+ * on a last bus that can be any of several, the ride of them they boarded
+ * (`any`, its route and places in it: AnyRide's)
+ * @typedef {{ leg: number, kind: 'walk' | 'wait' | 'ride' | 'last' | 'arrived', stop: number, at: number, walk: number, any?: { route: number, from: number, to: number } | null }} LiveStep
  */
 
 /**
@@ -451,8 +476,11 @@ const catchable = (live, codes, ready) => (live?.buses ?? [])
  * @returns {LiveWay | null}
  */
 export function liveWay(planner, from, to, row, departure, now, live, { decision = null, taken = false, trains = null, step = null, own = null, ahead = null } = {}) {
-    const way = row.best[departure];
-    if (!way) return null;
+    const best = row.best[departure];
+    if (!best) return null;
+    // On one of a last bus's several (Road · 15, decision 67): the way is that bus
+    const boarded = row.bundle && step?.any ? boardedLeg(planner, row, best, step.any, step) : null;
+    const way = boarded ? { ...best, legs: [...best.legs.slice(0, -1), boarded] } : best;
     if (decision && taken) {
         const off = leavingSooner(decision, way, departure);
         return off < 0 ? null : liveWay(planner, from, to, decision.getOff, off, now, live, { trains, step, own, ahead });
@@ -468,8 +496,9 @@ export function liveWay(planner, from, to, row, departure, now, live, { decision
     const end = legs[legs.length - 1];
     // Past every ride, the door is as far as the last walk; arrived, it's here
     const at = step?.kind === 'arrived' ? step.at : step?.kind === 'last' ? step.at + step.walk : end.arrives + secondsTo(egress, end.alight);
-    const option = cityOption(planner, { ...way, legs, at }, { access, egress, from, to }, now.seconds, linesOf(way, row.bundle, row.lines));
+    const option = cityOption(planner, { ...way, legs, at }, { access, egress, from, to }, now.seconds, linesOf(way, row.bundle && !boarded, row.lines));
     if (row.bundle) withAny(option, planner, row.stops, egress);
+    if (boarded) option.rides[last].boarded = true;
     option.rides.forEach((ride, i) => { if (said[i]) ride.live = said[i]; });
 
     const doors = new Set(egress.filter((_, i) => i % 2 === 0));

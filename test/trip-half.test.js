@@ -20,6 +20,7 @@ const { cityPlanner, halfHour, halfView, liveWay, otherWay, PAST_STOPS, routeCod
 const { planTrip, withTram } = await browserModule('tools/subway/client/network.js');
 const { halfWays } = await browserModule('tools/trip/client/half.js');
 const { walkingUrl } = await browserModule('public/js/core/html.js');
+const { latinName } = await browserModule('public/js/core/text.js');
 const network = withTram(rail);
 const city = cityPlanner(rail, buses, 3);
 
@@ -183,6 +184,33 @@ test('a last bus that can be any of several carries every ride it can be: each l
     assert.deepEqual(JSON.parse(JSON.stringify(liveWay(city, korydallos, menelaou, answerRow, 0, at(12), {}).option.rides.at(-1).any)), any);
 });
 
+// Road · 15 part 2 (decision 67): on one of a last bus's several, from
+// another of its stops than the way's own, the way is that bus
+const anyRow = shownRows(answered(korydallos, menelaou, at(12))).find(({ key }) => key === 'M3 at Σύνταγμα, a bus');
+const anyWay = liveWay(city, korydallos, menelaou, anyRow, 0, at(12), {});
+const ownRide = anyWay.option.rides.at(-1);
+const otherRide = ownRide.any.find(r => r.board !== ownRide.board.id);
+const onOther = { leg: 1, kind: 'ride', stop: 1, at: 12 * 3600 + 25 * 60, walk: 0, any: { route: otherRide.route, from: otherRide.from, to: otherRide.to } };
+const boardedWay = liveWay(city, korydallos, menelaou, anyRow, 0, at(12), {}, { step: onOther });
+
+test('on one of a last bus\'s several, from another of its stops: the way is that bus, from that stop to where it gets off, its own bus asked there (decision 67)', () => {
+    assert.ok(otherRide, 'a ride from another stop than the way\'s own');
+    const last = boardedWay.option.rides.at(-1);
+    assert.equal(last.boarded, true);
+    assert.deepEqual([last.line, last.board.id, last.lines], [otherRide.line, otherRide.board, [otherRide.line]]);
+    assert.deepEqual(last.along, otherRide.along, 'its stops as followed');
+    assert.equal(last.stops, otherRide.to - otherRide.from);
+    assert.deepEqual(boardedWay.stops, [], 'no stops to catch it at any more');
+    assert.ok(last.arrives > onOther.at, 'gets off after now');
+    assert.deepEqual(boardedWay.option.rides.slice(0, -1).map(ride => ride.line), anyWay.option.rides.slice(0, -1).map(ride => ride.line), 'the rides before it as they were');
+    assert.equal(last.any.length, ownRide.any.length, 'still every ride it can be, for following');
+    // The rider's own bus, by its vehicle code, asked where this bus gets off
+    const asked = liveWay(city, korydallos, menelaou, anyRow, 0, at(12), {}, { step: onOther, own: { leg: 1, vehicle: 'V1' } }).asks;
+    assert.ok(asked.some(a => a.stop === last.alight.id.slice('bus:'.length) && a.ride), JSON.stringify(asked));
+    // Not boarded: the way's own, as before
+    assert.ok(!ownRide.boarded && anyWay.stops.length > 0);
+});
+
 for (const lang of ['en', 'el']) {
     const r = await browserModule('tools/trip/client/render.js', lang);
     const subway = await browserModule('tools/subway/client/render.js', lang);
@@ -233,6 +261,21 @@ for (const lang of ['en', 'el']) {
         // From the door, none
         const fromDoor = String(r.renderHalf(network, clear.kind, halfWays(clear, at(12).seconds), fix, { ...at(12), now: at(12).seconds }));
         assert.ok(!fromDoor.includes('trip-stop-exit'));
+    });
+
+    test(`${lang}: on one of "Then any of these buses", that bus's ride card: Exit at where it gets off, its stops, no list of stops (decision 67)`, () => {
+        const ways = halfWays(afterMetro, at(12).seconds);
+        const index = afterMetro.rows.findIndex(({ key }) => key === 'M3 at Σύνταγμα, a bus');
+        const drawn = way => String(r.renderHalf(network, afterMetro.kind, [ways[index]], menelaou, { ...at(12), now: onOther.at, live: { way: JSON.parse(JSON.stringify(way)) }, following: { kind: 'ride', ride: 1 } }));
+        const view = drawn(boardedWay);
+        check(view);
+        const last = boardedWay.option.rides.at(-1);
+        const name = lang === 'el' ? last.alight.names.el : last.alight.names.en || latinName(last.alight.names.el);
+        assert.ok(!view.includes(s['trip.any-bus-then']) && !view.includes('trip-stop'), 'no stops to catch it at');
+        assert.ok(view.includes(`${s['subway.exit-at']} <strong>${name}</strong>`), `Exit at ${name}`);
+        assert.ok(view.includes(`data-leg="bus/${last.line}/${last.board.id}/${last.alight.id}"`), 'its stops');
+        // Not boarded yet: the list, as before
+        assert.ok(drawn(anyWay).includes(s['trip.any-bus-then']));
     });
 
     test(`${lang}: it depends, said above the way first by the weights; the others on a line each, with their range`, () => {

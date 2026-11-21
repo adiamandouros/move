@@ -510,6 +510,15 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
         return forTrip(found) && !holding() ? [drawFound(found)] : [];
     };
 
+    // The ride of a last bus's several the rider boarded (follow.js, decision 67), or null
+    /** @returns {import('./follow.js').AnyRide | null} */
+    const boardedAny = () => {
+        const { any } = ride.state;
+        const at = any === null || !ride.steps ? -1 : ride.steps.findIndex(s => s.kind === 'ride' && s.any);
+        // From its ride on: not before, on a walk or a wait
+        const step = at >= 0 && ride.state.step >= at ? ride.steps?.[at] : null;
+        return step && 'any' in step ? step.any?.[/** @type {number} */ (any)] ?? null : null;
+    };
     // Where the rider is, for the worker to time the way from (buses.js
     // LiveStep): as of now, or of the last fix when none has come for a while
     // (underground), so nothing slides to the next train; a walk by what's
@@ -521,7 +530,10 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
         const { fix, at: atMs, stop } = ride.state;
         const frozen = fix && moment.ms - fix.at > GAP_MS;
         const walk = fix && (step.kind === 'walk' || step.kind === 'last') ? Math.round(walkSeconds(fix, step.to)) : 0;
-        return { leg: 'ride' in step ? step.ride : 0, kind: step.kind, stop, at: frozen && atMs !== null ? athensNow(new Date(atMs)).seconds : moment.now.seconds, walk };
+        // On one of a last bus's several, the one boarded, for the way to be timed as it (decision 67)
+        const boarded = boardedAny();
+        return { leg: 'ride' in step ? step.ride : 0, kind: step.kind, stop, at: frozen && atMs !== null ? athensNow(new Date(atMs)).seconds : moment.now.seconds, walk,
+            ...boarded && { any: { route: boarded.route, from: boarded.from, to: boarded.to } } };
     };
     // The ride followed, kept with the trip for the page opened again
     // (decision 58): where and for when the way was searched, its steps and
@@ -562,7 +574,8 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
         }
         const steps = o && from && to ? waySteps(o, from, to, railOn(date)) : null;
         const state = restore && steps ? key === restore.key ? restore.state : carry(restore.steps, restore.state, steps)
-            : ride.carrying && ride.steps && steps ? carry(ride.steps, ride.state, steps) : startOver(ride.state);
+            // On one of a last bus's several, the way timed as it is the same way (decision 67)
+            : (ride.carrying || ride.state.any !== null) && ride.steps && steps ? carry(ride.steps, ride.state, steps) : startOver(ride.state);
         if (final) ride.restore = null;
         Object.assign(ride, { key, way: o, steps, state, carrying: false });
         return keepFollowed();
@@ -622,7 +635,9 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
         // kept with the ride from this fix on (decision 58)
         const step = stepOf(ride.steps, ride.state);
         if (ride.state.moved && step.kind === 'ride' && own?.leg !== step.ride) {
-            const boarded = ride.way?.rides?.[step.ride];
+            // On one of a last bus's several, the line boarded at its stop (decision 67)
+            const any = boardedAny();
+            const boarded = any ? { board: { id: any.board }, lines: [any.line] } : ride.way?.rides?.[step.ride];
             const code = boarded?.board.id.startsWith('bus:') ? boarded.board.id.slice('bus:'.length) : null;
             const vehicle = code ? ownBus(times.answers.get(code), boarded.lines, moment.now.seconds) : null;
             own = vehicle ? { leg: step.ride, vehicle } : null;
