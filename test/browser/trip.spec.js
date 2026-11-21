@@ -105,6 +105,27 @@ test.describe('the trip page', () => {
         expect(await axe(page), 'axe-core violations').toEqual([]);
     });
 
+    // Road · 17 (decision 51): after the metro, each stop of "Then any of
+    // these buses" says the exit its walk comes out by, its own
+    test.describe('from near Korydallos, where the location is', () => {
+        test.use({ location: { at: { lat: 37.9775, lng: 23.6522 } } });
+        test('after a metro ride, each stop to catch any of the buses at says its own way out', async ({ page }) => {
+            await page.goto('/trip');
+            await page.getByRole('button', { name: 'My location' }).click();
+            await to(page).fill('Μενελάου 105');
+            await list(page, 'to').first().click();
+            const card = page.locator('.trip-card').first();
+            await expect(card).toBeVisible();
+            // The M3 to Syntagma, then three stops, each above its row with the
+            // exit nearest it, the walk to it from there
+            const stops = card.locator('li.trip-stop');
+            await expect(card.getByText('Then any of these buses, whichever comes first:')).toBeVisible();
+            await expect(stops.locator('.trip-stop-exit')).toHaveText(['Way out: Amalias/National Garden', 'Way out: Syntagma Square', 'Way out: Amalias/National Garden']);
+            await expect(stops.first().locator('.trip-stop-exit + .stop-item')).toHaveCount(1);
+            expect(await axe(page), 'axe-core violations').toEqual([]);
+        });
+    });
+
     test('axe-core is clean with the list open and with a trip', async ({ page }) => {
         await page.goto('/trip');
         await from(page).fill('Μενελάου');

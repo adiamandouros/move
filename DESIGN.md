@@ -405,7 +405,9 @@ rules, with a picture of a way shown in full.
   Amalias/National Garden", with nothing on the left, and the walk after it
   starts there. The exit's name is as its sign says it, in the page's
   language or the other one when only one is recorded. A station without
-  exits recorded, or an exit without a name, says nothing.
+  exits recorded, or an exit without a name, says nothing. Before "Then
+  any of these buses", each stop can be nearest a different exit, so each
+  says its own, "Way out: …" above its row, and its walk is from there.
 - **A bus ride**: on the left, the clock time it leaves, `md`, bold, the
   body colour, with `~` when it's from OASA's timetable. The heading is the
   M plate and "towards …" in words (a bus shows where it goes on its front,
