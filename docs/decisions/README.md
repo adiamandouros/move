@@ -78,3 +78,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 64 | [The trip page: the other ways can be taken](0064-other-ways-can-be-taken.md) | In force |
 | 65 | [One rule for answers that come too late](0065-one-rule-for-late-answers.md) | In force |
 | 66 | [Stricter type checks, file by file, the count only going down](0066-strict-null-checks-step-by-step.md) | In force |
+| 67 | [The trip page: followed onto whichever of "Any of these buses" is boarded](0067-trip-follows-any-of-these-buses.md) | In force |
