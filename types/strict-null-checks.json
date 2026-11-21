@@ -43,16 +43,5 @@
     "server/processes.js": 1,
     "server/railway/index.js": 3,
     "server/railway/lateness.js": 4,
-    "server/railway/stream.js": 1,
-    "tools/info/client/main.js": 8,
-    "tools/info/client/map.js": 6,
-    "tools/subway/client/answer.js": 11,
-    "tools/subway/client/city.js": 4,
-    "tools/subway/client/main.js": 30,
-    "tools/subway/client/network.js": 14,
-    "tools/subway/client/raptor.js": 6,
-    "tools/subway/client/render.js": 2,
-    "tools/subway/client/search.js": 1,
-    "tools/subway/client/ways.js": 1,
-    "tools/subway/client/weights.js": 2
+    "server/railway/stream.js": 1
 }

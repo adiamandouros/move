@@ -169,8 +169,8 @@ export function watchLegStations(box, open) {
         if (!toggle) return;
         const opened = toggle.getAttribute('aria-expanded') !== 'true';
         toggle.setAttribute('aria-expanded', String(opened));
-        /** @type {HTMLElement} */ (document.getElementById(toggle.getAttribute('aria-controls'))).hidden = !opened;
-        open()[toggle.getAttribute('data-leg')] = opened;
+        /** @type {HTMLElement} */ (document.getElementById(toggle.getAttribute('aria-controls') ?? '')).hidden = !opened;
+        open()[toggle.getAttribute('data-leg') ?? ''] = opened;
     });
 }
 
@@ -250,7 +250,7 @@ function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, op
 // lifts: the lifts out of service (watchLifts() in /js/core/lifts.js), or null
 // liftsOpen: whether their notice is open (liftsOpen() in metro.js)
 // from, to: where the trip starts and ends, for a walk from the first leg or to the last
-export function renderResult(rail, plans, now, { expired, tomorrow = false, open = {}, stations = {}, legend = true, lifts = null, liftsOpen = true, from = null, to = null }) {
+export function renderResult(rail, plans, now, { expired, tomorrow = false, open = {}, stations = {}, legend = true, lifts = /** @type {any} */ (null), liftsOpen = true, from = /** @type {string | null} */ (null), to = /** @type {string | null} */ (null) }) {
     if (!plans.length) return renderMessage('subway.no-route');
     const liftsNotice = liftNotice(lifts, tripStations(rail, plans), id => stationName(rail, id), tripGaps(rail, plans), liftsOpen);
     const oldNotice = expired && notice('warn', 'warning', format(t('subway.timetable-old'), { date: formatDate(rail.feed.validTo) }), 'timetable-notice mb-3');
@@ -282,7 +282,7 @@ const INTRO_POINTS = ['subway.intro-trains', 'subway.intro-arrival', 'subway.int
 // it's open (legendOpen() in metro.js). With one station picked
 // (`picked`), its lifts out of service (`lifts`) and platforms with steps only, if any,
 // their notice open or not (`liftsOpen`).
-export function renderIntro(rail, legend = true, lifts = null, picked = [], liftsOpen = true) {
+export function renderIntro(rail, legend = true, lifts = /** @type {any} */ (null), picked = [], liftsOpen = true) {
     const stops = Object.values(rail.lines).flatMap(line => Object.values(line.directions)).flatMap(direction => direction.stops);
     const symbols = [...new Set(stops.filter(stop => stop.exits.length).flatMap(diagramSymbols))];
     const gaps = stepFreeGaps(rail, picked.flatMap(id => stationPlatforms(rail, id)));
@@ -310,7 +310,7 @@ export const renderWalkOnly = minutes => notice('info', 'walk', formatHtml(t('su
 // stations change (the result itself isn't a live region: it refreshes every 30 s).
 // Plain text, for textContent. Then the platforms with steps only and the
 // lifts out of service on the way, if any.
-export function routeSummary(rail, plans, now, tomorrow = false, lifts = null) {
+export function routeSummary(rail, plans, now, tomorrow = false, lifts = /** @type {any} */ (null)) {
     if (!plans.length) return t('subway.no-route');
     const leg = plans[0].legs[0];
     const line = rail.lines[leg.line];

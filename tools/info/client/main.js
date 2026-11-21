@@ -29,18 +29,18 @@ const load = name => files.get(name) ?? files.set(name, fetch(`/data/${name}`).t
     return res.json();
 }).catch(err => { files.delete(name); throw err; })).get(name);
 
-const mapsSection = document.getElementById('sec-map');
+const mapsSection = /** @type {HTMLElement} */ (document.getElementById('sec-map'));
 
 // A map is drawn the first time it's shown (it needs to be visible to be measured)
 async function openMap({ part, map, list, trains: needs, draw, stations }) {
-    const body = document.getElementById(part);
-    const container = document.getElementById(map);
+    const body = /** @type {HTMLElement} */ (document.getElementById(part));
+    const container = /** @type {HTMLElement} */ (document.getElementById(map));
     if (!mapsSection.classList.contains('show') || !body.classList.contains('show') || container.dataset.loaded) return;
     container.dataset.loaded = 'true';
     try {
         const [rail, trains] = await Promise.all([load('rail.json'), needs === 'needed' ? load('trains.json') : needs ? load('trains.json').catch(() => null) : null]);
         draw(container, rail, trains);
-        setHtml(document.getElementById(list), stations(rail, trains));
+        setHtml(/** @type {HTMLElement} */ (document.getElementById(list)), stations(rail, trains));
     } catch {
         setHtml(container, html`<p class="text-body-secondary">${t('info.map-error')}</p>`);
         delete container.dataset.loaded;

@@ -41,7 +41,7 @@ export const weighed = (seconds, walk, changes) => seconds + (WALK_WEIGHT - 1) *
 export function cost(badDay, way, now, access, egress) {
     const legs = badDay.ride(way.legs, now + secondsTo(access, way.legs[0].board));
     if (!legs) return Infinity;
-    const last = legs.at(-1);
+    const last = legs[legs.length - 1];
     const at = last.arrives + secondsTo(egress, last.alight);
     let risk = 0;
     legs.forEach((leg, i) => {

@@ -67,7 +67,7 @@ function firstTrip({ trips, width, times }, position, from) {
 export function createPlanner({ stops, routes: given, walks }, { afterWalk = 0, walkSeconds = null } = {}) {
     const count = stops.length;
     const routes = given.flatMap(withoutOvertaking);
-    const serving = stops.map(() => []);
+    const serving = stops.map(() => /** @type {number[]} */ ([]));
     routes.forEach((route, r) => route.stops.forEach((stop, position) => serving[stop].push(r, position)));
     const walkOf = walkSeconds ?? ((from, to) => {
         const onFoot = walks[from];
@@ -308,6 +308,7 @@ export function createPlanner({ stops, routes: given, walks }, { afterWalk = 0, 
         for (const leg of legs) {
             if (timed.length) ready = timed.at(-1).arrives + (leg.walkBefore ? leg.walkBefore + afterWalk : CHANGE_SECONDS);
             const through = serving[leg.board];
+            /** @type {(Leg & { next: number | null }) | null} */
             let best = null;
             const taking = [];
             for (let j = 0; j < through.length; j += 2) {

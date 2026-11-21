@@ -57,7 +57,8 @@ const marked = on => on ? `, ${t('favourites.marked')}` : '';
 // `lifts()`: the lifts out of service (watchLifts() in /js/core/lifts.js), said
 // in words under the station's name, as are its platforms with steps only.
 // Tapping the field, or ArrowDown in it, lists stations to start from.
-export function stationSearch({ input, list, rail, onChange, announce, lifts = () => null }) {
+export function stationSearch({ input, list, rail, onChange, announce, lifts = /** @type {() => any} */ (() => null) }) {
+    /** @type {string | null} */
     let selected = null;
 
     function render(ids) {
@@ -167,7 +168,7 @@ export function stationSearch({ input, list, rail, onChange, announce, lifts = (
     });
 
     list.addEventListener('keydown', e => {
-        const focused = /** @type {HTMLElement | null} */ (document.activeElement.closest('[role="option"]'));
+        const focused = /** @type {HTMLElement | null} */ (document.activeElement?.closest('[role="option"]'));
         if (!focused) return;
         if (e.key === 'ArrowDown') {
             e.preventDefault();

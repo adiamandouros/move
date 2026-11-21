@@ -92,7 +92,7 @@ export function athensDate(date = new Date()) {
 export function withTram(rail) {
     const { tram } = rail;
     const directions = Object.values(tram?.lines ?? {}).flatMap(line => Object.values(line.directions));
-    if (!directions.length || !directions.every(direction => direction.timetable)) return rail;
+    if (!tram || !directions.length || !directions.every(direction => direction.timetable)) return rail;
 
     const clashes = id => Object.hasOwn(rail.stations, id);
     const stationId = id => clashes(id) ? `${id}-tram` : id;
@@ -133,7 +133,7 @@ function mergeStops(sequences) {
         stops.forEach((station, i) => {
             if (order.includes(station)) return;
             const before = stops.slice(0, i).findLast(s => order.includes(s));
-            order.splice(before ? order.indexOf(before) + 1 : order.indexOf(stops.find(s => order.includes(s))), 0, station);
+            order.splice(before ? order.indexOf(before) + 1 : order.indexOf(/** @type {string} */ (stops.find(s => order.includes(s)))), 0, station);
         });
         const at = stops.map(station => order.indexOf(station));
         if (at.some((index, i) => i && index <= at[i - 1])) return null;
@@ -176,10 +176,12 @@ export function withSuburban(rail, trains, date) {
     const lines = {};
     const calledAt = new Map();
     for (const { line, end, dir, routes } of groups) {
-        const order = mergeStops(routes.map(route => route.stops));
+        // One order for the group: its routes were grouped by mergeStops finding one
+        const order = /** @type {string[]} */ (mergeStops(routes.map(route => route.stops)));
         const profiles = [];
         const profileOf = new Map();
         // Pattern 0, with no trains, for the days trains.json doesn't hold
+        /** @type {import('../../../types/data.js').Timetable['patterns']} */
         const patterns = [[]];
         const dates = {};
         for (const { day, stops, profiles: offsets, trips } of routes) {
@@ -409,7 +411,7 @@ export function departures(rail, leg, { weekday, after, count = 2, ownDay = fals
 // How long a change takes after leg, to the next one: within a station, or on
 // foot to another (rail.walks)
 /** @param {Rail} rail @param {Leg} leg @param {Leg} [next] */
-const changeSeconds = (rail, leg, next) => next && leg.to !== next.from ? rail.walks[leg.to][next.from] * 60 : TRANSFER_SECONDS;
+const changeSeconds = (rail, leg, next) => next && leg.to !== next.from ? (rail.walks ?? {})[leg.to][next.from] * 60 : TRANSFER_SECONDS;
 
 // Departures for every leg of a route, with each later leg timed from the
 // arrival of the first upcoming train on the previous leg plus a change, and
@@ -427,7 +429,7 @@ function planRoute(rail, route, now, ownDay = false) {
         else reachable = false;
         return { ...leg, departures: next };
     });
-    const last = legs.at(-1).departures[0];
+    const last = legs[legs.length - 1].departures[0];
     return { ...route, legs, arrives: reachable && last ? last.arrives + (route.walkLast ?? 0) * 60 : null };
 }
 
@@ -461,7 +463,7 @@ function searchFor(rail, now, ownDay) {
             }
         }
     }
-    const walks = ids.map(id => walksFrom(rail, id).flatMap(([to, minutes]) => [index.get(to), minutes * 60]));
+    const walks = ids.map(id => walksFrom(rail, id).flatMap(([to, minutes]) => [/** @type {number} */ (index.get(to)), minutes * 60]));
     const search = { ids, index, routes, planner: createPlanner({ stops: ids, routes, walks }) };
     made.set(key, search);
     return search;
@@ -499,8 +501,8 @@ function fastestRoutes(rail, from, to, now, ownDay) {
             const { line, dir, along } = routes[leg.route];
             return { line, dir, from: ids[leg.board], to: ids[leg.alight], fromIndex: along[leg.boardIndex], toIndex: along[leg.alightIndex] };
         });
-        const walkFirst = legs[0].from === from ? 0 : rail.walks[from][legs[0].from];
-        const walkLast = legs.at(-1).to === to ? 0 : rail.walks[legs.at(-1).to][to];
+        const walkFirst = legs[0].from === from ? 0 : (rail.walks ?? {})[from][legs[0].from];
+        const walkLast = legs.at(-1).to === to ? 0 : (rail.walks ?? {})[legs.at(-1).to][to];
         const route = { legs, ...(walkFirst && { walkFirst }), ...(walkLast && { walkLast }) };
         if (comesBack(rail, from, route)) continue;
         best = at;
@@ -613,6 +615,7 @@ export function legPositions(rail, leg, next) {
 // tram: true for the nearest tram stop, false for the nearest metro station
 /** @param {Rail} rail @param {number} lat @param {number} lng @param {boolean} [tram] @returns {string} */
 export function closestStation(rail, lat, lng, tram) {
+    /** @type {string | null} */
     let best = null;
     let bestDist = Infinity;
     for (const [id, { coords, tram: isTram }] of Object.entries(rail.stations)) {
@@ -623,7 +626,8 @@ export function closestStation(rail, lat, lng, tram) {
         const d = x * x + y * y;
         if (d < bestDist) { bestDist = d; best = id; }
     }
-    return best;
+    // rail always has stations
+    return /** @type {string} */ (best);
 }
 
 /** @param {Rail} rail @param {AthensTime} now */
