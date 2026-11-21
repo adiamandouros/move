@@ -9,6 +9,7 @@ import { $, accordion, lineBar, loadLines, renderStops, showMessage, state, with
 
 export async function showLine({ focus = false } = {}) {
     const { view } = state;
+    if (view.kind !== 'line') return;
     const drawn = state.drawn;
     showMessage('loading spin', t('buses.loading-lines'));
     const lines = await loadLines();
@@ -35,9 +36,10 @@ export async function showLine({ focus = false } = {}) {
 // scroll to it unless a stop has been opened meanwhile
 export function markNearest() {
     if (state.view.kind !== 'line' || !state.coords || !state.stops.length || accordion.querySelector('.stop-nearest')) return;
-    const item = accordion.querySelector(`[data-stop="${state.stops.reduce((a, b) => (b.meters < a.meters ? b : a)).code}"]`);
+    const item = accordion.querySelector(`[data-stop="${state.stops.reduce((a, b) => ((b.meters ?? Infinity) < (a.meters ?? Infinity) ? b : a)).code}"]`);
+    if (!item) return;
     item.classList.add('stop-nearest');
-    setHtml(item.querySelector('.stop-nearest-note'), nearestNote());
+    setHtml(/** @type {Element} */ (item.querySelector('.stop-nearest-note')), nearestNote());
     if (accordion.querySelector('.stop-toggle[aria-expanded="true"]')) return;
     item.scrollIntoView({ block: 'center' });
     // The stop half under the line's bar, if one is: shown whole

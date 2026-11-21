@@ -27,10 +27,13 @@ export function findLines(lines, query) {
 
 // A stop's names as they're compared, worked out once per stop
 /** @type {WeakMap<BusStop, string[]>} */
+/** @type {WeakMap<BusStop, string[]>} */
 const namesOf = new WeakMap();
+/** @param {BusStop} stop */
 const names = stop => {
-    if (!namesOf.has(stop)) namesOf.set(stop, [...new Set([stop.name.el, stop.name.en].map(normalise))]);
-    return namesOf.get(stop);
+    let all = namesOf.get(stop);
+    if (!all) namesOf.set(stop, all = [...new Set([stop.name.el, stop.name.en].map(normalise))]);
+    return all;
 };
 const WORD_START = /[ .\-(/]/;
 
