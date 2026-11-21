@@ -132,6 +132,11 @@ const walkOf = (seconds, exits = {}) => seconds > 0 ? {
     minutes: Math.max(1, Math.round(seconds / 60)), meters: Math.round(seconds / 60 * METERS_PER_MINUTE),
     ...exits.out != null && { out: exits.out }, ...exits.in != null && { in: exits.in },
 } : null;
+// The walk to one of the stops a way's last bus can be caught at
+// (`seconds`), after a ride: out of that ride's station by its exit nearest
+// the stop, as the planner timed it (decision 51, Road · 17)
+/** @param {Planner} planner @param {import('/tools/subway/ways.js').Way | null | undefined} way @param {number} stop @param {number} seconds */
+const stopWalk = (planner, way, stop, seconds) => walkOf(seconds, way && way.legs.length > 1 ? planner.walkExits(way.legs[way.legs.length - 2].alight, stop) : {});
 // The exit a walk from the door goes into a station by, or one to the door
 // comes out of it by; none for a station picked as the start or the end
 /** @param {import('/tools/subway/city.js').Stop} stop @param {Point & { station?: string }} place @param {import('/tools/subway/city.js').Way} way */
@@ -265,7 +270,7 @@ export function halfView(planner, from, to, answer) {
         range,
         bundle,
         lines,
-        stops: stops.map(({ stop, walk, lines: at }) => ({ stop: planner.stops[stop], walk: walkOf(walk), lines: at })),
+        stops: stops.map(({ stop, walk, lines: at }) => ({ stop: planner.stops[stop], walk: stopWalk(planner, best.find(Boolean), stop, walk), lines: at })),
         options: best.map((way, d) => way && cityOption(planner, way, { access, egress, from, to }, departures[d], linesOf(way, bundle, lines))),
     });
     const rows = shown.map(halfRow);
@@ -435,7 +440,7 @@ export function liveWay(planner, from, to, row, departure, now, live, { decision
         const first = new Map();
         for (const bus of coming) if (!first.has(bus.line)) first.set(bus.line, bus.at);
         const known = answer && !answer.unavailable;
-        return { stop: planner.stops[stop], walk: walkOf(walk), lines, buses: known ? [...first].map(([line, at]) => ({ line, at })) : null, arrivals: known ? coming : [] };
+        return { stop: planner.stops[stop], walk: stopWalk(planner, way, stop, walk), lines, buses: known ? [...first].map(([line, at]) => ({ line, at })) : null, arrivals: known ? coming : [] };
     }) : [];
     const coming = stops.filter(({ buses }) => buses?.length).sort((a, b) => (a.buses?.[0].at ?? 0) - (b.buses?.[0].at ?? 0));
     const staying = riding ? option.arrives : stayingOn(planner, row, legs, egress, stops, option.arrives);

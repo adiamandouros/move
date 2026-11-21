@@ -268,12 +268,14 @@ const STOPS_SHOWN = 3;
 // comes. Each is the Buses page's stop row (decision 48): the walk to it
 // beside its code, the next bus of the rider's lines, and opened, every bus
 // of them the rider can catch there; not yet on live times, its lines.
-// `change`: after a ride, rather than from the door. `clock`: as railCard's,
+// `before`: the stop of the ride before, null from the door; after a metro
+// ride, each stop says the exit its walk comes out by, its own (decision 51,
+// Road · 17). `clock`: as railCard's,
 // for the minutes; `opened`: the stops the rider opened, by code.
 // `mark`: where the ride stands against the rider's step; the one they're
 // on is only the stop the way boards at (`board`), the others are offers;
 // on the ride or past it, no times
-function busStops(rail, stops, change, clock, opened, mark = NONE, board = null) {
+function busStops(rail, stops, before, clock, opened, mark = NONE, board = null) {
     const stopStep = ({ stop, walk, lines, buses = null, arrivals = [] }, i) => {
         const code = stop.id.slice('bus:'.length);
         const name = stopName(rail, stop);
@@ -287,8 +289,9 @@ function busStops(rail, stops, change, clock, opened, mark = NONE, board = null)
         const result = { arrivals: coming };
         // With none of them on OASA's live times, its lines, and that it has none
         const next = coming.length ? nextBus(result) : html`<span class="sr-only">. ${t('buses.lines')}: </span>${plates('m')}${buses && !arrivals.length && html`<span class="next-bus-dest text-body-secondary fst-italic"><span class="sr-only">. </span>${t('trip.live-none')}</span>`}`;
+        const out = before && exitOf(before.exits, walk?.out);
         // Marked trip-live with buses from OASA's live times, as a ride's badges are
-        return html`<li class="trip-stop${coming.length ? ' trip-live' : ''}${marked(own)}>${stopRow({ code, name: { el: name, en: name }, lat: stop.lat, lng: stop.lng }, i, {
+        return html`<li class="trip-stop${coming.length ? ' trip-live' : ''}${marked(own)}>${out && html`<div class="trip-stop-exit">${format(t('trip.way-out'), { exit: out.name })}</div>`}${stopRow({ code, name: { el: name, en: name }, lat: stop.lat, lng: stop.lng }, i, {
             id: 'trip-stop', star: false, open: opened?.has(code) ?? false,
             away: walk && html`<span class="sr-only">, </span>${minutesMark(walk.minutes, t, { about: true, said: t('trip.walk-short') })}`,
             next, badge: headerBadge(result), arrivals: coming.length > 0 && arrivalRows(result), lines: plates('s'),
@@ -296,7 +299,7 @@ function busStops(rail, stops, change, clock, opened, mark = NONE, board = null)
         })}</li>`;
     };
     const more = stops.slice(STOPS_SHOWN);
-    return html`<li>${t(change ? 'trip.any-bus-then' : 'trip.any-bus')}</li>
+    return html`<li>${t(before ? 'trip.any-bus-then' : 'trip.any-bus')}</li>
         ${stops.slice(0, STOPS_SHOWN).map(stopStep)}
         ${more.length > 0 && html`<li><details class="trip-more">
             <summary>${format(t(more.length === 1 ? 'trip.more-stop' : 'trip.more-stops'), { count: more.length })}</summary>
@@ -323,7 +326,7 @@ function citySteps(rail, o, to, drawn, row = null, live = null, following = null
     return html`<ol class="trip-steps">
         ${rides.length > 0 && walkTo(o.firstWalk, o.rides[0].board, null, 0)}
         ${rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board, ride.walkNote, i * 3, o.rides[i - 1].alight)}${cards[i] ? railCard(rail, cards[i], { seconds: drawn.now, epoch: drawn.epoch }, false, drawn.stations, mark(i * 3 + 1, 2)) : rideStep(rail, ride, drawn, mark(i * 3 + 1, 2))}`)}
-        ${row?.bundle && busStops(rail, live?.way.stops ?? row.stops, rides.length > 0, { seconds: drawn.now, epoch: drawn.epoch }, drawn.stops, mark(last * 3 + 1, 2), o.rides[last].board.id)}
+        ${row?.bundle && busStops(rail, live?.way.stops ?? row.stops, rides.length > 0 ? o.rides[last - 1].alight : null, { seconds: drawn.now, epoch: drawn.epoch }, drawn.stops, mark(last * 3 + 1, 2), o.rides[last].board.id)}
         ${o.lastWalk && html`${exitStep(exitOf(o.rides[last].alight.exits, o.lastWalk.out), mark(o.rides.length * 3))}${walkStep(o.lastWalk, to.title, to, null, mark(o.rides.length * 3))}`}
     </ol>`;
 }

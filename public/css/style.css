@@ -1777,6 +1777,12 @@ body {
     border-bottom: none !important;
 }
 
+/* After a metro ride, the exit a stop's walk comes out by, above its row
+   (decision 51, Road · 17) */
+.trip-stop-exit {
+    padding-top: var(--wh-space-3);
+}
+
 /* Paused, unavailable or older live times, above the answer, as on the Buses page */
 .trip-live-status {
     margin-bottom: var(--wh-space-3);

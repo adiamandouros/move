@@ -16,7 +16,7 @@ import { aboutTime, minutesBadge, minutesMark } from '../public/js/core/times.js
 
 const rail = JSON.parse(readFileSync(new URL('browser/data/rail.json', import.meta.url), 'utf8'));
 const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.meta.url), 'utf8'));
-const { cityPlanner, halfHour, halfView, otherWay, PAST_STOPS, routeCodes, shownRows } = await browserModule('tools/trip/client/buses.js');
+const { cityPlanner, halfHour, halfView, liveWay, otherWay, PAST_STOPS, routeCodes, shownRows } = await browserModule('tools/trip/client/buses.js');
 const { planTrip, withTram } = await browserModule('tools/subway/client/network.js');
 const { halfWays } = await browserModule('tools/trip/client/half.js');
 const { walkingUrl } = await browserModule('public/js/core/html.js');
@@ -43,6 +43,10 @@ const viewOf = (from, to, now, answer = answered(from, to, now)) => JSON.parse(J
 const clear = viewOf(menelaou, fix, at(12));
 const depends = viewOf(menelaou, syntagma, at(10));
 const byRail = viewOf(syntagma, larissa, at(12));
+// From near Korydallos: the M3 to Syntagma, then any of the buses from the
+// stops around it (Road · 17)
+const korydallos = { lat: 37.9775, lng: 23.6522, title: 'Οδός 1', exact: null };
+const afterMetro = viewOf(korydallos, menelaou, at(12));
 
 // The suburban railway that Wednesday (decision 41): from Athens station to the airport every 10 minutes, 40 minutes on the way
 const { trainDay } = await browserModule('tools/subway/client/city.js');
@@ -127,6 +131,26 @@ test('nothing found in the half hour: nothing to show', () => {
     assert.deepEqual(halfView(city, menelaou, fix, { kind: 'none', rows: [], departures: [] }).rows, []);
 });
 
+// Road · 17: after a metro ride, each stop a last bus can be caught at is
+// walked to out of the station's exit nearest it, its own, as the planner
+// timed the walk (decision 51); from the door, no exit
+test('the stops a last bus can be caught at after a metro ride: each walked to by the exit nearest it', () => {
+    const row = afterMetro.rows.find(({ key }) => key === 'M3 at Σύνταγμα, a bus');
+    assert.ok(row?.bundle);
+    const outs = row.stops.map(({ walk }) => walk?.out);
+    assert.deepEqual(outs, [1, 0, 1], 'Amalias for two of them, Syntagma Square for the other');
+    const { exits } = rail.stations.syntagma;
+    for (const { stop, walk } of row.stops) {
+        const nearest = exits.map((exit, i) => ({ i, away: (exit.at[0] - stop.lat) ** 2 + ((exit.at[1] - stop.lng) * Math.cos(stop.lat * Math.PI / 180)) ** 2 })).sort((a, b) => a.away - b.away)[0].i;
+        assert.equal(walk.out, nearest, stop.id);
+    }
+    assert.ok(clear.rows[0].stops.every(({ walk }) => walk === null || !('out' in walk)), 'from the door, none');
+    // The way shown, timed with OASA's live times (liveWay): stop by stop the same
+    const answerRow = shownRows(answered(korydallos, menelaou, at(12))).find(({ key }) => key === row.key);
+    const timed = liveWay(city, korydallos, menelaou, answerRow, 0, at(12), {});
+    assert.deepEqual(Object.fromEntries(timed.stops.map(({ stop, walk }) => [stop.id, walk?.out])), Object.fromEntries(row.stops.map(({ stop, walk }) => [stop.id, walk?.out])));
+});
+
 for (const lang of ['en', 'el']) {
     const r = await browserModule('tools/trip/client/render.js', lang);
     const subway = await browserModule('tools/subway/client/render.js', lang);
@@ -163,6 +187,20 @@ for (const lang of ['en', 'el']) {
         for (const stop of first.stops.slice(3)) assert.ok(more.includes(link(stop)) && !shown.includes(link(stop)), stop.stop.id);
         assert.ok(more.includes(s['trip.more-stops'].replace('{count}', first.stops.length - 3)));
         assert.ok(nothingUnder(view), 'nothing under the answer');
+    });
+
+    test(`${lang}: after a metro ride, each stop of "Then any of these buses" says its own way out, above its row (Road · 17)`, () => {
+        const ways = halfWays(afterMetro, at(12).seconds);
+        const index = afterMetro.rows.findIndex(({ key }) => key === 'M3 at Σύνταγμα, a bus');
+        const view = String(r.renderHalf(network, afterMetro.kind, [ways[index]], menelaou, { ...at(12), now: at(12).seconds }));
+        check(view);
+        assert.ok(view.includes(s['trip.any-bus-then']));
+        const { exits } = rail.stations.syntagma;
+        const outs = [...view.matchAll(/<div class="trip-stop-exit">([^<]*)<\/div>\s*<div class="accordion-item stop-item" data-stop="(\d+)"/g)].map(([, said, code]) => [code, said]);
+        assert.deepEqual(outs, afterMetro.rows[index].stops.map(({ stop, walk }) => [stop.id.slice('bus:'.length), s['trip.way-out'].replace('{exit}', exits[walk.out].name[lang])]));
+        // From the door, none
+        const fromDoor = String(r.renderHalf(network, clear.kind, halfWays(clear, at(12).seconds), fix, { ...at(12), now: at(12).seconds }));
+        assert.ok(!fromDoor.includes('trip-stop-exit'));
     });
 
     test(`${lang}: it depends, said above the way first by the weights; the others on a line each, with their range`, () => {
