@@ -1,16 +1,5 @@
 {
     "proxy/node.js": 1,
     "proxy/worker.js": 20,
-    "scripts/collector-stops.js": 41,
-    "scripts/health-check.js": 10,
-    "scripts/osm-exits.js": 3,
-    "scripts/places/build.js": 97,
-    "scripts/places/check.js": 3,
-    "scripts/places/fetch.js": 9,
-    "scripts/places/index.js": 1,
-    "scripts/planner-lab/build-buses.js": 4,
-    "scripts/planner-lab/rush-test.js": 10,
-    "scripts/planner-lab/trip.js": 5,
-    "scripts/station-edits.js": 11,
     "types/pages.d.ts": 1
 }

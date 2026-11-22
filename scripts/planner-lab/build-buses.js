@@ -19,21 +19,27 @@ import { parseArgs } from 'util';
 import { onLiveRoutes, withRides } from '../../server/data/bus-timetable.js';
 
 const WEDNESDAY = 3;
-const round = n => Math.round(n * 1e5) / 1e5;
+const round = (/** @type {number} */ n) => Math.round(n * 1e5) / 1e5;
 
 /**
  * One weekday (0 = Sunday) of the week's routes, as the lab searches it, with
  * the live network's stops
- * @param {import('../../server/data/bus-timetable.js').WeekRoute[]} routes @param {any} network @param {number} day
+ * @param {import('../../server/data/bus-timetable.js').WeekRoute[]} routes @param {import('../../server/data/oasa-network.js').Network} network @param {number} day
  * @returns {import('../../tools/subway/client/city.js').Buses}
  */
 export function dayOf(routes, network, day) {
+    /** @type {Map<string, import('../../server/data/oasa-network.js').NetworkStop>} */
     const place = new Map();
     for (const { stops } of Object.values(network.stops ?? {})) for (const stop of stops) place.set(stop.code, stop);
+    const stopOf = (/** @type {string} */ code) => {
+        const stop = place.get(code);
+        if (!stop) throw new Error(`Stop ${code} isn't on the live network`);
+        return stop;
+    };
     const used = [...new Set(routes.flatMap(route => route.stops))].sort();
     return {
         day,
-        stops: Object.fromEntries(used.map(code => [code, [round(place.get(code).lat), round(place.get(code).lng), place.get(code).el]])),
+        stops: Object.fromEntries(used.map(code => [code, /** @type {[number, number, string]} */ ([round(stopOf(code).lat), round(stopOf(code).lng), stopOf(code).el])])),
         routes: routes.map(({ line, mode, code, stops, profiles, patterns, days }) => ({ line, mode, code, stops, profiles, trips: patterns[days[day]] }))
             .filter(route => route.trips.length),
     };
@@ -45,7 +51,7 @@ export function dayOf(routes, network, day) {
  * @returns {import('../../tools/subway/client/city.js').Buses}
  */
 export function cutToBox(buses, [south, west, north, east]) {
-    const inside = code => {
+    const inside = (/** @type {string} */ code) => {
         const [lat, lng] = buses.stops[code];
         return lat >= south && lng >= west && lat <= north && lng <= east;
     };
@@ -66,7 +72,7 @@ export function cutToBox(buses, [south, west, north, east]) {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
     const { values, positionals } = parseArgs({ allowPositionals: true, options: { day: { type: 'string' }, box: { type: 'string' }, rides: { type: 'string' }, 'bad-day': { type: 'boolean' } } });
     const repo = fileURLToPath(new URL('../../', import.meta.url));
-    const read = path => JSON.parse(readFileSync(path, 'utf8'));
+    const read = (/** @type {string} */ path) => JSON.parse(readFileSync(path, 'utf8'));
     const week = read(join(repo, 'data/oasa/bus-timetable.json'));
     const network = read(join(repo, 'data/raw/oasa/network.json'));
     const { routes, gone, untimed } = onLiveRoutes(week.routes, network);

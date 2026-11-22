@@ -13,7 +13,15 @@ import { fileURLToPath } from 'url';
 
 // Each station and direction whose entry was added, changed or removed:
 // [{ line, dir, station, change }], in the export's order
+/**
+ * @typedef {import('../types/data.js').CuratedPositions} Positions
+ * @typedef {import('../types/data.js').CuratedStreet} Street
+ * @typedef {{ line: string, dir: string, station: string }} StationRef
+ * @typedef {'added' | 'changed' | 'removed'} Change
+ */
+/** @param {Positions} before @param {Positions} after @returns {(StationRef & { change: Change })[]} */
 export function stationChanges(before, after) {
+    /** @type {Map<string, StationRef>} */
     const refs = new Map();
     for (const positions of [after, before]) {
         for (const [line, dirs] of Object.entries(positions)) {
@@ -22,7 +30,7 @@ export function stationChanges(before, after) {
             }
         }
     }
-    const entry = (positions, { line, dir, station }) => positions[line]?.[dir]?.[station];
+    const entry = (/** @type {Positions} */ positions, /** @type {StationRef} */ { line, dir, station }) => positions[line]?.[dir]?.[station];
     return [...refs.values()].flatMap(ref => {
         const was = entry(before, ref);
         const is = entry(after, ref);
@@ -33,6 +41,7 @@ export function stationChanges(before, after) {
 
 // Each station whose entry in street.json was added, changed or removed:
 // [{ station, change }], in the export's order
+/** @param {Street} before @param {Street} after @returns {{ station: string, change: Change }[]} */
 export function streetChanges(before, after) {
     return [...new Set([...Object.keys(after), ...Object.keys(before)])].flatMap(station => {
         const [was, is] = [before[station], after[station]];
@@ -42,6 +51,7 @@ export function streetChanges(before, after) {
 }
 
 // The pull request's description
+/** @param {(StationRef & { change: Change })[]} changes @param {{ station: string, change: Change }[]} street */
 export function pullRequestBody(changes, street = []) {
     const lines = [
         ...changes.map(c => `- ${c.line} toward ${c.dir}: \`${c.station}\` (${c.change})`),

@@ -480,6 +480,12 @@ test('the lab searches a day of the app\'s bus week, with the live network\'s st
     }, 'a route with no trips that day is left out');
 });
 
+test('a stop the live network doesn\'t have stops the lab\'s day, saying which', () => {
+    const network = { stops: { r: { stops: [{ code: '1', el: 'Α', lat: 37.98, lng: 23.7 }] } } };
+    const routes = [{ line: '040', mode: 'bus', code: 'r', stops: ['1', '2'], profiles: [[0, 300]], patterns: [[[H8, 0]]], days: [0, 0, 0, 0, 0, 0, 0] }];
+    assert.throws(() => dayOf(routes, network, 3), /Stop 2 isn't on the live network/);
+});
+
 const response = (status, body) => ({ ok: status === 200, status, json: async () => body });
 
 test('the rush-hour test keeps which buses and when, and writes failures down too', async () => {
