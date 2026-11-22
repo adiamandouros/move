@@ -31,30 +31,39 @@ const QUICK_FIX = { enableHighAccuracy: false, maximumAge: 5 * 60_000, timeout: 
 let watchId = null;
 let wanted = false;
 /** @typedef {{ lat: number, lng: number, at: number, accuracy: number | null, speed: number | null }} Position */
+/** @typedef {{ lat: number, lng: number, at: number }} Kept a position as kept on the device, rounded */
+/** @typedef {'denied' | 'unavailable' | 'slow' | 'unsupported'} Problem */
 /** @type {Position | null} */
 let current = null;
 /** @type {ReturnType<typeof setTimeout> | undefined} */
 let slowTimer;
 /** @type {ReturnType<typeof setTimeout> | undefined} */
 let backgroundTimer;
+/** @type {Set<(position: Position) => void>} */
 const positionListeners = new Set();
+/** @type {Set<(problem: Problem) => void>} */
 const problemListeners = new Set();
 
 // localStorage can be missing or blocked (private windows, some settings)
+/** @type {{ get: (key: string) => string | null, set: (key: string, value: string) => void, remove: (key: string) => void }} */
 const storage = {
     get: key => { try { return localStorage.getItem(key); } catch { return null; } },
     set: (key, value) => { try { localStorage.setItem(key, value); } catch { /* only this page has it */ } },
     remove: key => { try { localStorage.removeItem(key); } catch { /* nothing kept */ } },
 };
 
+/** @param {number} n */
 const round = n => Math.round(n * 1e4) / 1e4;
 
 // ── For the pages ───────────────────────────────────────────────────────────
 
 // The last position, if it's recent enough to use: { lat, lng, at } or null
+/** @returns {Position | Kept | null} */
 export function lastPosition() {
+    /** @param {Kept | null} position */
     const fresh = position => position && Date.now() - position.at < KEEP_MS;
     if (fresh(current)) return current;
+    /** @type {Kept | null} */
     let saved = null;
     try { saved = JSON.parse(storage.get(KEY) ?? 'null'); } catch { /* not a position */ }
     if (fresh(saved)) return saved;
@@ -95,6 +104,7 @@ export function restartLocation() {
 }
 
 // fn({ lat, lng, at, accuracy, speed }) for every new position. Returns a function that stops it.
+/** @param {(position: Position) => void} fn */
 export function onLocation(fn) {
     positionListeners.add(fn);
     return () => positionListeners.delete(fn);
@@ -102,6 +112,7 @@ export function onLocation(fn) {
 
 // fn(problem): 'denied' (the person or browser said no), 'unavailable' (the
 // device can't tell), 'slow' (no position after SLOW_MS) or 'unsupported'
+/** @param {(problem: Problem) => void} fn */
 export function onLocationProblem(fn) {
     problemListeners.add(fn);
     return () => problemListeners.delete(fn);
@@ -110,14 +121,16 @@ export function onLocationProblem(fn) {
 // The button that starts from where you are, Nearest on the Subway page and
 // My location on the Trip page, one toggle (DESIGN.md, "Start from here"):
 // pressed while it follows the location, blue with its icon filled
+/** @param {Element} button @param {boolean} on */
 export function showFollowing(button, on) {
     button.setAttribute('aria-pressed', String(on));
     const use = button.querySelector('use');
-    use?.setAttribute('href', use.getAttribute('href').replace(/#.*$/, `#nearest${on ? '-filled' : ''}`));
+    use?.setAttribute('href', (use.getAttribute('href') ?? '').replace(/#.*$/, `#nearest${on ? '-filled' : ''}`));
 }
 
 // ── Internal ────────────────────────────────────────────────────────────────
 
+/** @param {GeolocationPosition} pos */
 function onPosition(pos) {
     const at = pos.timestamp || Date.now();
     // The quick fix can be older than what the watch already gave
@@ -127,9 +140,10 @@ function onPosition(pos) {
     clearTimeout(slowTimer);
     storage.set(KEY, JSON.stringify({ lat: round(position.lat), lng: round(position.lng), at }));
     storage.set(ALLOWED_KEY, '1');
-    positionListeners.forEach(fn => fn(current));
+    positionListeners.forEach(fn => fn(position));
 }
 
+/** @param {GeolocationPositionError} err */
 function onError(err) {
     // 1: PERMISSION_DENIED, 2: POSITION_UNAVAILABLE (3, TIMEOUT, needs a timeout option)
     if (err.code === 1) {
@@ -145,6 +159,7 @@ function onError(err) {
     }
 }
 
+/** @param {Problem} problem */
 function notifyProblem(problem) {
     problemListeners.forEach(fn => fn(problem));
 }

@@ -752,6 +752,12 @@ and on `main` (`.github/workflows/checks.yml`), with Node 20 and 22.
   `strictNullChecks`: a value that can be null or missing can't be used as
   if it couldn't
   ([decision 66](docs/decisions/0066-strict-null-checks-step-by-step.md)).
+  It also runs a second time with all of `strict`, file by file:
+  `scripts/strict-types.js` adds each file's errors and the `any`s written
+  in its types, and holds the sum to its number in `types/strict.json`,
+  which only goes down, a new file allowed none, until every file is at
+  none and `strict` goes on for good
+  ([decision 70](docs/decisions/0070-strict-types-step-by-step.md)).
 
 Every night `.github/workflows/nightly.yml` runs `npm run check` on `main`,
 and `npm run test:live` (`test/live/`): a few checks against wayhop.gr with

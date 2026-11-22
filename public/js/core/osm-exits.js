@@ -25,8 +25,10 @@ export function nameParts(name) {
 }
 
 // Whether two names name the same place: one's streets all in the other's
+/** @param {string | undefined} a @param {string | undefined} b */
 const sameName = (a, b) => {
     const [x, y] = [nameParts(a), nameParts(b)];
+    /** @param {string[]} p @param {string[]} q */
     const within = (p, q) => p.length > 0 && p.every(part => q.includes(part));
     return within(x, y) || within(y, x);
 };

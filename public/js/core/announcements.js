@@ -20,13 +20,21 @@ const SOURCES = { el: ['stasy', 'oasaEl'], en: ['stasy', 'oasaEn'] };
 
 const list = document.getElementById('announcements');
 const banner = /** @type {HTMLElement} */ (document.getElementById('disruptions'));
-/** @type {{ rail: any[], bus: Record<string, any[]>, available: string[] } | null} */
+/**
+ * An announcement as /api/announcements sends it; greek: in Greek on an
+ * English page (the rail's, which STASY writes in Greek only)
+ * @typedef {{ title: string, link: string, date: string, disruption?: boolean, greek?: boolean }} Announcement
+ * @typedef {{ rail: Announcement[], bus: Record<'el' | 'en', Announcement[]>, available: string[] }} Announcements
+ */
+/** @type {Announcements | null} */
 let data = null;
 let failed = false;
 
+/** @param {string} iso */
 const formatDate = iso => new Date(iso).toLocaleDateString(language === 'el' ? 'el-GR' : 'en-GB', { day: 'numeric', month: 'short' });
 
 // One announcement; exported for the tests
+/** @param {Announcement} announcement @param {boolean | undefined} greek */
 export function item({ title, link, date }, greek) {
     const text = html`<span${greek && html` lang="el"`}>${title}</span>`;
     const url = safeUrl(link);
@@ -37,6 +45,7 @@ export function item({ title, link, date }, greek) {
 }
 
 // Items already in the disruption banner aren't repeated in the list
+/** @param {string} titleKey @param {Announcement[]} items @param {string} more @param {boolean} greek */
 function group(titleKey, items, more, greek) {
     const rest = items.filter(i => !i.disruption);
     return html`<h3 class="info-subhead">${t(titleKey)}</h3>
@@ -50,6 +59,7 @@ function group(titleKey, items, more, greek) {
 // such announcements, so people learn where they'd be. Only when every source
 // the page reads answered: "none" can't be said of one we couldn't read.
 // Exported for the tests.
+/** @param {Announcements} announcements */
 export function disruptionView({ rail, bus, available }) {
     const disruptions = [...rail.map(i => ({ ...i, greek: language !== 'el' })), ...bus[language]].filter(i => i.disruption);
     if (disruptions.length) {

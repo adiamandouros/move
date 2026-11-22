@@ -13,6 +13,7 @@ const KEY = 'favourites';
 const KINDS = ['station', 'stop', 'line'];
 
 // localStorage can be missing or blocked (private windows, some settings)
+/** @type {{ get: (key: string) => string | null, set: (key: string, value: string) => void }} */
 const storage = {
     get: key => { try { return localStorage.getItem(key); } catch { return null; } },
     set: (key, value) => { try { localStorage.setItem(key, value); } catch { /* not kept */ } },
@@ -24,10 +25,16 @@ export const lineFavourite = (line, dir) => `${line}/${dir}`;
 
 /** @returns {Record<Kind, string[]>} */
 export function favourites() {
-    /** @type {any} */
+    /** @type {unknown} */
     let saved = null;
     try { saved = JSON.parse(storage.get(KEY) ?? 'null'); } catch { /* none */ }
-    const list = kind => Array.isArray(saved?.[kind]) ? saved[kind].filter(key => typeof key === 'string') : [];
+    // Whatever was saved, only its lists of keys
+    const kept = /** @type {Partial<Record<Kind, unknown>> | null} */ (saved && typeof saved === 'object' ? saved : null);
+    /** @param {Kind} kind @returns {string[]} */
+    const list = kind => {
+        const keys = kept?.[kind];
+        return Array.isArray(keys) ? keys.filter(key => typeof key === 'string') : [];
+    };
     return { station: list('station'), stop: list('stop'), line: list('line') };
 }
 

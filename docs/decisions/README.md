@@ -81,3 +81,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 67 | [The trip page: followed onto whichever of "Any of these buses" is boarded](0067-trip-follows-any-of-these-buses.md) | In force |
 | 68 | [The trip page: exits and metro stations as the signs riders follow](0068-trip-exits-and-stations-as-signs.md) | In force |
 | 69 | [Following underground: a trace first, then rough fixes on rail, provisionally](0069-following-underground-rough-fixes.md) | In force |
+| 70 | [The rest of the strict type check, file by file, written `any` counted](0070-strict-types-step-by-step.md) | In force |

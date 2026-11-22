@@ -6,6 +6,7 @@
 // tap, not on focus: the focus comes back to the field from its list, and a
 // tap's own press would undo a selection made as the field takes the focus.
 // The keyboard's Tab selects it by itself.
+/** @param {HTMLInputElement} input @param {() => boolean} holdsChoice */
 export function selectOnFirstTap(input, holdsChoice) {
     let hadFocus = false;
     input.addEventListener('pointerdown', () => {

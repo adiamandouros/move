@@ -5,14 +5,17 @@
 
 export const language = document.documentElement.lang === 'el' ? 'el' : 'en';
 
+/** @type {Record<string, string>} */
 const strings = JSON.parse(document.getElementById('strings')?.textContent ?? '{}');
 
+/** @param {string} key */
 export function t(key) {
     return strings[key] ?? key;
 }
 
 // A link to one of the site's pages in this page's language:
 // '/subway?to=x' → '/el/subway?to=x' in Greek
+/** @param {string} href */
 export function localHref(href) {
     return language === 'el' ? `/el${href === '/' ? '' : href}` : href;
 }
