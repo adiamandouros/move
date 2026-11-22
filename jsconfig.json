@@ -4,8 +4,9 @@
     // same JavaScript. Editors use this file too. Packages without types count
     // as untyped (maxNodeModuleJsDepth), and '/js/…' is public/js/ and
     // '/tools/subway/…' the subway's client files, as in the pages' import map.
-    // strictNullChecks: a value that can be null or missing can't be used as
-    // if it couldn't (decision 66).
+    // strict: a value that can be null or missing can't be used as if it
+    // couldn't (decision 66), and every value has a type, none left any
+    // (decision 70); scripts/written-any.js keeps any out of the types too.
     "compilerOptions": {
         "target": "es2023",
         "module": "nodenext",
@@ -16,8 +17,7 @@
         "checkJs": true,
         "maxNodeModuleJsDepth": 0,
         "noEmit": true,
-        "strict": false,
-        "strictNullChecks": true,
+        "strict": true,
         "skipLibCheck": true,
         "paths": { "/js/*": ["./public/js/*"], "/tools/subway/*": ["./tools/subway/client/*"], "/tools/buses/*": ["./tools/buses/client/*"] }
     },
