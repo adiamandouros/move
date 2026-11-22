@@ -7,23 +7,30 @@ import { minutesBadge, minutesWords } from '/js/core/times.js';
 // What the bus page draws, with html`` (every value escaped: stop names,
 // lines and destinations come from OASA)
 
-const local = pair => localName(pair, language);
+/** @typedef {import('./timing.js').Arrival} Arrival */
+/** @typedef {import('./timing.js').StopResult} StopResult */
+/** @typedef {import('./search.js').BusLine} BusLine */
+/** @typedef {import('./stops.js').ShownStop} ShownStop */
 
+const local = (/** @type {{ el?: string, en?: string } | null | undefined} */ pair) => localName(pair, language);
+
+/** @param {number} meters */
 function formatDistance(meters) {
     return meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${meters} m`;
 }
 
 // The address of a view of the bus page: viewHref({ stop: '10341' }), viewHref({ line: '040' })
-export const viewHref = params => `${localHref('/buses')}?${new URLSearchParams(params)}`;
+export const viewHref = (/** @type {Record<string, string>} */ params) => `${localHref('/buses')}?${new URLSearchParams(params)}`;
 
 // A line's plate, for a screen reader "Line 040"
+/** @param {string} line @param {import('/js/core/lines.js').PillSize} size */
 const plate = (line, size) => busPlate(line, size, t('buses.line'));
 
 // How far a stop is, when the location is known (beside its code)
-export const distance = meters => meters === undefined ? html`` : html`<span class="sr-only">, </span>${formatDistance(meters)}`;
+export const distance = (/** @type {number | undefined} */ meters) => meters === undefined ? html`` : html`<span class="sr-only">, </span>${formatDistance(meters)}`;
 
-const lineLabel = a => a.line ?? '?';
-const destination = a => a.to ? local(a.to) : t('buses.unknown-line');
+const lineLabel = (/** @type {Arrival} */ a) => a.line ?? '?';
+const destination = (/** @type {Arrival} */ a) => a.to ? local(a.to) : t('buses.unknown-line');
 
 // One collapsible row per stop: a heading with a button (so screen reader users
 // can jump from stop to stop), named by its visible text: name, code (what
@@ -31,6 +38,7 @@ const destination = a => a.to ? local(a.to) : t('buses.unknown-line');
 // filled in by patchStop(). open: shown opened; nearest: marked as the
 // nearest (on a line); id: the start of its parts' ids (the favourites have
 // their own, as a stop can be listed twice).
+/** @param {ShownStop} stop @param {number} index @param {{ open?: boolean, nearest?: boolean, id?: string }} [options] */
 export const stopItem = (stop, index, { open = false, nearest = false, id = 'stop' } = {}) =>
     stopRow(stop, index, { open, nearest, id });
 
@@ -38,12 +46,13 @@ export const stopItem = (stop, index, { open = false, nearest = false, id = 'sto
 // 48), which fills it in at once: `away`, how far it is, beside its code;
 // `next`, `badge` and `arrivals` as nextBus(), headerBadge() and arrivalRows()
 // draw them, `lines` its lines, `heard` what its list of arrivals is called
-// for a screen reader; `star`: false leaves out saving the stop
+// for a screen reader; `star`: false leaves out saving the stop (the Trip
+// page's stops have no `lines` of their own: it gives `lines` drawn)
 /**
  * @param {{ code: string, name: { el?: string, en?: string }, lat: number, lng: number, meters?: number, lines?: string[] }} stop @param {number} index
  * @param {{ open?: boolean, nearest?: boolean, id?: string, star?: boolean, away?: unknown, next?: unknown, badge?: unknown, arrivals?: unknown, lines?: unknown, heard?: string, hasArrivals?: boolean }} options
  */
-export function stopRow(stop, index, { open = false, nearest = false, id = 'stop', star = true, away = distance(stop.meters), next = '', badge = '', arrivals = '', lines = lineLinks(stop.lines), heard = `${t('buses.all-arrivals-for')} ${local(stop.name)}`, hasArrivals = false }) {
+export function stopRow(stop, index, { open = false, nearest = false, id = 'stop', star = true, away = distance(stop.meters), next = '', badge = '', arrivals = '', lines = lineLinks(/** @type {string[]} */ (stop.lines)), heard = `${t('buses.all-arrivals-for')} ${local(stop.name)}`, hasArrivals = false }) {
     return html`
     <div class="accordion-item stop-item${nearest ? ' stop-nearest' : ''}" data-stop="${stop.code}" data-has-arrivals="${String(hasArrivals)}">
         <div class="stop-header d-flex align-items-stretch">
@@ -80,20 +89,24 @@ export function stopRow(stop, index, { open = false, nearest = false, id = 'stop
 export const nearestNote = () => html`<span class="sr-only">, </span>${t('buses.nearest')}`;
 
 // A stop's lines, each a link to its stops in order
-const lineLinks = lines => pillList(lines.map(line => html`<a class="plate-link" href="${viewHref({ line })}" data-view>${busPlate(line, 's')}</a>`));
+const lineLinks = (/** @type {string[]} */ lines) => pillList(lines.map(line => html`<a class="plate-link" href="${viewHref({ line })}" data-view>${busPlate(line, 's')}</a>`));
 
 // Fill in one stop's arrivals. `result` is undefined until the first answer
 // arrives; waiting: false when none is on its way (a line's stop, until it's opened).
+/** @param {HTMLElement} item @param {StopResult | undefined} result @param {{ waiting?: boolean }} [options] */
 export function patchStop(item, result, { waiting = true } = {}) {
     item.dataset.hasArrivals = String((result?.arrivals ?? []).length > 0);
-    setHtml(item.querySelector('.stop-next-bus'), nextBus(result, { waiting }));
-    setHtml(item.querySelector('.header-badge-wrap'), headerBadge(result));
-    setHtml(item.querySelector('.stop-arrivals'), arrivalRows(result));
+    // Parts every row has (stopRow)
+    const part = (/** @type {string} */ selector) => /** @type {Element} */ (item.querySelector(selector));
+    setHtml(part('.stop-next-bus'), nextBus(result, { waiting }));
+    setHtml(part('.header-badge-wrap'), headerBadge(result));
+    setHtml(part('.stop-arrivals'), arrivalRows(result));
 }
 
 // The rest of the stop button's name: the next bus, or why there's none. The
 // button's name is its text: stop, distance, then this (the minutes badge
 // sits outside the button, so they're repeated for screen readers).
+/** @param {StopResult | undefined} result @param {{ waiting?: boolean }} [options] */
 export function nextBus(result, { waiting = true } = {}) {
     const first = result?.arrivals?.[0];
     if (first) return html`<span class="sr-only">. ${t('buses.next-bus-line')} </span><span class="next-bus-line">${busPlate(lineLabel(first), 'l')}</span><span class="sr-only">, </span><span class="next-bus-dest">${destination(first)}</span><span class="sr-only">, ${minutesWords(first.minutes, t)}</span>`;
@@ -106,15 +119,17 @@ export function nextBus(result, { waiting = true } = {}) {
 // A bus's badge. The Buses page counts its stops down itself (timing.js);
 // the Trip page's rows give each bus's `at`, seconds since 1970, for the
 // badge to count down by itself (decision 61)
-const busBadge = a => minutesBadge(a.minutes, t, { at: a.at ?? null });
+const busBadge = (/** @type {Arrival} */ a) => minutesBadge(a.minutes, t, { at: a.at ?? null });
 
 // The next bus's minutes, beside the button
+/** @param {StopResult | undefined} result */
 export function headerBadge(result) {
     const first = result?.arrivals?.[0];
     return first ? busBadge(first) : html``;
 }
 
 // One arrival: the line, where it goes and in how many minutes
+/** @param {Arrival} a */
 export function arrivalRow(a) {
     return html`
             <li class="arrival-row d-flex align-items-center justify-content-between py-2">
@@ -127,6 +142,7 @@ export function arrivalRow(a) {
 }
 
 // Every arrival, inside the opened stop
+/** @param {StopResult | undefined} result */
 export function arrivalRows(result) {
     const arrivals = result?.arrivals ?? [];
     if (!arrivals.length) return result ? html`<li class="text-body-secondary small">${t(result.unavailable ? 'buses.unavailable' : 'buses.no-arrivals')}</li>` : html``;
@@ -136,6 +152,7 @@ export function arrivalRows(result) {
 // A message in place of the stops, with an optional button (its label).
 // symbol: the icon's name, and "spin" after it to turn it while loading.
 // tabindex="-1" lets the page move the keyboard to it.
+/** @param {string} symbol @param {string} title @param {string} [subtitle] @param {string} [action] */
 export function message(symbol, title, subtitle = '', action = '') {
     const [name, ...extra] = symbol.split(' ');
     return html`
@@ -153,12 +170,14 @@ export function message(symbol, title, subtitle = '', action = '') {
 const resultArrow = () => icon('more', 'search-result-arrow');
 
 // Above the results: what tapping one does
+/** @param {BusLine[]} lines @param {ShownStop[]} stops */
 function searchHint(lines, stops) {
     const key = lines.length && stops.length ? 'buses.pick-either' : lines.length ? 'buses.pick-line' : 'buses.pick-stop';
     return html`<p class="search-hint">${t(key)}</p>`;
 }
 
 // A line found by its number: a link to its stops
+/** @param {BusLine} line */
 export function lineResult(line) {
     return html`
         <li class="list-group-item p-0">
@@ -169,6 +188,7 @@ export function lineResult(line) {
 }
 
 // A starred line, in the direction it was starred: a link to its stops that way
+/** @param {BusLine} line @param {number} dir */
 export function favouriteLine(line, dir) {
     return html`
         <li class="list-group-item p-0">
@@ -180,6 +200,7 @@ export function favouriteLine(line, dir) {
 
 // A stop found by name or code: its name, code, distance and lines, all in
 // the link, so each of eight "SYNTAGMA"s is told apart by what it says
+/** @param {ShownStop} stop */
 export function stopResult(stop) {
     return html`
         <li class="list-group-item p-0">
@@ -194,6 +215,7 @@ export function stopResult(stop) {
 }
 
 // What was found: lines first (few), then stops (the first `shown` of them)
+/** @param {BusLine[]} lines @param {ShownStop[]} stops @param {number} shown */
 export function searchResults(lines, stops, shown) {
     return html`
         ${lines.length || stops.length ? searchHint(lines, stops) : ''}
@@ -205,6 +227,7 @@ export function searchResults(lines, stops, shown) {
 }
 
 // What the search found, for the status line read out as it changes
+/** @param {string} query @param {BusLine[]} lines @param {ShownStop[]} stops */
 export function searchStatus(query, lines, stops) {
     if (!lines.length && !stops.length) return format(t('buses.nothing-found'), { query: query.trim() });
     return [lines.length && format(t('buses.found-lines'), { count: lines.length }), stops.length && format(t('buses.found-stops'), { count: stops.length })].filter(Boolean).join(' · ');
@@ -219,6 +242,7 @@ export function backLink() {
 // isn't): its number and name, a switch between its two directions
 // (`direction`: the one shown), and a star for the line that way. The
 // heading takes the keyboard when the line opens.
+/** @param {BusLine} line @param {number} direction */
 export function lineHeader(line, direction) {
     const switcher = line.directions.length > 1 && html`
         <div class="btn-group w-100 direction-switch" role="group" aria-label="${t('buses.direction')}">

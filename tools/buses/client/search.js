@@ -9,9 +9,11 @@ import { normalise } from '/js/core/text.js';
 /** @typedef {import('../../../types/data.js').BusLines['lines'][number]} BusLine */
 
 // The Latin letters people type for the Greek ones in line numbers: X95 for Χ95
+/** @type {Record<string, string>} */
 const LOOKALIKES = { a: 'α', b: 'β', g: 'γ', e: 'ε', t: 'τ', x: 'χ' };
 
 // A line number as it's compared: 'x95', 'Χ95' and 'χ 95' are all 'χ95'
+/** @param {string} text */
 export function lineKey(text) {
     return normalise(text).replace(/ /g, '').replace(/th/g, 'θ').replace(/[abgetx]/g, c => LOOKALIKES[c]);
 }
@@ -62,6 +64,7 @@ export function findStops(stops, query, coords = null, language = 'el') {
     const q = normalise(query);
     if (!q) return [];
     const words = q.split(' ');
+    /** @type {{ r: number, stop: BusStop & { meters?: number } }[]} */
     const found = [];
     for (const stop of stops) {
         const r = rank(stop, q, words);
@@ -69,6 +72,6 @@ export function findStops(stops, query, coords = null, language = 'el') {
         found.push({ r, stop: coords ? { ...stop, meters: distanceMeters(coords.lat, coords.lng, stop.lat, stop.lng) } : stop });
     }
     return found
-        .sort((a, b) => a.r - b.r || (coords ? a.stop.meters - b.stop.meters : a.stop.name[language].localeCompare(b.stop.name[language], 'el')))
+        .sort((a, b) => a.r - b.r || (coords ? (a.stop.meters ?? 0) - (b.stop.meters ?? 0) : a.stop.name[language].localeCompare(b.stop.name[language], 'el')))
         .map(f => f.stop);
 }

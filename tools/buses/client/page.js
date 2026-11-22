@@ -14,7 +14,7 @@ export const RESULTS_SIZE = 20;
 
 /** @typedef {import('./stops.js').BusStop} BusStop */
 /** @typedef {import('./search.js').BusLine} BusLine */
-/** @typedef {BusStop & { meters?: number }} ShownStop */
+/** @typedef {import('./stops.js').ShownStop} ShownStop */
 /** @typedef {import('./timing.js').StopResult & { stale?: boolean }} Result */
 /** @typedef {'denied' | 'unavailable' | 'slow' | 'unsupported'} Problem */
 /**
@@ -88,6 +88,7 @@ export const state = {
 // ── Rendering ───────────────────────────────────────────────────────────────
 
 // Draw these stops. open: each shown opened (one stop)
+/** @param {ShownStop[]} stops @param {{ open?: boolean }} [options] */
 export function renderStops(stops, { open = false } = {}) {
     state.stops = stops;
     // The keyboard was on a message (e.g. after "Use my location"): move it to the first stop
@@ -111,7 +112,7 @@ export function clearStops() {
 }
 
 // On a stop or a line, a stop that isn't opened isn't asked for: no answer is on its way
-const waiting = code => state.view.kind === 'nearby' || isOpen(code);
+const waiting = (/** @type {string} */ code) => state.view.kind === 'nearby' || isOpen(code);
 
 export function patchAll() {
     for (const stop of listed()) {
@@ -173,6 +174,7 @@ export function showMessage(symbol, title, subtitle = '', action = null) {
 // ── Data ────────────────────────────────────────────────────────────────────
 
 // A stop with how far it is, when the location is known
+/** @param {ShownStop} stop @returns {ShownStop} */
 export const withMeters = stop => state.coords ? { ...stop, meters: distanceMeters(state.coords.lat, state.coords.lng, stop.lat, stop.lng) } : stop;
 
 // The lines, loaded once; null if they couldn't be
@@ -185,17 +187,17 @@ export function loadLines() {
 }
 
 // Whole minutes since a stop's answer came in
-export const elapsed = code => elapsedMinutes(state.fetched[code], Date.now());
+export const elapsed = (/** @type {string} */ code) => elapsedMinutes(state.fetched[code], Date.now());
 
 // A stop's answer, counted down to now (between refreshes it can be 2 minutes old)
-export const shown = code => countDown(state.results[code], elapsed(code));
+export const shown = (/** @type {string} */ code) => countDown(state.results[code], elapsed(code));
 
 // Every stop shown, the starred ones first, once each (a starred stop can be nearby too)
 const listed = () => [...new Map([...state.favouriteStops, ...state.stops].map(stop => [stop.code, stop])).values()];
 
 // A stop's rows: one, or two when it's starred and nearby
-const itemsOf = code => [...busView.querySelectorAll(`.stop-item[data-stop="${code}"]`)];
-const isOpen = code => itemsOf(code).some(item => item.querySelector('.stop-toggle[aria-expanded="true"]'));
+const itemsOf = (/** @type {string} */ code) => [.../** @type {NodeListOf<HTMLElement>} */ (busView.querySelectorAll(`.stop-item[data-stop="${code}"]`))];
+const isOpen = (/** @type {string} */ code) => itemsOf(code).some(item => item.querySelector('.stop-toggle[aria-expanded="true"]'));
 
 // Which stops are on screen: only those are refreshed (and asked for at once
 // when they scroll into view)
@@ -215,7 +217,7 @@ export function observe() {
 }
 
 // A stop on screen, or hidden by "Hide empty stops"
-const watched = code => itemsOf(code).some(item => state.onScreen.has(item) || item.classList.contains('d-none'));
+const watched = (/** @type {string} */ code) => itemsOf(code).some(item => state.onScreen.has(item) || item.classList.contains('d-none'));
 
 // Ask for the stops that are due (dueStops in timing.js). Nothing while
 // paused, out of sight, or while a search covers them.
@@ -236,6 +238,7 @@ export function poll() {
 // One request per stop, so each stop shows as soon as its arrivals are in: the
 // server asks OASA for stops it hasn't cached one after another (about 2 a
 // second), so a single request for all of them waited for the slowest.
+/** @param {string} code */
 async function ask(code) {
     state.asking.add(code);
     try {

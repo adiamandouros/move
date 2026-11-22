@@ -27,7 +27,7 @@ export async function showLine({ focus = false } = {}) {
     const direction = Math.min(view.direction, line.directions.length - 1);
     setHtml(lineBar, lineHeader(line, direction));
     lineBar.hidden = false;
-    renderStops(line.directions[direction].stops.map(code => state.byCode.get(code)).filter(Boolean).map(withMeters));
+    renderStops(line.directions[direction].stops.flatMap(code => state.byCode.get(code) ?? []).map(withMeters));
     if (focus) /** @type {HTMLElement} */ (lineBar.querySelector('.line-heading')).focus();
     markNearest();
 }

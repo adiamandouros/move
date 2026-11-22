@@ -362,9 +362,10 @@ function busStops(rail, stops, before, clock, opened, mark = NONE, board = null)
         const plates = size => pillList(lines.map(line => busPlate(line, size)));
         // As the Buses page has a stop's answer, each bus's minutes from now,
         // counting down by themselves, those past gone (decision 61)
-        const coming = noTimes(mark) ? [] : arrivals
-            .map(bus => ({ line: bus.line, to: bus.to, at: epochAt(bus.at, clock), minutes: minutesLeft(bus.at, clock.seconds) }))
-            .filter(bus => bus.minutes !== null);
+        const coming = noTimes(mark) ? [] : arrivals.flatMap(bus => {
+            const minutes = minutesLeft(bus.at, clock.seconds);
+            return minutes === null ? [] : [{ line: bus.line, to: bus.to, at: epochAt(bus.at, clock), minutes }];
+        });
         const result = { arrivals: coming };
         // With none of them on OASA's live times, its lines, and that it has none
         const next = coming.length ? nextBus(result) : html`<span class="sr-only">. ${t('buses.lines')}: </span>${plates('m')}${buses && !arrivals.length && html`<span class="next-bus-dest text-body-secondary fst-italic"><span class="sr-only">. </span>${t('trip.live-none')}</span>`}`;

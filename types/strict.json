@@ -78,13 +78,6 @@
     "server/railway/stream.js": 7,
     "server/scheduler.js": 1,
     "server/stasy.js": 5,
-    "tools/buses/client/main.js": 4,
-    "tools/buses/client/page.js": 11,
-    "tools/buses/client/render.js": 38,
-    "tools/buses/client/search.js": 4,
-    "tools/buses/client/stops.js": 1,
-    "tools/buses/client/timing.js": 4,
-    "tools/buses/client/views/nearby.js": 3,
     "tools/info/client/main.js": 22,
     "tools/info/client/map.js": 170,
     "types/pages.d.ts": 1
