@@ -53,7 +53,8 @@ const ON_THE_ROAD = new Set(['bus', 'trolley']);
  */
 /** @typedef {{ kind: 'clear' | 'decision' | 'depends' | 'none', rows: Row[], departures: number[], clear?: Row, decision?: Decision }} Answer */
 
-const lastIsBus = way => ON_THE_ROAD.has(way.legs.at(-1).mode);
+/** @param {import('./ways.js').Way} way */
+const lastIsBus = way => ON_THE_ROAD.has(way.legs[way.legs.length - 1].mode);
 
 // Ways that are the same up to their last bus, from the same change, are one row
 /** @param {Planner} planner @param {Way} way */
@@ -65,6 +66,7 @@ export function rowKey(planner, way) {
 }
 
 // The value a share `q` of the way up a sorted list
+/** @param {number[]} sorted @param {number} q */
 const quantile = (sorted, q) => sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))];
 
 /** @typedef {{ window?: number, step?: number, walkLimit?: number, badDay?: Planner }} Options */
@@ -90,23 +92,29 @@ export function answer(planner, access, egress, now, options) {
  * @returns {Generator<void, Answer>}
  */
 export function* answering(planner, access, egress, now, { window = WINDOW_SECONDS, step = STEP_SECONDS, walkLimit, badDay = planner } = {}) {
+    /** @type {number[]} */
     const departures = [];
     for (let at = now; at <= now + window; at += step) departures.push(at);
+    /**
+     * @type {Map<string, { key: string, best: (Way | null)[], lines: Set<string>, onward: Set<string>, buses: Set<string>,
+     *   stops: Map<number, { stop: number, walk: number, lines: Set<string> }> }>}
+     */
     const byKey = new Map();
     for (const [d, at] of departures.entries()) {
         for (const found of fold(findWays(planner, access, egress, at, { walkLimit }))) {
             const way = { ...found, cost: cost(badDay, found, at, access, egress) };
             const key = rowKey(planner, way);
-            if (!byKey.has(key)) byKey.set(key, { key, best: departures.map(() => null), lines: new Set(), onward: new Set(), buses: new Set(), stops: new Map() });
-            const row = byKey.get(key);
-            const last = way.legs.at(-1);
+            let row = byKey.get(key);
+            if (!row) byKey.set(key, row = { key, best: departures.map(() => null), lines: new Set(), onward: new Set(), buses: new Set(), stops: new Map() });
+            const last = way.legs[way.legs.length - 1];
             if (way.legs.length > 1) row.onward.add(way.legs[1].line);
             if (lastIsBus(way)) {
                 row.lines.add(last.line);
                 row.buses.add(`${last.line} ${last.boards}`);
                 const walk = way.legs.length > 1 ? last.walkBefore : secondsTo(access, last.board);
-                if (!row.stops.has(last.board)) row.stops.set(last.board, { stop: last.board, walk, lines: new Set() });
-                row.stops.get(last.board).lines.add(last.line);
+                let stop = row.stops.get(last.board);
+                if (!stop) row.stops.set(last.board, stop = { stop: last.board, walk, lines: new Set() });
+                stop.lines.add(last.line);
             }
             if (!row.best[d] || way.at < row.best[d].at) row.best[d] = way;
         }
@@ -122,7 +130,8 @@ export function* answering(planner, access, egress, now, { window = WINDOW_SECON
         const leaving = [...buses].map(bus => Number(bus.split(' ')[1])).sort((a, b) => a - b);
         return {
             key, best, lines: [...lines].sort(), onward: [...onward].sort(), bundle: lines.size > 1,
-            way: best.find(Boolean),
+            // A row is made for a way found
+            way: /** @type {Way} */ (best.find(Boolean)),
             range: /** @type {[number, number]} */ ([quantile(found, RANGE_TAIL), quantile(found, 1 - RANGE_TAIL)].map(s => Math.round(s / 60))),
             every: leaving.length > 1 ? Math.round((leaving[leaving.length - 1] - leaving[0]) / (leaving.length - 1)) : null,
             first: best.filter((way, d) => way?.at === fastest[d]).length / departures.length,
@@ -149,10 +158,12 @@ export function* answering(planner, access, egress, now, { window = WINDOW_SECON
 /** @param {Row[]} rows @param {number[]} departures @returns {Decision | null} */
 function decisionIn(rows, departures) {
     const often = rows.filter(row => row.close >= DECISION_SHARE);
+    /** @param {Row} a @param {Row} b */
     const share = (a, b) => departures.filter((_, d) => a.best[d] && (!b.best[d] || b.best[d].at - a.best[d].at >= TIE_SECONDS)).length / departures.length;
     for (const [i, a] of often.entries()) {
         for (const b of often.slice(i + 1)) {
-            const d = departures.findIndex((_, j) => sameFirstRide(a.best[j], b.best[j]) && byBus(a.best[j], b.best[j]));
+            // (byBus after sameFirstRide: both found)
+            const d = departures.findIndex((_, j) => sameFirstRide(a.best[j], b.best[j]) && byBus(/** @type {Way} */ (a.best[j]), /** @type {Way} */ (b.best[j])));
             const [wa, wb] = [a.best[d], b.best[d]];
             if (d < 0 || !wa || !wb || share(a, b) < DECISION_SHARE || share(b, a) < DECISION_SHARE) continue;
             const aFirst = wa.legs[0].arrives < wb.legs[0].arrives;
@@ -169,11 +180,13 @@ function decisionIn(rows, departures) {
 }
 
 // Both ways start on the same train or bus, and one leaves it sooner
-const sameFirstRide = (a, b) => Boolean(a && b && a.legs.length > 1 && b.legs.length > 1)
+/** @param {Way | null} a @param {Way | null} b */
+const sameFirstRide = (a, b) => Boolean(a && b && a.legs.length > 1 && b.legs.length > 1
     && a.legs[0].line === b.legs[0].line && a.legs[0].board === b.legs[0].board && a.legs[0].boards === b.legs[0].boards
-    && a.legs[0].alight !== b.legs[0].alight;
+    && a.legs[0].alight !== b.legs[0].alight);
 
 // The one that leaves the first ride sooner does it for a bus
+/** @param {Way} a @param {Way} b */
 const byBus = (a, b) => ON_THE_ROAD.has((a.legs[0].arrives < b.legs[0].arrives ? a : b).legs[1].mode);
 
 // How much later a bus predicted `ahead` seconds out comes, as a rule
