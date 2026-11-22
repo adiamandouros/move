@@ -3,6 +3,7 @@ import { basename, join } from 'path';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
 import { userAgentFor } from '../config.js';
+import { messageOf } from '../errors.js';
 import { readJson } from '../files.js';
 
 // OASA publishes its open data on a CKAN portal. Datasets are looked up by
@@ -15,8 +16,19 @@ export const CKAN_API = 'https://catalog.growthfund.gr/api/3/action/package_show
 const API_TIMEOUT_MS = 30_000;
 const DOWNLOAD_TIMEOUT_MS = 10 * 60_000;
 
+/** @param {string} name */
 const gtfs = (name, optional = false) => ({ out: `${name}.txt`, pattern: new RegExp(`^${name}\\.(txt|rar|zip)$`, 'i'), optional });
 
+/**
+ * A dataset on the portal and the files taken from it
+ * @typedef {{ dataset: string, files: ReturnType<typeof gtfs>[] }} Source
+ * A dataset's files where they were saved, by name, and the newest file's
+ * last change on the portal; or why it couldn't be had
+ * @typedef {{ dir: string, files: Record<string, string>, modified: string }} Fetched
+ * @typedef {Record<string, { url: string, version: string }>} Manifest
+ */
+
+/** @type {Record<string, Source>} */
 export const SOURCES = {
     rail: {
         dataset: 'dromologia-statheron-sygkinonion',
@@ -31,7 +43,12 @@ export const SOURCES = {
 // { [source]: { error } } when a source can't be fetched and there is no
 // earlier copy to fall back on. `fetch` reaches the portal (tests pass a fake);
 // `userAgent` is what it sees us as (config.userAgent).
+/**
+ * @param {{ rawDir: string, offline?: boolean, log?: (message: string) => void, fetch?: typeof globalThis.fetch, userAgent?: string }} options
+ * @returns {Promise<Record<string, Fetched | { error: string }>>}
+ */
 export async function fetchSources({ rawDir, offline = false, log = console.log, fetch = globalThis.fetch, userAgent = userAgentFor(null) }) {
+    /** @type {Record<string, Fetched | { error: string }>} */
     const result = {};
     for (const [key, source] of Object.entries(SOURCES)) {
         const dir = join(rawDir, key);
@@ -42,27 +59,36 @@ export async function fetchSources({ rawDir, offline = false, log = console.log,
                 : await syncSource(dir, source, log, fetch, userAgent);
         } catch (err) {
             try {
-                result[key] = useLocal(dir, source);
-                log(`[data] ${key}: ${err.message} — using the copy from ${result[key].modified}`);
+                const local = useLocal(dir, source);
+                result[key] = local;
+                log(`[data] ${key}: ${messageOf(err)} — using the copy from ${local.modified}`);
             } catch {
-                result[key] = { error: err.message };
-                log(`[data] ${key}: ${err.message}`);
+                result[key] = { error: messageOf(err) };
+                log(`[data] ${key}: ${messageOf(err)}`);
             }
         }
     }
     return result;
 }
 
+/**
+ * @param {string} dir @param {Source} source @param {(message: string) => void} log
+ * @param {typeof globalThis.fetch} fetch @param {string} userAgent @returns {Promise<Fetched>}
+ */
 async function syncSource(dir, source, log, fetch, userAgent) {
     const res = await fetch(CKAN_API + source.dataset, {
         headers: { 'User-Agent': userAgent },
         signal: AbortSignal.timeout(API_TIMEOUT_MS),
     });
     if (!res.ok) throw new Error(`portal returned HTTP ${res.status} for ${source.dataset}`);
+    // A file on the portal, as CKAN describes it
+    /** @type {{ name?: string, url: string, last_modified?: string, metadata_modified?: string, created: string }[]} */
     const resources = (await res.json()).result?.resources ?? [];
 
     const manifestPath = join(dir, 'manifest.json');
+    /** @type {Manifest} */
     const manifest = readJson(manifestPath) ?? {};
+    /** @type {Record<string, string>} */
     const files = {};
     let modified = '';
 
@@ -93,8 +119,11 @@ async function syncSource(dir, source, log, fetch, userAgent) {
 }
 
 // Use whatever was downloaded last time (offline builds, or the portal is down).
+/** @param {string} dir @param {Source} source @returns {Fetched} */
 function useLocal(dir, source) {
+    /** @type {Manifest} */
     const manifest = readJson(join(dir, 'manifest.json')) ?? {};
+    /** @type {Record<string, string>} */
     const files = {};
     let modified = '';
     for (const spec of source.files) {
@@ -110,6 +139,7 @@ function useLocal(dir, source) {
     return { dir, files, modified };
 }
 
+/** @param {string} url @param {string} dest @param {typeof globalThis.fetch} fetch @param {string} userAgent */
 async function download(url, dest, fetch, userAgent) {
     // The metro feed comes as plain files. The bus one came in RAR archives
     // too; an archive now is a change worth hearing about, before downloading it.
@@ -121,6 +151,7 @@ async function download(url, dest, fetch, userAgent) {
         signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-    await pipeline(Readable.fromWeb(res.body), createWriteStream(tmp));
+    // An answer that went through has a body; fetch's web stream is Node's
+    await pipeline(Readable.fromWeb(/** @type {import('stream/web').ReadableStream} */ (res.body)), createWriteStream(tmp));
     renameSync(tmp, dest);
 }

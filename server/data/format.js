@@ -3,6 +3,7 @@
 // and so does every array, but for a list of objects above `inlineDepth`,
 // which gets one of them per line. positions.json uses depth 3, so each
 // station is one line; street.json too, so each exit is.
+/** @param {unknown} value @param {number} inlineDepth @returns {string} */
 export function formatJson(value, inlineDepth, depth = 0, indent = '  ') {
     if (value === null || typeof value !== 'object') return JSON.stringify(value);
     const isArray = Array.isArray(value);

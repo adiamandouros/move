@@ -199,6 +199,9 @@ export interface RailwaySchedule {
     /** 'scheduled', 'cancelled'… */
     status: string;
     corridor: string;
+    /** When it leaves its first stop (ISO), and its minutes late at the end, once the day is over */
+    scheduledDeparture?: string;
+    delay?: number | null;
     /** Its stops, in the order of `index`, with their times (ISO) */
     routeStations?: { stationId: string; index: number; scheduledArrival?: string | null; scheduledDeparture?: string | null }[];
 }
@@ -256,6 +259,121 @@ export type StasyFetch = { at: string }
     & ({ ok: true; route: string; error?: undefined; unreadable?: undefined } | { ok: false; error: string; unreadable?: true; route?: string });
 
 /** data/raw/stasy/airport-check.json, written by server/data/airport-check.js: the last check of STASY's airport timetable against data/curated/airport.json (`against`: a hash of its PDFs), what it found changed and the route it came through; or a check that failed, with the last one that didn't if there was one */
-export type AirportCheck = { at: string; checked: string; against: string; changes: string[]; route: string; error?: undefined }
+export type AirportCheck = { at: string; checked: string; against: string; changes: string[]; route: string | null; error?: undefined }
     | { at: string; error: string; checked: string; against: string; changes: string[]; route?: undefined }
     | { at: string; error: string; checked?: undefined; against?: undefined; changes?: undefined; route?: undefined };
+
+/** data/raw/railway/last-fetch.json, written by server/data/railway.js: the last fetch of railway.gov.gr's boards, for the Athens day `today` ('YYYYMMDD'), how far it got, and when the last one that went through began (ISO, null for none) */
+export interface RailwayFetch {
+    at: string;
+    today: string;
+    ok: boolean;
+    seconds: number;
+    boards: FetchProgress;
+    fetched: string | null;
+    error?: string;
+}
+
+// ── The curated files (data/curated/), as server/data/validate.js checks them ──
+
+/** data/curated/stations.json: the metro's stations by id, with their GTFS stop codes and how STASY writes a name where it differs; `ignoreGtfs`: stop codes left out */
+export interface CuratedStations {
+    stations: Record<string, { name: Names; gtfs: string[]; stasy?: string[] }>;
+    ignoreGtfs?: string[];
+}
+
+/** A direction of a curated line: the GTFS's direction_id for it, and where it goes */
+export interface CuratedDirection {
+    gtfsDirection: string;
+    toward: Names;
+}
+
+/** data/curated/lines.json: the metro's lines by id */
+export type CuratedLines = Record<string, { name: string; color: string; directions: Record<string, CuratedDirection> }>;
+
+/** A platform's elevator: where on the train, and its name as STASY's lift page writes it */
+export interface CuratedElevator {
+    at: Position;
+    name?: string;
+}
+
+/** A platform's way to the other side of the tracks: where to stand for it, over a footbridge or through an underpass, how it's reached */
+export interface Crossing {
+    at?: Position[];
+    via?: string;
+    way?: string[];
+}
+
+/** A platform in positions.json: where to ride for its exits and more; elevators 'none' when it has none (absent: not known yet) */
+export interface CuratedPlatform {
+    exits?: Position[];
+    elevators?: CuratedElevator[] | 'none';
+    escalators?: Position[];
+    stairs?: Position[];
+    centralPlatform?: boolean;
+    stepFree?: StepFree;
+    transfers?: Record<string, Position[]>;
+    crossing?: Crossing;
+    note?: string;
+}
+
+/** data/curated/positions.json: by line, direction and station */
+export type CuratedPositions = Record<string, Record<string, Record<string, CuratedPlatform>>>;
+
+/** A station's exit to the street (street.json): its name as signed, where it is, how it's reached from inside */
+export interface StreetExit {
+    name?: { el?: string; en?: string };
+    coords?: [number, number];
+    way?: string[];
+}
+
+/** data/curated/street.json: each station's exits and lifts on the street, and OpenStreetMap's exits there the field trips have dealt with */
+export type CuratedStreet = Record<string, { exits?: StreetExit[]; lifts?: { name?: string; coords?: [number, number] }[]; osm?: string[] }>;
+
+/** data/curated/osm.json (scripts/osm-exits.js): OpenStreetMap's exits at the metro's stations; `only`: an exit one way only */
+export interface CuratedOsm {
+    fetched: string;
+    exits: Record<string, { ids: string[]; name?: Names; coords: [number, number]; only?: 'in' | 'out' }[]>;
+}
+
+/** data/curated/airport.json: STASY's airport trains by line and direction, each train's times at `stations` (HH:MM), and the PDF they came from */
+export interface CuratedAirport {
+    checked: string;
+    page: string;
+    lines: Record<string, Record<string, { pdf: string; sha256: string; serves: string; stations: string[]; trains: { train?: string; times: string[] }[] }>>;
+}
+
+/** data/curated/tram.json: the tram's lines, and its stops with the metro station each changes to and the walks from it */
+export interface CuratedTram {
+    lines: CuratedLines;
+    stops: Record<string, { name: Names; gtfs: string[]; metro?: string; walks?: { metro?: string; stop?: string; minutes: number; exit?: string }[] }>;
+}
+
+/** A suburban railway station (suburban.json, decision 41) */
+export interface SuburbanStation {
+    name: Names;
+    ose: string[];
+    lines?: string[];
+    coords: [number, number];
+    metro?: string;
+    walks?: { metro?: string; station?: string; minutes: number; note?: Names }[];
+    oasaTicket?: false;
+}
+
+/** data/curated/suburban.json: the suburban railway's lines (each a corridor's trains, or with `stopsAt` those stopping there) and stations */
+export interface CuratedSuburban {
+    lines: Record<string, { name: string; color: string; corridor: string; stopsAt?: string }>;
+    stations: Record<string, SuburbanStation>;
+}
+
+/** Every curated file, as loadCurated reads them (server/data/index.js); the optional ones can be missing */
+export interface Curated {
+    stations: CuratedStations;
+    lines: CuratedLines;
+    positions: CuratedPositions;
+    airport?: CuratedAirport;
+    tram?: CuratedTram;
+    street?: CuratedStreet;
+    suburban?: CuratedSuburban;
+    osm?: CuratedOsm;
+}

@@ -1,5 +1,6 @@
 import { mkdirSync } from 'fs';
 import { join } from 'path';
+import { messageOf } from '../errors.js';
 import { readJson, writeFileAtomic } from '../files.js';
 import { decode } from '../info/announcements.js';
 
@@ -24,40 +25,58 @@ import { decode } from '../info/announcements.js';
 //   frequencies: { M1: [[period, hours, every, ...], ...] } }   ← how often trains run (rail-checks.js; copies from before 2026-10-21 have none)
 // They're read at every build, so a change to the reading rules needs no new fetch.
 
+/**
+ * A first-and-last table of a timetable page, every cell as plain text
+ * (extractTables), and the kept copy of the three pages' tables
+ * @typedef {{ header: string[], rows: string[][], notes: string[] }} Table
+ * @typedef {{ fetched: string, lines: Record<string, Table[]>, frequencies?: Record<string, string[][]> }} StasyCopy
+ * What STASY's tables are read against: stations.json's stations, each with
+ * its Greek name and how STASY writes it where that differs
+ * @typedef {Record<string, { name: { el: string }, stasy?: string[] }>} NamedStations
+ */
+
 export const STASY_MAX_AGE_MS = 14 * 86_400_000;
 export const PACE_MS = 1000;
 // rail.json's line → the number of STASY's page for it
 export const STASY_LINES = /** @type {const} */ ({ M1: 1, M2: 2, M3: 3 });
 // The last fetch: { at, ok, route?, error?, unreadable? } (unreadable: the pages came, but changed)
+/** @param {string} rawDir */
 export const stasyFetchFile = rawDir => join(rawDir, 'stasy', 'last-fetch.json');
+/** @param {string} rawDir */
 const tablesFile = rawDir => join(rawDir, 'stasy', 'tables.json');
 
 const DAY = 86_400;
 const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
+/** @param {number} ms @returns {Promise<void>} */
 const realSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // ── Reading the pages ───────────────────────────────────────────────────────
 
 // Upper case without accents, with Latin letters that look Greek made Greek
 // (STASY writes "NIKAIA" and "ΜΕΤAΞΟΥΡΓΕΙΟ")
+/** @type {Record<string, string>} */
 const LOOKALIKES = { A: 'Α', B: 'Β', E: 'Ε', Z: 'Ζ', H: 'Η', I: 'Ι', K: 'Κ', M: 'Μ', N: 'Ν', O: 'Ο', P: 'Ρ', T: 'Τ', Y: 'Υ', X: 'Χ' };
+/** @param {string} text */
 const upper = text => text.normalize('NFD').replace(/\p{M}/gu, '').toUpperCase().replace(/[ABEZHIKMNOPTYX]/g, c => LOOKALIKES[c]);
 // A station name as a key: letters and digits only ("Κ.Α.Τ." → "ΚΑΤ"); validate.js
 // uses it too, so no two stations share a name
+/** @param {string} text */
 export const stasyNameKey = text => upper(text).replace(/[^\p{L}\p{N}]/gu, '');
 
 // The first-and-last tables of a timetable page: [{ header, rows, notes }],
 // every cell as plain text. Such a table's headings start with "ΑΠΟ ΣΤΑΘΜΟ"
 // (from station) and include a first or last train; its rows starting with
 // "Σημείωση" or "*" are notes.
-/** @param {string} html */
+/** @param {string} html @returns {Table[]} */
 export function extractTables(html) {
+    /** @param {string} row */
     const cells = row => [...row.matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/g)].map(m => decode(m[1]));
     return [...html.matchAll(/<table\b[\s\S]*?<\/table>/g)].flatMap(([table]) => {
         const rows = [...table.matchAll(/<tr\b[\s\S]*?<\/tr>/g)].map(([row]) => cells(row));
         const at = rows.findIndex(r => stasyNameKey(r[0] ?? '') === 'ΑΠΟΣΤΑΘΜΟ');
         if (at === -1 || !rows[at].slice(1).some(h => /^(ΠΡΩΤ|ΤΕΛΕΥΤΑΙ)/.test(upper(h)))) return [];
         const body = rows.slice(at + 1).filter(r => r.some(Boolean));
+        /** @param {string[]} r */
         const isNote = r => /^(ΣΗΜΕΙΩΣΗ|\*)/.test(upper(r[0]));
         return [{ header: rows[at], rows: body.filter(r => !isNote(r)), notes: body.filter(isNote).map(r => r.filter(Boolean).join(' ')) }];
     });
@@ -69,6 +88,7 @@ export function extractTables(html) {
 // read by rail-checks.js
 /** @param {string} html @returns {string[][]} */
 export function extractFrequencies(html) {
+    /** @param {string} row */
     const cells = row => [...row.matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/g)].map(m => decode(m[1]));
     const table = [...html.matchAll(/<table\b[\s\S]*?<\/table>/g)].map(([t]) => t).find(t => /ΣΥΧΝΟΤΗΤΑ/.test(upper(decode(t))));
     return table ? [...table.matchAll(/<tr\b[\s\S]*?<\/tr>/g)].map(([row]) => cells(row)).filter(r => r.some(Boolean)) : [];
@@ -76,16 +96,19 @@ export function extractFrequencies(html) {
 
 // stations.json's stations → Map(name key → station id), from each one's
 // Greek name and its "stasy" names (how STASY writes it, if that differs)
+/** @param {NamedStations} stations @returns {Map<string, string>} */
 export function stationNames(stations) {
     const names = new Map();
     for (const [id, s] of Object.entries(stations)) for (const name of [s.name.el, ...(s.stasy ?? [])]) names.set(stasyNameKey(name), id);
     return names;
 }
 
+/** @type {Record<string, number>} */
 const DAY_NAMES = { ΚΥΡ: 0, ΔΕΥ: 1, ΤΡΙ: 2, ΤΕΤ: 3, ΠΕΜ: 4, ΠΑΡ: 5, ΣΑΒ: 6 };
 
 // "ΔΕΥ-ΠΑΡ" → [1, 2, 3, 4, 5], "ΔΕΥ - ΠΕΜ & ΚΥΡ" → [0, 1, 2, 3, 4], "Σ/Κ" → [0, 6];
 // null when it isn't days
+/** @param {string} text */
 export function readDays(text) {
     const days = [];
     for (const part of upper(text).replace(/\s/g, '').split(/[&,]/)) {
@@ -103,6 +126,7 @@ export function readDays(text) {
 // A column's heading → { kind: 'first' | 'last', days }, or null for one that
 // isn't used ("ΔΕΥΤΕΡΟ (ΑΕΡΟΔΡΟΜΙΟ)", the second airport train). In brackets:
 // the days (none: every day), or a station, which only labels the column.
+/** @param {string} text @param {Map<string, string>} names @returns {{ kind: 'first' | 'last', days: number[] } | null} */
 function readHeading(text, names) {
     const word = upper(text.replace(/[([][^)\]]*[)\]]/g, '')).replace(/[\s*]/g, '');
     const kind = /^ΠΡΩΤΟΣ?$/.test(word) ? 'first' : /^ΤΕΛΕΥΤΑΙΟΣ?$/.test(word) ? 'last' : /^ΔΕΥΤΕΡΟΣ?$/.test(word) ? null : undefined;
@@ -119,6 +143,7 @@ function readHeading(text, names) {
 // The note under M2's and M3's tables: "Κάθε Σάββατο υπάρχει 24ωρη λειτουργία
 // στις Γραμμές 2 και 3 … εξαιρούνται τα δρομολόγια … από και προς το
 // Αεροδρόμιο" → { lines: ['M2', 'M3'], except: ['airport'] }, or null
+/** @param {string[]} notes @param {Map<string, string>} names */
 function readAllNight(notes, names) {
     const text = upper(notes.join(' '));
     const found = text.match(/ΚΑΘΕ ΣΑΒΒΑΤΟ ΥΠΑΡΧΕΙ 24ΩΡΗ ΛΕΙΤΟΥΡΓΙΑ ΣΤΙΣ ΓΡΑΜΜΕΣ ([\d\s,ΚΑΙ]+)/);
@@ -133,10 +158,13 @@ function readAllNight(notes, names) {
         if (!id) throw new Error(`unknown note "${notes.join(' ')}": which trains it leaves out`);
         except.push(id);
     }
-    return { lines: found[1].match(/\d+/g).map(n => `M${n}`), except };
+    const numbers = found[1].match(/\d+/g);
+    if (!numbers) throw new Error(`unknown note "${notes.join(' ')}": which lines`);
+    return { lines: numbers.map(n => `M${n}`), except };
 }
 
 // "05:30" → seconds since midnight; a last train before 04:00 leaves after midnight
+/** @param {string} text @param {'first' | 'last'} kind */
 function readTime(text, kind) {
     const hm = text.match(/^(\d{1,2}):(\d{2})$/);
     if (!hm || +hm[1] > 23 || +hm[2] > 59) throw new Error(`unknown time "${text}"`);
@@ -162,6 +190,7 @@ export function readLine(lineId, tables, names) {
 }
 
 // `allNightExcept`: Saturday's trains run all night, except to and from these stations (null: they don't)
+/** @param {Table} table @param {Map<string, string>} names @param {string[] | null} allNightExcept */
 function readDirection({ header, rows }, names, allNightExcept) {
     const stations = rows.map(([name]) => {
         const id = names.get(stasyNameKey(upper(name).replace(/^\s*ΑΦΙΞΗ ΣΤΟ ΣΤΑΘΜΟ\s*/, '')));
@@ -171,21 +200,24 @@ function readDirection({ header, rows }, names, allNightExcept) {
     if (new Set(stations).size !== stations.length) throw new Error(`a station is listed twice: ${stations.join(', ')}`);
 
     // Each column's departures: [row, to (row), kind, days, seconds, allNight]
+    /** @type {{ row: number, to: number, kind: 'first' | 'last', days: number[], seconds: number, allNight: boolean }[]} */
     const departures = [];
     header.forEach((heading, col) => {
         const column = col > 0 && readHeading(heading, names);
         if (!column) return;
         const filled = rows.flatMap((row, i) => row[col] ? [i] : []);
-        const to = filled.at(-1);
+        const to = filled[filled.length - 1];
         const allNight = allNightExcept !== null && !allNightExcept.includes(stations[filled[0]]) && !allNightExcept.includes(stations[to]);
         for (const i of filled.slice(0, -1)) departures.push({ row: i, to, ...column, seconds: readTime(rows[i][col], column.kind), allNight });
     });
 
+    /** @type {Map<string, import('../../types/data.js').Hours[]>} */
     const hours = new Map();
     stations.forEach((station, row) => {
         const here = departures.filter(d => d.row === row);
         const entries = [...new Set(here.map(d => d.to))].sort((a, b) => a - b).map(to => {
             const going = here.filter(d => d.to >= to);
+            /** @param {'first' | 'last'} kind @param {(...seconds: number[]) => number} pick @returns {(number | null | undefined)[]} */
             const day = (kind, pick) => EVERY_DAY.map(wd => {
                 const times = going.filter(d => d.kind === kind && d.days.includes(wd)).map(d => d.seconds);
                 return times.length ? pick(...times) : undefined;
@@ -198,7 +230,8 @@ function readDirection({ header, rows }, names, allNightExcept) {
                 const missing = EVERY_DAY.filter(wd => values[wd] === undefined);
                 if (missing.length) throw new Error(`no ${kind} train from ${station} to ${stations[to]} on day ${missing.join(', ')} (0 = Sunday)`);
             }
-            return { to: stations[to], first, last };
+            // Every day has its value now (checked above)
+            return { to: stations[to], first: /** @type {(number | null)[]} */ (first), last: /** @type {(number | null)[]} */ (last) };
         });
         if (entries.length) hours.set(station, entries);
     });
@@ -212,8 +245,8 @@ function readDirection({ header, rows }, names, allNightExcept) {
  * line the copy can't give times for keeps the GTFS's, with a warning.
  * Returns the date of the copy (YYYY-MM-DD), or null when no line got times.
  * @param {Record<string, import('../../types/data.js').Line>} lines rail.json's lines
- * @param {{ fetched: string, lines: Record<string, any> } | null} copy (stasyTables)
- * @param {Record<string, any>} stations stations.json's stations
+ * @param {StasyCopy | null} copy (stasyTables)
+ * @param {NamedStations} stations stations.json's stations
  * @param {string[]} warnings
  */
 export function applyHours(lines, copy, stations, warnings) {
@@ -241,7 +274,7 @@ export function applyHours(lines, copy, stations, warnings) {
             }
             used = true;
         } catch (err) {
-            warnings.push(`STASY ${lineId}: ${err.message}; its first and last trains come from the GTFS`);
+            warnings.push(`STASY ${lineId}: ${messageOf(err)}; its first and last trains come from the GTFS`);
         }
     }
     return used ? copy.fetched.slice(0, 10) : null;
@@ -253,21 +286,28 @@ export function applyHours(lines, copy, stations, warnings) {
  * The kept copy of STASY's tables, fetched anew once it's STASY_MAX_AGE_MS old.
  * client: server/stasy.js's (none, or offline: only the kept copy);
  * stations: stations.json's stations, to check the pages can be read.
- * @returns {Promise<{ copy: { fetched: string, lines: Record<string, any> } | null, error?: string }>}
+ * @param {{ rawDir: string, client?: ReturnType<typeof import('../stasy.js').createStasyClient> | null, stations: NamedStations,
+ *   offline?: boolean, now?: () => number, sleep?: (ms: number) => Promise<void>, log?: (message: string) => void }} options
+ * @returns {Promise<{ copy: StasyCopy | null, error?: string }>}
  */
-export async function stasyTables({ rawDir, client = /** @type {ReturnType<typeof import('../stasy.js').createStasyClient> | null} */ (null), stations, offline = false, now = Date.now, sleep = realSleep, log = console.log }) {
+export async function stasyTables({ rawDir, client = null, stations, offline = false, now = Date.now, sleep = realSleep, log = console.log }) {
+    /** @type {StasyCopy | null} */
     const kept = readJson(tablesFile(rawDir));
+    /** @param {string} error */
     const keep = error => kept ? { copy: kept } : { copy: null, error };
     if (offline || !client) return keep('STASY\'s timetables haven\'t been fetched yet');
     if (kept && now() - Date.parse(kept.fetched) < STASY_MAX_AGE_MS) return { copy: kept };
 
     const names = stationNames(stations);
     const at = new Date(now()).toISOString();
+    /** @param {{ ok: boolean, route?: string | null, error?: string, unreadable?: boolean }} result */
     const record = result => writeFileAtomic(stasyFetchFile(rawDir), JSON.stringify({ at, ...result }));
     mkdirSync(join(rawDir, 'stasy'), { recursive: true });
     let unreadable = false;
     try {
+        /** @type {Record<string, Table[]>} */
         const lines = {};
+        /** @type {Record<string, string[][]>} */
         const frequencies = {};
         for (const [lineId, page] of Object.entries(STASY_LINES)) {
             if (Object.keys(lines).length) await sleep(PACE_MS);
@@ -276,7 +316,7 @@ export async function stasyTables({ rawDir, client = /** @type {ReturnType<typeo
             frequencies[lineId] = extractFrequencies(html);
             try { readLine(lineId, tables, names); } catch (err) {
                 unreadable = true;
-                throw new Error(`${lineId}: ${err.message}`, { cause: err });
+                throw new Error(`${lineId}: ${messageOf(err)}`, { cause: err });
             }
             lines[lineId] = tables;
         }
@@ -286,8 +326,8 @@ export async function stasyTables({ rawDir, client = /** @type {ReturnType<typeo
         log(`[data] Fetched STASY's timetables (${client.route})`);
         return { copy };
     } catch (err) {
-        record({ ok: false, error: err.message, ...(unreadable ? { unreadable, route: client.route } : {}) });
-        log(`[data] Couldn't ${unreadable ? 'read' : 'fetch'} STASY's timetables: ${err.message}${kept ? ` — using the copy from ${kept.fetched.slice(0, 10)}` : ''}`);
-        return keep(err.message);
+        record({ ok: false, error: messageOf(err), ...(unreadable ? { unreadable, route: client.route } : {}) });
+        log(`[data] Couldn't ${unreadable ? 'read' : 'fetch'} STASY's timetables: ${messageOf(err)}${kept ? ` — using the copy from ${kept.fetched.slice(0, 10)}` : ''}`);
+        return keep(messageOf(err));
     }
 }
