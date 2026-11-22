@@ -22,6 +22,11 @@ const DISRUPTION_AGE_MS = 7 * 86_400_000;
 
 /** @typedef {keyof typeof SOURCES} Source */
 /** @typedef {{ title: string, link: string, date: string }} Item an announcement, `date` ISO */
+/**
+ * How a source's last fetch went (none since the app started: no `ok`), its
+ * announcements and when they were fetched (ISO)
+ * @typedef {{ ok?: boolean, at?: number, error?: string, route?: string | null, leftOut?: number, items: number, updated: string | null }} SourceStatus
+ */
 const SOURCES = {
     oasaEl: 'https://www.oasa.gr/feed/',
     oasaEn: 'https://www.oasa.gr/en/feed/',
@@ -204,7 +209,7 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
     const refreshNow = () => (refreshing ??= refresh().finally(() => { refreshing = null; }));
 
     // → { <source>: { ok, at, error?, route?, items, updated } }, for the diagnostics
-    const status = () => Object.fromEntries(names.map(name => [name, {
+    const status = () => Object.fromEntries(names.map(/** @returns {[Source, SourceStatus]} */ name => [name, {
         ...health[name],
         items: state[name]?.items.length ?? 0,
         updated: state[name]?.updated ?? null,

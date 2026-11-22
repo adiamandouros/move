@@ -226,3 +226,36 @@ export interface Trains {
         trips: [number, number, string?][];
     }[]>;
 }
+
+/** data/build/meta.json, written by server/data/index.js: when the data was built, and how each output went */
+export interface BuildMeta {
+    /** When the build ran (ISO) */
+    generated: string;
+    /** By file name: built (with its warnings; rail.json's nightly checks against STASY, server/data/rail-checks.js), or failed, the previous version kept or not */
+    outputs?: Record<string, {
+        ok: boolean;
+        warnings?: string[];
+        checks?: { problems: string[]; notes: string[] };
+        error?: string;
+        keptPrevious?: boolean;
+    }>;
+}
+
+/** How far a fetch of the bus network got: done of total */
+export interface FetchProgress {
+    done: number;
+    total: number;
+}
+
+/** data/raw/oasa/last-fetch.json, written by server/data/oasa-network.js: the last fetch of the bus network from OASA, when it began and how long it took; finished, or stopped with how far it got (the lines' routes first, then the routes' stops) */
+export type NetworkFetch = { at: string; seconds: number; requests?: number }
+    & ({ ok: true; lines: FetchProgress; stops: FetchProgress } | { ok: false; error: string; lines?: FetchProgress; stops?: FetchProgress });
+
+/** data/raw/stasy/last-fetch.json, written by server/data/stasy.js: the last fetch of STASY's timetables, and the route it came through; `unreadable`: fetched, but STASY's pages changed so they couldn't be read */
+export type StasyFetch = { at: string }
+    & ({ ok: true; route: string; error?: undefined; unreadable?: undefined } | { ok: false; error: string; unreadable?: true; route?: string });
+
+/** data/raw/stasy/airport-check.json, written by server/data/airport-check.js: the last check of STASY's airport timetable against data/curated/airport.json (`against`: a hash of its PDFs), what it found changed and the route it came through; or a check that failed, with the last one that didn't if there was one */
+export type AirportCheck = { at: string; checked: string; against: string; changes: string[]; route: string; error?: undefined }
+    | { at: string; error: string; checked: string; against: string; changes: string[]; route?: undefined }
+    | { at: string; error: string; checked?: undefined; against?: undefined; changes?: undefined; route?: undefined };

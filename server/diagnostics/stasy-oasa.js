@@ -5,6 +5,7 @@ import { check } from './probe.js';
 
 // The announcement sources, as the running app last fetched them
 // (server/info/announcements.js status())
+/** @type {Record<string, string>} */
 const ANNOUNCEMENT_SOURCES = {
     oasaEl: 'OASA (Greek)',
     oasaEn: 'OASA (English)',
@@ -12,8 +13,10 @@ const ANNOUNCEMENT_SOURCES = {
 };
 const UPDATE_RELAY = 'Update the home relay on the Pi: sudo git -C /opt/move pull && sudo systemctl restart move-relay';
 
+/** @param {import('./index.js').AnnouncementsStatus | null} sources */
 export function announcementChecks(sources, now = Date.now) {
     if (!sources) return [];
+    /** @param {string} t */
     const ago = t => `${Math.max(0, Math.round((now() - Date.parse(t)) / 60_000))} min ago`;
     return Object.entries(sources).map(([name, s]) => {
         const title = ANNOUNCEMENT_SOURCES[name] ?? name;
@@ -24,16 +27,19 @@ export function announcementChecks(sources, now = Date.now) {
         }
         if (s.ok === undefined) return check('Announcements', title, 'info', 'Not fetched since the app started');
         let hint;
-        if (name === 'stasy' && /relay: HTTP 400/.test(s.error)) hint = `The relay doesn't know STASY pages yet. ${UPDATE_RELAY}`;
-        else if (name === 'stasy' && /direct: HTTP 403/.test(s.error) && !/relay/.test(s.error)) hint = 'STASY refuses this server\'s address. Its pages can come through the home relay: see proxy/README.md.';
+        const error = s.error ?? '';
+        if (name === 'stasy' && /relay: HTTP 400/.test(error)) hint = `The relay doesn't know STASY pages yet. ${UPDATE_RELAY}`;
+        else if (name === 'stasy' && /direct: HTTP 403/.test(error) && !/relay/.test(error)) hint = 'STASY refuses this server\'s address. Its pages can come through the home relay: see proxy/README.md.';
         const shown = s.updated ? `Showing the copy from ${ago(s.updated)}.` : 'Nothing to show.';
         return check('Announcements', title, s.updated ? 'warn' : 'fail', `${s.error}. ${shown}`, hint);
     });
 }
 
 // STASY's lift page, as the running app last fetched it (server/info/lifts.js status())
+/** @param {import('./index.js').LiftsStatus | null} lifts */
 export function liftChecks(lifts, now = Date.now) {
     if (!lifts) return [];
+    /** @param {string} t */
     const ago = t => `${Math.max(0, Math.round((now() - Date.parse(t)) / 60_000))} min ago`;
     const title = 'STASY lift status';
     const out = [];
@@ -43,7 +49,8 @@ export function liftChecks(lifts, now = Date.now) {
     } else if (lifts.ok === undefined) {
         out.push(check('Lifts', title, 'info', lifts.updated ? `Not fetched since the app started; the copy is from ${ago(lifts.updated)}` : 'Not fetched since the app started'));
     } else {
-        const hint = /direct: HTTP 403/.test(lifts.error) && !/relay/.test(lifts.error) ? 'STASY refuses this server\'s address. Its pages can come through the home relay: see proxy/README.md.' : undefined;
+        const error = lifts.error ?? '';
+        const hint = /direct: HTTP 403/.test(error) && !/relay/.test(error) ? 'STASY refuses this server\'s address. Its pages can come through the home relay: see proxy/README.md.' : undefined;
         const shown = lifts.updated ? `The copy is from ${ago(lifts.updated)} (shown for 2 hours).` : 'Nothing to show.';
         out.push(check('Lifts', title, lifts.updated ? 'warn' : 'fail', `${lifts.error}. ${shown}`, hint));
     }

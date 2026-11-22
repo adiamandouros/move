@@ -6,6 +6,10 @@ import { NEW_STOPS_PER_MINUTE } from '../oasa/limits.js';
 import { answerTime, answerTimeText, BUSY_WAITS_MS, secondsText, STOPS_KEPT_FRESH, total, visitorsDropped } from '../oasa/usage.js';
 import { check } from './probe.js';
 
+/** @typedef {import('./index.js').AppStatus} AppStatus */
+/** @typedef {import('../oasa/usage.js').Summary} Summary */
+
+/** @param {AppStatus | null} appStatus @param {() => number} now */
 export function appChecks(appStatus, now) {
     if (!appStatus) {
         return [check('Running app', 'Live status', 'warn', 'No status from the running app', 'The app writes data/cache/oasa-status.json every minute. If it\'s missing, the app may not be running. Check cPanel → Setup Node.js App.')];
@@ -13,6 +17,7 @@ export function appChecks(appStatus, now) {
     const age = Math.round((now() - appStatus.at) / 1000);
     const out = [];
     if (age > 180) out.push(check('Running app', 'Live status', 'warn', `Last reported ${Math.round(age / 60)} min ago`, 'The app may have stopped. Restart it in cPanel → Setup Node.js App.'));
+    /** @param {number | null} t */
     const ago = t => t ? `${Math.round((now() - t) / 60_000)} min ago` : 'never';
     for (const r of appStatus.routes) {
         const parts = [`last success ${ago(r.lastOk)}`];
@@ -22,7 +27,7 @@ export function appChecks(appStatus, now) {
             continue;
         }
         out.push(r.resting
-            ? check('Running app', `Route: ${r.name}`, 'warn', `Resting until ${new Date(r.restUntil).toISOString().slice(0, 16).replace('T', ' ')} UTC after repeated failures; ${parts.join('; ')}`)
+            ? check('Running app', `Route: ${r.name}`, 'warn', `Resting until ${new Date(r.restUntil ?? 0).toISOString().slice(0, 16).replace('T', ' ')} UTC after repeated failures; ${parts.join('; ')}`)
             : check('Running app', `Route: ${r.name}`, r.lastError && (!r.lastOk || r.lastError.at > r.lastOk) ? 'warn' : 'ok', parts.join('; ')));
     }
     // Load: requests that didn't fit the budget to OASA, and visitors over their share of it
@@ -43,14 +48,18 @@ export function appChecks(appStatus, now) {
 
 // What the running app asked of OASA and how OASA answered (server/oasa/usage.js),
 // over the past hour and today so far
+/** @param {AppStatus['usage'] | undefined} usage */
 export function usageChecks(usage) {
     if (!usage) return [];
-    return [['Past hour', usage.hour], ['Today so far', usage.today]].flatMap(([when, u]) => [
+    /** @type {[string, Summary][]} */
+    const spans = [['Past hour', usage.hour], ['Today so far', usage.today]];
+    return spans.flatMap(([when, u]) => [
         check('Use of OASA', when, 'info', usageText(u)),
         ...Object.entries(u.routes).map(([name, r]) => check('Use of OASA', `${when}, ${name}`, 'info', routeText(r))),
     ]);
 }
 
+/** @param {Summary} u */
 function usageText(u) {
     const r = u.requests;
     const answers = total(u.answers);
@@ -73,6 +82,7 @@ function usageText(u) {
     return parts.join('; ');
 }
 
+/** @param {import('../oasa/usage.js').RouteCounts} r */
 function routeText(r) {
     const half = answerTime(r.ms, 0.5);
     const most = answerTime(r.ms, 0.95);

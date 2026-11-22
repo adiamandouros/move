@@ -31,12 +31,5 @@
     "server/data/sources.js": 23,
     "server/data/stasy.js": 52,
     "server/data/validate.js": 59,
-    "server/diagnostics/data.js": 15,
-    "server/diagnostics/index.js": 11,
-    "server/diagnostics/probe.js": 15,
-    "server/diagnostics/reaching.js": 36,
-    "server/diagnostics/running.js": 6,
-    "server/diagnostics/site.js": 6,
-    "server/diagnostics/stasy-oasa.js": 6,
     "types/pages.d.ts": 1
 }

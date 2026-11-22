@@ -3,7 +3,13 @@
 
 import { CKAN_API, SOURCES } from '../data/sources.js';
 import { FALLBACK_REST_MS, OASA_API, TEST_STOP } from '../oasa/client.js';
-import { capital, check, describeHttp, failureText, isApiAnswer, probe } from './probe.js';
+import { messageOf } from '../errors.js';
+import { capital, check, describeHttp, failureText, fieldOf, isApiAnswer, probe } from './probe.js';
+
+/** @typedef {import('./probe.js').Fetch} Fetch */
+/** @typedef {import('./probe.js').Probe} Probe */
+/** @typedef {import('./probe.js').Check} Check */
+/** @typedef {import('./probe.js').Status} Status */
 
 const PORTAL = CKAN_API + SOURCES.rail.dataset;
 const INTERNET = 'https://www.cloudflare.com/cdn-cgi/trace';
@@ -32,18 +38,22 @@ export function configChecks(config, nodeVersion) {
     ];
 }
 
+/** @param {(host: string) => Promise<{ address: string }>} dnsLookup @param {string} host */
 export async function dnsCheck(dnsLookup, host) {
     try {
         const { address } = await dnsLookup(host);
         return check('DNS', host, 'ok', address);
     } catch (err) {
-        return check('DNS', host, 'fail', `Can't look up ${host} (${err.code ?? err.message})`);
+        const code = /** @type {import('./probe.js').RequestError | null} */ (err)?.code;
+        return check('DNS', host, 'fail', `Can't look up ${host} (${code ?? messageOf(err)})`);
     }
 }
 
+/** @param {Fetch} fetch */
 export async function internetCheck(fetch) {
     const p = await probe(fetch, INTERNET);
     if (!p.ok) return { result: check('Network', 'Internet access', 'fail', `Can't reach cloudflare.com: ${failureText(p)}`), ip: null, loc: null };
+    /** @type {Record<string, string | undefined>} */
     const fields = Object.fromEntries(p.text.split('\n').map(l => l.split('=')));
     return { result: check('Network', 'Internet access', 'ok', `Public IP ${fields.ip ?? '?'}${fields.loc ? ` (${fields.loc})` : ''}, ${p.ms} ms`), ip: fields.ip ?? null, loc: fields.loc ?? null };
 }
@@ -53,9 +63,11 @@ export async function internetCheck(fetch) {
 // abroad most likely means that block is back
 const GEO_BLOCK = 'OASA\'s live API seems to accept connections only from Greece again';
 
+/** @param {Fetch} fetch */
 export const probeOasa = fetch => probe(fetch, `${OASA_API}?act=getStopArrivals&p1=${TEST_STOP}`);
 
 // Interpreted once the server's country is known (from the internet check)
+/** @param {Probe} p @param {string | null} serverCountry */
 export function oasaCheck(p, serverCountry) {
     if (isApiAnswer(p)) return { result: check('Services', 'OASA live API (direct)', 'ok', `${describeArrivals(p.json)}, ${p.ms} ms`), probe: p };
     const geo = p.kind === 'timeout' && Boolean(serverCountry) && serverCountry !== 'GR';
@@ -66,14 +78,23 @@ export function oasaCheck(p, serverCountry) {
     };
 }
 
+/** @param {unknown} json */
 const describeArrivals = json => Array.isArray(json) ? `${json.length} arrivals at the test stop` : 'answered (no buses due at the test stop)';
 
 // What to check when a relay can't be reached at all
+/** @type {Record<string, string>} */
 const UNREACHABLE_HINT = {
     'home relay': 'Is the machine at home on, and its internet up? Check that the DDNS name points to the home\'s current IP and that the router still forwards the relay\'s ports. If check-host.net reaches it but this server can\'t, the hosting blocks that outgoing port: use one it allows (proxy/README.md, "Home relay", step 2).',
 };
 
+/**
+ * Where a relay's own requests come from (?act=whereami): the country, and
+ * the nearest Cloudflare data centre
+ * @typedef {{ loc: string, colo: string }} RelayLocation
+ */
+
 // One relay ({ name, env, url, key }): its guard, its answer with the key, and where it runs
+/** @param {Fetch} fetch @param {import('../../types/config.js').Relay} relay */
 export async function relayChecks(fetch, relay) {
     const { name, env: prefix } = relay;
     const Name = capital(name);
@@ -84,7 +105,7 @@ export async function relayChecks(fetch, relay) {
         probe(fetch, url, key, RELAY_TIMEOUT_MS),
         probe(fetch, `${relay.url}?act=whereami`, key),
     ]);
-    const location = where.ok && where.json?.loc ? where.json : null;
+    const location = where.ok && fieldOf(where.json, 'loc') ? /** @type {RelayLocation} */ (where.json) : null;
 
     let info = /** @type {string | null} */ (null);
     let result;
@@ -100,7 +121,7 @@ export async function relayChecks(fetch, relay) {
     } else if (keyed.status === 404 || anon.status === 404) {
         info = 'url';
         result = check('Services', `${Name} with your key`, 'fail', describeHttp(404), `Check ${prefix}_URL in .env against the ${name}'s address.`);
-    } else if (keyed.status === 502 || (keyed.status >= 400 && /Upstream error/.test(keyed.text ?? ''))) {
+    } else if (keyed.status === 502 || (keyed.status !== null && keyed.status >= 400 && /Upstream error/.test(keyed.text ?? ''))) {
         info = 'oasa-from-relay';
         result = check('Services', `${Name} with your key`, 'fail', `The ${name} is fine but can't reach OASA either: ${keyed.text?.slice(0, 120)}`);
     } else if (keyed.ok) {
@@ -127,16 +148,27 @@ export async function relayChecks(fetch, relay) {
     return { name, results: [guard, result, ...(place ? [place] : [])], result, keyed, anon, info, location };
 }
 
+/** @param {Fetch} fetch */
 export async function portalCheck(fetch) {
     const p = await probe(fetch, PORTAL);
-    return p.ok && p.json?.success
+    return p.ok && fieldOf(p.json, 'success')
         ? check('Services', 'OASA open-data portal (timetables)', 'ok', `${p.ms} ms`)
         : check('Services', 'OASA open-data portal (timetables)', 'warn', `${failureText(p)}. Timetable updates can't be downloaded; the last downloaded data keeps being used.`);
 }
 
+/** @typedef {ReturnType<typeof oasaCheck>} OasaCheck */
+/** @typedef {Awaited<ReturnType<typeof relayChecks>>} RelayCheck */
+
+/**
+ * What it all adds up to
+ * @param {{ internet: Check, ip: string | null, loc: string | null, dns: Check[], oasa: OasaCheck, relays: RelayCheck[],
+ *   appStatus: import('./index.js').AppStatus | null }} found
+ * @returns {{ status: Status, text: string }}
+ */
 export function verdict({ internet, ip, loc, dns, oasa, relays, appStatus }) {
     const ipText = ip ? ` (this server's public IP is ${ip})` : '';
-    const abroad = r => Boolean(r.location) && r.location.loc !== 'GR';
+    /** @param {RelayCheck} r */
+    const abroad = r => Boolean(r.location && r.location.loc !== 'GR');
     const directResting = appStatus?.routes.find(r => r.name === 'direct')?.resting;
 
     if (internet.status === 'fail' && oasa.probe.status === null && relays.every(r => r.keyed.status === null)) {
@@ -162,15 +194,17 @@ export function verdict({ internet, ip, loc, dns, oasa, relays, appStatus }) {
     }
     // Relays that work but can't reach OASA themselves
     const blocked = relays.filter(r => r.info === 'oasa-from-relay');
-    if (blocked.some(r => !abroad(r))) {
-        return { status: 'fail', text: `OASA is unreachable both from this server and through the ${blocked.find(r => !abroad(r)).name}, so OASA itself is most likely down. Nothing to fix on our side; live times return when it does.` };
+    const blockedHere = blocked.find(r => !abroad(r));
+    if (blockedHere) {
+        return { status: 'fail', text: `OASA is unreachable both from this server and through the ${blockedHere.name}, so OASA itself is most likely down. Nothing to fix on our side; live times return when it does.` };
     }
     const broken = relays.find(r => r.info === 'key' || r.info === 'url' || r.info === 'old-worker');
     if (broken) {
         return { status: 'fail', text: `OASA can't be reached directly (${oasa.result.detail}), and the ${broken.name} is misconfigured: ${broken.result.detail}. ${broken.result.hint}` };
     }
     if (blocked.length === relays.length) {
-        const where = blocked.map(r => `the ${r.name} runs in ${r.location.colo} (${r.location.loc})`).join(' and ');
+        // Every one of them abroad, so each has its location
+        const where = blocked.map(r => `the ${r.name} runs in ${r.location?.colo} (${r.location?.loc})`).join(' and ');
         return { status: 'fail', text: `${GEO_BLOCK}. This server is in ${loc ?? 'another country'} and ${where}, so OASA blocks ${relays.length > 1 ? 'all of them' : 'both'} and live times are down. A relay has to reach OASA from Greece: see proxy/README.md, "Home relay".` };
     }
     const down = relays.filter(r => !blocked.includes(r));
@@ -183,6 +217,7 @@ export function verdict({ internet, ip, loc, dns, oasa, relays, appStatus }) {
 // carries the traffic (as from October to November 2026: the Cloudflare
 // Worker, with the home relay behind it), so it is reported as information
 // rather than a failure
+/** @param {RelayCheck[]} relays */
 export function expectBlockedRelays(relays) {
     const working = relays.find(r => r.result.status === 'ok');
     if (!working) return;
