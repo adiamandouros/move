@@ -44,35 +44,42 @@ export function athensSeconds(iso, date) {
 }
 
 /**
- * @typedef {{ name: { el: string, en: string }, ose: string[], lines?: string[], coords: [number, number], metro?: string,
- *   walks?: { metro?: string, station?: string, minutes: number, note?: { el: string, en: string } }[], oasaTicket?: false }} SuburbanStation
+ * A train's call at a station, as its board lists it
+ * @typedef {NonNullable<import('../../types/data.js').RailwaySchedule['routeStations']>[number]} Call
  */
 
 /**
- * @param {Record<string, { schedules: any[] }>} boards by date
- * @param {{ lines: Record<string, { name: string, color: string, corridor: string, stopsAt?: string }>, stations: Record<string, SuburbanStation> }} suburban
+ * @param {Record<string, import('./railway.js').Board>} boards by date
+ * @param {import('../../types/data.js').CuratedSuburban} suburban
  * @returns {{ data: import('../../types/data.js').Trains, warnings: string[] }}
  */
 export function buildTrains(boards, suburban) {
+    /** @type {string[]} */
     const warnings = [];
     // OSE id → the stations with it, each with the lines it's for (none: every line)
+    /** @type {Map<string, { id: string, lines?: string[] }[]>} */
     const stationsOf = new Map();
     for (const [id, { ose, lines }] of Object.entries(suburban.stations)) {
         for (const code of ose) stationsOf.set(code, [...stationsOf.get(code) ?? [], { id, lines }]);
     }
     const lines = Object.entries(suburban.lines);
+    /** @param {string} corridor @param {Call[]} calls */
     const lineOf = (corridor, calls) => {
         const mine = lines.filter(([, line]) => line.corridor === corridor);
         const at = new Set(calls.flatMap(call => (stationsOf.get(call.stationId) ?? []).map(s => s.id)));
         return (mine.find(([, line]) => line.stopsAt && at.has(line.stopsAt)) ?? mine.find(([, line]) => !line.stopsAt))?.[0];
     };
+    /** @param {string} code @param {string} line */
     const stationFor = (code, line) => {
         const all = stationsOf.get(code) ?? [];
         return (all.find(s => s.lines?.includes(line)) ?? all.find(s => !s.lines))?.id;
     };
+    /** @type {Map<string, { name: string, ose: string, line: string }>} */
     const unknown = new Map();
+    /** @type {import('../../types/data.js').Trains['dates']} */
     const dates = {};
     for (const [date, { schedules }] of Object.entries(boards).sort(([a], [b]) => a.localeCompare(b))) {
+        /** @type {Map<string, { line: string, stops: string[], profiles: number[][], trips: [number, number, string][] }>} */
         const routes = new Map();
         for (const train of schedules) {
             if (train.serviceType !== 'Suburban' || train.status === 'cancelled') continue;
@@ -85,15 +92,19 @@ export function buildTrains(boards, suburban) {
                 for (const call of missing) unknown.set(`${call.stationId} ${line}`, { name: call.nameGreek ?? call.name ?? '', ose: call.stationId, line });
                 continue;
             }
-            // When it leaves each stop (arrives, at the last)
-            const times = calls.map(call => athensSeconds(call.scheduledDeparture ?? call.scheduledArrival, date));
+            // When it leaves each stop (arrives, at the last); none, and its times don't go forward
+            const times = calls.map(call => {
+                const iso = call.scheduledDeparture ?? call.scheduledArrival;
+                return iso ? athensSeconds(iso, date) : NaN;
+            });
             if (calls.length < 2 || times.some((time, i) => !Number.isFinite(time) || (i && time < times[i - 1]))) {
                 warnings.push(`Train ${train.trainNumber} on ${date} left out: its times don't go forward`);
                 continue;
             }
             const key = `${line} ${stops.join(' ')}`;
-            if (!routes.has(key)) routes.set(key, { line, stops, profiles: [], trips: [] });
-            const route = routes.get(key);
+            // Every stop found (checked above)
+            let route = routes.get(key);
+            if (!route) routes.set(key, route = { line, stops: /** @type {string[]} */ (stops), profiles: [], trips: [] });
             const offsets = times.map(time => time - times[0]);
             let profile = route.profiles.findIndex(p => p.every((offset, i) => offset === offsets[i]));
             if (profile < 0) profile = route.profiles.push(offsets) - 1;

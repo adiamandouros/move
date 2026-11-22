@@ -38,30 +38,43 @@ import { readCsv, readCsvAll } from './csv.js';
  * @typedef {{ daysOf: (service: string) => (number | string)[], serviceDays: { key: number | string, before: number | string }[], ownDates: string[] }} Calendar
  */
 /**
- * @param {{ dir: string, tram: any, metroStations: Record<string, { lines: string[] }>, calendar: Calendar }} options
+ * A walk from a tram stop in tram.json
+ * @typedef {NonNullable<import('../../types/data.js').CuratedTram['stops'][string]['walks']>[number]} TramWalk
+ * @typedef {Record<string, { lines: string[], exits?: import('../../types/data.js').Exit[] }>} MetroStations
+ */
+/**
+ * @param {{ dir: string, tram: import('../../types/data.js').CuratedTram, metroStations: MetroStations, calendar: Calendar }} options
  * @returns {Promise<{ data: import('../../types/data.js').Tram, warnings: string[] }>}
  */
 export async function buildTram({ dir, tram, metroStations, calendar }) {
+    /** @param {string} name */
     const file = name => join(dir, name);
+    /** @type {string[]} */
     const warnings = [];
 
+    /** @type {Map<string, string>} */
     const routeLine = new Map();
     for (const r of await readCsvAll(file('routes.txt'), { required: ['route_id', 'route_short_name'] })) {
         if (tram.lines[r.route_short_name]) routeLine.set(r.route_id, r.route_short_name);
     }
+    /** @type {Record<string, Record<string, string>>} */
     const dirKeyOf = Object.fromEntries(Object.entries(tram.lines).map(([id, line]) =>
         [id, Object.fromEntries(Object.entries(line.directions).map(([key, d]) => [d.gtfsDirection, key]))]));
 
+    /** @type {Map<string, { line: string, dirKey: string, service: string }>} */
     const trips = new Map();
     for (const t of await readCsvAll(file('trips.txt'), { required: ['route_id', 'service_id', 'trip_id', 'direction_id'] })) {
         const line = routeLine.get(t.route_id);
         const dirKey = line && dirKeyOf[line][t.direction_id];
-        if (dirKey) trips.set(t.trip_id, { line, dirKey, service: t.service_id });
+        if (line && dirKey) trips.set(t.trip_id, { line, dirKey, service: t.service_id });
     }
 
+    /** @type {Map<string, string>} */
     const stopOfCode = new Map();
     for (const [id, s] of Object.entries(tram.stops)) for (const code of s.gtfs) stopOfCode.set(code, id);
+    /** @type {Map<string, string>} */
     const stopById = new Map();
+    /** @type {Map<string, { lat: number, lng: number, n: number }>} */
     const coordSums = new Map();
     for (const s of await readCsvAll(file('stops.txt'), { required: ['stop_id', 'stop_code', 'stop_lat', 'stop_lon'] })) {
         stopById.set(s.stop_id, s.stop_code);
@@ -73,42 +86,55 @@ export async function buildTram({ dir, tram, metroStations, calendar }) {
     }
 
     // Each trip's stops in order
+    /** @type {Map<string, [number, string, number][]>} */
     const tripStops = new Map();
+    /** @type {Set<string>} */
     const unknown = new Set();
     for await (const st of readCsv(file('stop_times.txt'), { required: ['trip_id', 'departure_time', 'stop_id', 'stop_sequence'] })) {
         if (!trips.has(st.trip_id)) continue;
         const code = stopById.get(st.stop_id);
-        const id = stopOfCode.get(code);
+        const id = code === undefined ? undefined : stopOfCode.get(code);
         if (!id) { unknown.add(code ?? st.stop_id); continue; }
-        if (!tripStops.has(st.trip_id)) tripStops.set(st.trip_id, []);
-        tripStops.get(st.trip_id).push([+st.stop_sequence, id, toSeconds(st.departure_time || st.arrival_time)]);
+        let list = tripStops.get(st.trip_id);
+        if (!list) tripStops.set(st.trip_id, list = []);
+        list.push([+st.stop_sequence, id, toSeconds(st.departure_time || st.arrival_time)]);
     }
     if (unknown.size) warnings.push(`tram.json: tram stops not on the map (add them to a stop's "gtfs" list): ${[...unknown].sort().join(', ')}`);
 
     // How many trips run each stop pattern, per line and direction, and what
     // each direction runs on the days the timetable keeps
+    /** @type {Map<string, Map<string, number>>} */
     const counts = new Map();
+    /** @type {Map<string, import('./build-rail.js').Run[]>} */
     const runs = new Map();
     for (const [tripId, list] of tripStops) {
-        const { line, dirKey, service } = trips.get(tripId);
+        // Only the tram's trips are listed
+        const trip = trips.get(tripId);
+        if (!trip) continue;
+        const { line, dirKey, service } = trip;
         // Two platforms of a stop in a row are one call, left at the last one's time
         const calls = list.sort((a, b) => a[0] - b[0]).filter((call, i, all) => call[1] !== all[i + 1]?.[1]);
         const stations = calls.map(c => c[1]);
         const key = `${line}/${dirKey}`;
-        if (!counts.has(key)) counts.set(key, new Map());
-        const perPattern = counts.get(key);
+        let perPattern = counts.get(key);
+        if (!perPattern) counts.set(key, perPattern = new Map());
         const pattern = stations.join(' ');
         perPattern.set(pattern, (perPattern.get(pattern) ?? 0) + 1);
         const days = calendar.daysOf(service);
         if (!days.length) continue;
-        if (!runs.has(key)) runs.set(key, []);
-        runs.get(key).push({ stations, times: calls.map(c => c[2]), days });
+        let dirRuns = runs.get(key);
+        if (!dirRuns) runs.set(key, dirRuns = []);
+        dirRuns.push({ stations, times: calls.map(c => c[2]), days });
     }
 
+    /** @type {Record<string, import('../../types/data.js').TramLine>} */
     const lines = {};
+    /** @type {Map<string, Set<string>>} */
     const stopLines = new Map();
     for (const [lineId, line] of Object.entries(tram.lines)) {
+        /** @type {import('../../types/data.js').TramLine['directions']} */
         const directions = {};
+        /** @type {{ ids: string[], n: number, dirKey: string }[]} */
         const others = [];
         for (const [dirKey, dir] of Object.entries(line.directions)) {
             const patterns = [...counts.get(`${lineId}/${dirKey}`) ?? []].map(([p, n]) => ({ ids: p.split(' '), n }));
@@ -117,8 +143,9 @@ export async function buildTram({ dir, tram, metroStations, calendar }) {
             const [main, ...rest] = patterns.sort((a, b) => b.n - a.n || b.ids.length - a.ids.length);
             others.push(...rest.map(p => ({ ...p, dirKey })));
             for (const id of main.ids) {
-                if (!stopLines.has(id)) stopLines.set(id, new Set());
-                stopLines.get(id).add(lineId);
+                let lineIds = stopLines.get(id);
+                if (!lineIds) stopLines.set(id, lineIds = new Set());
+                lineIds.add(lineId);
             }
             directions[dirKey] = {
                 toward: dir.toward,
@@ -135,20 +162,22 @@ export async function buildTram({ dir, tram, metroStations, calendar }) {
         if (Object.keys(directions).length) lines[lineId] = { name: line.name, color: line.color, directions };
     }
 
+    /** @type {Record<string, import('../../types/data.js').TramStop>} */
     const stations = {};
     for (const [id, s] of Object.entries(tram.stops)) {
-        const sum = coordSums.get(id);
         if (!stopLines.has(id)) { warnings.push(`tram.json: ${id} is not served by any tram`); continue; }
+        // A stop served is in stops.txt
+        const sum = /** @type {{ lat: number, lng: number, n: number }} */ (coordSums.get(id));
         const metro = s.metro && metroStations[s.metro];
         if (s.metro && !metro) warnings.push(`tram.json: ${id} changes to ${s.metro}, which isn't a metro station in rail.json`);
-        const walks = (s.walks ?? []).filter(walk => walk.metro ? metroStations[walk.metro] : stopLines.has(walk.stop))
+        const walks = (s.walks ?? []).filter(walk => walk.metro ? metroStations[walk.metro] : stopLines.has(walk.stop ?? ''))
             .map(walk => walkExit(id, walk, metroStations, warnings));
         if (walks.length !== (s.walks ?? []).length) warnings.push(`tram.json: ${id} has a walk to a stop that isn't in rail.json`);
         stations[id] = {
             name: s.name,
             coords: [round(sum.lat / sum.n), round(sum.lng / sum.n)],
-            lines: [...stopLines.get(id)].sort(),
-            ...(metro && { metro: { station: s.metro, lines: metro.lines } }),
+            lines: [...stopLines.get(id) ?? []].sort(),
+            ...(metro && s.metro && { metro: { station: s.metro, lines: metro.lines } }),
             ...(walks.length && { walks }),
         };
     }
@@ -160,6 +189,7 @@ export async function buildTram({ dir, tram, metroStations, calendar }) {
 // station's exits, or without one when the exit isn't among them (renamed in
 // the station editor, or without a place yet): a warning, as the editor is
 // never blocked (record 16)
+/** @param {string} id @param {TramWalk} tramWalk @param {MetroStations} metroStations @param {string[]} warnings */
 function walkExit(id, { exit, ...walk }, metroStations, warnings) {
     if (exit === undefined || !walk.metro) return walk;
     const at = (metroStations[walk.metro].exits ?? []).findIndex(e => e.name?.el === exitLabel(exit));
@@ -173,8 +203,11 @@ function walkExit(id, { exit, ...walk }, metroStations, warnings) {
 // A direction's timetable, on its stops only: a tram's calls anywhere else are
 // left out, so T7's from Voula that end at SEF, which the way to Piraeus doesn't
 // reach, count as ending at Neo Faliro
+/** @param {import('./build-rail.js').Run[]} runs @param {string[]} stops @param {Calendar} calendar @param {string} label @param {string[]} warnings */
 function directionTimetable(runs, stops, calendar, label, warnings) {
+    /** @type {Map<string, number>} */
     const indexOf = new Map(stops.map((id, i) => [id, i]));
+    /** @type {Set<string>} */
     const off = new Set();
     const onStops = runs.flatMap(({ stations, times, days }) => {
         const kept = stations.flatMap((id, i) => indexOf.has(id) ? [i] : []);
@@ -187,4 +220,5 @@ function directionTimetable(runs, stops, calendar, label, warnings) {
     return buildTimetable(onStops, indexOf, calendar.ownDates, label);
 }
 
+/** @param {number} n */
 const round = n => Math.round(n * 1e5) / 1e5;
