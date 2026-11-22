@@ -27,7 +27,7 @@
     "diagnose": "node scripts/diagnose.js",
     "icons": "node scripts/icons.js",
     "lint": "eslint .",
-    "typecheck": "tsc -p jsconfig.json && node scripts/strict-types.js",
+    "typecheck": "tsc -p jsconfig.json && node scripts/written-any.js",
     "check": "npm run lint && npm run typecheck && npm test && npm run test:browser"
   },
   "dependencies": {

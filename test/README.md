@@ -63,11 +63,10 @@ this way: [decision 20](../docs/decisions/0020-tests-and-when-they-run.md).
   a module separately, so its numbers for them are wrong.
 - **No null errors.** `npm run typecheck` checks with `strictNullChecks`
   ([decision 66](../docs/decisions/0066-strict-null-checks-step-by-step.md)).
-- **Strict errors only go down.** `npm run typecheck` fails if a file's
-  errors with `--strict` and its written `any`s add up to more than
-  `types/strict.json` allows it (a new file: none), or fewer than written
-  there; then `node scripts/strict-types.js --write` writes them down
-  ([decision 70](../docs/decisions/0070-strict-types-step-by-step.md)).
+- **Strict, no `any`.** `npm run typecheck` checks with all of `strict`,
+  so every value has a type, and `scripts/written-any.js` fails on an
+  `any` written into one; a value that can be anything is `unknown` and a
+  check ([decision 70](../docs/decisions/0070-strict-types-step-by-step.md)).
 - **Fast stays fast.** The Node tests run in a few seconds: no real
   network, no real waiting (mock the timers), no real data build. A test
   starts its own server with `support/listen.js`, whose `close()` doesn't

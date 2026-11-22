@@ -71,6 +71,13 @@ Agreed with the rider on 22 November 2026, every option as recommended.
 - At the end `strict: true` makes `strictNullChecks`' own line
   redundant. A small check keeps written `any` at none: the script kept
   for that alone, or a test.
+- **Done on 22 November 2026**, in 18 pull requests (#297, #299 to
+  #307, #309 to #316): every file at none, `"strict": true` in
+  `jsconfig.json` for `npm run typecheck` and editors alike, the list
+  deleted, and the script kept for written `any` alone
+  (`scripts/written-any.js`, after TypeScript in `npm run typecheck`).
+  One real bug found on the way, fixed on its own (#308), and a helper
+  for what pages keep in the browser in place of twelve copies (#298).
 
 ## Look again when
 
