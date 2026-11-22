@@ -87,6 +87,5 @@
     "tools/buses/client/views/nearby.js": 3,
     "tools/info/client/main.js": 22,
     "tools/info/client/map.js": 170,
-    "tools/trip/client/render.js": 154,
     "types/pages.d.ts": 1
 }

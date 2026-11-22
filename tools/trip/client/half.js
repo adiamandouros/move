@@ -26,6 +26,7 @@ export function halfWays(view, now) {
 
 // The quicker way the rider took, for the departure shown: as OASA's live
 // times have it, or until they do, the half hour's own for that departure or
-// the first after it
-/** @param {import('./buses.js').HalfRow} row @param {number} departure */
-export const takenOption = (row, departure) => row.options.find((o, d) => d >= departure && o) ?? row.options.find(Boolean);
+// the first after it. A row is made from a way found, so it has one for a
+// departure at least (halfView in buses.js)
+/** @param {import('./buses.js').HalfRow} row @param {number} departure @returns {import('./buses.js').BusOption} */
+export const takenOption = (row, departure) => /** @type {import('./buses.js').BusOption} */ (row.options.find((o, d) => d >= departure && o) ?? row.options.find(Boolean));
