@@ -7,15 +7,22 @@ import { selectOnFirstTap } from '/js/core/select-on-tap.js';
 import { normalise } from '/js/core/text.js';
 import { addRecentStation, recentStations } from './recent.js';
 
+/** @typedef {import('./network.js').Rail} Rail */
+/** @typedef {import('../../../types/data.js').Station} Station */
+/** @typedef {import('/js/core/lifts.js').Lifts} Lifts */
+
 const MAX_SUGGESTIONS = 8;
 
+/** @param {Station} station */
 const stationName = station => localName(station.name, language);
 
 // Stations whose Greek or English name contains the query; names that start
 // with it come first.
+/** @param {Record<string, Station>} stations @param {string} query */
 export function matchStations(stations, query) {
     const q = normalise(query);
     if (!q) return [];
+    /** @type {[number, string][]} */
     const scored = [];
     for (const [id, station] of Object.entries(stations)) {
         const names = [station.name.el, station.name.en].map(normalise);
@@ -34,11 +41,14 @@ export function matchStations(stations, query) {
 // of the lines, each A–Z: the metro's and the tram's, as the suburban
 // railway's lines share track, so nearly every station of its would be one
 // (decision 41). Its stations come up when typed.
+/** @param {Rail} rail @param {string[]} recent @param {string[]} [starred] */
 export function startingStations(rail, recent, starred = []) {
+    /** @param {Iterable<string>} ids */
     const byName = ids => [...ids].sort((a, b) => stationName(rail.stations[a]).localeCompare(stationName(rail.stations[b]), 'el'));
     const interchanges = Object.keys(rail.stations).filter(id => rail.stations[id].lines.length > 1 && !rail.stations[id].suburban);
     const ends = Object.values(rail.lines).filter(line => !line.suburban).flatMap(line => Object.values(line.directions)
-        .flatMap(({ stops }) => [stops[0].station, stops.at(-1).station]));
+        .flatMap(({ stops }) => [stops[0].station, stops[stops.length - 1].station]));
+    /** @param {string[]} ids */
     const known = ids => ids.filter(id => Object.hasOwn(rail.stations, id));
     const favourite = known(starred);
     const lately = known(recent).filter(id => !favourite.includes(id)).slice(0, 3);
@@ -48,8 +58,14 @@ export function startingStations(rail, recent, starred = []) {
 // A row's star, filled when the station is starred, and the words that say so
 // to screen readers. Not a button: a listbox holds only its options, so it's
 // tapped, or F pressed on the row (the hint each row points to, from page.html)
+/** @param {boolean} on */
 const star = on => icon('favourite', on ? 'suggestion-favourite' : 'suggestion-not-favourite', { filled: on });
+/** @param {boolean} on */
 const marked = on => on ? `, ${t('favourites.marked')}` : '';
+
+// The station of a row of the list: each has one (render)
+/** @param {HTMLElement} item */
+const rowStation = item => /** @type {string} */ (item.dataset.id);
 
 // Wire an <input role="combobox"> and its <ul role="listbox"> (from page.html)
 // into a station picker. `onChange(id | null)` fires when the selection changes;
@@ -57,10 +73,15 @@ const marked = on => on ? `, ${t('favourites.marked')}` : '';
 // `lifts()`: the lifts out of service (watchLifts() in /js/core/lifts.js), said
 // in words under the station's name, as are its platforms with steps only.
 // Tapping the field, or ArrowDown in it, lists stations to start from.
-export function stationSearch({ input, list, rail, onChange, announce, lifts = /** @type {() => any} */ (() => null) }) {
+/**
+ * @param {{ input: HTMLInputElement, list: HTMLElement, rail: Rail, onChange: (id: string | null) => void,
+ *   announce: (message: string) => void, lifts?: () => Lifts | null }} options
+ */
+export function stationSearch({ input, list, rail, onChange, announce, lifts = () => null }) {
     /** @type {string | null} */
     let selected = null;
 
+    /** @param {string[]} ids */
     function render(ids) {
         if (!ids.length) { hide(); return; }
         const starred = favourites().station;
@@ -88,11 +109,13 @@ export function stationSearch({ input, list, rail, onChange, announce, lifts = /
 
     // Star or unstar a row's station. It keeps its place until the list opens
     // again, so the next tap doesn't land on another station.
+    /** @param {HTMLElement} item */
     function toggleStar(item) {
-        const on = toggleFavourite('station', item.dataset.id);
-        setHtml(item.querySelector('.suggestion-star'), star(on));
-        item.querySelector('.suggestion-marked').textContent = marked(on);
-        announce(`${stationName(rail.stations[item.dataset.id])}: ${t(on ? 'favourites.added' : 'favourites.removed')}`);
+        const id = rowStation(item);
+        const on = toggleFavourite('station', id);
+        setHtml(/** @type {Element} */ (item.querySelector('.suggestion-star')), star(on));
+        /** @type {Element} */ (item.querySelector('.suggestion-marked')).textContent = marked(on);
+        announce(`${stationName(rail.stations[id])}: ${t(on ? 'favourites.added' : 'favourites.removed')}`);
     }
 
     function hide() {
@@ -100,6 +123,7 @@ export function stationSearch({ input, list, rail, onChange, announce, lifts = /
         input.setAttribute('aria-expanded', 'false');
     }
 
+    /** @param {string | null} id @param {{ notify?: boolean }} [options] */
     function set(id, { notify = true } = {}) {
         // Object.hasOwn: ?from=constructor isn't a station
         selected = id && Object.hasOwn(rail.stations, id) ? id : null;
@@ -112,6 +136,7 @@ export function stationSearch({ input, list, rail, onChange, announce, lifts = /
     // hidden, or the railway's timetable come late): one picked that's gone
     // goes with them, and while the field is in use its list shows those on
     // offer now, rather than close under what's being typed
+    /** @param {Rail} next */
     function setRail(next) {
         rail = next;
         if (selected && !Object.hasOwn(rail.stations, selected)) set(null, { notify: false });
@@ -120,6 +145,7 @@ export function stationSearch({ input, list, rail, onChange, announce, lifts = /
     }
 
     // A station the person chose themselves, so it's offered again later
+    /** @param {string} id */
     function pick(id) {
         set(id);
         if (selected) addRecentStation(selected);
@@ -157,11 +183,11 @@ export function stationSearch({ input, list, rail, onChange, announce, lifts = /
             render(suggestions());
         } else if (e.key === 'ArrowDown') {
             e.preventDefault();
-            list.querySelector('[role="option"]')?.focus();
+            /** @type {HTMLElement | null} */ (list.querySelector('[role="option"]'))?.focus();
         } else if (e.key === 'Enter' && !list.hidden) {
             e.preventDefault();
-            const first = list.querySelector('[role="option"]');
-            if (first) pick(first.dataset.id);
+            const first = /** @type {HTMLElement | null} */ (list.querySelector('[role="option"]'));
+            if (first) pick(rowStation(first));
         } else if (e.key === 'Escape') {
             hide();
         }
@@ -175,10 +201,10 @@ export function stationSearch({ input, list, rail, onChange, announce, lifts = /
             /** @type {HTMLElement | null} */ (focused.nextElementSibling)?.focus();
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
-            (focused.previousElementSibling ?? input).focus();
+            /** @type {HTMLElement} */ (focused.previousElementSibling ?? input).focus();
         } else if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            pick(focused.dataset.id);
+            pick(rowStation(focused));
             input.focus();
         } else if (e.key === 'Escape') {
             hide();
@@ -191,7 +217,7 @@ export function stationSearch({ input, list, rail, onChange, announce, lifts = /
     });
 
     list.addEventListener('focusin', e => {
-        const focused = e.target.closest('[role="option"]');
+        const focused = /** @type {Element} */ (e.target).closest('[role="option"]');
         list.querySelectorAll('[role="option"]').forEach(el => el.setAttribute('aria-selected', String(el === focused)));
     });
 
@@ -199,15 +225,16 @@ export function stationSearch({ input, list, rail, onChange, announce, lifts = /
     // Then let go of the input, so a phone's keyboard closes and the route shows.
     // A tap on the star stars the station and leaves the list open.
     list.addEventListener('mousedown', e => {
-        const item = e.target.closest('[role="option"]');
+        const target = /** @type {Element} */ (e.target);
+        const item = /** @type {HTMLElement | null} */ (target.closest('[role="option"]'));
         if (!item) return;
         e.preventDefault();
-        if (e.target.closest('.suggestion-star')) toggleStar(item);
-        else { pick(item.dataset.id); input.blur(); }
+        if (target.closest('.suggestion-star')) toggleStar(item);
+        else { pick(rowStation(item)); input.blur(); }
     });
 
-    input.closest('.subway-search-wrap').addEventListener('focusout', e => {
-        if (!e.currentTarget.contains(e.relatedTarget)) hide();
+    /** @type {HTMLElement} */ (input.closest('.subway-search-wrap')).addEventListener('focusout', e => {
+        if (!/** @type {Element} */ (e.currentTarget).contains(/** @type {Node | null} */ (e.relatedTarget))) hide();
     });
 
     return {

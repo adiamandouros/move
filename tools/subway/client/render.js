@@ -8,13 +8,38 @@ import { legPositions, tripTime } from './network.js';
 
 // What the subway page draws, with html`` (every value escaped)
 
+/**
+ * What the page plans on (network.js): the metro, with the tram and the
+ * suburban railway when shown, and the notes on the railway's walks
+ * @typedef {import('./network.js').Rail & { walkNotes?: Record<string, Record<string, Names>> }} Rail
+ */
+/** @typedef {import('./network.js').Leg} Leg */
+/** @typedef {import('./network.js').Departure} Departure */
+/** @typedef {import('./network.js').Route} Route */
+/** @typedef {import('./network.js').PlannedRoute} PlannedRoute */
+/** @typedef {PlannedRoute['legs'][number]} PlannedLeg a leg with its trains */
+/** @typedef {import('./network.js').AthensTime} AthensTime */
+/** @typedef {import('./network.js').Names} Names */
+/** @typedef {import('/js/core/lifts.js').Lifts} Lifts */
+/** @typedef {import('/js/core/html.js').Html} Html */
+/** @typedef {{ arrives: number, minutes: number }} TripTime when a trip gets there and how long it takes (tripTime in network.js) */
+/**
+ * What a leg's times count from: seconds since the midnight its trains count
+ * from, and `epoch` the same moment since 1970, for them to count down by
+ * themselves (decision 61)
+ * @typedef {{ seconds: number, epoch?: number }} Now
+ */
+
+/** @param {Rail} rail @param {string} id */
 const stationName = (rail, id) => localName(rail.stations[id].name, language);
 
 // A station's name, linked to its own page: a metro station's, a tram stop's
 // or a suburban station's (stationPath)
+/** @param {Rail} rail @param {string} id */
 const stationLink = (rail, id) => html`<a href="${localHref(stationPath(rail, id))}">${stationName(rail, id)}</a>`;
 
 // "At Syntagma:", above each leg, with the station linked
+/** @param {Rail} rail @param {string} id */
 function boardAt(rail, id) {
     const [before, after = ''] = t('subway.board-at').split('{station}');
     return html`${before}${stationLink(rail, id)}${after}`;
@@ -22,12 +47,16 @@ function boardAt(rail, id) {
 
 // Every platform the trips board or get off at: where they start, change
 // (after a walk too) or end
+/** @param {PlannedRoute[]} plans */
 const tripPlatforms = plans => plans.flatMap(r => ridePlatforms(r.legs));
 // Their metro stations, for the lifts out of service there, and those with steps only
+/** @param {Rail} rail @param {PlannedRoute[]} plans */
 const tripStations = (rail, plans) => metroStations(rail, tripPlatforms(plans).map(p => p.station));
+/** @param {Rail} rail @param {PlannedRoute[]} plans */
 const tripGaps = (rail, plans) => stepFreeGaps(rail, tripPlatforms(plans));
 
 // Google Maps walking directions to a station
+/** @param {Rail} rail @param {string} id */
 export function walkingUrl(rail, id) {
     const [lat, lng] = rail.stations[id].coords;
     return walkingTo(lat, lng);
@@ -38,6 +67,7 @@ const HOUR = 3600;
 // Where a leg's train goes, as its sign says: where the line ends, or for a
 // suburban train where it ends, without the "(suburban)" the station list
 // tells it apart by (withSuburban in network.js)
+/** @param {Rail} rail @param {Leg} leg */
 const towardName = (rail, leg) => rail.lines[leg.line].suburban
     ? localName(rail.lines[leg.line].directions[leg.dir].toward, language)
     : stationName(rail, lineEnd(rail, leg.line, leg.dir));
@@ -46,16 +76,20 @@ const towardName = (rail, leg) => rail.lines[leg.line].suburban
 // «σταθμός», a tram's a «στάση»
 const TRAIN_WORDS = { last: 'subway.last-train', secondLast: 'subway.second-last-train', none: 'subway.no-trains', stop: 'subway.stop-count', stops: 'subway.stops-count', stations: 'subway.leg-stations' };
 const TRAM_WORDS = { last: 'subway.last-tram', secondLast: 'subway.second-last-tram', none: 'subway.no-trams', stop: 'subway.tram-stop-count', stops: 'subway.tram-stops-count', stations: 'subway.tram-leg-stations' };
+/** @typedef {typeof TRAIN_WORDS} Words */
+/** @param {Rail} rail @param {Leg} leg @returns {Words} */
 const wordsFor = (rail, leg) => rail.lines[leg.line].tram ? TRAM_WORDS : TRAIN_WORDS;
 
 // Times shown as clock times rather than minutes from now: tomorrow's trains,
 // and trains over an hour away (after midnight, the first ones of the morning)
+/** @param {Departure[]} departures @param {Now} now @param {boolean} tomorrow */
 const asClock = (departures, now, tomorrow) => tomorrow || departures[0].departs - now.seconds > HOUR;
 
 // One train: in how many minutes it leaves, or at what time (clock), marked
 // when it's the last or second to last. Its minutes count down by
 // themselves to when it leaves, then it's gone (decision 61): nothing once
 // it has left
+/** @param {Departure} d @param {Now} now @param {boolean} clock @param {Words} [words] */
 export function departureChip(d, now, clock, words = TRAIN_WORDS) {
     const note = d.isLast ? t(words.last) : d.isSecondLast ? t(words.secondLast) : '';
     const tier = d.isLast ? 'last' : d.isSecondLast ? 'second-last' : null;
@@ -65,6 +99,7 @@ export function departureChip(d, now, clock, words = TRAIN_WORDS) {
     return minutes !== null && minutesBadge(minutes, t, { then: `${note && ` (${note})`},`, tier, soon: false, title: note, at: epochAt(d.departs, now), exact: true });
 }
 
+/** @param {Departure[]} departures @param {Now} now @param {boolean} tomorrow @param {Words} words */
 function departureChips(departures, now, tomorrow, words) {
     if (!departures.length) return html`<span class="schedule-label">${t(words.none)}</span>`;
     const clock = asClock(departures, now, tomorrow);
@@ -78,6 +113,7 @@ function departureChips(departures, now, tomorrow, words) {
 // The last trains in words, on a line of their own under the line and its
 // times: "Last train 23:57". The chips say the same to screen readers, so
 // this is for the eyes.
+/** @param {Departure[]} departures @param {Words} [words] */
 export function lastTrainWords(departures, words = TRAIN_WORDS) {
     const marked = departures.filter(d => d.isLast || d.isSecondLast);
     if (!marked.length) return '';
@@ -85,6 +121,7 @@ export function lastTrainWords(departures, words = TRAIN_WORDS) {
 }
 
 // How many stops the train makes until the leg's last: "3 stops"
+/** @param {Leg} leg @param {Words} [words] */
 export function stopCount(leg, words = TRAIN_WORDS) {
     const count = leg.toIndex - leg.fromIndex;
     return format(t(count === 1 ? words.stop : words.stops), { count });
@@ -92,12 +129,14 @@ export function stopCount(leg, words = TRAIN_WORDS) {
 
 // Names a leg of a route through the 30-second refresh, to keep its
 // stations open or closed as the user left them
+/** @param {Route} route @param {number} i */
 export const legKey = (route, i) => `${routeKey(route)}#${i}`;
 
 // The stations a leg goes through, in order, from where it boards to where
 // it gets off, each linked to its page, with the other lines at the
 // interchanges: under the card, on a strip in the line's colour.
 // id: the list's, for its button. open: whether it starts open.
+/** @param {Rail} rail @param {Leg} leg @param {string} id @param {boolean} open */
 function legStations(rail, leg, id, open) {
     const stops = rail.lines[leg.line].directions[leg.dir].stops.slice(leg.fromIndex, leg.toIndex + 1);
     return html`<ol class="leg-stations strip-${leg.line.toLowerCase()}" id="${id}" aria-label="${t(wordsFor(rail, leg).stations)}"${!open && html` hidden`}>
@@ -120,6 +159,10 @@ function legStations(rail, leg, id, open) {
 // (decision 41). The Trip page draws its metro and tram rides with it too
 // (decision 46), with no times (`now` null) on a ride the rider is on or has
 // done (decision 61).
+/**
+ * @param {Rail} rail @param {PlannedLeg} leg @param {Leg | null} next @param {Now | null} now
+ * @param {number} level @param {boolean} tomorrow @param {boolean} timed @param {string} key @param {boolean} open
+ */
 export function legCard(rail, leg, next, now, level, tomorrow, timed, key, open) {
     const line = rail.lines[leg.line];
     const words = wordsFor(rail, leg);
@@ -180,16 +223,20 @@ export function watchLegStations(box, open) {
 // A walk at the start or end of a trip, in the place of a connector: "Walk to
 // Neo Faliro ~7'", with "about 7 minutes" for screen readers, and under it the
 // walk's note, if it has one (the suburban railway's at Piraeus and SKA)
+/** @param {Rail} rail @param {string} id @param {number} minutes @param {Names | null} [note] */
 function walkTo(rail, id, minutes, note = null) {
     return html`<p class="transfer-connector mb-0">${icon('walk')}<span>${format(t('subway.walk-to'), { station: stationName(rail, id) })} ${minutesMark(minutes, t, { about: true })}${note && html` <span class="walk-note">${localName(note, language)}</span>`}</span></p>`;
 }
 
-// The note on the walk between two stations, if it has one (withSuburban in network.js)
-const walkNote = (rail, a, b) => rail.walkNotes?.[a]?.[b] ?? null;
+// The note on the walk between two stations, if it has one (withSuburban in
+// network.js); none from `a` null, a trip's start not given (renderResult)
+/** @param {Rail} rail @param {string | null} a @param {string} b @returns {Names | null} */
+const walkNote = (rail, a, b) => (a === null ? null : rail.walkNotes?.[a]?.[b]) ?? null;
 
 // When the trip gets you there and how long it takes (tripTime in network.js):
 // "Arrive ~12:47 · 23'" on screen, "Arrive about 12:47 · 23 minutes" for
 // screen readers
+/** @param {TripTime | null} time */
 function tripTotal(time) {
     return time && html`${t('subway.arrive')} <span aria-hidden="true">~</span><span class="sr-only">${t('subway.about')} </span>${clockTime(time.arrives)} · ${minutesMark(time.minutes, t)}`;
 }
@@ -200,12 +247,17 @@ export const SLOWER_MINUTES = 5;
 
 // Names a route through the 30-second refresh, to keep it open or closed as
 // the user left it
+/** @param {Route} route */
 export const routeKey = route => route.legs.map(leg => `${leg.line}/${leg.dir}/${leg.from}/${leg.to}`).join('+');
 
 // time: tripTime's. closed: why the option starts closed ("9' slower"),
 // or '' when it doesn't. open: the options the user opened or closed
 // (routeKey). stations: the legs whose stations are open (legKey). from, to:
 // where the trip starts and ends, for a walk from the first to the last leg.
+/**
+ * @param {Rail} rail @param {PlannedRoute} route @param {number} index @param {number} total @param {AthensTime} now @param {boolean} tomorrow
+ * @param {{ time: TripTime | null, closed: string | Html, open: Record<string, boolean>, stations: Record<string, boolean>, from: string | null, to: string | null }} options
+ */
 function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, open, stations, from, to }) {
     // Headings: one per option when there are several, then one per leg.
     // The option's line has to fit a phone in one line in both languages:
@@ -224,7 +276,7 @@ function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, op
     const cards = route.legs.map((leg, i) => {
         const next = route.legs[i + 1] ?? null;
         // A change on foot is a walk to the next leg's stop, then the change
-        const walk = next && next.from !== leg.to && rail.walks[leg.to][next.from];
+        const walk = next && next.from !== leg.to && (rail.walks ?? {})[leg.to][next.from];
         const connector = next && html`
             ${walk && walkTo(rail, next.from, walk, walkNote(rail, leg.to, next.from))}
             <div class="transfer-connector" aria-hidden="true">
@@ -234,9 +286,10 @@ function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, op
         const key = legKey(route, i);
         return html`${legCard(rail, leg, next, now, level, tomorrow, route.legs.length > 1, key, Boolean(stations[key]))}${connector}`;
     });
-    // Walks at the ends: to where the first leg leaves, and on from where the last gets off to `to`
+    // Walks at the ends: to where the first leg leaves, and on from where the
+    // last gets off to `to` (given whenever a trip ends with a walk)
     const walkFirst = route.walkFirst && walkTo(rail, route.legs[0].from, route.walkFirst, walkNote(rail, from, route.legs[0].from));
-    const walkLast = route.walkLast && walkTo(rail, to, route.walkLast, walkNote(rail, route.legs.at(-1).to, to));
+    const walkLast = route.walkLast && to !== null && walkTo(rail, to, route.walkLast, walkNote(rail, route.legs[route.legs.length - 1].to, to));
     if (!closed) return html`${header}${walkFirst}${cards}${walkLast}`;
     // A native disclosure: a button for screen readers and the keyboard
     const key = routeKey(route);
@@ -253,7 +306,12 @@ function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, op
 // lifts: the lifts out of service (watchLifts() in /js/core/lifts.js), or null
 // liftsOpen: whether their notice is open (liftsOpen() in metro.js)
 // from, to: where the trip starts and ends, for a walk from the first leg or to the last
-export function renderResult(rail, plans, now, { expired, tomorrow = false, open = {}, stations = {}, legend = true, lifts = /** @type {any} */ (null), liftsOpen = true, from = /** @type {string | null} */ (null), to = /** @type {string | null} */ (null) }) {
+/**
+ * @param {Rail} rail @param {PlannedRoute[]} plans @param {AthensTime} now
+ * @param {{ expired?: boolean, tomorrow?: boolean, open?: Record<string, boolean>, stations?: Record<string, boolean>, legend?: boolean,
+ *   lifts?: Lifts | null, liftsOpen?: boolean, from?: string | null, to?: string | null }} options
+ */
+export function renderResult(rail, plans, now, { expired, tomorrow = false, open = {}, stations = {}, legend = true, lifts = null, liftsOpen = true, from = null, to = null }) {
     if (!plans.length) return renderMessage('subway.no-route');
     const liftsNotice = liftNotice(lifts, tripStations(rail, plans), id => stationName(rail, id), tripGaps(rail, plans), liftsOpen);
     const oldNotice = expired && notice('warn', 'warning', format(t('subway.timetable-old'), { date: formatDate(rail.feed.validTo) }), 'timetable-notice mb-3');
@@ -262,6 +320,7 @@ export function renderResult(rail, plans, now, { expired, tomorrow = false, open
     const first = Math.min(...times.map(time => time ? Math.floor(time.arrives / 60) : Infinity));
     // Minutes after the first option, as the clock times shown differ. One
     // that misses its connection tonight (timed on tomorrow's trains) says so.
+    /** @param {PlannedRoute} r @param {TripTime | null} time */
     const closed = (r, time) => {
         const slower = time ? Math.floor(time.arrives / 60) - first : 0;
         if (slower <= SLOWER_MINUTES) return '';
@@ -285,7 +344,8 @@ const INTRO_POINTS = ['subway.intro-trains', 'subway.intro-arrival', 'subway.int
 // it's open (legendOpen() in metro.js). With one station picked
 // (`picked`), its lifts out of service (`lifts`) and platforms with steps only, if any,
 // their notice open or not (`liftsOpen`).
-export function renderIntro(rail, legend = true, lifts = /** @type {any} */ (null), picked = [], liftsOpen = true) {
+/** @param {Rail} rail @param {boolean} [legend] @param {Lifts | null} [lifts] @param {string[]} [picked] @param {boolean} [liftsOpen] */
+export function renderIntro(rail, legend = true, lifts = null, picked = [], liftsOpen = true) {
     const stops = Object.values(rail.lines).flatMap(line => Object.values(line.directions)).flatMap(direction => direction.stops);
     const symbols = [...new Set(stops.filter(stop => stop.exits.length).flatMap(diagramSymbols))];
     const gaps = stepFreeGaps(rail, picked.flatMap(id => stationPlatforms(rail, id)));
@@ -295,25 +355,30 @@ export function renderIntro(rail, legend = true, lifts = /** @type {any} */ (nul
 }
 
 // Why there's no trip to show, in the same yellow as the other warnings
+/** @param {string} key */
 export function renderMessage(key) {
     return notice('warn', 'warning', t(key), 'subway-message mt-3');
 }
 
 // What the page needs and couldn't load: an error (decision 43)
+/** @param {string} key */
 export function renderError(key) {
     return notice('danger', 'error', t(key), 'subway-message mt-3');
 }
 
 // Two stops a short walk apart: no ride to show, only the walk
 // (walkOnly in words, for a screen reader)
+/** @param {number} minutes */
 export const walkOnly = minutes => format(t('subway.walk-only'), { minutes: minutesWords(minutes, t, true) });
+/** @param {number} minutes */
 export const renderWalkOnly = minutes => notice('info', 'walk', formatHtml(t('subway.walk-only'), { minutes: minutesMark(minutes, t, { about: true }) }), 'subway-message mt-3');
 
 // A one-sentence version of the result for screen readers, announced when the
 // stations change (the result itself isn't a live region: it refreshes every 30 s).
 // Plain text, for textContent. Then the platforms with steps only and the
 // lifts out of service on the way, if any.
-export function routeSummary(rail, plans, now, tomorrow = false, lifts = /** @type {any} */ (null)) {
+/** @param {Rail} rail @param {PlannedRoute[]} plans @param {AthensTime} now @param {boolean} [tomorrow] @param {Lifts | null} [lifts] */
+export function routeSummary(rail, plans, now, tomorrow = false, lifts = null) {
     if (!plans.length) return t('subway.no-route');
     const leg = plans[0].legs[0];
     const line = rail.lines[leg.line];
