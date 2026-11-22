@@ -18,10 +18,13 @@ import { firstAndLast } from './stations.js';
 //   stasy: the date of STASY's copy (dd/mm/yyyy) when the times are STASY's
 // Before the first build (no rail.json): no rows, and "–" for each fact.
 
+/** @typedef {{ line: string, from: string, to: string, showTo?: boolean, first?: boolean }} Asked the trains a row or a fact of `spec` asks for */
+
 // Sunday to Thursday (as Monday), Friday, Saturday
 const COLUMNS = [1, 5, 6];
 
 // The first and last trains from `from` going at least as far as `to`, by weekday (null: no such trains)
+/** @param {import('../../types/data.js').Rail} rail @param {Asked} asked */
 function trains(rail, { line, from, to }) {
     const direction = Object.values(rail.lines[line]?.directions ?? {}).find(d => {
         const order = d.stops.map(s => s.station);
@@ -34,8 +37,11 @@ function trains(rail, { line, from, to }) {
     if (hours) return { first: hours.first, last: hours.last, stasy: true };
     // The timetable's, from its trains that go that far (firstAndLast: all night when one runs into the next day)
     const { timetable } = direction;
-    const reaching = { ...timetable, patterns: timetable.patterns.map(p => p.filter(([, k]) => timetable.profiles[k].stops.at(-1) >= j)) };
+    const reaching = { ...timetable, patterns: timetable.patterns.map(p => p.filter(([, k]) => (timetable.profiles[k].stops.at(-1) ?? -1) >= j)) };
+    // By weekday: undefined on a day with no such trains
+    /** @type {(number | null | undefined)[]} */
     const first = Array(7).fill(undefined);
+    /** @type {(number | null | undefined)[]} */
     const last = Array(7).fill(undefined);
     for (const group of firstAndLast(reaching, i)) for (const d of group.days) [first[d], last[d]] = [group.first, group.last];
     return { first, last, stasy: false };
@@ -43,12 +49,14 @@ function trains(rail, { line, from, to }) {
 
 /**
  * @param {import('../../types/data.js').Rail | null} rail
- * @param {{ table: any[], facts: Record<string, any> }} spec
+ * @param {{ table: Asked[], facts: Record<string, Asked> }} spec
  * @param {import('../../types/pages.js').Lang} lang @param {(key: string) => string} s
  */
 export function lastTrains(rail, spec, lang, s) {
     if (!rail) return { rows: [], facts: Object.fromEntries(Object.keys(spec.facts).map(key => [key, '–'])), stasy: null };
+    /** @param {number | null | undefined} seconds */
     const time = seconds => seconds === null ? s('info.all-night') : seconds === undefined ? '–' : clockTime(seconds);
+    /** @param {string} id */
     const name = id => localName(rail.stations[id].name, lang);
     let stasy = true;
     const found = spec.table.flatMap(row => {

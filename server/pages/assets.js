@@ -15,9 +15,12 @@ const TOOLS_DIR  = join(ROOT, 'tools');
 const PUBLIC_DIR = join(ROOT, 'public');
 
 const require = createRequire(import.meta.url);
+/** @param {string} name */
 const packageDir = name => dirname(require.resolve(`${name}/package.json`));
 
-// Third-party files served from node_modules, so nothing loads from a CDN
+// Third-party files served from node_modules, so nothing loads from a CDN,
+// by the URL each folder is served at
+/** @type {Record<string, string>} */
 export const VENDOR = {
     '/vendor/bootstrap': join(packageDir('bootstrap'), 'dist'),
     '/vendor/roboto': join(packageDir('@fontsource-variable/roboto'), 'files'),
@@ -52,16 +55,20 @@ const SHELL_DIRS = ['css', join('js', 'core')];
 // a deploy (and so did the service worker, which fills its cache through the
 // browser's), mixing them with new pages. Scripts import each other by plain
 // URL; every page's import map points each one at its version (importMap).
+/** @type {Map<string, string>} */
 const versions = new Map();
+/** @param {string} url */
 export function versionOf(url) {
-    if (!versions.has(url)) {
+    let version = versions.get(url);
+    if (version === undefined) {
         const hash = createHash('sha256').update(url === '/icons.svg' ? iconSprite() : readFileSync(fileAt(url)));
-        versions.set(url, hash.digest('hex').slice(0, 10));
+        versions.set(url, version = hash.digest('hex').slice(0, 10));
     }
-    return versions.get(url);
+    return version;
 }
 
 // The file on disk an asset URL is served from
+/** @param {string} url */
 function fileAt(url) {
     const tool = url.match(/^\/tools\/([^/]+)\/(.+)$/);
     if (tool) return join(TOOLS_DIR, tool[1], 'client', tool[2]);
@@ -72,6 +79,7 @@ function fileAt(url) {
 
 // (and the icon sprite, whose links name an icon after the #)
 const VERSIONED = /^(\/(css|js|tools|vendor)\/.+\.(css|js)|\/icons\.svg)(#.*)?$/;
+/** @param {string} url */
 export const versioned = url => url.replace(VERSIONED, (_, file, _dir, _ext, hash = '') => `${file}?v=${versionOf(file)}${hash}`);
 
 // How long browsers keep a file asked for at `url`: for good when its ?v= is
@@ -83,6 +91,7 @@ export const versioned = url => url.replace(VERSIONED, (_, file, _dir, _ext, has
 // version, but an old copy of a font is harmless.
 const KEPT_FOR_GOOD = 'public, max-age=31536000, immutable';
 const FONT_CACHE = 'public, max-age=2592000';
+/** @param {string} url @param {string} [v] */
 export function cacheControl(url, v) {
     if (v) return v === versionOf(url) ? KEPT_FOR_GOOD : 'no-cache';
     return url.endsWith('.woff2') ? FONT_CACHE : 'no-cache';
@@ -95,13 +104,14 @@ export function cacheControl(url, v) {
 export const staticFiles = (dir, options = {}) => express.static(dir, {
     ...options,
     setHeaders: (res, _file) => {
-        const req = /** @type {any} */ (res).req;
+        const { req } = res;
         res.set('Cache-Control', cacheControl(`${req.baseUrl}${req.path}`, typeof req.query.v === 'string' ? req.query.v : undefined));
     },
 });
 
 // Every page script, mapped to its versioned URL, so that their imports
 // (import … from '/js/core/i18n.js', './map.js') load the same version
+/** @param {import('../../types/pages.js').Tool[]} tools */
 export function importMap(tools) {
     const modules = [
         ...listFiles(join(PUBLIC_DIR, 'js', 'core')).map(f => urlPath('', PUBLIC_DIR, f)),
@@ -112,6 +122,7 @@ export function importMap(tools) {
 
 // ── Files ───────────────────────────────────────────────────────────────────
 
+/** @param {string} dir @returns {string[]} */
 export function listFiles(dir) {
     if (!existsSync(dir)) return [];
     return readdirSync(dir).flatMap(name => {
@@ -120,6 +131,7 @@ export function listFiles(dir) {
     });
 }
 
+/** @param {string} base @param {string} dir @param {string} file */
 export const urlPath = (base, dir, file) => `${base}/${relative(dir, file).split(sep).join('/')}`;
 
 // URLs of the files every page needs (stylesheets, core scripts, icons)

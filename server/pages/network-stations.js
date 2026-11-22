@@ -1,6 +1,7 @@
 /** @typedef {import('../../types/data.js').Rail} Rail */
 /** @typedef {import('../../types/data.js').Trains} Trains */
 /** @typedef {import('../../types/data.js').Timetable} Timetable */
+/** @typedef {import('../../types/data.js').TramLine} TramLine */
 /** @typedef {import('../../types/pages.js').Lang} Lang */
 import { format, formatDate, localName, walkingUrl } from '../../public/js/core/html.js';
 import { favouriteButton } from '../../public/js/core/favourites.js';
@@ -27,6 +28,7 @@ const TRAM_PATH = STATION_PAGES.tram;
 const SUBURBAN_PATH = STATION_PAGES.suburban;
 
 // A date's weekday (0 = Sunday)
+/** @param {string} date */
 const weekday = date => new Date(`${date}T12:00:00Z`).getUTCDay();
 
 // First and last train leaving stop `index` on one direction on each of
@@ -61,6 +63,15 @@ function dateText(date, today, s) {
 // and the first and last trains from here (times(direction, index), table
 // rows). None for a direction that ends here: with no exits recorded, its
 // card would only say the stop before, which the other direction's names.
+// network: the tram's, or the suburban railway's (suburbanNetwork), typed by
+// the tram's lines, which have the least of rail.json's shape.
+/**
+ * @template R
+ * @param {{ stations: Record<string, import('../../types/data.js').Station>, lines: Record<string, TramLine> }} network
+ * @param {string} id @param {Lang} lang @param {(key: string) => string} s
+ * @param {(id: string | undefined) => { href: string, name: string } | null} link
+ * @param {(direction: TramLine['directions'][string], index: number) => R[]} times
+ */
 function directionCards(network, id, lang, s, link, times) {
     let n = 0;
     return network.stations[id].lines.map(lineId => {
@@ -117,8 +128,11 @@ export function tramStopView(rail, id, lang, s, trains = null) {
     const tram = tramOf(rail);
     const stop = tram.stations[id];
     const name = localName(stop.name, lang);
+    /** @param {string | undefined} stopId */
     const link = stopId => stopId ? { href: `${TRAM_PATH}/${stopId}`, name: localName(tram.stations[stopId].name, lang) } : null;
+    /** @param {number | null} seconds */
     const time = seconds => seconds === null ? s('stations.all-night') : clockTime(seconds);
+    /** @param {{ days: number[], first: number | null, last: number | null }} t */
     const row = t => ({ days: daysText(t.days, s), first: time(t.first), last: time(t.last) });
     const lines = directionCards({ stations: tram.stations, lines: tram.lines }, id, lang, s, link, (direction, index) => firstAndLast(direction.timetable, index).map(row));
     const plannerId = tramPlannerId(rail, id);
@@ -166,6 +180,7 @@ export function tramIndexView(rail, lang, s) {
 }
 
 // A line's stops in the order of its direction with the most of them, each once
+/** @param {TramLine} line */
 const longest = line => [...new Set(Object.values(line.directions).reduce((a, b) => b.stops.length > a.stops.length ? b : a).stops.map(stop => stop.station))];
 
 /**
@@ -229,8 +244,10 @@ export function suburbanStationView(rail, trains, id, lang, s, today = athensDat
     const network = networkOf(trains);
     const station = network.stations[id];
     const name = localName(station.name, lang);
+    /** @param {string | undefined} stationId */
     const link = stationId => stationId ? { href: `${SUBURBAN_PATH}/${stationId}`, name: localName(network.stations[stationId].name, lang) } : null;
     const dates = Object.keys(trains.dates).filter(date => date >= today).sort();
+    /** @param {{ date: string, first: number | null, last: number | null }} t */
     const row = t => ({ days: dateText(t.date, today, s), first: t.first === null ? '' : clockTime(t.first), last: t.last === null ? '' : clockTime(t.last), none: t.first === null ? s('stations.no-trains') : null });
     const lines = directionCards(network, id, lang, s, link, (direction, index) => firstAndLastByDate(direction.timetable, index, dates).map(row));
     const plannerId = suburbanId(withTram(rail), id);
@@ -257,6 +274,7 @@ export function suburbanStationView(rail, trains, id, lang, s, today = athensDat
 export function suburbanIndexView(rail, trains, lang, s) {
     const network = networkOf(trains);
     // The metro lines a short walk from each station
+    /** @type {Record<string, string[]>} */
     const metro = {};
     for (const [a, b] of stationWalks(rail, trains)) {
         for (const [from, to] of [[a, b], [b, a]]) {
@@ -295,6 +313,7 @@ export function suburbanStationPage(rail, trains, id, { tools, origin = '', toda
         };
     }
     const [lat, lng, el, en] = trains.stations[id];
+    /** @param {Lang} lang */
     const name = lang => lang === 'el' ? el : en || el;
     return {
         ...common,
@@ -310,6 +329,7 @@ export function suburbanStationPage(rail, trains, id, { tools, origin = '', toda
 // ── The pages ───────────────────────────────────────────────────────────────
 
 // What every station page shares (registry.js lists a page's fields)
+/** @param {import('../../types/pages.js').Tool[]} tools */
 const commonPage = tools => ({ active: 'subway', ad: 'station', readyBuses: true, strings: mergeStrings(STATION_STRINGS, tools.find(t => t.id === 'subway')?.strings ?? {}) });
 
 // The tram's and the suburban railway's station pages: → [{ router, paths() }]
@@ -322,10 +342,11 @@ const commonPage = tools => ({ active: 'subway', ad: 'station', readyBuses: true
  */
 export function createNetworkStationPages({ railFile, trainsFile, renderPage, tools, origin = '', opened }) {
     const rail = railReader(railFile);
+    /** @type {() => { key: string | null, rail: Trains | null }} */
     const trains = trainsFile ? railReader(trainsFile) : () => ({ key: null, rail: null });
     const both = () => {
         const [r, t] = [rail(), trains()];
-        return { key: `${r.key} ${t.key}`, rail: r.rail, trains: /** @type {Trains | null} */ (/** @type {unknown} */ (t.rail)) };
+        return { key: `${r.key} ${t.key}`, rail: r.rail, trains: t.rail };
     };
     return [
         stationRouter({

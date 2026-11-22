@@ -45,6 +45,7 @@ const WEEK = [1, 2, 3, 4, 5, 6, 0];
  * @returns {{ days: number[], first: number | null, last: number | null }[]}
  */
 export function firstAndLast(timetable, index) {
+    /** @param {number} weekday */
     const day = weekday => {
         const times = timetable.patterns[timetable.days[weekday]].flatMap(([start, p]) => {
             const { stops, offsets } = timetable.profiles[p];
@@ -55,6 +56,7 @@ export function firstAndLast(timetable, index) {
         return times.length ? { first: Math.min(...times), last: Math.max(...times) } : null;
     };
     const service = EVERY_DAY.map(day);
+    /** @param {number} weekday */
     const intoNext = weekday => {
         const today = service[weekday];
         const tomorrow = service[(weekday + 1) % 7];
@@ -70,6 +72,7 @@ export function firstAndLast(timetable, index) {
 // that look the same, Monday first: [{ days: [1, 2, 3, 4, 5], first, last }]
 /** @param {({ first: number | null, last: number | null } | null)[]} service */
 export function groupDays(service) {
+    /** @type {{ days: number[], first: number | null, last: number | null }[]} */
     const groups = [];
     for (const weekday of WEEK) {
         const times = service[weekday];
@@ -106,6 +109,7 @@ export function mainDestination(hours, direction, index) {
 }
 
 // "Mon–Fri", or "Sat, Sun", for a run of days (0 = Sunday)
+/** @param {number[]} list @param {(key: string) => string} s */
 export const daysText = (list, s) => list.length > 2
     ? `${s(`stations.day.${list[0]}`)}–${s(`stations.day.${list.at(-1)}`)}`
     : list.map(d => s(`stations.day.${d}`)).join(', ');
@@ -116,9 +120,14 @@ export const daysText = (list, s) => list.length > 2
 // first train is the table's). None for one that adds nothing: a nearer
 // destination whose last train is never later than the table's (or the
 // table's trains run all night).
+/**
+ * @param {import('../../types/data.js').Hours} hours @param {import('../../types/data.js').Hours} main @param {boolean} further
+ * @param {(id: string) => string} name @param {(seconds: number | null) => string} time @param {(key: string) => string} s
+ */
 function otherDestination(hours, main, further, name, time, s) {
     if (!further && hours.last.every((last, wd) => main.last[wd] === null || (last !== null && last <= main.last[wd]))) return null;
     const groups = groupDays(EVERY_DAY.map(wd => ({ first: further ? hours.first[wd] : 0, last: hours.last[wd] })));
+    /** @param {{ first: number | null, last: number | null }} g */
     const timesText = g => further
         ? format(s('stations.other-first-last'), { first: time(g.first), last: time(g.last) })
         : format(s('stations.other-last'), { last: time(g.last) });
@@ -128,6 +137,7 @@ function otherDestination(hours, main, further, name, time, s) {
     return format(s(further ? 'stations.other-further' : 'stations.other-shorter'), { name: name(hours.to), times });
 }
 
+/** @param {string} lineId */
 export const lineNumber = lineId => lineId.replace(/^\D+/, '');
 
 // Where a station's page (or the index, for id null) sits in the site:
@@ -173,8 +183,11 @@ export function directionCard({ n, lineId, lineName, dirId, end, previous, next,
  */
 export function stationView(rail, id, lang, s, trains = null) {
     const station = rail.stations[id];
+    /** @param {string} stationId */
     const name = stationId => localName(rail.stations[stationId].name, lang);
+    /** @param {string | undefined} stationId */
     const link = stationId => stationId ? { href: `${STATIONS_PATH}/${stationId}`, name: name(stationId) } : null;
+    /** @param {number | null} seconds */
     const time = seconds => seconds === null ? s('stations.all-night') : clockTime(seconds);
     let n = 0;
     const lines = station.lines.map(lineId => ({
@@ -191,6 +204,7 @@ export function stationView(rail, id, lang, s, trains = null) {
                 // Leaving from here (not at the last stop): STASY's first and last trains, or the timetable's
                 const main = next && stop.hours ? mainDestination(stop.hours, direction, index) : null;
                 const order = direction.stops.map(s => s.station);
+                /** @param {{ days: number[], first: number | null, last: number | null }} t */
                 const row = t => ({ days: daysText(t.days, s), first: time(t.first), last: time(t.last) });
                 return {
                     ...directionCard({ n: n++, lineId, lineName: rail.lines[lineId].name, dirId, end: name(lineEnd(rail, lineId, dirId)), previous: link(previous), next: link(next), stepFree: stop.stepFree, s }),
@@ -283,12 +297,13 @@ export function indexView(rail, lang, s) {
 
 // The other networks' indexes, for the foot of a network's index
 /** @param {'metro' | 'tram' | 'suburban'} network @param {(key: string) => string} s */
-export const seeAlso = (network, s) => Object.entries({ metro: 'stations.title', tram: 'stations.tram-title', suburban: 'stations.suburban-title' })
+export const seeAlso = (network, s) => /** @type {['metro' | 'tram' | 'suburban', string][]} */ (Object.entries({ metro: 'stations.title', tram: 'stations.tram-title', suburban: 'stations.suburban-title' }))
     .filter(([other]) => other !== network)
     .map(([other, key]) => ({ href: STATION_PAGES[other], name: s(key) }));
 
 // Structured data: the station with its location, and where it sits in the
 // site (origin: the public address, SITE_URL)
+/** @param {Rail} rail @param {string} id @param {Lang} lang @param {(key: string) => string} s @param {string} origin */
 function stationData(rail, id, lang, s, origin) {
     return placeData({ type: 'SubwayStation', name: localName(rail.stations[id].name, lang), coords: rail.stations[id].coords, crumbs: breadcrumb(rail, id, lang, s) }, lang, origin);
 }
@@ -300,6 +315,7 @@ function stationData(rail, id, lang, s, origin) {
  * @param {Lang} lang @param {string} origin
  */
 export function placeData({ type, name, coords: [latitude, longitude], crumbs }, lang, origin) {
+    /** @param {string} path */
     const url = path => origin + localPath(path, lang);
     const graph = [
         { '@type': type, name, ...(origin && { url: url(crumbs[crumbs.length - 1].path) }), geo: { '@type': 'GeoCoordinates', latitude, longitude } },
@@ -360,6 +376,7 @@ export function stationRouter({ base, read, ids, page, renderPage, opened = () =
         return { data, html: drawn.html };
     }
 
+    /** @param {string | null} id @param {Lang} lang */
     function html(id, lang) {
         const { data, html } = current();
         if (!data) throw NOT_BUILT_YET;
@@ -373,6 +390,10 @@ export function stationRouter({ base, read, ids, page, renderPage, opened = () =
     const router = express.Router();
     for (const lang of LANGS) {
         const path = localPath(base, lang);
+        /**
+         * @param {import('express').Request} req @param {import('express').Response} res
+         * @param {import('express').NextFunction} next @param {string | null | undefined} sent
+         */
         const send = (req, res, next, sent) => {
             if (!sent) return next();
             opened(req, lang);
@@ -401,12 +422,13 @@ export function stationRouter({ base, read, ids, page, renderPage, opened = () =
  */
 export function createStationPages({ railFile, trainsFile, renderPage, tools, origin = '', opened }) {
     const rail = railReader(railFile);
+    /** @type {() => { key: string | null, rail: import('../../types/data.js').Trains | null }} */
     const trains = trainsFile ? railReader(trainsFile) : () => ({ key: null, rail: null });
     return stationRouter({
         base: STATIONS_PATH,
         read: () => {
             const [r, t] = [rail(), trains()];
-            return { key: r.key && `${r.key} ${t.key}`, data: r.rail && { rail: r.rail, trains: /** @type {any} */ (t.rail) } };
+            return { key: r.key && `${r.key} ${t.key}`, data: r.rail && { rail: r.rail, trains: t.rail } };
         },
         ids: ({ rail }) => Object.keys(rail.stations),
         page: ({ rail, trains }, id) => stationPage(rail, id, { tools, origin, trains }),

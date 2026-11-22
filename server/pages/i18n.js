@@ -9,14 +9,18 @@ import { fileURLToPath } from 'url';
 
 const VIEWS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'views');
 // server/views/strings.json: the navigation's, the home page's, the menu's…
+/** @type {import('../../types/pages.js').Strings} */
 export const SHELL_STRINGS = JSON.parse(readFileSync(join(VIEWS_DIR, 'strings.json'), 'utf8'));
 
 /** @type {import('../../types/pages.js').Lang[]} */
 export const LANGS = ['en', 'el'];
 /** @param {string} path @returns {import('../../types/pages.js').Lang} */
 export const langOf = path => /^\/el(\/|$)/.test(path) ? 'el' : 'en';
+/** @param {string} lang */
 export const otherLang = lang => lang === 'el' ? 'en' : 'el';
+/** @param {string} path */
 export const basePath = path => path.replace(/^\/el(?=\/|$)/, '') || '/';
+/** @param {string} path @param {string} lang */
 export const localPath = (path, lang) => lang === 'el' ? (path === '/' ? '/el' : `/el${path}`) : path;
 
 // The language a browser asks for first, from its Accept-Language header:
@@ -34,10 +38,11 @@ export function askedLanguage(header) {
 // page's own ({ en: {…}, el: {…} }), with English for any that aren't translated
 /**
  * @param {import('../../types/pages.js').Tool[]} tools
- * @returns {(lang: string, own?: import('../../types/pages.js').Strings) => Record<string, string>}
+ * @returns {(lang: import('../../types/pages.js').Lang, own?: import('../../types/pages.js').Strings) => Record<string, string>}
  */
 export function pageStrings(tools) {
     const names = toolNames(tools);
+    /** @param {import('../../types/pages.js').Lang} lang @param {import('../../types/pages.js').Strings} own */
     const table = (lang, own) => ({ ...SHELL_STRINGS[lang], ...own[lang], ...names[lang] });
     return (lang, own = {}) => {
         const translated = Object.entries(table(lang, own)).filter(([, text]) => text !== undefined);
@@ -73,11 +78,13 @@ export function stringGetter(strings, lang) {
 // ── Links in the page's language ────────────────────────────────────────────
 
 // Whether a path is one of the pages; "/a/*" in the list stands for every path under /a/
+/** @param {string} path @param {string[]} pagePaths */
 export const isPage = (path, pagePaths) =>
     pagePaths.some(p => p.endsWith('/*') ? path.startsWith(p.slice(0, -1)) : p === path);
 
 // Links to one of the pages (with any ?query or #hash) point at that page in
 // the given language
+/** @param {string} href @param {string} lang @param {string[]} pagePaths */
 function localHref(href, lang, pagePaths) {
     const [, path, rest] = href.match(/^(\/[^?#]*)(.*)$/) ?? [];
     if (!path || !isPage(basePath(path), pagePaths)) return href;

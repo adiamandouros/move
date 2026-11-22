@@ -64,14 +64,14 @@ hb.registerHelper('json', value => new hb.SafeString(JSON.stringify(value).repla
 
 hb.registerHelper('formatDate', date => formatDate(date));
 
-hb.registerHelper('ifLang', function (code, options) {
+hb.registerHelper('ifLang', /** @this {unknown} */ function (code, options) {
     return options.data.lang === code ? options.fn(this) : options.inverse(this);
 });
 
 // Its content is the view's own output, so already escaped. A helper, not a
 // partial: a partial's hash joins the view's context, so a link's id= would
 // hide the station's own id inside it.
-hb.registerHelper('external', function (options) {
+hb.registerHelper('external', /** @this {unknown} */ function (options) {
     const newTab = stringGetter(options.data.strings ?? {}, options.data.lang)('shell.new-tab');
     return new hb.SafeString(String(externalLink(options.hash, raw(options.fn(this)), newTab)));
 });
@@ -90,7 +90,7 @@ export function compileView(source, name) {
         try {
             return template(context, { data: { lang, strings } });
         } catch (err) {
-            throw new Error(`${name}: ${err.message}`, { cause: err });
+            throw new Error(`${name}: ${err instanceof Error ? err.message : err}`, { cause: err });
         }
     };
 }

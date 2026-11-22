@@ -41,6 +41,7 @@ const TOOLS_DIR = join(ROOT, 'tools');
 
 
 /** @typedef {import('../../types/pages.js').Page} Page */
+/** @typedef {Page & { path: string }} SitePage a page of the list: each has its address */
 /** @typedef {import('../../types/pages.js').Tool} Tool */
 
 // config: the settings (server/config.js), for the ads and the contact
@@ -49,7 +50,7 @@ const TOOLS_DIR = join(ROOT, 'tools');
 /**
  * @param {Tool[]} tools @param {import('../../types/config.js').Config} [config]
  * @param {() => import('../../types/data.js').Rail | null} [rail]
- * @returns {Page[]}
+ * @returns {SitePage[]}
  */
 export function sitePages(tools, config = loadConfig({}), rail = () => null) {
     const ads = Boolean(config.adsense.client);
@@ -72,7 +73,7 @@ export function sitePages(tools, config = loadConfig({}), rail = () => null) {
             content: (lang, strings) => view('server/views/offline.hbs')({ tiles: tools.filter(t => t.offline).map(toolTile) }, { lang, strings }),
         },
         // The tools: tools/<id>/ (see tools/README.md)
-        ...tools.map(tool => {
+        ...tools.map(/** @returns {SitePage} */ tool => {
             const page = view(tool.view);
             return {
                 path: tool.path,
@@ -95,7 +96,7 @@ export function sitePages(tools, config = loadConfig({}), rail = () => null) {
                 readyBuses: tool.readyBuses,
             };
         }),
-        ...TEXT_PAGES.map(name => ({
+        ...TEXT_PAGES.map(/** @returns {SitePage} */ name => ({
             path: `/${name}`,
             title: `${name}.title`,
             // The privacy page has its own description once it describes ads
@@ -151,6 +152,7 @@ export function loadTools(dir = TOOLS_DIR) {
 
 // A link to a page as a tile (the home page's shortcuts, the offline page's
 // tools that work offline): server/views/partials/tile.hbs
+/** @param {Tool} tool */
 const toolTile = tool => ({ href: tool.path, tool: tool.id, iconName: tool.icon, titleKey: `tool.${tool.id}.title`, descriptionKey: `tool.${tool.id}.description` });
 
 // The metro stations' pages, from the home page
@@ -161,6 +163,7 @@ const STATIONS_TILE = { href: STATIONS_PATH, tool: null, iconName: 'stations', t
 // Written once per language: server/views/pages/<name>.<lang>.hbs
 const TEXT_PAGES = ['about', 'privacy', 'terms', 'contact'];
 // When the privacy and terms pages last changed in substance (shown on them)
+/** @type {Partial<Record<string, import('../../types/data.js').Names>>} */
 const UPDATED = {
     privacy: { en: '17 November 2026', el: '17 Νοεμβρίου 2026' },
     terms: { en: '29 October 2026', el: '29 Οκτωβρίου 2026' },

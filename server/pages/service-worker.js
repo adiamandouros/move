@@ -6,6 +6,8 @@ import { listFiles, shellFiles, shellUrls, urlPath, VENDOR, versioned } from './
 import { LANGS, localPath } from './i18n.js';
 import { fill } from './templates.js';
 
+/** @typedef {import('../../types/pages.js').Tool} Tool */
+
 // The service worker (server/views/sw.js), with what it caches for offline
 // use filled in: the home and offline pages, the files every page needs, and
 // the tools marked "offline" with their scripts and data.
@@ -16,12 +18,16 @@ const VIEWS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'views');
 export const OPENED_HEADER = 'Wayhop-Opened';
 
 // pages: every rendered page by path, so the version changes with any of them
+/** @param {Tool[]} tools @param {Record<string, string>} pages */
 export function renderServiceWorker(tools, pages) {
     const offlineTools = tools.filter(t => t.offline);
     // Pages in every language, so the Greek ones work offline too
+    /** @param {string} path */
     const inLangs = path => LANGS.map(lang => localPath(path, lang));
     // A tool's scripts and those of the tools it borrows from (tool.json "borrows")
-    const withBorrowed = t => [t, ...(t.borrows ?? []).map(id => tools.find(other => other.id === id))];
+    /** @param {Tool} t */
+    const withBorrowed = t => [t, ...(t.borrows ?? []).map(id => /** @type {Tool} */ (tools.find(other => other.id === id)))];
+    /** @param {Tool} t */
     const scripts = t => listFiles(t.clientDir).map(f => versioned(urlPath(`/tools/${t.id}`, t.clientDir, f)));
     const precache = [...new Set([
         ...inLangs('/'), ...inLangs('/offline'),

@@ -17,6 +17,7 @@ import { minutesMark } from '../../public/js/core/times.js';
 // Each walk once: [from, to, minutes, note?]
 /** @param {Rail} rail @param {Trains | null} trains @returns {[string, string, number, import('../../types/data.js').Names?][]} */
 export function stationWalks(rail, trains) {
+    /** @type {[string, string, number, import('../../types/data.js').Names?][]} */
     const walks = [];
     for (const [id, stop] of Object.entries(rail.tram?.stations ?? {})) {
         for (const { metro, stop: other, minutes } of stop.walks ?? []) {
@@ -25,6 +26,7 @@ export function stationWalks(rail, trains) {
     }
     // trains.json names the planner's stops: 'train:<id>' a suburban station,
     // 'rail:<id>' a metro station, or a tram stop ("-tram" where it shares a metro station's id)
+    /** @param {string} stop */
     const station = stop => {
         if (stop.startsWith('train:')) return `suburban:${stop.slice(6)}`;
         const id = stop.slice(5);
@@ -32,7 +34,9 @@ export function stationWalks(rail, trains) {
         return `tram:${id.replace(/-tram$/, '')}`;
     };
     for (const [from, to, seconds, note] of trains?.walks ?? []) {
-        walks.push([station(from), station(to), Math.round(seconds / 60), ...(note ? [note] : [])]);
+        /** @type {[string, string, number]} */
+        const walk = [station(from), station(to), Math.round(seconds / 60)];
+        walks.push(note ? [...walk, note] : walk);
     }
     return walks;
 }

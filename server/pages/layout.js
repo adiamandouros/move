@@ -67,7 +67,7 @@ export function createRenderer(tools, pagePaths, config) {
             // html``, so Handlebars keeps the = of its ?v= as it is
             icons: html`${versioned('/icons.svg')}`,
             // This page in the other language
-            other: other && { lang: other, path: localPath(path, other), name: LANGUAGE_NAMES[other] },
+            other: other && path && { lang: other, path: localPath(path, other), name: LANGUAGE_NAMES[other] },
             languages: LANGS.map(l => ({ label: LANGUAGE_LABELS[l], active: l === lang })),
             suggestion: other && { text: stringsFor(other)['language.suggest'], close: stringsFor(other)['language.close'] },
             title,
