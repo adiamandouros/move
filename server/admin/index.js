@@ -30,6 +30,14 @@ const require = createRequire(import.meta.url);
 //   liftNames()    → STASY's names for each station's lifts (server/info/lifts.js)
 //   exportKey      → reads the export without a session (Authorization: Bearer <key>),
 //                    for the nightly pull request of station edits; '' for none
+/**
+ * @param {{ password: string, exportKey?: string, loadCurated: typeof import('../data/index.js').loadCurated,
+ *   loadRail: () => import('../../types/data.js').Rail | null, rebuild: () => void,
+ *   render: (page: import('../../types/pages.js').RenderOptions) => string,
+ *   diagnose?: () => ReturnType<typeof import('../diagnostics/index.js').runDiagnostics>,
+ *   usageDays?: () => Record<string, import('../oasa/usage.js').Summary>,
+ *   liftNames?: ReturnType<typeof import('../info/lifts.js').createLifts>['liftNames'] }} options
+ */
 export function createAdmin({ password, exportKey = '', loadCurated, loadRail, rebuild, render, diagnose, usageDays = () => ({}), liftNames = () => ({}) }) {
     if (!password) return null;
 
@@ -87,6 +95,7 @@ export function createAdmin({ password, exportKey = '', loadCurated, loadRail, r
 
     // ── The export: with a session, or with the export key ───────────────────
 
+    /** @param {import('express').Request} req */
     const hasKey = req => Boolean(exportKey) && sameSecret(req.get('Authorization') ?? '', `Bearer ${exportKey}`);
 
     // A committed file the editor edits, with every edit applied, ready to
@@ -107,7 +116,7 @@ export function createAdmin({ password, exportKey = '', loadCurated, loadRail, r
         res.set('Cache-Control', 'no-store')
             .set('Content-Disposition', `attachment; filename="${file}"`)
             .type('json')
-            .send(formatJson(data[kind.name], 3) + '\n');
+            .send(formatJson(data[/** @type {keyof typeof data} */ (kind.name)], 3) + '\n');
     });
 
     // ── Everything below needs a session ────────────────────────────────────
@@ -201,22 +210,31 @@ export function createAdmin({ password, exportKey = '', loadCurated, loadRail, r
     });
 
     // object[key] when it's the object's own (so "constructor" in the address finds nothing)
+    /** @template T @param {Record<string, T> | undefined} object @param {string} key */
     const own = (object, key) => object && Object.hasOwn(object, key) ? object[key] : undefined;
     // The platform or station in the address, or a 404
+    /** @param {import('express').Request} req @param {import('express').Response} res */
     const platform = (req, res) => {
-        const { line, dir, station } = req.params;
+        // (named parameters: always one string each)
+        const { line, dir, station } = /** @type {Record<string, string>} */ (req.params);
         const served = own(own(loadRail()?.lines, line)?.directions, dir)?.stops.some(s => s.station === station);
         if (!served) { res.status(404).json({ error: `${line}/${dir} does not serve ${station}` }); return null; }
         return { line, dir, station };
     };
+    /** @param {import('express').Request} req @param {import('express').Response} res */
     const station = (req, res) => {
-        if (own(loadRail()?.stations, req.params.station)) return { station: req.params.station };
-        res.status(404).json({ error: `There's no station ${req.params.station}` });
+        const { station: id } = /** @type {Record<string, string>} */ (req.params);
+        if (own(loadRail()?.stations, id)) return { station: id };
+        res.status(404).json({ error: `There's no station ${id}` });
         return null;
     };
 
     // Saving an entry (PUT) or going back to the committed one (DELETE), in
     // the file `kind` edits, for the place in the address
+    /**
+     * @param {(typeof EDITED)[keyof typeof EDITED]} kind @param {string} path
+     * @param {(req: import('express').Request, res: import('express').Response) => Record<string, string> | null} place
+     */
     function editing(kind, path, place) {
         router.put(path, express.json({ limit: '20kb' }), (req, res) => {
             const ref = place(req, res);

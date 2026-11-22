@@ -1,5 +1,6 @@
 import { stasyTimetablePath } from '../proxy/worker.js';
 import { userAgentFor } from './config.js';
+import { messageOf } from './errors.js';
 
 // STASY's website (www.stasy.gr): its news page and posts, for the
 // announcements (server/info/announcements.js), and its timetable pages, for
@@ -27,7 +28,14 @@ export function createStasyClient({ fetch = globalThis.fetch, now = Date.now, re
 
     // A page (or with `read`, a file): directly, or through each relay with
     // `relayQuery` (none: the relays can't fetch it)
-    async function get(url, relayQuery, read = res => res.text()) {
+    /**
+     * @template [T=string]
+     * @param {string} url @param {string | null} relayQuery
+     * @param {(res: Response) => Promise<T>} [read]
+     * @returns {Promise<T>}
+     */
+    async function get(url, relayQuery, read = /** @type {(res: Response) => Promise<T>} */ (res => res.text())) {
+        /** @type {string[]} */
         const errors = [];
         if (now() >= directRestUntil) {
             try {
@@ -37,7 +45,7 @@ export function createStasyClient({ fetch = globalThis.fetch, now = Date.now, re
                 route = 'direct';
                 return body;
             } catch (err) {
-                errors.push(`direct: ${err.message}`);
+                errors.push(`direct: ${messageOf(err)}`);
                 if (relays.length) directRestUntil = now() + DIRECT_REST_MS;
             }
         }
@@ -52,7 +60,7 @@ export function createStasyClient({ fetch = globalThis.fetch, now = Date.now, re
                 route = relay.name;
                 return body;
             } catch (err) {
-                errors.push(`${relay.name}: ${err.message}`);
+                errors.push(`${relay.name}: ${messageOf(err)}`);
             }
         }
         throw new Error(errors.join('; ') || 'direct access is resting and there are no relays');

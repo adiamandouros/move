@@ -13,6 +13,7 @@ const MAX_KINDS = 50;
 const MAX_PER_MINUTE = 120;
 const MAX_BODY = '16kb';
 
+/** @param {unknown} url */
 const withoutQuery = url => {
     if (!url || typeof url !== 'string') return '';
     try {
@@ -25,10 +26,14 @@ const withoutQuery = url => {
 };
 
 // One report, from either format → { directive, blocked, page, source } or null
+// (what a browser posted: anything)
+/** @param {unknown} report */
 function normalise(report) {
-    const legacy = report?.['csp-report'];
-    const body = legacy ?? (report?.type === 'csp-violation' ? report.body : null);
-    if (!body || typeof body !== 'object') return null;
+    const posted = /** @type {Record<string, unknown> | null | undefined} */ (report);
+    const legacy = posted?.['csp-report'];
+    const found = legacy ?? (posted?.type === 'csp-violation' ? posted.body : null);
+    if (!found || typeof found !== 'object') return null;
+    const body = /** @type {Record<string, unknown>} */ (found);
     const directive = String(body['effective-directive'] ?? body.effectiveDirective ?? body['violated-directive'] ?? body.violatedDirective ?? '').split(' ')[0];
     if (!directive) return null;
     return {
@@ -59,7 +64,7 @@ export function createCspReports({ now = Date.now } = {}) {
         res.status(204).end();
     });
     // A body that isn't JSON, or too big: still "thanks", nothing kept
-    router.use((err, _req, res, _next) => res.status(204).end());
+    router.use(/** @type {import('express').ErrorRequestHandler} */ ((err, _req, res, _next) => res.status(204).end()));
 
     // → { kinds: [{ directive, blocked, count, page, source, last }] (most frequent first), dropped }
     const status = () => ({ kinds: [...kinds.values()].sort((a, b) => b.count - a.count), dropped });

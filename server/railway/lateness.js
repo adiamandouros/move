@@ -18,13 +18,14 @@
  * by schedule number (as the stream names them): the train's number, and
  * each stop's OSE id with its timetabled arrival and departure (ms, null at
  * its first or last stop)
- * @param {{ schedules: any[] }} board @param {Set<string>} corridors
+ * @param {{ schedules: import('../../types/data.js').RailwaySchedule[] }} board @param {Set<string>} corridors
  * @returns {Map<string, { train: string, stops: [string, number | null, number | null][] }>}
  */
 export function boardTrains(board, corridors) {
     const trains = new Map();
     for (const s of board?.schedules ?? []) {
         if (s.serviceType !== 'Suburban' || s.status === 'cancelled' || !corridors.has(s.corridor) || !s.scheduleNumber) continue;
+        /** @param {string | null | undefined} iso */
         const time = iso => iso ? Date.parse(iso) : null;
         const stops = [...s.routeStations ?? []].sort((a, b) => a.index - b.index)
             .map(call => /** @type {[string, number | null, number | null]} */ ([call.stationId, time(call.scheduledArrival), time(call.scheduledDeparture)]));
@@ -47,7 +48,7 @@ export function createTracker() {
     /** @type {Map<string, { stop: number, at: number, measured: number | null }>} */
     const seen = new Map();
     /**
-     * @param {{ scheduleNumber?: string | null, nextStationId?: string | null, timestamp?: string }[]} positions
+     * @param {import('./stream.js').TrainPosition[]} positions
      * @param {ReturnType<typeof boardTrains>} trains
      * @returns {Record<string, { late: number, exact: boolean }>}
      */

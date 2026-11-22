@@ -30,6 +30,7 @@ const EXPORT_KEY_MIN = 32;
 /** @param {string | null} [contactEmail] */
 export const userAgentFor = contactEmail => `Wayhop (Athens transit web app${contactEmail ? `; ${contactEmail}` : ''})`;
 
+/** @param {string} text */
 const capital = text => text[0].toUpperCase() + text.slice(1);
 
 /** @param {string} url */
@@ -39,9 +40,11 @@ function isHttpUrl(url) {
 
 /** @param {Record<string, string | undefined>} [env] @returns {Config} */
 export function loadConfig(env = process.env) {
+    /** @param {string} name */
     const value = name => env[name]?.trim() || '';
     /** @type {ConfigProblem[]} */
     const problems = [];
+    /** @param {string} title @param {string} text @param {string} hint */
     const problem = (title, text, hint) => problems.push({ title, text, hint });
 
     // SITE_URL: the public origin, for canonical links, the sitemap and the

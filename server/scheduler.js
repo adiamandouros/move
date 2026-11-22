@@ -5,6 +5,7 @@ import { runBuildInChild } from './data/index.js';
 // own progress and failures
 const build = () => runBuildInChild();
 
+/** @param {{ refreshPlaces: () => void }} jobs */
 export function startScheduler({ refreshPlaces }) {
     // Run immediately on startup (non-blocking), so a restart catches up on anything missed
     build();

@@ -3,6 +3,7 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 import { STASY_LIFTS_PAGE } from '../../public/js/core/metro.js';
 import { userAgentFor } from '../config.js';
+import { messageOf } from '../errors.js';
 import { stasyNameKey, stationNames } from '../data/stasy.js';
 import { readJson, writeFileAtomic } from '../files.js';
 import { createStasyClient } from '../stasy.js';
@@ -38,6 +39,7 @@ const STATIONS_FILE = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 
 // every lift works, some don't but the others still reach the street, or
 // it can't be reached step-free. 'Unknown' (stations STASY has no lifts
 // listed for: Nerantziotissa and the airport branch) is left out.
+/** @type {Record<string, string>} */
 const STATUSES = { Ok: 'ok', Warning: 'partial', Error: 'closed' };
 const WORST = ['ok', 'partial', 'closed'];
 
@@ -58,7 +60,7 @@ export function parseLifts(html, names) {
     const seen = new Set();
     const unknown = new Set();
     for (const block of html.split(/<li class="jw_line_station /).slice(1)) {
-        const status = STATUSES[block.match(/^[^"]*\bjw_status(\w+)/)?.[1]];
+        const status = STATUSES[block.match(/^[^"]*\bjw_status(\w+)/)?.[1] ?? ''];
         const name = decode(block.match(/class="jw_station__name">([^<]*)</)?.[1] ?? '');
         if (!status || !name) continue;
         const id = names.get(stasyNameKey(name));
@@ -81,9 +83,11 @@ export function parseLifts(html, names) {
 }
 
 // A lift's name as STASY writes it, without its stray spaces and tabs
+/** @param {string} text */
 const liftName = text => text.replace(/\s+/g, ' ').trim();
 
 // `names` with each of `more` that it doesn't have as many times
+/** @param {string[]} names @param {string[]} more */
 function withEach(names, more) {
     const left = [...names];
     const added = more.filter(name => {
@@ -123,8 +127,8 @@ export function createLifts({ fetch = globalThis.fetch, now = Date.now, log = co
                 try { writeFileAtomic(cacheFile, JSON.stringify(state)); } catch { /* the cache is only an optimisation */ }
             }
         } catch (err) {
-            health = { ok: false, at: now(), error: err.message };
-            log(`[lifts] ${err.message}`);
+            health = { ok: false, at: now(), error: messageOf(err) };
+            log(`[lifts] ${messageOf(err)}`);
         }
         checkedAt = now();
     }

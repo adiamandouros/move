@@ -48,6 +48,7 @@ export function readProcesses(procDir = '/proc') {
         const dir = join(procDir, name);
         try {
             const status = readFileSync(join(dir, 'status'), 'utf8');
+            /** @param {string} key */
             const field = key => Number(new RegExp(`^${key}:\\s+(\\d+)`, 'm').exec(status)?.[1]);
             // The fields after the command name in brackets (which may hold
             // spaces and brackets itself), from the 3rd; the start time is the 22nd
@@ -66,10 +67,13 @@ export function readProcesses(procDir = '/proc') {
     return out;
 }
 
+/** @param {{ cwd: string | null, cmd: string }} p */
 const appDir = p => (p.cwd ?? p.cmd.replace(LSNODE, '')).replace(/(.)\/+$/, '$1');
 
 // Map.groupBy, which Node 20 doesn't have
+/** @template T, K @param {T[]} list @param {(item: NoInfer<T>) => K} key */
 function groupBy(list, key) {
+    /** @type {Map<K, T[]>} */
     const groups = new Map();
     for (const item of list) groups.set(key(item), [...(groups.get(key(item)) ?? []), item]);
     return groups;
@@ -84,6 +88,7 @@ function groupBy(list, key) {
 export function accountStatus(processes, uid, now = Date.now()) {
     const own = processes.filter(p => p.uid === uid);
     const children = groupBy(own, p => p.ppid);
+    /** @param {ReturnType<typeof readProcesses>[number]} p @returns {number} */
     const threadsOf = p => p.threads + (children.get(p.pid) ?? []).reduce((sum, c) => sum + threadsOf(c), 0);
     const lsnode = own.filter(p => LSNODE.test(p.cmd));
     const ids = new Set(lsnode.map(p => p.pid));
@@ -107,8 +112,9 @@ export function accountStatus(processes, uid, now = Date.now()) {
  * @param {{ pid: number, started: number }[]} copies
  * @param {{ procDir?: string, kill?: (pid: number, signal: string) => void, wait?: number }} [options]
  */
-export async function stopProcesses(copies, { procDir = '/proc', kill = (pid, signal) => process.kill(pid, signal), wait = STOP_WAIT_MS } = {}) {
+export async function stopProcesses(copies, { procDir = '/proc', kill = /** @type {(pid: number, signal: string) => void} */ ((pid, signal) => process.kill(pid, signal)), wait = STOP_WAIT_MS } = {}) {
     if (!copies.length) return;
+    /** @param {number} pid @param {string} signal */
     const send = (pid, signal) => { try { kill(pid, signal); } catch { /* already gone */ } };
     for (const c of copies) send(c.pid, 'SIGTERM');
     await sleep(wait);
@@ -153,9 +159,10 @@ export function createProcessGuard({ procDir = '/proc', uid = process.getuid?.()
         const self = processes.find(p => p.pid === pid);
         if (!self || !LSNODE.test(self.cmd)) return [];
         const app = accountStatus(processes, uid, now()).apps.find(a => a.dir === appDir(self));
-        if (!app || app.copies.at(-1).pid !== pid) return [];
+        if (!app || app.copies.at(-1)?.pid !== pid) return [];
         const stale = app.copies.filter(c => c.stale);
         const stuck = app.builds.filter(b => b.stuck);
+        /** @param {{ pid: number, started: number }[]} ps */
         const list = ps => ps.map(p => `${p.pid} (started ${new Date(p.started).toISOString()})`).join(', ');
         if (stale.length) log(`[processes] Stopping ${stale.length} old cop${stale.length === 1 ? 'y' : 'ies'} of this app: ${list(stale)}`);
         if (stuck.length) log(`[processes] Stopping ${stuck.length} data build${stuck.length === 1 ? '' : 's'} running for over ${BUILD_MAX_MS / 60_000} minutes: ${list(stuck)}`);

@@ -305,6 +305,8 @@ export function loadCurated({ curatedDir = CURATED_DIR, overlayDir = OVERLAY_DIR
         catch (err) { throw new Error(`data/curated/${name}.json is not valid JSON: ${err.message}`, { cause: err }); }
     }
 
+    // By the edited file's name: the trees of the committed file and of its overlay, and the overlay's file
+    /** @type {Record<string, { committed: object, overlay: object, file: string }>} */
     const edits = {};
     for (const kind of Object.values(EDITED)) {
         const file = join(overlayDir, `${kind.name}.json`);

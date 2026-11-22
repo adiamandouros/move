@@ -1,6 +1,7 @@
 import express from 'express';
 import { safeUrl } from '../../public/js/core/html.js';
 import { userAgentFor } from '../config.js';
+import { messageOf } from '../errors.js';
 import { readJson, writeFileAtomic } from '../files.js';
 import { createStasyClient } from '../stasy.js';
 
@@ -19,6 +20,8 @@ const MAX_AGE_MS = 30 * 86_400_000;   // older announcements are dropped
 const MAX_ITEMS = 8;                  // per source and language
 const DISRUPTION_AGE_MS = 7 * 86_400_000;
 
+/** @typedef {keyof typeof SOURCES} Source */
+/** @typedef {{ title: string, link: string, date: string }} Item an announcement, `date` ISO */
 const SOURCES = {
     oasaEl: 'https://www.oasa.gr/feed/',
     oasaEn: 'https://www.oasa.gr/en/feed/',
@@ -27,7 +30,9 @@ const SOURCES = {
 
 // ── Parsing ─────────────────────────────────────────────────────────────────
 
+/** @type {Record<string, string>} */
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+/** @param {string} text */
 export function decode(text) {
     return text
         .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
@@ -40,10 +45,12 @@ export function decode(text) {
 }
 
 // Upper case without accents, for matching Greek and English keywords
+/** @param {string} text */
 const fold = text => text.normalize('NFD').replace(/\p{M}/gu, '').toUpperCase();
 
 // Strikes, work stoppages and closures: shown as a banner while recent
 const DISRUPTION = /ΣΤΑΣ(Η|ΕΙΣ) ΕΡΓΑΣΙΑΣ|ΑΠΕΡΓΙ|ΚΛΕΙΣΤ|ΚΛΕΙΝΟΥΝ|ΔΙΑΚΟΠΗ ΛΕΙΤΟΥΡΓΙΑΣ|STRIKE|WORK STOPPAGE|CLOSED|CLOSURE/;
+/** @param {string} title */
 export const isDisruption = title => DISRUPTION.test(fold(title));
 
 // OASA's feeds also carry tenders and corporate news; keep the passenger notices
@@ -51,11 +58,13 @@ const OASA_CATEGORIES = /ΑΝΑΚΟΙΝΩΣΕΙΣ|ANNOUNCEMENTS|ALERTS/;
 
 // → [{ title, link, date }]. Only items that link to a web address are kept:
 // the pages link to them, and a javascript: link would run there.
+/** @param {string} xml */
 export function parseOasaFeed(xml) {
     return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].flatMap(([, item]) => {
+        /** @param {string} name */
         const field = name => item.match(new RegExp(`<${name}>([\\s\\S]*?)</${name}>`))?.[1];
         const categories = [...item.matchAll(/<category>([\s\S]*?)<\/category>/g)].map(m => fold(decode(m[1])));
-        const date = new Date(field('pubDate'));
+        const date = new Date(field('pubDate') ?? '');
         const link = safeUrl(decode(field('link') ?? ''));
         if (!categories.some(c => OASA_CATEGORIES.test(c)) || Number.isNaN(date.getTime()) || !link) return [];
         return [{ title: decode(field('title') ?? ''), link, date: date.toISOString() }];
@@ -68,7 +77,9 @@ const STASY_SKIP = /ΠΡΟΚΗΡΥΞ|ΠΡΟΣΚΛΗΣ|ΔΙΑΓΩΝΙΣ|ΣΥΝΕ�
 // → [{ title, link }], in page order (newest first). Only posts that link to
 // a web address are kept (each one's page is fetched for its date, and the
 // pages link to it).
+/** @param {string} html */
 export function parseStasyList(html) {
+    /** @type {Set<string>} */
     const seen = new Set();
     return [...html.matchAll(/<article id="post-\d+" class="clearfix">\s*<a href="([^"]+)"[\s\S]*?<span class="light">([\s\S]*?)<\/span>/g)]
         .flatMap(([, link, title]) => {
@@ -79,8 +90,9 @@ export function parseStasyList(html) {
 }
 
 // → ISO date or null
+/** @param {string} html */
 export function parseStasyDate(html) {
-    const date = new Date(html.match(/article:published_time" content="([^"]+)"/)?.[1]);
+    const date = new Date(html.match(/article:published_time" content="([^"]+)"/)?.[1] ?? '');
     return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
@@ -95,6 +107,7 @@ export function parseStasyDate(html) {
  */
 export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, log = console.warn, cacheFile, relays = [], userAgent = userAgentFor(null) } = {}) {
     // Last good result per source, and STASY post dates by link (posts don't move)
+    /** @type {Record<Source, { items: Item[], updated: string } | null> & { dates: Record<string, string | null> }} */
     let state = { oasaEl: null, oasaEn: null, stasy: null, dates: {} };
     if (cacheFile) {
         state = { ...state, ...readJson(cacheFile) };
@@ -102,11 +115,13 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
     let checkedAt = 0;
     let refreshing = /** @type {Promise<void> | null} */ (null);
     // Per source, for the diagnostics: { ok, at, error, route, leftOut? }
+    /** @type {Partial<Record<Source, { ok: boolean, at: number, error?: string, route?: string | null, leftOut?: number }>>} */
     const health = {};
     const stasy = createStasyClient({ fetch, now, relays, userAgent });
     // How many of STASY's newest posts the last load left out
     let stasyLeftOut = 0;
 
+    /** @param {string} url */
     async function get(url) {
         const res = await fetch(url, { headers: { 'User-Agent': userAgent }, signal: AbortSignal.timeout(TIMEOUT_MS) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -126,29 +141,35 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
                 state.dates[post.link] = parseStasyDate(await stasy.page(post.link));
             } catch (err) {
                 leftOut++;
-                log(`[announcements] stasy: left out ${post.link} for now: ${err.message}`);
+                log(`[announcements] stasy: left out ${post.link} for now: ${messageOf(err)}`);
             }
         }
         // Forget dates of posts that have left the list
         state.dates = Object.fromEntries(recent.filter(p => p.link in state.dates).map(p => [p.link, state.dates[p.link]]));
         stasyLeftOut = leftOut;
-        return recent.filter(p => state.dates[p.link]).map(p => ({ ...p, date: state.dates[p.link] }));
+        return recent.flatMap(p => {
+            const date = state.dates[p.link];
+            return date ? [{ ...p, date }] : [];
+        });
     }
 
+    /** @type {Record<Source, () => Promise<Item[]>>} */
     const loaders = {
         oasaEl: async () => parseOasaFeed(await get(SOURCES.oasaEl)),
         oasaEn: async () => parseOasaFeed(await get(SOURCES.oasaEn)),
         stasy: loadStasy,
     };
+    const names = /** @type {Source[]} */ (Object.keys(loaders));
 
     async function refresh() {
-        await Promise.all(Object.entries(loaders).map(async ([name, load]) => {
+        await Promise.all(names.map(async name => {
+            const load = loaders[name];
             try {
                 state[name] = { items: await load(), updated: new Date(now()).toISOString() };
                 health[name] = { ok: true, at: now(), route: name === 'stasy' ? stasy.route : 'direct', ...(name === 'stasy' && stasyLeftOut && { leftOut: stasyLeftOut }) };
             } catch (err) {
-                health[name] = { ok: false, at: now(), error: err.message };
-                log(`[announcements] ${name}: ${err.message}`);
+                health[name] = { ok: false, at: now(), error: messageOf(err) };
+                log(`[announcements] ${name}: ${messageOf(err)}`);
             }
         }));
         checkedAt = now();
@@ -164,8 +185,9 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
             refreshNow();
             // STASY is slow, so answer from the last copy and refresh behind it;
             // only wait when there's nothing to show yet
-            if (!Object.keys(loaders).some(name => state[name])) await refreshNow();
+            if (!names.some(name => state[name])) await refreshNow();
         }
+        /** @param {Source} source */
         const items = source => (state[source]?.items ?? [])
             .filter(item => now() - Date.parse(item.date) < MAX_AGE_MS)
             .sort((a, b) => b.date.localeCompare(a.date))
@@ -174,7 +196,7 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
         return {
             rail: items('stasy'),
             bus: { el: items('oasaEl'), en: items('oasaEn') },
-            available: Object.keys(loaders).filter(name => state[name]),
+            available: names.filter(name => state[name]),
         };
     }
 
@@ -182,7 +204,7 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
     const refreshNow = () => (refreshing ??= refresh().finally(() => { refreshing = null; }));
 
     // → { <source>: { ok, at, error?, route?, items, updated } }, for the diagnostics
-    const status = () => Object.fromEntries(Object.keys(loaders).map(name => [name, {
+    const status = () => Object.fromEntries(names.map(name => [name, {
         ...health[name],
         items: state[name]?.items.length ?? 0,
         updated: state[name]?.updated ?? null,
