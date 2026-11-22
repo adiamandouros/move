@@ -1,5 +1,6 @@
 import { appendFileSync, mkdirSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
+import { messageOf } from '../errors.js';
 import { readJson, writeFileAtomic } from '../files.js';
 
 // Today's bus network from OASA's live API, for bus-stops.json and
@@ -29,6 +30,18 @@ import { readJson, writeFileAtomic } from '../files.js';
 //   routes: { '938': [{ code: '3922', type: '1', name: { el, en } }, …] },
 //   stops:  { '3922': { at: ISO time, stops: [{ code, el, en, lat, lng }, …] } }  (in route order)
 // }
+/**
+ * @typedef {import('../../types/data.js').Names} Names
+ * @typedef {{ code: string, line: string, name: Names }} NetworkLine
+ * @typedef {{ code: string, type: string, name: Names }} NetworkRoute
+ * @typedef {{ code: string, el: string, en: string, lat: number, lng: number }} NetworkStop
+ * @typedef {{ at: string, stops: NetworkStop[] }} RouteStops a route's stops, and when they were asked for
+ * @typedef {{ fetched: string, lines: NetworkLine[], routes: Record<string, NetworkRoute[]>, stops: Record<string, RouteStops> }} Network
+ * How far a fetch got, filled in as it goes (lastFetchFile)
+ * @typedef {{ lines?: import('../../types/data.js').FetchProgress, stops?: import('../../types/data.js').FetchProgress, requests?: number }} Progress
+ * One call to OASA's API (server/oasa/client.js), its answer parsed
+ * @typedef {(act: string, p1: string) => Promise<unknown>} Request
+ */
 
 export const NETWORK_MAX_AGE_MS = 20 * 3_600_000;
 export const ROUTE_STOPS_MAX_AGE_MS = 7 * 86_400_000;
@@ -39,10 +52,14 @@ export const RETRY_WAITS_MS = [10_000, 30_000, 60_000];
 // { at, ok, seconds, error?, lines?: { done, total }, stops?: { done, total } }
 // lines: lines whose routes were asked for; stops: routes whose stops were
 // (only the ones this fetch needed: new, over a week old, or still missing)
+/** @param {string} rawDir */
 export const lastFetchFile = rawDir => join(rawDir, 'oasa', 'last-fetch.json');
 
+/** @param {number} ms @returns {Promise<void>} */
 const realSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+/** @param {unknown} value */
 const text = value => String(value ?? '').replace(/\s+/g, ' ').trim();
+/** @param {unknown} body @param {string} what @returns {Record<string, unknown>[]} */
 const list = (body, what) => {
     if (!Array.isArray(body)) throw new Error(`OASA answered ${JSON.stringify(body)?.slice(0, 80)} for ${what}`);
     return body;
@@ -55,12 +72,15 @@ const list = (body, what) => {
  * progress: filled in as it goes, so a caller sees how far a failed fetch got:
  * { lines: { done, total }, stops: { done, total }, requests } (requests: for
  * the usage of OASA, server/oasa/usage.js)
- * @returns {Promise<{ network: any, requests: number }>}
+ * @param {{ request: Request, previous?: { stops?: Record<string, RouteStops> } | null, now?: () => number, sleep?: (ms: number) => Promise<void>,
+ *   log?: (message: string) => void, saved?: (code: string, entry: RouteStops) => void, progress?: Progress }} options
+ * @returns {Promise<{ network: Network, requests: number }>}
  */
-export async function fetchNetwork({ request, previous = /** @type {{ stops?: Record<string, { at: string }> } | null} */ (null), now = Date.now, sleep = realSleep, log = console.log, saved = /** @type {(code: string, entry: any) => void} */ (() => {}), progress = /** @type {any} */ ({}) }) {
+export async function fetchNetwork({ request, previous = null, now = Date.now, sleep = realSleep, log = console.log, saved = () => {}, progress = {} }) {
     let requests = 0;
     // One request → its list. `none`: OASA's null is an empty list. Tried
     // again after each of RETRY_WAITS_MS; a request we got wrong (HTTP 4xx) isn't.
+    /** @param {string} act @param {string} p1 @param {string} what @param {{ none?: boolean }} [options] */
     const ask = async (act, p1, what, { none = false } = {}) => {
         for (let tries = 1; ; tries++) {
             if (requests++) await sleep(PACE_MS);
@@ -70,9 +90,9 @@ export async function fetchNetwork({ request, previous = /** @type {{ stops?: Re
                 return list(none ? body ?? [] : body, what);
             } catch (err) {
                 const wait = RETRY_WAITS_MS[tries - 1];
-                const final = wait === undefined || /^HTTP 4\d\d\b/.test(err.message);
-                log(`[data] OASA ${act}${p1 ? ` ${p1}` : ''} (${what}) failed: ${err.message}${final ? '' : ` — trying again in ${wait / 1000} s`}`);
-                if (final) throw new Error(`${what}: ${err.message}${tries > 1 ? ` (${tries} tries)` : ''}`, { cause: err });
+                const final = wait === undefined || /^HTTP 4\d\d\b/.test(messageOf(err));
+                log(`[data] OASA ${act}${p1 ? ` ${p1}` : ''} (${what}) failed: ${messageOf(err)}${final ? '' : ` — trying again in ${wait / 1000} s`}`);
+                if (final) throw new Error(`${what}: ${messageOf(err)}${tries > 1 ? ` (${tries} tries)` : ''}`, { cause: err });
                 await sleep(wait);
             }
         }
@@ -82,6 +102,7 @@ export async function fetchNetwork({ request, previous = /** @type {{ stops?: Re
         code: text(l.LineCode), line: text(l.LineID), name: { el: text(l.LineDescr), en: text(l.LineDescrEng) },
     })).filter(l => l.code && l.line);
 
+    /** @type {Record<string, NetworkRoute[]>} */
     const routes = {};
     progress.lines = { done: 0, total: lines.length };
     for (const l of lines) {
@@ -95,11 +116,13 @@ export async function fetchNetwork({ request, previous = /** @type {{ stops?: Re
     // New routes first, then the oldest copies over a week old, a seventh of all routes at most
     const codes = [...new Set(Object.values(routes).flat().map(r => r.code))];
     const kept = previous?.stops ?? {};
+    /** @param {string} code */
     const age = code => now() - Date.parse(kept[code].at);
     const missing = codes.filter(code => !kept[code]);
     const old = codes.filter(code => kept[code] && age(code) > ROUTE_STOPS_MAX_AGE_MS).sort((a, b) => age(b) - age(a));
     const refresh = new Set([...missing, ...old.slice(0, Math.max(0, Math.ceil(codes.length / 7) - missing.length))]);
 
+    /** @type {Record<string, RouteStops>} */
     const stops = {};
     progress.stops = { done: 0, total: refresh.size };
     for (const code of codes) {
@@ -123,9 +146,11 @@ export async function fetchNetwork({ request, previous = /** @type {{ stops?: Re
 
 // The route stops saved by a fetch that didn't finish: { code: entry }. A
 // line cut short (the process stopped mid-write) is skipped.
+/** @param {string} file @returns {Record<string, RouteStops>} */
 function readProgress(file) {
     let lines;
     try { lines = readFileSync(file, 'utf8').split('\n'); } catch { return {}; }
+    /** @type {Record<string, RouteStops>} */
     const stops = {};
     for (const line of lines) {
         try {
@@ -142,10 +167,14 @@ function readProgress(file) {
  * otherwise fetched now and kept. A failed fetch falls back on the kept one,
  * and the route stops it got are used by the next fetch.
  * → { network (or null: never fetched), error? }
+ * @param {{ rawDir: string, request?: Request | null, offline?: boolean, now?: () => number, sleep?: (ms: number) => Promise<void>,
+ *   log?: (message: string) => void }} options
+ * @returns {Promise<{ network: Network | null, error?: string }>}
  */
 export async function liveNetwork({ rawDir, request, offline = false, now = Date.now, sleep = realSleep, log = console.log }) {
     const file = join(rawDir, 'oasa', 'network.json');
     const progressFile = join(rawDir, 'oasa', 'progress.jsonl');
+    /** @type {Network | null} */
     const previous = readJson(file);
     const fresh = previous && now() - Date.parse(previous.fetched) < NETWORK_MAX_AGE_MS;
     if (fresh || offline || !request) return previous ? { network: previous } : { network: null, error: 'not fetched yet' };
@@ -156,8 +185,10 @@ export async function liveNetwork({ rawDir, request, offline = false, now = Date
     if (resumed) log(`[data] Fetching the bus network from OASA, with ${resumed} route(s) saved by the last try`);
     const kept = { ...previous, stops: { ...previous?.stops, ...savedStops } };
     mkdirSync(join(rawDir, 'oasa'), { recursive: true });
+    /** @type {Progress} */
     const progress = {};
     const seconds = () => Math.round((now() - started) / 1000);
+    /** @param {boolean} ok @param {string} [error] */
     const record = (ok, error) => writeFileAtomic(lastFetchFile(rawDir), JSON.stringify({ at: new Date(started).toISOString(), ok, seconds: seconds(), ...(error ? { error } : {}), ...progress }));
     try {
         const { network, requests } = await fetchNetwork({
@@ -170,8 +201,8 @@ export async function liveNetwork({ rawDir, request, offline = false, now = Date
         log(`[data] Fetched the bus network from OASA: ${network.lines.length} lines, ${requests} requests in ${seconds()} s`);
         return { network };
     } catch (err) {
-        record(false, err.message);
-        log(`[data] Couldn't fetch the bus network from OASA (${err.message}) after ${seconds()} s; ${progress.stops?.done ?? 0} route(s) saved for the next try${previous ? ` — using the network from ${previous.fetched}` : ''}`);
-        return previous ? { network: previous } : { network: null, error: err.message };
+        record(false, messageOf(err));
+        log(`[data] Couldn't fetch the bus network from OASA (${messageOf(err)}) after ${seconds()} s; ${progress.stops?.done ?? 0} route(s) saved for the next try${previous ? ` — using the network from ${previous.fetched}` : ''}`);
+        return previous ? { network: previous } : { network: null, error: messageOf(err) };
     }
 }

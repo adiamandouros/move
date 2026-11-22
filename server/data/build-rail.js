@@ -84,7 +84,8 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
     }
 
     const week = pickWeek(dateServices, tripsPerService, today);
-    const weekServices = week.map(date => dateServices.get(date));
+    // Every date picked or listed is one of the calendar's
+    const weekServices = week.map(date => dateServices.get(date) ?? new Set());
     // The dates the planner may ask for, from yesterday (its trains after
     // midnight) on, and the day before them, for its trains the next day
     // repeats (dropCopies)
@@ -94,7 +95,7 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
     const ownDates = dates.filter(d => d >= addDays(today, -1) && !crowded.has(d));
     const notes = dates.filter(d => d >= addDays(today, -1) && crowded.has(d))
         .map(d => `${isoDate(d)}: the GTFS lists far more trains than usual for a line (two timetables laid over each other?); the typical ${DAY_NAMES[weekday(d)]} is used`);
-    const neededServices = new Set([...weekServices, ...dates.map(d => dateServices.get(d))].flatMap(s => [...s]));
+    const neededServices = new Set([...weekServices, ...dates.map(d => dateServices.get(d) ?? new Set())].flatMap(s => [...s]));
     // Each day trains run on: the typical week's weekdays (0 = Sunday) and the dates ('YYYYMMDD')
     const serviceDays = [
         ...DAY_NAMES.map((_, wd) => ({ key: wd, before: (wd + 6) % 7 })),
@@ -103,7 +104,7 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
     // Which of those days a service runs on
     const daysOf = service => [
         ...weekServices.flatMap((s, wd) => s.has(service) ? [wd] : []),
-        ...dates.filter(d => dateServices.get(d).has(service)),
+        ...dates.filter(d => dateServices.get(d)?.has(service)),
     ];
 
     // ── Stops → curated stations ────────────────────────────────────────────
@@ -209,7 +210,7 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
     }
 
     const allDates = [...dateServices.keys()].sort();
-    const validTo = allDates.at(-1);
+    const validTo = allDates[allDates.length - 1];
     if (validTo < today) warnings.push(`Rail feed expired on ${isoDate(validTo)}; using the timetable of its last full week`);
 
     return {

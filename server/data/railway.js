@@ -1,5 +1,6 @@
 import { mkdirSync, readdirSync, rmSync } from 'fs';
 import { join } from 'path';
+import { messageOf } from '../errors.js';
 import { readJson, writeFileAtomic } from '../files.js';
 import { addDays, isoDate } from './calendar.js';
 
@@ -34,11 +35,20 @@ const TIMEOUT_MS = 30_000;
 // Lateness kept, as long as the buses' passes (build-rides.js)
 const LATENESS_DAYS = 91;
 
+/**
+ * A day's board as it came: its trains
+ * @typedef {{ schedules: import('../../types/data.js').RailwaySchedule[] }} Board
+ */
+
 // The last fetch: { at, today, ok, seconds, boards: { done, total }, error? }
+/** @param {string} rawDir */
 export const railwayFetchFile = rawDir => join(rawDir, 'railway', 'last-fetch.json');
+/** @param {string} rawDir */
 export const boardsDir = rawDir => join(rawDir, 'railway', 'boards');
+/** @param {string} rawDir */
 const latenessDir = rawDir => join(rawDir, 'railway', 'lateness');
 
+/** @param {number} ms @returns {Promise<void>} */
 const realSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 /** The boards' dates, 'YYYY-MM-DD', for `today` ('YYYYMMDD') @param {string} today */
@@ -48,6 +58,8 @@ export const boardDates = today => BOARD_DAYS.map(days => isoDate(addDays(today,
  * One day's board → { schedules }. Tried again after each of RETRY_WAITS_MS;
  * a request we got wrong (HTTP 4xx) isn't
  * @param {string} date 'YYYY-MM-DD'
+ * @param {{ fetch: typeof globalThis.fetch, userAgent: string, sleep: (ms: number) => Promise<void>, log: (message: string) => void }} options
+ * @returns {Promise<Board>}
  */
 async function fetchBoard(date, { fetch, userAgent, sleep, log }) {
     for (let tries = 1; ; tries++) {
@@ -62,9 +74,9 @@ async function fetchBoard(date, { fetch, userAgent, sleep, log }) {
             return board;
         } catch (err) {
             const wait = RETRY_WAITS_MS[tries - 1];
-            const final = wait === undefined || /^HTTP 4\d\d\b/.test(err.message);
-            log(`[data] railway.gov.gr board for ${date} failed: ${err.message}${final ? '' : ` — trying again in ${wait / 1000} s`}`);
-            if (final) throw new Error(`the board for ${date}: ${err.message}${tries > 1 ? ` (${tries} tries)` : ''}`, { cause: err });
+            const final = wait === undefined || /^HTTP 4\d\d\b/.test(messageOf(err));
+            log(`[data] railway.gov.gr board for ${date} failed: ${messageOf(err)}${final ? '' : ` — trying again in ${wait / 1000} s`}`);
+            if (final) throw new Error(`the board for ${date}: ${messageOf(err)}${tries > 1 ? ` (${tries} tries)` : ''}`, { cause: err });
             await sleep(wait);
         }
     }
@@ -72,6 +84,7 @@ async function fetchBoard(date, { fetch, userAgent, sleep, log }) {
 
 // Each train's lateness on a day that's over, from its board: the train, its
 // line, when it was to leave, its status and minutes late at the end
+/** @param {Board} board */
 const latenessOf = board => board.schedules.map(s => ({
     train: s.trainNumber, corridor: s.corridor, departs: s.scheduledDeparture, status: s.status, delay: s.delay ?? null,
 }));
@@ -88,6 +101,7 @@ const latenessOf = board => board.schedules.map(s => ({
  */
 export async function railwayBoards({ rawDir, today, fetch = globalThis.fetch, userAgent = 'Wayhop', offline = false, now = Date.now, sleep = realSleep, log = console.log }) {
     const dates = boardDates(today);
+    /** @type {import('../../types/data.js').RailwayFetch | null} */
     const last = readJson(railwayFetchFile(rawDir));
     let fetched = last?.fetched ?? null;
     if (!offline && fetch && last?.today !== today) {
@@ -95,6 +109,7 @@ export async function railwayBoards({ rawDir, today, fetch = globalThis.fetch, u
         mkdirSync(latenessDir(rawDir), { recursive: true });
         const started = now();
         const boards = { done: 0, total: dates.length };
+        /** @param {boolean} ok @param {string} [error] */
         const record = (ok, error) => writeFileAtomic(railwayFetchFile(rawDir), JSON.stringify({
             at: new Date(started).toISOString(), today, ok, seconds: Math.round((now() - started) / 1000), boards,
             fetched: ok ? new Date(started).toISOString() : fetched, ...(error ? { error } : {}),
@@ -111,12 +126,13 @@ export async function railwayBoards({ rawDir, today, fetch = globalThis.fetch, u
             record(true);
             log(`[data] Fetched ${dates.length} days of trains from railway.gov.gr in ${Math.round((now() - started) / 1000)} s`);
         } catch (err) {
-            record(false, err.message);
-            log(`[data] Couldn't fetch the trains from railway.gov.gr (${err.message}); ${boards.done} of ${dates.length} boards fetched, the others kept`);
+            record(false, messageOf(err));
+            log(`[data] Couldn't fetch the trains from railway.gov.gr (${messageOf(err)}); ${boards.done} of ${dates.length} boards fetched, the others kept`);
         }
     }
     prune(boardsDir(rawDir), dates[0]);
     prune(latenessDir(rawDir), isoDate(addDays(today, -LATENESS_DAYS)));
+    /** @type {Record<string, Board>} */
     const boards = {};
     for (const date of dates) {
         const board = readJson(join(boardsDir(rawDir), `${date}.json`));
@@ -126,6 +142,7 @@ export async function railwayBoards({ rawDir, today, fetch = globalThis.fetch, u
 }
 
 // Remove the days in `dir` before `first` ('YYYY-MM-DD')
+/** @param {string} dir @param {string} first */
 function prune(dir, first) {
     let names;
     try { names = readdirSync(dir); } catch { return; }

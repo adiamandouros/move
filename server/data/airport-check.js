@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
+import { messageOf } from '../errors.js';
 import { readJson, writeFileAtomic } from '../files.js';
 import { PACE_MS, STASY_LINES } from './stasy.js';
 
@@ -26,13 +27,19 @@ import { PACE_MS, STASY_LINES } from './stasy.js';
 //   error: why the last try failed (the last finished check's result is kept)
 
 export const AIRPORT_CHECK_MAX_AGE_MS = 7 * 86_400_000;
+/** @param {string} rawDir */
 export const airportCheckFile = rawDir => join(rawDir, 'stasy', 'airport-check.json');
+/** @param {number} ms @returns {Promise<void>} */
 const realSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // A link's file, as people read it: "ΔΙΕΛΕΥΣΕΙΣ-ΣΥΡΜΩΝ-….pdf"
+/** @param {string} url */
 const fileName = url => decodeURIComponent(new URL(url).pathname.split('/').at(-1) ?? '');
 // A link's path, the same however it's written (stasy.gr or www., encoded or not)
+/** @param {string} url */
 const pathOf = url => decodeURIComponent(new URL(url).pathname);
+
+/** @typedef {import('../../types/data.js').AirportCheck} AirportCheck */
 
 // The airport PDFs a timetable page links: their names say "ΑΕΡΟΔΡΟΜΙ…"
 /** @param {string} html @returns {string[]} */
@@ -44,9 +51,13 @@ export function airportLinks(html) {
 /**
  * The check, when it's due. client: server/stasy.js's (none, or offline: no check);
  * airport: airport.json (none: nothing to check).
- * @returns {Promise<any>} the result, as kept in airport-check.json, or null when there's none
+ * @param {{ rawDir: string, client?: ReturnType<typeof import('../stasy.js').createStasyClient> | null,
+ *   airport?: { lines: Record<string, Record<string, { pdf: string, sha256: string }>> } | null,
+ *   offline?: boolean, now?: () => number, sleep?: (ms: number) => Promise<void>, log?: (message: string) => void }} options
+ * @returns {Promise<AirportCheck | null>} the result, as kept in airport-check.json, or null when there's none
  */
-export async function checkAirport({ rawDir, client = /** @type {ReturnType<typeof import('../stasy.js').createStasyClient> | null} */ (null), airport = /** @type {{ lines: Record<string, Record<string, { pdf: string, sha256: string }>> } | null} */ (null), offline = false, now = Date.now, sleep = realSleep, log = console.log }) {
+export async function checkAirport({ rawDir, client = null, airport = null, offline = false, now = Date.now, sleep = realSleep, log = console.log }) {
+    /** @type {AirportCheck | null} */
     const last = readJson(airportCheckFile(rawDir));
     if (offline || !client || !airport) return last;
     const directions = Object.entries(airport.lines).flatMap(([lineId, dirs]) => Object.entries(dirs).map(([dirKey, d]) => ({ lineId, dirKey, ...d })));
@@ -54,12 +65,14 @@ export async function checkAirport({ rawDir, client = /** @type {ReturnType<type
     if (last?.checked && last.against === against && now() - Date.parse(last.checked) < AIRPORT_CHECK_MAX_AGE_MS) return last;
 
     const at = new Date(now()).toISOString();
+    /** @type {AirportCheck} */
     let result;
     try {
         const changes = [];
         for (const lineId of new Set(directions.map(d => d.lineId))) {
             await sleep(PACE_MS);
-            const linked = airportLinks(await client.timetable(STASY_LINES[lineId]));
+            // airport.json's lines are metro lines
+            const linked = airportLinks(await client.timetable(STASY_LINES[/** @type {keyof typeof STASY_LINES} */ (lineId)]));
             const ours = directions.filter(d => d.lineId === lineId).map(d => pathOf(d.pdf));
             for (const url of linked.filter(url => !ours.includes(pathOf(url)))) changes.push(`STASY's ${lineId} page links an airport PDF airport.json doesn't have: ${fileName(url)}`);
             for (const d of directions.filter(d => d.lineId === lineId && !linked.some(url => pathOf(url) === pathOf(d.pdf)))) {
@@ -74,8 +87,11 @@ export async function checkAirport({ rawDir, client = /** @type {ReturnType<type
         result = { at, checked: at, against, changes, route: client.route };
         log(changes.length ? `[data] STASY's airport timetable changed: ${changes.join('; ')}` : `[data] Checked STASY's airport timetable: unchanged (${client.route})`);
     } catch (err) {
-        result = { ...(last?.checked && { checked: last.checked, against: last.against, changes: last.changes }), at, error: err.message };
-        log(`[data] Couldn't check STASY's airport timetable: ${err.message}`);
+        // The last check that finished is kept with it
+        result = last?.checked
+            ? { checked: last.checked, against: last.against, changes: last.changes, at, error: messageOf(err) }
+            : { at, error: messageOf(err) };
+        log(`[data] Couldn't check STASY's airport timetable: ${messageOf(err)}`);
     }
     mkdirSync(join(rawDir, 'stasy'), { recursive: true });
     writeFileAtomic(airportCheckFile(rawDir), JSON.stringify(result));

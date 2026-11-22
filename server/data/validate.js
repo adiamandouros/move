@@ -1,5 +1,7 @@
 import { stasyNameKey } from './stasy.js';
 
+/** @typedef {import('../../types/data.js').CuratedLines} CuratedLines */
+
 // Car positions, ordered from the back of the train to the front.
 /** @type {import('../../types/data.js').Position[]} */
 export const POSITIONS = ['back', 'center-back', 'center', 'center-front', 'front'];
@@ -39,12 +41,15 @@ const SUBURBAN = { lat: [37.8, 38.6], lng: [22.6, 24.1] };
 // Check the hand-maintained files in data/curated for mistakes. Returns
 // { errors, warnings }; any error fails the build. Kept independent of the
 // GTFS feed so it can run in tests and before every build.
-/** @param {{ stations: any, lines: any, positions: any, airport?: any, tram?: any, street?: any, suburban?: any, osm?: any }} curated */
+/** @param {import('../../types/data.js').Curated} curated */
 export function validateCurated({ stations, lines, positions, airport, tram, street, suburban, osm }) {
+    /** @type {string[]} */
     const errors = [];
+    /** @type {string[]} */
     const warnings = [];
 
     const stationIds = new Set(Object.keys(stations.stations ?? {}));
+    /** @type {Map<string, string>} */
     const seenCodes = new Map();
     for (const [id, s] of Object.entries(stations.stations ?? {})) {
         if (!s.name?.el || !s.name?.en) errors.push(`stations.json: ${id} needs name.el and name.en`);
@@ -60,7 +65,7 @@ export function validateCurated({ stations, lines, positions, airport, tram, str
     // How STASY writes a name must lead to one station
     const named = new Map();
     for (const [id, s] of Object.entries(stations.stations ?? {})) {
-        for (const name of [s.name?.el, ...(Array.isArray(s.stasy) ? s.stasy : [])].filter(n => typeof n === 'string')) {
+        for (const name of [s.name?.el, ...(Array.isArray(s.stasy) ? s.stasy : [])].flatMap(n => typeof n === 'string' ? [n] : [])) {
             const key = stasyNameKey(name);
             if (named.has(key) && named.get(key) !== id) errors.push(`stations.json: the name "${name}" is used by both ${named.get(key)} and ${id}`);
             named.set(key, id);
@@ -79,11 +84,13 @@ export function validateCurated({ stations, lines, positions, airport, tram, str
         }
     }
 
+    /** @param {string} where @param {unknown} list */
     const checkPositions = (where, list) => {
         if (!Array.isArray(list)) { errors.push(`${where} must be a list`); return; }
         for (const p of list) if (!POSITIONS.includes(p)) errors.push(`${where}: unknown position "${p}" (use ${POSITIONS.join(', ')})`);
     };
 
+    /** @param {string} where @param {unknown} elevators */
     const checkElevators = (where, elevators) => {
         if (elevators === NO_ELEVATOR) return;
         if (!Array.isArray(elevators)) { errors.push(`${where} must be "${NO_ELEVATOR}" or a list of elevators`); return; }
@@ -98,6 +105,7 @@ export function validateCurated({ stations, lines, positions, airport, tram, str
 
     // Where to stand for it, what it is and how it's reached, each while the
     // others aren't known yet
+    /** @param {string} where @param {import('../../types/data.js').Crossing} crossing */
     const checkCrossing = (where, crossing) => {
         if (typeof crossing !== 'object' || crossing === null || Array.isArray(crossing)) { errors.push(`${where} must be { "at": [positions], "via": …, "way": […] }`); return; }
         for (const key of Object.keys(crossing)) if (!CROSSING_KEYS.includes(key)) errors.push(`${where}: unknown field "${key}"`);
@@ -115,7 +123,7 @@ export function validateCurated({ stations, lines, positions, airport, tram, str
                 if (!stationIds.has(stationId)) { errors.push(`${where}: unknown station`); continue; }
                 for (const key of Object.keys(p)) if (!POSITION_KEYS.has(key)) errors.push(`${where}: unknown field "${key}"`);
                 checkPositions(`${where}.exits`, p.exits ?? []);
-                for (const key of ['escalators', 'stairs']) if (p[key]) checkPositions(`${where}.${key}`, p[key]);
+                for (const key of /** @type {const} */ (['escalators', 'stairs'])) if (p[key]) checkPositions(`${where}.${key}`, p[key]);
                 if (p.elevators !== undefined) checkElevators(`${where}.elevators`, p.elevators);
                 if (p.note !== undefined && typeof p.note !== 'string') errors.push(`${where}.note must be text`);
                 if (p.centralPlatform !== undefined && typeof p.centralPlatform !== 'boolean') errors.push(`${where}.centralPlatform must be true or false`);
@@ -143,16 +151,21 @@ export function validateCurated({ stations, lines, positions, airport, tram, str
 // English; a lift's as STASY's lift page does) and where it is, or one of
 // them while the other isn't known yet; and `osm`, OpenStreetMap's exits
 // there (osm.json) the field trips have dealt with, by their ids
+/** @param {import('../../types/data.js').CuratedStreet} street @param {Set<string>} stationIds @param {string[]} errors */
 function checkStreet(street, stationIds, errors) {
+    /** @param {unknown} value */
     const text = value => typeof value === 'string' && value.trim() !== '';
+    /** @param {string} where @param {unknown} coords */
     const checkCoords = (where, coords) => {
         if (coords === undefined) return;
         const [lat, lng] = Array.isArray(coords) ? coords : [];
+        /** @param {unknown} n @param {[number, number]} range */
         const inside = (n, [min, max]) => typeof n === 'number' && n >= min && n <= max;
-        if (coords.length !== 2 || !inside(lat, ATHENS.lat) || !inside(lng, ATHENS.lng)) {
+        if (!Array.isArray(coords) || coords.length !== 2 || !inside(lat, ATHENS.lat) || !inside(lng, ATHENS.lng)) {
             errors.push(`${where}.coords must be [latitude, longitude] around Athens, like [37.97552, 23.73481]`);
         }
     };
+    /** @param {string} where @param {unknown} item @param {string[]} keys */
     const checkFields = (where, item, keys) => {
         if (typeof item !== 'object' || item === null || Array.isArray(item)) { errors.push(`${where} must be an object`); return false; }
         for (const key of Object.keys(item)) if (!keys.includes(key)) errors.push(`${where}: unknown field "${key}"`);
@@ -163,11 +176,11 @@ function checkStreet(street, stationIds, errors) {
         if (!stationIds.has(stationId)) { errors.push(`${where}: unknown station`); continue; }
         if (!checkFields(where, entry, ['exits', 'lifts', 'osm'])) continue;
         if (entry.osm !== undefined && (!Array.isArray(entry.osm) || entry.osm.some(id => !OSM_ID.test(id)))) errors.push(`${where}.osm must be a list of OpenStreetMap ids, like "n2484170076"`);
-        for (const key of ['exits', 'lifts']) if (entry[key] !== undefined && !Array.isArray(entry[key])) errors.push(`${where}.${key} must be a list`);
+        for (const key of /** @type {const} */ (['exits', 'lifts'])) if (entry[key] !== undefined && !Array.isArray(entry[key])) errors.push(`${where}.${key} must be a list`);
         for (const [i, exit] of (Array.isArray(entry.exits) ? entry.exits : []).entries()) {
             const at = `${where}.exits[${i}]`;
             if (!checkFields(at, exit, ['name', 'coords', 'way'])) continue;
-            const { el, en } = exit.name ?? {};
+            const el = exit.name?.el, en = exit.name?.en;
             if (exit.name !== undefined && (!(text(el) || text(en)) || [el, en].some(n => n !== undefined && !text(n)))) errors.push(`${at}.name must be { "el": …, "en": … }, either one while the other isn't known`);
             if (exit.name === undefined && exit.coords === undefined) errors.push(`${at} needs its name or where it is`);
             checkCoords(at, exit.coords);
@@ -189,6 +202,7 @@ const OSM_ID = /^[nwr][1-9]\d*$/;
 // osm.json: OpenStreetMap's exits at each metro station that has any
 // (scripts/osm-exits.js): each with the ids of its doors there, where it
 // is, its name when it has one and, for an exit one way only, which
+/** @param {import('../../types/data.js').CuratedOsm} osm @param {Set<string>} stationIds @param {string[]} errors */
 function checkOsm(osm, stationIds, errors) {
     if (!/^\d{4}-\d\d-\d\d$/.test(osm?.fetched ?? '')) errors.push('osm.json: "fetched" must be a date, YYYY-MM-DD');
     for (const [stationId, exits] of Object.entries(osm?.exits ?? {})) {
@@ -197,7 +211,7 @@ function checkOsm(osm, stationIds, errors) {
         for (const [i, exit] of (Array.isArray(exits) ? exits : []).entries()) {
             const at = `${where}[${i}]`;
             if (!Array.isArray(exit?.ids) || !exit.ids.length || exit.ids.some(id => !OSM_ID.test(id))) errors.push(`${at}.ids must list OpenStreetMap ids, like "n2484170076"`);
-            const [lat, lng] = Array.isArray(exit?.coords) ? exit.coords : [];
+            const [lat = NaN, lng = NaN] = Array.isArray(exit?.coords) ? exit.coords : [];
             if (!(lat >= ATHENS.lat[0] && lat <= ATHENS.lat[1] && lng >= ATHENS.lng[0] && lng <= ATHENS.lng[1])) errors.push(`${at}.coords must be [latitude, longitude] around Athens`);
             if (exit?.only !== undefined && !['in', 'out'].includes(exit.only)) errors.push(`${at}.only must be "in" or "out"`);
         }
@@ -206,6 +220,7 @@ function checkOsm(osm, stationIds, errors) {
 
 // airport.json: STASY's airport trains (build-rail.js, addTimetabled), with
 // where they came from, to check they haven't changed (airport-check.js)
+/** @param {import('../../types/data.js').CuratedAirport} airport @param {Set<string>} stationIds @param {CuratedLines} lines @param {string[]} errors */
 function checkAirport(airport, stationIds, lines, errors) {
     if (!/^\d{4}-\d\d-\d\d$/.test(airport?.checked ?? '')) errors.push('airport.json: "checked" must be a date, YYYY-MM-DD');
     if (!/^https:\/\/www\.stasy\.gr\//.test(airport?.page ?? '')) errors.push('airport.json: "page" must be the STASY page that links the PDFs');
@@ -234,6 +249,7 @@ function checkAirport(airport, stationIds, lines, errors) {
 // tram.json: the tram's lines and stops (build-tram.js), in the style of
 // lines.json and stations.json; `metro` is the metro station a stop changes to,
 // and `walks` the stations and stops a short walk from it, each in one place
+/** @param {import('../../types/data.js').CuratedTram} tram @param {Set<string>} stationIds @param {Map<string, string>} metroCodes @param {string[]} errors */
 function checkTram(tram, stationIds, metroCodes, errors) {
     for (const [lineId, line] of Object.entries(tram?.lines ?? {})) {
         if (!line.name || !/^#[0-9a-f]{6}$/i.test(line.color ?? '')) errors.push(`tram.json: ${lineId} needs a name and a #rrggbb color`);
@@ -245,6 +261,7 @@ function checkTram(tram, stationIds, metroCodes, errors) {
         }
         if (!gtfsDirs.size) errors.push(`tram.json: ${lineId} has no directions`);
     }
+    /** @type {Map<string, string>} */
     const seen = new Map();
     for (const [id, s] of Object.entries(tram?.stops ?? {})) {
         if (!s.name?.el || !s.name?.en) errors.push(`tram.json: ${id} needs name.el and name.en`);
@@ -275,10 +292,12 @@ function checkTram(tram, stationIds, metroCodes, errors) {
 // one to the metro station it shares), and oasaTicket: false outside OASA's
 // ticket. Two stations share an OSE id only with `lines` to tell them apart
 // (SKA's two)
+/** @param {import('../../types/data.js').CuratedSuburban} suburban @param {Set<string>} stationIds @param {string[]} errors */
 function checkSuburban(suburban, stationIds, errors) {
     const lines = Object.entries(suburban?.lines ?? {});
     const stations = suburban?.stations ?? {};
     if (!lines.length) errors.push('suburban.json: no lines');
+    /** @type {Map<string, string>} */
     const plain = new Map();
     for (const [lineId, line] of lines) {
         if (typeof line.name !== 'string' || !line.name || !/^#[0-9a-f]{6}$/i.test(line.color ?? '')) errors.push(`suburban.json: ${lineId} needs a name and a #rrggbb color`);
@@ -290,8 +309,11 @@ function checkSuburban(suburban, stationIds, errors) {
         }
     }
     for (const [lineId, line] of lines) if (line.corridor && !plain.has(line.corridor)) errors.push(`suburban.json: corridor ${line.corridor} needs a line without stopsAt for its other trains, beside ${lineId}`);
+    /** @type {Map<string, string>} */
     const seen = new Map();
+    /** @param {unknown} n @param {[number, number]} range */
     const inside = (n, [min, max]) => typeof n === 'number' && n >= min && n <= max;
+    /** @param {import('../../types/data.js').Names} note */
     const isNote = note => typeof note?.el === 'string' && note.el !== '' && typeof note?.en === 'string' && note.en !== '';
     for (const [id, s] of Object.entries(stations)) {
         if (!s.name?.el || !s.name?.en) errors.push(`suburban.json: ${id} needs name.el and name.en`);
@@ -299,7 +321,8 @@ function checkSuburban(suburban, stationIds, errors) {
         if (s.lines !== undefined && (!Array.isArray(s.lines) || !s.lines.length || s.lines.some(line => !suburban.lines?.[line]))) errors.push(`suburban.json: ${id}.lines must be a list of its lines`);
         for (const ose of s.ose ?? []) {
             const other = seen.get(ose);
-            const apart = other && s.lines && stations[other].lines && !s.lines.some(line => stations[other].lines.includes(line));
+            const otherLines = other ? stations[other].lines : undefined;
+            const apart = otherLines && s.lines && !s.lines.some(line => otherLines.includes(line));
             if (other && !apart) errors.push(`suburban.json: OSE id ${ose} is used by both ${other} and ${id}, with no lines to tell them apart`);
             seen.set(ose, id);
         }

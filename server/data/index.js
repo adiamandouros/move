@@ -151,6 +151,12 @@ export async function runBuild({
         for (const w of check.warnings) log(`[data] warning: ${w}`);
         if (check.errors.length) throw new Error(`Curated data has errors:\n  ${check.errors.join('\n  ')}`);
 
+        /**
+         * Every source the outputs are built from, by name: what was fetched or
+         * read (`data`, or a dataset's files), when it last changed, and why it's
+         * missing
+         * @type {Record<string, { error?: string | null, modified?: string | null, data?: unknown, dir?: string, files?: Record<string, string> }>}
+         */
         const sources = await fetchSources({ rawDir: dirs.raw, offline, log, fetch, userAgent });
         const network = await liveNetwork({ rawDir: dirs.raw, request: oasa, offline, now, sleep, log });
         sources.network = { data: network.network, modified: network.network?.fetched ?? null, error: network.error };
@@ -306,7 +312,7 @@ export function loadCurated({ curatedDir = CURATED_DIR, overlayDir = OVERLAY_DIR
     }
 
     // By the edited file's name: the trees of the committed file and of its overlay, and the overlay's file
-    /** @type {Record<string, { committed: object, overlay: object, file: string }>} */
+    /** @type {Record<string, { committed: import('./overlay.js').Tree, overlay: import('./overlay.js').Tree, file: string }>} */
     const edits = {};
     for (const kind of Object.values(EDITED)) {
         const file = join(overlayDir, `${kind.name}.json`);

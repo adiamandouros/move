@@ -4,6 +4,7 @@ import { createInterface } from 'readline';
 // Split one CSV line into trimmed fields. Handles quoted fields, commas inside
 // quotes and "" escapes. GTFS files never contain multi-line fields, so a
 // line-based reader is enough.
+/** @param {string} line @returns {string[]} */
 export function parseLine(line) {
     if (!line.includes('"')) return line.split(',').map(f => f.trim());
 
@@ -27,6 +28,7 @@ export function parseLine(line) {
 // Stream a CSV file, yielding one object per row keyed by the header names.
 // Throws if the file is empty or any `required` column is missing, so a change
 // in the feed's shape fails the build instead of producing garbage.
+/** @param {string} path @param {{ required?: string[] }} [options] @returns {AsyncGenerator<Record<string, string>>} */
 export async function* readCsv(path, { required = /** @type {string[]} */ ([]) } = {}) {
     const rl = createInterface({ input: createReadStream(path, 'utf8'), crlfDelay: Infinity });
     let header = /** @type {string[] | null} */ (null);
@@ -40,6 +42,7 @@ export async function* readCsv(path, { required = /** @type {string[]} */ ([]) }
             if (missing.length) throw new Error(`${path}: missing column(s) ${missing.join(', ')}`);
             continue;
         }
+        /** @type {Record<string, string>} */
         const row = {};
         for (let i = 0; i < header.length; i++) row[header[i]] = cols[i] ?? '';
         yield row;
@@ -47,6 +50,7 @@ export async function* readCsv(path, { required = /** @type {string[]} */ ([]) }
     if (!header) throw new Error(`${path}: file is empty`);
 }
 
+/** @param {string} path @param {{ required?: string[] }} [opts] */
 export async function readCsvAll(path, opts) {
     const rows = [];
     for await (const row of readCsv(path, opts)) rows.push(row);
