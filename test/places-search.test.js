@@ -90,6 +90,12 @@ test('with no numbers at all, the middle of the street', () => {
     assert.deepEqual(locate(street(), 5), { kind: 'street', lat: 37.955, lng: 23.71 });
 });
 
+test('a street known only by its numbers, searched with none, is the street alone', () => {
+    // Its middle is its one number, 9, which wasn't asked for
+    const found = search(db, 'Άγνωστη').results[0];
+    assert.deepEqual([found?.kind, found?.n, found?.lat, found?.lng, 'range' in found], ['street', null, 37.956, 23.703, false]);
+});
+
 test('the middle of a straight road isn\'t one of its ends', () => {
     const middle = streetMiddle({ lines: [line], pts: [] });
     assert.ok(meters(middle, { lat: 37.955, lng: 23.71 }) < 1, `${middle.lng}`);
