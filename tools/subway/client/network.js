@@ -22,7 +22,7 @@ import { createPlanner } from './raptor.js';
  * last leg to where it ends, when those are other stations
  * @typedef {{ legs: Leg[], walkFirst?: number, walkLast?: number }} Route
  */
-/** @typedef {Route & { legs: (Leg & { departures: Departure[] })[], arrives: number | null }} PlannedRoute */
+/** @typedef {Omit<Route, 'legs'> & { legs: (Leg & { departures: Departure[] })[], arrives: number | null }} PlannedRoute */
 /** @typedef {{ weekday: number, seconds: number, date: string, epoch?: number }} AthensTime */
 /** @typedef {import('../../../types/data.js').Timetable} Timetable */
 /** @typedef {import('../../../types/data.js').Trains} Trains */

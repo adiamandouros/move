@@ -11,6 +11,9 @@ import { renderError, renderIntro, renderMessage, renderResult, renderWalkOnly, 
 import { SUBURBAN_HIDDEN, TRAM_HIDDEN, suburbanHidden, tramHidden } from './tram-switch.js';
 import { localStore } from '/js/core/storage.js';
 
+/** @typedef {import('./render.js').Rail} Rail */
+/** @typedef {import('./network.js').Trains} Trains */
+
 // Plans again while the page is open, for what the clock changes (the next
 // trains, the last one); the chips count down in between, each second
 // (decision 61)
@@ -44,6 +47,7 @@ async function loadTrains() {
 }
 
 // `trains`: trains.json on its way (loadTrains)
+/** @param {Rail} metro @param {Promise<Trains | null>} trains */
 function start(metro, trains) {
     const params = new URLSearchParams(location.search);
 
@@ -51,8 +55,10 @@ function start(metro, trains) {
     // railway unless the person hid them. An address naming a tram stop or a
     // suburban station shows it for this visit, and leaves what's kept as it
     // was. Each network is made once, so its trip search is too (network.js).
+    /** @type {Trains | null} */
     let timetable = null;
     const networks = new Map();
+    /** @param {boolean} tram @param {boolean} suburban @returns {Rail} */
     const network = (tram, suburban) => {
         const key = `${tram} ${suburban && Boolean(timetable)}`;
         if (!networks.has(key)) {
@@ -61,6 +67,7 @@ function start(metro, trains) {
         }
         return networks.get(key);
     };
+    /** @param {'tram' | 'suburban'} mode */
     const named = mode => ['from', 'to'].some(key => network(true, true).stations[params.get(key) ?? '']?.[mode]);
     let showTram = !tramHidden() || named('tram');
     let showSuburban = !suburbanHidden();
@@ -70,8 +77,10 @@ function start(metro, trains) {
     // (not on the 30-second refresh)
     // Slower options the user opened or closed themselves (routeKey → open),
     // kept through the refresh, forgotten when the stations change
+    /** @type {Record<string, boolean>} */
     let opened = {};
     // Legs whose stations the user opened (legKey → true), the same way
+    /** @type {Record<string, boolean>} */
     let stationsOpen = {};
     // Which one had the keyboard focus (an option, a leg's stops, the
     // step-free notice or the legend), to give it back after a refresh
@@ -83,6 +92,7 @@ function start(metro, trains) {
         if (details.hasAttribute('data-route')) return `details[data-route="${CSS.escape(details.getAttribute('data-route') ?? '')}"] > summary`;
         return `${details.matches('.lift-notice') ? 'details.lift-notice' : 'details.diagram-legend'} > summary`;
     };
+    /** @param {string | null} selector */
     const refocus = selector => { if (selector) /** @type {HTMLElement | null} */ (result.querySelector(selector))?.focus(); };
 
     const render = ({ speak = false } = {}) => {
@@ -92,7 +102,7 @@ function start(metro, trains) {
         // Until there are two stations: what the page does, and what the trains show
         if (!origin || !destination) {
             const focus = focused();
-            setHtml(result, renderIntro(rail, legendOpen(), known, [origin, destination].filter(Boolean), liftsOpen()));
+            setHtml(result, renderIntro(rail, legendOpen(), known, [origin, destination].flatMap(id => id ? [id] : []), liftsOpen()));
             refocus(focus);
             return;
         }
@@ -159,6 +169,7 @@ function start(metro, trains) {
     // shows it: pressed (blue, its icon filled) while it does.
     let followLocation = false;
     const locate = /** @type {HTMLElement} */ (document.getElementById('locate-btn'));
+    /** @param {boolean} on */
     const follow = on => {
         followLocation = on;
         showFollowing(locate, on);
@@ -213,6 +224,7 @@ function start(metro, trains) {
     // Show the tram stops or not, and the suburban railway's stations: each
     // switch on when there's something to show (hidden otherwise), and kept
     // on the device. What's picked goes when it's hidden.
+    /** @type {{ id: string, key: string, shown: () => boolean, show: (on: boolean) => void }[]} */
     const switches = [
         { id: 'tram', key: TRAM_HIDDEN, shown: () => showTram, show: on => { showTram = on; } },
         { id: 'suburban', key: SUBURBAN_HIDDEN, shown: () => showSuburban, show: on => { showSuburban = on; } },
@@ -276,6 +288,7 @@ function start(metro, trains) {
     const status = /** @type {HTMLElement} */ (document.getElementById('locate-status'));
     let requested = false;
 
+    /** @param {{ lat: number, lng: number }} position @param {{ always?: boolean }} [options] */
     const setNearest = ({ lat, lng }, { always = false } = {}) => {
         status.textContent = '';
         const id = closestStation(rail, lat, lng);
