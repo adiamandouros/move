@@ -43,16 +43,30 @@ const RAIL_SCHEMA = 1;
 const DAY = 86_400;
 
 /**
+ * A trip as the build carries it: the stations it calls at, when it leaves
+ * each (seconds after its day's midnight), and the days it runs (weekdays of
+ * the typical week, 0 = Sunday, and dates, 'YYYYMMDD')
+ * @typedef {{ stations: string[], times: number[], days: (number | string)[] }} Run
+ * @typedef {import('../../types/data.js').Direction} Direction
+ * @typedef {import('../../types/data.js').Stop} Stop
+ * A direction's airport trains in airport.json
+ * @typedef {import('../../types/data.js').CuratedAirport['lines'][string][string]} AirportDirection
+ */
+
+/**
  * stasy: the copy of STASY's timetables (stasy.js, stasyTables), or null
- * @param {{ dir: string, curated: any, today: string, stasy?: any }} options
+ * @param {{ dir: string, curated: import('../../types/data.js').Curated, today: string, stasy?: import('./stasy.js').StasyCopy | null }} options
  * @returns {Promise<{ data: import('../../types/data.js').Rail, warnings: string[], notes: string[], calendar: import('./build-tram.js').Calendar }>}
  */
 export async function buildRail({ dir, curated, today, stasy = null }) {
     const { stations, lines, positions, airport = null, street = {}, osm = null } = curated;
+    /** @param {string} name */
     const file = name => join(dir, name);
+    /** @type {string[]} */
     const warnings = [];
 
     // ── Routes and directions ───────────────────────────────────────────────
+    /** @type {Map<string, string>} */
     const routeLine = new Map();
     for (const r of await readCsvAll(file('routes.txt'), { required: ['route_id', 'route_short_name'] })) {
         if (lines[r.route_short_name]) routeLine.set(r.route_id, r.route_short_name);
@@ -60,17 +74,21 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
     const foundLines = new Set(routeLine.values());
     for (const id of Object.keys(lines)) if (!foundLines.has(id)) throw new Error(`Line ${id} is not in the rail feed's routes.txt`);
 
+    /** @type {Record<string, Record<string, string>>} */
     const dirKeyOf = {};
     for (const [id, line] of Object.entries(lines)) {
         dirKeyOf[id] = Object.fromEntries(Object.entries(line.directions).map(([key, d]) => [d.gtfsDirection, key]));
     }
 
     // ── Calendar and trips ──────────────────────────────────────────────────
+    /** @param {string} name */
     const optional = async name => existsSync(file(name)) ? readCsvAll(file(name)) : [];
     const dateServices = serviceDates(await optional('calendar.txt'), await optional('calendar_dates.txt'));
     if (!dateServices.size) throw new Error('Rail feed has no service dates');
 
+    /** @type {Map<string, { line: string, dirKey: string, service: string }>} */
     const trips = new Map();
+    /** @type {import('./calendar.js').TripsPerService} */
     const tripsPerService = new Map();
     for (const t of await readCsvAll(file('trips.txt'), { required: ['route_id', 'service_id', 'trip_id', 'direction_id'] })) {
         const line = routeLine.get(t.route_id);
@@ -78,8 +96,8 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
         const dirKey = dirKeyOf[line][t.direction_id];
         if (!dirKey) throw new Error(`Trip ${t.trip_id}: ${line} has no direction with gtfsDirection ${t.direction_id} in lines.json`);
         trips.set(t.trip_id, { line, dirKey, service: t.service_id });
-        if (!tripsPerService.has(t.service_id)) tripsPerService.set(t.service_id, new Map());
-        const perLine = tripsPerService.get(t.service_id);
+        let perLine = tripsPerService.get(t.service_id);
+        if (!perLine) tripsPerService.set(t.service_id, perLine = new Map());
         perLine.set(line, (perLine.get(line) ?? 0) + 1);
     }
 
@@ -102,17 +120,21 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
         ...dates.map(d => ({ key: d, before: addDays(d, -1) })),
     ];
     // Which of those days a service runs on
+    /** @param {string} service @returns {(number | string)[]} */
     const daysOf = service => [
         ...weekServices.flatMap((s, wd) => s.has(service) ? [wd] : []),
         ...dates.filter(d => dateServices.get(d)?.has(service)),
     ];
 
     // ── Stops → curated stations ────────────────────────────────────────────
+    /** @type {Map<string, string>} */
     const stationOfCode = new Map();
     for (const [id, s] of Object.entries(stations.stations)) for (const code of s.gtfs) stationOfCode.set(code, id);
     const ignored = new Set(stations.ignoreGtfs ?? []);
 
+    /** @type {Map<string, { code: string, station: string | null }>} */
     const stopById = new Map();
+    /** @type {Map<string, { lat: number, lng: number, n: number }>} */
     const coordSums = new Map();
     for (const s of await readCsvAll(file('stops.txt'), { required: ['stop_id', 'stop_code', 'stop_lat', 'stop_lon'] })) {
         const station = stationOfCode.get(s.stop_code) ?? null;
@@ -127,7 +149,9 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
     if (missingCodes.length) warnings.push(`stations.json codes not in the rail feed: ${missingCodes.join(', ')}`);
 
     // ── Stop times for the chosen week ──────────────────────────────────────
+    /** @type {Map<string, [number, string, number][]>} */
     const tripStops = new Map();
+    /** @type {Set<string>} */
     const unmapped = new Set();
     const stopTimeCols = ['trip_id', 'departure_time', 'stop_id', 'stop_sequence'];
     for await (const st of readCsv(file('stop_times.txt'), { required: stopTimeCols })) {
@@ -139,17 +163,22 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
             if (!ignored.has(stop.code)) unmapped.add(stop.code);
             continue;
         }
-        if (!tripStops.has(st.trip_id)) tripStops.set(st.trip_id, []);
-        tripStops.get(st.trip_id).push([+st.stop_sequence, stop.station, toSeconds(st.departure_time || st.arrival_time)]);
+        let list = tripStops.get(st.trip_id);
+        if (!list) tripStops.set(st.trip_id, list = []);
+        list.push([+st.stop_sequence, stop.station, toSeconds(st.departure_time || st.arrival_time)]);
     }
     if (unmapped.size) {
         throw new Error(`Rail stops not mapped to any station — add them to a station's "gtfs" list or to "ignoreGtfs" in stations.json: ${[...unmapped].join(', ')}`);
     }
 
     // line → dirKey → [{ stations, times, days }]
+    /** @type {Record<string, Record<string, Run[]>>} */
     const byDirection = {};
     for (const [tripId, stopList] of tripStops) {
-        const { line, dirKey, service } = trips.get(tripId);
+        // Only the trips of the lines are listed
+        const trip = trips.get(tripId);
+        if (!trip) continue;
+        const { line, dirKey, service } = trip;
         stopList.sort((a, b) => a[0] - b[0]);
         ((byDirection[line] ??= {})[dirKey] ??= []).push({
             stations: stopList.map(s => s[1]),
@@ -159,28 +188,35 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
     }
 
     // ── Assemble lines ──────────────────────────────────────────────────────
+    /** @type {Record<string, import('../../types/data.js').Line>} */
     const out = {};
+    /** @type {Map<string, Set<string>>} */
     const stationLines = new Map();
     // Each direction's trips, timetabled once STASY's hours are on its stops
+    /** @type {{ direction: Direction, dirTrips: Run[], order: string[], indexOf: Map<string, number>, label: string, timetabled: AirportDirection | undefined }[]} */
     const pending = [];
     for (const [lineId, line] of Object.entries(lines)) {
+        /** @type {Record<string, Direction>} */
         const directions = {};
         for (const [dirKey, dir] of Object.entries(line.directions)) {
             const dirTrips = byDirection[lineId]?.[dirKey];
             if (!dirTrips?.length) throw new Error(`${lineId}/${dirKey} has no trips in the chosen week`);
 
-            const order = dirTrips.reduce((a, t) => t.stations.length > a.length ? t.stations : a, []);
+            const order = dirTrips.reduce((a, t) => t.stations.length > a.length ? t.stations : a, /** @type {string[]} */ ([]));
+            /** @type {Map<string, number>} */
             const indexOf = new Map(order.map((s, i) => [s, i]));
             for (const s of order) {
-                if (!stationLines.has(s)) stationLines.set(s, new Set());
-                stationLines.get(s).add(lineId);
+                let lineIds = stationLines.get(s);
+                if (!lineIds) stationLines.set(s, lineIds = new Set());
+                lineIds.add(lineId);
             }
 
             dropCopies(dirTrips, serviceDays, `${lineId}/${dirKey}`, warnings);
-            directions[dirKey] = {
+            // Its timetable comes below, once STASY's hours are on its stops
+            directions[dirKey] = /** @type {Direction} */ ({
                 toward: dir.toward,
                 stops: order.map(station => stopPositions(positions, lineId, dirKey, station, warnings)),
-            };
+            });
             pending.push({ direction: directions[dirKey], dirTrips, order, indexOf, label: `${lineId}/${dirKey}`, timetabled: airport?.lines?.[lineId]?.[dirKey] });
 
             const extra = Object.keys(positions[lineId]?.[dirKey] ?? {}).filter(s => !indexOf.has(s));
@@ -196,15 +232,17 @@ export async function buildRail({ dir, curated, today, stasy = null }) {
         direction.timetable = buildTimetable(dirTrips, indexOf, ownDates, label);
     }
 
+    /** @type {import('../../types/data.js').Rail['stations']} */
     const stationsOut = {};
     for (const [id, s] of Object.entries(stations.stations)) {
-        const sum = coordSums.get(id);
         if (!stationLines.has(id)) { warnings.push(`stations.json: ${id} is not served by any trip`); continue; }
+        // A station served is in stops.txt
+        const sum = /** @type {{ lat: number, lng: number, n: number }} */ (coordSums.get(id));
         const exits = streetExits(street[id], osm?.exits?.[id]);
         stationsOut[id] = {
             name: s.name,
             coords: [round(sum.lat / sum.n, 5), round(sum.lng / sum.n, 5)],
-            lines: [...stationLines.get(id)].sort(),
+            lines: [...stationLines.get(id) ?? []].sort(),
             ...(exits.length && { exits }),
         };
     }
@@ -257,25 +295,33 @@ const ONE_WAY = { out: ['escalator-up'], in: ['escalator-down'] };
 /**
  * @param {import('../../public/js/core/osm-exits.js').StreetEntry & { exits?: { way?: string[] }[] } | undefined} entry
  * @param {import('../../public/js/core/osm-exits.js').OsmExit[]} [osm]
+ * @returns {import('../../types/data.js').Exit[]}
  */
 export function streetExits(entry, osm) {
     const offered = offeredExits(osm, entry).map(exit => ({ name: exit.name, coords: exit.coords, ...(exit.only && { way: ONE_WAY[exit.only] }) }));
-    return [...(entry?.exits ?? []), ...offered].filter(exit => exit.coords).map(exit => {
+    // Those with a place
+    return [...(entry?.exits ?? []), ...offered].flatMap(exit => {
+        const at = exit.coords;
+        if (!at) return [];
         const el = exitLabel(exit.name?.el);
         const en = exitLabel(exit.name?.en);
         const ways = exit.way;
         const way = ways && EXIT_WAYS.filter(w => ways.includes(w));
-        return {
+        return [{
             ...((el || en) && { name: { ...(el && { el }), ...(en && { en }) } }),
-            at: exit.coords,
+            at,
             ...(way && way.length < EXIT_WAYS.length && { way }),
-        };
+        }];
     });
 }
 
 // A stop's entry from positions.json, as the pages read it: its elevators
 // are only where they are (none: left out), each place once; the way to the
 // other side isn't shown yet, so it's left out
+/**
+ * @param {import('../../types/data.js').CuratedPositions} positions @param {string} lineId @param {string} dirKey
+ * @param {string} station @param {string[]} warnings @returns {Stop}
+ */
 function stopPositions(positions, lineId, dirKey, station, warnings) {
     const p = positions[lineId]?.[dirKey]?.[station];
     if (!p) warnings.push(`positions.json: no entry for ${lineId}/${dirKey}/${station}`);
@@ -283,7 +329,8 @@ function stopPositions(positions, lineId, dirKey, station, warnings) {
     const fields = Object.entries(p ?? {}).flatMap(([key, value]) => {
         if (key === 'crossing') return [];
         if (key !== 'elevators') return [[key, value]];
-        const at = Array.isArray(value) ? [...new Set(value.map(lift => lift.at))] : [];
+        const lifts = p?.elevators;
+        const at = Array.isArray(lifts) ? [...new Set(lifts.map(lift => lift.at))] : [];
         return at.length ? [[key, at]] : [];
     });
     return { station, exits: [], ...Object.fromEntries(fields) };
@@ -293,17 +340,26 @@ function stopPositions(positions, lineId, dirKey, station, warnings) {
 // day: each weekday of the typical week, and the dates (`ownDates`,
 // 'YYYYMMDD') whose trains differ from their weekday's. Each distinct day is
 // stored once; `days` maps weekday → pattern, `dates` ISO date → pattern.
+/**
+ * @param {Run[]} dirTrips @param {Map<string, number>} indexOf @param {string[]} ownDates @param {string} label
+ * @returns {import('../../types/data.js').Timetable}
+ */
 export function buildTimetable(dirTrips, indexOf, ownDates, label) {
     // Run-time profiles by key, in the order trips first use them
+    /** @type {Map<string, { stops: number[], offsets: number[], order: number }>} */
     const shapes = new Map();
-    const week = Array.from({ length: 7 }, () => []);
+    /** @param {string} key a key of shapes */
+    const shape = key => /** @type {{ stops: number[], offsets: number[], order: number }} */ (shapes.get(key));
+    const week = Array.from({ length: 7 }, () => /** @type {[number, string][]} */ ([]));
+    /** @type {Map<string, [number, string][]>} */
     const onDate = new Map(ownDates.map(d => [d, []]));
 
     for (const trip of dirTrips) {
         if (!trip.days.length) continue;
         const stops = trip.stations.map(s => {
-            if (!indexOf.has(s)) throw new Error(`${label}: a trip serves ${s}, which is not on the line's longest pattern (branching lines are not supported)`);
-            return indexOf.get(s);
+            const i = indexOf.get(s);
+            if (i === undefined) throw new Error(`${label}: a trip serves ${s}, which is not on the line's longest pattern (branching lines are not supported)`);
+            return i;
         });
         const start = trip.times[0];
         const offsets = trip.times.map(t => t - start);
@@ -312,23 +368,30 @@ export function buildTimetable(dirTrips, indexOf, ownDates, label) {
         for (const day of trip.days) (typeof day === 'number' ? week[day] : onDate.get(day))?.push([start, key]);
     }
     const lists = [...week, ...onDate.values()];
-    for (const list of lists) list.sort((a, b) => a[0] - b[0] || shapes.get(a[1]).order - shapes.get(b[1]).order);
+    for (const list of lists) list.sort((a, b) => a[0] - b[0] || shape(a[1]).order - shape(b[1]).order);
 
+    /** @param {[number, string][]} a @param {[number, string][]} b */
     const same = (a, b) => a.length === b.length && a.every(([start, key], i) => start === b[i][0] && key === b[i][1]);
     const own = [...onDate].filter(([date, list]) => !same(list, week[weekday(date)]));
 
     // Only the profiles the days kept use
     const used = new Set([...week, ...own.map(([, list]) => list)].flatMap(list => list.map(([, key]) => key)));
+    /** @type {Map<string, number>} */
     const profileIndex = new Map([...shapes.keys()].filter(key => used.has(key)).map((key, i) => [key, i]));
-    const profiles = [...profileIndex.keys()].map(key => ({ stops: shapes.get(key).stops, offsets: shapes.get(key).offsets }));
+    const profiles = [...profileIndex.keys()].map(key => ({ stops: shape(key).stops, offsets: shape(key).offsets }));
 
+    /** @type {[number, number][][]} */
     const patterns = [];
+    /** @type {Map<string, number>} */
     const seen = new Map();
+    /** @param {[number, string][]} list */
     const patternOf = list => {
-        const trips = list.map(([start, key]) => [start, profileIndex.get(key)]);
+        // Every key a day kept uses has its profile
+        const trips = list.map(([start, key]) => /** @type {[number, number]} */ ([start, profileIndex.get(key)]));
         const id = JSON.stringify(trips);
-        if (!seen.has(id)) { seen.set(id, patterns.length); patterns.push(trips); }
-        return seen.get(id);
+        let index = seen.get(id);
+        if (index === undefined) { seen.set(id, index = patterns.length); patterns.push(trips); }
+        return index;
     };
     const days = week.map(patternOf);
     const dates = Object.fromEntries(own.map(([date, list]) => [isoDate(date), patternOf(list)]));
@@ -348,9 +411,12 @@ const COPY_SECONDS = 90;
 
 // serviceDays: [{ key, before }], each day (a weekday or a date) and the one before it.
 // The warning counts the typical week's.
+/** @param {Run[]} dirTrips @param {import('./build-tram.js').Calendar['serviceDays']} serviceDays @param {string} label @param {string[]} warnings */
 export function dropCopies(dirTrips, serviceDays, label, warnings) {
+    /** @param {Run} trip @param {Run} of @param {number} shift */
     const isCopy = (trip, of, shift) => trip.stations.length === of.stations.length
         && trip.stations.every((s, i) => s === of.stations[i] && Math.abs(trip.times[i] - (of.times[i] - shift)) <= COPY_SECONDS);
+    /** @type {string[]} */
     const dropped = [];
     for (const { key, before } of serviceDays) {
         const day = dirTrips.filter(t => t.days.includes(key)).sort((a, b) => a.times[0] - b.times[0]);
@@ -379,6 +445,10 @@ export function dropCopies(dirTrips, serviceDays, label, warnings) {
 // COPY_SECONDS (ending early; only then: a train as close but going on is
 // another one). GTFS trains through `serves` that are none of them are kept,
 // and listed in a warning too, to check on the platform.
+/**
+ * @param {Run[]} dirTrips @param {AirportDirection} timetabled @param {string[]} order @param {(number | string)[]} days
+ * @param {string} label @param {string[]} warnings
+ */
 function addTimetabled(dirTrips, timetabled, order, days, label, warnings) {
     if (timetabled.stations.join() !== order.join()) {
         warnings.push(`airport.json: ${label} lists other stations than the line has; its trains weren't added`);
@@ -387,15 +457,21 @@ function addTimetabled(dirTrips, timetabled, order, days, label, warnings) {
     const at = new Map(order.map((s, i) => [s, i]));
     const served = timetabled.serves;
     const inService = dirTrips.filter(t => t.days.length);
+    /** @type {Set<Run>} */
     const matched = new Set();
+    /** @type {string[]} */
     const added = [];
+    /** @type {string[]} */
     const differ = [];
     for (const train of timetabled.trains) {
         const times = train.times.map(toSeconds);
-        const off = (trip, i) => Math.abs(trip.times[i] - times[at.get(trip.stations[i])]);
+        // A trip's stations are the line's (order)
+        /** @param {Run} trip @param {number} i */
+        const off = (trip, i) => Math.abs(trip.times[i] - times[/** @type {number} */ (at.get(trip.stations[i]))]);
         const same = inService.filter(t => t.stations.includes(served) && off(t, t.stations.indexOf(served)) <= COPY_SECONDS);
         const short = inService.filter(t => !t.stations.includes(served) && t.stations.every((_, i) => off(t, i) <= COPY_SECONDS));
         for (const t of same) matched.add(t);
+        /** @type {(number | string)[]} */
         const missing = [];
         for (const day of days) {
             if (same.some(t => t.days.includes(day))) continue;
@@ -418,11 +494,13 @@ function addTimetabled(dirTrips, timetabled, order, days, label, warnings) {
 }
 
 // The typical week's days among a train's: "every day", "mon, tue", or "dates only"
+/** @param {(number | string)[]} days */
 function weekDays(days) {
     const week = DAY_NAMES.filter((_, wd) => days.includes(wd));
     return week.length === 7 ? 'every day' : week.length ? week.join(', ') : 'dates only';
 }
 
+/** @param {number} seconds */
 const clock = seconds => `${String(Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds % 3600 / 60)).padStart(2, '0')}`;
 
 // Trains STASY doesn't publish (depot runs): a train is in service from its
@@ -438,31 +516,41 @@ const clock = seconds => `${String(Math.floor(seconds / 3600)).padStart(2, '0')}
 // "only as far as Omonia" ends at Omonia.
 export const HOURS_LEEWAY = 300;
 
+/** @param {Run[]} dirTrips @param {Stop[]} stops @param {string} label @param {string[]} warnings */
 function trimToHours(dirTrips, stops, label, warnings) {
+    /** @type {Map<string, number>} */
     const at = new Map(stops.map((s, i) => [s.station, i]));
+    // A trip's stations are the direction's stops
+    /** @param {string} station */
+    const indexOf = station => /** @type {number} */ (at.get(station));
     // Leaving `station` on weekday wd on a train that ends at stop index `end`: { first, last } (null: no limit)
+    /** @param {string} station @param {number} end @param {number} wd */
     const window = (station, end, wd) => {
-        const hours = stops[at.get(station)].hours;
+        const hours = stops[indexOf(station)].hours;
         if (!hours) return { first: null, last: null };
-        const reached = hours.filter(h => at.get(h.to) <= end);
-        const use = reached.length ? [reached.at(-1)] : hours;
+        // A destination off the way is reached by no train
+        const reached = hours.filter(h => (at.get(h.to) ?? Infinity) <= end);
+        const use = reached.length ? [reached[reached.length - 1]] : hours;
+        /** @param {'first' | 'last'} kind @param {(...seconds: number[]) => number} pick */
         const limit = (kind, pick) => {
             const values = use.map(h => h[kind][wd]);
-            return values.includes(null) ? null : pick(...values);
+            return values.includes(null) ? null : pick(.../** @type {number[]} */ (values));
         };
         return { first: limit('first', Math.min), last: limit('last', Math.max) };
     };
     let left = 0;
     let shortened = 0;
+    /** @type {Run[]} */
     const variants = [];
     for (const trip of dirTrips) {
+        /** @type {Map<string, (number | string)[]>} */
         const kept = new Map();   // "from,to" (call indexes) → days
         for (const day of trip.days) {
             // A date has its own weekday's hours (STASY's tables have no holidays)
             const wd = typeof day === 'number' ? day : weekday(day);
             let a = 0;
             let b = trip.stations.length - 1;
-            const end = () => at.get(trip.stations[b]);
+            const end = () => indexOf(trip.stations[b]);
             while (a < b) {
                 const { first } = window(trip.stations[a], end(), wd);
                 if (first === null || trip.times[a] >= first - HOURS_LEEWAY) break;
@@ -494,6 +582,7 @@ function trimToHours(dirTrips, stops, label, warnings) {
     if (left || shortened) warnings.push(`${label}: ${left + shortened} trains run outside STASY's first and last trains: ${left} left out, ${shortened} shortened`);
 }
 
+/** @param {number} n @param {number} digits */
 function round(n, digits) {
     const f = 10 ** digits;
     return Math.round(n * f) / f;

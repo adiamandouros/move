@@ -203,7 +203,7 @@ export interface RailwaySchedule {
     scheduledDeparture?: string;
     delay?: number | null;
     /** Its stops, in the order of `index`, with their times (ISO) */
-    routeStations?: { stationId: string; index: number; scheduledArrival?: string | null; scheduledDeparture?: string | null }[];
+    routeStations?: { stationId: string; index: number; name?: string; nameGreek?: string; scheduledArrival?: string | null; scheduledDeparture?: string | null }[];
 }
 
 /** data/build/trains.json, built by server/data/build-suburban.js: the suburban railway's trains by date, from railway.gov.gr (decision 41) */

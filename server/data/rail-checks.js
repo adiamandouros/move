@@ -1,3 +1,4 @@
+import { messageOf } from '../errors.js';
 import { DAY_NAMES } from './calendar.js';
 import { HOURS_LEEWAY } from './build-rail.js';
 import { readDays } from './stasy.js';
@@ -26,6 +27,9 @@ const MIN_WINDOW = 3600;
 const FREQUENCY_TOLERANCE = 0.15;
 const DAY = 86_400;
 
+/** @typedef {import('../../types/data.js').Rail} Rail */
+/** @typedef {import('../../types/data.js').Timetable} Timetable */
+
 /**
  * rail: rail.json; frequencies: STASY's frequency tables by line (stasy.js,
  * extractFrequencies), or null; notes: the build's own.
@@ -46,7 +50,9 @@ export function checkRail(rail, { frequencies = null, notes = [] } = {}) {
 }
 
 // Stops trains leave from without STASY's times, on lines it has times for
+/** @param {Rail} rail */
 function missingHours(rail) {
+    /** @type {string[]} */
     const problems = [];
     for (const [lineId, { directions }] of Object.entries(rail.lines)) {
         const all = Object.values(directions).flatMap(d => d.stops.slice(0, -1));
@@ -65,7 +71,9 @@ function missingHours(rail) {
 // The timetable's first and last trains from each stop, against STASY's: a
 // later first train or an earlier last one means the GTFS misses trains.
 // One note per direction, destination and kind, at the first stop it happens.
+/** @param {Rail} rail */
 function firstAndLastNotes(rail) {
+    /** @type {Map<string, { where: string, to: string, kind: string, station: string, stasy: number, gtfs: number | null, days: Set<number>, stops: Set<string> }>} */
     const found = new Map();
     for (const [lineId, { directions }] of Object.entries(rail.lines)) {
         for (const [dirKey, { stops, timetable }] of Object.entries(directions)) {
@@ -74,15 +82,19 @@ function firstAndLastNotes(rail) {
                 for (const h of stop.hours ?? []) {
                     for (let wd = 0; wd < 7; wd++) {
                         // Trains leaving here that reach `to`, at least
-                        const times = departuresFrom(timetable, wd, i, at.get(h.to));
+                        // A destination not on the way: no trains reach it
+                        const times = departuresFrom(timetable, wd, i, at.get(h.to) ?? Infinity);
                         const first = times.length ? Math.min(...times) : null;
                         const last = times.length ? Math.max(...times) : null;
-                        for (const [kind, stasy, gtfs, late] of [['first', h.first[wd], first, first !== null && first - h.first[wd] > HOURS_LEEWAY],
-                            ['last', h.last[wd], last, last !== null && h.last[wd] - last > HOURS_LEEWAY]]) {
+                        const [stasyFirst, stasyLast] = [h.first[wd], h.last[wd]];
+                        /** @type {[string, number | null, number | null, boolean][]} */
+                        const kinds = [['first', stasyFirst, first, first !== null && stasyFirst !== null && first - stasyFirst > HOURS_LEEWAY],
+                            ['last', stasyLast, last, last !== null && stasyLast !== null && stasyLast - last > HOURS_LEEWAY]];
+                        for (const [kind, stasy, gtfs, late] of kinds) {
                             if (stasy === null || !(gtfs === null || late)) continue;
                             const key = `${lineId}/${dirKey}|${h.to}|${kind}`;
-                            if (!found.has(key)) found.set(key, { where: `${lineId}/${dirKey}`, to: h.to, kind, station: stop.station, stasy, gtfs, days: new Set(), stops: new Set() });
-                            const f = found.get(key);
+                            let f = found.get(key);
+                            if (!f) found.set(key, f = { where: `${lineId}/${dirKey}`, to: h.to, kind, station: stop.station, stasy, gtfs, days: new Set(), stops: new Set() });
                             f.days.add(wd);
                             f.stops.add(stop.station);
                         }
@@ -99,11 +111,12 @@ function firstAndLastNotes(rail) {
 }
 
 // Departure times from stop index `from` on weekday `wd`'s trains that reach stop index `to` or further
+/** @param {Timetable} timetable @param {number} wd @param {number} from @param {number} to */
 function departuresFrom(timetable, wd, from, to) {
     return timetable.patterns[timetable.days[wd]].flatMap(([start, p]) => {
         const { stops, offsets } = timetable.profiles[p];
         const k = stops.indexOf(from);
-        return k !== -1 && k < stops.length - 1 && stops.at(-1) >= to ? [start + offsets[k]] : [];
+        return k !== -1 && k < stops.length - 1 && stops[stops.length - 1] >= to ? [start + offsets[k]] : [];
     });
 }
 
@@ -111,6 +124,7 @@ function departuresFrom(timetable, wd, from, to) {
 // midnight is past DAY). Its day names in full ("Δευτέρα - Πέμπτη") are read
 // as stasy.js reads them short ("ΔΕΥ-ΠΕΜ"); the first frequency column is the
 // line's (line 3's second is the airport trains')
+/** @param {string[][]} rows @returns {{ days: number[], from: number, to: number, every: number }[]} */
 export function readFrequencies(rows) {
     const out = [];
     let days = /** @type {number[] | null} */ (null);
@@ -142,18 +156,21 @@ export function readFrequencies(rows) {
 
 // How often trains run in the timetable, at the stop most trains call at
 // (the middle of the line), against STASY's table, for each direction
+/** @param {Rail} rail @param {Record<string, string[][]>} frequencies */
 function frequencyNotes(rail, frequencies) {
+    /** @type {string[]} */
     const notes = [];
     for (const [lineId, rows] of Object.entries(frequencies)) {
         const line = rail.lines[lineId];
         if (!line || !rows?.length) continue;
         let periods;
         try { periods = readFrequencies(rows); } catch (err) {
-            notes.push(`${lineId}: STASY's frequency table couldn't be read (${err.message}), so it isn't compared`);
+            notes.push(`${lineId}: STASY's frequency table couldn't be read (${messageOf(err)}), so it isn't compared`);
             continue;
         }
         for (const { stops, timetable, toward } of Object.values(line.directions)) {
             const at = busiestStop(timetable, stops.length);
+            /** @type {Map<string, { from: number, to: number, gap: number, every: number, days: number[] }>} */
             const differ = new Map();
             for (const { days, from, to, every } of periods) {
                 if (to - from < MIN_WINDOW) continue;
@@ -163,11 +180,12 @@ function frequencyNotes(rail, frequencies) {
                         .filter(t => t >= from && t < to).sort((a, b) => a - b);
                     if (times.length < 3) continue;
                     // On average: a branch's trains in between make the gaps uneven (line 3's airport trains)
-                    const gap = Math.round((times.at(-1) - times[0]) / (times.length - 1));
+                    const gap = Math.round((times[times.length - 1] - times[0]) / (times.length - 1));
                     if (Math.abs(gap - every) <= Math.max(60, every * FREQUENCY_TOLERANCE)) continue;
                     const key = `${from}|${to}|${gap}|${every}`;
-                    if (!differ.has(key)) differ.set(key, { from, to, gap, every, days: [] });
-                    differ.get(key).days.push(wd);
+                    let d = differ.get(key);
+                    if (!d) differ.set(key, d = { from, to, gap, every, days: [] });
+                    d.days.push(wd);
                 }
             }
             for (const d of differ.values()) {
@@ -179,6 +197,7 @@ function frequencyNotes(rail, frequencies) {
 }
 
 // The stop index the most trains leave from in the typical week
+/** @param {Timetable} timetable @param {number} stopCount */
 function busiestStop(timetable, stopCount) {
     const count = Array(stopCount).fill(0);
     for (const wd of timetable.days) {
@@ -188,7 +207,9 @@ function busiestStop(timetable, stopCount) {
 }
 
 // The dates the timetable has its own trains for (a holiday), with the lines
+/** @param {Rail} rail */
 function datesNotes(rail) {
+    /** @type {Map<string, Set<string>>} */
     const lines = new Map();
     for (const [lineId, { directions }] of Object.entries(rail.lines)) {
         for (const { timetable } of Object.values(directions)) {
@@ -198,7 +219,11 @@ function datesNotes(rail) {
     return [...lines].sort().map(([date, ids]) => `${date}: ${[...ids].sort().join(', ')} run${ids.size === 1 ? 's' : ''} trains of their own that day (a holiday?), from the GTFS`);
 }
 
+/** @param {Rail} rail @param {string} station */
 const name = (rail, station) => rail.stations[station]?.name.en ?? station;
+/** @param {number} s */
 const clock = s => `${String(Math.floor(s / 3600) % 24).padStart(2, '0')}:${String(Math.floor(s % 3600 / 60)).padStart(2, '0')}`;
+/** @param {number} s */
 const minutes = s => `${Math.floor(s / 60)}'${String(Math.round(s % 60)).padStart(2, '0')}"`;
+/** @param {number[]} days */
 const dayList = days => days.length === 7 ? 'every day' : [...new Set(days)].sort().map(d => DAY_NAMES[d]).join(', ');
