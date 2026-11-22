@@ -15,6 +15,7 @@ const SAME_PLACE_SECONDS = 300;
 
 /** @typedef {ReturnType<typeof import('./city.js').createPlanner>} Planner */
 /** @typedef {import('./raptor.js').Journey & { at: number, walk: number }} Way */
+/** @typedef {{ way: Way, lines: string[], places: number[] }} Pending a way found, and the lines and change stops its search was asked without */
 
 // The seconds on foot to `stop` in an [stop, seconds…] list
 /** @param {number[]} list @param {number} stop */
@@ -34,6 +35,10 @@ export function fastest(planner, access, egress) {
     return withWalk(planner, planner.arrival(egress, rides).stop, rides, at, access, egress);
 }
 
+/**
+ * @param {Planner} planner @param {number} stop @param {number} rides @param {number} at @param {number[]} access @param {number[]} egress
+ * @returns {Way}
+ */
 function withWalk(planner, stop, rides, at, access, egress) {
     const journey = planner.journey(stop, rides);
     return { ...journey, at, walk: secondsTo(access, journey.legs[0].board) + journey.walked + secondsTo(egress, stop) };
@@ -41,6 +46,10 @@ function withWalk(planner, stop, rides, at, access, egress) {
 
 // The way's rides up to each change, then each line from there to the door:
 // the 750 from Aigaleo is hidden behind the same bus from Korydallos
+/**
+ * @param {Planner} planner @param {Way} way @param {number[]} access @param {number[]} egress @param {number | undefined} walkLimit
+ * @returns {Way[]}
+ */
 function everyLastRide(planner, way, access, egress, walkLimit) {
     return way.legs.slice(0, -1).flatMap((leg, i) => {
         const before = way.legs.slice(0, i + 1);
@@ -69,8 +78,11 @@ export const wayKey = ({ stops }, way) => way.legs.map((leg, i) => (i ? `${stops
  */
 export function findWays(planner, access, egress, now, { budget = BUDGET, slack = SLACK_SECONDS, walkLimit } = {}) {
     const asked = new Set();
+    /** @type {Pending[]} */
     const pending = [];
+    /** @param {Way} way @param {string[]} lines @param {number[]} places */
     const add = (way, lines, places) => pending.push({ way, lines, places });
+    /** @param {string[]} lines @param {number[]} places */
     const ask = (lines, places) => {
         const signature = `${[...lines].sort().join()}|${[...places].sort((a, b) => a - b).join()}`;
         if (asked.has(signature) || asked.size >= budget) return null;
@@ -90,13 +102,14 @@ export function findWays(planner, access, egress, now, { budget = BUDGET, slack 
     }
 
     const found = new Map();
+    /** @param {Way} way */
     const keep = way => {
         const key = wayKey(planner, way);
         if (!found.has(key) || way.at < found.get(key).at) found.set(key, way);
     };
     while (pending.length && asked.size < budget) {
         pending.sort((a, b) => a.way.at - b.way.at);
-        const { way, lines, places } = pending.shift();
+        const { way, lines, places } = /** @type {Pending} */ (pending.shift());
         keep(way);
         if (way.at > first.at + slack) continue;
         for (const line of new Set(way.legs.map(leg => leg.line))) {
@@ -136,6 +149,7 @@ export function spine({ stops }, way) {
     return rail.length ? `${rail.map(leg => leg.line).join('+')} to ${stops[rail[rail.length - 1].alight].name}` : 'buses only';
 }
 
+/** @param {number} seconds */
 const clock = seconds => `${String(Math.floor(seconds / 3600) % 24).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;
 
 // One line about a way, for reading in a terminal

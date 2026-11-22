@@ -118,6 +118,7 @@ export function busDay({ stops, routes }, weekday) {
     const used = new Set();
     const day = routes.flatMap(({ line, mode, code, stops: along, runs, patterns, days }) => {
         const profiles = runs.map(run => run.reduce((offsets, seconds) => [...offsets, offsets[offsets.length - 1] + seconds], [0]));
+        /** @param {number} pattern @param {number} shift */
         const tripsOf = (pattern, shift) => {
             let start = 0;
             return patterns[pattern].map(([after, profile]) => /** @type {[number, number]} */ ([(start += after) + shift, profile]));
@@ -166,8 +167,14 @@ export function trainDay({ stations, walks, outside, dates }, date) {
  */
 export function joinNetwork(rail, buses, weekday, trains = null) {
     const net = withTram(rail);
+    /** @type {(Stop & { names: Names })[]} */
     const stops = [];
+    /** @type {Map<string, number>} */
     const index = new Map();
+    // A stop the routes and walks below name: added above them
+    /** @param {string} id */
+    const at = id => /** @type {number} */ (index.get(id));
+    /** @param {string} id @param {number} lat @param {number} lng @param {Names} names @param {Pick<Stop, 'station' | 'oasaTicket' | 'exits'>} [more] */
     const add = (id, lat, lng, names, more = {}) => {
         index.set(id, stops.length);
         stops.push({ id, lat, lng, name: names.el, names, ...more });
@@ -177,6 +184,7 @@ export function joinNetwork(rail, buses, weekday, trains = null) {
     const outside = new Set(trains?.outside ?? []);
     for (const [id, [lat, lng, el, en]] of Object.entries(trains?.stations ?? {})) add(`train:${id}`, lat, lng, { el, en }, outside.has(id) ? { oasaTicket: false } : {});
 
+    /** @type {Route[]} */
     const routes = [];
     for (const [line, { directions, tram }] of Object.entries(net.lines)) {
         for (const [dir, { stops: calls, timetable, toward }] of Object.entries(directions)) {
@@ -189,32 +197,32 @@ export function joinNetwork(rail, buses, weekday, trains = null) {
                 }
             }
             for (const [profile, trips] of byProfile) {
-                const along = timetable.profiles[profile].stops.map(i => index.get(`rail:${calls[i].station}`));
+                const along = timetable.profiles[profile].stops.map(i => at(`rail:${calls[i].station}`));
                 routes.push({ line, dir, mode: tram ? 'tram' : 'metro', stops: along, trips, toward });
             }
         }
     }
     for (const { line, mode, code, stops: calls, profiles, trips } of buses.routes) {
-        const along = calls.map(stop => index.get(`bus:${stop}`));
+        const along = calls.map(stop => at(`bus:${stop}`));
         routes.push({
             line, mode, code, stops: along,
             trips: trips.map(([start, profile]) => profiles[profile].map(offset => start + offset)),
-            toward: stops[along.at(-1)].names,
+            toward: stops[along[along.length - 1]].names,
         });
     }
     for (const { line, stops: calls, profiles, trips } of trains?.routes ?? []) {
-        const along = calls.map(station => index.get(`train:${station}`));
+        const along = calls.map(station => at(`train:${station}`));
         routes.push({
             line, mode: 'suburban', stops: along, trips: trips.map(([start, profile]) => profiles[profile].map(offset => start + offset)),
-            numbers: trips.map(([, , train]) => train ?? null), toward: stops[along.at(-1)].names,
+            numbers: trips.map(([, , train]) => train ?? null), toward: stops[along[along.length - 1]].names,
         });
     }
     const knownWalks = (trains?.walks ?? []).filter(([from, to]) => index.has(from) && index.has(to))
-        .map(([from, to, seconds, note]) => /** @type {KnownWalk} */ ([index.get(from), index.get(to), seconds, ...note ? [note] : []]));
+        .map(([from, to, seconds, note]) => /** @type {KnownWalk} */ ([at(from), at(to), seconds, ...note ? [note] : []]));
     // The tram's walks to the metro and between its stops, as the Subway planner has them (tram.json, decision 25), each pair once
     for (const [a, to] of Object.entries(net.walks ?? {})) {
         for (const [b, minutes] of Object.entries(to)) {
-            if (a < b) knownWalks.push([index.get(`rail:${a}`), index.get(`rail:${b}`), minutes * 60, null, net.walkExits?.[a]?.[b] ?? null]);
+            if (a < b) knownWalks.push([at(`rail:${a}`), at(`rail:${b}`), minutes * 60, null, net.walkExits?.[a]?.[b] ?? null]);
         }
     }
     return { stops, routes, index, knownWalks };
@@ -238,6 +246,7 @@ export function joinNetwork(rail, buses, weekday, trains = null) {
  */
 export function createPlanner({ stops, routes, knownWalks = [] }) {
     const cells = new Map();
+    /** @param {number} y @param {number} x */
     const cellOf = (y, x) => y * 100_000 + x;
     stops.forEach(({ lat, lng }, i) => {
         const cell = cellOf(Math.floor(lat / CELL_LAT), Math.floor(lng / CELL_LNG));
@@ -256,6 +265,7 @@ export function createPlanner({ stops, routes, knownWalks = [] }) {
     };
     /** @param {Point} point @param {number} limit @param {number} [except] @param {Way | null} [way] */
     const near = (point, limit, except = -1, way = null) => {
+        /** @type {number[]} */
         const found = [];
         around(point, limit, stop => {
             if (stop === except || walkSeconds(point, stops[stop]) > limit) return;
@@ -264,6 +274,7 @@ export function createPlanner({ stops, routes, knownWalks = [] }) {
         return found;
     };
     const walks = stops.map((from, i) => {
+        /** @type {number[]} */
         const found = [];
         around(from, CHANGE_WALK_SECONDS, stop => {
             if (stop === i || walkSeconds(from, stops[stop]) > CHANGE_WALK_SECONDS) return;
@@ -274,6 +285,7 @@ export function createPlanner({ stops, routes, knownWalks = [] }) {
     const known = new Map();
     const notes = new Map();
     const exits = new Map();
+    /** @param {number} from @param {number} to */
     const pair = (from, to) => from * stops.length + to;
     for (const [a, b, seconds, note, exit] of knownWalks) {
         for (const [from, to] of [[a, b], [b, a]]) {

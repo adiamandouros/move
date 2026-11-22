@@ -25,6 +25,8 @@ import { createPlanner } from './raptor.js';
 /** @typedef {Route & { legs: (Leg & { departures: Departure[] })[], arrives: number | null }} PlannedRoute */
 /** @typedef {{ weekday: number, seconds: number, date: string, epoch?: number }} AthensTime */
 /** @typedef {import('../../../types/data.js').Timetable} Timetable */
+/** @typedef {import('../../../types/data.js').Trains} Trains */
+/** @typedef {import('../../../types/data.js').Names} Names */
 
 const DAY = 86_400;
 // Minimum time to change trains at an interchange
@@ -94,11 +96,16 @@ export function withTram(rail) {
     const directions = Object.values(tram?.lines ?? {}).flatMap(line => Object.values(line.directions));
     if (!tram || !directions.length || !directions.every(direction => direction.timetable)) return rail;
 
+    /** @param {string} id */
     const clashes = id => Object.hasOwn(rail.stations, id);
+    /** @param {string} id */
     const stationId = id => clashes(id) ? `${id}-tram` : id;
     const stations = { ...rail.stations };
+    /** @type {Record<string, Record<string, number>>} */
     const walks = {};
+    /** @type {Record<string, Record<string, number>>} */
     const walkExits = {};
+    /** @param {string} a @param {string} b @param {number} minutes @param {number} [exit] */
     const addWalk = (a, b, minutes, exit) => {
         (walks[a] ??= {})[b] = minutes;
         (walks[b] ??= {})[a] = minutes;
@@ -106,7 +113,8 @@ export function withTram(rail) {
     };
     for (const [id, { name, coords, lines, walks: nearby = [] }] of Object.entries(tram.stations)) {
         stations[stationId(id)] = { name: clashes(id) ? { el: `${name.el} (τραμ)`, en: `${name.en} (tram)` } : name, coords, lines, tram: true };
-        for (const { metro, stop, minutes, exit } of nearby) addWalk(stationId(id), metro ?? stationId(stop), minutes, exit);
+        // A walk is to a metro station or to another stop (tram.json)
+        for (const { metro, stop, minutes, exit } of nearby) addWalk(stationId(id), metro ?? stationId(/** @type {string} */ (stop)), minutes, exit);
     }
     const lines = { ...rail.lines };
     for (const [id, line] of Object.entries(tram.lines)) {
@@ -154,18 +162,20 @@ function mergeStops(sequences) {
 // Each train keeps its number, which its lateness goes by (decision 47).
 // Without trains for `date` (or without trains.json), it's rail.
 /**
- * @param {Rail} rail @param {import('../../../types/data.js').Trains | null} trains @param {string} date
- * @returns {Rail & { walkNotes?: Record<string, Record<string, import('../../../types/data.js').Names>> }}
+ * @param {Rail} rail @param {Trains | null} trains @param {string} date
+ * @returns {Rail & { walkNotes?: Record<string, Record<string, Names>> }}
  */
 export function withSuburban(rail, trains, date) {
     if (!trains?.dates?.[date]?.length) return rail;
+    /** @param {string} id */
     const stationId = id => suburbanId(rail, id);
 
     // Each line's trains by where they end, and those that can't share an order apart
+    /** @type {{ line: string, end: string, dir: string, routes: (Trains['dates'][string][number] & { day: string })[] }[]} */
     const groups = [];
     for (const [day, routes] of Object.entries(trains.dates)) {
         for (const route of routes) {
-            const end = route.stops.at(-1);
+            const end = route.stops[route.stops.length - 1];
             const mine = groups.filter(group => group.line === route.line && group.end === end);
             let group = mine.find(g => mergeStops([...g.routes.map(r => r.stops), route.stops]));
             if (!group) groups.push(group = { line: route.line, end, dir: mine.length ? `${end}-${mine.length + 1}` : end, routes: [] });
@@ -173,24 +183,30 @@ export function withSuburban(rail, trains, date) {
         }
     }
 
+    /** @type {Record<string, import('../../../types/data.js').Line>} */
     const lines = {};
+    /** @type {Map<string, Set<string>>} */
     const calledAt = new Map();
     for (const { line, end, dir, routes } of groups) {
         // One order for the group: its routes were grouped by mergeStops finding one
         const order = /** @type {string[]} */ (mergeStops(routes.map(route => route.stops)));
+        /** @type {Timetable['profiles']} */
         const profiles = [];
+        /** @type {Map<string, number>} */
         const profileOf = new Map();
         // Pattern 0, with no trains, for the days trains.json doesn't hold
-        /** @type {import('../../../types/data.js').Timetable['patterns']} */
+        /** @type {Timetable['patterns']} */
         const patterns = [[]];
+        /** @type {Record<string, number>} */
         const dates = {};
         for (const { day, stops, profiles: offsets, trips } of routes) {
             const along = stops.map(station => order.indexOf(station));
             if (!(day in dates)) dates[day] = patterns.push([]) - 1;
             for (const [start, p, train] of trips) {
                 const key = JSON.stringify([along, offsets[p]]);
-                if (!profileOf.has(key)) profileOf.set(key, profiles.push({ stops: along, offsets: offsets[p] }) - 1);
-                patterns[dates[day]].push(train ? [start, profileOf.get(key), train] : [start, profileOf.get(key)]);
+                let profile = profileOf.get(key);
+                if (profile === undefined) profileOf.set(key, profile = profiles.push({ stops: along, offsets: offsets[p] }) - 1);
+                patterns[dates[day]].push(train ? [start, profile, train] : [start, profile]);
             }
         }
         patterns.forEach(pattern => pattern.sort((a, b) => a[0] - b[0]));
@@ -216,7 +232,9 @@ export function withSuburban(rail, trains, date) {
         };
     }
     const walks = Object.fromEntries(Object.entries(rail.walks ?? {}).map(([id, near]) => [id, { ...near }]));
+    /** @type {Record<string, Record<string, Names>>} */
     const walkNotes = {};
+    /** @template T @param {Record<string, Record<string, T>>} record @param {string} a @param {string} b @param {T} value */
     const both = (record, a, b, value) => { (record[a] ??= {})[b] = value; (record[b] ??= {})[a] = value; };
     for (const [from, to, seconds, note] of trains.walks) {
         const [a, b] = [from, to].map(stop => stop.startsWith('rail:') ? stop.slice(5) : stationId(stop.slice(6)));
@@ -280,11 +298,14 @@ const walksFrom = (rail, id) => Object.entries(rail.walks?.[id] ?? {});
 function routesWithin(rail, from, to, limit) {
     const { calls, changes } = calling(rail);
     const ends = new Map([[to, 0], ...walksFrom(rail, to)]);
+    /** @type {Route[]} */
     const routes = [];
+    /** @param {string} at @param {Set<string>} seen @param {Leg[]} legs @param {number} walkFirst */
     const rideFrom = (at, seen, legs, walkFirst) => {
+        const last = legs.at(-1);
         for (const { line, dir, stops, index } of calls.get(at) ?? []) {
-            if (legs.at(-1)?.line === line && legs.at(-1).dir === dir) continue;
-            if (legs.at(-1)?.to === at && rail.lines[legs.at(-1).line].suburban && rail.lines[line].suburban) continue;
+            if (last?.line === line && last.dir === dir) continue;
+            if (last?.to === at && rail.lines[last.line].suburban && rail.lines[line].suburban) continue;
             const ridden = new Set(legs.filter(leg => leg.line === line)
                 .flatMap(leg => rail.lines[line].directions[leg.dir].stops.slice(leg.fromIndex, leg.toIndex + 1).map(stop => stop.station)));
             const passed = new Set(seen);
@@ -320,7 +341,10 @@ export function findRoutes(rail, from, to) {
     let fewest = 0;
     while (fewest < MAX_CHANGES && !routesWithin(rail, from, to, fewest).length) fewest++;
     const order = new Map(Object.keys(rail.stations).map((id, i) => [id, i]));
-    const changedAt = route => route.legs.slice(0, -1).map(leg => order.get(leg.to));
+    // Every leg gets off at one of rail's stations
+    /** @param {Route} route */
+    const changedAt = route => route.legs.slice(0, -1).map(leg => /** @type {number} */ (order.get(leg.to)));
+    /** @param {Route} a @param {Route} b */
     const byChanges = (a, b) => changedAt(a).reduce((found, at, i) => found || at - (changedAt(b)[i] ?? at), 0);
     return routesWithin(rail, from, to, Math.min(fewest + 1, MAX_CHANGES)).sort(byChanges);
 }
@@ -384,19 +408,21 @@ export function departures(rail, leg, { weekday, after, count = 2, ownDay = fals
     const found = [];
     for (const dayOffset of ownDay ? [0] : [-1, 0]) {
         const serviceDay = (weekday + dayOffset + 7) % 7;
+        /** @type {Departure[]} */
         const trains = [];
         for (const [start, p, train] of trainsOn(timetable, weekday, date, dayOffset)) {
             const { stops, offsets } = timetable.profiles[p];
             const i = stops.indexOf(leg.fromIndex);
             const j = stops.indexOf(leg.toIndex);
             if (i === -1 || j <= i) continue;
-            trains.push({ departs: start + offsets[i] + dayOffset * DAY, arrives: start + offsets[j] + dayOffset * DAY, ...(train && { train }) });
+            // isLast and isSecondLast: set below, once the day's trains are known
+            trains.push({ departs: start + offsets[i] + dayOffset * DAY, arrives: start + offsets[j] + dayOffset * DAY, ...(train && { train }), isLast: false, isSecondLast: false });
         }
         trains.sort((a, b) => a.departs - b.departs);
         const unique = trains.filter((d, k) => k === 0 || d.departs - trains[k - 1].departs >= DUPLICATE_SECONDS);
         const last = stasyLast(rail, leg, serviceDay);
         const lastKnown = last === undefined
-            || (last !== null && unique.length > 0 && Math.abs(unique.at(-1).departs - dayOffset * DAY - last) <= LAST_TRAIN_LEEWAY);
+            || (last !== null && unique.length > 0 && Math.abs(unique[unique.length - 1].departs - dayOffset * DAY - last) <= LAST_TRAIN_LEEWAY);
         const others = othersOnLeg(rail, leg, weekday, date, dayOffset);
         unique.forEach((d, k) => {
             const after = unique.length - 1 - k + others.filter(departs => departs > d.departs).length;
@@ -439,7 +465,10 @@ function planRoute(rail, route, now, ownDay = false) {
 // stops each of theirs is. ownDay: only the day's own trains (see departures)
 const searches = new WeakMap();
 
-/** @param {Rail} rail @param {AthensTime} now @param {boolean} ownDay */
+/** @typedef {import('./raptor.js').Route & { dir: string, along: number[] }} SearchRoute */
+/** @typedef {{ ids: string[], index: Map<string, number>, routes: SearchRoute[], planner: ReturnType<typeof createPlanner> }} Search */
+
+/** @param {Rail} rail @param {AthensTime} now @param {boolean} ownDay @returns {Search} */
 function searchFor(rail, now, ownDay) {
     if (!searches.has(rail)) searches.set(rail, new Map());
     const made = searches.get(rail);
@@ -447,6 +476,10 @@ function searchFor(rail, now, ownDay) {
     if (made.has(key)) return made.get(key);
     const ids = Object.keys(rail.stations);
     const index = new Map(ids.map((id, i) => [id, i]));
+    // Every stop of a line is one of rail's stations
+    /** @param {string} id */
+    const at = id => /** @type {number} */ (index.get(id));
+    /** @type {SearchRoute[]} */
     const routes = [];
     for (const [line, { directions, tram, suburban }] of Object.entries(rail.lines)) {
         for (const [dir, { stops, timetable }] of Object.entries(directions)) {
@@ -459,11 +492,11 @@ function searchFor(rail, now, ownDay) {
             }
             for (const [p, trips] of byProfile) {
                 const along = timetable.profiles[p].stops;
-                routes.push({ line, dir, along, mode: tram ? 'tram' : suburban ? 'suburban' : 'metro', stops: along.map(i => index.get(stops[i].station)), trips });
+                routes.push({ line, dir, along, mode: tram ? 'tram' : suburban ? 'suburban' : 'metro', stops: along.map(i => at(stops[i].station)), trips });
             }
         }
     }
-    const walks = ids.map(id => walksFrom(rail, id).flatMap(([to, minutes]) => [/** @type {number} */ (index.get(to)), minutes * 60]));
+    const walks = ids.map(id => walksFrom(rail, id).flatMap(([to, minutes]) => [at(to), minutes * 60]));
     const search = { ids, index, routes, planner: createPlanner({ stops: ids, routes, walks }) };
     made.set(key, search);
     return search;
@@ -501,8 +534,9 @@ function fastestRoutes(rail, from, to, now, ownDay) {
             const { line, dir, along } = routes[leg.route];
             return { line, dir, from: ids[leg.board], to: ids[leg.alight], fromIndex: along[leg.boardIndex], toIndex: along[leg.alightIndex] };
         });
+        const end = legs[legs.length - 1].to;
         const walkFirst = legs[0].from === from ? 0 : (rail.walks ?? {})[from][legs[0].from];
-        const walkLast = legs.at(-1).to === to ? 0 : (rail.walks ?? {})[legs.at(-1).to][to];
+        const walkLast = end === to ? 0 : (rail.walks ?? {})[end][to];
         const route = { legs, ...(walkFirst && { walkFirst }), ...(walkLast && { walkLast }) };
         if (comesBack(rail, from, route)) continue;
         best = at;
@@ -512,8 +546,9 @@ function fastestRoutes(rail, from, to, now, ownDay) {
 }
 
 // A station and those a walk from it, as the search takes them: [stop, seconds…]
-/** @param {Rail} rail @param {Map<string, number>} index @param {string} id */
-const around = (rail, index, id) => [index.get(id), 0, ...walksFrom(rail, id).flatMap(([stop, minutes]) => [index.get(stop), minutes * 60])];
+// (asked only for a station the search has, and every walk is to one)
+/** @param {Rail} rail @param {Map<string, number>} index @param {string} id @returns {number[]} */
+const around = (rail, index, id) => /** @type {number[]} */ ([index.get(id), 0, ...walksFrom(rail, id).flatMap(([stop, minutes]) => [index.get(stop), minutes * 60])]);
 
 // When the search gets to each of `ends` from `from`, leaving at `now`, with
 // up to MAX_CHANGES changes: seconds from that day's midnight, or null if not
@@ -548,10 +583,16 @@ export function planJourney(rail, from, to, now, ownDay = false) {
     routes.push(...fastestRoutes(rail, from, to, now, ownDay).filter(route => !known.has(routeKey(route))));
     const plans = routes.map(route => planRoute(rail, route, now, ownDay));
     const fewest = Math.min(...plans.map(plan => plan.legs.length));
+    /** @param {PlannedRoute} plan */
     const hasTram = plan => plan.legs.some(leg => rail.lines[leg.line].tram);
-    const worthIt = plan => plan.legs.length === fewest || hasTram(plan) || (plan.arrives !== null
-        && plans.every(other => other.legs.length >= plan.legs.length || (other.arrives ?? Infinity) - plan.arrives >= WORTH_A_CHANGE));
+    /** @param {PlannedRoute} plan */
+    const worthIt = plan => {
+        const { arrives } = plan;
+        return plan.legs.length === fewest || hasTram(plan) || (arrives !== null
+            && plans.every(other => other.legs.length >= plan.legs.length || (other.arrives ?? Infinity) - arrives >= WORTH_A_CHANGE));
+    };
     const rides = new Set();
+    /** @param {PlannedRoute} plan */
     const firstRide = plan => {
         const ride = JSON.stringify([plan.walkFirst ?? 0, plan.legs.map(leg => [leg.line, leg.from, leg.to]), plan.walkLast ?? 0]);
         return !rides.has(ride) && Boolean(rides.add(ride));

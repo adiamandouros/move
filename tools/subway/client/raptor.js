@@ -30,14 +30,21 @@ export const CHANGE_SECONDS = 180;
  * own seconds if not given)
  * @typedef {{ afterWalk?: number, walkSeconds?: ((from: number, to: number) => number) | null }} PlannerOptions
  */
+/**
+ * A route as the search rides it (withoutOvertaking): given, which of the
+ * given routes it's from; width, its stops; times, trip after trip, each
+ * trip's time at each stop
+ * @typedef {{ line: string, mode: string, given: number, stops: number[], width: number, trips: number, times: Int32Array }} Timed
+ */
 
 // A route's trips, in as many routes as it takes for none to overtake another:
 // the search takes the first trip it can catch to be the first to arrive too
-/** @param {Route} route @param {number} given */
+/** @param {Route} route @param {number} given @returns {Timed[]} */
 function withoutOvertaking(route, given) {
+    /** @type {number[][][]} */
     const groups = [];
     for (const trip of [...route.trips].sort((a, b) => a[0] - b[0])) {
-        let group = groups.find(g => trip.every((time, i) => time >= g.at(-1)[i]));
+        let group = groups.find(g => trip.every((time, i) => time >= g[g.length - 1][i]));
         if (!group) groups.push(group = []);
         group.push(trip);
     }
@@ -48,6 +55,7 @@ function withoutOvertaking(route, given) {
 }
 
 // The first trip of a route that leaves `position` at `from` or later
+/** @param {Pick<Timed, 'trips' | 'width' | 'times'>} route @param {number} position @param {number} from */
 function firstTrip({ trips, width, times }, position, from) {
     let low = 0;
     let high = trips;
@@ -171,6 +179,7 @@ export function createPlanner({ stops, routes: given, walks }, { afterWalk = 0, 
                 }
             }
             const improved = new Set();
+            /** @param {number} stop @param {number} at @param {number} from */
             const offer = (stop, at, from) => {
                 if (at > bound || at >= ready[k][stop]) return;
                 ready[k][stop] = at;
@@ -258,7 +267,9 @@ export function createPlanner({ stops, routes: given, walks }, { afterWalk = 0, 
         for (let i = 0; i < egress.length; i += 2) {
             if (!toDoor.has(egress[i]) || egress[i + 1] < toDoor.get(egress[i])) toDoor.set(egress[i], egress[i + 1]);
         }
+        /** @type {Map<string, { at: number, stop: number, walk: number, leg: Leg }>} */
         const best = new Map();
+        /** @param {number} board @param {number} ready @param {number} walkBefore */
         const from = (board, ready, walkBefore) => {
             const through = serving[board];
             for (let j = 0; j < through.length; j += 2) {
@@ -303,13 +314,15 @@ export function createPlanner({ stops, routes: given, walks }, { afterWalk = 0, 
      * @returns {(Leg & { next: number | null })[] | null}
      */
     function ride(legs, start) {
+        /** @type {(Leg & { next: number | null })[]} */
         const timed = [];
         let ready = start;
         for (const leg of legs) {
-            if (timed.length) ready = timed.at(-1).arrives + (leg.walkBefore ? leg.walkBefore + afterWalk : CHANGE_SECONDS);
+            if (timed.length) ready = timed[timed.length - 1].arrives + (leg.walkBefore ? leg.walkBefore + afterWalk : CHANGE_SECONDS);
             const through = serving[leg.board];
             /** @type {(Leg & { next: number | null }) | null} */
             let best = null;
+            /** @type {[Timed, number][]} */
             const taking = [];
             for (let j = 0; j < through.length; j += 2) {
                 const route = routes[through[j]];
