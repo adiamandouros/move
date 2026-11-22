@@ -15,6 +15,19 @@ export interface Strings {
 /** Gives the page's string for a key, in its language */
 export type StringGetter = (key: string) => string;
 
+/** A tool's data.json: the values its page.hbs gets, typed where the server reads them too */
+export interface ToolData {
+    /** With "rail" in tool.json: the trains whose times its rows get (server/pages/last-trains.js) */
+    lastTrains?: { table: Asked[]; facts: Record<string, Asked> };
+    /** The fares its page shows as prices (server/pages/fares.js) */
+    fares?: import('../server/pages/fares.js').Fares;
+    /** When each section's facts were last checked, by its heading ({{> checked}}, /admin/diagnostics) */
+    checked?: Record<string, { date: string }>;
+    [key: string]: unknown;
+}
+
+type Asked = import('../server/pages/last-trains.js').Asked;
+
 /** A tools/<id>/ folder, as loadTools reads it (see tools/README.md) */
 export interface Tool {
     id: string;
@@ -39,7 +52,7 @@ export interface Tool {
     /** strings.json */
     strings: Strings;
     /** data.json: the values its page.hbs gets ({} without one) */
-    data: Record<string, any>;
+    data: ToolData;
     /** Full path of client/ */
     clientDir: string;
 }

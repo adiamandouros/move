@@ -84,7 +84,7 @@ export function sitePages(tools, config = loadConfig({}), rail = () => null) {
                 // with "fares", its prices as the page shows them, as `prices` (fares.js)
                 content: (lang, strings) => page({
                     ...tool.data,
-                    ...tool.rail && { metro: lastTrains(rail(), tool.data.lastTrains, lang, stringGetter(strings, lang)) },
+                    ...tool.rail && tool.data.lastTrains && { metro: lastTrains(rail(), tool.data.lastTrains, lang, stringGetter(strings, lang)) },
                     ...tool.data.fares && { prices: fares(tool.data.fares, lang) },
                 }, { lang, strings }),
                 // With the strings of the tools it borrows from (tool.json "borrows")
@@ -134,6 +134,10 @@ export function loadTools(dir = TOOLS_DIR) {
             for (const field of ['path', 'icon', 'title']) {
                 if (!config[field]) throw new Error(`tools/${id}/tool.json is missing "${field}"`);
             }
+            /** @type {import('../../types/pages.js').ToolData} */
+            const data = existsSync(join(toolDir, 'data.json')) ? JSON.parse(readFileSync(join(toolDir, 'data.json'), 'utf8')) : {};
+            // "rail" draws its data.json "lastTrains" rows' times
+            if (config.rail && !data.lastTrains) throw new Error(`tools/${id}/tool.json has "rail", so its data.json needs "lastTrains"`);
             return {
                 id,
                 order: 0,
@@ -143,7 +147,7 @@ export function loadTools(dir = TOOLS_DIR) {
                 ...config,
                 view: join(toolDir, 'page.hbs'),
                 strings: existsSync(join(toolDir, 'strings.json')) ? JSON.parse(readFileSync(join(toolDir, 'strings.json'), 'utf8')) : {},
-                data: existsSync(join(toolDir, 'data.json')) ? JSON.parse(readFileSync(join(toolDir, 'data.json'), 'utf8')) : {},
+                data,
                 clientDir: join(toolDir, 'client'),
             };
         })

@@ -50,6 +50,7 @@ const STASY_PATH = /^[A-Za-z0-9%_-][A-Za-z0-9%_.-]{0,299}$/;
 // Greek allowed: the airport PDFs' names are 359 characters), no encoded
 // slashes or dots
 const STASY_FILE = /^wp-content\/uploads\/\d{4}\/\d{2}\/[A-Za-z0-9%_.-]{1,600}\.pdf$/;
+/** @param {string | number} line */
 export const stasyTimetablePath = line => `%ce%b4%cf%81%ce%bf%ce%bc%ce%bf%ce%bb%cf%8c%ce%b3%ce%b9%ce%b1/%ce%b3%cf%81%ce%b1%ce%bc%ce%bc%ce%ae-${line}/`;
 // STASY's news page is large and slow; the server waits longer for it (25 s)
 const STASY_TIMEOUT_MS = 20_000;
@@ -57,7 +58,20 @@ const STASY_TIMEOUT_MS = 20_000;
 // reported back as a 502 before the server gives up on the relay
 const TIMEOUT_MS = 6000;
 
+/**
+ * What the relay is given: Cloudflare's request (with where it came in,
+ * `cf`) or node.js's, and the secret every request must carry
+ * @typedef {Request & { cf?: { colo?: string } }} RelayRequest
+ * @typedef {{ RELAY_KEY?: string }} RelayEnv
+ */
+
+// What went wrong, for the 502's text: messageOf (server/errors.js) written
+// out, as the relay is deployed without the rest of the code
+/** @param {unknown} err */
+const messageOf = err => err instanceof Error ? err.message : String(err);
+
 export default {
+    /** @param {RelayRequest} request @param {RelayEnv} env */
     async fetch(request, env) {
         if (request.method !== 'GET') return text(405, 'Method not allowed');
         if (!env.RELAY_KEY || !(await sameSecret(request.headers.get('X-Relay-Key') ?? '', env.RELAY_KEY))) {
@@ -89,26 +103,30 @@ export default {
                 headers: { 'Content-Type': upstream.headers.get('Content-Type') ?? 'application/json', 'Cache-Control': 'no-store' },
             });
         } catch (err) {
-            return text(502, `Upstream error: ${err.message}`);
+            return text(502, `Upstream error: ${messageOf(err)}`);
         }
     },
 };
 
+/** @param {RelayRequest} request @param {string} path */
 async function stasyPage(request, path) {
     if (!STASY_PATH.test(path) || path.includes('..')) return text(400, 'Bad request');
     return stasyFetch(request, `${STASY}${path}/`);
 }
 
+/** @param {RelayRequest} request @param {string} line */
 async function stasyTimetable(request, line) {
     if (!['1', '2', '3'].includes(line)) return text(400, 'Bad request');
     return stasyFetch(request, `${STASY}${stasyTimetablePath(line)}`);
 }
 
+/** @param {RelayRequest} request @param {string} path */
 async function stasyFile(request, path) {
     if (!STASY_FILE.test(path) || path.includes('..') || /%(2f|5c|2e)/i.test(path)) return text(400, 'Bad request');
     return stasyFetch(request, `${STASY}${path}`, 'application/pdf');
 }
 
+/** @param {RelayRequest} request @param {string} url */
 async function stasyFetch(request, url, accept = 'text/html') {
     try {
         const upstream = await fetch(url, {
@@ -120,29 +138,33 @@ async function stasyFetch(request, url, accept = 'text/html') {
             headers: { 'Content-Type': upstream.headers.get('Content-Type') ?? 'text/html', 'Cache-Control': 'no-store' },
         });
     } catch (err) {
-        return text(502, `Upstream error: ${err.message}`);
+        return text(502, `Upstream error: ${messageOf(err)}`);
     }
 }
 
+/** @param {number} status @param {string} body */
 function text(status, body) {
     return new Response(body, { status, headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' } });
 }
 
 // Where requests leave Cloudflare from when this Worker fetches something:
 // Cloudflare's trace endpoint reports the data centre (colo) and country (loc)
+/** @param {RelayRequest} request */
 async function whereAmI(request) {
+    /** @type {{ receivedAt: string | null, colo?: string | null, loc?: string | null, ip?: string | null, error?: string }} */
     const out = { receivedAt: request.cf?.colo ?? null };
     try {
         const trace = await (await fetch('https://www.cloudflare.com/cdn-cgi/trace', { signal: AbortSignal.timeout(TIMEOUT_MS) })).text();
         const fields = Object.fromEntries(trace.trim().split('\n').map(l => l.split('=')));
         Object.assign(out, { colo: fields.colo ?? null, loc: fields.loc ?? null, ip: fields.ip ?? null });
     } catch (err) {
-        out.error = err.message;
+        out.error = messageOf(err);
     }
     return new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 }
 
 // Compare secrets without leaking their length or contents through timing
+/** @param {string} a @param {string} b */
 async function sameSecret(a, b) {
     const enc = new TextEncoder();
     const [ha, hb] = await Promise.all([crypto.subtle.digest('SHA-256', enc.encode(a)), crypto.subtle.digest('SHA-256', enc.encode(b))]);

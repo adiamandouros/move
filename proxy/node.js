@@ -15,6 +15,7 @@ import { pathToFileURL } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import worker from './worker.js';
 
+/** @param {import('./worker.js').RelayEnv} env */
 export function createRelayServer(env) {
     return createServer(async (req, res) => {
         let response;
