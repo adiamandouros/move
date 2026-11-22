@@ -5,6 +5,7 @@ import { searcher } from './searcher.js';
 // page's import map doesn't reach a worker, so the service worker fetches
 // them from the server first (sw.js).
 
+/** @param {string} url */
 async function loadJson(url) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);

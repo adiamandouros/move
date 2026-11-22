@@ -16,6 +16,7 @@ import { startTrace } from './trace.js';
 import { TRAINS_URL } from './trains.js';
 import { howExact, liveNotice, placeTitle, quickerSummary, rangeText, renderHalf, renderTrip, routeSummary, stepFreeSummary, switchIn } from './render.js';
 
+/** @param {string} id */
 const $ = id => document.getElementById(id);
 const result = /** @type {HTMLElement} */ ($('trip-result'));
 const liveBox = /** @type {HTMLElement} */ ($('trip-live-status'));
@@ -33,12 +34,14 @@ const TICK_MS = 1_000;
 // searches take on this device, for phone tests (roadmap Plan 7)
 const TIMING = new URLSearchParams(location.search).has('timing');
 
+/** @param {string} url */
 async function loadJson(url) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response.json();
 }
 
+/** @returns {Promise<import('../../../types/data.js').Rail | null>} */
 async function loadRail() {
     try {
         return await loadJson('/data/rail.json');
@@ -52,6 +55,7 @@ async function loadRail() {
 // page loads it: from the browser's copy, the searches' own being in their
 // worker. Nothing waits for it: until it's in, or without it, a train's ride
 // is a row
+/** @returns {Promise<import('../../../types/data.js').Trains | null>} */
 async function loadTrains() {
     try {
         return await loadJson('/data/trains.json');
@@ -60,6 +64,8 @@ async function loadTrains() {
     }
 }
 
+/** @typedef {import('./controller.js').Place} Place */
+/** @typedef {import('./picker.js').Found} Found */
 /** @typedef {import('./searcher.js').Asked} Asked */
 /** @typedef {import('./searcher.js').Answered} Answered */
 /**
@@ -76,7 +82,7 @@ async function loadTrains() {
 // the city is planned on. Null where a browser can't start it: then, as when
 // the buses' times can't be loaded, the trip is by metro and tram, and says so
 // `suburban`: whether they have the suburban railway, unless it's hidden on the Subway page (decision 41)
-/** @returns {Searches | null} */
+/** @param {import('../../../types/data.js').Rail} rail @param {boolean} suburban @returns {Searches | null} */
 function startSearches(rail, suburban) {
     try {
         /** @type {Searches} */
@@ -102,9 +108,11 @@ async function updateWaiting() {
 // The half hour's kind of answer (answer.js), in words; its departures are
 // tried every 2 minutes (answer.js's STEP_SECONDS)
 const KINDS = { clear: 'trip.half-clear', decision: 'trip.half-decision', depends: 'trip.half-depends', none: 'trip.half-none' };
+/** @param {import('./controller.js').HalfAnswer | null} half */
 const halfWords = half => half ? formatHtml(t('trip.timing-half'), { minutes: minutesMark(2, t), ms: half.ms, kind: t(KINDS[half.kind]) }) : html`${t('trip.timing-half-working')}`;
 
 // The timing, under the answer
+/** @param {{ city: number | null, answer: number, half: import('./controller.js').HalfAnswer | null }} timing */
 function timingBox(timing) {
     return html`<div class="trip-card" id="trip-timing">
         <h2 class="route-option-label">${t('trip.timing-title')}</h2>
@@ -116,28 +124,33 @@ function timingBox(timing) {
 // What a place found means for a trip: a metro station is that station, and
 // so is a tram stop when the tram is planned on, so there's no walk to it, and
 // it goes by the page's language
+/** @param {import('/tools/subway/network.js').Rail} rail @param {Found} found @returns {Place} */
 function chosenPlace(rail, found) {
     const place = { lat: found.lat, lng: found.lng, title: placeTitle(found) };
-    const tram = { metro: false, tram: true }[found.placeKind];
+    const tram = /** @type {Partial<Record<string, boolean>>} */ ({ metro: false, tram: true })[found.placeKind ?? ''];
     if (tram === undefined || (tram && !Object.values(rail.stations).some(station => station.tram))) return place;
     const station = closestStation(rail, found.lat, found.lng, tram);
     return { ...place, station, title: localName(rail.stations[station].name, language) };
 }
 
 // `metro`: rail.json, which the page plans on with its tram or without it
+/** @param {import('../../../types/data.js').Rail} metro */
 function start(metro) {
     const hidden = tramHidden();
     const rail = hidden ? metro : withTram(metro);
     // Each end's place as search found it, kept on the device (kept.js)
-    /** @type {WeakMap<object, object>} */
+    /** @type {WeakMap<Place, Found>} */
     const foundOf = new WeakMap();
     const noSuburban = suburbanHidden();
     let searches = startSearches(hidden ? { ...metro, tram: undefined } : metro, !noSuburban);
     // What the answer is drawn on: `rail`, with the day's suburban trains
     // joined once trains.json is in, for their rides' cards (decision 47).
     // The page plans on `rail` alone; its trains come from the searches
+    /** @type {import('../../../types/data.js').Trains | null} */
     let timetable = null;
+    /** @type {{ date: string | null, rail: import('/tools/subway/network.js').Rail }} */
     let joined = { date: null, rail };
+    /** @param {string} date */
     const drawnOn = date => {
         if (!timetable) return rail;
         if (joined.date !== date) joined = { date, rail: withSuburban(rail, timetable, date) };
@@ -175,6 +188,7 @@ function start(metro) {
     watchLegStations(result, openedLegs);
     // A stop's row as the rider opens or closes it, so a redraw while it
     // slides keeps what they chose
+    /** @param {Event} e */
     const stopOf = e => /** @type {HTMLElement} */ (e.target).closest('.trip-stop')?.querySelector('.stop-item')?.getAttribute('data-stop');
     result.addEventListener('show.bs.collapse', e => { const code = stopOf(e); if (code) openedStops().add(code); });
     result.addEventListener('hide.bs.collapse', e => { const code = stopOf(e); if (code) openedStops().delete(code); });
@@ -250,6 +264,7 @@ function start(metro) {
         }
         if (sayHalf) announce(halfReady(ways));
     };
+    /** @param {ReturnType<typeof import('./half.js').halfWays>} ways */
     const halfReady = ways => format(t('trip.half-ready'), { range: rangeText(ways[0].row) });
 
     // The quicker way's buttons and the way back (decision 36, T14), and
@@ -423,12 +438,14 @@ function start(metro) {
     });
 
     // A place found, chosen for an end, with what it was found as
+    /** @param {Found} found */
     const placeFor = found => {
         const place = chosenPlace(rail, found);
         foundOf.set(place, found);
         return place;
     };
     // How exact an end is, under its field, as when it was picked (picker.js)
+    /** @param {ReturnType<typeof placePicker>} picker @param {Place | null} place */
     const sayExact = (picker, place) => {
         const found = place && foundOf.get(place);
         picker.say((found && howExact(found)?.words) ?? '');
@@ -436,7 +453,7 @@ function start(metro) {
     // The field says the place as the answer does: a station by the page's
     // language. A start typed or picked turns My location off (the controller)
     /** @param {HTMLInputElement} input @param {'from' | 'to'} end */
-    const chooser = (input, end) => found => {
+    const chooser = (input, end) => /** @param {Found | null} found */ found => {
         const place = found ? placeFor(found) : null;
         if (place) input.value = place.title;
         tell({ type: end, place, say: Boolean(found) });
@@ -457,8 +474,10 @@ function start(metro) {
 
     // A field holds a choice while its place is set (My location's too):
     // typing sets it to null
-    const fromPicker = placePicker({ input: fromInput, list: $('trip-from-list'), status: $('trip-from-status'), rail, onChange: chooser(fromInput, 'from'), chosen: () => Boolean(trip.from) });
-    const toPicker = placePicker({ input: toInput, list: $('trip-to-list'), status: $('trip-to-status'), rail, onChange: chooser(toInput, 'to'), chosen: () => Boolean(trip.to) });
+    /** @param {string} id */
+    const element = id => /** @type {HTMLElement} */ ($(id));
+    const fromPicker = placePicker({ input: fromInput, list: element('trip-from-list'), status: element('trip-from-status'), rail, onChange: chooser(fromInput, 'from'), chosen: () => Boolean(trip.from) });
+    const toPicker = placePicker({ input: toInput, list: element('trip-to-list'), status: element('trip-to-status'), rail, onChange: chooser(toInput, 'to'), chosen: () => Boolean(trip.to) });
 
     // What was typed before the train times had loaded is replayed as
     // typing, so it's searched

@@ -26,9 +26,21 @@ const DAY = 86_400;
 // Longer than this until a train: the trains have stopped for the night
 const LONGEST_WAIT = 3600;
 
-/** @typedef {import('../../../types/data.js').Rail} Rail */
+/** @typedef {import('/tools/subway/network.js').Rail} Rail */
+/** @typedef {import('/tools/subway/network.js').AthensTime} AthensTime */
 /** @typedef {{ lat: number, lng: number, station?: string }} Place */
 /** @typedef {import('./buses.js').BusOption} BusOption */
+/**
+ * A station to try from a place or at the trip's end (stationsNear): the
+ * walk to it or from it, null when the place is the station
+ * @typedef {{ station: string, walk: ReturnType<typeof walkStation> | null, nearest: boolean }} Near
+ */
+/**
+ * An option by metro and tram alone (option): it has no `city`, which a way
+ * of the city's search has
+ * @typedef {NonNullable<ReturnType<typeof option>> & { city?: undefined }} MetroOption
+ */
+/** @typedef {MetroOption | BusOption} TripOption one of the Trip page's options: by metro and tram alone, or a way of the city's search */
 
 /** @param {Place} from @param {Place} to */
 export function walkBetween(from, to) {
@@ -37,6 +49,7 @@ export function walkBetween(from, to) {
 }
 
 // A station as the city's search walks to it (city.js), with a metro station's exits
+/** @param {Rail} rail @param {string} station */
 const stationPlace = (rail, station) => {
     const { coords, exits } = rail.stations[station];
     return { lat: coords[0], lng: coords[1], exits };
@@ -49,6 +62,7 @@ const stationPlace = (rail, station) => {
  * the station is, which say how far it is (NEAR_MINUTES), as for the city's
  * search, so its exits never put it out of reach
  * @param {Rail} rail @param {Place} place @param {string} station @param {import('/tools/subway/city.js').Way} way
+ * @returns {{ meters: number, minutes: number, away: number, in?: number, out?: number }}
  */
 export function walkStation(rail, place, station, way) {
     const at = stationPlace(rail, station);
@@ -61,7 +75,7 @@ export function walkStation(rail, place, station, way) {
 // first. nearest: one of the metro stations nearest it, or the station it
 // is: every trip between those is planned. The others are any station or
 // tram stop a short walk away on the street
-/** @param {Rail} rail @param {Place} place @param {import('/tools/subway/city.js').Way} [way] */
+/** @param {Rail} rail @param {Place} place @param {import('/tools/subway/city.js').Way} [way] @returns {Near[]} */
 export function stationsNear(rail, place, way = 'in') {
     if (place.station) return [{ station: place.station, walk: null, nearest: true }];
     const all = Object.keys(rail.stations)
@@ -73,6 +87,7 @@ export function stationsNear(rail, place, way = 'in') {
 }
 
 // `now`, `minutes` later, into the next day if it comes to that
+/** @param {AthensTime} now @param {number} minutes @returns {AthensTime} */
 function later(now, minutes) {
     const seconds = now.seconds + minutes * 60;
     return seconds < DAY ? { ...now, seconds } : { ...nextDay(now), seconds: seconds - DAY };
@@ -80,10 +95,12 @@ function later(now, minutes) {
 
 // The minutes on foot of a metro or tram option: to the station and from the
 // last, to and from a stop beside one, and between stations on the way
+/** @param {Rail} rail @param {Near} start @param {Near} end @param {import('/tools/subway/network.js').PlannedRoute} plan */
 const walkedMinutes = (rail, start, end, plan) => (start.walk?.minutes ?? 0) + (end.walk?.minutes ?? 0)
     + (plan.walkFirst ?? 0) + (plan.walkLast ?? 0)
-    + plan.legs.reduce((sum, leg, i) => sum + (i && plan.legs[i - 1].to !== leg.from ? rail.walks[plan.legs[i - 1].to][leg.from] : 0), 0);
+    + plan.legs.reduce((sum, leg, i) => sum + (i && plan.legs[i - 1].to !== leg.from ? (rail.walks ?? {})[plan.legs[i - 1].to][leg.from] : 0), 0);
 
+/** @param {Rail} rail @param {Near} start @param {Near} end @param {AthensTime} now */
 function option(rail, start, end, now) {
     const leave = later(now, start.walk?.minutes ?? 0);
     const { plans, now: day, tomorrow } = planTrip(rail, start.station, end.station, leave);
@@ -105,7 +122,9 @@ function option(rail, start, end, now) {
 
 // The trips the search gets to the door soonest, soonest first: for each
 // station to start from, one search to every station at the other end
+/** @param {Rail} rail @param {{ start: Near, end: Near }[]} pairs @param {AthensTime} now */
 function soonest(rail, pairs, now) {
+    /** @type {Map<{ start: Near, end: Near }, number>} */
     const at = new Map();
     for (const start of new Set(pairs.map(pair => pair.start))) {
         const leave = later(now, start.walk?.minutes ?? 0);
@@ -114,17 +133,20 @@ function soonest(rail, pairs, now) {
             if (arrives !== null) at.set(from[i], arrives + (leave.date === now.date ? 0 : DAY) + (from[i].end.walk?.minutes ?? 0) * 60);
         });
     }
-    return [...at.keys()].sort((a, b) => at.get(a) - at.get(b));
+    return [...at].sort((a, b) => a[1] - b[1]).map(([pair]) => pair);
 }
 
+/** @param {MetroOption} o */
 const linesOf = o => o.plan.legs.map(leg => leg.line).join();
 // From the same station or stop on the same lines, however it's walked to
 // (the city's search keeps its ways apart itself)
+/** @param {TripOption} a @param {TripOption} b */
 const sameWay = (a, b) => !a.city && !b.city && a.plan.legs[0].from === b.plan.legs[0].from && linesOf(a) === linesOf(b);
 // An option's walk from the door and to it, in minutes
+/** @param {TripOption} o */
 const endWalks = o => o.city ? [o.firstWalk?.minutes ?? 0, o.lastWalk?.minutes ?? 0] : [o.start.walk?.minutes ?? 0, o.end.walk?.minutes ?? 0];
 // An option's walk at either end is a long one
-/** @param {ReturnType<typeof option> | BusOption} o */
+/** @param {TripOption} o */
 export const isLongWalk = o => Math.max(...endWalks(o)) >= LONG_WALK_MINUTES;
 
 // The trip, door to door: `options`, in order by what they cost a rider
@@ -134,7 +156,7 @@ export const isLongWalk = o => Math.max(...endWalks(o)) >= LONG_WALK_MINUTES;
 // walking gets there sooner than any option, or there's none to take.
 // `longWalk`: the first option's walk at either end is a long one.
 /**
- * @param {Rail} rail @param {Place} from @param {Place} to @param {{ weekday: number, seconds: number, date: string }} now
+ * @param {Rail} rail @param {Place} from @param {Place} to @param {AthensTime} now
  * @param {{ buses?: BusOption[] }} [options]
  */
 export function doorToDoor(rail, from, to, now, { buses = [] } = {}) {

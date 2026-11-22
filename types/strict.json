@@ -87,17 +87,6 @@
     "tools/buses/client/views/nearby.js": 3,
     "tools/info/client/main.js": 22,
     "tools/info/client/map.js": 170,
-    "tools/trip/client/buses.js": 16,
-    "tools/trip/client/controller.js": 13,
-    "tools/trip/client/follow.js": 11,
-    "tools/trip/client/kept.js": 4,
-    "tools/trip/client/legs.js": 6,
-    "tools/trip/client/main.js": 20,
-    "tools/trip/client/picker.js": 24,
-    "tools/trip/client/plan.js": 26,
-    "tools/trip/client/recent.js": 4,
     "tools/trip/client/render.js": 154,
-    "tools/trip/client/trains.js": 2,
-    "tools/trip/client/worker.js": 1,
     "types/pages.d.ts": 1
 }

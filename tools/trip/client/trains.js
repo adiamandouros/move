@@ -51,6 +51,7 @@ export function trainsDue(train, { asking, asked, answer }, nowMs, seconds) {
  * @param {{ line: string, board: number, alight: number }} leg
  */
 function tripsOf(planner, leg) {
+    /** @type {{ route: number, boardIndex: number, alightIndex: number, boards: number, arrives: number, train: string | null }[]} */
     const trips = [];
     planner.routes.forEach((route, given) => {
         if (route.mode !== 'suburban' || route.line !== leg.line) return;
@@ -86,8 +87,9 @@ export function trainRide(planner, leg, ready, trains) {
         .filter(trip => trip.boards >= ready || (trip.late?.exact && trip.boards + trip.late.late >= ready + SPARE_SECONDS))
         .sort((a, b) => a.at - b.at || a.boards - b.boards);
     if (!best) return null;
-    const { route, boardIndex, alightIndex, boards, train } = best;
-    return { ...leg, route, boardIndex, alightIndex, boards: boards < ready ? boards + best.late.late : boards, arrives: best.at, timetable: boards, train };
+    const { route, boardIndex, alightIndex, boards, train, late } = best;
+    // One leaving before `ready` was kept for its lateness, so it has one
+    return { ...leg, route, boardIndex, alightIndex, boards: boards < ready && late ? boards + late.late : boards, arrives: best.at, timetable: boards, train };
 }
 
 /**

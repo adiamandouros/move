@@ -14,6 +14,10 @@ import { localStore } from '/js/core/storage.js';
 // leave by its key, so it's shown first again; on a ride, the way switched
 // to itself, with the ride, as it can't be searched again from the start. No DOM, so it's tested in Node; main.js follows.
 
+/** @typedef {import('./picker.js').Found} Found */
+/** @typedef {import('./controller.js').KeptRide} KeptRide */
+/** @typedef {import('./controller.js').Switched} Switched */
+
 export const KEEP_MS = 3 * 3_600_000;
 const KEY = 'trip';
 
@@ -28,20 +32,23 @@ function read() {
 }
 
 // A ride as keepRide keeps it, or null for anything else (an older or broken copy)
+/** @param {Partial<KeptRide> | null | undefined} ride @returns {KeptRide | null} */
 const rideOf = ride => typeof ride?.from?.lat === 'number' && typeof ride.from.lng === 'number' && typeof ride.key === 'string'
-    && Array.isArray(ride.steps) && typeof ride.state?.step === 'number' && typeof ride.now?.seconds === 'number' && typeof ride.at === 'number' ? { ...ride, switched: switchedOf(ride.switched) } : null;
+    && Array.isArray(ride.steps) && typeof ride.state?.step === 'number' && typeof ride.now?.seconds === 'number' && typeof ride.at === 'number' ? /** @type {KeptRide} */ ({ ...ride, switched: switchedOf(ride.switched) }) : null;
 // The way switched to on the ride (decision 64): the way found ahead itself
 // (buses.js Ahead) and whose it was, the switch's or the rider's pick
+/** @param {Partial<Switched> | null | undefined} switched @returns {Switched | null} */
 const switchedOf = switched => typeof switched?.way?.key === 'string' && typeof switched.way.leg === 'number' && Array.isArray(switched.way.way?.legs)
-    && (switched.by === 'quicker' || switched.by === 'picked') ? switched : null;
+    && (switched.by === 'quicker' || switched.by === 'picked') ? /** @type {Switched} */ (switched) : null;
 
+/** @param {{ from?: Found | null, to?: Found | null }} trip */
 const endsOf = ({ from, to }) => JSON.stringify({ from: from ?? null, to: to ?? null });
 
 /**
  * Keep the trip's ends, each the place found or null; neither forgets it.
  * The same ends keep the time they were first kept, the ride followed on
  * them and the way picked; other ends drop them
- * @param {{ from: object | null, to: object | null }} trip
+ * @param {{ from: Found | null, to: Found | null }} trip
  * @param {number} nowMs
  */
 export function keepTrip({ from, to }, nowMs) {
@@ -69,7 +76,7 @@ export function keepPicked(key, nowMs) {
  * Keep the ride followed on the trip kept, or null for none: kept as long
  * as the trip, which following it keeps from growing old. Nothing without a
  * trip kept
- * @param {object | null} ride
+ * @param {KeptRide | null} ride
  * @param {number} nowMs
  */
 export function keepRide(ride, nowMs) {
