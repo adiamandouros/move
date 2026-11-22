@@ -70,8 +70,10 @@ export function renderPages(tools = loadTools(), config = loadConfig({}), rail =
         });
     };
 
+    /** @type {Record<string, string>} */
     const pages = {};
     // The pages drawn from rail.json, to draw again when it changes: path → () => HTML
+    /** @type {Record<string, () => string>} */
     const railPages = {};
     for (const lang of LANGS) {
         for (const page of list) {
@@ -81,8 +83,10 @@ export function renderPages(tools = loadTools(), config = loadConfig({}), rail =
         }
     }
     // The 404 page for a path, in its language, with the language link to the same path
+    /** @param {string} path */
     const notFound = path => renderPage(NOT_FOUND, langOf(path), basePath(path));
     // The same for the error page (server/errors.js)
+    /** @param {string} path */
     const errorPage = path => renderPage(SERVER_ERROR, langOf(path), basePath(path));
     // The pages search engines should find (English paths), for the sitemap
     const indexed = list.filter(page => page.index !== false).map(page => page.path);
@@ -92,8 +96,9 @@ export function renderPages(tools = loadTools(), config = loadConfig({}), rail =
 // The app manifest in one language (public/icon/site.webmanifest is the
 // English one): an app installed from a Greek page opens at /el, with its
 // description in Greek. Both have the same id, so it's one app either way.
+/** @type {{ icons: object[] }} */
 const BASE_MANIFEST = JSON.parse(readFileSync(new URL('../../public/icon/site.webmanifest', import.meta.url), 'utf8'));
-/** @param {string} lang @param {string} description */
+/** @param {import('../../types/pages.js').Lang} lang @param {string} description */
 function appManifest(lang, description) {
     const icons = BASE_MANIFEST.icons.map(icon => ({ ...icon }));
     return { ...BASE_MANIFEST, lang, start_url: localPath('/', lang), description, icons };
@@ -129,7 +134,8 @@ export function createPages(tools = loadTools(), { railFile, trainsFile, config 
         ...createNetworkStationPages({ railFile, trainsFile, renderPage, tools, origin: config.siteUrl, opened }),
     ] : [];
     // A page drawn from rail.json, drawn again once it changes (the others are drawn once, above)
-    let drawn = { key: rail().key, html: {} };
+    let drawn = /** @type {{ key: string | null, html: Record<string, string> }} */ ({ key: rail().key, html: {} });
+    /** @param {string} path */
     const pageAt = path => {
         if (!railPages[path]) return pages[path];
         const { key } = rail();
@@ -137,6 +143,7 @@ export function createPages(tools = loadTools(), { railFile, trainsFile, config 
         return (drawn.html[path] ??= railPages[path]());
     };
     // SITE_URL if set, so search engines only ever see the public address
+    /** @param {import('express').Request} req */
     const origin = req => config.siteUrl || `${req.protocol}://${req.get('host')}`;
 
     router.get('/sw.js', (_req, res) => {
@@ -188,6 +195,7 @@ export function createPages(tools = loadTools(), { railFile, trainsFile, config 
         // (server/csp.js). Station and admin pages share the layout, so the
         // same scripts; csp.test.js checks every page against the policy.
         inlineScripts: new Set([...Object.values(pages), notFound('/'), notFound('/el/'), errorPage('/')].flatMap(inlineScripts)),
+        /** @param {import('express').Request} req @param {import('express').Response} res */
         notFound: (req, res) => res.status(404).type('html').send(notFound(req.path)),
         // The error page for an address, in its language (server/errors.js)
         errorPage,

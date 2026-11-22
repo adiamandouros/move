@@ -5,9 +5,15 @@ import { athensDate } from '../../tools/subway/client/network.js';
 // last trains): read again when it changes, or when the day does (pages say
 // whether its timetable has ended). `key` changes with it, so a page drawn
 // from it can be kept until then. Before the first build: { key: null, rail: null }.
-/** @param {string} file @returns {() => { key: string | null, rail: import('../../types/data.js').Rail | null }} */
+// trains.json is read the same way: a reader given the type
+// `() => { key: string | null, rail: Trains | null }` reads it as Trains
+// (stations.js); any other reads rail.json's Rail.
+/**
+ * @template [T=import('../../types/data.js').Rail]
+ * @param {string} file @returns {() => { key: string | null, rail: T | null }}
+ */
 export function railReader(file) {
-    let loaded = /** @type {{ key: string | null, rail: import('../../types/data.js').Rail | null }} */ ({ key: null, rail: null });
+    let loaded = /** @type {{ key: string | null, rail: T | null }} */ ({ key: null, rail: null });
     return () => {
         try {
             const key = `${statSync(file).mtimeMs} ${athensDate()}`;

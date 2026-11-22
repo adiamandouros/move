@@ -12,20 +12,33 @@
 // trips: how many 90-minute tickets (or bank card taps) cost at least as much
 // as the pass, at the full and the reduced fare: from there, the pass pays off.
 
-/** A price as each language writes it: €1.20, €1,20; `cents` false drops ".00" */
+/**
+ * @typedef {{ price: number, reduced?: number }} Ticket
+ * @typedef {{ single: { price: number, reduced: number }, day: Ticket, fiveDays: Ticket, tourist: Ticket,
+ *   packs: { trips: number, price: number, reduced: number }[],
+ *   passes: { days: number, price: number, reduced: number, withAirport: number }[] }} Fares
+ */
+
+/**
+ * A price as each language writes it: €1.20, €1,20; `cents` false drops ".00"
+ * @param {number} amount @param {string} lang
+ */
 export function euro(amount, lang, cents = true) {
     const text = cents || !Number.isInteger(amount) ? amount.toFixed(2) : String(amount);
     return `€${lang === 'el' ? text.replace('.', ',') : text}`;
 }
 
 // The fewest trips at `fare` that cost at least `price` (in cents, so 27 / 1.20 isn't 22.4999…)
+/** @param {number} price @param {number} fare */
 export function tripsFor(price, fare) {
     return Math.ceil(Math.round(price * 100) / Math.round(fare * 100));
 }
 
-/** @param {Record<string, any>} fares data.json "fares" @param {string} lang */
+/** @param {Fares} fares data.json "fares" @param {string} lang */
 export function fares(fares, lang) {
+    /** @param {Ticket} ticket */
     const one = ({ price, reduced }) => ({ price: euro(price, lang), reduced: reduced === undefined ? '–' : euro(reduced, lang) });
+    /** @template {string} K @param {Record<K, number>[]} items @param {K} key */
     const list = (items, key, cents = true) => items.map(item => euro(item[key], lang, cents)).join(' / ');
     const { single } = fares;
     return {

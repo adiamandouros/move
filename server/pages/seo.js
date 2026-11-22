@@ -10,6 +10,10 @@ const LOCALES = { en: 'en_US', el: 'el_GR' };
 // indexed (the 404, /offline, the admin pages) are kept out of search
 // results. path is the English one; origin is the public address
 // (SITE_URL), without which the tags that need it are left out.
+/**
+ * @param {{ path: string | null, index: boolean, lang: import('../../types/pages.js').Lang, title: string,
+ *   description: string, origin?: string }} page
+ */
 export function pageMeta({ path, index, lang, title, description, origin = '' }) {
     if (!path || !index) return { index: false };
     const url = origin && origin + localPath(path, lang);
@@ -31,6 +35,7 @@ export function pageMeta({ path, index, lang, title, description, origin = '' })
 
 // Structured data (schema.org) for the home page, so search results can show
 // Wayhop as a free web app; the layout writes it into <head>
+/** @param {string} description @param {string} lang */
 export function appData(description, lang, origin = '') {
     return {
         '@context': 'https://schema.org',
@@ -45,12 +50,15 @@ export function appData(description, lang, origin = '') {
     };
 }
 
+/** @param {string} origin */
 export function robotsTxt(origin) {
     return `User-agent: *\nDisallow: /api/\n\nSitemap: ${origin}/sitemap.xml\n`;
 }
 
 // Every indexed page in each language, each listing all its languages
+/** @param {string} origin @param {string[]} paths */
 export function sitemapXml(origin, paths) {
+    /** @param {string} path */
     const alternates = path => [...LANGS.map(lang => [lang, localPath(path, lang)]), ['x-default', path]]
         .map(([lang, p]) => `        <xhtml:link rel="alternate" hreflang="${lang}" href="${origin}${p}"/>`).join('\n');
     const urls = paths.flatMap(path => LANGS.map(lang =>
