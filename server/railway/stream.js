@@ -10,13 +10,15 @@ export const STREAM_URL = 'https://railway.gov.gr/api/train-stream';
 const LOOK_TIMEOUT_MS = 10_000;
 const POSITIONS = 'trainPositionsUx';
 
+/** @typedef {{ scheduleNumber?: string | null, nextStationId?: string | null, timestamp?: string }} TrainPosition a train's position, as the stream sends it: what Wayhop reads of it */
+
 /**
  * Reads the stream until its first positions message.
  * → { positions, bytes }: each train's position as railway.gov.gr sends it,
  * and how many bytes came. Throws when there's none within `timeoutMs`, or
  * on an HTTP error; the bytes read before are on the error (`bytes`)
  * @param {{ fetch?: typeof globalThis.fetch, userAgent?: string, timeoutMs?: number }} [options]
- * @returns {Promise<{ positions: any[], bytes: number }>}
+ * @returns {Promise<{ positions: TrainPosition[], bytes: number }>}
  */
 export async function look({ fetch = globalThis.fetch, userAgent = 'Wayhop', timeoutMs = LOOK_TIMEOUT_MS } = {}) {
     const controller = new AbortController();
@@ -42,7 +44,8 @@ export async function look({ fetch = globalThis.fetch, userAgent = 'Wayhop', tim
         }
         throw new Error('the stream ended before any positions');
     } catch (err) {
-        throw Object.assign(controller.signal.aborted && controller.signal.reason instanceof Error ? controller.signal.reason : err, { bytes });
+        // (fetch's and the reading's failures are Errors)
+        throw Object.assign(/** @type {Error} */ (controller.signal.aborted && controller.signal.reason instanceof Error ? controller.signal.reason : err), { bytes });
     } finally {
         clearTimeout(timer);
         // Hangs up, whether the positions came or not
@@ -59,11 +62,13 @@ export async function look({ fetch = globalThis.fetch, userAgent = 'Wayhop', tim
  */
 export function eventReader(wanted) {
     let type = 'message';
+    /** @type {string[]} */
     const data = [];
     // The line so far, and whether it's being dropped
     let line = '';
     let dropping = false;
     let found = /** @type {string | null} */ (null);
+    /** @param {string} text */
     const ended = text => {
         const at = text.indexOf(':');
         const field = at < 0 ? text : text.slice(0, at);
@@ -75,6 +80,7 @@ export function eventReader(wanted) {
         } else if (field === 'event') type = value;
         else if (field === 'data' && type === wanted) data.push(value);
     };
+    /** @param {string} text */
     const read = text => {
         let start = 0;
         for (let end = text.indexOf('\n', start); end >= 0 && found === null; end = text.indexOf('\n', start)) {

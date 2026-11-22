@@ -33,11 +33,13 @@ const GOOGLE_ADS = {
 export const REPORT_PATH = '/api/csp-report';
 
 // 'sha256-…' for an inline script's exact text
+/** @param {string} text */
 export const hashOf = text => `'sha256-${createHash('sha256').update(text, 'utf8').digest('base64')}'`;
 
 // Inline <script> elements the browser runs: not ones with src, and not data
 // blocks (JSON strings, structured data). Import maps count: browsers check
 // them against script-src too.
+/** @param {string} html */
 export function inlineScripts(html) {
     return [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
         .filter(([, attrs]) => !/\ssrc=/i.test(attrs) && !/\stype="application\/(ld\+)?json"/i.test(attrs))
@@ -47,6 +49,7 @@ export function inlineScripts(html) {
 /** @param {{ scripts: Iterable<string>, ads?: boolean }} options */
 export function contentSecurityPolicy({ scripts, ads = false }) {
     const hashes = [...new Set([...scripts].map(hashOf))].sort();
+    /** @param {keyof typeof GOOGLE_ADS} kind */
     const extra = kind => ads ? GOOGLE_ADS[kind] : [];
     const directives = {
         'default-src': ["'self'"],

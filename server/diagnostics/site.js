@@ -41,7 +41,7 @@ export function accountChecks(account) {
         const stuck = app.builds.filter(b => b.stuck);
         const copies = `${app.copies.length} cop${app.copies.length === 1 ? 'y' : 'ies'}, ${app.threads} threads`;
         const name = app.dir.split('/').pop() || app.dir;
-        if (!old.length && !stuck.length) return check(GROUP, name, 'ok', `${copies}, running since ${since(app.copies.at(-1).started)} UTC`);
+        if (!old.length && !stuck.length) return check(GROUP, name, 'ok', `${copies}, running since ${since(app.copies[app.copies.length - 1].started)} UTC`);
         return check(GROUP, name, 'warn',
             [copies,
                 ...old.length ? [`${old.length} left over from before a restart: ${list(old)}`] : [],

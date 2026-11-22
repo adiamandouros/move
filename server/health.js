@@ -106,15 +106,16 @@ export function createHealth({ busStatus, announcementStatus, liftStatus = () =>
         return { ok: s.ok ?? true, updated: s.updated };
     }
 
-    let kept = /** @type {{ at: number, versions: Promise<any> } | null} */ (null);
+    let kept = /** @type {{ at: number, versions: ReturnType<typeof askRelays> } | null} */ (null);
     function relayVersions() {
         if (!kept || now() - kept.at >= CACHE_MS) kept = { at: now(), versions: askRelays() };
         return kept.versions;
     }
 
+    /** @returns {Promise<Record<string, { version: number | null, ok: boolean }>>} */
     async function askRelays() {
         return Object.fromEntries(await Promise.all(relays.map(async relay => {
-            let version = null;
+            let version = /** @type {number | null} */ (null);
             try {
                 const res = await fetch(`${relay.url}?act=version`, { headers: { 'X-Relay-Key': relay.key }, signal: AbortSignal.timeout(RELAY_TIMEOUT_MS) });
                 version = res.ok ? (await res.json()).version ?? null : null;

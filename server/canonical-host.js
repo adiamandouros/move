@@ -25,11 +25,13 @@ self.addEventListener('activate', e => e.waitUntil((async () => {
 /** @param {string} siteUrl */
 export function canonicalHost(siteUrl) {
     const host = siteUrl ? new URL(siteUrl).hostname : null;
-    return (req, res, next) => {
+    /** @type {import('express').RequestHandler} */
+    const redirect = (req, res, next) => {
         if (!host || LOCAL.has(req.hostname) || req.hostname === host) return next();
         if (req.path === '/sw.js') return sendFresh(res, 'js', RETIRED_WORKER);
         if (KEPT.test(req.path)) return next();
         // 308 keeps the method (e.g. the admin login form's POST)
         res.redirect(['GET', 'HEAD'].includes(req.method) ? 301 : 308, siteUrl + req.originalUrl);
     };
+    return redirect;
 }

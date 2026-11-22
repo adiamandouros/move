@@ -11,10 +11,12 @@ const HORIZON_DAYS = 7;
 
 // Searches of one kind (usage.js SEARCHES) in a day: how many, the stops they
 // asked of OASA, and that per search; days from before they were counted have none
+/** @param {import('../oasa/usage.js').SearchCounts | undefined} s */
 const searched = s => [s?.searches ?? '–', s ? s.answers.oasa : '–', s?.searches ? (s.answers.oasa / s.searches).toFixed(1) : '–'];
-/** @param {Record<string, any>} days */
+/** @param {Record<string, import('../oasa/usage.js').Summary>} days */
 export function usageView(days) {
     const dates = Object.keys(days).sort().reverse();
+    /** @param {number} part @param {number} whole */
     const share = (part, whole) => whole ? `${Math.round(100 * part / whole)}%` : '–';
     const week = dates.slice(0, HORIZON_DAYS);
     const lines = [...new Set(week.flatMap(date => Object.keys(days[date].horizon ?? {})))]

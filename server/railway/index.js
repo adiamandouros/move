@@ -2,6 +2,7 @@ import express from 'express';
 import { statSync } from 'fs';
 import { join } from 'path';
 import { addDays, athensToday, isoDate } from '../data/calendar.js';
+import { messageOf } from '../errors.js';
 import { readJson } from '../files.js';
 import { boardTrains, createTracker } from './lateness.js';
 import { look as lookAtStream } from './stream.js';
@@ -86,12 +87,13 @@ export function createTrainTimes({
             last = { at: lookedAt, ok: true };
             failures = 0;
         } catch (err) {
-            usage.trainLook(false, err.bytes ?? 0);
-            last = { at: lookedAt, ok: false, error: err.message };
+            // (look() puts the bytes it read on its error)
+            usage.trainLook(false, /** @type {{ bytes?: number }} */ (err).bytes ?? 0);
+            last = { at: lookedAt, ok: false, error: messageOf(err) };
             if (++failures < FAILURES_TO_REST) return;
             failures = 0;
             restUntil = now() + REST_MS;
-            log(`[railway] railway.gov.gr's train positions failed ${FAILURES_TO_REST} times in a row (${err.message}): resting ${REST_MS / 60_000} minutes`);
+            log(`[railway] railway.gov.gr's train positions failed ${FAILURES_TO_REST} times in a row (${messageOf(err)}): resting ${REST_MS / 60_000} minutes`);
         }
     })().finally(() => { looking = null; });
 

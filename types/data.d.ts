@@ -189,6 +189,20 @@ export interface Buses {
     }[];
 }
 
+/** A train on railway.gov.gr's schedule board for a day (data/raw/railway/boards/, server/data/railway.js): what Wayhop reads of it */
+export interface RailwaySchedule {
+    /** e.g. "2539-20261126-0000", as the live stream names the train */
+    scheduleNumber: string;
+    trainNumber: string;
+    /** 'Suburban' for the suburban railway's */
+    serviceType: string;
+    /** 'scheduled', 'cancelled'… */
+    status: string;
+    corridor: string;
+    /** Its stops, in the order of `index`, with their times (ISO) */
+    routeStations?: { stationId: string; index: number; scheduledArrival?: string | null; scheduledDeparture?: string | null }[];
+}
+
 /** data/build/trains.json, built by server/data/build-suburban.js: the suburban railway's trains by date, from railway.gov.gr (decision 41) */
 export interface Trains {
     schema: number;
