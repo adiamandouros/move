@@ -12,10 +12,5 @@
     "scripts/planner-lab/rush-test.js": 10,
     "scripts/planner-lab/trip.js": 5,
     "scripts/station-edits.js": 11,
-    "server/data/build-bus.js": 17,
-    "server/data/build-rides.js": 14,
-    "server/data/bus-timetable.js": 38,
-    "server/data/check-output.js": 57,
-    "server/data/index.js": 34,
     "types/pages.d.ts": 1
 }

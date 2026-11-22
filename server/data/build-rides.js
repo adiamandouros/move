@@ -24,6 +24,9 @@ const MAX_RIDE_S = 90 * 60;
 const DAY = /^(\d{4}-\d{2}-\d{2})\.jsonl$/;
 const KINDS = ['su', 'wd', 'wd', 'wd', 'wd', 'wd', 'sa'];
 
+/** @typedef {import('./oasa-network.js').Network} Network */
+/** @typedef {ReturnType<typeof readPasses>['passes'][number]} Pass */
+
 /**
  * The passes of the RIDE_DAYS days up to `today` ('YYYY-MM-DD'), from `dir`.
  * A line that isn't a pass (a file cut short) is left out.
@@ -48,20 +51,25 @@ export function readPasses(dir, today, keep = RIDE_DAYS) {
 }
 
 // The stops of each OASA route, from the live network (oasa-network.js)
+/** @param {Network | null} network @returns {Map<string, string[]>} */
 const stopsOf = network => new Map(Object.entries(network?.stops ?? {}).map(([route, { stops }]) => [route, stops.map(s => s.code)]));
 
 /**
  * Each ride: a bus's pass at one stop of its route, then its next pass, at a
  * stop further along the same route.
- * @param {ReturnType<typeof readPasses>['passes']} passes @param {any} network
+ * @param {Pass[]} passes @param {Network | null} network
  */
 export function ridesFrom(passes, network) {
     const routes = stopsOf(network);
+    /** @type {Map<string, Pass[]>} */
     const byBus = new Map();
     for (const p of passes) {
         const key = `${p.vehicle} ${p.route}`;
-        (byBus.get(key) ?? byBus.set(key, []).get(key)).push(p);
+        let list = byBus.get(key);
+        if (!list) byBus.set(key, list = []);
+        list.push(p);
     }
+    /** @type {{ route: string, line: string, from: string, to: string, left: number, seconds: number }[]} */
     const rides = [];
     for (const list of byBus.values()) {
         list.sort((a, b) => a.at - b.at);
@@ -86,30 +94,36 @@ export function ridesFrom(passes, network) {
 }
 
 // "wd 8": the kind of day and the hour a ride left, Athens time
+/** @param {number} seconds */
 export function hourOf(seconds) {
     const { weekday, seconds: s } = athensNow(new Date(seconds * 1000));
     return `${KINDS[weekday]} ${Math.floor(s / 3600)}`;
 }
 
+/** @param {number[]} sorted @param {number} p */
 const at = (sorted, p) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
 
 /**
- * @param {ReturnType<typeof readPasses>} read @param {any} network
- * @returns {{ data: any, warnings: string[] }}
+ * @param {ReturnType<typeof readPasses>} read @param {Network | null} network
+ * @returns {{ data: import('../../types/data.js').BusRides, warnings: string[] }}
  */
 export function buildBusRides({ passes, days }, network) {
+    /** @type {Map<string, { route: string, line: string, from: string, to: string, hours: Map<string, number[]> }>} */
     const groups = new Map();
     for (const ride of ridesFrom(passes, network)) {
         const key = `${ride.route} ${ride.from} ${ride.to}`;
-        const group = groups.get(key) ?? groups.set(key, { route: ride.route, line: ride.line, from: ride.from, to: ride.to, hours: new Map() }).get(key);
+        let group = groups.get(key);
+        if (!group) groups.set(key, group = { route: ride.route, line: ride.line, from: ride.from, to: ride.to, hours: new Map() });
         const hour = hourOf(ride.left);
-        (group.hours.get(hour) ?? group.hours.set(hour, []).get(hour)).push(ride.seconds);
+        let list = group.hours.get(hour);
+        if (!list) group.hours.set(hour, list = []);
+        list.push(ride.seconds);
     }
     const rides = [...groups.values()]
         .sort((a, b) => a.route.localeCompare(b.route) || a.from.localeCompare(b.from) || a.to.localeCompare(b.to))
         .map(({ hours, ...ride }) => ({
             ...ride,
-            times: Object.fromEntries([...hours].sort(([a], [b]) => a.localeCompare(b, 'en', { numeric: true })).map(([hour, list]) => {
+            times: Object.fromEntries([...hours].sort(([a], [b]) => a.localeCompare(b, 'en', { numeric: true })).map(/** @returns {[string, [number, number, number]]} */ ([hour, list]) => {
                 const sorted = list.sort((x, y) => x - y);
                 return [hour, [sorted.length, at(sorted, 0.5), at(sorted, 0.9)]];
             })),

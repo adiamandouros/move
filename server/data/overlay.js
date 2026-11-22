@@ -26,7 +26,7 @@ import { CROSSING_VIA, CROSSING_WAYS, EXIT_WAYS, NO_ELEVATOR, POSITIONS, STEP_FR
  * @typedef {Record<string, string>} Ref
  * One of the files the editor edits; `tidy` takes an entry as saved, in
  * any shape, as overlays from before a change of format can be
- * @typedef {{ name: string, keys: string[], tidy: (entry: unknown) => object, blank?: object }} Kind
+ * @typedef {{ name: 'positions' | 'street', keys: string[], tidy: (entry: unknown) => object, blank?: object }} Kind
  * @typedef {import('../../types/data.js').Position} Position
  */
 /** @type {{ positions: Kind, street: Kind }} */

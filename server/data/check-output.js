@@ -12,46 +12,72 @@ const COLOR = /^#([0-9a-f]{3}){1,2}$/i;
 // The bus API only accepts numeric stop codes (server/oasa/index.js)
 export const STOP_CODE = /^\d{1,8}$/;
 // Attica, with room to spare: anything outside is a broken coordinate
-const inAttica = (lat, lng) => lat > 37 && lat < 39 && lng > 22.5 && lng < 25;
+/** @param {number} [lat] @param {number} [lng] */
+const inAttica = (lat, lng) => lat !== undefined && lng !== undefined && lat > 37 && lat < 39 && lng > 22.5 && lng < 25;
 const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 // A new file with fewer stations or stops than this share of the last one is held back
 const MIN_SHARE = 0.8;
 // Enough problems to see what's wrong, without listing thousands
 const MAX_PROBLEMS = 10;
 
-/** @param {string} name @param {any} data @returns {string[]} */
+// Each file's checks, the file read as its type says (types/data.d.ts);
+// they look at every part before using it
+/** @type {Partial<Record<string, (data: unknown) => string[]>>} */
+const CHECKS = {
+    'rail.json': data => checkRail(/** @type {import('../../types/data.js').Rail} */ (data)),
+    'bus-stops.json': data => checkBus(/** @type {import('../../types/data.js').BusStops} */ (data)),
+    'bus-lines.json': data => checkBusLines(/** @type {import('../../types/data.js').BusLines} */ (data)),
+    'bus-rides.json': data => checkBusRides(/** @type {import('../../types/data.js').BusRides} */ (data)),
+    'buses.json': data => checkBuses(/** @type {import('../../types/data.js').Buses} */ (data)),
+    'trains.json': data => checkTrains(/** @type {import('../../types/data.js').Trains} */ (data)),
+};
+
+/** @param {string} name @param {unknown} data @returns {string[]} */
 export function checkOutput(name, data) {
-    const check = { 'rail.json': checkRail, 'bus-stops.json': checkBus, 'bus-lines.json': checkBusLines, 'bus-rides.json': checkBusRides, 'buses.json': checkBuses, 'trains.json': checkTrains }[name];
+    const check = CHECKS[name];
     const problems = check ? check(data) : [`${name}: no checks for this file`];
     return problems.length > MAX_PROBLEMS ? [...problems.slice(0, MAX_PROBLEMS), `… and ${problems.length - MAX_PROBLEMS} more`] : problems;
 }
 
-/** @param {string} name @param {any} data @param {any} previous @returns {string[]} */
+/**
+ * What shrinkage counts in a file: rail.json's stations, bus-lines.json's
+ * lines, the others' stops
+ * @typedef {{ stations?: object, lines?: unknown[], stops?: unknown[] } | null | undefined} Counted
+ */
+
+/** @param {string} name @param {unknown} data @param {unknown} previous @returns {string[]} */
 export function shrinkage(name, data, previous) {
     // Ride times come and go with the days of passes kept (build-rides.js),
     // and the trains' days move on each night, fewer while railway.gov.gr fails (railway.js)
     if (!previous || name === 'bus-rides.json' || name === 'trains.json') return [];
-    const [count, what] = {
+    /** @type {Partial<Record<string, [(d: Counted) => number, string]>>} */
+    const counts = {
         'rail.json': [d => Object.keys(d?.stations ?? {}).length, 'stations'],
         'bus-lines.json': [d => d?.lines?.length ?? 0, 'lines'],
-    }[name] ?? [d => d?.stops?.length ?? 0, 'stops'];
-    const [now, before] = [count(data), count(previous)];
+    };
+    /** @type {[(d: Counted) => number, string]} */
+    const stops = [d => d?.stops?.length ?? 0, 'stops'];
+    const [count, what] = counts[name] ?? stops;
+    const [now, before] = [count(/** @type {Counted} */ (data)), count(/** @type {Counted} */ (previous))];
     return now < before * MIN_SHARE
         ? [`${name} has ${now} ${what}, the last good build had ${before}; if that's right, rebuild with --force`]
         : [];
 }
 
-/** @param {any} feed @param {string[]} problems */
+/** @param {{ validFrom?: string, validTo?: string } | undefined} feed @param {string[]} problems */
 function checkFeed(feed, problems) {
-    if (!DATE.test(feed?.validFrom) || !DATE.test(feed?.validTo)) problems.push('feed: validFrom and validTo must be YYYY-MM-DD');
-    else if (feed.validFrom > feed.validTo) problems.push(`feed: validFrom ${feed.validFrom} is after validTo ${feed.validTo}`);
+    const [from, to] = [feed?.validFrom ?? '', feed?.validTo ?? ''];
+    if (!DATE.test(from) || !DATE.test(to)) problems.push('feed: validFrom and validTo must be YYYY-MM-DD');
+    else if (from > to) problems.push(`feed: validFrom ${from} is after validTo ${to}`);
 }
 
 // Text in both languages
+/** @param {import('../../types/data.js').Names | undefined} value */
 const names = value => typeof value?.el === 'string' && value.el !== '' && typeof value?.en === 'string' && value.en !== '';
 
-/** @param {any} rail @returns {string[]} */
+/** @param {import('../../types/data.js').Rail} rail @returns {string[]} */
 function checkRail(rail) {
+    /** @type {string[]} */
     const problems = [];
     if (typeof rail?.schema !== 'number') return ['rail.json: no schema number'];
     checkFeed(rail.feed, problems);
@@ -94,12 +120,12 @@ function checkRail(rail) {
 
 // A stop's first and last trains (stasy.js): [{ to, first, last }], to a stop
 // further on, a time (or null: all night) for each day
-/** @param {string} where @param {any} hours @param {string[]} ahead @param {string[]} problems */
+/** @param {string} where @param {import('../../types/data.js').Hours[]} hours @param {string[]} ahead @param {string[]} problems */
 function checkHours(where, hours, ahead, problems) {
     if (!Array.isArray(hours) || !hours.length) return problems.push(`${where}: hours must be a list of destinations`);
     for (const h of hours) {
         if (!ahead.includes(h?.to)) problems.push(`${where}: hours to ${h?.to}, which isn't further on`);
-        for (const kind of ['first', 'last']) {
+        for (const kind of /** @type {const} */ (['first', 'last'])) {
             const values = h?.[kind];
             if (!Array.isArray(values) || values.length !== 7 || values.some(v => v !== null && !(Number.isInteger(v) && v >= 0 && v < 2 * 86_400))) {
                 problems.push(`${where}: hours to ${h?.to} need a ${kind} time or null for each of the 7 days`);
@@ -108,7 +134,7 @@ function checkHours(where, hours, ahead, problems) {
     }
 }
 
-/** @param {string} where @param {any} t @param {number} stopCount @param {string[]} problems */
+/** @param {string} where @param {import('../../types/data.js').Timetable} t @param {number} stopCount @param {string[]} problems */
 function checkTimetable(where, t, stopCount, problems) {
     const profiles = t?.profiles ?? [];
     const patterns = t?.patterns ?? [];
@@ -130,8 +156,9 @@ function checkTimetable(where, t, stopCount, problems) {
     if (!patterns.some(trips => trips.length)) problems.push(`${where}: no trips on any day`);
 }
 
-/** @param {any} bus @returns {string[]} */
+/** @param {import('../../types/data.js').BusStops} bus @returns {string[]} */
 function checkBus(bus) {
+    /** @type {string[]} */
     const problems = [];
     if (typeof bus?.schema !== 'number') return ['bus-stops.json: no schema number'];
     if (JSON.stringify(bus.fields) !== JSON.stringify(['code', 'lat', 'lng', 'el', 'en', 'lines'])) problems.push('fields must be code, lat, lng, el, en, lines');
@@ -152,12 +179,14 @@ function checkBus(bus) {
     return problems;
 }
 
-/** @param {any} bus @returns {string[]} */
+/** @param {import('../../types/data.js').BusLines} bus @returns {string[]} */
 function checkBusLines(bus) {
+    /** @type {string[]} */
     const problems = [];
     if (typeof bus?.schema !== 'number') return ['bus-lines.json: no schema number'];
     const lines = Array.isArray(bus.lines) ? bus.lines : [];
     if (!lines.length) problems.push('no lines');
+    /** @type {Set<string | undefined>} */
     const seen = new Set();
     for (const entry of lines) {
         const which = `line ${JSON.stringify(entry?.line)}`;
@@ -178,10 +207,11 @@ function checkBusLines(bus) {
     return problems;
 }
 
-/** @param {any} data @returns {string[]} */
+/** @param {import('../../types/data.js').BusRides} data @returns {string[]} */
 function checkBusRides(data) {
     if (typeof data?.schema !== 'number') return ['bus-rides.json: wrong schema number'];
     if (!Array.isArray(data.rides)) return ['bus-rides.json: no rides list'];
+    /** @type {string[]} */
     const problems = [];
     for (const r of data.rides) {
         const where = `bus-rides.json: route ${r?.route} ${r?.from}→${r?.to}`;
@@ -194,9 +224,10 @@ function checkBusRides(data) {
 }
 
 // The buses' timetable for the trip search (bus-timetable.js)
-/** @param {any} data @returns {string[]} */
+/** @param {import('../../types/data.js').Buses} data @returns {string[]} */
 function checkBuses(data) {
     if (typeof data?.schema !== 'number') return ['buses.json: wrong schema number'];
+    /** @type {string[]} */
     const problems = [];
     checkFeed(data.feed, problems);
     const stops = Array.isArray(data.stops) ? data.stops : [];
@@ -208,7 +239,9 @@ function checkBuses(data) {
             problems.push(`buses.json: stop ${i} must be [numeric code, lat, lng in Attica, Greek name, English name or '']`);
         }
     });
+    /** @param {number} n @param {number} length */
     const index = (n, length) => Number.isInteger(n) && n >= 0 && n < length;
+    /** @param {number} n */
     const seconds = n => Number.isInteger(n) && n >= 0;
     for (const route of routes) {
         const where = `buses.json: line ${route?.line} route ${route?.code}`;
@@ -231,9 +264,10 @@ function checkBuses(data) {
     return problems;
 }
 
-/** @param {any} data @returns {string[]} */
+/** @param {import('../../types/data.js').Trains} data @returns {string[]} */
 function checkTrains(data) {
     if (typeof data?.schema !== 'number') return ['trains.json: wrong schema number'];
+    /** @type {string[]} */
     const problems = [];
     const stations = data.stations && typeof data.stations === 'object' ? data.stations : {};
     if (!Object.keys(stations).length) problems.push('trains.json: no stations');
@@ -246,15 +280,17 @@ function checkTrains(data) {
         const [lat, lng, el, en] = Array.isArray(station) ? station : [];
         if (!inAttica(lat, lng) || typeof el !== 'string' || !el || typeof en !== 'string' || !en) problems.push(`trains.json: station ${id} must be [lat, lng, Greek name, English name]`);
     }
+    /** @param {unknown} id */
     const stop = id => typeof id === 'string' && (/^rail:./.test(id) || Object.hasOwn(stations, id.replace(/^train:/, '')) && id.startsWith('train:'));
     for (const walk of Array.isArray(data.walks) ? data.walks : [null]) {
         const [from, to, time, note] = Array.isArray(walk) ? walk : [];
-        if (!stop(from) || !stop(to) || !Number.isInteger(time) || time <= 0 || (note !== undefined && !names(note))) {
+        if (!stop(from) || !stop(to) || time === undefined || !Number.isInteger(time) || time <= 0 || (note !== undefined && !names(note))) {
             problems.push(`trains.json: walk ${JSON.stringify(walk)} must be [a station, a station or the metro's, seconds, a note in both languages or none]`);
         }
     }
     if (!Array.isArray(data.outside) || !data.outside.every(id => Object.hasOwn(stations, id))) problems.push('trains.json: outside must list stations');
     const dates = data.dates && typeof data.dates === 'object' ? data.dates : {};
+    /** @param {number} n */
     const seconds = n => Number.isInteger(n) && n >= 0;
     for (const [date, routes] of Object.entries(dates)) {
         if (!DATE.test(date) || !Array.isArray(routes)) { problems.push(`trains.json: ${date} must be YYYY-MM-DD with a list of routes`); continue; }
