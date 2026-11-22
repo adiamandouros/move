@@ -27,7 +27,7 @@ import { legPositions, tripTime } from './network.js';
  * What a leg's times count from: seconds since the midnight its trains count
  * from, and `epoch` the same moment since 1970, for them to count down by
  * themselves (decision 61)
- * @typedef {{ seconds: number, epoch?: number }} Now
+ * @typedef {{ seconds: number, epoch?: number | null }} Now
  */
 
 /** @param {Rail} rail @param {string} id */

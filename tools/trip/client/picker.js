@@ -28,8 +28,8 @@ const ANSWER_WITHIN_MS = 10_000;
  * `lo` and `hi`, beyond the last numbers, near the nearest number `near`,
  * or only the street), or a place (`placeKind`: metro, tram, airport…; a
  * metro station's lines in `lineNames`); its town, '' when it has none
- * @typedef {{ name: string, town: string, type: 'street' | 'place', placeKind?: string, lineNames: string[], n: number | null, numbers: number,
- *   kind: 'exact' | 'range' | 'between' | 'beyond' | 'nearest' | 'street' | 'place', lat: number, lng: number, lo?: number, hi?: number, near?: number, away?: number }} Found
+ * @typedef {{ name: string, town: string, type: 'street' | 'place', placeKind?: string, lineNames: string[], n: number | null, numbers: number, lat: number, lng: number }
+ *   & ({ kind: 'exact' | 'range' | 'street' | 'place' } | { kind: 'between', lo: number, hi: number } | { kind: 'beyond' | 'nearest', near: number, away?: number })} Found
  */
 /**
  * What address search answers: the places found, the town typed when they
