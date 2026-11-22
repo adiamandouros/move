@@ -1,4 +1,5 @@
 import { userAgentFor } from '../config.js';
+import { messageOf } from '../errors.js';
 
 // The one place that talks to OASA's telematics API. Everything here exists
 // to keep our load on it small and predictable:
@@ -53,14 +54,20 @@ export const TEST_STOP = '10361';
 
 export class OasaUnavailable extends Error {}
 
+/** @typedef {'high' | 'normal' | 'low'} Lane */
+/** @typedef {ReturnType<typeof createOasaClient>} OasaClient */
+
+/** @param {number} ms */
 const duration = ms => ms >= 3_600_000 ? `${ms / 3_600_000} h` : ms >= 60_000 ? `${ms / 60_000} min` : `${ms / 1000} s`;
 
+/** @param {number} ms @returns {Promise<void>} */
 const realSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const INTERVAL_MS = 1000 / REQUESTS_PER_SECOND;
 
 // What a relay says went wrong (proxy/worker.js: "Upstream error: …"), for
 // the logs and the diagnostics; nothing for a page of HTML or an empty answer
+/** @param {Response} res */
 async function reason(res) {
     try {
         const said = (await res.text()).replace(/\s+/g, ' ').trim().slice(0, 120);
@@ -72,6 +79,7 @@ async function reason(res) {
 
 // What a request is, for the usage: a stop's route names, or its arrivals
 // (someone's first look, or a refresh)
+/** @param {string} act @param {Lane} lane */
 const kindOf = (act, lane) => act === 'webRoutesForStop' ? 'route-names' : lane === 'high' ? 'arrivals-new' : lane === 'low' ? 'collector' : 'arrivals-refresh';
 
 // No counting (the default, and scripts that ask OASA for themselves)
@@ -93,7 +101,14 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
     // tried again. `working`: a route with a fallback has passed its test.
     // `probing`: a test (or, for the last route, the one request after a rest)
     // is under way, so other requests skip the route: one try, not a burst.
-    const route = (name, url, headers = {}) => ({
+    // `next`, `restMs` and `timeoutMs` are set once every route is made.
+    /**
+     * @typedef {{ name: string, url: string, headers: Record<string, string>, failures: number, restUntil: number,
+     *   probing: boolean, working: boolean, lastOk: number | null, lastError: { at: number, message: string } | null,
+     *   next: Route | null, restMs: number, timeoutMs: number }} Route
+     */
+    /** @param {string} name @param {string} url @param {Record<string, string>} [headers] */
+    const route = (name, url, headers = {}) => /** @type {Route} */ ({
         name, url, headers, failures: 0, restUntil: 0, probing: false, working: false,
         lastOk: null, lastError: null, // for diagnostics
     });
@@ -103,12 +118,14 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
         r.restMs = r.next ? FALLBACK_REST_MS : LAST_REST_MS;
         r.timeoutMs = r.next ? FALLBACK_TIMEOUT_MS : TIMEOUT_MS;
     });
+    /** @param {Route} r */
     const usable = r => r.next ? r.working : !r.probing && now() >= r.restUntil;
 
     // How long a refresh asked for now would wait for its slot
     const queueWait = () => Math.max(0, nextSlot - now()) + (lanes.high.length + lanes.normal.length + lanes.low.length) * INTERVAL_MS;
 
     // Wait for a slot; resolves true when it's our turn, or false if the queue is too long
+    /** @param {Lane} [lane] @returns {Promise<boolean>} */
     function waitForSlot(lane = 'normal') {
         const ahead = lanes.high.length + (lane === 'high' ? 0 : lanes.normal.length) + (lane === 'low' ? lanes.low.length : 0);
         if (Math.max(0, nextSlot - now()) + ahead * INTERVAL_MS > MAX_WAIT_MS) return Promise.resolve(false);
@@ -139,6 +156,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
         pumping = false;
     }
 
+    /** @param {Route} r @param {string} [reason] */
     function rest(r, reason) {
         r.failures = 0;
         r.working = false;
@@ -150,6 +168,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
     }
 
     // One call over one route → the parsed JSON, or throws
+    /** @param {Route} r @param {string} act @param {string} p1 */
     async function call(r, act, p1) {
         const url = `${r.url}?act=${encodeURIComponent(act)}&p1=${encodeURIComponent(p1)}`;
         const started = now();
@@ -164,7 +183,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
             usage.call(r.name, true, now() - started);
             return body;
         } catch (err) {
-            r.lastError = { at: now(), message: err.message };
+            r.lastError = { at: now(), message: messageOf(err) };
             usage.call(r.name, false, now() - started);
             throw err;
         }
@@ -172,6 +191,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
 
     // Test a route that has a fallback, in the background. Visitors' requests
     // use the routes behind it meanwhile. The test counts against the rate limit.
+    /** @param {Route} r */
     async function test(r) {
         r.probing = true;
         try {
@@ -184,7 +204,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
             r.restUntil = 0;
         } catch (err) {
             // Said once (at startup); later tests fail quietly
-            if (!r.restUntil) log(`[oasa] ${r.name} can't reach OASA (${err.message}); using the ${r.next.name} — testing it again in ${duration(r.restMs)}`);
+            if (!r.restUntil) log(`[oasa] ${r.name} can't reach OASA (${messageOf(err)}); using the ${r.next?.name} — testing it again in ${duration(r.restMs)}`);
             r.restUntil = now() + r.restMs;
         } finally {
             r.probing = false;
@@ -196,6 +216,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
         }
     };
 
+    /** @param {Route} r @param {string} act @param {string} p1 */
     async function attempt(r, act, p1) {
         // The last route, when its rest is over, gets exactly one probe
         const probe = !r.next && r.restUntil > 0;
@@ -210,7 +231,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
             if (probe) rest(r);  // still failing: rest again, quietly
             // Failures of requests that were already in flight when the route
             // was put to rest don't count (and don't restart the rest)
-            else if (usable(r) && ++r.failures >= FAILURES_TO_OPEN) rest(r, err.message);
+            else if (usable(r) && ++r.failures >= FAILURES_TO_OPEN) rest(r, messageOf(err));
             throw err;
         } finally {
             if (probe) r.probing = false;
@@ -221,6 +242,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
     // the parsed JSON (OASA answers `null` for "nothing"), or throws OasaUnavailable.
     // lane: 'high' for someone's first look at a stop, 'normal' for refreshes,
     // 'low' for the collector.
+    /** @param {string} act @param {string} p1 @param {{ lane?: Lane }} [options] */
     async function request(act, p1, { lane = 'normal' } = {}) {
         const kind = kindOf(act, lane);
         lastAsked = now();
@@ -243,7 +265,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
         usage.waited(now() - asked);
         usage.request(kind);
 
-        let lastError = new Error('OASA is failing — paused');
+        let lastError = /** @type {unknown} */ (new Error('OASA is failing — paused'));
         // Decided only now, after waiting: a route may have been rested meanwhile
         for (const r of routes) {
             if (!usable(r)) continue;
@@ -253,7 +275,7 @@ export function createOasaClient({ fetch = globalThis.fetch, now = Date.now, sle
                 lastError = err;
             }
         }
-        throw new OasaUnavailable(lastError.message);
+        throw new OasaUnavailable(messageOf(lastError));
     }
 
     // What each route is doing right now, for the diagnostics page and `npm run diagnose`

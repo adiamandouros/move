@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'fs';
+import { messageOf } from '../errors.js';
 import { writeFileAtomic } from '../files.js';
 import { athensDate } from '../../tools/subway/client/network.js';
 import { ARRIVALS_TTL_MS, BUSY_TTLS } from './arrivals.js';
@@ -50,6 +51,8 @@ export const KINDS = ['arrivals-new', 'arrivals-refresh', 'route-names', 'route-
 // being asked); old: OASA failed and an older answer was served; none: nothing
 export const SOURCES = ['oasa', 'cache', 'old', 'none'];
 // What's counted apart, by the searches asking: the Trip page's
+/** @typedef {'plans'} Search */
+/** @type {Search[]} */
 export const SEARCHES = ['plans'];
 // Answer times are counted under these (ms); the last bucket is anything longer, timeouts too
 export const ANSWER_MS = [250, 500, 1000, 2000, 4000, 8000];
@@ -61,13 +64,30 @@ export const KEEP_DAYS = 120;
 const MINUTE_MS = 60_000;
 const HOUR_MS = 3_600_000;
 
+// What a summary holds (a day kept from before a count began lacks it: addMinute)
+/**
+ * @typedef {{ ok: number, failed: number, ms: number[], downMinutes: number }} RouteCounts
+ * @typedef {{ searches: number, moved: number, ride: number, other: number, take: number, answers: Record<string, number> }} SearchCounts
+ * @typedef {{ asked: number, looks: number, failed: number, bytes: number }} TrainCounts
+ * @typedef {{ requests: Record<string, number>, routes: Record<string, RouteCounts>, dropped: Record<string, number>,
+ *   paused: number, limited: number, answers: Record<string, number>, stops: number,
+ *   peaks: { requests: number, stops: number, waitMs: number }, busyMinutes: Record<string, number>, dropMinutes: number,
+ *   network: number | null, horizon: Record<string, number>, plans: SearchCounts,
+ *   pages: { asked: Record<string, number>, served: Record<string, number> }, passes: number, trains: TrainCounts }} Summary
+ * @typedef {Summary & { at: number, stopCodes: Set<string> }} Minute one minute's counts, and the stops asked for in it
+ */
+
+/** @param {string[]} keys */
 const counts = keys => Object.fromEntries(keys.map(k => [k, 0]));
 // The suburban railway's live times (server/railway/): visitors' requests, and
 // the looks at railway.gov.gr's stream, those that failed and the bytes they took
+/** @returns {TrainCounts} */
 const emptyTrains = () => ({ asked: 0, looks: 0, failed: 0, bytes: 0 });
+/** @returns {RouteCounts} */
 const emptyRoute = () => ({ ok: 0, failed: 0, ms: Array(ANSWER_MS.length + 1).fill(0), downMinutes: 0 });
 
 // An empty summary, of a day or of the past hour
+/** @returns {Summary} */
 const emptySummary = () => ({
     requests: counts(KINDS),
     routes: {},
@@ -81,15 +101,17 @@ const emptySummary = () => ({
     dropMinutes: 0,
     network: null,
     horizon: {},
-    ...Object.fromEntries(SEARCHES.map(kind => [kind, { searches: 0, moved: 0, ride: 0, other: 0, take: 0, answers: counts(SOURCES) }])),
+    .../** @type {Record<Search, SearchCounts>} */ (Object.fromEntries(SEARCHES.map(kind => [kind, { searches: 0, moved: 0, ride: 0, other: 0, take: 0, answers: counts(SOURCES) }]))),
     pages: { asked: {}, served: {} },
     passes: 0,
     trains: emptyTrains(),
 });
 
+/** @param {number} at @returns {Minute} */
 const newMinute = at => ({ at, ...emptySummary(), stopCodes: new Set() });
 
 // Add one minute's counts to a summary (its different stops are counted by the caller)
+/** @param {Summary} summary @param {Minute} minute */
 function addMinute(summary, minute) {
     const requests = Object.values(minute.requests).reduce((a, b) => a + b, 0);
     for (const k of KINDS) {
@@ -131,30 +153,35 @@ function addMinute(summary, minute) {
     }
     // (nor the pages, before they were counted)
     summary.pages ??= { asked: {}, served: {} };
-    for (const part of ['asked', 'served']) {
+    for (const part of /** @type {const} */ (['asked', 'served'])) {
         for (const [lang, n] of Object.entries(minute.pages[part])) summary.pages[part][lang] = (summary.pages[part][lang] ?? 0) + n;
     }
     summary.passes = (summary.passes ?? 0) + minute.passes;
     // (nor the suburban railway's live times)
     summary.trains ??= emptyTrains();
-    for (const [k, n] of Object.entries(minute.trains)) summary.trains[k] += n;
+    for (const [k, n] of /** @type {[keyof TrainCounts, number][]} */ (Object.entries(minute.trains))) summary.trains[k] += n;
     return summary;
 }
 
 // ── In words, for /admin/diagnostics and /admin/usage ────────────────────────
 
-// All of a summary's counts of one thing (its requests, its answers…)
+// All of a summary's counts of one thing (its requests, its answers, a route's answer times…)
+/** @param {Record<string, number> | number[]} counts */
 export const total = counts => Object.values(counts).reduce((a, b) => a + b, 0);
 // Requests dropped that someone was waiting for: the collector's skipped turns aren't
+/** @param {Record<string, number>} dropped */
 export const visitorsDropped = dropped => total(dropped) - (dropped.collector ?? 0);
+/** @param {number} ms */
 export const secondsText = ms => `${Math.round(ms / 100) / 10} s`;
 // An answer time from answerTime: "under 500 ms", "over 8 s"; null: no answers
+/** @param {number | null} ms */
 export const answerTimeText = ms => ms === null ? '–'
-    : ms === Infinity ? `over ${secondsText(ANSWER_MS.at(-1))}`
+    : ms === Infinity ? `over ${secondsText(ANSWER_MS[ANSWER_MS.length - 1])}`
         : `under ${ms < 1000 ? `${ms} ms` : secondsText(ms)}`;
 
 // The answer time under which a share p (0–1) of `ms`'s answers came, from its
 // buckets: one of ANSWER_MS, Infinity when longer, null when there were none
+/** @param {number[]} ms @param {number} p */
 export function answerTime(ms, p) {
     const total = ms.reduce((a, b) => a + b, 0);
     if (!total) return null;
@@ -175,12 +202,13 @@ export function answerTime(ms, p) {
  */
 export function createUsage({ file = null, networkFile = null, now = Date.now, keepDays = KEEP_DAYS, log = console.warn } = {}) {
     const saved = load(file, log);
-    /** @type {Record<string, ReturnType<typeof emptySummary>>} */
+    /** @type {Record<string, Summary>} */
     const days = saved.days ?? {};
     let today = athensDate(new Date(now()));
     const dayStops = new Set(saved.today?.date === today ? saved.today.stops : []);
     let minute = newMinute(Math.floor(now() / MINUTE_MS) * MINUTE_MS);
     // The minutes of the past hour, oldest first
+    /** @type {Minute[]} */
     let hour = [];
 
     // Close the current minute once it's over: into its day, and the past hour
@@ -205,6 +233,7 @@ export function createUsage({ file = null, networkFile = null, now = Date.now, k
         }
     }
     const current = () => { roll(); return minute; };
+    /** @param {string} name */
     const route = name => current().routes[name] ??= emptyRoute();
 
     // The past hour, this minute included
@@ -239,14 +268,16 @@ export function createUsage({ file = null, networkFile = null, now = Date.now, k
         try {
             writeFileAtomic(file, JSON.stringify({ days, today: { date: today, stops: [...dayStops] } }));
         } catch (err) {
-            log(`[oasa] Couldn't save the usage: ${err.message}`);
+            log(`[oasa] Couldn't save the usage: ${messageOf(err)}`);
         }
     }
 
     return {
         // One slot of the request budget taken, for a request of this kind
+        /** @param {string} kind */
         request(kind) { current().requests[kind]++; },
         // One call to OASA over a route, answered (ok) or not, after `ms`
+        /** @param {string} name @param {boolean} ok @param {number} ms */
         call(name, ok, ms) {
             const r = route(name);
             if (ok) r.ok++; else r.failed++;
@@ -254,11 +285,14 @@ export function createUsage({ file = null, networkFile = null, now = Date.now, k
             r.ms[bucket === -1 ? ANSWER_MS.length : bucket]++;
         },
         // How long a request waited for its slot
+        /** @param {number} ms */
         waited(ms) { const m = current(); m.peaks.waitMs = Math.max(m.peaks.waitMs, ms); },
+        /** @param {string} kind */
         dropped(kind) { current().dropped[kind]++; },
         paused() { current().paused++; },
         limited() { current().limited++; },
         // A stop's answer to a visitor, and where it came from
+        /** @param {string} stop @param {string} source */
         answer(stop, source) { const m = current(); m.answers[source]++; m.stopCodes.add(stop); },
         // The Trip page (`kind`, SEARCHES): a new search, a re-plan from where
         // the rider moved to that asked for a stop, a stop first asked for
@@ -266,17 +300,25 @@ export function createUsage({ file = null, networkFile = null, now = Date.now, k
         // one asked again as the rider takes another way,
         // and a stop's answer to any (by where it
         // came from)
+        /** @param {Search} [kind] */
         tripSearch(kind = 'plans') { current()[kind].searches++; },
+        /** @param {Search} [kind] */
         tripMoved(kind = 'plans') { current()[kind].moved++; },
+        /** @param {Search} [kind] */
         tripRide(kind = 'plans') { current()[kind].ride++; },
+        /** @param {Search} [kind] */
         tripOther(kind = 'plans') { current()[kind].other++; },
+        /** @param {Search} [kind] */
         tripTake(kind = 'plans') { current()[kind].take++; },
+        /** @param {string} source @param {Search} [kind] */
         tripAnswer(source, kind = 'plans') { current()[kind].answers[source]++; },
         // Buses seen passing a stop (passes.js)
+        /** @param {number} n */
         passes(n) { current().passes += n; },
         // The suburban railway's live times (server/railway/): a visitor's
         // request, and a look at railway.gov.gr's stream, answered or not
         trainAsk() { current().trains.asked++; },
+        /** @param {boolean} ok @param {number} bytes */
         trainLook(ok, bytes) {
             const { trains } = current();
             trains.looks++;
@@ -284,8 +326,10 @@ export function createUsage({ file = null, networkFile = null, now = Date.now, k
             trains.bytes += bytes;
         },
         // A bus of this line OASA predicted this many minutes ahead
+        /** @param {string} line @param {number} minutes */
         horizon(line, minutes) { const m = current(); m.horizon[line] = Math.max(m.horizon[line] ?? 0, minutes); },
         // A page opened in `served` (en, el) by a browser asking for `asked` (askedLanguage in server/pages/i18n.js)
+        /** @param {string} asked @param {string} served */
         page(asked, served) {
             const { pages } = current();
             pages.asked[asked] = (pages.asked[asked] ?? 0) + 1;
@@ -302,12 +346,13 @@ export function createUsage({ file = null, networkFile = null, now = Date.now, k
     };
 }
 
+/** @param {string | null} file @param {(message: string) => void} log */
 function load(file, log) {
     if (!file || !existsSync(file)) return {};
     try {
         return JSON.parse(readFileSync(file, 'utf8'));
     } catch (err) {
-        log(`[oasa] Ignoring an unreadable ${file}: ${err.message}`);
+        log(`[oasa] Ignoring an unreadable ${file}: ${messageOf(err)}`);
         return {};
     }
 }

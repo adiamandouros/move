@@ -1,7 +1,7 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import express from 'express';
-import { errorHandler } from '../server/errors.js';
+import { errorHandler, messageOf } from '../server/errors.js';
 import { listen } from './support/listen.js';
 
 // What a visitor gets when answering a request fails (server/errors.js): the
@@ -80,4 +80,12 @@ test('when the error page itself fails, plain text', async () => {
 
 test('halfway through an answer, it\'s cut off rather than mixed with the error page', async () => {
     await assert.rejects(async () => (await get('/half')).text());
+});
+
+test('what went wrong as text: an error\'s message, or what else was thrown', () => {
+    assert.equal(messageOf(new Error('HTTP 502')), 'HTTP 502');
+    assert.equal(messageOf(new TypeError('fetch failed')), 'fetch failed');
+    assert.equal(messageOf(new DOMException('The operation was aborted due to timeout', 'TimeoutError')), 'The operation was aborted due to timeout');
+    assert.equal(messageOf('a string'), 'a string');
+    assert.equal(messageOf(undefined), 'undefined');
 });

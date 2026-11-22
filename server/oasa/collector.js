@@ -29,6 +29,7 @@ const WEEK_MS = 7 * 86_400_000;
 export const loadStopSets = () => JSON.parse(readFileSync(new URL('./collector-stops.json', import.meta.url), 'utf8')).weeks;
 
 // The week's stops at `at` (ms), or none outside the hours
+/** @param {string[][]} weeks @param {number} at */
 export function stopsAt(weeks, at) {
     const { weekday, seconds, date } = athensNow(new Date(at));
     const hour = seconds / 3600;
@@ -38,6 +39,7 @@ export function stopsAt(weeks, at) {
 }
 
 // The stop to ask for at `at`, or null: each in turn, one per ASK_EVERY_MS
+/** @param {string[][]} weeks @param {number} at */
 export function stopToAsk(weeks, at) {
     const stops = stopsAt(weeks, at);
     return stops.length ? stops[Math.floor(at / ASK_EVERY_MS) % stops.length] : null;
