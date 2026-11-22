@@ -6,6 +6,7 @@ import { rememberClosed } from './metro.js';
 import { fitStationTitle } from './station-title.js';
 import { restoreLinks } from './remember.js';
 import { startTheme } from './theme.js';
+import { localStore } from './storage.js';
 
 // Shared by every page: the links to the tools, the language link and the service worker. Each
 // tool's own script is loaded separately by its page, and only the pages
@@ -42,12 +43,6 @@ startStationLifts();
 
 // ── Language ─────────────────────────────────────────────────────────────────
 
-/** @type {{ get: (key: string) => string | null, set: (key: string, value: string) => void }} */
-const storage = {
-    get: key => { try { return localStorage.getItem(key); } catch { return null; } },
-    set: (key, value) => { try { localStorage.setItem(key, value); } catch { /* storage blocked: just this page */ } },
-};
-
 // The language links (sidebar, menu, suggestion: the links with hreflang)
 // open this page in the other language. Remember the choice, so pages open in
 // it from now on (see languageRedirect in server/pages/layout.js), and keep
@@ -55,7 +50,7 @@ const storage = {
 // in the address.
 /** @type {NodeListOf<HTMLAnchorElement>} */ (document.querySelectorAll('a[hreflang]')).forEach(link => {
     link.addEventListener('click', () => {
-        storage.set('language', link.hreflang);
+        localStore.set('language', link.hreflang);
         link.href = link.pathname + location.search + location.hash;
     });
 });
@@ -63,7 +58,7 @@ const storage = {
 // Offer the other language once, to someone whose browser prefers it and who
 // hasn't chosen a language (on phones the language link is in the menu)
 const suggestion = /** @type {HTMLElement | null} */ (document.querySelector('.lang-suggest'));
-if (suggestion && !storage.get('language') && !storage.get('language-suggested')) {
+if (suggestion && !localStore.get('language') && !localStore.get('language-suggested')) {
     const preferred = (navigator.languages ?? [navigator.language])
         .map(l => l?.slice(0, 2).toLowerCase())
         .find(l => l === 'en' || l === 'el');
@@ -71,7 +66,7 @@ if (suggestion && !storage.get('language') && !storage.get('language-suggested')
         suggestion.hidden = false;
         /** @type {HTMLElement} */ (suggestion.querySelector('button')).addEventListener('click', () => {
             suggestion.hidden = true;
-            storage.set('language-suggested', '1');
+            localStore.set('language-suggested', '1');
             /** @type {HTMLElement} */ (document.getElementById('app-content')).focus();
         });
     }

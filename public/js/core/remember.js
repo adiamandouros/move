@@ -1,16 +1,10 @@
+import { sessionStore } from './storage.js';
+
 // The tools open where they were left. Each tool's choices are in its address
 // (Subway's stations, the bus stop or line shown); its last one is kept for
 // this tab or app session, and the links to a tool (the navigation and the
 // home tiles, a[data-tool]) go back to it. The link to the page you're on
 // starts the tool over.
-
-// sessionStorage can be missing or blocked (private windows, some settings)
-/** @type {{ get: (key: string) => string | null, set: (key: string, value: string) => void, remove: (key: string) => void }} */
-const storage = {
-    get: key => { try { return sessionStorage.getItem(key); } catch { return null; } },
-    set: (key, value) => { try { sessionStorage.setItem(key, value); } catch { /* not kept: the tool starts over */ } },
-    remove: key => { try { sessionStorage.removeItem(key); } catch { /* nothing kept */ } },
-};
 
 /** @param {string} tool */
 const key = tool => `view:${tool}`;
@@ -20,14 +14,14 @@ const key = tool => `view:${tool}`;
 /** @param {string} tool @param {string} search */
 export function remember(tool, search) {
     const query = search.replace(/^\?/, '');
-    if (query) storage.set(key(tool), `?${query}`);
-    else storage.remove(key(tool));
+    if (query) sessionStore.set(key(tool), `?${query}`);
+    else sessionStore.remove(key(tool));
 }
 
 // Where a link to a tool goes: the tool as it was left, or as it starts
 /** @param {string} tool @param {string} path */
 export function rememberedHref(tool, path) {
-    return path + (storage.get(key(tool)) ?? '');
+    return path + (sessionStore.get(key(tool)) ?? '');
 }
 
 // Point the links to the tools at what's kept, except the one to this page.

@@ -1,3 +1,5 @@
+import { localStore } from './storage.js';
+
 // The device's location, shared by the pages that use it (Buses, Subway, Trip).
 //
 // - Only pages that need it start it, so the browser asks for permission
@@ -44,14 +46,6 @@ const positionListeners = new Set();
 /** @type {Set<(problem: Problem) => void>} */
 const problemListeners = new Set();
 
-// localStorage can be missing or blocked (private windows, some settings)
-/** @type {{ get: (key: string) => string | null, set: (key: string, value: string) => void, remove: (key: string) => void }} */
-const storage = {
-    get: key => { try { return localStorage.getItem(key); } catch { return null; } },
-    set: (key, value) => { try { localStorage.setItem(key, value); } catch { /* only this page has it */ } },
-    remove: key => { try { localStorage.removeItem(key); } catch { /* nothing kept */ } },
-};
-
 /** @param {number} n */
 const round = n => Math.round(n * 1e4) / 1e4;
 
@@ -65,9 +59,9 @@ export function lastPosition() {
     if (fresh(current)) return current;
     /** @type {Kept | null} */
     let saved = null;
-    try { saved = JSON.parse(storage.get(KEY) ?? 'null'); } catch { /* not a position */ }
+    try { saved = JSON.parse(localStore.get(KEY) ?? 'null'); } catch { /* not a position */ }
     if (fresh(saved)) return saved;
-    if (saved) storage.remove(KEY);
+    if (saved) localStore.remove(KEY);
     return null;
 }
 
@@ -79,7 +73,7 @@ export async function locationPermission() {
     let state = null;
     try { state = (await navigator.permissions.query({ name: 'geolocation' })).state; } catch { /* no Permissions API */ }
     if (state === 'denied') return 'denied';
-    return state === 'granted' || storage.get(ALLOWED_KEY) ? 'granted' : 'prompt';
+    return state === 'granted' || localStore.get(ALLOWED_KEY) ? 'granted' : 'prompt';
 }
 
 // Follow the location: the browser asks the first time. Positions go to
@@ -138,8 +132,8 @@ function onPosition(pos) {
     const position = { lat: pos.coords.latitude, lng: pos.coords.longitude, at, accuracy: pos.coords.accuracy ?? null, speed: pos.coords.speed ?? null };
     current = position;
     clearTimeout(slowTimer);
-    storage.set(KEY, JSON.stringify({ lat: round(position.lat), lng: round(position.lng), at }));
-    storage.set(ALLOWED_KEY, '1');
+    localStore.set(KEY, JSON.stringify({ lat: round(position.lat), lng: round(position.lng), at }));
+    localStore.set(ALLOWED_KEY, '1');
     positionListeners.forEach(fn => fn(position));
 }
 
@@ -150,8 +144,8 @@ function onError(err) {
         stopWatch();
         wanted = false;
         current = null;
-        storage.remove(KEY);
-        storage.remove(ALLOWED_KEY);
+        localStore.remove(KEY);
+        localStore.remove(ALLOWED_KEY);
         notifyProblem('denied');
     } else if (err.code === 2) {
         // The watch keeps trying

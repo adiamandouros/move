@@ -1,4 +1,5 @@
 import { externalLink, formatHtml, html, icon } from './html.js';
+import { localStore } from './storage.js';
 
 /** @typedef {import('../../../types/data.js').Position} Position */
 
@@ -144,9 +145,7 @@ export function diagramLegend(symbols, s, open = true) {
 const KEPT_CLOSED = { 'details.diagram-legend': 'legend-closed', 'details.lift-notice': 'lifts-closed' };
 
 /** @param {string} selector */
-const keptOpen = selector => {
-    try { return localStorage.getItem(KEPT_CLOSED[selector]) !== '1'; } catch { return true; }
-};
+const keptOpen = selector => localStore.get(KEPT_CLOSED[selector]) !== '1';
 export const legendOpen = () => keptOpen('details.diagram-legend');
 export const liftsOpen = () => keptOpen('details.lift-notice');
 
@@ -161,10 +160,8 @@ export function rememberClosed() {
         const details = /** @type {HTMLDetailsElement} */ (e.target);
         const selector = Object.keys(KEPT_CLOSED).find(sel => details.matches?.(sel));
         if (!selector) return;
-        try {
-            if (details.open) localStorage.removeItem(KEPT_CLOSED[selector]);
-            else localStorage.setItem(KEPT_CLOSED[selector], '1');
-        } catch { /* not kept: open next time */ }
+        if (details.open) localStore.remove(KEPT_CLOSED[selector]);
+        else localStore.set(KEPT_CLOSED[selector], '1');
     }, true);
 }
 

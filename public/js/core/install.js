@@ -1,3 +1,5 @@
+import { localStore } from './storage.js';
+
 // The home page's "Get the Wayhop app" card (server/views/home.html). It only
 // shows where installing is possible and the app isn't installed yet:
 //   - Chrome, Edge, Samsung Internet (Android, desktop): the browser offers
@@ -12,9 +14,8 @@ const card = document.getElementById('install');
 const button = /** @type {HTMLElement} */ (document.getElementById('install-btn'));
 const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 const isApple = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-/** @type {string | null} */
-let dismissed = null;
-try { dismissed = localStorage.getItem(DISMISSED_KEY); } catch { /* storage blocked: offer it */ }
+// Storage blocked: offered
+const dismissed = localStore.get(DISMISSED_KEY);
 // beforeinstallprompt's event (Chrome's BeforeInstallPromptEvent, not in TypeScript's types)
 /** @type {(Event & { prompt: () => void, userChoice: Promise<unknown> }) | null} */
 let offer = null;
@@ -45,7 +46,7 @@ if (card && !installed && !dismissed) {
 
     /** @type {HTMLElement} */ (document.getElementById('install-close')).addEventListener('click', () => {
         card.hidden = true;
-        try { localStorage.setItem(DISMISSED_KEY, '1'); } catch { /* just this page */ }
+        localStore.set(DISMISSED_KEY, '1');
         /** @type {HTMLElement} */ (document.getElementById('app-content')).focus();
     });
 }

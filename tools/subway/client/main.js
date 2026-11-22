@@ -9,6 +9,7 @@ import { athensClock, athensNow, closestStation, isTimetableExpired, planTrip, w
 import { stationSearch } from './search.js';
 import { renderError, renderIntro, renderMessage, renderResult, renderWalkOnly, routeSummary, walkOnly, walkingUrl, watchLegStations } from './render.js';
 import { SUBURBAN_HIDDEN, TRAM_HIDDEN, suburbanHidden, tramHidden } from './tram-switch.js';
+import { localStore } from '/js/core/storage.js';
 
 // Plans again while the page is open, for what the clock changes (the next
 // trains, the last one); the chips count down in between, each second
@@ -224,10 +225,9 @@ function start(metro, trains) {
     for (const { id, key, show } of switches) {
         const input = /** @type {HTMLInputElement} */ (document.getElementById(`show-${id}`));
         input.addEventListener('change', () => {
-            try {
-                if (input.checked) localStorage.removeItem(key);
-                else localStorage.setItem(key, '1');
-            } catch { /* not kept: shown next time */ }
+            // Not kept (storage blocked): shown next time
+            if (input.checked) localStore.remove(key);
+            else localStore.set(key, '1');
             show(input.checked);
             replan();
             changed();
