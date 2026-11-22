@@ -6,9 +6,11 @@ import { check } from './probe.js';
 
 // What the Content-Security-Policy blocked, or would block in report-only
 // mode, as browsers reported it since the app started (server/csp-reports.js)
+/** @param {{ mode: string, kinds?: import('../csp-reports.js').CspKind[], dropped?: number } | null} csp */
 export function cspChecks(csp, now = Date.now) {
     if (!csp) return [];
     const GROUP = 'Content Security Policy';
+    /** @param {string} t */
     const ago = t => `${Math.max(0, Math.round((now() - Date.parse(t)) / 60_000))} min ago`;
     const mode = csp.mode === 'enforce'
         ? check(GROUP, 'Mode', 'ok', 'Enforced: browsers block anything the policy doesn\'t allow')
@@ -34,7 +36,9 @@ export function accountChecks(account) {
     const threadsCheck = check(GROUP, 'Threads', threads >= 0.9 * THREAD_LIMIT ? 'fail' : threads >= THREADS_WARN ? 'warn' : 'ok',
         `${threads} of the ${limit} the account may run at once`,
         threads >= THREADS_WARN ? `At ${limit}, nothing new can start: cPanel's Node.js page, deploys, the Terminal. Look for old copies below; each Node app takes about 11.` : undefined);
+    /** @param {number} t */
     const since = t => new Date(t).toISOString().slice(0, 16).replace('T', ' ');
+    /** @param {{ pid: number, started: number }[]} ps */
     const list = ps => ps.map(p => `${p.pid} (since ${since(p.started)} UTC)`).join(', ');
     return [threadsCheck, ...account.apps.map(app => {
         const old = app.copies.filter(c => c.stale);

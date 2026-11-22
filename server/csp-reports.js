@@ -44,7 +44,14 @@ function normalise(report) {
     };
 }
 
+/**
+ * A kind of report: the directive and what it blocked, how many times, and
+ * the last one's page, script and time (ISO)
+ * @typedef {{ directive: string, blocked: string, count: number, page: string, source: string, last: string }} CspKind
+ */
+
 export function createCspReports({ now = Date.now } = {}) {
+    /** @type {Map<string, CspKind>} */
     const kinds = new Map();
     let minute = { start: 0, count: 0 };
     let dropped = 0;

@@ -115,6 +115,7 @@ export function createLifts({ fetch = globalThis.fetch, now = Date.now, log = co
     let checkedAt = state?.fetched ? Date.parse(state.fetched) : 0;
     let refreshing = /** @type {Promise<void> | null} */ (null);
     // For the diagnostics: { ok, at, error, route }
+    /** @type {{ ok?: boolean, at?: number, error?: string, route?: string | null }} */
     let health = {};
     const stasy = createStasyClient({ fetch, now, relays, userAgent });
 
@@ -160,6 +161,7 @@ export function createLifts({ fetch = globalThis.fetch, now = Date.now, log = co
     }
 
     // → { ok?, at?, error?, route?, stations, unknown, updated }, for the diagnostics and /api/health
+    /** @returns {{ ok?: boolean, at?: number, error?: string, route?: string | null, stations: number, unknown: string[], updated: string | null }} */
     const status = () => ({
         ...health,
         stations: state?.checked ?? 0,
