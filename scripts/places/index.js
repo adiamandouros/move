@@ -18,7 +18,10 @@ import { fetchAll } from './fetch.js';
 // The stations come from the live site: rail.json is built there, not kept here
 const RAIL = 'https://wayhop.gr/data/rail.json';
 
+/** @typedef {import('./fetch.js').Get} Get */
+
 // The published index's counts, or null before the first one
+/** @param {Get} get */
 export async function publishedCounts(get = fetch) {
     const response = await get(PUBLISHED);
     if (response.status === 404) return null;
@@ -26,6 +29,7 @@ export async function publishedCounts(get = fetch) {
     return countsOf(unpack(Buffer.from(await response.arrayBuffer())));
 }
 
+/** @param {Get} get @returns {Promise<import('../../types/data.js').Rail>} */
 async function railData(get) {
     const response = await get(RAIL);
     if (!response.ok) throw new Error(`rail.json: ${response.status}`);
@@ -33,6 +37,9 @@ async function railData(get) {
 }
 
 // The index, compressed, or an error saying everything that's wrong with it
+/**
+ * @param {{ get?: Get, raw?: import('./fetch.js').Answers | null, log?: (message: unknown) => void, checks?: Parameters<typeof problemsWith>[1] }} [options]
+ */
 export async function makeIndex({ get = fetch, raw = null, log = console.log, checks = {} } = {}) {
     const [rail, previous] = [await railData(get), await publishedCounts(get)];
     const { index, stats } = buildIndex(raw ?? await fetchAll({ get, log }), rail);

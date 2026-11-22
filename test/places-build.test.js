@@ -141,9 +141,20 @@ test('metro stations and tram stops come from Wayhop\'s own list', () => {
     assert.equal(index.places.filter(place => place[2] === 'tram').length, 1);
 });
 
+test('a rail.json without its tram stops stops the build, saying so', () => {
+    const { tram, ...metroOnly } = rail;
+    assert.ok(tram);
+    assert.throws(() => buildIndex(raw, metroOnly), /rail.json has no tram stops/);
+});
+
 test('only the airports people fly from, under the names people use', () => {
     const airports = index.places.filter(place => place[2] === 'airport');
     assert.equal(airports.length, 1);
     assert.ok(airports[0][0].includes('Αεροδρόμιο'));
     assert.equal(search(db, 'athens airport').results[0].placeKind, 'airport');
+});
+
+test('an airport people fly from with no position stops the build, saying which', () => {
+    const nowhere = { type: 'way', id: 1, tags: { aeroway: 'aerodrome', iata: 'ATH', name: 'Αεροδρόμιο' } };
+    assert.throws(() => buildIndex({ ...raw, airports: [nowhere] }, rail), /Airport ATH: no position/);
 });

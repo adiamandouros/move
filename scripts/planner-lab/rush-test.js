@@ -28,8 +28,10 @@ const SITE = 'https://wayhop.gr';
 const ROUND_MS = 60_000;
 const TIMEOUT_MS = 20_000;
 
+/** @typedef {import('../../server/oasa/arrivals.js').StopAnswer} StopAnswer */
+
 // A stop's answer, without the names: which buses, and in how many minutes
-const brief = ({ arrivals, stale, unavailable }) => ({
+const brief = (/** @type {StopAnswer} */ { arrivals, stale, unavailable }) => ({
     arrivals: (arrivals ?? []).map(({ line, route, vehicle, minutes }) => ({ line, route, vehicle, minutes })),
     ...(stale && { stale }),
     ...(unavailable && { unavailable }),
@@ -37,16 +39,19 @@ const brief = ({ arrivals, stale, unavailable }) => ({
 
 // One round as a line for the file. A failure is written too: a gap in the
 // times has to be told from no buses coming.
+/** @param {string[]} stops @param {number} at */
 export async function askOnce(stops, at, fetch = globalThis.fetch) {
     try {
         const res = await fetch(`${SITE}/api/arrivals?stops=${stops.join(',')}`, {
             headers: { 'User-Agent': 'Wayhop rush-hour test' }, signal: AbortSignal.timeout(TIMEOUT_MS),
         });
         if (!res.ok) return { at, status: res.status };
+        /** @type {{ stops: Record<string, StopAnswer> }} */
         const answer = await res.json();
         return { at, stops: Object.fromEntries(Object.entries(answer.stops).map(([code, stop]) => [code, brief(stop)])) };
     } catch (err) {
-        return { at, error: err.message };
+        // messageOf (server/errors.js) written out: a copy of this file stands alone
+        return { at, error: err instanceof Error ? err.message : String(err) };
     }
 }
 

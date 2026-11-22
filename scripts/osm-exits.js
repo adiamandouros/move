@@ -20,7 +20,7 @@ const NEAR_M = 300;
 /** @type {Record<string, 'in' | 'out'>} */
 const ONLY = { exit: 'out', entrance: 'in' };
 
-const round = n => Math.round(n * 1e5) / 1e5;
+const round = (/** @type {number} */ n) => Math.round(n * 1e5) / 1e5;
 
 /**
  * Overpass's entrances as each station's exits: not the lifts (an entrance
@@ -28,7 +28,7 @@ const round = n => Math.round(n * 1e5) / 1e5;
  * station within NEAR_M, and a building's doors of the same name side by
  * side (within SAME_EXIT_M of each other) as one exit, as the station
  * editor records them. A name that's only the station's isn't an exit's.
- * @param {any[]} elements @param {Record<string, { coords: [number, number], name: { el: string, en: string } }>} stations
+ * @param {import('./places/fetch.js').OsmElement[]} elements @param {Record<string, { coords: [number, number], name: { el: string, en: string } }>} stations
  * @returns {Record<string, import('../public/js/core/osm-exits.js').OsmExit[]>}
  */
 export function exitsByStation(elements, stations) {
@@ -60,7 +60,7 @@ export function exitsByStation(elements, stations) {
         const el = doors.find(d => d.el)?.el;
         const en = doors.find(d => d.en)?.en;
         const only = doors.every(d => d.only === doors[0].only) ? doors[0].only : undefined;
-        const mean = i => round(doors.reduce((sum, d) => sum + d.coords[i], 0) / doors.length);
+        const mean = (/** @type {0 | 1} */ i) => round(doors.reduce((sum, d) => sum + d.coords[i], 0) / doors.length);
         return {
             ids: doors.map(d => d.id),
             ...((el || en) && { name: { ...(el && { el }), ...(en && { en }) } }),

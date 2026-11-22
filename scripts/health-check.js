@@ -16,19 +16,37 @@ import { resolve } from 'path';
 import { fileURLToPath } from 'url';
 // Runs on GitHub without npm install: only the app's dependency-free files (config.test.js)
 import { TEST_STOP } from '../server/oasa/client.js';
+import { messageOf } from '../server/errors.js';
 const RECHECK_MS = 2 * 60_000;
 const TIMEOUT_MS = 30_000;
 
+/**
+ * What failed, and the health page's answer (null if it gave none)
+ * @typedef {{ problems: string[], health: { problems?: string[] } | null }} Checked
+ */
+
+/**
+ * An answer, or a request that failed before one came
+ * @typedef {Pick<Response, 'ok' | 'status' | 'statusText'> & { json(): Promise<unknown> }} Answer
+ */
+
+/**
+ * @param {string} site
+ * @param {(url: string, init: RequestInit) => Promise<Answer>} fetch
+ * @returns {Promise<Checked>}
+ */
 export async function runChecks(site, fetch = globalThis.fetch) {
+    /** @type {string[]} */
     const problems = [];
-    const get = async path => {
+    /** @returns {Promise<Answer>} */
+    const get = async (/** @type {string} */ path) => {
         try {
             return await fetch(site + path, { headers: { 'User-Agent': 'Wayhop health check' }, signal: AbortSignal.timeout(TIMEOUT_MS) });
         } catch (err) {
-            return { ok: false, status: 0, statusText: err.message, json: async () => null };
+            return { ok: false, status: 0, statusText: messageOf(err), json: async () => null };
         }
     };
-    const failed = res => `HTTP ${res.status || res.statusText}`;
+    const failed = (/** @type {Answer} */ res) => `HTTP ${res.status || res.statusText}`;
 
     for (const path of ['/', '/el']) {
         const res = await get(path);
@@ -40,7 +58,8 @@ export async function runChecks(site, fetch = globalThis.fetch) {
     if (arrivals.status !== 200) {
         problems.push(`Live arrivals: ${failed(arrivals)}`);
     } else {
-        const stop = (await arrivals.json().catch(() => null))?.stops?.[TEST_STOP];
+        const answer = /** @type {{ stops?: Record<string, { unavailable?: boolean, stale?: boolean }> } | null} */ (await arrivals.json().catch(() => null));
+        const stop = answer?.stops?.[TEST_STOP];
         if (!stop || stop.unavailable) problems.push('Live arrivals: unavailable (OASA could not be reached)');
         else if (stop.stale) problems.push('Live arrivals: only older arrivals (OASA could not be reached just now)');
     }
@@ -49,7 +68,7 @@ export async function runChecks(site, fetch = globalThis.fetch) {
     await get('/api/announcements');
 
     const res = await get('/api/health');
-    const health = await res.json().catch(() => null);
+    const health = /** @type {Checked['health']} */ (await res.json().catch(() => null));
     if (!health?.problems) problems.push(`Health page: ${failed(res)}`);
     else problems.push(...health.problems);
     return { problems, health };
@@ -59,11 +78,13 @@ export async function runChecks(site, fetch = globalThis.fetch) {
 // change from run to run, the trouble doesn't. The workflow comments on the
 // open issue, and fails, only when this changes. An HTML comment, so it
 // doesn't show
+/** @param {string[]} problems */
 export function problemsMark(problems) {
     const kinds = [...new Set(problems.map(p => p.replace(/\d+/g, '#')))].toSorted();
     return `<!-- problems: ${createHash('sha256').update(kinds.join('\n')).digest('hex').slice(0, 16)} -->`;
 }
 
+/** @param {string} site @param {Checked} checked @param {Date} at */
 export function report(site, { problems, health }, at = new Date()) {
     const lines = [
         problems.length ? `## ${site}: ${problems.length} problem${problems.length === 1 ? '' : 's'}` : `## ${site}: healthy`,

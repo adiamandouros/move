@@ -26,17 +26,17 @@ if (!from || !to) {
     console.error('Usage: trip.js <from> <to> [HH:MM]');
     process.exit(2);
 }
-const inRepo = path => new URL(`../../${path}`, import.meta.url);
-const json = path => JSON.parse(readFileSync(inRepo(path), 'utf8'));
+const inRepo = (/** @type {string} */ path) => new URL(`../../${path}`, import.meta.url);
+const json = (/** @type {string} */ path) => JSON.parse(readFileSync(inRepo(path), 'utf8'));
 const places = load(JSON.parse(gunzipSync(readFileSync(inRepo('data/cache/places-index.json.gz'))).toString()));
-const place = query => {
+const place = (/** @type {string} */ query) => {
     const [first] = lookUp(places, query).results;
     if (!first) throw new Error(`No such place: ${query}`);
     console.log(`${query}: ${first.kind}, ${first.lat}, ${first.lng}`);
     return first;
 };
 
-const network = buses => createPlanner(joinNetwork(json('data/build/rail.json'), json(buses), WEDNESDAY));
+const network = (/** @type {string} */ buses) => createPlanner(joinNetwork(json('data/build/rail.json'), json(buses), WEDNESDAY));
 const planner = network('data/local/planner-lab/buses.json');
 const badDayFile = 'data/local/planner-lab/buses-bad-day.json';
 const badDay = existsSync(inRepo(badDayFile)) ? network(badDayFile) : planner;
@@ -47,6 +47,7 @@ const now = h * 3600 + m * 60;
 
 for (const way of fold(findWays(planner, access, egress, now)).slice(0, SHOWN)) console.log(describeWay(planner, way, now));
 
+/** @type {Map<string, number>} */
 const counts = new Map();
 const departures = acrossWindow(planner, access, egress, { from: now, to: now + WINDOW_SECONDS });
 for (const { way } of departures) {
@@ -57,7 +58,7 @@ console.log(`\nThe fastest over the next ${WINDOW_SECONDS / 60} minutes of depar
 for (const [key, count] of [...counts].sort((a, b) => b[1] - a[1])) console.log(`  ${Math.round(100 * count / departures.length)}% ${key}`);
 
 const { kind, rows, decision } = answer(planner, access, egress, now, { badDay });
-const clock = seconds => `${String(Math.floor(seconds / 3600) % 24).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;
+const clock = (/** @type {number} */ seconds) => `${String(Math.floor(seconds / 3600) % 24).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}`;
 console.log(`\nThe answer for the next half hour: ${kind}${badDay === planner ? '' : ', buses ranked by a bad day'}`);
 for (const row of rows.slice(0, SHOWN)) {
     const bus = row.lines.length ? ` (${row.lines.join(', ')}${row.every ? `, one every ${Math.round(row.every / 60)} min` : ''})` : '';
