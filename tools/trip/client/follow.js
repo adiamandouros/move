@@ -111,7 +111,7 @@ export function segmentMeters(p, a, b) {
  * `rail` has) as the steps it's followed by, from `from` to `to`. A walk
  * into a metro station ends at the exit it goes in by, and one out of it
  * starts at the exit it comes out by (decision 51)
- * @param {any} o @param {Point} from @param {Point} to @param {import('/tools/subway/network.js').Rail} rail
+ * @param {import('./plan.js').TripOption} o @param {Point} from @param {Point} to @param {import('/tools/subway/network.js').Rail} rail
  * @returns {Step[]}
  */
 export function waySteps(o, from, to, rail) {
@@ -135,18 +135,20 @@ export function waySteps(o, from, to, rail) {
         o.rides.forEach((ride, i) => {
             const before = i === 0 ? o.firstWalk : ride.walkBefore;
             /** @type {AnyRide[] | undefined} */
-            const any = ride.any?.length ? ride.any.map((/** @type {any} */ r) => ({ board: r.board, line: r.line, points: r.along.map(point), past: r.past.map(point), route: r.route, from: r.from, to: r.to })) : undefined;
+            const any = ride.any?.length ? ride.any.map(r => ({ board: r.board, line: r.line, points: r.along.map(point), past: r.past.map(point), route: r.route, from: r.from, to: r.to })) : undefined;
             if (before) {
                 if (i > 0) here = exitOr(o.rides[i - 1].alight, before.out, here);
                 walk(i, exitOr(ride.board, before.in, point(ride.along[0])), any);
             }
             board(i, ride.along.map(point), ride.past.map(point), !RAIL.has(ride.mode), any);
         });
-        if (o.lastWalk) steps.push({ kind: 'last', from: exitOr(o.rides.at(-1).alight, o.lastWalk.out, here), to });
+        if (o.lastWalk) steps.push({ kind: 'last', from: exitOr(o.rides[o.rides.length - 1].alight, o.lastWalk.out, here), to });
     } else {
+        /** @param {string} id @returns {Point} */
         const station = id => { const [lat, lng] = rail.stations[id].coords; return { lat, lng }; };
         // A walk between two stations of tram.json, through the exit it says:
         // out of one after a ride, into the other for a ride from there
+        /** @param {number} ride @param {string} a @param {string} b @param {{ leaving?: boolean, boarding?: boolean }} [ends] */
         const between = (ride, a, b, { leaving = true, boarding = true } = {}) => {
             const exit = rail.walkExits?.[a]?.[b];
             if (leaving) here = exitOr(rail.stations[a], exit, here);
@@ -162,7 +164,7 @@ export function waySteps(o, from, to, rail) {
             board(i, at, stops.slice(leg.toIndex + 1, leg.toIndex + 3).map(stop => station(stop.station)), Boolean(rail.lines[leg.line].tram));
         });
         // A walk to another station at the end counts as the last walk
-        if (o.plan.walkLast) between(o.plan.legs.length, o.plan.legs.at(-1).to, o.end.station, { boarding: false });
+        if (o.plan.walkLast) between(o.plan.legs.length, o.plan.legs[o.plan.legs.length - 1].to, o.end.station, { boarding: false });
         if (o.end.walk) steps.push({ kind: 'last', from: o.plan.walkLast ? here : exitOr(rail.stations[o.end.station], o.end.walk.out, here), to });
     }
     return steps;
@@ -191,6 +193,7 @@ export const startOver = state => ({ ...starting(), fix: state.fix, anchor: stat
 export function carry(before, state, steps) {
     const was = before[state.step];
     const now = steps[state.step];
+    /** @param {Step} step */
     const ride = step => 'ride' in step ? step.ride : -1;
     if (!was || !now || was.kind !== now.kind || ride(was) !== ride(now)) return startOver(state);
     // The ride boarded of a last bus's several, where the new way has it too

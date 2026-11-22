@@ -179,6 +179,7 @@ const position = stop => [Math.round(stop.lat * 1e5) / 1e5, Math.round(stop.lng 
 /** @param {Planner} planner @param {{ route: number, boardIndex: number, alightIndex: number }} leg */
 function alongLeg(planner, leg) {
     const { stops } = planner.routes[leg.route];
+    /** @param {number} i */
     const at = i => position(planner.stops[stops[i]]);
     const on = stops.slice(leg.boardIndex, leg.alightIndex + 1).map(stop => planner.stops[stop]);
     return {
@@ -233,6 +234,7 @@ const withAny = (option, planner, stops, egress) => {
 };
 
 // The same rides whatever the bus: between the same stops, any line
+/** @param {import('/tools/subway/ways.js').Way} way */
 const bundleKey = way => way.legs.map(leg => `${ON_THE_ROAD.has(leg.mode) ? 'bus' : leg.line} ${leg.board} ${leg.alight}`).join('|');
 
 /**
@@ -247,12 +249,15 @@ const bundleKey = way => way.legs.map(leg => `${ON_THE_ROAD.has(leg.mode) ? 'bus
 export function busOptions(planner, from, to, now) {
     const [access, egress] = ends(planner, from, to);
     if (!access.length || !egress.length) return [];
+    /** @type {Map<string, { way: import('/tools/subway/ways.js').Way, lines: Set<string>[] }>} */
     const bundles = new Map();
     for (const way of fold(findWays(planner, access, egress, now.seconds))) {
         if (!way.legs.some(leg => CITY_ONLY.has(leg.mode))) continue;
         const key = bundleKey(way);
-        if (!bundles.has(key)) bundles.set(key, { way, lines: way.legs.map(() => new Set()) });
-        way.legs.forEach((leg, i) => bundles.get(key).lines[i].add(leg.line));
+        let bundle = bundles.get(key);
+        if (!bundle) bundles.set(key, bundle = { way, lines: way.legs.map(() => new Set()) });
+        const { lines } = bundle;
+        way.legs.forEach((leg, i) => lines[i].add(leg.line));
     }
     return [...bundles.values()].map(({ way, lines }) => cityOption(planner, way, { access, egress, from, to }, now.seconds, lines.map(set => [...set])));
 }
@@ -488,7 +493,9 @@ export function liveWay(planner, from, to, row, departure, now, live, { decision
     const [access, egress] = ends(planner, from, to);
     const last = way.legs.length - 1;
     const current = currentLeg(way, step);
+    /** @type {Map<string, { at: number | null, ride?: true }>} */
     const asks = new Map();
+    /** @type {Parameters<typeof timedLegs>[7]} */
     const ask = (code, at, ride = false) => { if (code && asks.size < LIVE_STOPS && !asks.has(code)) asks.set(code, { at, ...ride && { ride: true } }); };
     const timed = timedLegs(planner, row, way, now, live, access, { step, own, trains }, ask);
     if (!timed) return null;
@@ -766,9 +773,11 @@ export function aheadWays(planner, from, to, row, departure, now, live, { decisi
     const { stops } = planner.routes[riding.route];
     // How late the ride is timed to get off, shared out along the stops left
     const late = riding.arrives - (step.at + trip[riding.alightIndex] - trip[here]);
+    /** @type {number[]} */
     const seeds = [];
     /** @type {Map<number, { index: number, reaches: number, walk: number, seconds: number }>} */
     const seededBy = new Map();
+    /** @param {number} stop @param {number} index @param {number} reaches @param {number} walk */
     const seed = (stop, index, reaches, walk) => {
         const seconds = reaches - step.at + (walk ? walk + AFTER_WALK_SECONDS : CHANGE_SECONDS);
         seeds.push(stop, seconds);
@@ -875,6 +884,7 @@ function stayingOn(planner, row, legs, egress, stops, arrives) {
 /** @param {import('/tools/subway/answer.js').Decision} decision @param {import('/tools/subway/ways.js').Way} way @param {number} departure */
 function leavingSooner({ getOff }, way, departure) {
     const [first] = way.legs;
+    /** @param {import('/tools/subway/ways.js').Way | null} off */
     const same = off => off && off.legs[0].line === first.line && off.legs[0].board === first.board;
     return same(getOff.best[departure]) ? departure : getOff.best.findIndex(same);
 }

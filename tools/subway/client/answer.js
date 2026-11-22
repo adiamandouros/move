@@ -56,8 +56,9 @@ const ON_THE_ROAD = new Set(['bus', 'trolley']);
 /** @param {import('./ways.js').Way} way */
 const lastIsBus = way => ON_THE_ROAD.has(way.legs[way.legs.length - 1].mode);
 
-// Ways that are the same up to their last bus, from the same change, are one row
-/** @param {Planner} planner @param {Way} way */
+// Ways that are the same up to their last bus, from the same change, are one
+// row (a way the search found, weighed or not)
+/** @param {Planner} planner @param {import('./ways.js').Way} way */
 export function rowKey(planner, way) {
     if (!lastIsBus(way)) return wayKey(planner, way);
     const before = way.legs.slice(0, -1);

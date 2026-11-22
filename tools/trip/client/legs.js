@@ -16,6 +16,10 @@ const CARDS = new Set(['metro', 'tram', 'suburban']);
 
 // When a suburban train actually leaves or gets somewhere, `at` by the
 // timetable: as late as it runs, `trains` by number (decision 47)
+/** @typedef {import('/tools/subway/network.js').PlannedRoute['legs'][number]} PlannedLeg a leg with its trains, as the Subway page's card draws it */
+/** @typedef {{ line: string, dir: string, board: { station: string }, alight: { station: string }, boards: number }} RailRide a metro or tram ride of the city's search */
+/** @typedef {{ line: string, board: { id: string }, alight: { id: string }, train?: string | null, timetable: number }} TrainRide a suburban ride of the city's search */
+
 /** @param {When['trains']} trains @param {string | null | undefined} train @param {number} at */
 export const asLate = (trains, train, at) => at + ((train && trains?.[train]?.late) || 0);
 
@@ -26,8 +30,9 @@ export const asLate = (trains, train, at) => at + ((train && trains?.[train]?.la
  * Timed on the weekday's trains, as the city's search is (city.js), so the
  * first is the way's own
  * @param {import('../../../types/data.js').Rail} rail
- * @param {{ line: string, dir: string, board: { station: string }, alight: { station: string }, boards: number }} ride
+ * @param {RailRide} ride
  * @param {number} weekday 0 = Sunday
+ * @returns {PlannedLeg}
  */
 function rideLeg(rail, ride, weekday) {
     const { stops } = rail.lines[ride.line].directions[ride.dir];
@@ -45,8 +50,9 @@ function rideLeg(rail, ride, weekday) {
  * by number (the rider's rule, 10 November 2026). Null when `rail` doesn't
  * have its train (trains.json not in yet, or another day's): a row then
  * @param {import('../../../types/data.js').Rail} rail
- * @param {{ line: string, board: { id: string }, alight: { id: string }, train?: string | null, timetable: number }} ride
+ * @param {TrainRide} ride
  * @param {When} when
+ * @returns {PlannedLeg | null}
  */
 function trainLeg(rail, ride, { weekday, date, trains }) {
     const [from, to] = [ride.board, ride.alight].map(stop => suburbanStation(rail, stop.id.slice('train:'.length)));
@@ -69,13 +75,17 @@ function trainLeg(rail, ride, { weekday, date, trains }) {
  * option's legs (plan.js) as they are, a way of the city's search's metro,
  * tram and suburban rides made into legs. `card`: the ride's card, by its
  * place among the way's rides; null for a ride drawn as a row (a bus, or a
- * suburban train `rail` doesn't have)
- * @param {import('../../../types/data.js').Rail} rail @param {any} o @param {When} when
- * @returns {({ leg: any, next: any } | null)[]}
+ * suburban train `rail` doesn't have). A metro or tram ride has its
+ * direction and stations, a suburban ride its time by the timetable
+ * @param {import('../../../types/data.js').Rail} rail @param {import('./plan.js').TripOption} o @param {When} when
+ * @returns {({ leg: PlannedLeg, next: PlannedLeg | null } | null)[]}
  */
 export function wayLegs(rail, o, when) {
+    /** @type {(PlannedLeg | null)[]} */
     const legs = o.city
-        ? o.rides.map(ride => !CARDS.has(ride.mode) ? null : ride.mode === 'suburban' ? trainLeg(rail, ride, when) : rideLeg(rail, ride, when.weekday))
+        ? o.rides.map(ride => !CARDS.has(ride.mode) ? null : ride.mode === 'suburban'
+            ? trainLeg(rail, /** @type {TrainRide} */ (ride), when)
+            : rideLeg(rail, /** @type {RailRide} */ (ride), when.weekday))
         : o.plan.legs;
     return legs.map((leg, i) => leg && { leg, next: legs[i + 1] ?? null });
 }

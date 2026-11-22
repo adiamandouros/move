@@ -132,7 +132,7 @@ export function findWays(planner, access, egress, now, { budget = BUDGET, slack 
 
 // The same lines arriving together are one way, however many stops it could
 // be caught at: it's the same bus. The one with the least walking stays
-/** @param {Way[]} ways */
+/** @param {Way[]} ways @returns {Way[]} */
 export function fold(ways) {
     const kept = new Map();
     for (const way of ways) {

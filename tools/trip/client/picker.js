@@ -21,7 +21,25 @@ const FEWEST_LETTERS = 2;
 // 2 seconds, the first after a deploy, which loads the index, longer
 const ANSWER_WITHIN_MS = 10_000;
 
+/**
+ * A place address search found (server/places/search.js): a street, with
+ * the house number asked (`n`, null for the street alone) and how exact
+ * where it is is (`kind`: that number, within a range of numbers, between
+ * `lo` and `hi`, beyond the last numbers, near the nearest number `near`,
+ * or only the street), or a place (`placeKind`: metro, tram, airport…; a
+ * metro station's lines in `lineNames`); its town, '' when it has none
+ * @typedef {{ name: string, town: string, type: 'street' | 'place', placeKind?: string, lineNames: string[], n: number | null, numbers: number,
+ *   kind: 'exact' | 'range' | 'between' | 'beyond' | 'nearest' | 'street' | 'place', lat: number, lng: number, lo?: number, hi?: number, near?: number, away?: number }} Found
+ */
+/**
+ * What address search answers: the places found, the town typed when they
+ * aren't in it (`notInTown`; `noSuchTown`: there's no town of that name),
+ * whether the words were mended; or the places picked lately (`recent`)
+ * @typedef {{ results: Found[], notInTown?: string | null, noSuchTown?: boolean, corrected?: boolean, recent?: boolean }} PlacesAnswer
+ */
+
 // What can be said above the list, or ''. `recent`: the places picked lately
+/** @param {PlacesAnswer} answer */
 export function listNote({ results, notInTown, noSuchTown, corrected, recent }) {
     if (recent) return t('trip.recent');
     if (!results.length) return t('trip.nothing-found');
@@ -30,6 +48,7 @@ export function listNote({ results, notInTown, noSuchTown, corrected, recent }) 
     return corrected ? t('trip.mended') : '';
 }
 
+/** @param {string} q @param {AbortSignal} signal @returns {Promise<PlacesAnswer>} */
 async function findPlaces(q, signal) {
     const response = await fetch('/api/places', {
         method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ q }),
@@ -38,7 +57,12 @@ async function findPlaces(q, signal) {
     return response.json();
 }
 
+/**
+ * @param {{ input: HTMLInputElement, list: HTMLElement, status: HTMLElement, rail: import('/tools/subway/network.js').Rail,
+ *   onChange: (found: Found | null) => void, chosen: () => boolean }} field
+ */
 export function placePicker({ input, list, status, rail, onChange, chosen }) {
+    /** @type {Found[]} */
     let found = [];
     /** @type {ReturnType<typeof setTimeout> | undefined} */
     let timer;
@@ -47,6 +71,7 @@ export function placePicker({ input, list, status, rail, onChange, chosen }) {
     // Whether the list shows the places picked lately, as said above it
     let offering = false;
 
+    /** @param {string} message */
     const say = message => { status.textContent = message; };
     const hide = () => {
         list.hidden = true;
@@ -55,6 +80,7 @@ export function placePicker({ input, list, status, rail, onChange, chosen }) {
         offering = false;
     };
 
+    /** @param {PlacesAnswer} answer */
     function show(answer) {
         offering = Boolean(answer.recent);
         found = answer.results;
@@ -64,6 +90,7 @@ export function placePicker({ input, list, status, rail, onChange, chosen }) {
         input.setAttribute('aria-expanded', String(found.length > 0));
     }
 
+    /** @param {string} q */
     async function search(q) {
         asking?.abort();
         const mine = asking = new AbortController();
@@ -83,6 +110,7 @@ export function placePicker({ input, list, status, rail, onChange, chosen }) {
         }
     }
 
+    /** @param {number} index */
     function pick(index) {
         const place = found[index];
         if (!place) return;
@@ -122,7 +150,7 @@ export function placePicker({ input, list, status, rail, onChange, chosen }) {
             if (offerRecent()) e.preventDefault();
         } else if (e.key === 'ArrowDown') {
             e.preventDefault();
-            list.querySelector('[role="option"]')?.focus();
+            /** @type {HTMLElement | null} */ (list.querySelector('[role="option"]'))?.focus();
         } else if (e.key === 'Enter') {
             e.preventDefault();
             if (!list.hidden) pick(0);
