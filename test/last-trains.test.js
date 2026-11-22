@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, utimesSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import express from 'express';
@@ -92,6 +92,15 @@ test('every row and fact of the Info page is on the real network', () => {
     const { rows, facts } = lastTrains(rail, info.data.lastTrains, 'en', s);
     assert.equal(rows.length, info.data.lastTrains.table.length);
     for (const [key, value] of Object.entries(facts)) assert.match(value, /^\d\d:\d\d$/, key);
+});
+
+test('a tool with "rail" and no last trains to draw stops the server at start, saying which', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wayhop-tools-'));
+    mkdirSync(join(dir, 'x'));
+    writeFileSync(join(dir, 'x', 'tool.json'), JSON.stringify({ path: '/x', icon: 'train', title: { en: 'X', el: 'Χ' }, rail: true }));
+    assert.throws(() => loadTools(dir), /tools\/x\/tool.json has "rail", so its data.json needs "lastTrains"/);
+    writeFileSync(join(dir, 'x', 'data.json'), JSON.stringify({ lastTrains: { table: [], facts: {} } }));
+    assert.equal(loadTools(dir)[0].data.lastTrains?.table.length, 0);
 });
 
 test('the Info page is drawn again when rail.json changes, without a restart', async () => {
