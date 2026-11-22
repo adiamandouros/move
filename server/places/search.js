@@ -302,9 +302,11 @@ function readings(query) {
 function answer(e, n) {
     if (e.type === 'place') return { kind: 'place', lat: e.lat, lng: e.lng };
     geometry(e);
-    return n === null
-        ? { kind: 'street', ...streetMiddle(e) }
-        : locate(e, n);
+    if (n !== null) return locate(e, n);
+    // Only where it is: a street known by its numbers alone has one of them
+    // as its middle, which wasn't asked for
+    const m = streetMiddle(e);
+    return m && { kind: 'street', lat: m.lat, lng: m.lng };
 }
 
 const KIND_ORDER = { exact: 0, range: 1, between: 2, beyond: 3, nearest: 4, street: 5, place: 6 };
