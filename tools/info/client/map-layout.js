@@ -6,6 +6,7 @@
 // Each entry is [x, y, label side]. The side is a compass direction from the
 // station: n, s, e, w, ne, nw, se or sw.
 
+/** @type {Record<string, import('./map.js').Place>} */
 export const STATIONS = {
     // Centre
     'syntagma':             [0, 0, 'se'],
@@ -97,6 +98,7 @@ export const BENDS = {
 // `metro`) or the suburban railway (a walk in suburban.json): one stub for both
 // at Piraeus. Past Doukissis Plakentias the railway runs beside M3 instead
 // (ALONGSIDE).
+/** @type {Record<string, import('./map.js').Side>} */
 export const STUBS = {
     'syntagma': 'ne',
     'syggrou-fix': 'w',

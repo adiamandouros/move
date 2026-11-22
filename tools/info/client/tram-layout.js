@@ -8,6 +8,7 @@
 // Each entry is [x, y, label side]. The side is a compass direction from the
 // stop: n, s, e, w, ne, nw, se or sw.
 
+/** @type {Record<string, import('./map.js').Place>} */
 export const STATIONS = {
     // T7: the Piraeus loop
     'akti-poseidonos':      [-6, -6, 'w'],
@@ -80,6 +81,7 @@ export const STATIONS = {
 export const BENDS = {};
 
 // Where the metro stubs point from a stop that changes to the metro
+/** @type {Record<string, import('./map.js').Side>} */
 export const STUBS = {
     'akti-poseidonos': 'nw',
     'dimarcheio': 'sw',

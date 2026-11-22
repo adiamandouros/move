@@ -27,19 +27,36 @@ const GAP = 11;           // between two lines side by side (a layout's LANES)
 const BEYOND_LENGTH = 1.4 * UNIT;
 const NS = 'http://www.w3.org/2000/svg';
 
-/** @typedef {{ STATIONS: Record<string, any[]>, BENDS?: Record<string, number[][]>, DASHED?: Record<string, string[]>, STUBS?: Record<string, string>, BADGES?: Record<string, number[][]>, LANES?: Record<string, number>, BEYOND?: Record<string, string>, ALONGSIDE?: string[][] }} Layout */
+/** @typedef {import('../../../types/data.js').Names} Names */
+/** @typedef {import('../../../types/data.js').Rail} Rail */
+/** @typedef {import('../../../types/data.js').Trains} Trains */
+/** @typedef {'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'} Side a compass direction from a station */
+/** @typedef {[number, number, Side | null]} Place a station's place on a layout's grid, and its label's side (null: none) */
+/**
+ * A map's layout (map-layout.js, tram-layout.js, suburban-layout.js)
+ * @typedef {{ STATIONS: Record<string, Place>, BENDS?: Record<string, number[][]>, DASHED?: Record<string, string[]>, STUBS?: Record<string, Side>, BADGES?: Record<string, number[][]>, LANES?: Record<string, number>, BEYOND?: Record<string, Side>, ALONGSIDE?: string[][] }} Layout
+ */
+/**
+ * A network as a map and its list of stations take it: rail.json's metro
+ * part, its `tram`, or the railway's (suburbanNetwork)
+ * @typedef {{ name: string, color: string }} LineLook a line's name and colour (#rrggbb, '' for the style sheet's)
+ * @typedef {{ toward: Names, stops: { station: string }[] }} MapDirection
+ * @typedef {LineLook & { directions: Record<string, MapDirection> }} MapLine
+ * @typedef {{ lines: Record<string, MapLine>, stations: Record<string, { name: Names, lines: string[] }> }} Network
+ */
 
 // A direction's station ids, in travel order
-const directionStations = direction => direction.stops.map(s => s.station);
+const directionStations = (/** @type {MapDirection} */ direction) => direction.stops.map(s => s.station);
 // Station ids in line order, from the line's first direction in rail.json
-const lineStations = line => directionStations(Object.values(line.directions)[0]);
+const lineStations = (/** @type {MapLine} */ line) => directionStations(Object.values(line.directions)[0]);
 
 // A line's colour for the map: rail.json's, if it's a #rrggbb colour
-const lineColor = line => /^#[0-9a-f]{6}$/i.test(line?.color) ? line.color : '#6c757d';
+const lineColor = (/** @type {LineLook | undefined} */ line) => line && /^#[0-9a-f]{6}$/i.test(line.color) ? line.color : '#6c757d';
 
-const pathData = points => points.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join('');
+const pathData = (/** @type {number[][]} */ points) => points.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join('');
 
 // Compass directions, as unit steps on the grid
+/** @type {Record<Side, number[]>} */
 const COMPASS = {
     n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0],
     ne: [Math.SQRT1_2, -Math.SQRT1_2], nw: [-Math.SQRT1_2, -Math.SQRT1_2],
@@ -48,17 +65,18 @@ const COMPASS = {
 
 // Text placement for each label side: anchor and baseline (the offset is the
 // side's compass step, a little shorter on the diagonals)
+/** @type {Record<Side, [string, string]>} */
 const SIDES = {
     n: ['middle', 'auto'], s: ['middle', 'hanging'], e: ['start', 'central'], w: ['end', 'central'],
     ne: ['start', 'auto'], nw: ['end', 'auto'], se: ['start', 'hanging'], sw: ['end', 'hanging'],
 };
-const labelStep = side => COMPASS[side].map(v => Math.abs(v) < 1 ? Math.sign(v) * 0.7 : v);
+const labelStep = (/** @type {Side} */ side) => COMPASS[side].map(v => Math.abs(v) < 1 ? Math.sign(v) * 0.7 : v);
 
 /** @param {Layout} layout */
 function geometry(layout) {
-    const point = id => [layout.STATIONS[id][0] * UNIT, layout.STATIONS[id][1] * UNIT];
+    const point = (/** @type {string} */ id) => [layout.STATIONS[id][0] * UNIT, layout.STATIONS[id][1] * UNIT];
     // Points of a run of stations: the stations, with the corners from BENDS in between
-    const linePoints = ids => ids.flatMap((id, i) => {
+    const linePoints = (/** @type {string[]} */ ids) => ids.flatMap((id, i) => {
         if (i === 0) return [point(id)];
         const prev = ids[i - 1];
         const bends = layout.BENDS?.[`${prev}>${id}`] ?? [...(layout.BENDS?.[`${id}>${prev}`] ?? [])].reverse();
@@ -69,11 +87,12 @@ function geometry(layout) {
 
 // The runs of a line its first direction doesn't cover (T7 goes back round
 // its Piraeus loop the other way), and the hops trains only make one way
+/** @param {MapLine} line */
 function lineParts(line) {
     const dirs = Object.values(line.directions).map(directionStations);
     const hops = dirs.flatMap(ids => ids.slice(1).map((id, i) => [ids[i], id]));
-    const has = (a, b) => hops.some(([x, y]) => x === a && y === b);
-    const firstHas = (a, b) => dirs[0].some((id, i) => i > 0 && ((dirs[0][i - 1] === a && id === b) || (dirs[0][i - 1] === b && id === a)));
+    const has = (/** @type {string} */ a, /** @type {string} */ b) => hops.some(([x, y]) => x === a && y === b);
+    const firstHas = (/** @type {string} */ a, /** @type {string} */ b) => dirs[0].some((id, i) => i > 0 && ((dirs[0][i - 1] === a && id === b) || (dirs[0][i - 1] === b && id === a)));
     /** @type {string[][]} */
     const extra = [];
     for (const ids of dirs.slice(1)) {
@@ -91,6 +110,7 @@ function lineParts(line) {
 
 // A line's name in its colours, as linePill in lines.js draws it: the
 // box's colour from rail.json, the text's from style.css's .line-m1 etc.
+/** @param {number} x @param {number} y @param {string} lineId @param {LineLook | undefined} line */
 function badge(x, y, lineId, line) {
     return html`<g class="map-badge line-${lineId.toLowerCase()}"><rect x="${x - BADGE.w / 2}" y="${y - BADGE.h / 2}" width="${BADGE.w}" height="${BADGE.h}" rx="${BADGE.h / 2}" fill="${lineColor(line)}"/><text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central">${line?.name ?? lineId}</text></g>`;
 }
@@ -98,9 +118,10 @@ function badge(x, y, lineId, line) {
 // The stations where each line's directions start and end, and where its
 // dashed branch starts (trains toward the airport may end at Doukissis):
 // what a direction is called by
+/** @param {Network} network @param {Layout} layout */
 function terminals(network, layout) {
     return new Set([
-        ...Object.values(network.lines).flatMap(line => Object.values(line.directions).flatMap(d => [d.stops[0].station, d.stops.at(-1).station])),
+        ...Object.values(network.lines).flatMap(line => Object.values(line.directions).flatMap(d => [d.stops[0].station, d.stops[d.stops.length - 1].station])),
         ...Object.values(layout.DASHED ?? {}).flat(),
     ]);
 }
@@ -108,7 +129,7 @@ function terminals(network, layout) {
 // The other network's lines that run on this one's track (a layout's
 // ALONGSIDE: the railway and M3 from Doukissis Plakentias to the Airport),
 // drawn thin beside it: the lines every station of that stretch changes to
-/** @param {{ lines: Record<string, any> }} network @param {Layout} layout @param {(id: string) => string[]} changes */
+/** @param {Network} network @param {Layout} layout @param {(id: string) => string[]} changes */
 function alongside(network, layout, changes) {
     return (layout.ALONGSIDE ?? []).flatMap(([from, to]) => {
         const run = Object.values(network.lines).map(line => lineStations(line).filter(id => layout.STATIONS[id]))
@@ -128,17 +149,20 @@ function alongside(network, layout, changes) {
 // the first line's run (lineStations) along all its shared track. Without
 // LANES every line runs through the stations' places. The other network's
 // lines alongside (`guests`) don't move this one's: they sit beside them.
-/** @param {{ lines: Record<string, any> }} network @param {Layout} layout @param {{ line: string, ids: string[] }[]} guests */
+/** @param {Network} network @param {Layout} layout @param {{ line: string, ids: string[] }[]} guests */
 function lanes(network, layout, guests) {
-    const placed = id => !!layout.STATIONS[id];
-    const key = (a, b) => a < b ? `${a}>${b}` : `${b}>${a}`;
-    const lane = id => layout.LANES?.[id] ?? 0;
+    const placed = (/** @type {string} */ id) => !!layout.STATIONS[id];
+    const key = (/** @type {string} */ a, /** @type {string} */ b) => a < b ? `${a}>${b}` : `${b}>${a}`;
+    const lane = (/** @type {string} */ id) => layout.LANES?.[id] ?? 0;
+    /** @type {Record<string, string[]>} */
     const runs = Object.fromEntries([
         ...Object.entries(network.lines).map(([id, line]) => [id, lineStations(line).filter(placed)]),
         ...guests.map(({ line, ids }) => [line, ids]),
     ]);
     const guest = new Set(guests.map(({ line }) => line));
+    /** @type {Map<string, string[]>} */
     const onHop = new Map();
+    /** @type {Map<string, string>} */
     const firstWay = new Map();
     for (const [id, ids] of Object.entries(runs)) {
         ids.slice(1).forEach((b, i) => {
@@ -146,9 +170,9 @@ function lanes(network, layout, guests) {
             if (!firstWay.has(key(ids[i], b))) firstWay.set(key(ids[i], b), ids[i]);
         });
     }
-    const sharing = (a, b) => onHop.get(key(a, b))?.length ?? 1;
+    const sharing = (/** @type {string} */ a, /** @type {string} */ b) => onHop.get(key(a, b))?.length ?? 1;
     // How far line `id` is moved to the left of a → b, in px
-    const across = (id, a, b) => {
+    const across = (/** @type {string} */ id, /** @type {string} */ a, /** @type {string} */ b) => {
         if (!layout.LANES) return 0;
         const ids = (onHop.get(key(a, b)) ?? [id]).filter(l => !guest.has(l));
         const mean = ids.length ? ids.reduce((sum, l) => sum + lane(l), 0) / ids.length : lane(id);
@@ -185,6 +209,7 @@ function shifted(hops) {
 }
 
 // A small arrowhead halfway along the longest straight piece of a hop
+/** @param {number[][]} points */
 function arrow(points) {
     const pieces = points.slice(1).map((p, i) => [points[i], p]);
     const [[x1, y1], [x2, y2]] = pieces.reduce((a, b) => Math.hypot(b[1][0] - b[0][0], b[1][1] - b[0][1]) > Math.hypot(a[1][0] - a[0][0], a[1][1] - a[0][1]) ? b : a);
@@ -195,35 +220,36 @@ function arrow(points) {
 // Where `line`'s trains go on to past station `id`, the last of its stations
 // on the map at one end (the railway's map stops at the city): the station
 // they end at, or none
-/** @param {any} line @param {string} id @param {(id: string) => boolean} placed */
+/** @param {MapLine} line @param {string | undefined} id @param {(id: string) => boolean} placed */
 function goesOn(line, id, placed) {
     const ids = lineStations(line);
     const shown = ids.filter(placed);
-    if (ids.at(-1) !== id && shown.at(-1) === id) return ids.at(-1);
+    const last = ids[ids.length - 1];
+    if (last !== id && shown[shown.length - 1] === id) return last;
     if (ids[0] !== id && shown[0] === id) return ids[0];
     return null;
 }
 
 /**
  * The map's SVG content (exported for the tests)
- * @param {{ lines: Record<string, any>, stations: Record<string, any> }} network
+ * @param {Network} network
  * @param {Layout} layout
- * @param {{ id: string, colors: Record<string, any>, link: (id: string) => string | null, changes: (id: string) => string[], walks?: string[][] }} options
+ * @param {{ id: string, colors: Record<string, LineLook>, link: (id: string) => string | null, changes: (id: string) => string[], walks?: string[][] }} options
  * walks: pairs of stations a short walk apart (SKA's two), joined on the map
  */
 export function drawMap(network, layout, { id: mapId, colors, link, changes, walks = [] }) {
     const { point, linePoints } = geometry(layout);
     const lines = Object.entries(network.lines);
-    const placed = id => !!layout.STATIONS[id];
+    const placed = (/** @type {string} */ id) => !!layout.STATIONS[id];
     const guests = alongside(network, layout, changes);
     const { runs, sharing, across } = lanes(network, layout, guests);
-    const trackPoints = (lineId, ids) => layout.LANES
+    const trackPoints = (/** @type {string} */ lineId, /** @type {string[]} */ ids) => layout.LANES
         ? shifted(ids.slice(1).map((b, i) => ({ points: linePoints([ids[i], b]), by: across(lineId, ids[i], b) })))
         : linePoints(ids);
 
     // Where each line passes a station: moved across as on its hop there
     // with the most lines (so the marks line up across shared track)
-    const marks = id => Object.entries(runs).flatMap(([lineId, ids]) => {
+    const marks = (/** @type {string} */ id) => Object.entries(runs).flatMap(([lineId, ids]) => {
         const i = ids.indexOf(id);
         if (i < 0) return [];
         const hops = [ids[i - 1], ids[i + 1]].filter(Boolean).map(other => [id, other])
@@ -234,7 +260,7 @@ export function drawMap(network, layout, { id: mapId, colors, link, changes, wal
     });
     // A station's mark: from one end of its lanes to the other (one point
     // without LANES), and halfway between them
-    const extent = id => {
+    const extent = (/** @type {string} */ id) => {
         const points = marks(id);
         let [from, to] = [points[0] ?? point(id), points[0] ?? point(id)];
         for (const p of points) for (const q of points) {
@@ -263,7 +289,7 @@ export function drawMap(network, layout, { id: mapId, colors, link, changes, wal
         const [x, y] = extent(id).middle;
         const [dx, dy] = COMPASS[side];
         const others = changes(id);
-        const middle = i => i - (others.length - 1) / 2;
+        const middle = (/** @type {number} */ i) => i - (others.length - 1) / 2;
         const strokes = others.map((lineId, i) => {
             const shift = middle(i) * STUB_GAP;
             const [x1, y1] = [x - dy * shift, y + dx * shift];
@@ -296,7 +322,10 @@ export function drawMap(network, layout, { id: mapId, colors, link, changes, wal
         const [x2, y2] = [x1 + dx * BEYOND_LENGTH, y1 + dy * BEYOND_LENGTH];
         const [lx, ly] = labelStep(side);
         const [anchor, baseline] = SIDES[side];
-        return lines.map(([lineId, line]) => [lineId, line, goesOn(line, id, placed)]).filter(([, , to]) => to).map(([lineId, line, to]) => {
+        return lines.flatMap(([lineId, line]) => {
+            const to = goesOn(line, id, placed);
+            return to ? [{ lineId, line, to }] : [];
+        }).map(({ lineId, line, to }) => {
             const gradient = `${mapId}-beyond-${id}-${lineId}`;
             return html`<linearGradient id="${gradient}" gradientUnits="userSpaceOnUse" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}">
                 <stop offset="0.3" stop-color="${lineColor(line)}"/><stop offset="1" stop-color="${lineColor(line)}" stop-opacity="0"/>
@@ -338,13 +367,13 @@ export function drawMap(network, layout, { id: mapId, colors, link, changes, wal
 
 /**
  * A zoomable map in `container`
- * @param {any} container
- * @param {{ lines: Record<string, any>, stations: Record<string, any> }} network
+ * @param {HTMLElement} container
+ * @param {Network} network
  * @param {Layout} layout
- * @param {{ label: string, describedBy: string, colors?: Record<string, any>, link?: (id: string) => string | null, changes?: (id: string) => string[], walks?: string[][] }} options
+ * @param {{ label: string, describedBy: string, colors?: Record<string, LineLook>, link?: (id: string) => string | null, changes?: (id: string) => string[], walks?: string[][] }} options
  */
 function createRailMap(container, network, layout, { label, describedBy, colors = network.lines, link = () => null, changes = () => [], walks = [] }) {
-    const button = (zoom, key, symbol) => html`<button type="button" class="btn map-btn" data-zoom="${zoom}"
+    const button = (/** @type {string} */ zoom, /** @type {string} */ key, /** @type {string} */ symbol) => html`<button type="button" class="btn map-btn" data-zoom="${zoom}"
         aria-label="${t(key)}" title="${t(key)}">${icon(symbol)}</button>`;
     setHtml(container, html`
         <div class="map-controls">
@@ -353,14 +382,17 @@ function createRailMap(container, network, layout, { label, describedBy, colors 
             ${button('reset', 'info.zoom-reset', 'zoom-reset')}
         </div>
         <svg xmlns="${NS}" class="map-svg" role="img" aria-label="${label}" aria-describedby="${describedBy}" tabindex="0"></svg>`);
-    const svg = container.querySelector('.map-svg');
+    const svg = /** @type {SVGSVGElement} */ (container.querySelector('.map-svg'));
 
+    /** @typedef {{ x: number, y: number, w: number, h: number }} Box */
+    /** @type {Box} */
     let base;   // the whole map, as a viewBox
+    /** @type {Box} */
     let view;   // the visible part
 
     function draw() {
         setHtml(svg, drawMap(network, layout, { id: container.id, colors, link, changes, walks }));
-        const box = svg.querySelector('.map-content').getBBox();
+        const box = /** @type {SVGGElement} */ (svg.querySelector('.map-content')).getBBox();
         const pad = UNIT / 2;
         base = { x: box.x - pad, y: box.y - pad, w: box.width + 2 * pad, h: box.height + 2 * pad };
         svg.style.aspectRatio = `${base.w} / ${base.h}`;
@@ -380,12 +412,13 @@ function createRailMap(container, network, layout, { label, describedBy, colors 
     }
 
     // Client coordinates → map coordinates
-    /** @returns {[number, number]} */
+    /** @param {number} clientX @param {number} clientY @returns {[number, number]} */
     function toMap(clientX, clientY) {
         const rect = svg.getBoundingClientRect();
         return [view.x + (clientX - rect.left) / rect.width * view.w, view.y + (clientY - rect.top) / rect.height * view.h];
     }
 
+    /** @param {number} factor @param {number[]} [at] the point zoomed at, in map coordinates (without one, the middle of the view) */
     function zoomAt(factor, [px, py] = [view.x + view.w / 2, view.y + view.h / 2]) {
         const w = Math.min(base.w, Math.max(base.w / MAX_ZOOM, view.w / factor));
         const k = w / view.w;
@@ -393,6 +426,7 @@ function createRailMap(container, network, layout, { label, describedBy, colors 
         apply();
     }
 
+    /** @param {number} dxClient @param {number} dyClient */
     function panBy(dxClient, dyClient) {
         const rect = svg.getBoundingClientRect();
         view.x -= dxClient / rect.width * view.w;
@@ -400,8 +434,8 @@ function createRailMap(container, network, layout, { label, describedBy, colors 
         apply();
     }
 
-    container.querySelector('.map-controls').addEventListener('click', e => {
-        const action = e.target.closest('[data-zoom]')?.dataset.zoom;
+    /** @type {HTMLElement} */ (container.querySelector('.map-controls')).addEventListener('click', e => {
+        const action = /** @type {HTMLElement | null} */ (/** @type {Element} */ (e.target).closest('[data-zoom]'))?.dataset.zoom;
         if (action === 'in') zoomAt(1.6);
         if (action === 'out') zoomAt(1 / 1.6);
         if (action === 'reset') { view = { ...base }; apply(); }
@@ -422,6 +456,7 @@ function createRailMap(container, network, layout, { label, describedBy, colors 
     svg.addEventListener('keydown', e => {
         const zoomed = container.classList.contains('zoomed');
         const step = 60;
+        /** @type {Record<string, () => unknown>} */
         const actions = {
             '+': () => zoomAt(1.6), '=': () => zoomAt(1.6), '-': () => zoomAt(1 / 1.6),
             '0': () => { view = { ...base }; apply(); },
@@ -435,6 +470,7 @@ function createRailMap(container, network, layout, { label, describedBy, colors 
 
     // Drag and pinch. Pointer capture isn't used, so that a tap on a station
     // still reaches its link; a drag swallows the click that follows it.
+    /** @type {Map<number, number[]>} */
     const pointers = new Map();
     let moved = 0;
     /** @type {{ dist: number, mid: [number, number] } | null} */
@@ -469,7 +505,7 @@ function createRailMap(container, network, layout, { label, describedBy, colors 
         }
     });
 
-    const release = e => {
+    const release = (/** @type {PointerEvent} */ e) => {
         pointers.delete(e.pointerId);
         gesture = null;
     };
@@ -478,7 +514,8 @@ function createRailMap(container, network, layout, { label, describedBy, colors 
 
     // A tap on a station opens its link (the directions to it), unless it ended a drag
     svg.addEventListener('click', e => {
-        const href = link(e.target.closest('.map-station')?.dataset.station);
+        const station = /** @type {HTMLElement | null} */ (/** @type {Element} */ (e.target).closest('.map-station'))?.dataset.station;
+        const href = station && link(station);
         if (href && moved <= 6) location.href = href;
     });
 
@@ -486,19 +523,20 @@ function createRailMap(container, network, layout, { label, describedBy, colors 
 }
 
 // The metro's stations open the directions to them
-export const subwayLink = id => id ? localHref(`/subway?to=${encodeURIComponent(id)}`) : null;
+export const subwayLink = (/** @type {string | null | undefined} */ id) => id ? localHref(`/subway?to=${encodeURIComponent(id)}`) : null;
 // And the railway's, by the id the subway page gives them
 /** @param {import('../../../types/data.js').Rail} rail */
-export const suburbanLink = rail => id => id ? subwayLink(suburbanId(rail, id)) : null;
+export const suburbanLink = rail => (/** @type {string} */ id) => id ? subwayLink(suburbanId(rail, id)) : null;
 
 // The suburban railway as drawMap and stationList take a network, from
 // trains.json: each line's ways of running that no other of its ways holds
 // (A3's Chalkida–Oinoi trains are inside the Athens ones), by their first
 // station's id (A1 from the Airport: the way suburban-layout.js's LANES
 // follow), its stations with the lines calling there
-/** @param {import('../../../types/data.js').Trains} trains */
+/** @param {Trains} trains @returns {Network} */
 export function suburbanNetwork(trains) {
-    const within = (a, b) => { let i = 0; for (const id of b) if (id === a[i]) i++; return i === a.length; };
+    const within = (/** @type {string[]} */ a, /** @type {string[]} */ b) => { let i = 0; for (const id of b) if (id === a[i]) i++; return i === a.length; };
+    /** @type {Map<string, string[][]>} */
     const ways = new Map();
     for (const routes of Object.values(trains.dates)) {
         for (const { line, stops } of routes) {
@@ -506,15 +544,18 @@ export function suburbanNetwork(trains) {
             if (!mine.some(other => within(stops, other))) ways.set(line, [...mine.filter(other => !within(other, stops)), stops]);
         }
     }
-    const name = id => ({ el: trains.stations[id][2], en: trains.stations[id][3] });
+    const name = (/** @type {string} */ id) => ({ el: trains.stations[id][2], en: trains.stations[id][3] });
     // A trains.json from before its lines' colours (kept for offline, or not yet rebuilt): grey lines by id
     const known = trains.lines ?? Object.fromEntries([...ways.keys()].sort().map(id => [id, { name: id, color: '' }]));
+    /** @type {Network['lines']} */
     const lines = {};
+    /** @type {Map<string, Set<string>>} */
     const calledAt = new Map();
+    const lastOf = (/** @type {string[]} */ stops) => stops[stops.length - 1];
     for (const [id, { name: lineName, color }] of Object.entries(known)) {
-        const mine = ways.get(id)?.sort((a, b) => a[0].localeCompare(b[0]) || a.at(-1).localeCompare(b.at(-1)));
+        const mine = ways.get(id)?.sort((a, b) => a[0].localeCompare(b[0]) || lastOf(a).localeCompare(lastOf(b)));
         if (!mine) continue;
-        lines[id] = { name: lineName, color, directions: Object.fromEntries(mine.map((stops, i) => [`${stops.at(-1)}-${i}`, { toward: name(stops.at(-1)), stops: stops.map(station => ({ station })) }])) };
+        lines[id] = { name: lineName, color, directions: Object.fromEntries(mine.map((stops, i) => [`${lastOf(stops)}-${i}`, { toward: name(lastOf(stops)), stops: stops.map(station => ({ station })) }])) };
         for (const station of mine.flat()) calledAt.set(station, new Set(calledAt.get(station)).add(id));
     }
     const stations = Object.fromEntries([...calledAt].map(([id, on]) => [id, { name: name(id), lines: [...on].sort() }]));
@@ -523,8 +564,9 @@ export function suburbanNetwork(trains) {
 
 // The walks between the railway and the metro (trains.json's, 'train:athens'
 // to 'rail:larissa-station'), and between two of the railway's stations
+/** @param {Trains | null} trains @returns {[string, string][]} */
 const metroWalks = trains => (trains?.walks ?? []).filter(([, to]) => to.startsWith('rail:')).map(([from, to]) => [from.slice(6), to.slice(5)]);
-/** @param {import('../../../types/data.js').Trains} trains */
+/** @param {Trains} trains */
 export const suburbanWalks = trains => trains.walks.filter(([from, to]) => from.startsWith('train:') && to.startsWith('train:')).map(([from, to]) => [from.slice(6), to.slice(6)]);
 
 // The railway's lines a metro station changes to, a walk away
@@ -541,14 +583,14 @@ function suburbanChanges(trains) {
 // And the metro's lines a railway station changes to
 /** @param {import('../../../types/data.js').Rail} rail @param {import('../../../types/data.js').Trains} trains @returns {(id: string) => string[]} */
 export function metroChangesOfRailway(rail, trains) {
-    const byStation = new Map(metroWalks(trains).map(([station, metro]) => [station, rail.stations[metro]?.lines ?? []]));
+    const byStation = new Map(metroWalks(trains).map(([station, metro]) => /** @type {[string, string[]]} */ ([station, rail.stations[metro]?.lines ?? []])));
     return id => byStation.get(id) ?? [];
 }
 // A metro station's changes: to the tram, then the railway
 /** @param {import('../../../types/data.js').Rail} rail @param {import('../../../types/data.js').Trains | null} trains */
 export const metroStationChanges = (rail, trains) => {
     const [tram, railway] = [tramChanges(rail), suburbanChanges(trains)];
-    return id => [...tram(id), ...railway(id)];
+    return (/** @type {string} */ id) => [...tram(id), ...railway(id)];
 };
 
 // The tram lines a metro station changes to (from the tram stops'
@@ -567,18 +609,18 @@ export const metroChanges = rail => id => rail.tram?.stations[id]?.metro?.lines 
 /** @param {import('../../../types/data.js').Rail} rail @param {import('../../../types/data.js').Trains | null} [trains] */
 export const allColors = (rail, trains) => ({ ...rail.lines, ...rail.tram?.lines, ...trains?.lines });
 
-/** @param {any} container @param {import('../../../types/data.js').Rail} rail @param {import('../../../types/data.js').Trains | null} trains @param {Layout} layout */
+/** @param {HTMLElement} container @param {Rail} rail @param {Trains | null} trains @param {Layout} layout */
 export function createMetroMap(container, rail, trains, layout) {
     createRailMap(container, rail, layout, { label: t('info.map-label'), describedBy: 'map-help subway-map-help', colors: allColors(rail, trains), link: subwayLink, changes: metroStationChanges(rail, trains) });
 }
 
-/** @param {any} container @param {import('../../../types/data.js').Rail} rail @param {Layout} layout */
+/** @param {HTMLElement} container @param {Rail} rail @param {Layout} layout */
 export function createTramMap(container, rail, layout) {
     if (!rail.tram) throw new Error('No tram in rail.json');
     createRailMap(container, rail.tram, layout, { label: t('info.tram-map-label'), describedBy: 'map-help tram-map-help', colors: allColors(rail), changes: metroChanges(rail) });
 }
 
-/** @param {any} container @param {import('../../../types/data.js').Rail} rail @param {import('../../../types/data.js').Trains} trains @param {Layout} layout */
+/** @param {HTMLElement} container @param {Rail} rail @param {Trains} trains @param {Layout} layout */
 export function createSuburbanMap(container, rail, trains, layout) {
     createRailMap(container, suburbanNetwork(trains), layout, {
         label: t('info.suburban-map-label'), describedBy: 'map-help suburban-map-help', colors: allColors(rail, trains),
@@ -592,12 +634,13 @@ export function createSuburbanMap(container, rail, trains, layout) {
 // directions to them. Where a line's other direction goes another way (T7's
 // Piraeus loop), a sentence says which way. `shown`: the stations on its map
 // (the railway's in the city), the others said in a sentence after them.
-/** @param {{ lines: Record<string, any>, stations: Record<string, any> }} network @param {{ link?: (id: string) => string | null, changes?: (id: string) => string[], shown?: (id: string) => boolean }} [options] */
+/** @param {Network} network @param {{ link?: (id: string) => string | null, changes?: (id: string) => string[], shown?: (id: string) => boolean }} [options] */
 export function stationList(network, { link = () => null, changes = () => [], shown = () => true } = {}) {
-    const name = id => localName(network.stations[id].name, language);
+    const name = (/** @type {string} */ id) => localName(network.stations[id].name, language);
     return html`${Object.entries(network.lines).map(([lineId, line]) => {
         const ids = lineStations(line);
-        const on = [ids[0], ids.at(-1)].filter(id => !shown(id)).map(id => goesOn(line, ids.filter(shown).at(id === ids[0] ? 0 : -1), shown)).filter(Boolean);
+        const last = ids[ids.length - 1];
+        const on = [ids[0], last].filter(id => !shown(id)).flatMap(id => goesOn(line, ids.filter(shown).at(id === ids[0] ? 0 : -1), shown) ?? []);
         const items = ids.filter(shown).map(id => {
             const station = network.stations[id];
             const others = [...station.lines.filter(l => l !== lineId), ...changes(id)];
@@ -609,7 +652,7 @@ export function stationList(network, { link = () => null, changes = () => [], sh
         const ways = Object.values(line.directions).slice(1).filter(d => extra.some(run => directionStations(d).includes(run[1])))
             .map(d => html`<p class="station-way">${t('info.other-way').replace('{toward}', localName(d.toward, language))} ${extra.map(run => run.map(name).join(' – ')).join('; ')}.</p>`);
         const further = on.map(to => html`<p class="station-way">${t('info.goes-on').replace('{toward}', name(to))}</p>`);
-        return html`<h5 class="station-line">${linePill(lineId, line.name)} ${name(ids[0])} – ${name(ids.at(-1))}</h5>
+        return html`<h5 class="station-line">${linePill(lineId, line.name)} ${name(ids[0])} – ${name(last)}</h5>
             <ol class="station-stops">${items}</ol>${ways}${further}`;
     })}`;
 }

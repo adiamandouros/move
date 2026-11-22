@@ -78,7 +78,5 @@
     "server/railway/stream.js": 7,
     "server/scheduler.js": 1,
     "server/stasy.js": 5,
-    "tools/info/client/main.js": 22,
-    "tools/info/client/map.js": 170,
     "types/pages.d.ts": 1
 }

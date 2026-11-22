@@ -11,6 +11,7 @@
 // station: n, s, e, w, ne, nw, se or sw; null for none (SKA's A3 station is
 // named by the A2 one beside it).
 
+/** @type {Record<string, import('./map.js').Place>} */
 export const STATIONS = {
     // A1 and A4 from Piraeus
     'piraeus':              [-5, 5, 's'],
@@ -61,6 +62,7 @@ export const LANES = { A1: 0, A2: -1, A3: 1, A4: -1, M3: -1.82 };
 export const ALONGSIDE = [['doukissis-plakentias', 'airport']];
 
 // Where the lines go on past the city, and which way the arrow points
+/** @type {Record<string, import('./map.js').Side>} */
 export const BEYOND = {
     'ska-a3': 'n',
     'magoula': 'w',
@@ -72,6 +74,7 @@ export const CROSSINGS = [['A1', 'A3']];
 
 // Where the metro stubs point from a station a walk from the metro
 // (suburban.json's walks); past Doukissis Plakentias M3 runs alongside
+/** @type {Record<string, import('./map.js').Side>} */
 export const STUBS = {
     'piraeus': 'w',
     'athens': 'w',
