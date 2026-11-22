@@ -1,3 +1,5 @@
+import { localStore } from '/js/core/storage.js';
+
 // The trip set on the Trip page is kept on the device for KEEP_MS since it
 // was last changed or followed (decisions 52 and 58), so the page shows it
 // again when the rider comes back, after Android has closed the app too.
@@ -15,16 +17,9 @@
 export const KEEP_MS = 3 * 3_600_000;
 const KEY = 'trip';
 
-// localStorage can be missing or blocked (private windows, some settings)
-const storage = {
-    get: () => { try { return localStorage.getItem(KEY); } catch { return null; } },
-    set: value => { try { localStorage.setItem(KEY, value); } catch { /* not kept: the page starts over */ } },
-    remove: () => { try { localStorage.removeItem(KEY); } catch { /* nothing kept */ } },
-};
-
 function read() {
     try {
-        const text = storage.get();
+        const text = localStore.get(KEY);
         const kept = text === null ? null : JSON.parse(text);
         return kept && typeof kept.at === 'number' ? kept : null;
     } catch {
@@ -50,10 +45,10 @@ const endsOf = ({ from, to }) => JSON.stringify({ from: from ?? null, to: to ?? 
  * @param {number} nowMs
  */
 export function keepTrip({ from, to }, nowMs) {
-    if (!from && !to) { storage.remove(); return; }
+    if (!from && !to) { localStore.remove(KEY); return; }
     const kept = read();
     const same = kept && endsOf(kept) === endsOf({ from, to });
-    storage.set(JSON.stringify({ at: same ? kept.at : nowMs, from, to, ...same && kept.ride && { ride: kept.ride }, ...same && kept.picked && { picked: kept.picked } }));
+    localStore.set(KEY, JSON.stringify({ at: same ? kept.at : nowMs, from, to, ...same && kept.ride && { ride: kept.ride }, ...same && kept.picked && { picked: kept.picked } }));
 }
 
 /**
@@ -67,7 +62,7 @@ export function keepPicked(key, nowMs) {
     const kept = read();
     if (!kept) return;
     delete kept.picked;
-    storage.set(JSON.stringify(key ? { ...kept, at: nowMs, picked: key } : kept));
+    localStore.set(KEY, JSON.stringify(key ? { ...kept, at: nowMs, picked: key } : kept));
 }
 
 /**
@@ -81,7 +76,7 @@ export function keepRide(ride, nowMs) {
     const kept = read();
     if (!kept) return;
     delete kept.ride;
-    storage.set(JSON.stringify(ride ? { ...kept, at: nowMs, ride } : kept));
+    localStore.set(KEY, JSON.stringify(ride ? { ...kept, at: nowMs, ride } : kept));
 }
 
 /**
@@ -93,8 +88,8 @@ export function keepRide(ride, nowMs) {
 export function keptTrip(nowMs) {
     const kept = read();
     if (kept && nowMs - kept.at < KEEP_MS && (kept.from || kept.to)) return { from: kept.from ?? null, to: kept.to ?? null, ride: rideOf(kept.ride), picked: typeof kept.picked === 'string' ? kept.picked : null };
-    storage.remove();
+    localStore.remove(KEY);
     return null;
 }
 
-export const forgetTrip = () => storage.remove();
+export const forgetTrip = () => localStore.remove(KEY);

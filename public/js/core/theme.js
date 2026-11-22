@@ -1,3 +1,5 @@
+import { localStore } from './storage.js';
+
 // The colour mode. Auto (the default) follows the phone, but light only when
 // the phone asks for it: whoever has no preference, or a browser that can't
 // say, gets dark. Light and Dark are a person's own choice, remembered on
@@ -18,14 +20,13 @@ export const resolveTheme = (choice, phoneAsksLight) =>
 // (layout.hbs); the same as applyTheme below, in the fewest words
 export const FIRST_PAINT_SCRIPT = `try{var l=(${resolveTheme})(localStorage.getItem('${KEY}'),matchMedia('(prefers-color-scheme: light)').matches)==='light';document.documentElement.dataset.bsTheme=l?'light':'dark';document.querySelector('meta[name=theme-color]').content=l?'${BAR_COLOURS.light}':'${BAR_COLOURS.dark}'}catch(e){}`;
 
-const storage = {
-    get: () => { try { return localStorage.getItem(KEY); } catch { return null; } },
-    set: (/** @type {string} */ choice) => { try { choice === 'auto' ? localStorage.removeItem(KEY) : localStorage.setItem(KEY, choice); } catch { /* storage blocked: just this page */ } },
-};
+// Auto is kept as no choice
+/** @param {string} choice */
+const keep = choice => choice === 'auto' ? localStore.remove(KEY) : localStore.set(KEY, choice);
 
 const phone = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: light)') : null;
 const chosen = () => {
-    const saved = storage.get();
+    const saved = localStore.get(KEY);
     return saved !== null && CHOICES.includes(saved) ? saved : 'auto';
 };
 
@@ -50,7 +51,7 @@ export function startTheme() {
         button.addEventListener('click', () => {
             // Picked by that attribute, so it has one
             current = /** @type {string} */ (button.getAttribute('data-theme-choice'));
-            storage.set(current);
+            keep(current);
             applyTheme(current);
         });
     }

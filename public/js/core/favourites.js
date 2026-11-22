@@ -1,4 +1,5 @@
 import { html, icon } from './html.js';
+import { localStore } from './storage.js';
 
 // The stations, bus stops and bus lines a person starred, kept on the device
 // so each tool can offer them first. One list per kind, newest first, of
@@ -12,13 +13,6 @@ const KEY = 'favourites';
 /** @type {Kind[]} */
 const KINDS = ['station', 'stop', 'line'];
 
-// localStorage can be missing or blocked (private windows, some settings)
-/** @type {{ get: (key: string) => string | null, set: (key: string, value: string) => void }} */
-const storage = {
-    get: key => { try { return localStorage.getItem(key); } catch { return null; } },
-    set: (key, value) => { try { localStorage.setItem(key, value); } catch { /* not kept */ } },
-};
-
 // A bus line in one direction, as it's kept: lineFavourite('040', 1) → '040/1'
 /** @param {string} line @param {number} dir */
 export const lineFavourite = (line, dir) => `${line}/${dir}`;
@@ -27,7 +21,7 @@ export const lineFavourite = (line, dir) => `${line}/${dir}`;
 export function favourites() {
     /** @type {unknown} */
     let saved = null;
-    try { saved = JSON.parse(storage.get(KEY) ?? 'null'); } catch { /* none */ }
+    try { saved = JSON.parse(localStore.get(KEY) ?? 'null'); } catch { /* none */ }
     // Whatever was saved, only its lists of keys
     const kept = /** @type {Partial<Record<Kind, unknown>> | null} */ (saved && typeof saved === 'object' ? saved : null);
     /** @param {Kind} kind @returns {string[]} */
@@ -48,7 +42,7 @@ export function toggleFavourite(kind, key) {
     const all = favourites();
     const on = !all[kind].includes(key);
     all[kind] = on ? [key, ...all[kind]] : all[kind].filter(other => other !== key);
-    storage.set(KEY, JSON.stringify(all));
+    localStore.set(KEY, JSON.stringify(all));
     return on;
 }
 

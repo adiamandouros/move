@@ -214,6 +214,11 @@ pages use.
   for 10 minutes and shared by the pages
   ([decision 19](docs/decisions/0019-privacy-counts-only.md)), and nothing waits for it: pages
   show what they can and update as positions come.
+- **Kept in the browser** (`/js/core/storage.js`): everything a page keeps
+  goes through `localStore` (on the device, `localStorage`) or
+  `sessionStore` (this tab, `sessionStorage`). Either can be missing,
+  blocked or full: then a read gives null, a write keeps nothing, and the
+  page goes on as if nothing had been kept.
 - **Coming back to a tool** (`/js/core/remember.js`): the tools open where
   they were left, for this tab or app session (`sessionStorage`). What's kept
   is the tool's address, where its choices already are: Subway's stations

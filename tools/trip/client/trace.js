@@ -1,6 +1,7 @@
 import { announce, format, html, setHtml } from '/js/core/html.js';
 import { t } from '/js/core/i18n.js';
 import { ROUGH_METRES } from './follow.js';
+import { localStore } from '/js/core/storage.js';
 
 // The trace of a ride, to learn what positions a phone gets underground
 // (roadmap Signal, decision 69). /trip?trace turns it on, and it stays on,
@@ -70,20 +71,10 @@ export const traceFile = (entries, savedMs, browser) => ({ wayhop: 'trace', vers
  */
 export const fileName = savedMs => `wayhop-trace-${new Date(savedMs).toISOString().slice(0, 16).replace(/[-:]/g, '').replace('T', '-')}Z.json`;
 
-// localStorage can be missing or blocked: the trace is then this page's only
-const storage = {
-    /** @param {string} key */
-    get: key => { try { return localStorage.getItem(key); } catch { return null; } },
-    /** @param {string} key @param {string} value */
-    set: (key, value) => { try { localStorage.setItem(key, value); } catch { /* full or blocked: kept in the page */ } },
-    /** @param {string} key */
-    remove: key => { try { localStorage.removeItem(key); } catch { /* nothing kept */ } },
-};
-
 /** @returns {Entry[]} */
 function keptEntries() {
     try {
-        const kept = JSON.parse(storage.get(TRACE_KEY) ?? '[]');
+        const kept = JSON.parse(localStore.get(TRACE_KEY) ?? '[]');
         return Array.isArray(kept) ? kept : [];
     } catch {
         return [];
@@ -101,21 +92,22 @@ function keptEntries() {
 export function startTrace(after, followed) {
     const address = new URL(location.href);
     if (address.searchParams.has('trace')) {
-        storage.set(TRACE_ON_KEY, '1');
+        localStore.set(TRACE_ON_KEY, '1');
         address.searchParams.delete('trace');
         history.replaceState(history.state, '', address);
     }
-    if (!storage.get(TRACE_ON_KEY)) return null;
+    if (!localStore.get(TRACE_ON_KEY)) return null;
 
     let entries = keptEntries();
     // Stopped and deleted: nothing more is written down
     let stopped = false;
     /** @type {ReturnType<typeof setTimeout> | undefined} */
     let keepTimer;
+    // Storage full or blocked: the trace is then this page's only
     const keep = () => {
         clearTimeout(keepTimer);
         keepTimer = undefined;
-        storage.set(TRACE_KEY, JSON.stringify(entries));
+        localStore.set(TRACE_KEY, JSON.stringify(entries));
     };
     const keepSoon = () => { keepTimer ??= setTimeout(keep, KEEP_MS); };
     // The way followed, written down again only when it's another
@@ -167,8 +159,8 @@ export function startTrace(after, followed) {
         if (!confirm(t('trip.trace-stop-confirm'))) return;
         clearTimeout(keepTimer);
         stopped = true;
-        storage.remove(TRACE_KEY);
-        storage.remove(TRACE_ON_KEY);
+        localStore.remove(TRACE_KEY);
+        localStore.remove(TRACE_ON_KEY);
         entries = [];
         box.remove();
         announce(t('trip.trace-stopped'));
