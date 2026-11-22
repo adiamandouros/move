@@ -72,6 +72,7 @@ async function showView({ focus = false } = {}) {
 }
 
 // Follow a link to another view without loading the page again
+/** @param {string} href */
 function go(href) {
     history.pushState(null, '', href);
     setView();
@@ -81,6 +82,7 @@ function go(href) {
 }
 
 // Another of a line's directions: the same line, so Back still leaves it
+/** @param {number} direction */
 function showDirection(direction) {
     const params = new URLSearchParams(location.search);
     params.set('dir', String(direction));
@@ -114,6 +116,7 @@ function search() {
 
 // A new position: the stops nearby are picked again if you've moved; on a
 // stop or a line, it says how far they are now
+/** @param {{ lat: number, lng: number }} position */
 function located({ lat, lng }) {
     state.coords = { lat, lng };
     state.problem = null;
@@ -196,7 +199,7 @@ async function start() {
         const link = /** @type {HTMLElement} */ (e.target).closest?.('a[data-view]');
         if (!link || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
         e.preventDefault();
-        go(link.getAttribute('href'));
+        go(/** @type {string} */ (link.getAttribute('href')));
     });
     window.addEventListener('popstate', () => {
         setView();
@@ -227,7 +230,7 @@ async function start() {
     $('bus-search').addEventListener('submit', e => {
         e.preventDefault();
         const first = $('search-results').querySelector('a[data-view]');
-        if (first) go(first.getAttribute('href'));
+        if (first) go(/** @type {string} */ (first.getAttribute('href')));
     });
 }
 

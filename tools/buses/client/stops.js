@@ -6,21 +6,26 @@ import { latinName } from '/js/core/text.js';
 
 /**
  * @typedef {{ code: string, lat: number, lng: number, name: import('../../../types/data.js').Names, lines: string[] }} BusStop
+ * @typedef {BusStop & { meters?: number }} ShownStop a stop as a page lists it: `meters`, how far it is, when the location is known
  */
 
 // Turn the compact rows into objects
 /** @param {import('../../../types/data.js').BusStops} data @returns {BusStop[]} */
 export function decodeStops({ fields, stops }) {
     const at = Object.fromEntries(fields.map((f, i) => [f, i]));
-    // `fields` says which column is which, so a row is read by name rather than by its type
-    return stops.map((/** @type {any[]} */ row) => ({
-        code: row[at.code],
-        lat: row[at.lat],
-        lng: row[at.lng],
-        // '' where it's the Greek in Latin letters (build-bus.js)
-        name: { el: row[at.el], en: row[at.en] || latinName(row[at.el]) },
-        lines: row[at.lines],
-    }));
+    // `fields` says which column is which, so a row is read by name rather
+    // than by its place, each field cast to the type it has there
+    return stops.map(row => {
+        const el = /** @type {string} */ (row[at.el]);
+        return {
+            code: /** @type {string} */ (row[at.code]),
+            lat: /** @type {number} */ (row[at.lat]),
+            lng: /** @type {number} */ (row[at.lng]),
+            // '' where it's the Greek in Latin letters (build-bus.js)
+            name: { el, en: /** @type {string} */ (row[at.en]) || latinName(el) },
+            lines: /** @type {string[]} */ (row[at.lines]),
+        };
+    });
 }
 
 // The closest stops within `radius` metres, at most `limit` of them. If fewer

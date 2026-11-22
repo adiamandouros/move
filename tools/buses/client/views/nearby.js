@@ -43,7 +43,7 @@ export function showNearby({ focus = false } = {}) {
 // stops in the direction it was starred, once the lines are in.
 export async function renderFavourites() {
     const shown = state.view.kind === 'nearby' && state.allStops ? favourites() : { stop: [], line: [] };
-    state.favouriteStops = shown.stop.map(code => state.byCode.get(code)).filter(Boolean).map(withMeters);
+    state.favouriteStops = shown.stop.flatMap(code => state.byCode.get(code) ?? []).map(withMeters);
     // The ones opened stay open
     const opened = new Set([...$('favourite-stops').querySelectorAll('.stop-toggle[aria-expanded="true"]')].map(toggle => toggle.closest('.stop-item')?.getAttribute('data-stop')));
     setHtml($('favourite-stops'), html`${state.favouriteStops.map((stop, i) => stopItem(stop, i, { id: 'fav-stop', open: opened.has(stop.code) }))}`);
@@ -91,6 +91,7 @@ function nearbyWithoutPosition() {
 }
 
 // A new position: pick the stops near it, unless they were picked from about here
+/** @param {{ lat: number, lng: number }} position */
 export function nearbyLocated({ lat, lng }) {
     patchDistances();
     if (state.pickedAt && distanceMeters(state.pickedAt.lat, state.pickedAt.lng, lat, lng) < MOVE_THRESHOLD_M) return;
@@ -99,6 +100,7 @@ export function nearbyLocated({ lat, lng }) {
 }
 
 // Until there are stops nearby to show, say what's wrong with the location
+/** @param {import('../page.js').Problem} problem */
 export function locationProblem(problem) {
     state.problem = problem;
     if (state.view.kind !== 'nearby' || state.stops.length || state.loadFailed) return;

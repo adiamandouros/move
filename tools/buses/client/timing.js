@@ -18,11 +18,14 @@ export const SLACK_MS = 2_000;
 export const IDLE_MS = 10 * 60_000;
 
 /**
- * @typedef {{ minutes: number }} Arrival
+ * A bus on its way to a stop, as /api/arrivals sends it (server/oasa/arrivals.js:
+ * no line or where it goes when OASA's route is unknown); `at`, on the Trip
+ * page's rows only, when it comes in seconds since 1970 (decision 61)
+ * @typedef {{ line?: string | null, to?: { el?: string, en?: string } | null, minutes: number, at?: number | null }} Arrival
  * @typedef {{ arrivals?: Arrival[], unavailable?: boolean }} StopResult
  */
 
-/** Whole minutes since an answer came in at `fetchedAt` (0 before the first) */
+/** Whole minutes since an answer came in at `fetchedAt` (0 before the first) @param {number | undefined} fetchedAt @param {number} now */
 export function elapsedMinutes(fetchedAt, now) {
     return fetchedAt ? Math.floor((now - fetchedAt) / 60_000) : 0;
 }
@@ -48,7 +51,7 @@ export function refreshEvery(result, { opened = false } = {}) {
     return (tier?.[1] ?? REFRESH_SLOW_MS) + SLACK_MS;
 }
 
-/** Whether the page has gone untouched long enough to stop asking */
+/** Whether the page has gone untouched long enough to stop asking @param {number} lastInteraction @param {number} now */
 export const isIdle = (lastInteraction, now) => now - lastInteraction > IDLE_MS;
 
 /**
