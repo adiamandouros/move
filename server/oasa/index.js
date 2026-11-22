@@ -12,6 +12,7 @@ import { STOP_CODE } from '../data/check-output.js';
 const MAX_STOPS = 12;
 // What the Trip page says it asks for (see below), and where it's counted
 // (usage.js SEARCHES)
+/** @type {Map<string, import('./usage.js').Search>} */
 const SEARCHES = new Map([['plan', 'plans'], ['plan-start', 'plans'], ['plan-moved', 'plans'], ['plan-ride', 'plans'], ['plan-other', 'plans'], ['plan-take', 'plans']]);
 
 // /api routes for the bus page.
@@ -104,6 +105,7 @@ export function createBusApi({ routesFile, statusFile, stopsFile, passesDir = nu
 
     router.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 
+    /** @param {string} stop */
     const collect = stop => arrivals.stopArrivals(stop, { collect: true });
     return Object.assign(router, { status, usage, collect });
 }
@@ -111,10 +113,12 @@ export function createBusApi({ routesFile, statusFile, stopsFile, passesDir = nu
 // code → whether it's a stop in bus-stops.json. The file is checked for
 // changes at most once a minute (it's rebuilt weekly). Until it exists (the
 // first build still running) every code is accepted.
+/** @param {string | undefined} file @param {() => number} now */
 function knownStops(file, now) {
     let codes = /** @type {Set<string> | null} */ (null);
     let mtime = 0;
     let checked = -Infinity;
+    /** @param {string} code */
     return code => {
         if (!file) return true;
         if (now() - checked >= 60_000) {
@@ -122,7 +126,7 @@ function knownStops(file, now) {
             try {
                 const changed = statSync(file).mtimeMs;
                 if (changed !== mtime) {
-                    const { fields, stops } = JSON.parse(readFileSync(file, 'utf8'));
+                    const { fields, stops } = /** @type {import('../../types/data.js').BusStops} */ (JSON.parse(readFileSync(file, 'utf8')));
                     const i = fields.indexOf('code');
                     codes = new Set(stops.map(s => String(s[i])));
                     mtime = changed;

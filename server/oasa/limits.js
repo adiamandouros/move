@@ -9,8 +9,10 @@ const MAX_CLIENTS = 50_000;
 // → { take(key, cost) }: take returns 0 when allowed, or the ms until the
 // client's minute is over
 export function createClientLimiter({ perMinute = NEW_STOPS_PER_MINUTE, now = Date.now } = {}) {
+    /** @type {Map<string, { start: number, used: number }>} */
     const windows = new Map();   // client → { start, used }
     return {
+        /** @param {string} key @param {number} cost */
         take(key, cost) {
             if (!cost) return 0;
             const t = now();

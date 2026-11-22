@@ -1,6 +1,7 @@
 import { appendFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { athensDate } from '../../tools/subway/client/network.js';
+import { messageOf } from '../errors.js';
 
 // When buses really passed a stop, from the answers OASA already gives
 // (roadmap Plan 3, decision 26). OASA's countdown is right to about a minute
@@ -20,33 +21,41 @@ export const MAX_GAP_MS = 6 * 60_000;
 // The same bus at the same stop within this long is one pass
 const SAME_PASS_MS = 10 * 60_000;
 
+/** @typedef {import('./arrivals.js').Arrival} Arrival */
+/** @typedef {{ at: number, stop: string, route: Arrival['route'], line: string | null, vehicle: Arrival['vehicle'] }} Pass a bus that passed, `at` in ms */
+
 /**
  * @param {{ dir?: string | null, log?: (message: string) => void, counted?: (passes: number) => void }} [options]
  *   dir: where the day files go (none: passes are only returned, as in tests);
  *   counted: told how many passes each answer found (usage.passes)
  */
 export function createPasses({ dir = null, log = console.warn, counted = () => {} } = {}) {
+    /** @type {Map<string, { at: number, close: Arrival[] }>} */
     const last = new Map();     // stop → { at, close: arrivals CLOSE_MINUTES or less away }
+    /** @type {Map<string, number>} */
     const recent = new Map();   // `${stop} ${vehicle}` → when it passed (ms)
     let failed = false;
 
+    /** @param {Pass[]} passes */
     function write(passes) {
         if (!dir || !passes.length) return;
         try {
             mkdirSync(dir, { recursive: true });
             // (no Map.groupBy: the host runs Node 20)
+            /** @type {Record<string, string[]>} */
             const days = {};
             for (const p of passes) (days[athensDate(new Date(p.at))] ??= []).push(`${JSON.stringify({ ...p, at: Math.round(p.at / 1000) })}\n`);
             for (const [date, lines] of Object.entries(days)) appendFileSync(join(dir, `${date}.jsonl`), lines.join(''));
             failed = false;
         } catch (err) {
             // Said once until writing works again
-            if (!failed) log(`[passes] Couldn't write the buses that passed: ${err.message}`);
+            if (!failed) log(`[passes] Couldn't write the buses that passed: ${messageOf(err)}`);
             failed = true;
         }
     }
 
     // A fresh answer from OASA for `stop`, asked at `at` (ms) → the passes it shows
+    /** @param {string} stop @param {Arrival[]} arrivals @param {number} at */
     function seen(stop, arrivals, at) {
         const before = last.get(stop);
         last.set(stop, { at, close: arrivals.filter(a => a.vehicle && Number.isFinite(a.minutes) && a.minutes <= CLOSE_MINUTES) });
@@ -54,6 +63,7 @@ export function createPasses({ dir = null, log = console.warn, counted = () => {
 
         for (const [key, when] of recent) if (at - when > SAME_PASS_MS) recent.delete(key);
         const still = new Set(arrivals.map(a => a.vehicle));
+        /** @type {Pass[]} */
         const passes = [];
         for (const a of before.close) {
             const key = `${stop} ${a.vehicle}`;

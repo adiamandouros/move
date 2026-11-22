@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'fs';
+import { messageOf } from '../errors.js';
 import { writeFileAtomic } from '../files.js';
 
 // Live arrivals per stop, shared by every user:
@@ -32,9 +33,31 @@ const STALE_MAX_MS = 5 * 60_000;
 const ROUTES_TTL_MS = 7 * 86_400_000;
 const MAX_CACHED_STOPS = 5000;
 
-export function createArrivals({ client, routesFile, passes = /** @type {ReturnType<typeof import('./passes.js').createPasses> | null} */ (null), now = Date.now, log = console.warn, usage = /** @type {Pick<import('./usage.js').Usage, 'answer' | 'horizon'>} */ ({ answer() {}, horizon() {} }) }) {
+/**
+ * A bus on its way to a stop, as /api/arrivals sends it: OASA's route and
+ * vehicle codes as strings, its line and where it goes from the route table,
+ * null while its route isn't known
+ * @typedef {{ route: string | null | undefined, vehicle: string | null | undefined, minutes: number,
+ *   line: string | null, to: import('../../types/data.js').Names | null }} Arrival
+ * @typedef {{ arrivals: Arrival[], updated: number | null, stale: boolean, unavailable?: true }} StopAnswer
+ * A route in the table, by OASA's route code: its line and where it goes, and when it was looked up (ms)
+ * @typedef {{ line: string, el: string, en: string, at: number }} RouteName
+ * What OASA sends: a bus in getStopArrivals, a route in webRoutesForStop
+ * @typedef {{ route_code: string | number, veh_code: string | number, btime2: string }} OasaArrival
+ * @typedef {{ RouteCode: string, LineID: string, RouteDescr?: string, RouteDescrEng?: string }} OasaRoute
+ */
+
+/**
+ * @param {{ client: Pick<import('./client.js').OasaClient, 'request'> & { queueWait?: () => number }, routesFile?: string | null,
+ *   passes?: ReturnType<typeof import('./passes.js').createPasses> | null, now?: () => number, log?: (message: string) => void,
+ *   usage?: Pick<import('./usage.js').Usage, 'answer' | 'horizon'> }} options
+ */
+export function createArrivals({ client, routesFile, passes = null, now = Date.now, log = console.warn, usage = { answer() {}, horizon() {} } }) {
+    /** @type {Map<string, { at: number, arrivals: Arrival[] }>} */
     const cache = new Map();      // stop → { at, arrivals }
+    /** @type {Map<string, Promise<StopAnswer>>} */
     const inflight = new Map();   // stop → Promise
+    /** @type {Map<string, Promise<void>>} */
     const routeLookups = new Map();
     const routes = loadRoutes(routesFile, log);
 
@@ -48,18 +71,19 @@ export function createArrivals({ client, routesFile, passes = /** @type {ReturnT
             try {
                 writeFileAtomic(routesFile, JSON.stringify(routes));
             } catch (err) {
-                log(`[oasa] Couldn't save the route table: ${err.message}`);
+                log(`[oasa] Couldn't save the route table: ${messageOf(err)}`);
             }
         }, 1000);
         saveTimer.unref?.();
     }
 
     // Look up every route at a stop (one request) and add them to the table
+    /** @param {string} stop */
     function lookUpRoutes(stop) {
         if (!routeLookups.has(stop)) {
             // A new stop's names, which its first look waits for
             routeLookups.set(stop, client.request('webRoutesForStop', stop, { lane: 'high' })
-                .then(rows => {
+                .then(/** @param {OasaRoute[] | null} rows */ rows => {
                     for (const r of rows ?? []) {
                         routes[r.RouteCode] = {
                             line: r.LineID,
@@ -76,6 +100,7 @@ export function createArrivals({ client, routesFile, passes = /** @type {ReturnT
         return routeLookups.get(stop);
     }
 
+    /** @param {string} stop @param {OasaArrival[]} raw @returns {Promise<Arrival[]>} */
     async function describe(stop, raw) {
         const stale = raw.some(a => !routes[a.route_code] || now() - routes[a.route_code].at > ROUTES_TTL_MS);
         if (stale) await lookUpRoutes(stop);
@@ -95,6 +120,7 @@ export function createArrivals({ client, routesFile, passes = /** @type {ReturnT
 
     // ── Arrivals ────────────────────────────────────────────────────────────
 
+    /** @param {string} stop @param {Arrival[]} arrivals @param {number} at */
     function remember(stop, arrivals, at) {
         cache.set(stop, { at, arrivals });
         if (cache.size > MAX_CACHED_STOPS) {
@@ -109,14 +135,17 @@ export function createArrivals({ client, routesFile, passes = /** @type {ReturnT
     }
 
     // A cached answer, counted down to now
+    /** @param {{ at: number, arrivals: Arrival[] }} hit */
     const served = hit => {
         const age = now() - hit.at;
         return { arrivals: countDown(hit.arrivals, age), updated: hit.at, stale: age >= STALE_AFTER_MS };
     };
 
     // → { arrivals: [...], updated: ms | null, stale: boolean, unavailable?: true }
+    /** @param {string} stop @param {{ collect?: boolean }} [options] @returns {Promise<StopAnswer>} */
     function stopArrivals(stop, { collect = false } = {}) {
         // A visitor's answer, by where it came from (the collector's aren't counted)
+        /** @param {string} source */
         const answer = source => { if (!collect) usage.answer(stop, source); };
         const hit = cache.get(stop);
         if (hit && now() - hit.at < freshFor()) {
@@ -124,14 +153,15 @@ export function createArrivals({ client, routesFile, passes = /** @type {ReturnT
             return Promise.resolve(served(hit));
         }
         // Already being asked for: this answer shares that request
-        if (inflight.has(stop)) {
+        const asking = inflight.get(stop);
+        if (asking) {
             answer('cache');
-            return inflight.get(stop);
+            return asking;
         }
         // Nobody has looked at this stop lately: a newcomer, who goes first
         const lane = collect ? 'low' : hit && now() - hit.at < STALE_MAX_MS ? 'normal' : 'high';
 
-        const pending = (async () => {
+        const pending = (/** @returns {Promise<StopAnswer>} */ async () => {
             // Age answers from when we asked, so a slow reply (e.g. queued behind
             // the rate limit) doesn't stay "fresh" longer than ARRIVALS_TTL_MS
             const asked = now();
@@ -160,16 +190,19 @@ export function createArrivals({ client, routesFile, passes = /** @type {ReturnT
     }
 
     // Whether asking for this stop now costs no new request to OASA
+    /** @param {string} stop */
     const isCached = stop => inflight.has(stop) || now() - (cache.get(stop)?.at ?? -Infinity) < freshFor();
 
     return { stopArrivals, isCached };
 }
 
 // One of OASA's codes as a string, whether it came as a number or not
+/** @param {string | number | null | undefined} value */
 const code = value => value === null || value === undefined ? value : String(value);
 
 // Bring an old answer up to date: subtract the minutes that have passed since
 // it was fetched, and drop buses that should already have arrived
+/** @param {Arrival[]} arrivals @param {number} elapsedMs */
 export function countDown(arrivals, elapsedMs) {
     const elapsed = Math.floor(elapsedMs / 60_000);
     return arrivals
@@ -177,8 +210,9 @@ export function countDown(arrivals, elapsedMs) {
         .filter(a => a.minutes >= 0);
 }
 
+/** @param {string | null | undefined} path @param {(message: string) => void} log @returns {Record<string, RouteName>} */
 function loadRoutes(path, log) {
     if (!path || !existsSync(path)) return {};
     try { return JSON.parse(readFileSync(path, 'utf8')); }
-    catch (err) { log(`[oasa] Ignoring unreadable route table: ${err.message}`); return {}; }
+    catch (err) { log(`[oasa] Ignoring unreadable route table: ${messageOf(err)}`); return {}; }
 }

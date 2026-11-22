@@ -26,3 +26,10 @@ export function errorHandler({ page, log = console.error }) {
         else res.type('text').send(STATUS_CODES[status]);
     };
 }
+
+// What went wrong, as text for a log line or the diagnostics: a caught
+// error's message, or whatever else was thrown. A caught value can be
+// anything, so --strict types it unknown (decision 70); the app only throws
+// Errors, and fetch's and JSON's failures are Errors too.
+/** @param {unknown} err */
+export const messageOf = err => err instanceof Error ? err.message : String(err);
