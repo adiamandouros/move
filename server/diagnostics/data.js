@@ -13,9 +13,15 @@ import { readJson } from '../files.js';
 import { RELAY_VERSION } from '../../proxy/worker.js';
 import { check } from './probe.js';
 
+/** @typedef {import('./probe.js').Check} Check */
+/** @typedef {import('../../types/data.js').BuildMeta} BuildMeta */
+/** @typedef {ReturnType<typeof dataStatus>} DataStatus */
+
 // Whether each is fine is server/data/status.js's call, the same as /api/health's
+/** @param {string} dataDir @param {() => number} now */
 export function dataChecks(dataDir, now) {
     const out = [];
+    /** @type {BuildMeta | null} */
     const meta = readJson(join(dataDir, 'build', 'meta.json'));
     const status = dataStatus({ buildDir: join(dataDir, 'build'), rawDir: join(dataDir, 'raw'), now });
     if (!meta) {
@@ -48,16 +54,18 @@ export function dataChecks(dataDir, now) {
 
 // The suburban railway's boards from railway.gov.gr (server/data/railway.js):
 // how the last fetch went, and how many days of trains from today on are kept
+/** @param {DataStatus['railway']} railway @returns {Check[]} */
 function railwayCheck(railway) {
     if (!railway) return [];
-    const when = railway.lastFetch ? `${railway.lastFetch.at.slice(0, 16).replace('T', ' ')} UTC` : null;
+    const { lastFetch } = railway;
+    const when = lastFetch ? `${lastFetch.at.slice(0, 16).replace('T', ' ')} UTC` : null;
     const kept = `${railway.days} day${railway.days === 1 ? '' : 's'} of trains from today on`;
     if (!railway.today) {
-        return [check('Data', 'Suburban railway', 'fail', `No trains for today, so the Trip page leaves the railway out. ${when ? `Last fetch ${when}${railway.lastFetch.ok ? '' : `, failed: ${railway.lastFetch.error}`}.` : 'Never fetched.'}`,
+        return [check('Data', 'Suburban railway', 'fail', `No trains for today, so the Trip page leaves the railway out. ${lastFetch ? `Last fetch ${when}${lastFetch.ok ? '' : `, failed: ${lastFetch.error}`}.` : 'Never fetched.'}`,
             'The boards are fetched once a day, by the first build of the day. The app log\'s "[data] railway.gov.gr" lines say which request failed and why.')];
     }
-    if (railway.lastFetch && !railway.lastFetch.ok) {
-        return [check('Data', 'Suburban railway', 'warn', `The fetch at ${when} failed: ${railway.lastFetch.error}. ${kept} are kept, from earlier fetches.`,
+    if (lastFetch && !lastFetch.ok) {
+        return [check('Data', 'Suburban railway', 'warn', `The fetch at ${when} failed: ${lastFetch.error}. ${kept} are kept, from earlier fetches.`,
             'The next try is with the first build of tomorrow (Athens time).')];
     }
     return [check('Data', 'Suburban railway', 'ok', `${when ? `Fetched ${when}` : 'Kept'}: ${kept}`)];
@@ -65,7 +73,9 @@ function railwayCheck(railway) {
 
 // The last fetch of the bus network from OASA (server/data/oasa-network.js):
 // when it stopped short, how far it got
+/** @param {string} dataDir @returns {Check[]} */
 function networkCheck(dataDir) {
+    /** @type {import('../../types/data.js').NetworkFetch | null} */
     const last = readJson(lastFetchFile(join(dataDir, 'raw')));
     if (!last) return [];
     const when = `${last.at.slice(0, 16).replace('T', ' ')} UTC`;
@@ -91,9 +101,12 @@ function networkCheck(dataDir) {
 
 // STASY's first and last trains (server/data/stasy.js): which copy the pages
 // use, how the last fetch went, and lines the copy couldn't give times for
+/** @param {string} dataDir @param {BuildMeta | null} meta @param {DataStatus['stasy']} status */
 function stasyCheck(dataDir, meta, status) {
     const title = 'STASY timetables';
+    /** @type {import('../../types/data.js').StasyFetch | null} */
     const last = readJson(stasyFetchFile(join(dataDir, 'raw')));
+    /** @type {string | null} */
     const fetched = readJson(join(dataDir, 'build', 'rail.json'))?.hours?.fetched ?? null;
     const lines = (meta?.outputs?.['rail.json']?.warnings ?? []).filter(w => w.startsWith('STASY'));
     const using = fetched
@@ -116,10 +129,13 @@ function stasyCheck(dataDir, meta, status) {
 // STASY's airport timetable (server/data/airport-check.js): the weekly check
 // that it's still as data/curated/airport.json has it, and what the build did
 // with it (rail.json's warnings: trains added, and ones to check on the platform)
+/** @param {string} dataDir @param {BuildMeta | null} meta @param {DataStatus['airport']} status */
 function airportCheck(dataDir, meta, status) {
     const title = 'STASY airport timetable';
+    /** @type {import('../../types/data.js').AirportCheck | null} */
     const last = readJson(airportCheckFile(join(dataDir, 'raw')));
     const built = (meta?.outputs?.['rail.json']?.warnings ?? []).filter(w => /airport/i.test(w));
+    /** @param {string} t */
     const when = t => `${t.slice(0, 16).replace('T', ' ')} UTC`;
     const update = 'Compare the PDFs on STASY\'s line 3 page with data/curated/airport.json and update its trains, "pdf" and "sha256" (data/curated/README.md). Until then, its trains are still added.';
     const out = [];
@@ -128,10 +144,11 @@ function airportCheck(dataDir, meta, status) {
     else if (last.error) {
         out.push(check('Data', title, 'warn', `The check at ${when(last.at)} failed: ${last.error}${last.checked ? `. Last checked ${when(last.checked)}: unchanged` : ''}`,
             `The next build tries again. STASY refuses the server, so the PDFs come through the relays: check the relay rows above (relay version ${RELAY_VERSION} is needed).`));
-    } else if (!status.ok) {
+    // A check that went through, so it says when
+    } else if (last.checked && !status.ok) {
         out.push(check('Data', title, 'warn', `Last checked ${when(last.checked)}, over ${AIRPORT_STALE_DAYS} days ago (${status.daysOld} days)`,
             'The nightly build checks it once a week: check the app log for "[data]" lines, and the relay rows above.'));
-    } else {
+    } else if (last.checked) {
         const next = new Date(Date.parse(last.checked) + AIRPORT_CHECK_MAX_AGE_MS).toISOString().slice(0, 10);
         out.push(check('Data', title, 'ok', `Unchanged, checked ${when(last.checked)} (${last.route}). Next check from ${next}.`));
     }
@@ -142,6 +159,7 @@ function airportCheck(dataDir, meta, status) {
 // The nightly checks of the metro timetable against STASY's tables
 // (server/data/rail-checks.js): problems fail /api/health; notes are where the
 // GTFS and STASY disagree, worth a look (or a trip to the platform)
+/** @param {BuildMeta | null} meta */
 function railChecks(meta) {
     const checks = meta?.outputs?.['rail.json']?.checks;
     if (!checks) return [];

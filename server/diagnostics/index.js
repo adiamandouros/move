@@ -16,13 +16,24 @@ import { announcementChecks, liftChecks } from './stasy-oasa.js';
 // its own in this folder.
 
 /**
+ * What the running app reports of its routes to OASA and what it asked
+ * (server/oasa/index.js status()), as /admin/diagnostics gets it, or as
+ * `npm run diagnose` reads it from the file the app writes every minute
+ * @typedef {ReturnType<ReturnType<typeof import('../oasa/index.js').createBusApi>['status']>} AppStatus
+ */
+/** @typedef {ReturnType<ReturnType<typeof import('../info/announcements.js').createAnnouncements>['status']>} AnnouncementsStatus */
+/** @typedef {ReturnType<ReturnType<typeof import('../info/lifts.js').createLifts>['status']>} LiftsStatus */
+/** @typedef {import('../csp-reports.js').CspKind} CspKind */
+
+/**
  * @param {{
- *   config?: import('../../types/config.js').Config, dataDir?: string, appStatus?: any, announcements?: any, lifts?: any,
+ *   config?: import('../../types/config.js').Config, dataDir: string, appStatus?: AppStatus | null,
+ *   announcements?: AnnouncementsStatus | null, lifts?: LiftsStatus | null,
  *   fetch?: typeof globalThis.fetch, dnsLookup?: typeof lookup, now?: () => number, nodeVersion?: string,
- *   csp?: { mode: string, kinds?: any[], dropped?: number } | null,
+ *   csp?: { mode: string, kinds?: CspKind[], dropped?: number } | null,
  *   facts?: { what: string, date: string }[],
  *   account?: ReturnType<typeof import('../processes.js').accountStatus> | null,
- * }} [options]
+ * }} options
  */
 export async function runDiagnostics({
     config = loadConfig({}),
@@ -37,8 +48,9 @@ export async function runDiagnostics({
     csp = null,
     facts = [],
     account = null,
-} = {}) {
+}) {
     // Every request says who we are, as the app's do
+    /** @type {import('./probe.js').Fetch} */
     const send = (url, init = {}) => fetch(url, { ...init, headers: { 'User-Agent': config.userAgent, ...init.headers } });
     const hosts = [new URL(OASA_API).hostname, new URL(CKAN_API).hostname];
     const relaySettings = config.relays;
@@ -83,6 +95,7 @@ export async function runDiagnostics({
 }
 
 // Plain-text report, for the terminal and for copying from the admin page
+/** @param {Awaited<ReturnType<typeof runDiagnostics>>} report */
 export function formatReport({ ranAt, summary, checks }) {
     const mark = { ok: '[ OK ]', warn: '[WARN]', fail: '[FAIL]', info: '[INFO]' };
     const lines = [`Wayhop diagnostics, ${ranAt}`, '', `${mark[summary.status]} ${summary.text}`];
