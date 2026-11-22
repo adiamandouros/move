@@ -360,6 +360,7 @@ function addRanges(addresses, atPoint, count) {
 // airports people fly from (Attica's others are air bases)
 function placesFrom({ places, airports }, rail, townAt) {
     const seen = [];
+    /** @type {import('../../server/places/published.js').IndexPlace[]} */
     const out = [];
     for (const element of places) {
         const tags = element.tags ?? {}, lat = element.lat ?? element.center?.lat, lng = element.lon ?? element.center?.lon;
@@ -433,6 +434,7 @@ export function buildIndex(raw, rail, built = new Date().toISOString().slice(0, 
     const atPoint = addNumbers(raw.addresses, towns, townAt, streetFor, count);
     addRanges(raw.addresses, atPoint, count);
     const all = [...streets, ...orphans.values()];
+    /** @type {import('../../server/places/published.js').PlacesIndex} */
     const index = {
         built,
         licence: '© OpenStreetMap contributors, ODbL 1.0',

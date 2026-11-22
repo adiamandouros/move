@@ -32,7 +32,7 @@ const places = load(JSON.parse(gunzipSync(readFileSync(inRepo('data/cache/places
 const place = query => {
     const [first] = lookUp(places, query).results;
     if (!first) throw new Error(`No such place: ${query}`);
-    console.log(`${query}: ${first.kind ?? first.type}, ${first.lat}, ${first.lng}`);
+    console.log(`${query}: ${first.kind}, ${first.lat}, ${first.lng}`);
     return first;
 };
 

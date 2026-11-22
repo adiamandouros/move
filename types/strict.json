@@ -5,12 +5,12 @@
     "scripts/health-check.js": 10,
     "scripts/osm-exits.js": 3,
     "scripts/places/build.js": 97,
-    "scripts/places/check.js": 4,
+    "scripts/places/check.js": 3,
     "scripts/places/fetch.js": 9,
     "scripts/places/index.js": 1,
     "scripts/planner-lab/build-buses.js": 4,
     "scripts/planner-lab/rush-test.js": 10,
-    "scripts/planner-lab/trip.js": 6,
+    "scripts/planner-lab/trip.js": 5,
     "scripts/station-edits.js": 11,
     "server/data/airport-check.js": 9,
     "server/data/build-bus.js": 17,
@@ -31,8 +31,5 @@
     "server/data/sources.js": 23,
     "server/data/stasy.js": 52,
     "server/data/validate.js": 59,
-    "server/places/index.js": 2,
-    "server/places/published.js": 6,
-    "server/places/search.js": 117,
     "types/pages.d.ts": 1
 }
