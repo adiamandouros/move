@@ -20,7 +20,7 @@ export const FIRST_PAINT_SCRIPT = `try{var l=(${resolveTheme})(localStorage.getI
 
 const storage = {
     get: () => { try { return localStorage.getItem(KEY); } catch { return null; } },
-    set: choice => { try { choice === 'auto' ? localStorage.removeItem(KEY) : localStorage.setItem(KEY, choice); } catch { /* storage blocked: just this page */ } },
+    set: (/** @type {string} */ choice) => { try { choice === 'auto' ? localStorage.removeItem(KEY) : localStorage.setItem(KEY, choice); } catch { /* storage blocked: just this page */ } },
 };
 
 const phone = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: light)') : null;
@@ -30,6 +30,7 @@ const chosen = () => {
 };
 
 // Show the mode for a choice: the page, the bar and the switches
+/** @param {string} choice */
 function applyTheme(choice) {
     const theme = resolveTheme(choice, Boolean(phone?.matches));
     document.documentElement.dataset.bsTheme = theme;

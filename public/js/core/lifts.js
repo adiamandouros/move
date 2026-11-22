@@ -11,6 +11,14 @@ import { lineEnd, liftCaution, liftsOpen } from './metro.js';
 // out of service may be missing: an error, with the outages already known
 // still listed (DESIGN.md, "Step-free notice").
 
+/**
+ * A station's lifts not all working, as /api/lifts sends them: some or all
+ * out, and STASY's names of those out
+ * @typedef {{ status: 'partial' | 'closed', out: string[] }} StationLifts
+ * @typedef {{ stations: Record<string, StationLifts>, unavailable: boolean }} Lifts
+ * @typedef {import('../../../types/data.js').Rail} Rail
+ */
+
 // The server asks STASY at most this often, so asking it more is no fresher
 const REFRESH_MS = 10 * 60_000;
 // A lift status this old is as good as none
@@ -21,10 +29,13 @@ const MAX_AGE_MS = 2 * 3_600_000;
 // → lifts(): the lifts as last fetched, fetching them again when that was
 // over 10 minutes ago; null until the first answer is in. `onChange` runs
 // once each fetch is done, to draw the page again
-/** @param {() => void} onChange @param {{ fetch?: typeof globalThis.fetch, now?: () => number }} [options] */
+/**
+ * @param {() => void} onChange @param {{ fetch?: typeof globalThis.fetch, now?: () => number }} [options]
+ * @returns {() => Lifts | null}
+ */
 export function watchLifts(onChange, { fetch = globalThis.fetch, now = Date.now } = {}) {
     // /api/lifts's last answer, { stations, age }, and when the page got it
-    /** @type {{ stations: Record<string, any>, age: number } | null} */
+    /** @type {{ stations: Record<string, StationLifts>, age: number } | null} */
     let copy = null;
     let got = -Infinity;
     let asked = -Infinity;
@@ -58,17 +69,20 @@ export function watchLifts(onChange, { fetch = globalThis.fetch, now = Date.now 
 }
 
 // STASY's names for the lifts, in Greek whatever the page's language
+/** @param {string[]} out */
 const liftNames = out => html`${out.map((name, i) => html`${i > 0 && ', '}<span lang="el">«${name}»</span>`)}`;
 
 // The lift status is unavailable for an answer that uses metro stations (`ids`)
+/** @param {Lifts | null} lifts @param {string[]} ids */
 const unavailable = (lifts, ids) => Boolean(lifts?.unavailable) && ids.length > 0;
 
 // The stations among `ids` (each once, in order) whose lifts aren't all working
+/** @param {Lifts | null} lifts @param {string[]} ids */
 const affected = (lifts, ids) => [...new Set(ids)].filter(id => lifts?.stations && Object.hasOwn(lifts.stations, id));
 
 // The stations among `ids` whose lifts STASY's page tells: the metro's, not
 // the tram's stops or the suburban railway's own stations
-/** @param {any} rail @param {string[]} ids */
+/** @param {Rail} rail @param {string[]} ids */
 export const metroStations = (rail, ids) => ids.filter(id => Object.hasOwn(rail.stations, id) && !rail.stations[id].tram && !rail.stations[id].suburban);
 
 // Where rides board and get off, [{ line, dir, station }], from each ride's
@@ -78,7 +92,7 @@ export const ridePlatforms = rides => rides.flatMap(ride => [ride.from, ride.to]
 
 // Every platform of a station: [{ line, dir, station }], one per direction
 // of each of its lines
-/** @param {any} rail @param {string} id */
+/** @param {Rail} rail @param {string} id */
 export const stationPlatforms = (rail, id) => Object.entries(rail.lines).flatMap(([line, { directions }]) => Object.keys(directions)
     .filter(dir => directions[dir].stops.some(stop => stop.station === id))
     .map(dir => ({ line, dir, station: id })));
@@ -86,8 +100,9 @@ export const stationPlatforms = (rail, id) => Object.entries(rail.lines).flatMap
 // The platforms among `platforms` ([{ line, dir, station }]) that can't be
 // reached without steps (positions.json's stepFree: 'no'), each once:
 // [{ station, toward }], toward: where its trains go, in the page's language
-/** @param {any} rail @param {{ line: string, dir: string, station: string }[]} platforms */
+/** @param {Rail} rail @param {{ line: string, dir: string, station: string }[]} platforms */
 export function stepFreeGaps(rail, platforms) {
+    /** @type {Set<string>} */
     const seen = new Set();
     return platforms.filter(({ line, dir, station }) => {
         const key = `${line}/${dir}/${station}`;
@@ -107,17 +122,19 @@ export function stepFreeGaps(rail, platforms) {
 // stays closed on every page until opened again (rememberClosed in
 // metro.js); open: whether it is (liftsOpen()).
 /**
- * @param {any} lifts @param {string[]} ids @param {(id: string) => string} nameOf
+ * @param {Lifts | null} lifts @param {string[]} ids @param {(id: string) => string} nameOf
  * @param {{ station: string, toward: string }[]} [gaps] @param {boolean} [open]
  */
 export function liftNotice(lifts, ids, nameOf, gaps = [], open = true) {
     const error = unavailable(lifts, ids) && notice('danger', 'error', t('lifts.unavailable'), 'lift-error mb-3');
     const stations = affected(lifts, ids);
     if (!stations.length && !gaps.length) return error || '';
-    const closed = gaps.length > 0 || stations.some(id => lifts.stations[id].status === 'closed');
+    // The stations affected are among these
+    const known = lifts?.stations ?? {};
+    const closed = gaps.length > 0 || stations.some(id => known[id].status === 'closed');
     const steps = gaps.map(({ station, toward }) => html`<p>${formatHtml(t('lifts.no-step-free'), { station: html`<strong>${nameOf(station)}</strong>`, toward })}</p>`);
     const lines = stations.map(id => {
-        const { status, out } = lifts.stations[id];
+        const { status, out } = known[id];
         const what = formatHtml(t(`lifts.${status}`), { station: html`<strong>${nameOf(id)}</strong>` });
         return html`<p>${what}${out.length > 0 && html` ${formatHtml(t('lifts.out'), { lifts: liftNames(out) })}`}</p>`;
     });
@@ -130,14 +147,14 @@ export function liftNotice(lifts, ids, nameOf, gaps = [], open = true) {
 
 // The same in a sentence, for screen readers (plain text): '' when there's none
 /**
- * @param {any} lifts @param {string[]} ids @param {(id: string) => string} nameOf
+ * @param {Lifts | null} lifts @param {string[]} ids @param {(id: string) => string} nameOf
  * @param {{ station: string, toward: string }[]} [gaps]
  */
 export function liftSummary(lifts, ids, nameOf, gaps = []) {
     return [
         ...unavailable(lifts, ids) ? [t('lifts.unavailable')] : [],
         ...gaps.map(({ station, toward }) => format(t('lifts.no-step-free'), { station: nameOf(station), toward })),
-        ...affected(lifts, ids).map(id => format(t(`lifts.${lifts.stations[id].status}`), { station: nameOf(id) })),
+        ...affected(lifts, ids).map(id => format(t(`lifts.${lifts?.stations[id].status}`), { station: nameOf(id) })),
     ].join(' ');
 }
 
@@ -145,12 +162,12 @@ export function liftSummary(lifts, ids, nameOf, gaps = []) {
 // be reached step-free; null when it can, as far as is known. Its lifts out
 // of service come first, then its platforms with steps only (`gaps`).
 /**
- * @param {any} lifts @param {string} id @param {{ station: string, toward: string }[]} [gaps]
+ * @param {Lifts | null} lifts @param {string} id @param {{ station: string, toward: string }[]} [gaps]
  * @returns {{ text: string, closed: boolean } | null}
  */
 export function liftWords(lifts, id, gaps = []) {
     const [station] = affected(lifts, [id]);
-    if (station && lifts.stations[station].status === 'closed') return { text: t('lifts.closed-short'), closed: true };
+    if (station && lifts?.stations[station].status === 'closed') return { text: t('lifts.closed-short'), closed: true };
     if (gaps.length) return { text: format(t('lifts.no-step-free-short'), { toward: gaps.map(g => g.toward).join(', ') }), closed: true };
     return station ? { text: t('lifts.partial-short'), closed: false } : null;
 }

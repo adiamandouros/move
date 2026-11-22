@@ -19,7 +19,7 @@ export class Html {
     /** @param {string} text */
     constructor(text) {
         this.text = text;
-        this[SAFE] = true;
+        Object.assign(this, { [SAFE]: true });
     }
     toString() { return this.text; }
     // Handlebars doesn't escape what has toHTML(), so pieces built with html``
@@ -28,7 +28,7 @@ export class Html {
 }
 
 /** @param {unknown} value @returns {value is Html} */
-const isHtml = value => Boolean(value?.[SAFE]);
+const isHtml = value => typeof value === 'object' && value !== null && SAFE in value && Boolean(value[SAFE]);
 
 /** @param {unknown} value @returns {string} */
 const piece = value => value === null || value === undefined || value === false ? ''
@@ -65,9 +65,11 @@ export function announce(message) {
 }
 
 // Escape text for safe use inside HTML, as text or in an attribute
+/** @type {Record<string, string>} */
+const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 /** @param {unknown} text */
 export function escapeHtml(text) {
-    return String(text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+    return String(text).replace(/[&<>"']/g, ch => ESCAPES[ch]);
 }
 
 // A link from data (an announcement's, say) if it's a web address, else null:
@@ -103,7 +105,7 @@ export function formatHtml(text, values) {
 // A name in the page's language, or in English if it has none:
 // localName(station.name, 'el')
 /** @param {{ el?: string, en?: string } | null | undefined} names @param {string} lang */
-export const localName = (names, lang) => names?.[lang] || names?.en || '';
+export const localName = (names, lang) => (lang === 'el' ? names?.el : names?.en) || names?.en || '';
 
 // A date ('2026-10-31', as the data writes them) as people write it: "31/10/2026"
 /** @param {string} date */

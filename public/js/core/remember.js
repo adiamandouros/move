@@ -5,16 +5,19 @@
 // starts the tool over.
 
 // sessionStorage can be missing or blocked (private windows, some settings)
+/** @type {{ get: (key: string) => string | null, set: (key: string, value: string) => void, remove: (key: string) => void }} */
 const storage = {
     get: key => { try { return sessionStorage.getItem(key); } catch { return null; } },
     set: (key, value) => { try { sessionStorage.setItem(key, value); } catch { /* not kept: the tool starts over */ } },
     remove: key => { try { sessionStorage.removeItem(key); } catch { /* nothing kept */ } },
 };
 
+/** @param {string} tool */
 const key = tool => `view:${tool}`;
 
 // Keep a tool's choices, as its address's query ('?from=a&to=b'); none
 // ('' or '?') forgets them
+/** @param {string} tool @param {string} search */
 export function remember(tool, search) {
     const query = search.replace(/^\?/, '');
     if (query) storage.set(key(tool), `?${query}`);
@@ -22,6 +25,7 @@ export function remember(tool, search) {
 }
 
 // Where a link to a tool goes: the tool as it was left, or as it starts
+/** @param {string} tool @param {string} path */
 export function rememberedHref(tool, path) {
     return path + (storage.get(key(tool)) ?? '');
 }
@@ -30,6 +34,6 @@ export function rememberedHref(tool, path) {
 // Run on load and when the browser brings a page back (Back, pageshow).
 export function restoreLinks() {
     /** @type {NodeListOf<HTMLAnchorElement>} */ (document.querySelectorAll('a[data-tool]')).forEach(link => {
-        link.href = link.pathname === location.pathname ? link.pathname : rememberedHref(link.dataset.tool, link.pathname);
+        link.href = link.pathname === location.pathname ? link.pathname : rememberedHref(/** @type {string} picked by that attribute */ (link.dataset.tool), link.pathname);
     });
 }

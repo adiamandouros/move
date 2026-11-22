@@ -82,10 +82,13 @@ const exitSymbol = kind => kind === 'escalator' ? icon('escalator') : kind === '
 export function trainDiagram(positions, where, s) {
     const { exits } = where;
     const elevators = where.elevators ?? [];
+    /** @param {Position} p */
     const label = p => s(`subway.pos.${p}`);
     // "Near Back (escalator)": the kind, when it's recorded
+    /** @param {Position} p */
     const ride = p => exitKind(where, p) === 'exit' ? label(p) : `${label(p)} (${s(`subway.${exitKind(where, p)}`)})`;
     const described = [...exits.map(ride), ...elevators.map(p => `${label(p)} (${s('subway.elevator')})`)].join(', ');
+    /** @param {Position} p */
     const cls = p => `${exits.includes(p) ? ' highlighted' : ''}${elevators.includes(p) ? ' has-elevator' : ''}`;
     return html`
             <div class="train-diagram" role="img" aria-label="${s('subway.diagram-label')} ${described}">
@@ -117,6 +120,7 @@ export function exitDiagram(positions, where, s) {
 // (decoration: the words say it).
 /** @param {string[]} symbols @param {(key: string) => string} s @param {boolean} [open] */
 export function diagramLegend(symbols, s, open = true) {
+    /** @param {string} cls @param {unknown} symbol */
     const car = (cls, symbol) => html`<span class="legend-car train-car${cls}" aria-hidden="true">${symbol}</span>`;
     const items = [
         html`<li>${car(' highlighted', null)}<span>${s('subway.legend-ride')}</span></li>`,
@@ -136,8 +140,10 @@ export function diagramLegend(symbols, s, open = true) {
 // server draws them open; the browser closes them when the person closed them
 // before (localStorage can be missing or blocked: then they stay open).
 // Each: what it is → the key it's kept under.
+/** @type {Record<string, string>} */
 const KEPT_CLOSED = { 'details.diagram-legend': 'legend-closed', 'details.lift-notice': 'lifts-closed' };
 
+/** @param {string} selector */
 const keptOpen = selector => {
     try { return localStorage.getItem(KEPT_CLOSED[selector]) !== '1'; } catch { return true; }
 };

@@ -9,14 +9,16 @@ function fit(title, star) {
     if (star.hidden) return;
     // Alone, its word is for screen readers only
     const word = star.querySelector('span');
+    /** @param {boolean} on */
     const alone = on => { title.classList.toggle('star-alone', on); word?.classList.toggle('sr-only', on); };
     title.classList.remove('star-below');
     alone(false);
     // The sign on one line, as wide as it wants
     title.classList.add('measuring');
+    /** @param {Element} el */
     const width = el => el.getBoundingClientRect().width;
     const room = width(title);
-    const sign = width(title.querySelector('h1')) + (parseFloat(getComputedStyle(title).columnGap) || 0);
+    const sign = width(/** @type {Element} the sign's own */ (title.querySelector('h1'))) + (parseFloat(getComputedStyle(title).columnGap) || 0);
     const full = width(star);
     alone(true);
     const small = width(star);

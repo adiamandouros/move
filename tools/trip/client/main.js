@@ -102,7 +102,7 @@ async function updateWaiting() {
 // The half hour's kind of answer (answer.js), in words; its departures are
 // tried every 2 minutes (answer.js's STEP_SECONDS)
 const KINDS = { clear: 'trip.half-clear', decision: 'trip.half-decision', depends: 'trip.half-depends', none: 'trip.half-none' };
-const halfWords = half => half ? formatHtml(t('trip.timing-half'), { minutes: minutesMark(2, t), ms: half.ms, kind: t(KINDS[half.kind]) }) : t('trip.timing-half-working');
+const halfWords = half => half ? formatHtml(t('trip.timing-half'), { minutes: minutesMark(2, t), ms: half.ms, kind: t(KINDS[half.kind]) }) : html`${t('trip.timing-half-working')}`;
 
 // The timing, under the answer
 function timingBox(timing) {

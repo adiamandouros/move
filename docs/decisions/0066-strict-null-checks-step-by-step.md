@@ -61,6 +61,8 @@ Agreed with the rider on 20 November 2026, every option as recommended.
 
 ## Look again when
 
-- `noImplicitAny` is planned: the same way, file by file.
+- `noImplicitAny` is planned: the same way, file by file. Planned on
+  22 November 2026 with the rest of `strict`, written `any` counted too
+  ([70](0070-strict-types-step-by-step.md)).
 - A pull request needs to raise many numbers at once: then the order
   above is wrong, or the type behind them is.

@@ -5,6 +5,7 @@
 // and the Trip page's places (tools/trip/client/recent.js).
 
 // localStorage can be missing or blocked (private windows, some settings)
+/** @type {{ get: (key: string) => string | null, set: (key: string, value: string) => void }} */
 const storage = {
     get: key => { try { return localStorage.getItem(key); } catch { return null; } },
     set: (key, value) => { try { localStorage.setItem(key, value); } catch { /* not kept */ } },
@@ -25,6 +26,7 @@ export function recentList(key, { valid, same = (a, b) => a === b, keep = 3 }) {
             return [];
         }
     };
+    /** @param {T} item */
     const add = item => storage.set(key, JSON.stringify([item, ...list().filter(other => !same(other, item))].slice(0, keep)));
     return { list, add };
 }

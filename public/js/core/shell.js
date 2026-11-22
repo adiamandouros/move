@@ -42,6 +42,7 @@ startStationLifts();
 
 // ── Language ─────────────────────────────────────────────────────────────────
 
+/** @type {{ get: (key: string) => string | null, set: (key: string, value: string) => void }} */
 const storage = {
     get: key => { try { return localStorage.getItem(key); } catch { return null; } },
     set: (key, value) => { try { localStorage.setItem(key, value); } catch { /* storage blocked: just this page */ } },
@@ -100,6 +101,7 @@ if ('serviceWorker' in navigator) {
 // ── Toast ────────────────────────────────────────────────────────────────────
 
 // A short message above the navigation that goes away by itself (Bootstrap's toast)
+/** @param {string} message @param {string} icon */
 function toast(message, icon) {
     const el = document.createElement('div');
     el.className = 'toast toast-message';
