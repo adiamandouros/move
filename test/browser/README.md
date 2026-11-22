@@ -67,7 +67,8 @@ Import `test` and `expect` from `./fixtures.js`. Every test gets:
   `permission` is what the browser reports (`'granted'`, `'prompt'`,
   `'denied'`), `answer` what asking gives (`'position'`, `'deny'`, or
   `'never'` for no signal). `window.__geo` counts the page's calls to it;
-  `window.__setLocation({ at })` moves it, and `window.__sendPosition()`
+  `window.__setLocation({ at, accuracy })` moves it (each position says
+  it's exact to 20 m unless `accuracy` is set), and `window.__sendPosition()`
   sends the page's watches a new fix at once, like a phone does every
   second or so.
 - **no script errors**: a test fails if the page throws or logs an error.

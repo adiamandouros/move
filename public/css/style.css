@@ -1836,13 +1836,20 @@ body {
     margin: 0;
 }
 
-.trip-quicker-actions {
+.trip-quicker-actions,
+.trip-trace-actions {
     display: flex;
     flex-wrap: wrap;
     gap: var(--wh-space-2);
 }
 
-.trip-quicker-actions .locate-btn {
+/* The trace of a ride (/trip?trace, decision 69), after the answer */
+.trip-trace {
+    margin-top: var(--wh-space-3);
+}
+
+.trip-quicker-actions .locate-btn,
+.trip-trace-actions .locate-btn {
     border: 1px solid var(--wh-control-edge);
     border-radius: var(--wh-radius-round);
     padding-inline: var(--wh-space-3);
