@@ -1165,6 +1165,9 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
         // the answer drawn
         get riding() { return riding(); },
         onStep: () => riding() && ride.steps ? stepOf(ride.steps, ride.state) : null,
+        // My location following a way: its steps, where the rider is on
+        // them and whether they've left, for the trace (trace.js, decision 69)
+        followed: () => following && ride.steps ? { steps: ride.steps, state: ride.state, left: ride.left } : null,
         // The latest answer for leaving now, and the latest half hour, while
         // they're this trip's
         answer: () => forTrip(found) ? found : null,

@@ -12,6 +12,7 @@ import { arrivalsUrl, stopLive } from './live.js';
 import { doorToDoor, isLongWalk } from './plan.js';
 import { placePicker } from './picker.js';
 import { tripController } from './controller.js';
+import { startTrace } from './trace.js';
 import { TRAINS_URL } from './trains.js';
 import { howExact, liveNotice, placeTitle, quickerSummary, rangeText, renderHalf, renderTrip, routeSummary, stepFreeSummary, switchIn } from './render.js';
 
@@ -490,8 +491,17 @@ function start(metro) {
     // On by itself, a position never fills From while someone is in it,
     // perhaps about to type a start of their own
     const inFrom = () => document.activeElement === fromInput;
-    onLocation(position => tell({ type: 'located', position, typing: inFrom(), held: inAnswer() }));
-    onLocationProblem(problem => tell({ type: 'location-problem', problem }));
+    // With /trip?trace, each position and problem written down too, the
+    // rider placed with it first (trace.js, decision 69)
+    const trace = startTrace(result, trip.followed);
+    onLocation(position => {
+        tell({ type: 'located', position, typing: inFrom(), held: inAnswer() });
+        trace?.fix(position);
+    });
+    onLocationProblem(problem => {
+        tell({ type: 'location-problem', problem });
+        trace?.problem(problem);
+    });
 
     // On when the page opens without a start: from a recent position at
     // once, then following it if the browser already allows that. Nothing

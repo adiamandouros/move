@@ -363,7 +363,11 @@ version they started with, and it takes over once they're closed
   step, the stops passed aren't asked again, the stop they get off is
   asked for their own bus (OASA's vehicle code, `ownBus` in `live.js`), and
   a followed trip pauses for standing still 10 minutes rather than for the
-  page untouched. At each stop of a ride, at most once a minute, the worker
+  page untouched. Underground, a fix rougher than 200 m places nobody yet;
+  `/trip?trace` records every fix the page gets, the way followed and where
+  each placed the rider, on the phone only, to find out what a rule could
+  use (`client/trace.js`, [decision 69](docs/decisions/0069-following-underground-rough-fixes.md)).
+  At each stop of a ride, at most once a minute, the worker
   searches ahead from the ride's stops still to come (`searchAhead`); a way
   3 minutes or more sooner, its bus's stop asked for that ride, is switched
   to after a 10-second countdown unless the rider keeps theirs (`switchOf`,

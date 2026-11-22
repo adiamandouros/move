@@ -686,11 +686,16 @@ test('followed: the way drawn is the rider\'s once they\'ve left the start, each
     const p = page();
     p.tell({ type: 'to', place: DOOR });
     const search = asked(p.tell({ type: 'use-location', position: fix(START), say: true }));
+    assert.equal(p.trip.followed(), null, 'no way to follow yet: nothing for the trace');
     p.tell({ type: 'answer', id: search.id, options: [BUS], trains: true, timing, held: false });
     p.tell({ type: 'half', id: search.id, view: view(), held: false });
     const kept = jobs => jobs.filter(job => job.do === 'keep-ride');
     assert.deepEqual(kept(drawing(p.tell)), [{ do: 'keep-ride', ride: null }], 'not left yet: nothing kept');
     assert.equal(p.trip.stage, 'followed');
+    // The trace (decision 69) has the way followed and the rider's place on it
+    const followed = p.trip.followed();
+    assert.deepEqual({ kinds: followed?.steps.map(s => s.kind), step: followed?.state.step, left: followed?.left },
+        { kinds: ['walk', 'wait', 'ride', 'last'], step: 0, left: false });
     assert.deepEqual(kept(drawing(p.tell)), [], 'the same way: the steps stay');
     assert.deepEqual(p.tell(located(east(10, START), AT + 5), clock(AT + 5)), [], 'within 20 m of the start');
     assert.equal(p.trip.riding, false);
@@ -699,12 +704,14 @@ test('followed: the way drawn is the rider\'s once they\'ve left the start, each
     assert.equal(p.trip.stage, 'riding');
     assert.deepEqual(p.trip.onStep(), { kind: 'walk', ride: 0, from: mine(START), to: BOARD });
     assert.deepEqual(did(jobs), ['from-status', 'time'], 'on the walk it was on: not drawn again, nothing more kept');
+    assert.equal(p.trip.followed()?.left, true, 'left the start, for the trace too');
     assert.deepEqual(jobs[0], { do: 'from-status', status: 'following' });
     assert.equal(timedAsk(jobs).live.ahead, true, 'walking: the ways from where they are searched first');
     // At the stop: waiting, kept, timed from there and drawn; the ways from
     // there searched no more than once a minute
     const atStop = p.tell(located(BOARD, AT + 40), clock(AT + 40));
     assert.equal(p.trip.onStep().kind, 'wait');
+    assert.equal(p.trip.followed()?.state.step, 1, 'waiting, for the trace too');
     assert.deepEqual(did(atStop), ['keep-ride', 'time', 'draw']);
     const ride = atStop[0].ride;
     assert.deepEqual({ from: ride.from, at: ride.at, key: ride.key, own: ride.own, choice: ride.choice, switched: ride.switched },
