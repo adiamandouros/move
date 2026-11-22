@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import express from 'express';
+import { messageOf } from '../errors.js';
 import { readJson, writeFileAtomic } from '../files.js';
 import { clientKey, createClientLimiter } from '../oasa/limits.js';
 import { countsOf, lostSince, PUBLISHED, unpack } from './published.js';
@@ -69,7 +70,7 @@ export function createPlaces({ dir, fetch = globalThis.fetch, now = Date.now, li
             failed = false;
         } catch (err) {
             failed = true;
-            log(`[places] The index wasn't updated: ${err.message}`);
+            log(`[places] The index wasn't updated: ${messageOf(err)}`);
         }
     }
 
