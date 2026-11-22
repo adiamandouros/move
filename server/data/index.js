@@ -6,6 +6,7 @@ import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { loadConfig, userAgentFor } from '../config.js';
+import { messageOf } from '../errors.js';
 import { readJson } from '../files.js';
 import { athensToday, isoDate } from './calendar.js';
 import { buildBusLines, buildBusStops } from './build-bus.js';
@@ -36,6 +37,7 @@ export const BUILD_DIR = join(DATA_DIR, 'build');
 const BUS_TIMETABLE = join(DATA_DIR, 'oasa', 'bus-timetable.json');
 
 // Where a build keeps its files, under a data folder (data/, or a test's own)
+/** @param {string} dataDir */
 const foldersIn = dataDir => ({
     data: dataDir,
     raw: join(dataDir, 'raw'),
@@ -58,22 +60,49 @@ const LOCK_STALE_MS = 30 * 60_000;
 // Exit code of the CLI (below) when another build holds the lock
 const BUSY_EXIT_CODE = 3;
 
+/**
+ * A source read for the build: its data, when it last changed (for the
+ * fingerprint) and why it's missing
+ * @template T
+ * @typedef {{ data: T, modified: string | null, error?: string | null }} Read
+ */
+/**
+ * Everything the outputs are built from: the rail feed's files (sources.js),
+ * OASA's bus network, STASY's timetables, railway.gov.gr's boards, the buses
+ * seen passing and the bus timetable
+ * @typedef {{
+ *   rail: import('./sources.js').Fetched | { error: string, modified?: undefined },
+ *   network: Read<import('./oasa-network.js').Network | null>,
+ *   stasy: Read<import('./stasy.js').StasyCopy | null>,
+ *   railway: Read<Record<string, import('./railway.js').Board>>,
+ *   passes: Read<ReturnType<typeof readPasses>>,
+ *   busTimetable: Read<import('./bus-timetable.js').Week | null>,
+ * }} Sources
+ */
+/**
+ * Each output: the sources it needs, and how it's built from them (only when
+ * none of them is missing: runBuild)
+ * @type {Record<string, { sources: (keyof Sources)[], build: (src: Sources, curated: import('../../types/data.js').Curated, today: string) =>
+ *   Promise<{ data: unknown, warnings: string[], checks?: { problems: string[], notes: string[] } }> | { data: unknown, warnings: string[] } }>}
+ */
 const OUTPUTS = {
     'rail.json': {
         sources: ['rail'],
         // STASY's first and last trains when there's a copy (stasy.js); without one, the GTFS's
         // and the nightly checks of what it built against STASY's tables (rail-checks.js)
         build: async (src, curated, today) => {
-            const { data, warnings, notes, calendar } = await buildRail({ dir: src.rail.dir, curated, today, stasy: src.stasy.data });
+            // There, as this is built only with every source there
+            const rail = /** @type {import('./sources.js').Fetched} */ (src.rail);
+            const { data, warnings, notes, calendar } = await buildRail({ dir: rail.dir, curated, today, stasy: src.stasy.data });
             // The tram, for its map on the Info page and the subway planner,
             // from the same feed and on the same dates (build-tram.js)
             if (curated.tram) {
                 try {
-                    const tram = await buildTram({ dir: src.rail.dir, tram: curated.tram, metroStations: data.stations, calendar });
+                    const tram = await buildTram({ dir: rail.dir, tram: curated.tram, metroStations: data.stations, calendar });
                     data.tram = tram.data;
                     warnings.push(...tram.warnings);
                 } catch (err) {
-                    warnings.push(`Tram left out: ${err.message}`);
+                    warnings.push(`Tram left out: ${messageOf(err)}`);
                 }
             }
             return { data, warnings, checks: checkRail(data, { frequencies: src.stasy.data?.frequencies ?? null, notes }) };
@@ -151,24 +180,22 @@ export async function runBuild({
         for (const w of check.warnings) log(`[data] warning: ${w}`);
         if (check.errors.length) throw new Error(`Curated data has errors:\n  ${check.errors.join('\n  ')}`);
 
-        /**
-         * Every source the outputs are built from, by name: what was fetched or
-         * read (`data`, or a dataset's files), when it last changed, and why it's
-         * missing
-         * @type {Record<string, { error?: string | null, modified?: string | null, data?: unknown, dir?: string, files?: Record<string, string> }>}
-         */
-        const sources = await fetchSources({ rawDir: dirs.raw, offline, log, fetch, userAgent });
+        const fetched = await fetchSources({ rawDir: dirs.raw, offline, log, fetch, userAgent });
         const network = await liveNetwork({ rawDir: dirs.raw, request: oasa, offline, now, sleep, log });
-        sources.network = { data: network.network, modified: network.network?.fetched ?? null, error: network.error };
         const timetables = await stasyTables({ rawDir: dirs.raw, client: stasy, stations: curated.data.stations.stations, offline, now, sleep, log });
-        sources.stasy = { data: timetables.copy, modified: timetables.copy?.fetched ?? null, error: timetables.error };
         // The suburban railway's boards from railway.gov.gr, once an Athens day (railway.js)
         const boards = await railwayBoards({ rawDir: dirs.raw, today, fetch: railway, userAgent, offline, now, sleep, log });
-        sources.railway = { data: boards.boards, modified: boards.fetched, error: boards.error ?? null };
         // The buses the server saw pass (server/oasa/passes.js), up to today's
         const passes = readPasses(join(dirs.data, 'local', 'bus-passes'), isoDate(today));
-        sources.passes = { data: passes, modified: passes.days.at(-1) ?? null, error: null };
-        sources.busTimetable = readTimetable(busTimetable);
+        /** @type {Sources} */
+        const sources = {
+            rail: fetched.rail,
+            network: { data: network.network, modified: network.network?.fetched ?? null, error: network.error },
+            stasy: { data: timetables.copy, modified: timetables.copy?.fetched ?? null, error: timetables.error },
+            railway: { data: boards.boards, modified: boards.fetched, error: boards.error ?? null },
+            passes: { data: passes, modified: passes.days.at(-1) ?? null, error: null },
+            busTimetable: readTimetable(busTimetable),
+        };
         // Weekly: has STASY's airport timetable changed since airport.json? (only reported)
         await checkAirport({ rawDir: dirs.raw, client: stasy, airport: curated.data.airport, offline, now, sleep, log });
         const fingerprint = {
@@ -187,6 +214,7 @@ export async function runBuild({
 
         rmSync(dirs.next, { recursive: true, force: true });
         mkdirSync(dirs.next, { recursive: true });
+        /** @type {{ generated: string, fingerprint: typeof fingerprint, warnings: string[], outputs: NonNullable<import('../../types/data.js').BuildMeta['outputs']> }} */
         const meta = { generated: new Date().toISOString(), fingerprint, warnings: check.warnings, outputs: {} };
 
         for (const [name, output] of Object.entries(OUTPUTS)) {
@@ -210,8 +238,8 @@ export async function runBuild({
             } catch (err) {
                 const kept = existsSync(join(dirs.build, name));
                 if (kept) copyFileSync(join(dirs.build, name), join(dirs.next, name));
-                meta.outputs[name] = { ok: false, error: err.message, keptPrevious: kept };
-                log(`[data] FAILED ${name}: ${err.message}${kept ? ' — keeping the previous version' : ''}`);
+                meta.outputs[name] = { ok: false, error: messageOf(err), keptPrevious: kept };
+                log(`[data] FAILED ${name}: ${messageOf(err)}${kept ? ' — keeping the previous version' : ''}`);
             }
         }
 
@@ -273,6 +301,7 @@ export function rebuildSoon() {
 // A file that came out the same as the one served is left as it was: its
 // time, and so its ETag, don't change, so browsers keep their copy and the
 // server doesn't read it again (most nights, for the bus files).
+/** @param {ReturnType<typeof foldersIn>} dirs */
 function publish(dirs) {
     mkdirSync(dirs.build, { recursive: true });
     rmSync(dirs.prev, { recursive: true, force: true });
@@ -302,13 +331,13 @@ const OPTIONAL_CURATED = ['airport', 'tram', 'street', 'suburban', 'osm'];
 // committed file now matches are pruned.
 export function loadCurated({ curatedDir = CURATED_DIR, overlayDir = OVERLAY_DIR, log = console.log } = {}) {
     const hash = createHash('sha256');
-    const data = /** @type {{ stations: any, lines: any, positions: any, airport?: any, tram?: any, street?: any, suburban?: any, osm?: any }} */ ({});
-    for (const name of ['stations', 'lines', 'positions', 'airport', 'tram', 'street', 'suburban', 'osm']) {
+    const data = /** @type {import('../../types/data.js').Curated} */ ({});
+    for (const name of /** @type {const} */ (['stations', 'lines', 'positions', 'airport', 'tram', 'street', 'suburban', 'osm'])) {
         if (OPTIONAL_CURATED.includes(name) && !existsSync(join(curatedDir, `${name}.json`))) continue;
         const raw = readFileSync(join(curatedDir, `${name}.json`), 'utf8');
         hash.update(raw);
         try { data[name] = JSON.parse(raw); }
-        catch (err) { throw new Error(`data/curated/${name}.json is not valid JSON: ${err.message}`, { cause: err }); }
+        catch (err) { throw new Error(`data/curated/${name}.json is not valid JSON: ${messageOf(err)}`, { cause: err }); }
     }
 
     // By the edited file's name: the trees of the committed file and of its overlay, and the overlay's file
@@ -323,7 +352,8 @@ export function loadCurated({ curatedDir = CURATED_DIR, overlayDir = OVERLAY_DIR
             log(`[data] Committed ${kind.name}.json now includes editor changes for ${pruned.join(', ')} — removed from the overlay`);
         }
         hash.update(JSON.stringify(overlay));
-        data[kind.name] = applyOverlay(committed, overlay, kind);
+        // The committed file with the editor's entries on it, as the site uses it
+        Object.assign(data, { [kind.name]: applyOverlay(committed, overlay, kind) });
         edits[kind.name] = { committed, overlay, file };
     }
     return { data, edits, hash: hash.digest('hex') };
@@ -331,22 +361,24 @@ export function loadCurated({ curatedDir = CURATED_DIR, overlayDir = OVERLAY_DIR
 
 // The bus timetable as a source: its `modified` is a hash of the file, so a
 // new copy rebuilds buses.json
+/** @param {string} path @returns {Read<import('./bus-timetable.js').Week | null>} */
 function readTimetable(path) {
     try {
         const raw = readFileSync(path, 'utf8');
         return { data: JSON.parse(raw), modified: createHash('sha256').update(raw).digest('hex').slice(0, 12), error: null };
     } catch (err) {
-        return { data: null, modified: null, error: err.message };
+        return { data: null, modified: null, error: messageOf(err) };
     }
 }
 
+/** @param {ReturnType<typeof foldersIn>} dirs @returns {boolean} */
 function acquireLock(dirs) {
     mkdirSync(dirs.data, { recursive: true });
     try {
         writeFileSync(dirs.lock, String(process.pid), { flag: 'wx' });
         return true;
     } catch (err) {
-        if (err.code !== 'EEXIST') throw err;
+        if (/** @type {NodeJS.ErrnoException} */ (err).code !== 'EEXIST') throw err;
         // A lock left behind by a crashed or killed process doesn't count
         const holder = Number(readFileSync(dirs.lock, 'utf8'));
         const fresh = Date.now() - statSync(dirs.lock).mtimeMs < LOCK_STALE_MS;
@@ -356,13 +388,14 @@ function acquireLock(dirs) {
     }
 }
 
+/** @param {number} pid */
 function isRunning(pid) {
     if (!Number.isInteger(pid) || pid <= 0) return false;
     try {
         process.kill(pid, 0); // signal 0 only checks that the process exists
         return true;
     } catch (err) {
-        return err.code === 'EPERM'; // exists, but belongs to another user
+        return /** @type {NodeJS.ErrnoException} */ (err).code === 'EPERM'; // exists, but belongs to another user
     }
 }
 

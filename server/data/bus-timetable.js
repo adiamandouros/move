@@ -45,29 +45,39 @@ const SAME_ROUTE = 0.5;
 export const MIN_RIDES = 3;
 const KINDS = ['su', 'wd', 'wd', 'wd', 'wd', 'wd', 'sa'];
 
+/** @typedef {import('./oasa-network.js').Network} Network */
+
+/** @param {number} n */
 const round = n => Math.round(n * 1e5) / 1e5;
+/** @param {LiveRoute} route */
 const variant = route => route.name.includes('[');
+/** @param {string} time */
 const seconds = time => {
     const [h, m, s] = time.split(':').map(Number);
     return h * 3600 + m * 60 + s;
 };
+/** @param {string} yyyymmdd */
 const isoDate = yyyymmdd => `${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6)}`;
 // A stop's English name where it isn't its Greek one in Latin letters, else ''
+/** @param {{ el: string, en: string }} stop */
 const ownEnglish = stop => stop.en && stop.en !== latinName(stop.el) ? stop.en : '';
 
 /** @typedef {[number, number]} Trip [start, profile] */
-/** @typedef {{ line: string, mode: string, code?: string, stops: string[], profiles: number[][], patterns: Trip[][], days: number[] }} WeekRoute */
+/** @typedef {{ line: string, mode: 'bus' | 'trolley', code?: string, stops: string[], profiles: number[][], patterns: Trip[][], days: number[] }} WeekRoute */
 /** @typedef {{ schema: number, feed: { modified: string, validFrom: string, validTo: string }, routes: WeekRoute[] }} Week */
 
 // A week of trips, [start, profile] by weekday, as patterns shared by the days with the same trips
 /** @param {Trip[][]} week */
 function patternsOf(week) {
+    /** @type {Trip[][]} */
     const patterns = [];
+    /** @type {Map<string, number>} */
     const known = new Map();
     const days = week.map(trips => {
         const key = JSON.stringify(trips.sort((a, b) => a[0] - b[0] || a[1] - b[1]));
-        if (!known.has(key)) known.set(key, patterns.push(trips) - 1);
-        return known.get(key);
+        let pattern = known.get(key);
+        if (pattern === undefined) known.set(key, pattern = patterns.push(trips) - 1);
+        return pattern;
     });
     return { patterns, days };
 }
@@ -79,6 +89,7 @@ function patternsOf(week) {
  * @param {string} dir @param {string} modified @returns {Promise<Week>}
  */
 export async function weekFromFeed(dir, modified) {
+    /** @type {Map<string, { line: string, mode: 'bus' | 'trolley' }>} */
     const lineOf = new Map();
     for await (const route of readCsv(join(dir, 'routes.txt'), { required: ['route_id', 'route_short_name', 'route_type'] })) {
         lineOf.set(route.route_id, { line: route.route_short_name.trim(), mode: route.route_type === TROLLEY ? 'trolley' : 'bus' });
@@ -90,30 +101,39 @@ export async function weekFromFeed(dir, modified) {
         if (service.start_date < validFrom) validFrom = service.start_date;
         if (service.end_date > validTo) validTo = service.end_date;
     }
+    /** @type {Map<string, { route: string, weekday: number }>} */
     const tripOf = new Map();
     for await (const trip of readCsv(join(dir, 'trips.txt'), { required: ['route_id', 'service_id', 'trip_id'] })) {
         const day = SERVICE.exec(trip.service_id);
         if (day && lineOf.has(trip.route_id)) tripOf.set(trip.trip_id, { route: trip.route_id, weekday: Number(day[1]) % 7 });
     }
+    /** @type {Map<string, [number, string, number][]>} */
     const calls = new Map();
     for await (const call of readCsv(join(dir, 'stop_times.txt'), { required: ['trip_id', 'arrival_time', 'stop_id', 'stop_sequence'] })) {
         if (!tripOf.has(call.trip_id)) continue;
-        if (!calls.has(call.trip_id)) calls.set(call.trip_id, []);
-        calls.get(call.trip_id).push([Number(call.stop_sequence), call.stop_id, seconds(call.arrival_time)]);
+        let along = calls.get(call.trip_id);
+        if (!along) calls.set(call.trip_id, along = []);
+        along.push([Number(call.stop_sequence), call.stop_id, seconds(call.arrival_time)]);
     }
 
+    /** @type {Map<string, { line: string, mode: 'bus' | 'trolley', stops: string[], shapes: Map<string, number>, week: Trip[][] }>} */
     const routes = new Map();
     for (const [trip, along] of calls) {
         if (along.length < 2) continue;
         along.sort((a, b) => a[0] - b[0]);
-        const { route: id, weekday } = tripOf.get(trip);
+        // Only the trips of the feed's routes are listed
+        const tripRoute = tripOf.get(trip);
+        if (!tripRoute) continue;
+        const { route: id, weekday } = tripRoute;
         const stops = along.map(([, stop]) => stop);
         const key = `${id}|${stops.join()}`;
-        if (!routes.has(key)) routes.set(key, { ...lineOf.get(id), stops, shapes: new Map(), week: Array.from({ length: 7 }, () => []) });
-        const route = routes.get(key);
+        let route = routes.get(key);
+        // A listed trip's route is one of lineOf's
+        if (!route) routes.set(key, route = { .../** @type {{ line: string, mode: 'bus' | 'trolley' }} */ (lineOf.get(id)), stops, shapes: new Map(), week: Array.from({ length: 7 }, () => []) });
         const shape = along.map(([, , time]) => time - along[0][2]).join();
-        if (!route.shapes.has(shape)) route.shapes.set(shape, route.shapes.size);
-        route.week[weekday].push([along[0][2], route.shapes.get(shape)]);
+        let profile = route.shapes.get(shape);
+        if (profile === undefined) route.shapes.set(shape, profile = route.shapes.size);
+        route.week[weekday].push([along[0][2], profile]);
     }
     return {
         schema: TIMETABLE_SCHEMA,
@@ -131,7 +151,7 @@ export async function weekFromFeed(dir, modified) {
 /** @typedef {{ line: string, code: string, name: string, stops: { code: string, el: string, en: string, lat: number, lng: number }[] }} LiveRoute */
 
 // Every route of OASA's live network with two stops or more. Line numbers can have spaces around them
-/** @param {any} network @returns {LiveRoute[]} */
+/** @param {Network} network @returns {LiveRoute[]} */
 export function liveRoutes({ lines, routes, stops }) {
     return lines.flatMap(({ code, line }) => (routes[code] ?? []).map(route => ({
         line: line.trim(), code: route.code, name: route.name.el,
@@ -161,8 +181,9 @@ export function shared(a, b) {
 
 // The live route a list of the feed's stops belongs to, the plain one if a
 // variant with a note in brackets fits as well
+/** @param {string[]} stops @param {LiveRoute[]} routes */
 function bestRoute(stops, routes) {
-    let best = /** @type {{ route: any, pairs: [number, number][], score: number } | null} */ (null);
+    let best = /** @type {{ route: LiveRoute, pairs: [number, number][], score: number } | null} */ (null);
     for (const route of routes) {
         const codes = route.stops.map(stop => stop.code);
         const pairs = shared(stops, codes);
@@ -201,15 +222,19 @@ export function retimed(offsets, pairs, along) {
  * the road it is. gone: lines of the feed no live route carries; untimed:
  * live routes the feed has no times for, which can't be searched: a
  * market-day diversion, or a line newer than the feed.
- * @param {WeekRoute[]} feed @param {any} network
+ * @param {WeekRoute[]} feed @param {Network} network
  * @returns {{ routes: (WeekRoute & { code: string })[], gone: string[], untimed: LiveRoute[] }}
  */
 export function onLiveRoutes(feed, network) {
     const live = liveRoutes(network);
+    /** @type {Map<string, LiveRoute[]>} */
     const ofLine = new Map();
     for (const route of live) ofLine.set(route.line, [...ofLine.get(route.line) ?? [], route]);
+    /** @type {Set<string>} */
     const timed = new Set();
+    /** @type {Set<string>} */
     const gone = new Set();
+    /** @type {(WeekRoute & { code: string })[]} */
     const routes = [];
     for (const { line, mode, stops: codes, profiles, patterns, days } of feed) {
         const best = bestRoute(codes, ofLine.get(line.trim()) ?? []);
@@ -235,6 +260,10 @@ export function onLiveRoutes(feed, network) {
 // A trip's seconds at each stop with the measured stretches of `rides` that
 // have enough rides at the hour it gets to them on a `kind` of day: it takes
 // that long between their two stops, and the stops after move with it
+/**
+ * @param {number[]} profile @param {number} start @param {{ i: number, j: number, times: Record<string, [number, number, number]> }[]} rides
+ * @param {string} kind @param {number} column @param {number} minRides
+ */
 function retimeTrip(profile, start, rides, kind, column, minRides) {
     const offsets = [...profile];
     let done = 0;
@@ -262,15 +291,21 @@ function retimeTrip(profile, start, rides, kind, column, minRides) {
  * that kind of day. The feed's times stay everywhere else. Its median is a
  * usual day; with badDay, its slowest tenth, which the planner lab ranks
  * ways by (scripts/planner-lab/weights.js).
- * @param {(WeekRoute & { code?: string })[]} routes
+ * @template {WeekRoute} R
+ * @param {R[]} routes
  * @param {{ rides: { route: string, from: string, to: string, times: Record<string, [number, number, number]> }[] }} table
  * @param {{ minRides?: number, badDay?: boolean }} [options]
- * @returns {{ routes: WeekRoute[], retimed: number }} retimed: trips of the week with a measured stretch
+ * @returns {{ routes: R[], retimed: number }} retimed: trips of the week with a measured stretch
  */
 export function withRides(routes, table, { minRides = MIN_RIDES, badDay = false } = {}) {
     const column = badDay ? 2 : 1;
+    /** @type {Map<string, typeof table.rides>} */
     const byRoute = new Map();
-    for (const ride of table.rides) (byRoute.get(ride.route) ?? byRoute.set(ride.route, []).get(ride.route)).push(ride);
+    for (const ride of table.rides) {
+        let list = byRoute.get(ride.route);
+        if (!list) byRoute.set(ride.route, list = []);
+        list.push(ride);
+    }
     let retimed = 0;
     const out = routes.map(route => {
         const rides = (byRoute.get(route.code ?? '') ?? [])
@@ -278,14 +313,17 @@ export function withRides(routes, table, { minRides = MIN_RIDES, badDay = false 
             .filter(ride => ride.i >= 0 && ride.j > ride.i)
             .sort((a, b) => a.i - b.i || a.j - b.j);
         if (!rides.length) return route;
+        /** @type {number[][]} */
         const profiles = [];
+        /** @type {Map<string, number>} */
         const knownProfile = new Map();
         const week = route.days.map((pattern, weekday) => route.patterns[pattern].map(([start, profile]) => {
             const offsets = retimeTrip(route.profiles[profile], start, rides, KINDS[weekday], column, minRides);
             const key = offsets.join();
             if (key !== route.profiles[profile].join()) retimed++;
-            if (!knownProfile.has(key)) knownProfile.set(key, profiles.push(offsets) - 1);
-            return /** @type {Trip} */ ([start, knownProfile.get(key)]);
+            let index = knownProfile.get(key);
+            if (index === undefined) knownProfile.set(key, index = profiles.push(offsets) - 1);
+            return /** @type {Trip} */ ([start, index]);
         }));
         return { ...route, profiles, ...patternsOf(week) };
     });
@@ -295,32 +333,38 @@ export function withRides(routes, table, { minRides = MIN_RIDES, badDay = false 
 // A profile as its seconds to each next stop, to the 10 s, never more than 5 s off
 /** @param {number[]} offsets */
 const runOf = offsets => offsets.slice(1).map((offset, i) => Math.round(offset / 10) * 10 - Math.round(offsets[i] / 10) * 10);
-/** @param {Trip[]} trips */
+/** @param {Trip[]} trips @returns {Trip[]} */
 const afterEach = trips => trips.map(([start, profile], i) => [start - (trips[i - 1]?.[0] ?? 0), profile]);
 
 /**
  * buses.json: the week on today's live routes, with the measured ride times.
- * @param {Week | null} week @param {any} network @param {Parameters<typeof withRides>[1]} rides
+ * @param {Week | null} week @param {Network | null} network @param {Parameters<typeof withRides>[1]} rides
+ * @returns {{ data: import('../../types/data.js').Buses, warnings: string[] }}
  */
 export function buildBuses(week, network, rides) {
     if (!network) throw new Error('no bus network from OASA yet');
     if (week?.schema !== TIMETABLE_SCHEMA) throw new Error(`the bus timetable isn't schema ${TIMETABLE_SCHEMA}`);
     const { routes: live, gone, untimed } = onLiveRoutes(week.routes, network);
     const { routes } = withRides(live, rides);
+    /** @type {Map<string, import('./oasa-network.js').NetworkStop>} */
     const place = new Map();
     for (const { stops } of Object.values(network.stops ?? {})) for (const stop of stops) place.set(stop.code, stop);
     const used = [...new Set(routes.flatMap(route => route.stops))].sort();
+    /** @type {Map<string, number>} */
     const index = new Map(used.map((code, i) => [code, i]));
+    // Every stop used is one of the live routes', and in `used`
+    /** @param {string} code */
+    const placeOf = code => /** @type {import('./oasa-network.js').NetworkStop} */ (place.get(code));
     return {
         data: {
             schema: BUSES_SCHEMA,
             feed: week.feed,
             stops: used.map(code => {
-                const stop = place.get(code);
+                const stop = placeOf(code);
                 return [code, round(stop.lat), round(stop.lng), stop.el, ownEnglish(stop)];
             }),
             routes: routes.map(({ line, mode, code, stops, profiles, patterns, days }) => ({
-                line, mode, code, stops: stops.map(stop => index.get(stop)),
+                line, mode, code, stops: stops.map(stop => /** @type {number} */ (index.get(stop))),
                 runs: profiles.map(runOf), patterns: patterns.map(afterEach), days,
             })),
         },

@@ -24,7 +24,7 @@ const gtfs = (name, optional = false) => ({ out: `${name}.txt`, pattern: new Reg
  * @typedef {{ dataset: string, files: ReturnType<typeof gtfs>[] }} Source
  * A dataset's files where they were saved, by name, and the newest file's
  * last change on the portal; or why it couldn't be had
- * @typedef {{ dir: string, files: Record<string, string>, modified: string }} Fetched
+ * @typedef {{ dir: string, files: Record<string, string>, modified: string, error?: undefined }} Fetched
  * @typedef {Record<string, { url: string, version: string }>} Manifest
  */
 

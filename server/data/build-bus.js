@@ -44,25 +44,33 @@ const BUS_LINES_SCHEMA = 3;
 
 const MIN_STOPS = 1000;
 
+/** @typedef {import('./oasa-network.js').Network} Network */
+
+/** @param {string} a @param {string} b */
 const byNumber = (a, b) => a.localeCompare(b, 'el', { numeric: true });
+/** @param {number} n */
 const round = n => Math.round(n * 1e5) / 1e5;
 
 // A stop's English name where it isn't its Greek one in Latin letters, else ''
+/** @param {import('./oasa-network.js').NetworkStop} stop */
 const ownEnglish = stop => stop.en && stop.en !== latinName(stop.el) ? stop.en : '';
 
 // A day's network that can't be built from (never fetched): the build keeps the last files
+/** @param {Network | null} network @returns {Network} */
 function needNetwork(network) {
     if (!network) throw new Error('no bus network from OASA yet');
     return network;
 }
 
-/** @param {any} network @returns {{ data: import('../../types/data.js').BusStops, warnings: string[] }} */
+/** @param {Network | null} network @returns {{ data: import('../../types/data.js').BusStops, warnings: string[] }} */
 export function buildBusStops(network) {
     const { lines, routes, stops: routeStops } = needNetwork(network);
+    /** @type {Map<string, string>} */
     const lineOf = new Map(lines.flatMap(l => (routes[l.code] ?? []).map(r => [r.code, l.line])));
 
-    /** @type {Map<string, { stop: any, lines: Set<string> }>} */
+    /** @type {Map<string, { stop: import('./oasa-network.js').NetworkStop, lines: Set<string> }>} */
     const stops = new Map();
+    /** @type {Set<string>} */
     const badCodes = new Set();
     for (const [route, { stops: list }] of Object.entries(routeStops)) {
         for (const stop of list) {
@@ -70,7 +78,8 @@ export function buildBusStops(network) {
             if (!STOP_CODE.test(stop.code)) { badCodes.add(stop.code); continue; }
             let entry = stops.get(stop.code);
             if (!entry) stops.set(stop.code, entry = { stop, lines: new Set() });
-            if (lineOf.has(route)) entry.lines.add(lineOf.get(route));
+            const line = lineOf.get(route);
+            if (line !== undefined) entry.lines.add(line);
         }
     }
     /** @type {import('../../types/data.js').BusStops['stops']} */
@@ -91,24 +100,28 @@ export function towardName(name) {
     return name.replace(/\s*\[[^\]]*\]/g, '').split(' - ').at(-1)?.trim() ?? '';
 }
 
+/** @param {import('./oasa-network.js').NetworkRoute} route */
 const variant = route => /\[/.test(route.name.el);
 
-/** @param {any} network @returns {{ data: import('../../types/data.js').BusLines, warnings: string[] }} */
+/** @param {Network | null} network @returns {{ data: import('../../types/data.js').BusLines, warnings: string[] }} */
 export function buildBusLines(network) {
     const { lines: codes, routes, stops } = needNetwork(network);
 
     // Each line number's own code: the most routes, then the lowest code
-    /** @type {Map<string, any>} */
+    /** @type {Map<string, import('./oasa-network.js').NetworkLine>} */
     const own = new Map();
     for (const l of codes) {
         const best = own.get(l.line);
+        /** @param {import('./oasa-network.js').NetworkLine} c */
         const count = c => (routes[c.code] ?? []).length;
         if (!count(l)) continue;
         if (!best || count(l) > count(best) || (count(l) === count(best) && Number(l.code) < Number(best.code))) own.set(l.line, l);
     }
 
+    /** @type {import('../../types/data.js').BusLines['lines']} */
     const lines = [];
     for (const [line, l] of own) {
+        /** @type {import('../../types/data.js').BusLines['lines'][number]['directions']} */
         const directions = [];
         for (const type of ['1', '2']) {
             const candidates = routes[l.code].filter(r => r.type === type && (stops[r.code]?.stops ?? []).length >= 2);

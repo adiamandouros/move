@@ -166,6 +166,15 @@ export interface BusLines {
     }[];
 }
 
+/** data/build/bus-rides.json, built by server/data/build-rides.js from the buses the server saw pass: the days of passes used, and per OASA route and stretch (two stops), by kind of day and hour ('wd 8', Athens time), [rides, median seconds, slowest tenth's seconds] */
+export interface BusRides {
+    schema: number;
+    from: string | null;
+    to: string | null;
+    days: number;
+    rides: { route: string; line: string; from: string; to: string; times: Record<string, [number, number, number]> }[];
+}
+
 /** data/build/buses.json, built by server/data/bus-timetable.js: OASA's bus timetable of August 2026 on today's routes, for the trip search */
 export interface Buses {
     schema: number;
