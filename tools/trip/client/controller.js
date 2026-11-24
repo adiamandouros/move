@@ -33,6 +33,7 @@ import { carry, GAP_MS, leftStart, offDue, placeOn, replanDue, REPLAN_MS, startO
 import { halfWays, takenOption } from './half.js';
 import { CHECK_WAIT_MS, checkStop, dueStops, firstBusSaid, hasBus, liveStatus, ownBus, stillCaught, unanswered } from './live.js';
 import { tickets } from './tickets.js';
+import { leadOf } from './rank.js';
 import { hasTrain, trainsDue, trainsUnanswered } from './trains.js';
 
 // The next half hour is worked out again once it's this old, while the page
@@ -79,7 +80,7 @@ export const SWITCH_SECONDS = 10;
  * way among the other ways, by its key (main.js finds them on the page)
  * @typedef {'heading' | 'back' | 'take' | { way: string }} Focus
  */
-/** @typedef {'switched' | 'picked' | 'lost' | 'checking' | 'gone'} Said what's said to a screen reader of something that happened (main.js's words) */
+/** @typedef {'switched' | 'picked' | 'lost' | 'checking' | 'gone' | 'lead'} Said what's said to a screen reader of something that happened (main.js's words) */
 /**
  * What's drawn of the half hour's ways (render.js renderHalf's options, as
  * decided here): its kind; the first way's timing with the live times
@@ -88,12 +89,13 @@ export const SWITCH_SECONDS = 10;
  * or the way switched to, by whom (`switched`); the other ways' timings by
  * row (`othersTimed`), or the ways on from where a followed rider is
  * (`onward`); whether the other ways can be taken (`take`); the first way
- * the rider's pick (`picked`), or theirs gone (`lost`); the way whose bus is
- * being checked (`checking`), or whose bus had gone (`gone`)
+ * the rider's pick (`picked`), or theirs gone (`lost`), or the way that leads
+ * by OASA's live times in the half hour's place (`lead`, decision 72); the
+ * way whose bus is being checked (`checking`), or whose bus had gone (`gone`)
  * @typedef {{ kind: string, live: { way: import('./buses.js').LiveWay } | null, offer: boolean, taken: import('./buses.js').HalfRow | null,
  *   switching: { offer: import('./buses.js').Offer, seconds: number } | null, switched: false | 'quicker' | 'picked',
  *   othersTimed: Map<import('./buses.js').HalfRow, import('./searcher.js').OtherWay>, onward: import('./searcher.js').OnwardWay[] | null,
- *   take: boolean, picked: boolean, lost: boolean, checking: string | null, gone: boolean }} HalfShown
+ *   take: boolean, picked: boolean, lead: boolean, lost: boolean, checking: string | null, gone: boolean }} HalfShown
  */
 /** @typedef {import('./follow.js').Fix} Fix a position from the phone (location.js), placed by follow.js */
 /**
@@ -348,6 +350,8 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
     // again. The way the rider took from the other ways, by its key
     // (`picked`, decision 64), shown first while the half hour has it;
     // `lost`, it went, so the half hour's own is first again, which is said.
+    // The way that leads by OASA's live times, by its key (`lead`, decision
+    // 72), first in place of the half hour's own; null, the half hour's.
     // The way tapped whose bus is being checked (`checking`: its key, what it
     // showed of its bus, the stop asked, whether that's answered, whether
     // it's a followed rider's, from the keyboard, the last position there was
@@ -359,7 +363,7 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
         /** @type {{ key: string, left: number } | null} */ countdown: null,
         /** @type {string | null} */ switched: null, switchedBy: /** @type {'quicker' | 'picked' | null} */ (null),
         /** @type {import('./buses.js').Ahead | null} */ switchedWay: null, declined: /** @type {Set<string>} */ (new Set()),
-        /** @type {string | null} */ picked: null, lost: false,
+        /** @type {string | null} */ picked: null, lost: false, lead: /** @type {string | null} */ (null),
         /** @type {{ key: string, said: import('./buses.js').RideLive | undefined, stop: string, answered: boolean, onward: boolean, keyboard: boolean, position: Fix | null, ticket: number } | null} */ checking: null,
         gone: false, focusNext: false,
     };
@@ -377,13 +381,13 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
     // A new trip, or the searches failing: nothing of the choices before
     const choicesOver = () => {
         Object.assign(chosen, { choice: null, offered: false, countdown: null, switched: null, switchedBy: null, switchedWay: null,
-            declined: new Set(), picked: null, lost: false, checking: noCheck(), gone: false });
+            declined: new Set(), picked: null, lost: false, lead: null, checking: noCheck(), gone: false });
     };
     // The trip planned again from where the rider moved to (decision 45):
     // the way before's choice and switch go; the ways kept over and the way
     // picked stay
     const choicesMoved = () => {
-        Object.assign(chosen, { choice: null, offered: false, countdown: null, switched: null, switchedBy: null, switchedWay: null, checking: noCheck(), gone: false });
+        Object.assign(chosen, { choice: null, offered: false, countdown: null, switched: null, switchedBy: null, switchedWay: null, lead: null, checking: noCheck(), gone: false });
     };
     // The way switched to, with whose it was, once the worker has sent it
     /** @returns {Switched | null} */
@@ -694,7 +698,30 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
             Object.assign(chosen, { picked: null, lost: true });
             jobs.push({ do: 'keep-picked', key: null }, { do: 'say', what: 'lost' });
         }
-        const ways = pickedWay ? [pickedWay, ...all.filter(way => way !== pickedWay)] : all;
+        // The way that leads by OASA's live times (decision 72), worked out
+        // before the rider leaves and while they haven't chosen: from what
+        // each way shown cost when it was last timed, the first card's and
+        // the other ways'. It stays once the rider is on the way
+        if (shown && all.length && !pickedWay && !riding() && chosen.choice !== 'taken' && !chosen.switched) {
+            /** @type {Map<number, import('./buses.js').Rank | null>} */
+            const ranks = new Map();
+            if (times.way?.id === shown.id && !times.way.taken && !times.way.switched) ranks.set(times.way.row, times.way.way.rank ?? null);
+            if (times.others.wanted?.id === shown.id) for (const way of times.others.ways) if (way) ranks.set(way.row, way.rank ?? null);
+            // On a decision, the way leaving the first ride sooner is the
+            // quicker way, offered as such (decision 36), not one to lead
+            const offered = shown.view.kind === 'decision' ? shown.view.quicker : null;
+            /** @param {{ row: import('./buses.js').HalfRow }} way */
+            const priced = ({ row }) => {
+                const rank = row === offered ? null : ranks.get(rows.indexOf(row)) ?? null;
+                return { key: row.key, cost: rank?.cost ?? null, live: rank?.live ?? false, waiting: rank?.waiting ?? false };
+            };
+            const lead = leadOf(priced(all[0]), all.slice(1).map(priced), chosen.lead);
+            if (lead && lead !== chosen.lead) jobs.push({ do: 'say', what: 'lead' });
+            chosen.lead = lead;
+        }
+        const leadWay = chosen.lead && !pickedWay ? all.find(way => way.row.key === chosen.lead) ?? null : null;
+        if (all.length && !leadWay) chosen.lead = null;
+        const ways = pickedWay ? [pickedWay, ...all.filter(way => way !== pickedWay)] : leadWay ? [leadWay, ...all.filter(way => way !== leadWay)] : all;
         // The way shown in full has OASA's live times when it has a bus, or
         // when it's a decision's directions, for the quicker way's bus, and
         // its trains' lateness when it has a train (decision 42): the
@@ -753,7 +780,7 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
         const view = ways.length && shown ? {
             kind: shown.view.kind, live: timed, offer: !choice, taken: takenRow,
             switching: switching && chosen.countdown ? { offer: switching, seconds: chosen.countdown.left } : null, switched: switched ? chosen.switchedBy ?? 'quicker' : false,
-            othersTimed, onward, take: !riding(), picked: Boolean(pickedWay) && pickedWay !== all[0], lost: chosen.lost,
+            othersTimed, onward, take: !riding(), picked: Boolean(pickedWay) && pickedWay !== all[0], lead: Boolean(leadWay), lost: chosen.lost,
             checking: chosen.checking?.key ?? null, gone: chosen.gone,
         } : null;
         jobs.push({ do: 'render', now, answer, ways, view, offered, speak, sayHalf: sayHalf && ways.length > 0 });

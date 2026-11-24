@@ -444,7 +444,7 @@ test('drawn: the half hour\'s ways in place of the answer for leaving now, said 
     assert.deepEqual({ now: half.now, answer: half.answer, ways: half.ways.map(way => [way.row.key, way.departure]), speak: half.speak, sayHalf: half.sayHalf, offered: half.offered },
         { now: clock().now, answer: ANSWER, ways: [['bus', 0]], speak: false, sayHalf: true, offered: null });
     assert.deepEqual({ ...half.view, othersTimed: [...half.view.othersTimed] }, { kind: 'clear', live: null, offer: true, taken: null, switching: null, switched: false,
-        othersTimed: [], onward: null, take: true, picked: false, lost: false, checking: null, gone: false });
+        othersTimed: [], onward: null, take: true, picked: false, lead: false, lost: false, checking: null, gone: false });
     const walk = rendered(drawing(tell, { answer: WALK, speak: true, sayHalf: true }));
     assert.deepEqual({ ways: walk.ways, view: walk.view, speak: walk.speak, sayHalf: walk.sayHalf }, { ways: [], view: null, speak: true, sayHalf: false }, 'nothing of the half hour to say');
     assert.equal(rendered(drawing(answered().tell)).view, null, 'no half hour yet');
@@ -578,6 +578,79 @@ test('the other ways shown: timed, each asking only for its first bus\'s stop, t
     drawing(tell, { answer: WALK });
     assert.deepEqual(trip.times.others.ways, []);
     assert.deepEqual(tell({ type: 'others-timed', seq: again.seq, ways: [] }), []);
+});
+
+// OASA rank (decision 72): the first card's way and the other ways shown
+// compared by the weights on live times, `cost` minutes after AT each
+const ranked = (minutes, live = true) => ({ arrives: AT + minutes * 60, cost: AT + minutes * 60, live, waiting: !live });
+// The half hour's own way (row 0, 'bus') and the other way (row 1, '550')
+// timed with those costs; the jobs as the second came in
+function bothTimed(tell, half, other) {
+    const shown = drawing(tell);
+    const first = timedAsk(shown).live;
+    tell({ type: 'timed', seq: first.seq, way: { ...liveWay([]), rank: half === null ? null : ranked(half) }, others: null });
+    const ask = othersAsk(shown).others;
+    return tell({ type: 'others-timed', seq: ask.seq, ways: [{ row: 1, departure: 0, option: OTHER, asks: [], rank: other === null ? null : ranked(other) }] });
+}
+const order = jobs => rendered(jobs).ways.map(way => way.row.key);
+
+test('OASA rank: another way a tie or more cheaper on live times leads, said once, the half hour\'s own among the other ways; timed again as such', () => {
+    const { tell } = withHalf(undefined, twoWays());
+    bothTimed(tell, 40, 30);
+    const swapped = drawing(tell);
+    assert.deepEqual(order(swapped), ['550', 'bus']);
+    assert.equal(rendered(swapped).view.lead, true);
+    assert.deepEqual(swapped.filter(job => job.do === 'say'), [{ do: 'say', what: 'lead' }]);
+    assert.deepEqual(timedAsk(swapped).live.row, 1, 'the way that leads timed as the first card is');
+    assert.deepEqual(othersAsk(swapped).others.ways, [{ row: 0, departure: 0 }], 'the half hour\'s own timed as another way');
+    const again = drawing(tell);
+    assert.deepEqual(order(again), ['550', 'bus']);
+    assert.equal(again.filter(job => job.do === 'say').length, 0, 'said once');
+});
+
+test('OASA rank: under a tie cheaper, or with either cost unknown, nothing moves; once it leads it stays till the half hour\'s own is a tie cheaper', () => {
+    for (const [half, other] of [[40, 38], [null, 20], [40, null]]) {
+        const { tell } = withHalf(undefined, twoWays());
+        bothTimed(tell, half, other);
+        const jobs = drawing(tell);
+        assert.deepEqual(order(jobs), ['bus', '550'], `${half} against ${other}`);
+        assert.equal(rendered(jobs).view.lead, false);
+    }
+    const { tell } = withHalf(undefined, twoWays());
+    bothTimed(tell, 40, 30);
+    const swapped = drawing(tell);
+    // The way that leads timed at 31', the half hour's own at 29': 2' isn't a tie
+    tell({ type: 'timed', seq: timedAsk(swapped).live.seq, way: { ...liveWay([]), rank: ranked(31) }, others: null });
+    const ask = othersAsk(swapped).others;
+    tell({ type: 'others-timed', seq: ask.seq, ways: [{ row: 0, departure: 0, option: BUS, asks: [], rank: ranked(29) }] });
+    assert.deepEqual(order(drawing(tell)), ['550', 'bus'], 'stays');
+    tell({ type: 'others-timed', seq: ask.seq, ways: [{ row: 0, departure: 0, option: BUS, asks: [], rank: ranked(27) }] });
+    const back = drawing(tell);
+    assert.deepEqual(order(back), ['bus', '550'], 'back');
+    assert.equal(rendered(back).view.lead, false);
+});
+
+test('OASA rank: the half hour\'s own not answered by OASA yet stays first; on a decision, the quicker way doesn\'t lead, it\'s offered', () => {
+    const { tell } = withHalf(undefined, twoWays());
+    const shown = drawing(tell);
+    tell({ type: 'timed', seq: timedAsk(shown).live.seq, way: { ...liveWay([]), rank: ranked(40, false) }, others: null });
+    tell({ type: 'others-timed', seq: othersAsk(shown).others.seq, ways: [{ row: 1, departure: 0, option: OTHER, asks: [], rank: ranked(30) }] });
+    assert.deepEqual(order(drawing(tell)), ['bus', '550'], 'the timetable\'s alone');
+
+    const decided = { ...twoWays(), kind: 'decision' };
+    decided.quicker = decided.rows[1];
+    const p = withHalf(undefined, decided);
+    bothTimed(p.tell, 40, 30);
+    assert.deepEqual(order(drawing(p.tell)), ['bus', '550']);
+});
+
+test('OASA rank: a way the rider took from the other ways comes first, not the one that leads, and nothing leads after', () => {
+    const { tell } = withHalf(undefined, twoWays());
+    bothTimed(tell, 40, 30);
+    assert.deepEqual(order(drawing(tell)), ['550', 'bus']);
+    assert.deepEqual(did(tell({ type: 'take', key: 'bus', keyboard: false, position: null }, clock(AT + 10))), ['keep-picked', 'draw-answer', 'say']);
+    const taken = drawing(tell, {}, clock(AT + 11));
+    assert.deepEqual({ keys: order(taken), lead: rendered(taken).view.lead }, { keys: ['bus', '550'], lead: false });
 });
 
 test('followed along the way: the ways on from where the rider is asked in place of the other ways, with where they are', () => {

@@ -375,6 +375,28 @@ for (const lang of ['en', 'el']) {
         assert.ok(overClear.includes(s['trip.picked']));
     });
 
+    test(`${lang}: a way that leads by OASA's live times is the way shown in full, said above it in place of "it depends", its heading its minutes and when it gets there by them (decision 72)`, () => {
+        const ways = halfWays(depends, at(10).seconds);
+        const leading = [ways[1], ways[0], ...ways.slice(2)];
+        const arrives = 10 * 3600 + 33 * 60;
+        const live = { way: { option: ways[1].o, stops: [], asks: [], offer: null, switchTo: null, train: null, rank: { arrives, cost: arrives } } };
+        const view = String(r.renderHalf(network, depends.kind, leading, syntagma, { ...at(10), now: at(10).seconds, live, lead: true }));
+        check(view);
+        assert.ok(view.includes(`<p class="trip-intro">${s['trip.lead'].replace(/'/g, '&#39;')}</p>`));
+        assert.ok(!view.includes(s['trip.half-depends-intro']));
+        const head = view.slice(0, view.indexOf(s['trip.other-ways']));
+        assert.ok(head.includes(`<h2 class="trip-total" tabindex="-1">${mark(33, { about: true })}</h2>`), head.slice(0, 600));
+        assert.ok(head.includes(`<span class="trip-arrives">${s['trip.arrive'].replace('{time}', clock(arrives))}</span>`));
+        assert.ok(head.includes('040'), 'its rides in full');
+        // Not timed yet: its range; on a clear answer, not "best on most departures"
+        const untimed = String(r.renderHalf(network, depends.kind, leading, syntagma, { ...at(10), now: at(10).seconds, lead: true }));
+        assert.ok(untimed.includes(`<h2 class="trip-total" tabindex="-1">${range(depends.rows[1].range)}</h2>`));
+        const clearWays = [halfWays(depends, at(10).seconds)[1], ...halfWays(clear, at(12).seconds)];
+        const overClear = String(r.renderHalf(network, 'clear', clearWays, fix, { ...at(12), now: at(12).seconds, lead: true }));
+        assert.ok(!overClear.includes(s['trip.half-best']));
+        assert.ok(overClear.includes(s['trip.lead'].replace(/'/g, '&#39;')));
+    });
+
     test(`${lang}: a way picked that can't be caught any more is said above the answer`, () => {
         const ways = halfWays(depends, at(10).seconds);
         const view = String(r.renderHalf(network, depends.kind, ways, syntagma, { ...at(10), now: at(10).seconds, take: true, lost: true }));

@@ -1,6 +1,6 @@
 # 63. The trip page: the other ways follow the rider, from where they are
 
-Decided 2026-11-18 · In force
+Decided 2026-11-18 · Replaced by [72](0072-trip-first-way-by-live-times.md)
 
 ## Situation
 

@@ -60,7 +60,7 @@ import { aheadWays, busOptions, cityPlanner, halfHour, halfView, hereWays, liveW
 /**
  * One of the other ways shown (decision 62), timed: the half hour's `row`
  * for its `departure`, the way, and the stops it asks OASA for, as above
- * @typedef {{ row: number, departure: number, option: BusOption, asks: { stop: string, at: number | null }[] }} OtherWay
+ * @typedef {{ row: number, departure: number, option: BusOption, asks: { stop: string, at: number | null }[], rank: import('./buses.js').Rank | null }} OtherWay
  */
 /**
  * What it answers: the ways with a bus or a train for leaving now, with how long they

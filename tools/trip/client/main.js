@@ -288,7 +288,7 @@ function start(metro) {
     /** @param {import('./controller.js').Focus} on */
     const focusOn = on => /** @type {HTMLElement | null} */ (result.querySelector(typeof on === 'object' ? `[data-way="${CSS.escape(on.way)}"]` : FOCUS[on]) ?? result.querySelector('.trip-card h2'))?.focus();
     // What's said of something that happened, as it isn't where the keyboard is
-    const SAID = { switched: 'trip.switched', picked: 'trip.picked-said', lost: 'trip.picked-lost', checking: 'trip.take-checking', gone: 'trip.take-gone' };
+    const SAID = { switched: 'trip.switched', picked: 'trip.picked-said', lost: 'trip.picked-lost', checking: 'trip.take-checking', gone: 'trip.take-gone', lead: 'trip.lead-said' };
 
     // The controller's jobs (controller.js), carried out in order
     /** @param {import('./controller.js').TripJob} job */
