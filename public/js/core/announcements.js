@@ -1,11 +1,12 @@
-import { externalLink, html, icon, notice, safeUrl, setHtml } from './html.js';
+import { externalLink, format, html, icon, notice, safeUrl, setHtml } from './html.js';
 import { language, t } from './i18n.js';
 
 // Service announcements from /api/announcements (server/info/announcements.js),
 // shown on the home and info pages. Importing this module fills the page's
 // #announcements list and #disruptions banner, if it has them. Titles and
-// links come from OASA's and STASY's websites: escaped by html``, and only
-// web addresses are linked (the server drops the rest too).
+// links come from OASA's and STASY's websites, and strikes from apergia.gr's
+// (banner only, decision 71): escaped by html``, and only web addresses are
+// linked (the server drops the rest too).
 
 const SOURCE_PAGES = {
     rail: 'https://www.stasy.gr/%ce%bd%ce%ad%ce%b1-%ce%b1%ce%bd%ce%b1%ce%ba%ce%bf%ce%b9%ce%bd%cf%8e%cf%83%ce%b5%ce%b9%cf%82/',
@@ -16,31 +17,36 @@ const SOURCE_PAGES = {
 const SHOWN = 3;
 
 // The server's sources (server/info/announcements.js) each page reads
-const SOURCES = { el: ['stasy', 'oasaEl'], en: ['stasy', 'oasaEn'] };
+const SOURCES = { el: ['stasy', 'oasaEl', 'apergia'], en: ['stasy', 'oasaEn', 'apergia'] };
 
 const list = document.getElementById('announcements');
 const banner = /** @type {HTMLElement} */ (document.getElementById('disruptions'));
 /**
  * An announcement as /api/announcements sends it; greek: in Greek on an
- * English page (the rail's, which STASY writes in Greek only)
- * @typedef {{ title: string, link: string, date: string, disruption?: boolean, greek?: boolean }} Announcement
- * @typedef {{ rail: Announcement[], bus: Record<'el' | 'en', Announcement[]>, available: string[] }} Announcements
+ * English page (the rail's, which STASY writes in Greek only, and the
+ * strikes'); until: when a strike ends; via: whose words they are, if not
+ * the operator's
+ * @typedef {{ title: string, link: string, date: string, until?: string, disruption?: boolean, greek?: boolean, via?: string }} Announcement
+ * @typedef {{ rail: Announcement[], bus: Record<'el' | 'en', Announcement[]>, strikes?: Announcement[], available: string[] }} Announcements
  */
 /** @type {Announcements | null} */
 let data = null;
 let failed = false;
 
+// The day in Athens, wherever the device is: a strike's day starts at
+// midnight there (decision 71)
+const DAY = new Intl.DateTimeFormat(language === 'el' ? 'el-GR' : 'en-GB', { day: 'numeric', month: 'short', timeZone: 'Europe/Athens' });
 /** @param {string} iso */
-const formatDate = iso => new Date(iso).toLocaleDateString(language === 'el' ? 'el-GR' : 'en-GB', { day: 'numeric', month: 'short' });
+const formatDate = iso => DAY.format(new Date(iso));
 
 // One announcement; exported for the tests
 /** @param {Announcement} announcement @param {boolean | undefined} greek */
-export function item({ title, link, date }, greek) {
+export function item({ title, link, date, via }, greek) {
     const text = html`<span${greek && html` lang="el"`}>${title}</span>`;
     const url = safeUrl(link);
     return html`<li class="announcement">
         ${url ? externalLink({ href: url }, text, t('shell.new-tab')) : text}
-        <span class="announcement-meta">${formatDate(date)}${greek && html` <span class="tag ms-1">${icon('in-greek', 'me-1')}${t('announcements.in-greek')}</span>`}</span>
+        <span class="announcement-meta">${formatDate(date)}${via && html` · ${format(t('announcements.via'), { source: via })}`}${greek && html` <span class="tag ms-1">${icon('in-greek', 'me-1')}${t('announcements.in-greek')}</span>`}</span>
     </li>`;
 }
 
@@ -60,8 +66,13 @@ function group(titleKey, items, more, greek) {
 // the page reads answered: "none" can't be said of one we couldn't read.
 // Exported for the tests.
 /** @param {Announcements} announcements */
-export function disruptionView({ rail, bus, available }) {
-    const disruptions = [...rail.map(i => ({ ...i, greek: language !== 'el' })), ...bus[language]].filter(i => i.disruption);
+// A strike from apergia.gr comes first, in their words and with their name
+// (decision 71); an older server sends none.
+export function disruptionView({ rail, bus, strikes = [], available }) {
+    const disruptions = [
+        ...strikes.map(i => ({ ...i, greek: language !== 'el', via: 'apergia.gr' })),
+        ...rail.map(i => ({ ...i, greek: language !== 'el' })), ...bus[language],
+    ].filter(i => i.disruption);
     if (disruptions.length) {
         return notice('warn', 'warning', html`<div class="fw-semibold">${t('announcements.disruption')}</div>
             <ul>${disruptions.map(i => item(i, i.greek))}</ul>`, 'disruption-banner mb-3');

@@ -1,5 +1,5 @@
 // What the app reads from OASA's and STASY's websites, as it last fetched
-// them: the announcements and STASY's lift page.
+// them: the announcements (apergia.gr's strikes among them) and STASY's lift page.
 
 import { check } from './probe.js';
 
@@ -10,6 +10,7 @@ const ANNOUNCEMENT_SOURCES = {
     oasaEl: 'OASA (Greek)',
     oasaEn: 'OASA (English)',
     stasy: 'STASY (metro and tram)',
+    apergia: 'apergia.gr (strikes)',
 };
 const UPDATE_RELAY = 'Update the home relay on the Pi: sudo git -C /opt/move pull && sudo systemctl restart move-relay';
 

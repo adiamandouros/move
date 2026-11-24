@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { createAnnouncements, decode, isDisruption, parseOasaFeed, parseStasyDate, parseStasyList } from '../server/info/announcements.js';
+import { createAnnouncements, decode, isDisruption, parseApergia, parseOasaFeed, parseStasyDate, parseStasyList } from '../server/info/announcements.js';
 import { browserModule } from './support/browser-modules.js';
 import { announcementChecks } from '../server/diagnostics/stasy-oasa.js';
 
@@ -21,6 +21,18 @@ const stasyArticle = (id, slug, title) => `<article id="post-${id}" class="clear
     <div class="post-title"><h5 class="entry-title"><span class="entry-title-date"></span><span class="light">${title}</span></h5></div>
 </article>`;
 const stasyPost = date => `<meta property="article:published_time" content="${date}" />`;
+
+// A trimmed copy of apergia.gr's events/summary, as on 24 Nov 2026: a strike
+// is a whole day in Athens, its hours only in the title
+// (summer time in Athens ends on 25 Oct 2026)
+const athensDay = day => {
+    const midnight = Date.parse(`${day}T00:00:00${day < '2026-10-25' ? '+03:00' : '+02:00'}`);
+    return { dateFromMs: midnight, dateToMs: midnight + 86_400_000 };
+};
+const apergiaEvent = (id, category, categorySub, title, day) => ({
+    id, idSource: `src${id}`, title, description: '<p>…</p>', category, categorySub, url: 'https://www.naftemporiki.gr/a/', sourceUrl: 'https://www.naftemporiki.gr', ...athensDay(day), dateCreatedMs: 0, isRelative: false,
+});
+const apergiaSummary = (...events) => JSON.stringify({ dateCreatedMs: 0, dateServerMs: 0, listEvents: events, listNameDays: [], market: null, today: [], tomorrow: events });
 
 test('decode handles CDATA, entities and tags', () => {
     assert.equal(decode('<![CDATA[Γραμμή <b>Χ20</b>]]>'), 'Γραμμή Χ20');
@@ -77,6 +89,7 @@ const NOW = Date.parse('2026-10-14T12:00:00Z');
 const OASA_EL = 'https://www.oasa.gr/feed/';
 const OASA_EN = 'https://www.oasa.gr/en/feed/';
 const STASY = 'https://www.stasy.gr/%ce%bd%ce%ad%ce%b1-%ce%b1%ce%bd%ce%b1%ce%ba%ce%bf%ce%b9%ce%bd%cf%8e%cf%83%ce%b5%ce%b9%cf%82/';
+const APERGIA = 'https://api.apergia.gr/api/v1/events/summary';
 
 function sources() {
     return {
@@ -88,6 +101,7 @@ function sources() {
         [STASY]: stasyArticle(1, 'l3', 'Οι σταθμοί θα κλείνουν στις 21:40') + stasyArticle(2, 'train', 'Νέος συρμός στη Γραμμή 1'),
         'https://www.stasy.gr/l3/': stasyPost('2026-10-10T10:00:00+03:00'),
         'https://www.stasy.gr/train/': stasyPost('2026-10-12T10:00:00+03:00'),
+        [APERGIA]: apergiaSummary(apergiaEvent(1, 'strikeTransportation', 'mmm.metro', 'Μετρό (Γραμμές 2,3) Κινούνται έως 18:00', '2026-10-15')),
     };
 }
 
@@ -103,18 +117,19 @@ test('announcements are fetched once per 15 minutes, newest first, recent only',
     ]);
     assert.deepEqual(first.bus.el.map(i => [i.title, i.disruption]), [['Στάση εργασίας στα λεωφορεία', true]]);
     assert.deepEqual(first.bus.en.map(i => i.title), ['Temporary line X24']);
-    assert.equal(web.calls.length, 5);
+    assert.equal(web.calls.length, 6);
 
     // Within 15 minutes: served from memory
     t += 10 * 60_000;
     await ann.current();
-    assert.equal(web.calls.length, 5);
+    assert.equal(web.calls.length, 6);
 
-    // After that: the list pages again, but known STASY posts aren't fetched again
+    // After that: the list pages again, but known STASY posts aren't fetched
+    // again, nor apergia.gr (twice a day)
     t += 10 * 60_000;
     await ann.current();
     await settle();
-    assert.deepEqual(web.calls.slice(5).sort(), [OASA_EN, OASA_EL, STASY].sort());
+    assert.deepEqual(web.calls.slice(6).sort(), [OASA_EN, OASA_EL, STASY].sort());
 
     // A week later the disruption banner is over, but the item stays listed
     t = NOW + 8 * 86_400_000;
@@ -126,7 +141,7 @@ test('concurrent requests share one refresh', async () => {
     const web = fakeWeb(sources());
     const ann = createAnnouncements({ fetch: web.fetch, now: () => NOW, log: () => {} });
     await Promise.all([ann.current(), ann.current(), ann.current()]);
-    assert.equal(web.calls.length, 5);
+    assert.equal(web.calls.length, 6);
 });
 
 test('once there is a copy, a refresh happens behind it instead of holding up the answer', async () => {
@@ -313,19 +328,137 @@ test('the disruption box: the banner, "none" once every source the page reads an
     const date = '2026-10-20T10:00:00.000Z';
     const plain = { title: 'Changes to line 040', link: 'https://www.oasa.gr/a/', date, disruption: false };
     const strike = { title: 'Στάση εργασίας', link: 'https://www.oasa.gr/b/', date, disruption: true };
-    const all = ['stasy', 'oasaEl', 'oasaEn'];
+    const all = ['stasy', 'oasaEl', 'oasaEn', 'apergia'];
     const data = (bus, available = all) => ({ rail: [], bus: { el: bus, en: [plain] }, available });
 
     const en = await browserModule('public/js/core/announcements.js', 'en');
     assert.match(String(en.disruptionView({ ...data([]), rail: [{ ...strike, title: 'Κλειστός σταθμός' }] })), /class="notice notice-warn disruption-banner mb-3"[^]*Service disruption[^]*<span lang="el">Κλειστός σταθμός/);
     assert.match(String(en.disruptionView(data([]))), /<div class="notice notice-ok no-disruptions mb-3"><svg [^]*<\/svg><div class="notice-body">No service disruption announcements\.<\/div><\/div>/);
     // The English page doesn't read OASA's Greek feed
-    assert.match(String(en.disruptionView(data([], ['stasy', 'oasaEn']))), /no-disruptions/);
-    assert.equal(String(en.disruptionView(data([], ['oasaEl', 'oasaEn']))), '');
-    assert.equal(String(en.disruptionView(data([], ['stasy', 'oasaEl']))), '');
+    assert.match(String(en.disruptionView(data([], ['stasy', 'oasaEn', 'apergia']))), /no-disruptions/);
+    assert.equal(String(en.disruptionView(data([], ['oasaEl', 'oasaEn', 'apergia']))), '');
+    assert.equal(String(en.disruptionView(data([], ['stasy', 'oasaEl', 'apergia']))), '');
+    // Nor without apergia.gr's strikes (decision 71)
+    assert.equal(String(en.disruptionView(data([], ['stasy', 'oasaEn']))), '');
 
     const el = await browserModule('public/js/core/announcements.js', 'el');
     assert.match(String(el.disruptionView(data([strike]))), /Διακοπή λειτουργίας[^]*Στάση εργασίας/);
     assert.match(String(el.disruptionView(data([plain]))), /Καμία ανακοίνωση διακοπής λειτουργίας\./);
-    assert.equal(String(el.disruptionView(data([], ['stasy', 'oasaEn']))), '');
+    assert.equal(String(el.disruptionView(data([], ['stasy', 'oasaEn', 'apergia']))), '');
+});
+
+// ── Strikes from apergia.gr (decision 71) ───────────────────────────────────
+
+test('apergia.gr: only transport strikes on Wayhop\'s networks, their titles as written, each linking to its page there', () => {
+    const items = parseApergia(JSON.parse(apergiaSummary(
+        apergiaEvent(1, 'strikeTransportation', 'mmm.metro', 'Μετρό (Γραμμές 2,3) Κινούνται έως 18:00 (Αναμένεται επιβεβαίωση)', '2026-11-25'),
+        apergiaEvent(2, 'strikeTransportation', 'mmm.isap', 'ΗΣΑΠ (Γραμμή 1), Τραμ, Λεωφορεία &amp; Τρόλεϊ - <b>Αναμένονται</b> Ανακοινώσεις', '2026-11-25'),
+        apergiaEvent(3, 'strikeTransportation', 'mmm.pno', 'Πλοία (ΠΕΜΕΝ/ΠΕΝΕΝ) 24ωρη', '2026-11-25'),
+        apergiaEvent(4, 'strikeVarious', 'mmm.airplane', 'ΟΣΥΠΑ 24ωρη απεργια', '2026-11-25'),
+        apergiaEvent(5, 'strikeVarious', 'adedy', 'ΑΔΕΔΥ 24ωρη απεργια', '2026-11-25'),
+        apergiaEvent(6, 'strikeTransportation', 'mmm.taxi', 'Ταξί 48ωρη', '2026-11-26'),
+        apergiaEvent(7, 'strikeTransportation', 'mmm.bus mmm.trolei', 'Λεωφορεία και τρόλεϊ: στάση εργασίας 11:00-16:00', '2026-11-27'),
+        { ...apergiaEvent(8, 'strikeTransportation', 'mmm.tram', 'Τραμ: στάση εργασίας', '2026-11-28'), idSource: 'javascript:alert(1)' },
+        { ...apergiaEvent(9, 'strikeTransportation', 'mmm.ose', 'Προαστιακός', '2026-11-28'), dateToMs: null },
+    )));
+    assert.deepEqual(items, [
+        { title: 'Μετρό (Γραμμές 2,3) Κινούνται έως 18:00 (Αναμένεται επιβεβαίωση)', link: 'https://apergia.gr/#/event/src1', date: '2026-11-24T22:00:00.000Z', until: '2026-11-25T22:00:00.000Z' },
+        { title: 'ΗΣΑΠ (Γραμμή 1), Τραμ, Λεωφορεία & Τρόλεϊ - Αναμένονται Ανακοινώσεις', link: 'https://apergia.gr/#/event/src2', date: '2026-11-24T22:00:00.000Z', until: '2026-11-25T22:00:00.000Z' },
+        { title: 'Λεωφορεία και τρόλεϊ: στάση εργασίας 11:00-16:00', link: 'https://apergia.gr/#/event/src7', date: '2026-11-26T22:00:00.000Z', until: '2026-11-27T22:00:00.000Z' },
+        // An id that couldn't make a link there links to the site itself
+        { title: 'Τραμ: στάση εργασίας', link: 'https://apergia.gr/', date: '2026-11-27T22:00:00.000Z', until: '2026-11-28T22:00:00.000Z' },
+    ]);
+    // Whatever else comes back is no strike, not an error
+    for (const body of [null, {}, { listEvents: null }, { listEvents: [null, 3, 'x'] }, []]) assert.deepEqual(parseApergia(body), []);
+});
+
+test('apergia.gr: a strike is a disruption from when it\'s listed until it ends, soonest first', async () => {
+    let t = NOW;
+    const pages = sources();
+    pages[APERGIA] = apergiaSummary(
+        apergiaEvent(2, 'strikeTransportation', 'mmm.bus', 'Λεωφορεία: στάση εργασίας', '2026-10-16'),
+        apergiaEvent(1, 'strikeTransportation', 'mmm.metro', 'Μετρό: έως 18:00', '2026-10-15'),
+    );
+    const ann = createAnnouncements({ fetch: fakeWeb(pages).fetch, now: () => t, log: () => {} });
+
+    const before = await ann.current();
+    assert.deepEqual(before.strikes.map(s => [s.title, s.disruption]), [['Μετρό: έως 18:00', true], ['Λεωφορεία: στάση εργασίας', true]]);
+    assert.deepEqual(before.available.sort(), ['apergia', 'oasaEl', 'oasaEn', 'stasy']);
+    // Not among the operators' lists
+    assert.ok(![...before.rail, ...before.bus.el, ...before.bus.en].some(i => i.title.startsWith('Μετρό: έως')));
+
+    // The metro's day over (midnight in Athens), only the buses' is left
+    t = Date.parse('2026-10-16T00:00:00+03:00');
+    assert.deepEqual((await ann.current()).strikes.map(s => s.title), ['Λεωφορεία: στάση εργασίας']);
+    t = Date.parse('2026-10-17T00:00:00+03:00');
+    assert.deepEqual((await ann.current()).strikes, []);
+});
+
+test('apergia.gr is asked at most twice a day, a restart included, while OASA and STASY are every 15 minutes', async () => {
+    let t = NOW;
+    const web = fakeWeb(sources());
+    const cacheFile = join(mkdtempSync(join(tmpdir(), 'move-ann-')), 'announcements.json');
+    const ann = createAnnouncements({ fetch: web.fetch, now: () => t, log: () => {}, cacheFile });
+    await ann.current();
+    const asked = () => web.calls.filter(url => url === APERGIA).length;
+    assert.equal(asked(), 1);
+
+    // Every 15 minutes for almost 12 hours: OASA and STASY again, apergia.gr not
+    for (let i = 0; i < 47; i++) {
+        t += 15 * 60_000 + 1;
+        await ann.current();
+        await settle();
+    }
+    assert.equal(asked(), 1);
+    assert.ok(web.calls.filter(url => url === OASA_EL).length > 40);
+
+    // A restart with the copy on disk doesn't ask sooner
+    const restarted = createAnnouncements({ fetch: web.fetch, now: () => t, log: () => {}, cacheFile });
+    await restarted.current();
+    await settle();
+    assert.equal(asked(), 1);
+
+    // Twelve hours on, it is asked again
+    t = NOW + 12 * 3_600_000 + 1;
+    await restarted.current();
+    await settle();
+    assert.equal(asked(), 2);
+});
+
+test('apergia.gr failing keeps its last strikes, and shows in the diagnostics', async () => {
+    let t = NOW;
+    const pages = sources();
+    const ann = createAnnouncements({ fetch: fakeWeb(pages).fetch, now: () => t, log: () => {} });
+    await ann.current();
+
+    pages[APERGIA] = 503;
+    t += 12 * 3_600_000 + 1;
+    await ann.current();
+    await settle();
+    assert.deepEqual((await ann.current()).strikes.map(s => s.title), ['Μετρό (Γραμμές 2,3) Κινούνται έως 18:00']);
+    const [check] = announcementChecks({ apergia: ann.status().apergia }, () => t);
+    assert.deepEqual([check.title, check.status, check.detail], ['apergia.gr (strikes)', 'warn', 'HTTP 503. Showing the copy from 720 min ago.']);
+
+    // Answers that aren't JSON fail the same way
+    pages[APERGIA] = '<html>Please wait while your request is being verified…</html>';
+    await ann.refreshNow();
+    assert.equal(ann.status().apergia.ok, false);
+});
+
+test('the disruption box: apergia.gr\'s strikes first, in Greek with whose words they are, linking to apergia.gr', async () => {
+    const date = '2026-11-24T22:00:00.000Z';
+    const strike = { title: 'Μετρό (Γραμμές 2,3) Κινούνται έως 18:00', link: 'https://apergia.gr/#/event/src1', date, until: '2026-11-25T22:00:00.000Z', disruption: true };
+    const notice = { title: 'Στάση εργασίας', link: 'https://www.oasa.gr/b/', date, disruption: true };
+    const data = { rail: [], bus: { el: [notice], en: [] }, strikes: [strike], available: ['stasy', 'oasaEl', 'oasaEn', 'apergia'] };
+
+    const en = await browserModule('public/js/core/announcements.js', 'en');
+    const english = String(en.disruptionView(data));
+    assert.match(english, /Service disruption[^]*href="https:\/\/apergia\.gr\/#\/event\/src1"[^]*<span lang="el">Μετρό \(Γραμμές 2,3\) Κινούνται έως 18:00<\/span>[^]*25 Nov · from apergia\.gr <span class="tag ms-1">[^]*Only available in Greek/);
+
+    const el = await browserModule('public/js/core/announcements.js', 'el');
+    const greek = String(el.disruptionView(data));
+    assert.match(greek, /Μετρό \(Γραμμές 2,3\)[^]*από το apergia\.gr[^]*Στάση εργασίας/);
+    assert.doesNotMatch(greek, /Μόνο στα ελληνικά/);
+    // An older server sends no strikes
+    assert.match(String(el.disruptionView({ ...data, strikes: undefined })), /Στάση εργασίας/);
 });

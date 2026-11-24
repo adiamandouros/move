@@ -215,8 +215,8 @@ test('announcements: never cached, and 503 when every source is down', async () 
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('cache-control'), 'no-store');
     const body = await res.json();
-    assert.deepEqual(Object.keys(body).sort(), ['available', 'bus', 'rail']);
-    assert.ok(body.bus.en.length && body.bus.el.length && body.rail.length);
+    assert.deepEqual(Object.keys(body).sort(), ['available', 'bus', 'rail', 'strikes']);
+    assert.ok(body.bus.en.length && body.bus.el.length && body.rail.length && body.strikes.length);
 
     const sourcesDown = await serve({ fetch: down });
     const refused = await sourcesDown('/api/announcements');

@@ -17,7 +17,7 @@ follows the phone's light or dark mode (or your choice in the menu).
 - **Buses**: live arrivals at the stops around you, refreshed every 30
   seconds when a bus is near (less often when the next one is further away);
   any stop by its name or code, and any line with its stops.
-- **Info**: service announcements from OASA and STASY, zoomable metro and
+- **Info**: service announcements from OASA and STASY (and strikes from apergia.gr), zoomable metro and
   tram maps, closing times, tickets, getting to the airport, night buses,
   accessibility and contacts.
 - **Metro stations**: a page for every station, with where to ride for the

@@ -9,19 +9,25 @@ import { createStasyClient } from '../stasy.js';
 //   - OASA (buses, trolleys and general notices): its RSS feeds, in Greek and English
 //   - STASY (metro and tram): no feed and a closed API, so its news page is
 //     read and each new post's page is fetched once for its date
-// Fetched only when someone asks and the copy is older than REFRESH_MS, so an
-// idle app sends nothing; a failing source keeps serving its last good copy.
+//   - apergia.gr (strikes, decision 71): the JSON its own pages read; only
+//     strikes on the networks Wayhop covers, their titles as written there,
+//     shown until each strike ends
+// Fetched only when someone asks and the copy is older than the source's
+// EVERY_MS, so an idle app sends nothing; a failing source keeps serving its
+// last good copy.
 // The copy is kept in `cacheFile`, so a restart doesn't start from nothing.
 // STASY's pages come directly or through the relays (server/stasy.js).
 
 const REFRESH_MS = 15 * 60_000;
+// apergia.gr twice a day: strikes are announced days ahead (decision 71)
+const APERGIA_MS = 12 * 3_600_000;
 const TIMEOUT_MS = 15_000;
 const MAX_AGE_MS = 30 * 86_400_000;   // older announcements are dropped
 const MAX_ITEMS = 8;                  // per source and language
 const DISRUPTION_AGE_MS = 7 * 86_400_000;
 
 /** @typedef {keyof typeof SOURCES} Source */
-/** @typedef {{ title: string, link: string, date: string }} Item an announcement, `date` ISO */
+/** @typedef {{ title: string, link: string, date: string, until?: string }} Item an announcement, `date` ISO; a strike's `until`: when it ends, ISO */
 /**
  * How a source's last fetch went (none since the app started: no `ok`), its
  * announcements and when they were fetched (ISO)
@@ -31,7 +37,10 @@ const SOURCES = {
     oasaEl: 'https://www.oasa.gr/feed/',
     oasaEn: 'https://www.oasa.gr/en/feed/',
     stasy: 'https://www.stasy.gr/%ce%bd%ce%ad%ce%b1-%ce%b1%ce%bd%ce%b1%ce%ba%ce%bf%ce%b9%ce%bd%cf%8e%cf%83%ce%b5%ce%b9%cf%82/',
+    apergia: 'https://api.apergia.gr/api/v1/events/summary',
 };
+/** @type {Record<Source, number>} */
+const EVERY_MS = { oasaEl: REFRESH_MS, oasaEn: REFRESH_MS, stasy: REFRESH_MS, apergia: APERGIA_MS };
 
 // ── Parsing ─────────────────────────────────────────────────────────────────
 
@@ -101,6 +110,32 @@ export function parseStasyDate(html) {
     return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+// apergia.gr's transport strikes on the networks Wayhop covers: metro, M1
+// (isap), tram, buses, trolleys and the suburban railway (ose); not ships,
+// planes or taxis
+const APERGIA_NETWORKS = new Set(['mmm.metro', 'mmm.isap', 'mmm.tram', 'mmm.bus', 'mmm.trolei', 'mmm.ose']);
+
+// → [{ title, link, date, until }] from apergia.gr's events/summary, the
+// title as written there (decision 71). Each links to its page on
+// apergia.gr, by an id that can only make a link there.
+/** @param {unknown} body */
+export function parseApergia(body) {
+    const events = typeof body === 'object' && body !== null && 'listEvents' in body && Array.isArray(body.listEvents) ? body.listEvents : [];
+    return events.flatMap(/** @returns {Item[]} */ event => {
+        if (typeof event !== 'object' || event === null) return [];
+        const { category, categorySub, title, idSource, dateFromMs, dateToMs } = /** @type {Record<string, unknown>} */ (event);
+        const networks = typeof categorySub === 'string' ? categorySub.split(/[\s,]+/) : [];
+        if (category !== 'strikeTransportation' || !networks.some(n => APERGIA_NETWORKS.has(n))) return [];
+        if (typeof title !== 'string' || typeof dateFromMs !== 'number' || typeof dateToMs !== 'number') return [];
+        const text = decode(title);
+        const from = new Date(dateFromMs);
+        const to = new Date(dateToMs);
+        if (!text || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return [];
+        const link = typeof idSource === 'string' && /^[A-Za-z0-9_-]+$/.test(idSource) ? `https://apergia.gr/#/event/${idSource}` : 'https://apergia.gr/';
+        return [{ title: text, link, date: from.toISOString(), until: to.toISOString() }];
+    });
+}
+
 // ── Fetching ────────────────────────────────────────────────────────────────
 
 // `relays`: [{ name, url, key }] and `userAgent`, as for the OASA client (config.relays, config.userAgent)
@@ -113,11 +148,13 @@ export function parseStasyDate(html) {
 export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, log = console.warn, cacheFile, relays = [], userAgent = userAgentFor(null) } = {}) {
     // Last good result per source, and STASY post dates by link (posts don't move)
     /** @type {Record<Source, { items: Item[], updated: string } | null> & { dates: Record<string, string | null> }} */
-    let state = { oasaEl: null, oasaEn: null, stasy: null, dates: {} };
+    let state = { oasaEl: null, oasaEn: null, stasy: null, apergia: null, dates: {} };
     if (cacheFile) {
         state = { ...state, ...readJson(cacheFile) };
     }
-    let checkedAt = 0;
+    // When each source was last tried since the app started
+    /** @type {Partial<Record<Source, number>>} */
+    const tried = {};
     let refreshing = /** @type {Promise<void> | null} */ (null);
     // Per source, for the diagnostics: { ok, at, error, route, leftOut? }
     /** @type {Partial<Record<Source, { ok: boolean, at: number, error?: string, route?: string | null, leftOut?: number }>>} */
@@ -163,11 +200,15 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
         oasaEl: async () => parseOasaFeed(await get(SOURCES.oasaEl)),
         oasaEn: async () => parseOasaFeed(await get(SOURCES.oasaEn)),
         stasy: loadStasy,
+        apergia: async () => parseApergia(JSON.parse(await get(SOURCES.apergia))),
     };
     const names = /** @type {Source[]} */ (Object.keys(loaders));
 
-    async function refresh() {
-        await Promise.all(names.map(async name => {
+    // Each of `which` (all by default) fetched again
+    /** @param {Source[]} [which] */
+    async function refresh(which = names) {
+        await Promise.all(which.map(async name => {
+            tried[name] = now();
             const load = loaders[name];
             try {
                 state[name] = { items: await load(), updated: new Date(now()).toISOString() };
@@ -177,20 +218,26 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
                 log(`[announcements] ${name}: ${messageOf(err)}`);
             }
         }));
-        checkedAt = now();
         if (cacheFile) {
             try { writeFileAtomic(cacheFile, JSON.stringify(state)); } catch { /* the cache is only an optimisation */ }
         }
     }
 
-    // → { rail, bus: { el, en }, available }; each list is [{ title, link, date, disruption }].
-    // STASY only writes its announcements in Greek, so `rail` has one list.
+    // A source is due once its copy, or its last try since the app started,
+    // is older than its EVERY_MS: a restart doesn't ask again sooner
+    /** @param {Source} name */
+    const due = name => now() - Math.max(tried[name] ?? 0, Date.parse(state[name]?.updated ?? '') || 0) > EVERY_MS[name];
+
+    // → { rail, bus: { el, en }, strikes, available }; each list is [{ title, link, date, disruption }],
+    // a strike's with `until`. STASY only writes its announcements in Greek,
+    // and apergia.gr its strikes, so `rail` and `strikes` have one list each.
     async function current() {
-        if (now() - checkedAt > REFRESH_MS) {
-            refreshNow();
+        const stale = names.filter(due);
+        if (stale.length) {
             // STASY is slow, so answer from the last copy and refresh behind it;
             // only wait when there's nothing to show yet
-            if (!names.some(name => state[name])) await refreshNow();
+            const refreshed = refreshNow(stale);
+            if (!names.some(name => state[name])) await refreshed;
         }
         /** @param {Source} source */
         const items = source => (state[source]?.items ?? [])
@@ -198,15 +245,24 @@ export function createAnnouncements({ fetch = globalThis.fetch, now = Date.now, 
             .sort((a, b) => b.date.localeCompare(a.date))
             .slice(0, MAX_ITEMS)
             .map(item => ({ ...item, disruption: isDisruption(item.title) && now() - Date.parse(item.date) < DISRUPTION_AGE_MS }));
+        // A strike is shown from when apergia.gr lists it until it ends, soonest first
+        const strikes = (state.apergia?.items ?? [])
+            .filter(item => item.until && now() < Date.parse(item.until))
+            .sort((a, b) => a.date.localeCompare(b.date))
+            .slice(0, MAX_ITEMS)
+            .map(item => ({ ...item, disruption: true }));
         return {
             rail: items('stasy'),
             bus: { el: items('oasaEl'), en: items('oasaEn') },
+            strikes,
             available: names.filter(name => state[name]),
         };
     }
 
-    // Fetch now (sharing a refresh already under way), for the diagnostics
-    const refreshNow = () => (refreshing ??= refresh().finally(() => { refreshing = null; }));
+    // Fetch now (sharing a refresh already under way): the sources due, or
+    // every one for the diagnostics
+    /** @param {Source[]} [which] */
+    const refreshNow = which => (refreshing ??= refresh(which).finally(() => { refreshing = null; }));
 
     // → { <source>: { ok, at, error?, route?, items, updated } }, for the diagnostics
     const status = () => Object.fromEntries(names.map(/** @returns {[Source, SourceStatus]} */ name => [name, {

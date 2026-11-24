@@ -17,7 +17,8 @@ import { FAILURES_TO_REST, REST_MS } from './railway/index.js';
 //     or came slowly, visitors' requests that didn't fit the budget, and how
 //     close the most stops in a minute came to what can be kept fresh
 //   - announcements: every source loaded on its last try (or, not tried yet
-//     since the server started, has announcements kept from before)
+//     since the server started, has a copy kept from before: apergia.gr's
+//     kept copy often lists no strike at all)
 //   - lifts: STASY's lift page loaded on its last try (not tried yet since
 //     the server started counts as fine: nobody has needed it)
 //   - data, stasy, airport: as server/data/status.js judges them, the same
@@ -53,7 +54,7 @@ const CACHE_MS = 60_000;
 /**
  * @param {{
  *   busStatus: () => { lastAsked?: number | null, routes: { name: string, lastOk: number | null }[], usage?: ReturnType<import('./oasa/usage.js').Usage['status']> },
- *   announcementStatus: () => Record<string, { ok?: boolean, items?: number }>,
+ *   announcementStatus: () => Record<string, { ok?: boolean, items?: number, updated?: string | null }>,
  *   liftStatus?: () => { ok?: boolean, updated: string | null },
  *   placesStatus?: () => { ok: boolean, built: string | null },
  *   trainStatus?: () => { ok: boolean, wanted: boolean, resting: boolean },
@@ -97,7 +98,7 @@ export function createHealth({ busStatus, announcementStatus, liftStatus = () =>
     }
 
     function announcements() {
-        const sources = Object.fromEntries(Object.entries(announcementStatus()).map(([name, s]) => [name, s.ok ?? (s.items ?? 0) > 0]));
+        const sources = Object.fromEntries(Object.entries(announcementStatus()).map(([name, s]) => [name, s.ok ?? ((s.items ?? 0) > 0 || Boolean(s.updated))]));
         return { ok: Object.values(sources).every(Boolean), sources };
     }
 
