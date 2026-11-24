@@ -96,14 +96,23 @@ export const LIFTS_OUT = {
     line119: { 'Κεραμεικός': { status: 'Error', lifts: [['Προς Δημοτικό Θέατρο', true], ['Εξωτερικός Τεχνόπολις Γκάζι', false]] } },
     line117: { 'Ομόνοια': { status: 'Warning', lifts: [['Προς Ανθούπολη', false], ['Προς Ελληνικό', true]] } },
 };
-// STASY's one post is a closure, so the disruption banner shows; `calm`
-// makes it an ordinary one. Every lift works, or `lifts` are out
+// apergia.gr's strikes (decision 71): a metro strike from a day on, as the
+// server's clock goes (the browser tests fix only the page's)
+const apergia = calm => JSON.stringify({ listEvents: calm ? [] : [{
+    idSource: 'strike1', title: 'Μετρό (Γραμμές 2,3) Κινούνται έως 18:00', category: 'strikeTransportation', categorySub: 'mmm.metro',
+    dateFromMs: Date.now() + 86_400_000, dateToMs: Date.now() + 2 * 86_400_000,
+}] });
+// STASY's one post is a closure and apergia.gr lists a strike, so the
+// disruption banner shows; `calm` makes the post an ordinary one and lists
+// no strike. Every lift works, or `lifts` are out
 // (liftsPage() in test/fixtures/stasy-lifts.js), or with `lifts: null` the
 // lift page doesn't answer.
 export const fakeNetwork = ({ calm = false, lifts = {} } = {}) => async url => {
     const href = String(url);
     let body = SOURCES[href];
-    if (href === LIFTS_PAGE) {
+    if (href === 'https://api.apergia.gr/api/v1/events/summary') {
+        body = apergia(calm);
+    } else if (href === LIFTS_PAGE) {
         if (!lifts) throw new Error('fake network: the lift page is down');
         body = liftsPage(lifts);
     } else if (!body && href.startsWith('https://www.stasy.gr/news-')) {
@@ -231,7 +240,7 @@ export const scenarios = () => ({
     }])) })),
     // Over the per-visitor limit (server/oasa/limits.js)
     'oasa-limited': withArrivals((_req, res) => res.status(429).set('Retry-After', '30').json({ error: 'Too many new stops; try again shortly' })),
-    // Neither OASA's nor STASY's website answers
+    // Neither OASA's nor STASY's website answers, nor apergia.gr
     'announcements-down': site({ fetch: down }),
     // Announcements, but no strike or closure among them
     'no-disruptions': site({ fetch: fakeNetwork({ calm: true }) }),

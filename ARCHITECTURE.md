@@ -20,7 +20,7 @@ shared hosting that shapes a few things below
 browser ─► Express (server/app.js, started by server.js)
             ├─ pages ─────────────── server/pages/   every page, in English and Greek
             ├─ /api/arrivals ─────── server/oasa/    live bus times from OASA
-            ├─ /api/announcements ── server/info/    OASA's and STASY's announcements
+            ├─ /api/announcements ── server/info/    OASA's and STASY's announcements, apergia.gr's strikes
             ├─ /api/lifts ────────── server/info/    metro lifts out of service, from STASY
             ├─ /api/trains ───────── server/railway/ how late the suburban trains run, from railway.gov.gr
             ├─ /data/*.json ──────── data/build/     timetables and stops, built by server/data/
@@ -418,7 +418,9 @@ bus network below; changes to any of them are agreed first
 
 Announcements ([server/info/announcements.js](server/info/announcements.js))
 are fetched from OASA's RSS and STASY's news page at most every 15 minutes,
-only when someone asks, and kept on disk.
+and apergia.gr's strikes at most every 12 hours
+([decision 71](docs/decisions/0071-strikes-from-apergia.md)), only when
+someone asks, and kept on disk (a restart doesn't ask sooner).
 
 How late the suburban railway's running trains are ([server/railway/](server/railway/),
 [decision 47](docs/decisions/0047-trip-suburban-cards.md)) is Wayhop's own

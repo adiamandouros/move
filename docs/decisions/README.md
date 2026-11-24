@@ -82,3 +82,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 68 | [The trip page: exits and metro stations as the signs riders follow](0068-trip-exits-and-stations-as-signs.md) | In force |
 | 69 | [Following underground: a trace first, then rough fixes on rail, provisionally](0069-following-underground-rough-fixes.md) | In force |
 | 70 | [The rest of the strict type check, file by file, written `any` counted](0070-strict-types-step-by-step.md) | In force |
+| 71 | [Strikes from apergia.gr, in their words, in the disruption box](0071-strikes-from-apergia.md) | In force |

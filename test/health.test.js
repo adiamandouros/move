@@ -213,6 +213,9 @@ test('announcements kept from before a restart count until the source is tried',
     assert.deepEqual((await page({ stasy: { items: 3 } }).check()).announcements, { ok: true, sources: { stasy: true } });
     assert.deepEqual((await page({ stasy: { items: 0 } }).check()).announcements, { ok: false, sources: { stasy: false } });
     assert.deepEqual((await page({ stasy: { ok: false, items: 3 } }).check()).announcements, { ok: false, sources: { stasy: false } });
+    // apergia.gr's kept copy often lists no strike: a copy counts, empty or not
+    assert.deepEqual((await page({ apergia: { items: 0, updated: '2026-10-14T00:00:00.000Z' } }).check()).announcements, { ok: true, sources: { apergia: true } });
+    assert.deepEqual((await page({ apergia: { items: 0, updated: null } }).check()).announcements, { ok: false, sources: { apergia: false } });
 });
 
 test('a failed part of the build counts, and so does no build at all', async () => {
