@@ -609,17 +609,22 @@ export const rangeText = row => minutesWords(rangeOf(row), t, !Array.isArray(ran
 // heading can take the keyboard after a choice (main.js). `drawn`: when,
 // and the stations on the way the rider opened (citySteps). `following`:
 // where the rider is on it (decision 50): then the heading is when they
-// get there, the range being for someone still at the start
+// get there, the range being for someone still at the start. `lead`: it
+// leads by OASA's live times (decision 72), so its heading is its minutes
+// and when it gets there by them, as another way's timed is, once timed
 const LABELS = { quicker: 'trip.quicker-taken', picked: 'trip.picked' };
 /**
  * @param {Rail} rail @param {{ row: HalfRow, o: BusOption }} way @param {Place} to @param {Drawn} drawn @param {boolean} best @param {{ way: import('./buses.js').LiveWay } | null} live
- * @param {{ label?: 'quicker' | 'picked' | null, back?: boolean, following?: Following | null }} [options]
+ * @param {{ label?: 'quicker' | 'picked' | null, back?: boolean, following?: Following | null, lead?: boolean }} [options]
  */
-function halfCard(rail, { row, o }, to, drawn, best, live, { label = /** @type {'quicker' | 'picked' | null} */ (null), back = false, following = null } = {}) {
+function halfCard(rail, { row, o }, to, drawn, best, live, { label = /** @type {'quicker' | 'picked' | null} */ (null), back = false, following = null, lead = false } = {}) {
     const shown = live?.way.option ?? o;
+    const ranked = lead && !following ? live?.way.rank ?? null : null;
     return html`<div class="trip-card result-card">
         <div class="trip-card-head">
-            <h2 class="trip-total" tabindex="-1">${following ? format(t('trip.arrive'), { time: clockTime(shown.arrives) }) : rangeMark(row)}</h2>
+            <h2 class="trip-total" tabindex="-1">${following ? format(t('trip.arrive'), { time: clockTime(shown.arrives) })
+                : ranked ? minutesMark(Math.round((ranked.arrives - drawn.now) / 60), t, { about: true }) : rangeMark(row)}</h2>
+            ${ranked && html`<span class="trip-arrives">${format(t('trip.arrive'), { time: clockTime(ranked.arrives) })}</span>`}
             ${best && html`<span class="trip-arrives">${t('trip.half-best')}</span>`}
             ${label && html`<span class="trip-arrives">${t(LABELS[label])}</span>`}
         </div>
@@ -759,18 +764,19 @@ function onwardOthers(rail, onward, clock, checking) {
 // hour stands for; `lost`, the way they took can't be caught any more, so
 // the half hour's own is first again; `checking`, the key of the way whose
 // bus is being checked as it's taken; `gone`, the way tapped wasn't taken,
-// as its bus has gone
+// as its bus has gone; `lead`, the first way leads by OASA's live times in
+// the half hour's place (decision 72), said above it in place of "It depends"
 /**
  * @param {Rail} rail @param {string} kind @param {ReturnType<typeof import('./half.js').halfWays>} ways @param {Place} to
  * @param {{ now: number, epoch?: number | null, weekday: number, date: string, expired?: boolean, longWalk?: boolean,
  *   live?: { way: import('./buses.js').LiveWay } | null, offer?: boolean, taken?: import('./buses.js').HalfRow | null,
  *   switching?: { offer: import('./buses.js').Offer, seconds: number } | null, switched?: false | 'quicker' | 'picked',
  *   othersTimed?: Map<HalfRow, import('./searcher.js').OtherWay>, onward?: import('./searcher.js').OnwardWay[] | null, take?: boolean,
- *   picked?: boolean, lost?: boolean, checking?: string | null, gone?: boolean, noTrains?: boolean,
+ *   picked?: boolean, lead?: boolean, lost?: boolean, checking?: string | null, gone?: boolean, noTrains?: boolean,
  *   trains?: Record<string, import('./trains.js').TrainLate> | null, lifts?: Lifts | null, liftsOpen?: boolean, stations?: Record<string, boolean>,
  *   stops?: Set<string>, legend?: boolean, following?: Following | null }} shown
  */
-export function renderHalf(rail, kind, ways, to, { now, epoch = null, weekday, date, expired = false, longWalk = false, live = null, offer = false, taken = null, switching = null, switched = /** @type {false | 'quicker' | 'picked'} */ (false), othersTimed = new Map(), onward = null, take = false, picked = false, lost = false, checking = /** @type {string | null} */ (null), gone = false, noTrains = false, trains = null, lifts = null, liftsOpen = true, stations = {}, stops = new Set(), legend: legendShown = true, following = null }) {
+export function renderHalf(rail, kind, ways, to, { now, epoch = null, weekday, date, expired = false, longWalk = false, live = null, offer = false, taken = null, switching = null, switched = /** @type {false | 'quicker' | 'picked'} */ (false), othersTimed = new Map(), onward = null, take = false, picked = false, lead = false, lost = false, checking = /** @type {string | null} */ (null), gone = false, noTrains = false, trains = null, lifts = null, liftsOpen = true, stations = {}, stops = new Set(), legend: legendShown = true, following = null }) {
     const [first, ...rest] = ways;
     // The other ways, in the half hour's order until OASA times one, then
     // the soonest there first
@@ -786,12 +792,12 @@ export function renderHalf(rail, kind, ways, to, { now, epoch = null, weekday, d
         ${lost && notice('warn', 'warning', t('trip.picked-lost'), 'mb-3')}
         ${gone && notice('warn', 'warning', t('trip.take-gone'), 'mb-3')}
         ${stepFree(rail, [shown, ...others.map(way => way.o)], lifts, liftsOpen)}
-        ${kind === 'depends' && html`<p class="trip-intro">${t('trip.half-depends-intro')}</p>`}
+        ${lead ? html`<p class="trip-intro">${t('trip.lead')}</p>` : kind === 'depends' && html`<p class="trip-intro">${t('trip.half-depends-intro')}</p>`}
         ${switched
             ? halfCard(rail, { row: { ...first.row, bundle: false }, o: shown }, to, drawn, false, live, { label: switched === 'picked' ? 'picked' : 'quicker', back: true, following })
             : taken
                 ? halfCard(rail, { row: taken, o: takenOption(taken, first.departure) }, to, drawn, false, live, { label: 'quicker', back: true, following })
-                : halfCard(rail, first, to, drawn, kind === 'clear' && !picked, live, { label: picked ? 'picked' : null, following })}
+                : halfCard(rail, first, to, drawn, kind === 'clear' && !picked && !lead, live, { label: picked ? 'picked' : null, following, lead })}
         ${switching ? quickerCard(rail, switching.offer, switching.seconds) : offer && live?.way.offer && quickerCard(rail, live.way.offer)}
         ${legend(rail, shown, drawn, legendShown)}
         ${longWalk && longWalkNotice()}

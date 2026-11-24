@@ -914,6 +914,43 @@ test.describe('the trip page', () => {
         });
     });
 
+    // Decision 72: from Μενελάου 45 to Syntagma at noon, the half hour's
+    // any bus from near the door first, then the 550 and the 040 to the M2;
+    // every bus 40 minutes later but the 550's, so the 550 to the M2 leads
+    test.describe('another way quicker by OASA\'s live times', () => {
+        test.use({ scenario: 'trip-lead' });
+        const first = page => page.locator('.trip-card').first();
+
+        for (const [lang, path, fromLabel, toLabel, syntagma, said] of [
+            ['English', '/trip', 'From', 'To', 'Σύνταγμα', 'Quicker right now, by OASA\'s live times.'],
+            ['Greek', '/el/trip', 'Από', 'Προς', 'Σύνταγμα', 'Πιο γρήγορα αυτή τη στιγμή, με τις ώρες του ΟΑΣΑ.'],
+        ]) {
+            test(`${lang}: it leads, said above it, with its minutes and when it gets there; the half hour's own among the other ways; it stays as the minutes go by`, async ({ page }) => {
+                const { run } = await watchRequests(page);
+                await page.goto(path);
+                await page.getByRole('combobox', { name: fromLabel }).fill('Μενελάου 45');
+                await list(page, 'from').first().click();
+                await page.getByRole('combobox', { name: toLabel }).fill(syntagma);
+                await list(page, 'to').first().click();
+                await expect(page.locator('.trip-intro')).toHaveText(said);
+                await expect(first(page).locator('.bus-plate', { hasText: /^550$/ }).first()).toBeVisible();
+                await expect(first(page).locator('.trip-arrives')).toBeVisible();
+                const others = page.locator('#trip-result button.trip-take');
+                await expect(others).toHaveCount(2);
+                await expect(others.filter({ has: page.locator('.bus-plate', { hasText: /^Α2$/ }) }), 'any bus from near the door').toHaveCount(1);
+                await page.waitForFunction(() => window.__pending === 0);
+                // A minute and a half of OASA's answers coming again: still the 550's
+                await run(90);
+                await expect(page.locator('.trip-intro')).toHaveText(said);
+                await expect(first(page).locator('.bus-plate', { hasText: /^550$/ }).first()).toBeVisible();
+                await page.clock.resume();
+                expect(await axe(page), 'axe-core violations').toEqual([]);
+                const walk = await keyboardWalk(page);
+                expect(walk.problems, `keyboard walk: ${walk.stops.join(' → ')}`).toEqual([]);
+            });
+        }
+    });
+
     test.describe('followed along the way (decision 50)', () => {
         test.use({ location: { at: MENELAOU_45 } });
 

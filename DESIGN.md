@@ -402,6 +402,11 @@ rules, with a picture of a way shown in full.
   (decision 63) they're the ways on from where they are, the same way:
   from where one leaves the ride they're on, its rides; never the way the
   switch is offering.
+- **A way quicker by OASA's live times** (decision 72) takes the first
+  card's place before the rider leaves: "Quicker right now, by OASA's live
+  times." above it, where "It depends on when you leave." would be, and its
+  heading its minutes and "Arrive about …" by those times. The way it
+  replaced is among the other ways.
 - **A walk**: `~16'` on the left, "Walk to …" with the distance under it,
   walking directions at the far right. A walk to a metro ride's station names
   it as its station sign, "Walk to [Syntagma]" (decision 68). A tram,

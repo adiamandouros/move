@@ -196,6 +196,12 @@ const GONE_LINE = '550';
 const laterArrivalsAt = (code, take) => timetableArrivalsAt(code)
     .map(arrival => ({ ...arrival, minutes: arrival.minutes + 8 }))
     .filter(arrival => !(take && arrival.line === GONE_LINE && arrival.vehicle.endsWith('-0')));
+// As timetableArrivalsAt, but every bus 40 minutes later save the 550's:
+// from Μενελάου 45 to Syntagma at noon, the half hour's any bus from near
+// the door is far off while the 550 to the M2 comes as usual, so that way
+// leads by OASA's live times (scenario 'trip-lead', decision 72)
+const LEAD_LINE = '550';
+const leadArrivalsAt = code => timetableArrivalsAt(code).map(arrival => arrival.line === LEAD_LINE ? arrival : { ...arrival, minutes: arrival.minutes + 40 });
 export const down = async () => { throw new Error('fake OASA: down'); };
 
 export const ADMIN_TEST_PASSWORD = 'test-password';
@@ -220,6 +226,12 @@ export const scenarios = () => ({
     // checked as another way is taken (laterArrivalsAt)
     'trip-gone': withArrivals((req, res) => res.json({ stops: Object.fromEntries(codesOf(req).map(code => [code, {
         arrivals: laterArrivalsAt(code, req.query.for === 'plan-take').sort((a, b) => a.minutes - b.minutes),
+        updated: Date.now(),
+        stale: false,
+    }])) })),
+    // Every bus far off but the 550's (leadArrivalsAt)
+    'trip-lead': withArrivals((req, res) => res.json({ stops: Object.fromEntries(codesOf(req).map(code => [code, {
+        arrivals: leadArrivalsAt(code).sort((a, b) => a.minutes - b.minutes),
         updated: Date.now(),
         stale: false,
     }])) })),

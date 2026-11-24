@@ -74,7 +74,7 @@ decisions, or makes one of the same weight, comes with its page.
 | 60 | [The trip page follows the rider within 20 metres, or the fix's accuracy, and off the way at 100 by bus](0060-trip-follows-within-20-metres.md) | Replaced by 62 |
 | 61 | [Every time counts down by itself, and is gone once past](0061-times-count-down.md) | In force |
 | 62 | [The trip page: the other ways timed by OASA, each by its first bus](0062-other-ways-timed-by-oasa.md) | Replaced by 63 |
-| 63 | [The trip page: the other ways follow the rider, from where they are](0063-other-ways-follow-the-rider.md) | In force |
+| 63 | [The trip page: the other ways follow the rider, from where they are](0063-other-ways-follow-the-rider.md) | Replaced by 72 |
 | 64 | [The trip page: the other ways can be taken](0064-other-ways-can-be-taken.md) | In force |
 | 65 | [One rule for answers that come too late](0065-one-rule-for-late-answers.md) | In force |
 | 66 | [Stricter type checks, file by file, the count only going down](0066-strict-null-checks-step-by-step.md) | In force |
@@ -83,3 +83,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 69 | [Following underground: a trace first, then rough fixes on rail, provisionally](0069-following-underground-rough-fixes.md) | In force |
 | 70 | [The rest of the strict type check, file by file, written `any` counted](0070-strict-types-step-by-step.md) | In force |
 | 71 | [Strikes from apergia.gr, in their words, in the disruption box](0071-strikes-from-apergia.md) | In force |
+| 72 | [The trip page: a way quicker by OASA's live times comes first](0072-trip-first-way-by-live-times.md) | In force |

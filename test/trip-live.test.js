@@ -353,6 +353,76 @@ test('any bus after a train: the M2 to Syggrou-Fix, then the stops there, each c
     assert.deepEqual(way.stops[0].arrivals, [{ line, to, at: ready + 4 * MIN, vehicle: null }, { line, to, at: ready + 12 * MIN, vehicle: null }]);
 });
 
+// What each way is ranked by on live times (decision 72): when it gets
+// there, and when by the weights, a minute on foot as one and a half and
+// each change 3' on top
+const weighedFrom = (rank, way, changes) => rank.arrives + way.walk / 2 + changes * 3 * MIN;
+
+test('ranked on live times: a way of rides gets there as it\'s timed, its bus OASA\'s once its stop is answered; with none coming there, unknown', () => {
+    const way = busThenTrain.best[0];
+    const before = other(busThenTrain, {});
+    assert.deepEqual(before.rank, { arrives: before.option.arrives, cost: weighedFrom(before.option, way, 1), live: false, waiting: true }, 'the timetable\'s, till its stop is answered');
+    assert.deepEqual(timed(busThenTrain, {}).rank, before.rank, 'the first card\'s the same');
+    const late = { [BOARD]: { buses: [{ route: ROUTE, line: '040', at: 10 * 3600 + 9 * MIN }] } };
+    const after = other(busThenTrain, late);
+    assert.equal(after.rank.arrives, after.option.arrives);
+    assert.deepEqual([after.rank.live, after.rank.waiting], [true, false], 'OASA\'s word');
+    assert.ok(after.rank.arrives > before.rank.arrives);
+    assert.equal(other(busThenTrain, { [BOARD]: { buses: [] } }).rank, null, 'its bus not coming');
+    assert.equal(timed(busThenTrain, { [BOARD]: { buses: [] } }).rank, null);
+});
+
+test('ranked on live times: a way with no bus is the timetable\'s, all there is to know of it, nothing waited for', () => {
+    const [byMetro] = shownRows(answered(station('syntagma'), station('larissa-station'), at(12)));
+    assert.ok(byMetro.best.find(Boolean).legs.every(leg => leg.mode === 'metro'), byMetro.key);
+    const way = otherWay(city, station('syntagma'), station('larissa-station'), byMetro, 0, at(12), {});
+    assert.equal(way.rank.arrives, way.option.arrives);
+    assert.deepEqual([way.rank.live, way.rank.waiting], [false, false], 'nothing to wait for');
+});
+
+test('ranked on live times: any bus after a train, not asked for another way, goes by the timetable without waiting on OASA; once a stop is answered, OASA\'s word', () => {
+    const syntagma = station('syntagma');
+    const [row] = shownRows(answered(syntagma, menelaou, at(8.5)));
+    assert.equal(row.key, 'M2 at Συγγρού Φιξ, a bus');
+    const before = otherWay(city, syntagma, menelaou, row, 0, at(8.5), {});
+    assert.deepEqual([before.rank.live, before.rank.waiting], [false, false]);
+    const code = codeOf(city.stops[row.stops[0].stop]);
+    const after = otherWay(city, syntagma, menelaou, row, 0, at(8.5), { [code]: { buses: [] } });
+    assert.deepEqual([after.rank.live, after.rank.waiting], [true, false]);
+});
+
+test('ranked on live times: any bus from near the door gets there by the first of them to, OASA\'s at a stop answered, the timetable\'s at one not; none at any, unknown', () => {
+    const any = depends.find(row => row.bundle);
+    const syntagma = station('syntagma');
+    const doors = new Set(city.near(syntagma, 15 * MIN).filter((_, i) => i % 2 === 0));
+    const codes = any.stops.map(({ stop }) => codeOf(city.stops[stop]));
+    const none = Object.fromEntries(codes.map(code => [code, { buses: [] }]));
+    const timetable = other(any, {});
+    assert.ok(timetable.rank, 'by the timetable, nothing answered');
+    assert.deepEqual([timetable.rank.live, timetable.rank.waiting], [false, true], 'its buses from the start not answered');
+    assert.deepEqual(timetable.asks, [], 'nothing asked for it');
+    const gone = other(any, none);
+    assert.equal(gone.rank, null, 'OASA has none of them coming');
+    assert.deepEqual(gone.option.rides.at(-1).live, { none: true }, 'said so');
+    assert.equal(timed(any, none).rank, null, 'the first card\'s the same');
+
+    // OASA has one of its buses at the nearest stop 25' from now, none at the others
+    const [nearest] = any.stops;
+    const [[route, line]] = routeCodes(city, nearest.lines, nearest.stop, doors);
+    const bus = 10 * 3600 + 25 * MIN;
+    const one = other(any, { ...none, [codes[0]]: { buses: [{ route, line, at: bus }] } });
+    assert.ok(one.rank.arrives > bus && one.rank.arrives > timetable.rank.arrives, 'later than the timetable has it');
+    assert.equal(one.rank.cost, weighedFrom(one.rank, any.best[0], 0));
+    assert.deepEqual([one.rank.live, one.rank.waiting], [true, false]);
+    assert.equal(one.option.arrives, one.rank.arrives, 'shown so');
+    assert.equal(one.option.minutes, Math.round((one.rank.arrives - 10 * 3600) / 60));
+    assert.deepEqual(one.option.rides.at(-1).live, { at: bus, next: null }, 'the bus that does, its badge');
+    assert.deepEqual(timed(any, { ...none, [codes[0]]: { buses: [{ route, line, at: bus }] } }).rank, one.rank, 'the first card\'s the same');
+    // The other stops not answered: by the timetable there, sooner than the 25' bus, no sooner than the timetable at all of them
+    const rest = other(any, { [codes[0]]: { buses: [{ route, line, at: bus }] } }).rank;
+    assert.ok(rest.arrives < one.rank.arrives && rest.arrives >= timetable.rank.arrives, `${rest.arrives}`);
+});
+
 // ── The page's side (live.js) ───────────────────────────────────────────────
 
 test('a stop is asked for by itself, the trip\'s first request saying it starts a search, a re-plan\'s that it was planned again', () => {
