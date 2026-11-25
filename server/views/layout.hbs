@@ -43,7 +43,7 @@
     <script type="application/ld+json">{{json structuredData}}</script>
 {{/if}}
 </head>
-<body>
+<body{{#unless bottomNav}} class="no-bottom-nav"{{/unless}}>
 
     <a href="#app-content" class="skip-link">{{t "shell.skip"}}</a>
 
@@ -99,6 +99,7 @@
 
     </div>
 
+{{#if bottomNav}}
     <!-- Bottom nav (mobile): home (the logo), the tools, and the menu button by the right thumb -->
     <nav id="bottom-nav" class="d-grid d-md-none fixed-bottom border-top" aria-label="{{t "nav.main"}}">
         <a href="/" class="nav-btn btn d-flex flex-column align-items-center py-2{{#if home}} active{{/if}}"{{#if home}} aria-current="page"{{/if}}>{{> logo width=33 height=24 class="nav-logo"}}<span class="nav-label">{{t "nav.home"}}</span></a>
@@ -119,6 +120,7 @@
 {{/each}}
             {{> theme-switch}}
     </nav>
+{{/if}}
 
     <!-- Live region for screen reader announcements (visually hidden) -->
     <div id="sr-announcer" aria-live="polite" aria-atomic="true" class="sr-only"></div>

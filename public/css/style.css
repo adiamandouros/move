@@ -331,6 +331,11 @@ body {
 
 /* ── Bottom nav (mobile) ── */
 
+/* A page without one (the admin pages, layout.js): nothing to keep clear of */
+.no-bottom-nav {
+    --bottom-nav-height: 0rem;
+}
+
 /* One row of equal columns, as tall as the tallest button, in the middle of
    the bar; every button fills the row, so the icon-only menu button is as tall
    as the others */

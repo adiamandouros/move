@@ -208,6 +208,15 @@ test('every page links to itself in the other language: sidebar, menu and a sugg
     assert.doesNotMatch(render({ title: 'Admin', content: '' }), /hreflang=/);
 });
 
+test('a page can leave out the bottom nav and its menu (the admin pages); every other page has them', () => {
+    const page = render({ title: 'Admin', content: '', bottomNav: false });
+    assert.match(page, /<body class="no-bottom-nav">/);
+    assert.doesNotMatch(page, /id="bottom-nav"|id="site-menu"|popovertarget/);
+    // The sidebar (wider screens) stays
+    assert.match(page, /<nav id="side-nav"/);
+    assert.match(render({ title: 'Admin', content: '' }), /<body>[\s\S]*<nav id="bottom-nav"/);
+});
+
 test('the navigation and the home tiles mark their links to the tools, which go back to where each was left', () => {
     // (public/js/core/remember.js points them at it; other links, like the
     // station pages' "Plan from here", say where they go themselves)
