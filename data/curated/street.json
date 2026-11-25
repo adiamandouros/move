@@ -112,7 +112,7 @@
       { "name": { "el": "Μαρ. Κοτοπούλη", "en": "Mar. Kotopouli" }, "coords": [37.98449, 23.72791], "way": ["stairs", "escalator-up", "escalator-down"] },
       { "name": { "el": "Αγ. Κωνσταντίνου/Κοτοπούλη", "en": "Ag. Konstantinou/Kotopouli" }, "coords": [37.98498, 23.72712], "way": ["stairs", "escalator-up", "escalator-down"] },
       { "name": { "el": "Πειραιώς/Αγ. Κωνσταντίνου", "en": "Pireos/Ag. Konstantinou" }, "coords": [37.98405, 23.72747], "way": ["stairs", "escalator-up", "escalator-down"] },
-      { "name": { "el": "No name", "en": "No name" }, "coords": [37.98372, 23.72755], "way": ["stairs", "escalator-up", "escalator-down"] }
+      { "coords": [37.98372, 23.72755], "way": ["stairs", "escalator-up", "escalator-down"] }
     ],
     "lifts": [
       { "name": "Εξωτερικός προς Πανεπιστημίου", "coords": [37.98414, 23.72872] },
@@ -155,5 +155,50 @@
     "lifts": [
       { "name": "Εξωτερικός Βασ. Σοφίας", "coords": [37.97605, 23.74694] }
     ]
+  },
+  "dimotiko-theatro": {
+    "exits": [
+      { "name": { "el": "Πλατεία Δημοτικού Θεάτρου", "en": "Dimotiko Theatro Square" }, "coords": [37.94294, 23.64774], "way": ["stairs", "escalator-up", "escalator-down"] },
+      { "name": { "el": "Πλατεία Παύλου Μπακογιάννη-Δημοτικό Θέατρο", "en": "Pavlos Bakoyannis Square-Dimotiko Theatro" }, "coords": [37.94364, 23.64706], "way": ["stairs", "escalator-up", "escalator-down"] },
+      { "name": { "el": "Πλατεία Κοραή", "en": "Korai Square" }, "coords": [37.9425, 23.6475], "way": ["stairs", "escalator-up", "escalator-down"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός προς Πλατεία Κοραή", "coords": [37.9425, 23.6474] },
+      { "name": "Εξωτερικός προς Δημοτικό Θέατρο", "coords": [37.94309, 23.64761] }
+    ],
+    "osm": ["n10567648539", "n10567687141", "n11746464023"]
+  },
+  "piraeus": {
+    "exits": [
+      { "name": { "el": "Λιμάνι Πειραιά", "en": "Piraeus Port" }, "coords": [37.94808, 23.64197], "way": ["escalator-up", "escalator-down"] },
+      { "name": { "el": "Πλατεία Οδησσού", "en": "Odissou Square" }, "coords": [37.9478, 23.64253], "way": ["stairs", "escalator-up", "escalator-down"] },
+      { "coords": [37.94803, 23.64239] },
+      { "coords": [37.94787, 23.64267], "way": ["stairs"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός Ακτή Καλλιμασιώτη", "coords": [37.94803, 23.64208] },
+      { "name": "Εξωτερικός Πλατεία Οδησσού Πεζογέφυρα", "coords": [37.94769, 23.64253] }
+    ],
+    "osm": ["n2138026371", "n2138026377", "n2138026434", "n8630212892", "n8630212893", "n12356089139", "n12360218047"]
+  },
+  "maniatika": {
+    "exits": [
+      { "name": { "el": "Οδός Αιτωλικού", "en": "Aitolikou str." }, "coords": [37.95967, 23.63999], "way": ["stairs", "escalator-up", "escalator-down"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός Πλατεία Μανιάτικα", "coords": [37.95979, 23.64003] }
+    ],
+    "osm": ["n10598481084"]
+  },
+  "nikaia": {
+    "exits": [
+      { "name": { "el": "Πλατεία Ελ. Βενιζέλου", "en": "El. Venizelou square" }, "coords": [37.96567, 23.64764], "way": ["stairs", "escalator-up", "escalator-down"] },
+      { "name": { "el": "Οδός Καρακουλουξή", "en": "Karakoulouksi str." }, "coords": [37.96601, 23.64734], "way": ["stairs"] },
+      { "name": { "el": "Οδός Τσαλδάρη", "en": "Tsaldari str." }, "coords": [37.96629, 23.64698], "way": ["escalator-up", "escalator-down"] }
+    ],
+    "lifts": [
+      { "name": "Εξωτερικός Τσαλδάρη", "coords": [37.96562, 23.64735] }
+    ],
+    "osm": ["n10598488867", "n10598488868"]
   }
 }

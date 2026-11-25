@@ -137,16 +137,23 @@ export function brokenData() {
 
 // The station editor's data: data/curated as committed, but with Omonia's
 // M2 platforms' elevators left out, so STASY's names for them are there to
-// fill in (admin.spec.js) whatever the editor has saved since, and without
-// OpenStreetMap's exits (a test gives its own); its overlays in a folder of
-// its own, never data/local
+// fill in (admin.spec.js) whatever the editor has saved since, the first
+// station it opens on (M1 → Kifisia: Piraeus) with nothing recorded but
+// where to stand, whatever the field trips have recorded there since, and
+// without OpenStreetMap's exits (a test gives its own); its overlays in a
+// folder of its own, never data/local
 function editorCurated() {
     const curatedDir = mkdtempSync(join(tmpdir(), 'wayhop-curated-'));
     const overlayDir = mkdtempSync(join(tmpdir(), 'wayhop-overlay-'));
     cpSync(fileURLToPath(new URL('../../data/curated/', import.meta.url)), curatedDir, { recursive: true });
     const positions = JSON.parse(readFileSync(join(curatedDir, 'positions.json'), 'utf8'));
     for (const platforms of Object.values(positions.M2)) delete platforms.omonia.elevators;
+    const { exits, transfers } = positions.M1.kifisia.piraeus;
+    positions.M1.kifisia.piraeus = { exits, transfers };
     writeFileSync(join(curatedDir, 'positions.json'), JSON.stringify(positions));
+    const street = JSON.parse(readFileSync(join(curatedDir, 'street.json'), 'utf8'));
+    delete street.piraeus;
+    writeFileSync(join(curatedDir, 'street.json'), JSON.stringify(street));
     rmSync(join(curatedDir, 'osm.json'), { force: true });
     return () => loadCurated({ curatedDir, overlayDir, log: () => {} });
 }
