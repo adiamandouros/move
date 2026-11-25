@@ -6,8 +6,10 @@ import { LANGS, localiseLinks, localPath, otherLang, pageStrings } from './i18n.
 import { pageMeta } from './seo.js';
 import { view } from './templates.js';
 
-// The layout every page shares (server/views/layout.hbs): the head, the
-// navigation, the language link and the menu around the page's content.
+// The layouts around the pages' content: the site's (server/views/layout.hbs:
+// the navigation, the language link and the menu) and the admin pages'
+// (admin/layout.hbs: no navigation). Both share the head
+// (server/views/partials/head.hbs).
 
 // The pages about the site: on phones in the menu, on wider screens near the
 // bottom of the sidebar, above the language button
@@ -24,6 +26,7 @@ const LANGUAGE_LABELS = { en: 'EN', el: 'ΕΛ' };
 export const BROWSER_SHARED = /^(shell|announcements|location|favourites|lifts)\./;
 
 // → render(page): a page as HTML, in the layout and in its language.
+// layoutFile: the site's layout, or the admin pages'.
 // pagePaths: the pages that exist in both languages, for links in the page's
 // language (see localiseLinks in i18n.js). Page fields:
 //   lang         'en' or 'el'
@@ -39,19 +42,18 @@ export const BROWSER_SHARED = /^(shell|announcements|location|favourites|lifts)\
 //   structuredData  schema.org data for <head> (seo.js), or null
 //   styles       more stylesheets (the admin pages')
 //   ad           where it has an ad slot (server/ads.js)
-//   bottomNav    false leaves out the phone's bottom nav and its menu (the
-//                admin pages: someone who logged in to one stays on it)
 /**
  * @param {import('../../types/pages.js').Tool[]} tools @param {string[]} pagePaths
  * @param {import('../../types/config.js').Config} config the public address and AdSense
+ * @param {string} [layoutFile]
  * @returns {(page: import('../../types/pages.js').RenderOptions) => string}
  */
-export function createRenderer(tools, pagePaths, config) {
-    const layout = view('server/views/layout.hbs');
+export function createRenderer(tools, pagePaths, config, layoutFile = 'server/views/layout.hbs') {
+    const layout = view(layoutFile);
     const imports = importMap(tools);
     const stringsFor = pageStrings(tools);
 
-    return ({ lang = 'en', active = null, title, path = null, index = true, description = '', content: view, strings: own, scripts = [], structuredData = null, styles = [], ad = null, bottomNav = true }) => {
+    return ({ lang = 'en', active = null, title, path = null, index = true, description = '', content: view, strings: own, scripts = [], structuredData = null, styles = [], ad = null }) => {
         // Built with html`` (the station pages) or by a view
         const content = String(view);
         const strings = stringsFor(lang, own);
@@ -83,7 +85,6 @@ export function createRenderer(tools, pagePaths, config) {
             styles,
             importMap: imports,
             home: active === 'home',
-            bottomNav,
             tools: tools.map(tool => ({
                 id: tool.id, path: tool.path, iconName: tool.icon, active: tool.id === active,
                 titleKey: `tool.${tool.id}.title`, shortKey: `tool.${tool.id}.short`,

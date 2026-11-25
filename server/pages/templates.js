@@ -7,8 +7,8 @@ import { busPlate, linePill } from '../../public/js/core/lines.js';
 import { minutesMark } from '../../public/js/core/times.js';
 import { stringGetter } from './i18n.js';
 
-// The server's views are Handlebars templates (.hbs): the layout
-// (server/views/layout.hbs), the pages' views (server/views/, the tools'
+// The server's views are Handlebars templates (.hbs): the layouts
+// (server/views/layout.hbs, admin/layout.hbs), the pages' views (server/views/, the tools'
 // page.hbs, admin/) and the partials they share. {{value}} is escaped;
 // {{{value}}} puts in HTML that's already built (the page's content, its
 // meta tags); pieces built with html`` (/js/core/html.js) go in as {{piece}}.

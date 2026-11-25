@@ -13,7 +13,7 @@ import { listen } from './support/listen.js';
 
 const config = loadConfig({ SITE_URL: 'https://move.example/' });
 const tools = loadTools();
-const { pages, indexed, notFound, render } = renderPages(tools, config);
+const { pages, indexed, notFound, renderAdmin } = renderPages(tools, config);
 
 const head = html => html.match(/<head>([\s\S]*?)<\/head>/)[1];
 const meta = (html, attr, name) => head(html).match(new RegExp(`<meta ${attr}="${name}" content="([^"]*)">`))?.[1];
@@ -128,7 +128,7 @@ for (const path of indexed.flatMap(p => [p, localPath(p, 'el')])) {
 }
 
 test('pages that aren\'t for search results are noindex', () => {
-    for (const html of [pages['/offline'], pages['/el/offline'], notFound('/nope'), notFound('/el/nope'), render({ title: 'Admin', content: '' })]) {
+    for (const html of [pages['/offline'], pages['/el/offline'], notFound('/nope'), notFound('/el/nope'), renderAdmin({ title: 'Admin', content: '' })]) {
         assert.equal(meta(html, 'name', 'robots'), 'noindex');
         assert.equal(canonical(html), undefined);
         assert.equal(meta(html, 'name', 'description'), undefined);
@@ -205,16 +205,23 @@ test('every page links to itself in the other language: sidebar, menu and a sugg
     assert.match(pages['/subway'], /<nav id="site-menu" class="site-menu d-md-none" popover aria-label="Menu"/);
     // The 404 links to the same address in the other language; English-only pages have no language link
     assert.match(notFound('/el/nope'), /<a href="\/nope" hreflang="en"/);
-    assert.doesNotMatch(render({ title: 'Admin', content: '' }), /hreflang=/);
+    assert.doesNotMatch(renderAdmin({ title: 'Admin', content: '' }), /hreflang=/);
 });
 
-test('a page can leave out the bottom nav and its menu (the admin pages); every other page has them', () => {
-    const page = render({ title: 'Admin', content: '', bottomNav: false });
-    assert.match(page, /<body class="no-bottom-nav">/);
-    assert.doesNotMatch(page, /id="bottom-nav"|id="site-menu"|popovertarget/);
-    // The sidebar (wider screens) stays
-    assert.match(page, /<nav id="side-nav"/);
-    assert.match(render({ title: 'Admin', content: '' }), /<body>[\s\S]*<nav id="bottom-nav"/);
+test('the admin pages have their own layout: the same head as every page, the page, and no navigation on any screen', () => {
+    const admin = renderAdmin({ title: 'Station editor', content: '<p>The editor</p>', styles: ['/admin/assets/admin.css'], scripts: ['/admin/assets/editor.js'] });
+    const head = html => html.match(/<head>([\s\S]*)<\/head>/)[1];
+    assert.match(admin, /<title>Station editor — Wayhop<\/title>/);
+    // The head is the shared one (server/views/partials/head.hbs): the colour mode before anything is drawn, the stylesheets
+    assert.ok(head(admin).includes(head(pages['/offline']).match(/<script>try\{var l=[\s\S]*?<\/script>/)[0]));
+    assert.match(head(admin), /<link rel="stylesheet" href="\/css\/style\.css[^"]*">[\s\S]*<link rel="stylesheet" href="\/admin\/assets\/admin\.css[^"]*">/);
+    assert.match(admin, /<main>\s*<p>The editor<\/p>\s*<\/main>/);
+    // The colour mode follows the phone's (admin/client/page.js), then the page's own scripts
+    assert.match(admin, /<script type="module" src="\/admin\/assets\/page\.js[^"]*"><\/script>\s*<script type="module" src="\/admin\/assets\/editor\.js[^"]*"><\/script>/);
+    // Announcements still reach screen readers (announce() in /js/core/html.js)
+    assert.match(admin, /<div id="sr-announcer"/);
+    // No sidebar, bottom nav or menu, and none of the site's scripts that go with them
+    assert.doesNotMatch(admin, /<nav\b|popover|skip-link|src="[^"]*(shell|bootstrap\.min)\.js/);
 });
 
 test('the navigation and the home tiles mark their links to the tools, which go back to where each was left', () => {
@@ -240,8 +247,8 @@ test('a saved choice of the other language opens the page in it before it shows'
     assert.match(html(pages['/el/info']), / data-other-lang="en" data-other-path="\/info"/);
     assert.match(html(notFound('/a/b')), / data-other-path="\/el\/a\/b"/);
     // Pages without an address of their own (admin) have neither
-    assert.equal(redirect(render({ title: 'Admin', content: '' })), undefined);
-    assert.doesNotMatch(html(render({ title: 'Admin', content: '' })), /data-other/);
+    assert.equal(redirect(renderAdmin({ title: 'Admin', content: '' })), undefined);
+    assert.doesNotMatch(html(renderAdmin({ title: 'Admin', content: '' })), /data-other/);
     // The address can't break out of its attribute
     assert.match(html(notFound('/"><script>x</script>')), /data-other-path="\/el\/&quot;&gt;&lt;script&gt;/);
 });

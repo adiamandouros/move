@@ -85,6 +85,9 @@ All in [server/pages/](server/pages/):
    `assets.js`, a hash of the file), so a deploy gives new addresses only to
    the files it changed. Node keeps a file for good at its current version
    and checks it every time at any other (`cacheControl`).
+   The admin pages have a layout of their own, `admin/layout.hbs`: the same
+   head (`server/views/partials/head.hbs`), the page, and no navigation on
+   any screen, as they link to each other.
 3. The HTML is kept in memory and sent as it is. Station pages are
    rendered from `rail.json` (and `trains.json`) when first asked for (by the same
    `renderPage`), and kept until it changes: `stations.js` works out what each one shows as plain data
@@ -800,5 +803,6 @@ test that would have caught it ([CLAUDE.md](CLAUDE.md);
 - **A tool**: copy a `tools/<id>/` folder ([tools/README.md](tools/README.md)).
 - **Another page**: add an entry to `sitePages` in `registry.js`, with a
   view in `server/views/`.
-- **The layout**: `server/views/layout.hbs` and `server/pages/layout.js`.
+- **The layout**: `server/views/layout.hbs` (the admin pages': `admin/layout.hbs`),
+  the head both share in `server/views/partials/head.hbs`, and `server/pages/layout.js`.
 - **What works offline**: `"offline"` and `"precache"` in `tool.json`.

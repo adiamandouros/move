@@ -1,0 +1,24 @@
+{{!-- The layout around the admin pages (server/pages/layout.js): the same
+head as every page, the page and nothing else. No navigation on any screen:
+someone who logged in stays on these pages, which link to each other. --}}
+<!DOCTYPE html>
+<html lang="{{lang}}" data-bs-theme="dark" data-icons="{{icons}}">
+<head>
+{{> head}}
+</head>
+<body>
+
+    <main>
+{{{content}}}
+    </main>
+
+    <!-- Live region for screen reader announcements (visually hidden) -->
+    <div id="sr-announcer" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+
+    <script type="application/json" id="strings">{{json strings}}</script>
+    <script type="module" src="/admin/assets/page.js"></script>
+{{#each scripts}}
+    <script type="module" src="{{this}}"></script>
+{{/each}}
+</body>
+</html>

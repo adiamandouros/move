@@ -139,7 +139,7 @@ export function createApp({
         loadCurated: curated,
         loadRail: () => readJson(path.join(buildDir, 'rail.json')),
         rebuild: rebuildSoon,
-        render: pages.render,
+        render: pages.renderAdmin,
         usageDays: usage.days,
         liftNames: lifts.liftNames,
         // Fetches the announcements and the lifts first, so their checks show the current state

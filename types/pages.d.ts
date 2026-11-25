@@ -102,6 +102,4 @@ export interface RenderOptions {
     styles?: string[];
     active?: string | null;
     ad?: string | null;
-    /** false leaves out the phone's bottom nav and its menu (the admin pages) */
-    bottomNav?: boolean;
 }
