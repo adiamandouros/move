@@ -1,7 +1,7 @@
 {
   "M1": {
     "kifisia": {
-      "piraeus": { "exits": ["back"], "transfers": { "M3/dimotiko": ["back"], "M3/doukissis": ["back"] } },
+      "piraeus": { "exits": ["back"], "stepFree": "ramp", "transfers": { "M3/dimotiko": ["back"], "M3/doukissis": ["back"] } },
       "faliro": { "exits": ["center-back", "center"], "elevators": [{ "at": "center" }], "stepFree": "lift" },
       "moschato": { "exits": ["back"], "stepFree": "lift" },
       "kallithea": { "exits": ["center-front"], "stepFree": "lift" },
@@ -50,7 +50,7 @@
       "kallithea": { "exits": ["center-front"], "stepFree": "lift", "note": "No data yet!" },
       "moschato": { "exits": ["front"], "stepFree": "lift", "note": "Change sides at front" },
       "faliro": { "exits": ["back", "center-front", "front"], "elevators": [{ "at": "center" }], "stepFree": "lift", "note": "Regular steps - no escalators" },
-      "piraeus": { "exits": ["front"], "transfers": { "M3/dimotiko": ["front"], "M3/doukissis": ["front"] } }
+      "piraeus": { "exits": ["front"], "stepFree": "ramp", "transfers": { "M3/dimotiko": ["front"], "M3/doukissis": ["front"] } }
     }
   },
   "M2": {
