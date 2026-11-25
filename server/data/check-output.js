@@ -283,9 +283,10 @@ function checkTrains(data) {
     /** @param {unknown} id */
     const stop = id => typeof id === 'string' && (/^rail:./.test(id) || Object.hasOwn(stations, id.replace(/^train:/, '')) && id.startsWith('train:'));
     for (const walk of Array.isArray(data.walks) ? data.walks : [null]) {
-        const [from, to, time, note] = Array.isArray(walk) ? walk : [];
-        if (!stop(from) || !stop(to) || time === undefined || !Number.isInteger(time) || time <= 0 || (note !== undefined && !names(note))) {
-            problems.push(`trains.json: walk ${JSON.stringify(walk)} must be [a station, a station or the metro's, seconds, a note in both languages or none]`);
+        const [from, to, time, note, exit] = Array.isArray(walk) ? walk : [];
+        const noted = note === undefined || (note === null ? exit !== undefined : names(note));
+        if (!stop(from) || !stop(to) || time === undefined || !Number.isInteger(time) || time <= 0 || !noted || (exit !== undefined && (typeof exit !== 'string' || !exit))) {
+            problems.push(`trains.json: walk ${JSON.stringify(walk)} must be [a station, a station or the metro's, seconds, a note in both languages or none, the metro's exit by its Greek name or none]`);
         }
     }
     if (!Array.isArray(data.outside) || !data.outside.every(id => Object.hasOwn(stations, id))) problems.push('trains.json: outside must list stations');

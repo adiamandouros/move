@@ -170,10 +170,10 @@
   },
   "piraeus": {
     "exits": [
-      { "name": { "el": "Λιμάνι Πειραιά", "en": "Piraeus Port" }, "coords": [37.94808, 23.64197], "way": ["escalator-up", "escalator-down"] },
-      { "name": { "el": "Πλατεία Οδησσού", "en": "Odissou Square" }, "coords": [37.9478, 23.64253], "way": ["stairs", "escalator-up", "escalator-down"] },
-      { "coords": [37.94803, 23.64239] },
-      { "coords": [37.94787, 23.64267], "way": ["stairs"] }
+      { "name": { "el": "Λιμάνι Πειραιά", "en": "Piraeus Port" }, "coords": [37.94808, 23.64197], "way": ["escalator-up", "escalator-down"], "lines": ["M3"] },
+      { "name": { "el": "Πλατεία Οδησσού", "en": "Odissou Square" }, "coords": [37.9478, 23.64253], "way": ["stairs", "escalator-up", "escalator-down"], "lines": ["M3"] },
+      { "coords": [37.94803, 23.64239], "lines": ["M1"] },
+      { "coords": [37.94787, 23.64267], "way": ["stairs"], "lines": ["M1"] }
     ],
     "lifts": [
       { "name": "Εξωτερικός Ακτή Καλλιμασιώτη", "coords": [37.94803, 23.64208] },

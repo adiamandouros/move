@@ -543,7 +543,7 @@ train (`positions.json`) and each station's exits and elevators on the street
 `data/curated/` ([README](data/curated/README.md)), beside OpenStreetMap's
 exits at the stations (`osm.json`, from `scripts/osm-exits.js`, run by hand),
 offered where no field trip has dealt with them
-([decision 68](docs/decisions/0068-trip-exits-and-stations-as-signs.md), which keeps 57),
+([decision 73](docs/decisions/0073-trip-stations-of-two-buildings.md), which keeps 68 and 57),
 and can be edited from a phone at `/admin/stations`, which nothing may block
 ([decision 16](docs/decisions/0016-station-editor.md)). Each night a GitHub
 workflow (`.github/workflows/station-edits.yml`) reads the editor's export
@@ -571,14 +571,16 @@ first search and dropped for a new one, and `/api/health` warns when it's
 over three weeks old.
 
 The trip page (`tools/trip/`, [decisions 47](docs/decisions/0047-trip-suburban-cards.md)
-and [68](docs/decisions/0068-trip-exits-and-stations-as-signs.md)) is what uses it. `client/picker.js` finds places as they're typed,
+and [73](docs/decisions/0073-trip-stations-of-two-buildings.md)) is what uses it. `client/picker.js` finds places as they're typed,
 `client/plan.js` works out the trip in the browser from the Subway's
 `network.js`, on the metro and the tram unless the Subway page's switch hides
 the tram (`tram-switch.js`). Its walks are the city's (`walkMeters` in
 `city.js`, the straight line × 1.4), into and out of a metro station
 through its nearest exit that goes the rider's way (`streetEnd`, from the
 station editor's `street.json` and OpenStreetMap's `osm.json`, carried in
-`rail.json`). It tries the three metro stations nearest each
+`rail.json`), and at a station that's two buildings one that serves the
+ride's line; a change between its buildings says the exit it leaves by
+(`changeExit`). It tries the three metro stations nearest each
 end and every station or stop within 16 minutes' walk: every trip between the
 nearest is planned, and the search (`arrivalsFrom`) picks the 6 quickest of
 the rest. `client/buses.js` adds the ways with a bus or a suburban train from the city's search (`city.js`,

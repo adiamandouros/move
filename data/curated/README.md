@@ -73,7 +73,7 @@ and direction it's seen from, each exit on a line of its own:
 
 | Field | Meaning |
 |---|---|
-| `exits` | Its exits to the street. Each has `name` (as the signs inside write it: `el`, and `en` when they say it in English too) and `coords`, or one of them while the other isn't known yet, and `way`: how it's reached from inside, any of `stairs`, `escalator-up` (toward the street) and `escalator-down`. The Trip page walks to the nearest exit that goes the rider's way: in by the stairs or an escalator down, out by the stairs or an escalator up (decision 51); its name is said without the sign's "Exit" or "Έξοδος". |
+| `exits` | Its exits to the street. Each has `name` (as the signs inside write it: `el`, and `en` when they say it in English too) and `coords`, or one of them while the other isn't known yet, and `way`: how it's reached from inside, any of `stairs`, `escalator-up` (toward the street) and `escalator-down`. The Trip page walks to the nearest exit that goes the rider's way: in by the stairs or an escalator down, out by the stairs or an escalator up (decision 51); its name is said without the sign's "Exit" or "Έξοδος". At a station that's two buildings (Piraeus: the M1's and the M3's), each exit also has `lines`, the lines it serves: a walk goes through an exit of the ride's line, and a change between the buildings leaves by the exit nearest the other building's (decision 73). Left out: every line there. |
 | `lifts` | Its elevators that come out on the street. Each has `name` (as [STASY's lift page](https://www.stasy.gr/elevators/) writes it, like the platforms' elevators in positions.json) and `coords`, or one of them while the other isn't known yet. One that goes from a platform straight to the street is in both files under the same name. |
 | `osm` | OpenStreetMap's exits at the station (osm.json) a field trip has dealt with, by their ids: each confirmed (then one of `exits`) or found not to be there. Those offered as needing data until then. |
 
@@ -192,7 +192,10 @@ the metro station in stations.json it shares. Two stations with the same OSE
 id need `lines`, the lines each is for: SKA is A2's `ska` and A3's `ska-a3`.
 `walks` are as tram.json's: to a `metro` station or another `station` here,
 in whole `minutes`, with a `note` in both languages where the way needs
-saying (Piraeus's isn't signed; SKA's footbridge is easy to miss). A station
+saying (Piraeus's isn't signed; SKA's footbridge is easy to miss), and
+`exit` as tram.json's (Piraeus's M3 is left by Πλατεία Οδησσού). At a
+station that's two buildings, a ride on a line that exit doesn't serve
+leaves by that line's exit nearest the train (decision 73). A station
 with `metro` needs a walk to it. The minutes are first guesses until checked
 on the spot: the straight line × 1.3 at 80 m a minute, plus 2 to reach the
 platform. `oasaTicket: false` marks a station OASA's ticket doesn't cover

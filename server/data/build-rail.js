@@ -291,9 +291,10 @@ const ONE_WAY = { out: ['escalator-up'], in: ['escalator-down'] };
 // known), where it is, and how it's reached from inside when that's
 // recorded and isn't every way (EXIT_WAYS); then OpenStreetMap's exits
 // there that street.json doesn't stand for (offeredExits), the same way.
-// Nothing says which is which: it's the same for a rider.
+// Nothing says which is which: it's the same for a rider. At a station
+// that's two buildings, each exit says the lines it serves (decision 73).
 /**
- * @param {import('../../public/js/core/osm-exits.js').StreetEntry & { exits?: { way?: string[] }[] } | undefined} entry
+ * @param {import('../../public/js/core/osm-exits.js').StreetEntry & { exits?: { way?: string[], lines?: string[] }[] } | undefined} entry
  * @param {import('../../public/js/core/osm-exits.js').OsmExit[]} [osm]
  * @returns {import('../../types/data.js').Exit[]}
  */
@@ -311,6 +312,7 @@ export function streetExits(entry, osm) {
             ...((el || en) && { name: { ...(el && { el }), ...(en && { en }) } }),
             at,
             ...(way && way.length < EXIT_WAYS.length && { way }),
+            ...('lines' in exit && exit.lines?.length && { lines: exit.lines }),
         }];
     });
 }

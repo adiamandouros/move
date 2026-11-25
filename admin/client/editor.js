@@ -211,9 +211,12 @@ function elevatorRow(fields, lift) {
 }
 
 // One exit to the street: its name as the signs inside write it, in English
-// too when they do, where it comes out and how it's reached from inside.
-// One of OpenStreetMap's (`osm`, its ids) needs data until it's checked on
-// site, which changing any of it says too; only then is it saved as ours.
+// too when they do, where it comes out, how it's reached from inside and,
+// at a station of more than one line, the lines it serves when that's not
+// all of them: a station that's two buildings (decision 73). None ticked,
+// or all, is every line. One of OpenStreetMap's (`osm`, its ids) needs data
+// until it's checked on site, which changing any of it says too; only then
+// is it saved as ours.
 function exitRow(fields, exit) {
     if (exit.osm) {
         const note = document.createElement('p');
@@ -225,7 +228,12 @@ function exitRow(fields, exit) {
     const en = field(fields, 'In English, if signed', exit.name?.en, { wide: true });
     const coords = place(fields, exit.coords);
     const way = checks(fields, 'How it\'s reached', state.exitWays.map(w => [w, WAY_LABELS[w] ?? w]), exit.way);
-    const read = () => ({ name: { el: el.value.trim(), en: en.value.trim() }, coords: coords(), way: way() });
+    const all = state.stations[selection.station].lines;
+    const lines = all.length > 1 ? checks(fields, 'Lines it serves, if not all (two buildings)', all.map(line => [line, line]), exit.lines) : () => [];
+    const read = () => {
+        const serves = lines();
+        return { name: { el: el.value.trim(), en: en.value.trim() }, coords: coords(), way: way(), ...(serves.length && serves.length < all.length && { lines: serves }) };
+    };
     if (!exit.osm) return read;
     const checked = checks(fields, 'OpenStreetMap\'s exit', [['checked', 'Checked on site']]);
     const box = fields.querySelector('.list-checks:last-of-type input');

@@ -116,7 +116,8 @@ export function buildTrains(boards, suburban) {
     const entries = Object.entries(suburban.stations);
     const stations = Object.fromEntries(entries.map(([id, { name, coords }]) => [id, /** @type {[number, number, string, string]} */ ([coords[0], coords[1], name.el, name.en])]));
     const walks = entries.flatMap(([id, s]) => (s.walks ?? []).map(walk => /** @type {import('../../types/data.js').Trains['walks'][number]} */ ([
-        `train:${id}`, walk.metro ? `rail:${walk.metro}` : `train:${walk.station}`, walk.minutes * 60, ...walk.note ? [walk.note] : [],
+        `train:${id}`, walk.metro ? `rail:${walk.metro}` : `train:${walk.station}`, walk.minutes * 60,
+        ...walk.exit ? [walk.note ?? null, walk.exit] : walk.note ? [walk.note] : [],
     ])));
     const outside = entries.filter(([, s]) => s.oasaTicket === false).map(([id]) => id);
     const names = Object.fromEntries(lines.map(([id, { name, color }]) => [id, { name, color }]));

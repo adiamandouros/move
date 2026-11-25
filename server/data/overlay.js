@@ -193,7 +193,8 @@ function tidyElevators(elevators) {
 
 // A station's entry in street.json: its exits, then its lifts, each in the
 // order they were recorded, with names trimmed, places to 5 decimals (about
-// 1 m) and an exit's ways in their own order. One with neither a name nor
+// 1 m), an exit's ways in their own order and the lines it serves each
+// once (decision 73). One with neither a name nor
 // a place, and empty fields, are left out. OpenStreetMap's exits dealt
 // with come last, each once, in order.
 /** @param {unknown} saved */
@@ -204,8 +205,12 @@ export function tidyStreet(saved) {
         const [el, en] = [trimmed(exit?.name?.el), trimmed(exit?.name?.en)];
         const coords = tidyCoords(exit?.coords);
         const way = EXIT_WAYS.filter(w => Array.isArray(exit?.way) && exit.way.includes(w));
+        const lines = Array.isArray(exit?.lines) ? [...new Set(exit.lines)] : [];
         if (!el && !en && !coords) return [];
-        return [{ ...((el || en) && { name: { ...(el && { el }), ...(en && { en }) } }), ...(coords && { coords }), ...(way.length && { way }) }];
+        return [{
+            ...((el || en) && { name: { ...(el && { el }), ...(en && { en }) } }), ...(coords && { coords }), ...(way.length && { way }),
+            ...(lines.length && { lines }),
+        }];
     });
     const lifts = (Array.isArray(entry?.lifts) ? entry.lifts : []).flatMap(lift => {
         const name = trimmed(lift?.name);

@@ -114,6 +114,9 @@ export function validateCurated({ stations, lines, positions, airport, tram, str
         if (crossing.way !== undefined && (!Array.isArray(crossing.way) || crossing.way.some(w => !CROSSING_WAYS.includes(w)))) errors.push(`${where}.way must be a list of ${CROSSING_WAYS.join(', ')}`);
     };
 
+    // The lines that call at each station, as positions.json has them
+    /** @type {Map<string, Set<string>>} */
+    const linesAt = new Map();
     for (const [lineId, dirs] of Object.entries(positions)) {
         if (!lines[lineId]) { errors.push(`positions.json: unknown line ${lineId}`); continue; }
         for (const [dirKey, stops] of Object.entries(dirs)) {
@@ -121,6 +124,9 @@ export function validateCurated({ stations, lines, positions, airport, tram, str
             for (const [stationId, p] of Object.entries(stops)) {
                 const where = `positions.json: ${lineId}/${dirKey}/${stationId}`;
                 if (!stationIds.has(stationId)) { errors.push(`${where}: unknown station`); continue; }
+                let at = linesAt.get(stationId);
+                if (!at) linesAt.set(stationId, at = new Set());
+                at.add(lineId);
                 for (const key of Object.keys(p)) if (!POSITION_KEYS.has(key)) errors.push(`${where}: unknown field "${key}"`);
                 checkPositions(`${where}.exits`, p.exits ?? []);
                 for (const key of /** @type {const} */ (['escalators', 'stairs'])) if (p[key]) checkPositions(`${where}.${key}`, p[key]);
@@ -140,8 +146,8 @@ export function validateCurated({ stations, lines, positions, airport, tram, str
 
     if (airport !== undefined) checkAirport(airport, stationIds, lines, errors);
     if (tram !== undefined) checkTram(tram, stationIds, seenCodes, errors);
-    if (street !== undefined) checkStreet(street, stationIds, errors);
-    if (suburban !== undefined) checkSuburban(suburban, stationIds, errors);
+    if (street !== undefined) checkStreet(street, stationIds, linesAt, errors);
+    if (suburban !== undefined) checkSuburban(suburban, stationIds, street, errors, warnings);
     if (osm !== undefined) checkOsm(osm, stationIds, errors);
     return { errors, warnings };
 }
@@ -150,9 +156,14 @@ export function validateCurated({ stations, lines, positions, airport, tram, str
 // with its name (an exit's as its signs write it, in Greek and, when signed,
 // English; a lift's as STASY's lift page does) and where it is, or one of
 // them while the other isn't known yet; and `osm`, OpenStreetMap's exits
-// there (osm.json) the field trips have dealt with, by their ids
-/** @param {import('../../types/data.js').CuratedStreet} street @param {Set<string>} stationIds @param {string[]} errors */
-function checkStreet(street, stationIds, errors) {
+// there (osm.json) the field trips have dealt with, by their ids. An exit
+// of a station that's two buildings says the lines it serves (`lines`), of
+// those that call there (`linesAt`, decision 73)
+/**
+ * @param {import('../../types/data.js').CuratedStreet} street @param {Set<string>} stationIds
+ * @param {Map<string, Set<string>>} linesAt @param {string[]} errors
+ */
+function checkStreet(street, stationIds, linesAt, errors) {
     /** @param {unknown} value */
     const text = value => typeof value === 'string' && value.trim() !== '';
     /** @param {string} where @param {unknown} coords */
@@ -179,7 +190,11 @@ function checkStreet(street, stationIds, errors) {
         for (const key of /** @type {const} */ (['exits', 'lifts'])) if (entry[key] !== undefined && !Array.isArray(entry[key])) errors.push(`${where}.${key} must be a list`);
         for (const [i, exit] of (Array.isArray(entry.exits) ? entry.exits : []).entries()) {
             const at = `${where}.exits[${i}]`;
-            if (!checkFields(at, exit, ['name', 'coords', 'way'])) continue;
+            if (!checkFields(at, exit, ['name', 'coords', 'way', 'lines'])) continue;
+            const serving = [...linesAt.get(stationId) ?? []];
+            if (exit.lines !== undefined && (!Array.isArray(exit.lines) || !exit.lines.length || exit.lines.some(line => !serving.includes(line)))) {
+                errors.push(`${at}.lines must list lines that call there (${serving.join(', ')})`);
+            }
             const el = exit.name?.el, en = exit.name?.en;
             if (exit.name !== undefined && (!(text(el) || text(en)) || [el, en].some(n => n !== undefined && !text(n)))) errors.push(`${at}.name must be { "el": …, "en": … }, either one while the other isn't known`);
             if (exit.name === undefined && exit.coords === undefined) errors.push(`${at} needs its name or where it is`);
@@ -289,11 +304,16 @@ function checkTram(tram, stationIds, metroCodes, errors) {
 // one line without. A station has its names, OSE's ids for it, where it is
 // (OpenStreetMap's), the metro station it shares, `walks` to stations a
 // short walk away (in whole minutes, with a note where the way needs one;
-// one to the metro station it shares), and oasaTicket: false outside OASA's
-// ticket. Two stations share an OSE id only with `lines` to tell them apart
-// (SKA's two)
-/** @param {import('../../types/data.js').CuratedSuburban} suburban @param {Set<string>} stationIds @param {string[]} errors */
-function checkSuburban(suburban, stationIds, errors) {
+// one to the metro station it shares, and the exit it goes through by its
+// Greek name where it says, which street.json should have with a place: a
+// warning, as the station editor is never blocked), and oasaTicket: false
+// outside OASA's ticket. Two stations share an OSE id only with `lines` to
+// tell them apart (SKA's two)
+/**
+ * @param {import('../../types/data.js').CuratedSuburban} suburban @param {Set<string>} stationIds
+ * @param {import('../../types/data.js').CuratedStreet | undefined} street @param {string[]} errors @param {string[]} warnings
+ */
+function checkSuburban(suburban, stationIds, street, errors, warnings) {
     const lines = Object.entries(suburban?.lines ?? {});
     const stations = suburban?.stations ?? {};
     if (!lines.length) errors.push('suburban.json: no lines');
@@ -336,6 +356,10 @@ function checkSuburban(suburban, stationIds, errors) {
             if (!known) errors.push(`suburban.json: ${id} walks to an unknown station "${to}"`);
             if (!Number.isInteger(walk.minutes) || walk.minutes < 1) errors.push(`suburban.json: ${id}'s walk to ${to} needs whole minutes`);
             if (walk.note !== undefined && !isNote(walk.note)) errors.push(`suburban.json: ${id}'s walk to ${to} needs its note in both languages`);
+            if (walk.exit !== undefined && (!walk.metro || typeof walk.exit !== 'string' || !walk.exit.trim())) errors.push(`suburban.json: ${id}'s walk to ${to}: "exit" is the Greek name of the metro station's exit it uses, as in street.json`);
+            else if (walk.exit !== undefined && walk.metro && street && !street[walk.metro]?.exits?.some(exit => exit.name?.el === walk.exit && exit.coords)) {
+                warnings.push(`suburban.json: ${id}'s walk to ${to} uses the exit "${walk.exit}", which street.json doesn't have with a place`);
+            }
         }
         if (s.oasaTicket !== undefined && s.oasaTicket !== false) errors.push(`suburban.json: ${id}.oasaTicket is false outside OASA's ticket, and left out inside it`);
     }

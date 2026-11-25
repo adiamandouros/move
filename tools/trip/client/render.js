@@ -6,6 +6,7 @@ import { busPlate, exitSign, linePill, pillList, stationSign } from '/js/core/li
 import { clockTime, diagramLegend, diagramSymbols } from '/js/core/metro.js';
 import { latinName } from '/js/core/text.js';
 import { aboutTime, epochAt, minutesBadge, minutesLeft, minutesMark, minutesWords } from '/js/core/times.js';
+import { changeExit } from '/tools/subway/city.js';
 import { legPositions } from '/tools/subway/network.js';
 import { arrivalRows, headerBadge, nextBus, stopRow, viewHref } from '/tools/buses/render.js';
 import { legCard } from '/tools/subway/render.js';
@@ -183,6 +184,12 @@ const wayOut = out => formatHtml(t('trip.way-out'), { exit: exitSign(out.name) }
 // behind the rider once they're on it
 /** @param {ReturnType<typeof exitOf>} out @param {Mark} [mark] */
 const exitStep = (out, mark = NONE) => out && step('', html`<div>${wayOut(out)}</div>`, { mark: mark === NOW ? DONE : mark });
+
+// Between two rides at a station that's two buildings, from line `from` to
+// line `to`, the exit to leave the first by, a step of its own (decision 73);
+// nothing where one building serves both, or the exit has no sign
+/** @param {{ exits?: import('../../../types/data.js').Exit[] } | undefined} station @param {string} from @param {string} to @param {Mark} [mark] */
+const changeStep = (station, from, to, mark = NONE) => station && exitStep(exitOf(station.exits, changeExit(station, from, to) ?? undefined), mark);
 
 // A ride's heading: its line and where it goes, then its badges at the right end
 /** @param {unknown} line @param {string | false} toward @param {unknown} [badges] */
@@ -418,7 +425,7 @@ function citySteps(rail, o, to, drawn, row = null, live = null, following = null
     const last = o.rides.length - 1;
     return html`<ol class="trip-steps">
         ${rides.length > 0 && walkTo(o.firstWalk, o.rides[0].board, null, 0, o.rides[0].mode)}
-        ${rides.map((ride, i) => html`${i > 0 && walkTo(ride.walkBefore, ride.board, ride.walkNote, i * 3, ride.mode, o.rides[i - 1].alight)}${cards[i] ? railCard(rail, cards[i], { seconds: drawn.now, epoch: drawn.epoch }, false, drawn.stations, mark(i * 3 + 1, 2)) : rideStep(rail, ride, drawn, mark(i * 3 + 1, 2))}`)}
+        ${rides.map((ride, i) => html`${i > 0 && (ride.walkBefore || ride.board.id !== o.rides[i - 1].alight.id ? walkTo(ride.walkBefore, ride.board, ride.walkNote, i * 3, ride.mode, o.rides[i - 1].alight) : changeStep(ride.board, o.rides[i - 1].line, ride.line, mark(i * 3)))}${cards[i] ? railCard(rail, cards[i], { seconds: drawn.now, epoch: drawn.epoch }, false, drawn.stations, mark(i * 3 + 1, 2)) : rideStep(rail, ride, drawn, mark(i * 3 + 1, 2))}`)}
         ${bundled && row && busStops(rail, live?.way.stops ?? row.stops, rides.length > 0 ? o.rides[last - 1].alight : null, { seconds: drawn.now, epoch: drawn.epoch }, drawn.stops, mark(last * 3 + 1, 2), o.rides[last].board.id)}
         ${o.lastWalk && html`${exitStep(exitOf(o.rides[last].alight.exits, o.lastWalk.out), mark(o.rides.length * 3))}${walkStep(o.lastWalk, to.title, to, null, mark(o.rides.length * 3))}`}
     </ol>`;
@@ -466,7 +473,7 @@ function tripCard(rail, o, to, drawn, following = null) {
             ${o.plan.walkFirst && walkToStation(rail, o.start.station, o.plan.legs[0].from, o.plan.walkFirst, mark(0), { leaving: false, line: o.plan.legs[0].line })}
             ${o.plan.legs.map((leg, i) => {
                 const before = o.plan.legs[i - 1];
-                return html`${before && before.to !== leg.from && walkToStation(rail, before.to, leg.from, (rail.walks ?? {})[before.to][leg.from], mark(i * 3), { line: leg.line })}${cards[i] && railCard(rail, cards[i], { seconds: drawn.now - o.dayStart, epoch: drawn.epoch }, o.morning, drawn.stations, mark(i * 3 + 1, 2))}`;
+                return html`${before && (before.to !== leg.from ? walkToStation(rail, before.to, leg.from, (rail.walks ?? {})[before.to][leg.from], mark(i * 3), { line: leg.line }) : changeStep(rail.stations[leg.from], before.line, leg.line, mark(i * 3)))}${cards[i] && railCard(rail, cards[i], { seconds: drawn.now - o.dayStart, epoch: drawn.epoch }, o.morning, drawn.stations, mark(i * 3 + 1, 2))}`;
             })}
             ${o.plan.walkLast && walkToStation(rail, o.plan.legs[o.plan.legs.length - 1].to, o.end.station, o.plan.walkLast, mark(after), { boarding: false })}
             ${o.end.walk && html`${!o.plan.walkLast && exitStep(exitOf(rail.stations[o.end.station].exits, o.end.walk.out), mark(after))}${walkStep(o.end.walk, to.title, to, null, mark(after))}`}

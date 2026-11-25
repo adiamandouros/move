@@ -7,6 +7,7 @@ import { buildTrains } from '../server/data/build-suburban.js';
 import { suburbanCurated, train } from './fixtures/railway.js';
 import { aboutTime, minutesBadge, minutesMark } from '../public/js/core/times.js';
 import { exitSign, stationSign } from '../public/js/core/lines.js';
+import { piraeusPlanner, withPiraeusExits } from './fixtures/piraeus.js';
 
 // What the trip page draws (tools/trip/client/render.js), in both languages:
 // how exact an address is, the trip, and the hard cases. Each is checked for
@@ -23,6 +24,8 @@ const network = withTram(rail);
 const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.meta.url), 'utf8'));
 const { busOptions, cityPlanner } = await browserModule('tools/trip/client/buses.js');
 const city = cityPlanner(rail, buses, 3);
+// Piraeus as two buildings (decision 73)
+const twoBuildings = withPiraeusExits(rail);
 // The suburban railway that Wednesday (decision 41): from Athens station to the airport every 15 minutes
 const { createPlanner, trainDay } = await browserModule('tools/subway/client/city.js');
 const trains = buildTrains({ [NOW.date]: { schedules: ['10:05', '10:20', '10:35'].map((at, i) => train(NOW.date, `12${i}`, [['o2', at], ['o3', `${10 + (i ? 1 : 0)}:${['45', '00', '15'][i]}`]])) } }, suburbanCurated()).data;
@@ -249,6 +252,32 @@ for (const lang of ['en', 'el']) {
         assert.ok(!String(drawTrip(network, { options: [unnamed], walk: { minutes: 99, meters: 9_000 }, walkFirst: false, longWalk: false }, menelaou)).includes(s['trip.way-out'].split('{exit}')[0]));
         const plain = String(drawTrip(rail, doorToDoor(rail, menelaou, syntagma, NOW), syntagma));
         assert.ok(!plain.includes(s['trip.way-out'].split('{exit}')[0]) && !plain.includes('exit-sign'), 'from Tavros, Kallithea or Petralona, none recorded');
+    });
+
+    test(`${lang}: a change between Piraeus's two buildings: out of the M3 by Odissou Square, a step of its own between the cards; out of the M1 by an exit with no sign, nothing (decision 73)`, () => {
+        const planned = withTram(twoBuildings);
+        const station = id => ({ lat: planned.stations[id].coords[0], lng: planned.stations[id].coords[1], station: id, title: id, exact: null });
+        const out = `<div>${format(s['trip.way-out'], { exit: '' })}${exitSign(lang === 'el' ? 'Πλατεία Οδησσού' : 'Odissou Square')}</div>`;
+        const between = (view, first, second) => view.indexOf(`line-${first}`) < view.indexOf(out) && view.indexOf(out) < view.lastIndexOf(`line-${second}`);
+        // By metro alone: Maniatika to Faliro, the M3 then the M1, and back
+        const trip = doorToDoor(planned, station('maniatika'), station('faliro'), NOW);
+        assert.deepEqual(trip.options[0].plan.legs.map(leg => [leg.line, leg.to]), [['M3', 'piraeus'], ['M1', 'faliro']]);
+        const view = String(drawTrip(planned, trip, station('faliro')));
+        check(view);
+        assert.ok(between(view, 'm3', 'm1'), 'between the M3 and the M1');
+        const back = doorToDoor(planned, station('faliro'), station('maniatika'), NOW);
+        assert.deepEqual(back.options[0].plan.legs.map(leg => leg.line), ['M1', 'M3']);
+        assert.ok(!String(drawTrip(planned, back, station('maniatika'))).includes(s['trip.way-out'].split('{exit}')[0]), 'the M1\'s exit has no sign');
+        // The city's search, on a way with a bus: the M3 to Piraeus, the M1 to Faliro, a bus on
+        const { planner: small, end } = piraeusPlanner(createPlanner, planned);
+        const [way] = busOptions(small, station('maniatika'), end, NOW);
+        assert.deepEqual(way.rides.map(ride => ride.line), ['M3', 'M1', '040']);
+        const cityView = String(drawTrip(planned, { options: [way], walk: { minutes: 99, meters: 9_000 }, walkFirst: false, longWalk: false }, { ...end, title: 'Τέρμα', exact: null }));
+        check(cityView);
+        assert.ok(between(cityView, 'm3', 'm1'), 'between the M3 and the M1, by the city\'s search');
+        // One building: no step at a change (Syntagma, M2 to M3)
+        const plain = String(drawTrip(network, doorToDoor(network, station('maniatika'), station('faliro'), NOW), station('faliro')));
+        assert.ok(!plain.includes(s['trip.way-out'].split('{exit}')[0]), 'Piraeus with no exits recorded: nothing');
     });
 
     test(`${lang}: to the tram at Syntagma, out by the exit tram.json says, and the walk to the tram's stop on from there`, () => {

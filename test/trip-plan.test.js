@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { browserModule } from './support/browser-modules.js';
+import { piraeusPlanner, withPiraeusExits } from './fixtures/piraeus.js';
 
 // The trip page's door-to-door trip (tools/trip/client/plan.js), over the
 // test data's real metro, with the tram, and with the buses between Kallithea
@@ -10,7 +11,7 @@ import { browserModule } from './support/browser-modules.js';
 const rail = JSON.parse(readFileSync(new URL('browser/data/rail.json', import.meta.url), 'utf8'));
 const buses = JSON.parse(readFileSync(new URL('browser/data/buses.json', import.meta.url), 'utf8'));
 const { doorToDoor, NEAR_MINUTES, stationsNear, walkBetween, walkStation } = await browserModule('tools/trip/client/plan.js');
-const { stationWalk, walkSeconds } = await browserModule('tools/subway/client/city.js');
+const { createPlanner, stationWalk, walkSeconds } = await browserModule('tools/subway/client/city.js');
 const { busOptions, cityPlanner, halfHour } = await browserModule('tools/trip/client/buses.js');
 const { answer } = await browserModule('tools/subway/client/answer.js');
 const { withTram } = await browserModule('tools/subway/client/network.js');
@@ -30,6 +31,34 @@ test('a walk is the straight line × 1.4, at 80 m a minute, and at least a minut
     assert.ok(Math.abs(walk.meters - 1403) < 5, `${walk.meters}`);
     assert.equal(walk.minutes, 18);
     assert.equal(walkBetween(menelaou, menelaou).minutes, 1);
+});
+
+test('at a station that\'s two buildings the walk goes in by an exit of the first ride\'s line, out by one of the last\'s, its minutes the search\'s (decision 73)', () => {
+    const twoBuildings = withTram(withPiraeusExits(rail));
+    const port = { lat: 37.9481, lng: 23.6416 };
+    const at = id => ({ lat: twoBuildings.stations[id].coords[0], lng: twoBuildings.stations[id].coords[1], station: id });
+    const from = to => doorToDoor(twoBuildings, port, at(to), NOW).options.find(o => o.start.station === 'piraeus');
+    const exits = twoBuildings.stations.piraeus.exits;
+    const m1 = from('faliro');
+    assert.equal(m1.plan.legs[0].line, 'M1');
+    assert.equal(m1.start.walk.in, 2, 'into the M1 by its own exit toward the port');
+    assert.equal(m1.start.walk.minutes, walkStation(twoBuildings, port, 'piraeus', 'in').minutes, 'timed as the search timed it');
+    const m3 = from('maniatika');
+    assert.equal(m3.plan.legs[0].line, 'M3');
+    assert.equal(exits[m3.start.walk.in].name.en, 'Piraeus Port');
+    const back = doorToDoor(twoBuildings, at('faliro'), port, NOW).options.find(o => o.end.station === 'piraeus');
+    assert.equal(back.end.walk.out, 2, 'off the M1 by its own exit');
+});
+
+test('a way of the city\'s search goes into a station that\'s two buildings by an exit of its first ride\'s line, its minutes the search\'s (decision 73)', () => {
+    const twoBuildings = withPiraeusExits(rail);
+    const { planner, end } = piraeusPlanner(createPlanner, twoBuildings);
+    const nearPort = { lat: 37.9481, lng: 23.6416 };
+    const ways = busOptions(planner, nearPort, end, NOW);
+    const byM1 = ways.find(o => o.rides[0].line === 'M1');
+    assert.ok(byM1, ways.map(o => o.rides.map(ride => ride.line).join()).join(' | '));
+    assert.equal(byM1.firstWalk.in, 2, 'into the M1 by its own exit toward the port, not the M3\'s nearer one');
+    assert.equal(byM1.firstWalk.minutes, Math.max(1, Math.round(Math.floor(stationWalk(planner.stops[1], nearPort, 'in').seconds) / 60)), 'timed as the search timed it');
 });
 
 test('a walk to a station takes as long as the city\'s search says the same walk takes', () => {

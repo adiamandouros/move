@@ -68,18 +68,25 @@ export const walkMeters = (a, b) => meters(a, b) * WINDING;
 /** @param {Point} a @param {Point} b */
 export const walkSeconds = (a, b) => walkMeters(a, b) / METERS_PER_MINUTE * 60;
 
+// Whether an exit serves `line`: one that doesn't say serves every line
+// there; with no line, any exit does (decision 73)
+/** @param {Exit} exit @param {string | null} line */
+const serves = (exit, line) => !line || !exit.lines || exit.lines.includes(line);
+
 /**
  * Where a walk into a station (`way` 'in') or out of it ('out') meets the
  * street, for a walk from or to `point`: the nearest of its exits that goes
- * that way (`exit`, its place in `exits`), or, with none, the station itself
- * @param {Point & { exits?: Exit[] }} station @param {Point} point @param {Way} way
+ * that way (`exit`, its place in `exits`), or, with none, the station itself.
+ * With `line`, the ride's, only the exits that serve it, at a station that's
+ * two buildings (decision 73)
+ * @param {Point & { exits?: Exit[] }} station @param {Point} point @param {Way} way @param {string | null} [line]
  * @returns {{ exit: number | null, at: Point }}
  */
-export function streetEnd(station, point, way) {
+export function streetEnd(station, point, way, line = null) {
     let found = /** @type {{ exit: number | null, at: Point }} */ ({ exit: null, at: { lat: station.lat, lng: station.lng } });
     let least = Infinity;
     (station.exits ?? []).forEach((exit, i) => {
-        if (exit.way && !exit.way.some(w => THROUGH[way].includes(w))) return;
+        if (!serves(exit, line) || (exit.way && !exit.way.some(w => THROUGH[way].includes(w)))) return;
         const at = { lat: exit.at[0], lng: exit.at[1] };
         const away = meters(point, at);
         if (away < least) [least, found] = [away, { exit: i, at }];
@@ -100,13 +107,39 @@ export function stationWalk(station, point, way) {
 /**
  * A walk from one stop to another for a change: out of a metro station by its
  * exit nearest the other stop, into one by its way in nearest where the walk
- * comes from (decision 51)
- * @param {Stop} a @param {Stop} b
+ * comes from (decision 51); with the lines of the ride before (`from`) and
+ * after (`to`), through exits that serve them (decision 73)
+ * @param {Stop} a @param {Stop} b @param {{ from?: string | null, to?: string | null }} [lines]
  */
-export function changeWalk(a, b) {
-    const out = streetEnd(a, b, 'out');
-    const into = streetEnd(b, out.at, 'in');
+export function changeWalk(a, b, { from = null, to = null } = {}) {
+    const out = streetEnd(a, b, 'out', from);
+    const into = streetEnd(b, out.at, 'in', to);
     return { out: out.exit, in: into.exit, seconds: walkSeconds(out.at, into.at) };
+}
+
+/**
+ * At a station that's two buildings, the exit a change from line `from` to
+ * line `to` leaves by: of the exits serving `from` that go out, the one
+ * nearest an exit serving `to` that goes in (decision 73). Null at a station
+ * with an exit serving both, or without exits for either
+ * @param {{ exits?: Exit[] }} station @param {string} from @param {string} to @returns {number | null}
+ */
+export function changeExit(station, from, to) {
+    const exits = station.exits ?? [];
+    if (!exits.some(exit => exit.lines) || exits.some(exit => serves(exit, from) && serves(exit, to))) return null;
+    /** @param {Exit} exit @param {Way} way */
+    const goes = (exit, way) => !exit.way || exit.way.some(w => THROUGH[way].includes(w));
+    let found = null;
+    let least = Infinity;
+    exits.forEach((out, i) => {
+        if (!serves(out, from) || !goes(out, 'out')) return;
+        for (const into of exits) {
+            if (!serves(into, to) || !goes(into, 'in')) continue;
+            const away = meters({ lat: out.at[0], lng: out.at[1] }, { lat: into.at[0], lng: into.at[1] });
+            if (away < least) [least, found] = [away, i];
+        }
+    });
+    return found;
 }
 
 /**
@@ -217,8 +250,18 @@ export function joinNetwork(rail, buses, weekday, trains = null) {
             numbers: trips.map(([, , train]) => train ?? null), toward: stops[along[along.length - 1]].names,
         });
     }
+    // A walk to a metro station that says its exit (suburban.json's, by its
+    // Greek name): that exit's place in the station's exits, if it has it
+    /** @param {number} stop @param {string | undefined} name */
+    const exitNamed = (stop, name) => {
+        const i = name === undefined ? -1 : (stops[stop].exits ?? []).findIndex(exit => exit.name?.el === name);
+        return i < 0 ? null : i;
+    };
     const knownWalks = (trains?.walks ?? []).filter(([from, to]) => index.has(from) && index.has(to))
-        .map(([from, to, seconds, note]) => /** @type {KnownWalk} */ ([at(from), at(to), seconds, ...note ? [note] : []]));
+        .map(([from, to, seconds, note, name]) => {
+            const exit = exitNamed(at(to), name);
+            return /** @type {KnownWalk} */ (exit === null ? [at(from), at(to), seconds, ...note ? [note] : []] : [at(from), at(to), seconds, note ?? null, exit]);
+        });
     // The tram's walks to the metro and between its stops, as the Subway planner has them (tram.json, decision 25), each pair once
     for (const [a, to] of Object.entries(net.walks ?? {})) {
         for (const [b, minutes] of Object.entries(to)) {
@@ -228,7 +271,7 @@ export function joinNetwork(rail, buses, weekday, trains = null) {
     return { stops, routes, index, knownWalks };
 }
 
-/** @typedef {[number, number, number] | [number, number, number, Names | null] | [number, number, number, Names | null, number | null]} KnownWalk two stops, the seconds between them, a note where the way needs one, and the metro station's exit it goes through, where one is said (tram.json's, decision 51) */
+/** @typedef {[number, number, number] | [number, number, number, Names | null] | [number, number, number, Names | null, number | null]} KnownWalk two stops, the seconds between them, a note where the way needs one, and the metro station's exit it goes through, where one is said (tram.json's or suburban.json's, decisions 51 and 73) */
 
 /**
  * The search over these stops and routes (a leg's `route` is one of them),
@@ -241,7 +284,7 @@ export function joinNetwork(rail, buses, weekday, trains = null) {
  * each stop is. How far a stop is, for both, is to where it is, so its exits
  * never put it out of reach. `walkNote`: a known walk's note between two
  * stops, or null; `walkExits`: the exits a walk between two stops goes out
- * of and into, at a metro station
+ * of and into, at a metro station, for the lines of the rides on either side
  * @param {{ stops: Stop[], routes: Route[], knownWalks?: KnownWalk[] }} network
  */
 export function createPlanner({ stops, routes, knownWalks = [] }) {
@@ -304,11 +347,23 @@ export function createPlanner({ stops, routes, knownWalks = [] }) {
     });
     /** @param {number} from @param {number} to @returns {Names | null} */
     const walkNote = (from, to) => notes.get(pair(from, to)) ?? null;
-    // A known walk names its exit only where tram.json says which (none: none named)
-    /** @param {number} from @param {number} to @returns {{ out: number | null, in: number | null }} */
-    const walkExits = (from, to) => {
-        if (known.has(pair(from, to))) return exits.get(pair(from, to)) ?? { out: null, in: null };
-        const walk = changeWalk(stops[from], stops[to]);
+    // A known walk names its exit only where tram.json or suburban.json says
+    // which (none: none named). With the lines of the rides before and
+    // after it, through exits that serve them: the one said, or else the
+    // nearest that does (decision 73)
+    /** @param {number} stop @param {number | null} said @param {number} other @param {Way} way @param {string | null} line */
+    const onLine = (stop, said, other, way, line) => said === null || serves(/** @type {Exit[]} */ (stops[stop].exits)[said], line)
+        ? said : streetEnd(stops[stop], stops[other], way, line).exit;
+    /**
+     * @param {number} from @param {number} to @param {{ from?: string | null, to?: string | null }} [lines]
+     * @returns {{ out: number | null, in: number | null }}
+     */
+    const walkExits = (from, to, lines = {}) => {
+        if (known.has(pair(from, to))) {
+            const said = exits.get(pair(from, to)) ?? { out: null, in: null };
+            return { out: onLine(from, said.out, to, 'out', lines.from ?? null), in: onLine(to, said.in, from, 'in', lines.to ?? null) };
+        }
+        const walk = changeWalk(stops[from], stops[to], lines);
         return { out: walk.out, in: walk.in };
     };
     return { ...planner, stops, routes, walks, near, walkNote, walkExits };
