@@ -5,6 +5,7 @@
 
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { lastRun } from '../data/build-log.js';
 import { lastFetchFile } from '../data/oasa-network.js';
 import { AIRPORT_CHECK_MAX_AGE_MS, airportCheckFile } from '../data/airport-check.js';
 import { STASY_MAX_AGE_MS, stasyFetchFile } from '../data/stasy.js';
@@ -48,8 +49,38 @@ export function dataChecks(dataDir, now) {
     out.push(...railChecks(meta));
     out.push(...railwayCheck(status.railway));
     const lock = join(dataDir, '.build.lock');
-    if (existsSync(lock)) out.push(check('Data', 'Build lock', 'info', `A build is running or was interrupted (process ${readFileSync(lock, 'utf8').trim()})`));
+    const holder = existsSync(lock) ? Number(readFileSync(lock, 'utf8').trim()) : null;
+    if (holder !== null) out.push(check('Data', 'Build lock', 'info', `A build is running or was interrupted (process ${holder})`));
+    out.push(buildLogCheck(dataDir, holder, now));
     return out;
+}
+
+// The last build's own log (server/data/build-log.js): how it ended, or where
+// it is now, or where it stopped without a word
+/** @param {string} dataDir @param {number | null} holder the pid holding the build's lock @param {() => number} now @returns {Check} */
+function buildLogCheck(dataDir, holder, now) {
+    const title = 'Last build\'s log';
+    const file = 'data/local/build.log';
+    const run = lastRun(join(dataDir, 'local', 'build.log'));
+    if (!run) return check('Data', title, 'info', `None yet (${file} is written by each build)`);
+    /** @param {number} at */
+    const time = at => new Date(at).toISOString().slice(0, 16).replace('T', ' ');
+    /** @param {number} ms */
+    const span = ms => ms < 120_000 ? `${Math.round(ms / 1000)} s` : `${Math.round(ms / 60_000)} min`;
+    const memory = run.mostRss === null ? '' : `; most memory seen ${run.mostRss} MB`;
+    const step = [...run.lines].reverse().find(l => l.message.startsWith('Step: '))?.message.slice('Step: '.length);
+    const started = `Started ${time(run.started)} UTC (process ${run.pid})`;
+    if (run.end) {
+        const how = run.end.message.slice('Ended: '.length);
+        const stopped = /^(stopped|crashed)/.test(how);
+        return check('Data', title, stopped ? 'warn' : 'ok', `${started}; ended: ${how}${run.end.rss === null ? memory : ''}`,
+            stopped ? `It was at ${step ?? 'its start'} then. The whole log is in ${file}: each line has the time and the build's memory.` : undefined);
+    }
+    if (holder === run.pid) {
+        return check('Data', title, 'info', `${started}, running for ${span(now() - run.started)}, at ${step ?? 'its start'}${memory}`);
+    }
+    return check('Data', title, 'warn', `${started}; stopped without a word ${span(run.last.at - run.started)} in, at ${step ?? 'its start'}, last line at ${time(run.last.at)} UTC${memory}`,
+        `Stopped from outside before it could say so (the host, or the app restarting with it). The whole log is in ${file}: a line a minute while it ran.`);
 }
 
 // The suburban railway's boards from railway.gov.gr (server/data/railway.js):

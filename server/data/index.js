@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 import { loadConfig, userAgentFor } from '../config.js';
 import { messageOf } from '../errors.js';
 import { readJson } from '../files.js';
+import { createBuildLog, endedBySignal } from './build-log.js';
 import { athensToday, isoDate } from './calendar.js';
 import { buildBusLines, buildBusStops } from './build-bus.js';
 import { buildBuses } from './bus-timetable.js';
@@ -33,6 +34,8 @@ const CURATED_DIR = join(DATA_DIR, 'curated');
 // like each one it edits (positions.json, street.json)
 const OVERLAY_DIR = join(DATA_DIR, 'local');
 export const BUILD_DIR = join(DATA_DIR, 'build');
+// The builds' own log (build-log.js)
+const BUILD_LOG = join(OVERLAY_DIR, 'build.log');
 // OASA's bus timetable of August 2026, kept in the repository (bus-timetable.js)
 const BUS_TIMETABLE = join(DATA_DIR, 'oasa', 'bus-timetable.json');
 
@@ -151,6 +154,8 @@ const OUTPUTS = {
 // their own data folder and curated files, a fake portal (`fetch`), a fixed
 // day (`today`, 'YYYYMMDD'), the clock and pause between OASA requests
 // (`now`, `sleep`), the bus timetable and the builder's fingerprint.
+// `step` is told each step as it starts, for the build's log (build-log.js),
+// so a build that hangs shows where.
 export async function runBuild({
     force = false,
     offline = false,
@@ -166,6 +171,7 @@ export async function runBuild({
     now = Date.now,
     sleep = undefined,
     log = console.log,
+    step = /** @type {(name: string) => void} */ (() => {}),
     busTimetable = BUS_TIMETABLE,
     builder = builderFingerprint(),
 } = {}) {
@@ -175,17 +181,23 @@ export async function runBuild({
         return null;
     }
     try {
+        step('the curated files');
         const curated = loadCurated({ curatedDir, overlayDir, log });
         const check = validateCurated(curated.data);
         for (const w of check.warnings) log(`[data] warning: ${w}`);
         if (check.errors.length) throw new Error(`Curated data has errors:\n  ${check.errors.join('\n  ')}`);
 
+        step('the open-data feeds');
         const fetched = await fetchSources({ rawDir: dirs.raw, offline, log, fetch, userAgent });
+        step('OASA\'s bus network');
         const network = await liveNetwork({ rawDir: dirs.raw, request: oasa, offline, now, sleep, log });
+        step('STASY\'s timetables');
         const timetables = await stasyTables({ rawDir: dirs.raw, client: stasy, stations: curated.data.stations.stations, offline, now, sleep, log });
         // The suburban railway's boards from railway.gov.gr, once an Athens day (railway.js)
+        step('railway.gov.gr\'s boards');
         const boards = await railwayBoards({ rawDir: dirs.raw, today, fetch: railway, userAgent, offline, now, sleep, log });
         // The buses the server saw pass (server/oasa/passes.js), up to today's
+        step('the buses seen passing');
         const passes = readPasses(join(dirs.data, 'local', 'bus-passes'), isoDate(today));
         /** @type {Sources} */
         const sources = {
@@ -197,6 +209,7 @@ export async function runBuild({
             busTimetable: readTimetable(busTimetable),
         };
         // Weekly: has STASY's airport timetable changed since airport.json? (only reported)
+        step('STASY\'s airport timetable');
         await checkAirport({ rawDir: dirs.raw, client: stasy, airport: curated.data.airport, offline, now, sleep, log });
         const fingerprint = {
             builder,
@@ -219,6 +232,7 @@ export async function runBuild({
 
         for (const [name, output] of Object.entries(OUTPUTS)) {
             const started = Date.now();
+            step(name);
             try {
                 const missing = output.sources.filter(s => sources[s].error);
                 if (missing.length) throw new Error(`source unavailable: ${missing.map(s => `${s} (${sources[s].error})`).join(', ')}`);
@@ -243,6 +257,7 @@ export async function runBuild({
             }
         }
 
+        step('publishing');
         writeFileSync(join(dirs.next, 'meta.json'), JSON.stringify(meta, null, 2));
         publish(dirs);
         return meta;
@@ -257,9 +272,11 @@ export async function runBuild({
 // one, which in the server grew it by over 100 MB, kept afterwards, and
 // paused it for up to 140 ms); running out of memory would have stopped the
 // site, not just the build.
+// Each build writes its own log (`logFile`, build-log.js); one stopped by a
+// signal before it could say so is noted there by the server.
 // → 'built' (or already up to date), 'failed' or 'busy' (another build is running)
-export function runBuildInChild({ force = false, offline = false } = {}) {
-    const args = [...(force ? ['--force'] : []), ...(offline ? ['--offline'] : [])];
+export function runBuildInChild({ force = false, offline = false, logFile = BUILD_LOG } = {}) {
+    const args = [...(force ? ['--force'] : []), ...(offline ? ['--offline'] : []), `--log=${logFile}`];
     return new Promise(resolve => {
         // Without the server's own flags: `node --watch-path` (npm run dev) would keep the build running
         const child = fork(fileURLToPath(import.meta.url), args, { execArgv: [] });
@@ -269,7 +286,10 @@ export function runBuildInChild({ force = false, offline = false } = {}) {
             console.log(`[data] Couldn't start the build: ${err.message}`);
             resolve('failed');
         });
-        child.on('exit', code => resolve(code === 0 ? 'built' : code === BUSY_EXIT_CODE ? 'busy' : 'failed'));
+        child.on('exit', (code, signal) => {
+            if (signal && child.pid !== undefined) endedBySignal(logFile, child.pid, signal);
+            resolve(code === 0 ? 'built' : code === BUSY_EXIT_CODE ? 'busy' : 'failed');
+        });
     });
 }
 
@@ -399,28 +419,46 @@ function isRunning(pid) {
     }
 }
 
-// CLI: npm run build:data [-- --force] [-- --offline]
+// CLI: npm run build:data [-- --force] [-- --offline] [-- --log=<file>]
 // Exits with 0 when built or up to date, 1 when something failed, and
-// BUSY_EXIT_CODE when another build is running.
+// BUSY_EXIT_CODE when another build is running. Writes its log to <file>
+// (data/local/build.log by default, build-log.js) as well as to the console.
 // The server's builds run it too (runBuildInChild), with the server's settings
 // already in their environment; from a terminal, they come from .env. (No
 // top-level await here, or anywhere the server imports: the live host starts
 // server.js with require(), which can't load it. test/startup.test.js)
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
     dotenv.config();
-    const args = new Set(process.argv.slice(2));
+    const argv = process.argv.slice(2);
+    const args = new Set(argv);
+    const logFile = argv.find(a => a.startsWith('--log='))?.slice('--log='.length) || BUILD_LOG;
+    mkdirSync(dirname(logFile), { recursive: true });
+    const file = createBuildLog({ file: logFile, args: argv.filter(a => !a.startsWith('--log=')) });
+    /** @param {string} message */
+    const log = message => { console.log(message); file.write(message); };
+    // The server's guard stops a build running for over an hour (processes.js)
+    process.once('SIGTERM', () => { file.end('stopped by SIGTERM'); process.exit(143); });
+    process.once('uncaughtException', err => {
+        console.error(err);
+        file.end(`crashed: ${messageOf(err)}`);
+        process.exit(1);
+    });
     const config = loadConfig();
     const offline = args.has('--offline');
     // The bus network comes the way live times do, and STASY's timetables the way
     // its announcements do: directly, or through the relays
     const oasa = offline ? null : createOasaClient({ relays: config.relays, userAgent: config.userAgent }).request;
     const stasy = offline ? null : createStasyClient({ relays: config.relays, userAgent: config.userAgent });
-    runBuild({ force: args.has('--force'), offline, userAgent: config.userAgent, oasa, stasy, railway: offline ? null : globalThis.fetch })
+    runBuild({ force: args.has('--force'), offline, userAgent: config.userAgent, oasa, stasy, railway: offline ? null : globalThis.fetch, log, step: name => file.write(`Step: ${name}`) })
         .then(meta => {
             const failed = meta && Object.values(meta.outputs).some(o => !o.ok);
+            if (meta === null) file.end('busy (another build holds the lock)');
+            else file.end(failed ? 'done, with outputs that failed (meta.json says which)' : 'done');
             return meta === null ? BUSY_EXIT_CODE : failed ? 1 : 0;
         }, err => {
             console.error(`[data] Build failed: ${err.message}`);
+            file.write(`[data] Build failed: ${messageOf(err)}`);
+            file.end('failed');
             return 1;
         })
         // Exits rather than waiting until nothing is left to do: on the host,
