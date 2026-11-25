@@ -47,7 +47,10 @@ export function createAdmin({ password, exportKey = '', loadCurated, loadRail, r
     // The admin pages' views (admin/<name>.hbs), in English only
     const views = { login: view('admin/login.hbs'), stations: view('admin/stations.hbs'), diagnostics: view('admin/diagnostics.hbs'), usage: view('admin/usage.hbs') };
     const english = { lang: 'en', strings: {} };
-    const styles = ['/admin/assets/admin.css'];
+    // An admin page in the shared layout: its stylesheet, and no bottom nav on
+    // phones, so someone who logged in isn't a tap away from leaving
+    /** @param {import('../../types/pages.js').RenderOptions} page */
+    const adminPage = page => render({ styles: ['/admin/assets/admin.css'], bottomNav: false, ...page });
     const serviceWorker = renderServiceWorker();
 
     router.use((_req, res, next) => {
@@ -60,9 +63,8 @@ export function createAdmin({ password, exportKey = '', loadCurated, loadRail, r
 
     // ── Login ───────────────────────────────────────────────────────────────
 
-    const loginPage = (error = '') => render({
+    const loginPage = (error = '') => adminPage({
         title: 'Log in',
-        styles,
         content: views.login({ error }, english),
     });
 
@@ -130,18 +132,16 @@ export function createAdmin({ password, exportKey = '', loadCurated, loadRail, r
     router.get('/', (_req, res) => res.redirect(303, '/admin/stations'));
 
     router.get('/stations', (_req, res) => {
-        sendFresh(res, 'html', render({
+        sendFresh(res, 'html', adminPage({
             title: 'Station editor',
-            styles,
             content: views.stations({}, english),
             scripts: ['/admin/assets/editor.js'],
         }));
     });
 
     router.get('/diagnostics', (_req, res) => {
-        res.set('Cache-Control', 'no-store').type('html').send(render({
+        res.set('Cache-Control', 'no-store').type('html').send(adminPage({
             title: 'Diagnostics',
-            styles,
             content: views.diagnostics({}, english),
             scripts: ['/admin/assets/diagnostics.js', '/admin/assets/accessibility.js'],
         }));
@@ -149,9 +149,8 @@ export function createAdmin({ password, exportKey = '', loadCurated, loadRail, r
 
     // What Wayhop asked of OASA each day, and how OASA answered
     router.get('/usage', (_req, res) => {
-        res.set('Cache-Control', 'no-store').type('html').send(render({
+        res.set('Cache-Control', 'no-store').type('html').send(adminPage({
             title: 'Use of OASA',
-            styles,
             content: views.usage(usageView(usageDays()), english),
         }));
     });

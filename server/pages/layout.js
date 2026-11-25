@@ -39,6 +39,8 @@ export const BROWSER_SHARED = /^(shell|announcements|location|favourites|lifts)\
 //   structuredData  schema.org data for <head> (seo.js), or null
 //   styles       more stylesheets (the admin pages')
 //   ad           where it has an ad slot (server/ads.js)
+//   bottomNav    false leaves out the phone's bottom nav and its menu (the
+//                admin pages: someone who logged in to one stays on it)
 /**
  * @param {import('../../types/pages.js').Tool[]} tools @param {string[]} pagePaths
  * @param {import('../../types/config.js').Config} config the public address and AdSense
@@ -49,7 +51,7 @@ export function createRenderer(tools, pagePaths, config) {
     const imports = importMap(tools);
     const stringsFor = pageStrings(tools);
 
-    return ({ lang = 'en', active = null, title, path = null, index = true, description = '', content: view, strings: own, scripts = [], structuredData = null, styles = [], ad = null }) => {
+    return ({ lang = 'en', active = null, title, path = null, index = true, description = '', content: view, strings: own, scripts = [], structuredData = null, styles = [], ad = null, bottomNav = true }) => {
         // Built with html`` (the station pages) or by a view
         const content = String(view);
         const strings = stringsFor(lang, own);
@@ -81,6 +83,7 @@ export function createRenderer(tools, pagePaths, config) {
             styles,
             importMap: imports,
             home: active === 'home',
+            bottomNav,
             tools: tools.map(tool => ({
                 id: tool.id, path: tool.path, iconName: tool.icon, active: tool.id === active,
                 titleKey: `tool.${tool.id}.title`, shortKey: `tool.${tool.id}.short`,
