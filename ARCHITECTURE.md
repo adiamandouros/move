@@ -707,6 +707,12 @@ page and `/admin/diagnostics` (with the pids) report other apps' leftovers.
 A data build runs as a process of its own and ends with `process.exit()`.
 The guard also stops any build in Wayhop's folder
 still running after an hour, and the health page reports them.
+Each build writes its own log, `data/local/build.log` (`server/data/build-log.js`),
+as the host sends its progress lines nowhere: each step as it starts, a line
+a minute while it runs and how it ended, each line with the time, the pid
+and the build's memory, so a build that hangs shows where. The server notes
+one it saw stopped by a signal, and `/admin/diagnostics` shows how the last
+one ended, where a running one is, or where one stopped without a word.
 
 Facts written on the pages by hand (the Info page's closing times, prices,
 airport and night buses) say when they were last checked: one date per

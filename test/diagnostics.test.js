@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { loadConfig } from '../server/config.js';
@@ -67,6 +67,10 @@ function dataDir({ hoursAgo = 2, failed = null, lastFetch = null, stasy = STASY_
         mkdirSync(join(dir, 'raw', 'stasy'), { recursive: true });
         writeFileSync(join(dir, 'raw', 'stasy', 'airport-check.json'), JSON.stringify(airportCheck));
     }
+    // The last build's own log (server/data/build-log.js): it ended well
+    mkdirSync(join(dir, 'local'));
+    const at = new Date(NOW - hoursAgo * 3_600_000).toISOString();
+    writeFileSync(join(dir, 'local', 'build.log'), `${at}  pid 5  rss 150 MB  heap 60 MB  Build started\n${at}  pid 5  rss 150 MB  heap 60 MB  Ended: done after 300 s, most memory 300 MB\n`);
     writeFileSync(join(dir, 'build', 'rail.json'), JSON.stringify({ ...(stasy.fetched && { hours: { fetched: stasy.fetched } }), ...(validTo && { feed: { validTo } }) }));
     writeFileSync(join(dir, 'build', 'meta.json'), JSON.stringify({
         generated: new Date(NOW - hoursAgo * 3_600_000).toISOString(),
@@ -435,4 +439,37 @@ test('the rail data\'s nightly checks: problems fail, notes are shown for a look
         ['Rail data checks', 'fail', 'p1 · p2'],
         ['Where the GTFS and STASY differ', 'info', 'n1 · n2'],
     ]);
+});
+
+test('the last build\'s log: how it ended, where a running one is, and where one stopped without a word', async () => {
+    const line = (min, pid, message, rss = 150) => `${new Date(NOW + min * 60_000).toISOString()}  pid ${pid}  ${rss === null ? '' : `rss ${rss} MB  heap 60 MB  `}${message}\n`;
+    const withLog = (text, lock = null) => {
+        const dir = dataDir();
+        if (text === null) rmSync(join(dir, 'local', 'build.log'));
+        else {
+            writeFileSync(join(dir, 'local', 'build.log'), text);
+        }
+        if (lock !== null) writeFileSync(join(dir, '.build.lock'), String(lock));
+        return dir;
+    };
+    const row = async (dir, now = NOW) => (await run(world(), { dataDir: dir, now: () => now })).checks.find(c => c.title === 'Last build\'s log');
+
+    assert.equal((await row(withLog(null))).status, 'info');
+
+    const done = await row(withLog(line(-20, 5, 'Build started') + line(-19, 5, 'Step: rail.json', 600) + line(-15, 5, 'Ended: done after 300 s, most memory 607 MB')));
+    assert.equal(done.status, 'ok');
+    assert.equal(done.detail, 'Started 2026-10-03 11:40 UTC (process 5); ended: done after 300 s, most memory 607 MB');
+
+    const running = await row(withLog(line(-20, 5, 'Build started') + line(-19, 5, 'Step: OASA\'s bus network', 300) + line(-18, 5, 'Still running', 320), 5));
+    assert.equal(running.status, 'info');
+    assert.equal(running.detail, 'Started 2026-10-03 11:40 UTC (process 5), running for 20 min, at OASA\'s bus network; most memory seen 320 MB');
+
+    const silent = await row(withLog(line(-90, 5, 'Build started') + line(-89, 5, 'Step: rail.json', 600) + line(-60, 5, 'Still running', 610)));
+    assert.equal(silent.status, 'warn');
+    assert.equal(silent.detail, 'Started 2026-10-03 10:30 UTC (process 5); stopped without a word 30 min in, at rail.json, last line at 2026-10-03 11:00 UTC; most memory seen 610 MB');
+
+    const killed = await row(withLog(line(-90, 5, 'Build started') + line(-89, 5, 'Step: rail.json', 600) + line(-30, 5, 'Ended: stopped by SIGKILL (seen by the server)', null)));
+    assert.equal(killed.status, 'warn');
+    assert.equal(killed.detail, 'Started 2026-10-03 10:30 UTC (process 5); ended: stopped by SIGKILL (seen by the server); most memory seen 600 MB');
+    assert.match(killed.hint, /at rail\.json then/);
 });
