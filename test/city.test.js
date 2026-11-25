@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { buildBuses, TIMETABLE_SCHEMA } from '../server/data/bus-timetable.js';
 import { buildTrains } from '../server/data/build-suburban.js';
 import { readFileSync } from 'fs';
-import { busDay, changeWalk, createPlanner, joinNetwork, MAX_RIDES, stationWalk, streetEnd, trainDay, walkSeconds } from '../tools/subway/client/city.js';
+import { PIRAEUS_EXITS } from './fixtures/piraeus.js';
+import { busDay, changeExit, changeWalk, createPlanner, joinNetwork, MAX_RIDES, stationWalk, streetEnd, trainDay, walkSeconds } from '../tools/subway/client/city.js';
 import { board, suburbanCurated, train } from './fixtures/railway.js';
 
 // The whole city for the trip search (tools/subway/client/city.js): a day of
@@ -215,6 +216,58 @@ test('a known walk keeps its minutes, and names the exit it goes through only wh
     assert.deepEqual(planner.walkExits(0, 1), { out: 1, in: null });
     assert.deepEqual(planner.walkExits(1, 0), { out: null, in: 1 });
     assert.deepEqual(planner.walkExits(2, 1), { out: null, in: null });
+});
+
+// Piraeus as two buildings (test/fixtures/piraeus.js, decision 73); the
+// suburban station north-east, a bus stop on the port side, west
+const piraeus = { id: 'rail:piraeus', name: 'Πειραιάς', station: 'piraeus', lat: 37.94806, lng: 23.64228, exits: PIRAEUS_EXITS };
+const suburbanPiraeus = { id: 'train:piraeus', name: 'Πειραιάς', lat: 37.94913, lng: 23.64372 };
+const portStop = { id: 'bus:p', name: 'Λ', lat: 37.9481, lng: 23.6416 };
+
+test('at a station that\'s two buildings, a walk goes through an exit of the ride\'s line, and with no line through any', () => {
+    assert.equal(streetEnd(piraeus, portStop, 'out').exit, 0, 'any line: the port\'s exit');
+    assert.equal(streetEnd(piraeus, portStop, 'out', 'M3').exit, 0);
+    assert.equal(streetEnd(piraeus, portStop, 'out', 'M1').exit, 2, 'off the M1, its own exit toward the port');
+    assert.equal(streetEnd(piraeus, portStop, 'in', 'M1').exit, 2);
+    assert.equal(streetEnd(metro, stopNorth, 'out', 'M1').exit, 0, 'an exit that doesn\'t say serves every line');
+    assert.deepEqual(changeWalk(piraeus, portStop, { from: 'M1' }), { out: 2, in: null, seconds: walkSeconds(exitAt(piraeus, 2), portStop) });
+    assert.deepEqual(changeWalk(portStop, piraeus, { to: 'M3' }), { out: null, in: 0, seconds: walkSeconds(portStop, exitAt(piraeus, 0)) });
+});
+
+test('a change between a station\'s two buildings leaves by the exit nearest the other building\'s: Odissou Square from the M3, the stairs beside it from the M1', () => {
+    assert.equal(changeExit(piraeus, 'M3', 'M1'), 1, 'M3 to M1: out by Odissou Square');
+    assert.equal(changeExit(piraeus, 'M1', 'M3'), 3, 'M1 to M3: out by the stairs beside it');
+    assert.equal(changeExit(piraeus, 'M3', 'M3'), null, 'the same building');
+    assert.equal(changeExit(metro, 'M1', 'M3'), null, 'one building: no exit says its lines');
+    const shared = { ...piraeus, exits: [...piraeus.exits, { at: [37.948, 23.6425] }] };
+    assert.equal(changeExit(shared, 'M3', 'M1'), null, 'an exit serving both lines: one building after all');
+    assert.equal(changeExit({ exits: piraeus.exits.slice(0, 2) }, 'M3', 'M1'), null, 'no exit for the M1');
+});
+
+test('a known walk at a station that\'s two buildings goes through the exit it says from a line that exit serves, and from another line through that line\'s nearest', () => {
+    const planner = createPlanner({ stops: [piraeus, suburbanPiraeus], routes: [], knownWalks: [[1, 0, 240, null, 1]] });
+    assert.deepEqual(planner.walkExits(0, 1, { from: 'M3' }), { out: 1, in: null }, 'from the M3: Odissou Square, as said');
+    // By the straight line the M1's stairs are about a metre nearer the
+    // trains than its ramp; neither has a sign, so neither is named
+    assert.deepEqual(planner.walkExits(0, 1, { from: 'M1' }), { out: 3, in: null }, 'from the M1: its exit nearest the trains');
+    assert.deepEqual(planner.walkExits(1, 0, { to: 'M1' }), { out: null, in: 3 });
+    assert.deepEqual(planner.walkExits(0, 1), { out: 1, in: null }, 'no line: as said');
+});
+
+test('the suburban railway\'s walks to the metro go through the exit suburban.json names, where the station has it', () => {
+    const rail = { stations: { piraeus: { name: { el: 'Πειραιάς', en: 'Piraeus' }, coords: [piraeus.lat, piraeus.lng], lines: ['M1', 'M3'], exits: piraeus.exits } }, lines: {} };
+    /** @type {import('../tools/subway/client/city.js').Trains} */
+    const trains = {
+        stations: { piraeus: [suburbanPiraeus.lat, suburbanPiraeus.lng, 'Πειραιάς', 'Piraeus'], athens: [37.99, 23.72, 'Αθήνα', 'Athens'] },
+        walks: [['train:piraeus', 'rail:piraeus', 240, null, 'Πλατεία Οδησσού'], ['train:athens', 'rail:piraeus', 900, { el: 'Μ', en: 'N' }, 'Άγνωστη']],
+        outside: [], routes: [],
+    };
+    const network = joinNetwork(rail, { day: 3, stops: {}, routes: [] }, 3, trains);
+    const at = id => network.index.get(id);
+    assert.deepEqual(network.knownWalks, [
+        [at('train:piraeus'), at('rail:piraeus'), 240, null, 1],
+        [at('train:athens'), at('rail:piraeus'), 900, { el: 'Μ', en: 'N' }],
+    ], 'Odissou Square; an exit the station doesn\'t have, none');
 });
 
 test('the tram\'s walks to the metro are the search\'s known walks, with the exit tram.json says they go through', () => {

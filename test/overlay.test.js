@@ -97,6 +97,9 @@ test('a station\'s street entry: names trimmed, places to about 1 m, ways in the
         lifts: [{ name: 'Εξωτερικός', coords: [37.97548, 23.73502] }],
     });
     assert.deepEqual(tidyStreet({ exits: [], lifts: [] }), {});
+    // The lines an exit serves, at a station that's two buildings: each once (decision 73)
+    assert.deepEqual(tidyStreet({ exits: [{ coords: [37.9478, 23.64253], lines: ['M3', 'M3'] }, { coords: [37.948, 23.6424], lines: [] }] }),
+        { exits: [{ coords: [37.9478, 23.64253], lines: ['M3'] }, { coords: [37.948, 23.6424] }] });
     // OpenStreetMap's exits dealt with: each once, in order, after the rest
     assert.deepEqual(tidyStreet({ osm: ['n12', 'n9', 'n12'], lifts: [{ name: 'x' }] }), { lifts: [{ name: 'x' }], osm: ['n9', 'n12'] });
     assert.deepEqual(tidyStreet({ osm: [] }), {});

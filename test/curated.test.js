@@ -85,6 +85,31 @@ test('street.json: each station\'s exits and elevators on the street, by name an
     ]);
 });
 
+test('street.json: at a station that\'s two buildings, an exit says the lines it serves, of those that call there (decision 73)', () => {
+    const c = real();
+    c.street = { piraeus: { exits: [{ coords: [37.9478, 23.64253], lines: ['M3'] }, { coords: [37.94803, 23.64239], lines: ['M1', 'M3'] }] } };
+    assert.deepEqual(validateCurated(c).errors, []);
+    c.street = { piraeus: { exits: [{ coords: [37.9478, 23.64253], lines: ['M2'] }, { coords: [37.94803, 23.64239], lines: [] }, { coords: [37.948, 23.6424], lines: 'M1' }] } };
+    assert.deepEqual(validateCurated(c).errors, [0, 1, 2].map(i => `street.json: piraeus.exits[${i}].lines must list lines that call there (M1, M3)`));
+});
+
+test('suburban.json: a walk to the metro says the exit it goes through by its Greek name, which street.json should have with a place', () => {
+    const c = real();
+    c.street = { piraeus: { exits: [{ name: { el: 'Πλατεία Οδησσού' }, coords: [37.9478, 23.64253] }, { name: { el: 'Λιμάνι Πειραιά' } }] } };
+    c.suburban.stations.piraeus.walks = [{ metro: 'piraeus', minutes: 4, exit: 'Πλατεία Οδησσού' }];
+    assert.deepEqual(validateCurated(c).warnings.filter(w => w.startsWith('suburban.json')), []);
+    c.suburban.stations.piraeus.walks = [{ metro: 'piraeus', minutes: 4, exit: 'Λιμάνι Πειραιά' }];
+    assert.deepEqual(validateCurated(c).warnings.filter(w => w.startsWith('suburban.json')), [
+        'suburban.json: piraeus\'s walk to piraeus uses the exit "Λιμάνι Πειραιά", which street.json doesn\'t have with a place',
+    ]);
+    c.suburban.stations.ska.walks = [{ station: 'ska-a3', minutes: 6, exit: 'Γέφυρα' }];
+    c.suburban.stations.piraeus.walks = [{ metro: 'piraeus', minutes: 4, exit: ' ' }];
+    assert.deepEqual(validateCurated(c).errors.filter(e => e.includes('"exit"')).sort(), [
+        'suburban.json: piraeus\'s walk to piraeus: "exit" is the Greek name of the metro station\'s exit it uses, as in street.json',
+        'suburban.json: ska\'s walk to ska-a3: "exit" is the Greek name of the metro station\'s exit it uses, as in street.json',
+    ]);
+});
+
 test('osm.json: OpenStreetMap\'s exits by station, each with its doors\' ids and place; street.json says which the field trips dealt with', () => {
     const c = real();
     c.street = { syntagma: { exits: [{ coords: [37.97552, 23.73481] }], osm: ['n1', 'w22'] } };

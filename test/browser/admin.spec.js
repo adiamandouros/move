@@ -275,6 +275,32 @@ test.describe('saved underground', () => {
     });
 });
 
+test('the station editor records the lines an exit serves at a station that\'s two buildings; all of them, or none, is every line (decision 73)', async ({ page }) => {
+    const saved = await fakeSaves(page);
+    await openEditor(page);
+    // Piraeus: the M1 and the M3
+    await page.getByRole('button', { name: 'Add exit' }).click();
+    const exit = page.getByRole('group', { name: 'Exit 1' });
+    await exit.getByLabel('Where it is (latitude, longitude)').fill('37.94803, 23.64239');
+    const lines = exit.getByRole('group', { name: 'Lines it serves, if not all (two buildings)' });
+    await lines.getByRole('checkbox', { name: 'M1' }).check();
+    expect(await axe(page)).toEqual([]);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect.poll(() => saved.filter(s => s.kind === 'street').length).toBe(1);
+    expect(saved.find(s => s.kind === 'street').entry.exits).toEqual([{ name: { el: '', en: '' }, coords: [37.94803, 23.64239], way: [], lines: ['M1'] }]);
+
+    await lines.getByRole('checkbox', { name: 'M3' }).check();
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect.poll(() => saved.filter(s => s.kind === 'street').length).toBe(2);
+    expect(saved.filter(s => s.kind === 'street')[1].entry.exits).toEqual([{ name: { el: '', en: '' }, coords: [37.94803, 23.64239], way: [] }]);
+
+    // A station of one line has nothing to say
+    await page.getByLabel('Station', { exact: true }).selectOption('kifisia');
+    await page.getByRole('button', { name: 'Add exit' }).click();
+    await expect(page.getByRole('group', { name: 'Exit 1' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Lines it serves, if not all (two buildings)' })).toHaveCount(0);
+});
+
 test('the station editor offers OpenStreetMap\'s exits as needing data: checked on site or changed, they\'re saved as ours; removed, they\'re gone (decision 57)', async ({ page }) => {
     const saved = await fakeSaves(page, () => true, {
         piraeus: [

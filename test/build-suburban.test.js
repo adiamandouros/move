@@ -38,6 +38,22 @@ test('each date\'s suburban trains by their stops: one route each way, its profi
     });
     // suburban.json's walks as the search names its stops, in seconds, with their notes; the stations outside OASA's ticket
     assert.deepEqual(data.walks, [['train:athens', 'rail:b', 240, { el: 'Απέναντι', en: 'Across the road' }], ['train:ska2', 'train:ska3', 360]]);
+    // A walk that says the metro station's exit it goes through (decision 73): with a note or without
+    const curated = suburbanCurated();
+    curated.stations.athens.walks = [{ metro: 'b', minutes: 4, exit: 'Πλατεία' }];
+    curated.stations.piraeus.walks = [{ metro: 'a', minutes: 4, note: { el: 'Απέναντι', en: 'Across the road' }, exit: 'Λιμάνι' }];
+    const withExits = buildTrains({ '2026-11-08': board('2026-11-08') }, curated).data;
+    assert.deepEqual(withExits.walks.slice(0, 2), [
+        ['train:piraeus', 'rail:a', 240, { el: 'Απέναντι', en: 'Across the road' }, 'Λιμάνι'],
+        ['train:athens', 'rail:b', 240, null, 'Πλατεία'],
+    ]);
+    assert.deepEqual(checkOutput('trains.json', withExits), []);
+    const odd = structuredClone(withExits);
+    odd.walks = [['train:athens', 'rail:b', 60, null], ['train:athens', 'rail:b', 60, null, 7]];
+    assert.deepEqual(checkOutput('trains.json', odd), [
+        'trains.json: walk ["train:athens","rail:b",60,null] must be [a station, a station or the metro\'s, seconds, a note in both languages or none, the metro\'s exit by its Greek name or none]',
+        'trains.json: walk ["train:athens","rail:b",60,null,7] must be [a station, a station or the metro\'s, seconds, a note in both languages or none, the metro\'s exit by its Greek name or none]',
+    ], 'no note only before an exit; an exit by its name');
     assert.deepEqual(data.outside, ['airport']);
     // The freight train is left out; the two to the airport run the same way
     assert.deepEqual(data.dates['2026-11-08'], [
@@ -119,9 +135,9 @@ test('trains.json\'s checks catch a broken file', () => {
     assert.deepEqual(checkOutput('trains.json', broken), [
         'trains.json: line A2 must have its name and a #rrggbb colour',
         'trains.json: station athens must be [lat, lng, Greek name, English name]',
-        'trains.json: walk ["train:nowhere","rail:b",60] must be [a station, a station or the metro\'s, seconds, a note in both languages or none]',
-        'trains.json: walk ["train:athens","rail:b",0] must be [a station, a station or the metro\'s, seconds, a note in both languages or none]',
-        'trains.json: walk ["train:athens","train:ska2",60,{"el":"Μόνο ελληνικά"}] must be [a station, a station or the metro\'s, seconds, a note in both languages or none]',
+        'trains.json: walk ["train:nowhere","rail:b",60] must be [a station, a station or the metro\'s, seconds, a note in both languages or none, the metro\'s exit by its Greek name or none]',
+        'trains.json: walk ["train:athens","rail:b",0] must be [a station, a station or the metro\'s, seconds, a note in both languages or none, the metro\'s exit by its Greek name or none]',
+        'trains.json: walk ["train:athens","train:ska2",60,{"el":"Μόνο ελληνικά"}] must be [a station, a station or the metro\'s, seconds, a note in both languages or none, the metro\'s exit by its Greek name or none]',
         'trains.json: outside must list stations',
         'trains.json: 2026-11-08 line A1: needs its line and two of the stations or more',
         'trains.json: 2026-11-08 line A1: each profile needs the seconds from its first stop to each, going forward',

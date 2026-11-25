@@ -60,6 +60,7 @@ test('a station\'s exits with a place, for the Trip page\'s walks (decision 51):
     assert.equal(data.stations.b.exits, undefined, 'none recorded');
     assert.deepEqual(streetExits({ exits: [{ name: { el: 'Έξοδος', en: 'No name' }, coords: [37.1, 23.1] }] }), [{ name: { el: 'Έξοδος' }, at: [37.1, 23.1] }], 'a name that\'s only "Exit" is kept as it is');
     assert.deepEqual(streetExits(undefined), []);
+    assert.deepEqual(streetExits({ exits: [{ coords: [37.1, 23.1], lines: ['M1'] }] }), [{ at: [37.1, 23.1], lines: ['M1'] }], 'the lines it serves, at a station that\'s two buildings (decision 73)');
 });
 
 test('OpenStreetMap\'s exits no field trip has dealt with join a station\'s, the same to the Trip page; a way one way only as its escalator (decision 57)', async () => {

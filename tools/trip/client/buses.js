@@ -155,13 +155,21 @@ const walkOf = (seconds, exits = {}) => seconds > 0 ? {
 } : null;
 // The walk to one of the stops a way's last bus can be caught at
 // (`seconds`), after a ride: out of that ride's station by its exit nearest
-// the stop, as the planner timed it (decision 51, Road · 17)
+// the stop, as the planner timed it (decision 51, Road · 17), by an exit
+// that serves that ride's line (decision 73)
 /** @param {Planner} planner @param {import('/tools/subway/ways.js').Way | null | undefined} way @param {number} stop @param {number} seconds */
-const stopWalk = (planner, way, stop, seconds) => walkOf(seconds, way && way.legs.length > 1 ? planner.walkExits(way.legs[way.legs.length - 2].alight, stop) : {});
+const stopWalk = (planner, way, stop, seconds) => {
+    const before = way && way.legs.length > 1 ? way.legs[way.legs.length - 2] : null;
+    return walkOf(seconds, before ? planner.walkExits(before.alight, stop, { from: before.line }) : {});
+};
 // The exit a walk from the door goes into a station by, or one to the door
-// comes out of it by; none for a station picked as the start or the end
-/** @param {import('/tools/subway/city.js').Stop} stop @param {Point & { station?: string }} place @param {import('/tools/subway/city.js').Way} way */
-const doorExit = (stop, place, way) => place.station ? null : streetEnd(stop, place, way).exit;
+// comes out of it by, of those that serve the ride's `line` (decision 73);
+// none for a station picked as the start or the end
+/**
+ * @param {import('/tools/subway/city.js').Stop} stop @param {Point & { station?: string }} place
+ * @param {import('/tools/subway/city.js').Way} way @param {string} line
+ */
+const doorExit = (stop, place, way, line) => place.station ? null : streetEnd(stop, place, way, line).exit;
 
 /**
  * The search over the city on `weekday` (0 = Sunday), with the suburban
@@ -291,13 +299,13 @@ function cityOption(planner, way, { access, egress, from, to }, now, lines = way
         rides: way.legs.map((leg, i) => ({
             line: leg.line, lines: lines[i], mode: leg.mode, board: planner.stops[leg.board], alight: planner.stops[leg.alight],
             boards: leg.boards, arrives: leg.arrives, stops: leg.alightIndex - leg.boardIndex, ...alongLeg(planner, leg),
-            toward: planner.routes[leg.route].toward, ...planner.routes[leg.route].dir && { dir: planner.routes[leg.route].dir }, walkBefore: walkOf(leg.walkBefore, i ? planner.walkExits(way.legs[i - 1].alight, leg.board) : {}),
+            toward: planner.routes[leg.route].toward, ...planner.routes[leg.route].dir && { dir: planner.routes[leg.route].dir }, walkBefore: walkOf(leg.walkBefore, i ? planner.walkExits(way.legs[i - 1].alight, leg.board, { from: way.legs[i - 1].line, to: leg.line }) : {}),
             walkNote: i && leg.walkBefore ? planner.walkNote(way.legs[i - 1].alight, leg.board) : null,
             ...ON_THE_ROAD.has(leg.mode) && { next: planner.ride([leg], leg.boards)?.[0].next ?? null },
             ...leg.mode === 'suburban' && { train: leg.train ?? trainOf(planner, leg), timetable: leg.timetable ?? leg.boards },
         })),
-        firstWalk: walkOf(secondsTo(access, way.legs[0].board), { in: doorExit(planner.stops[way.legs[0].board], from, 'in') }),
-        lastWalk: walkOf(secondsTo(egress, way.legs[way.legs.length - 1].alight), { out: doorExit(planner.stops[way.legs[way.legs.length - 1].alight], to, 'out') }),
+        firstWalk: walkOf(secondsTo(access, way.legs[0].board), { in: doorExit(planner.stops[way.legs[0].board], from, 'in', way.legs[0].line) }),
+        lastWalk: walkOf(secondsTo(egress, way.legs[way.legs.length - 1].alight), { out: doorExit(planner.stops[way.legs[way.legs.length - 1].alight], to, 'out', way.legs[way.legs.length - 1].line) }),
         arrives: way.at,
         minutes: Math.round((way.at - now) / 60),
         changes: way.legs.length - 1,

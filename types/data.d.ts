@@ -75,6 +75,8 @@ export interface Exit {
     at: [number, number];
     /** How it's reached from inside, when that's not every way: 'stairs', 'escalator-up' (toward the street), 'escalator-down' */
     way?: string[];
+    /** The lines it serves, at a station that's two buildings (decision 73); none: every line there */
+    lines?: string[];
 }
 
 export interface Line {
@@ -222,8 +224,8 @@ export interface Trains {
     lines: Record<string, { name: string, color: string }>;
     /** By id in data/curated/suburban.json: [lat, lng, Greek name, English name] */
     stations: Record<string, [number, number, string, string]>;
-    /** suburban.json's walks, as the trip search names its stops ('train:piraeus', 'rail:piraeus'): [from, to, seconds, note where the way needs one] */
-    walks: ([string, string, number] | [string, string, number, Names])[];
+    /** suburban.json's walks, as the trip search names its stops ('train:piraeus', 'rail:piraeus'): [from, to, seconds, note where the way needs one, the metro station's exit it goes through by its Greek name where one is said (decision 73)] */
+    walks: ([string, string, number] | [string, string, number, Names] | [string, string, number, Names | null, string])[];
     /** The stations OASA's ticket doesn't cover: a Hellenic Train ticket */
     outside: string[];
     /** By date (YYYY-MM-DD): yesterday's, today's and the next days' trains, as many as were fetched */
@@ -334,6 +336,7 @@ export interface StreetExit {
     name?: { el?: string; en?: string };
     coords?: [number, number];
     way?: string[];
+    lines?: string[];
 }
 
 /** data/curated/street.json: each station's exits and lifts on the street, and OpenStreetMap's exits there the field trips have dealt with */
@@ -365,7 +368,7 @@ export interface SuburbanStation {
     lines?: string[];
     coords: [number, number];
     metro?: string;
-    walks?: { metro?: string; station?: string; minutes: number; note?: Names }[];
+    walks?: { metro?: string; station?: string; minutes: number; note?: Names; exit?: string }[];
     oasaTicket?: false;
 }
 

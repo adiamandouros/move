@@ -1,4 +1,4 @@
-import { METERS_PER_MINUTE, stationWalk, walkMeters } from '/tools/subway/city.js';
+import { METERS_PER_MINUTE, stationWalk, streetEnd, walkMeters } from '/tools/subway/city.js';
 import { arrivalsFrom, nextDay, planTrip } from '/tools/subway/network.js';
 import { weighed } from '/tools/subway/weights.js';
 
@@ -70,6 +70,18 @@ export function walkStation(rail, place, station, way) {
     return { meters: Math.round(seconds / 60 * METERS_PER_MINUTE), minutes: Math.max(1, Math.round(seconds / 60)), away: walkBetween(place, at).minutes, ...exit !== null && { [way]: exit } };
 }
 
+// A station to start from or end at, walking through an exit that serves
+// the ride's `line` (decision 73). Its minutes stay the walk's to the exit
+// nearest whichever line, as the search timed it: at a station that's two
+// buildings the two are a few tens of metres apart
+/** @param {Rail} rail @param {Near} near @param {Place} place @param {import('/tools/subway/city.js').Way} way @param {string} line @returns {Near} */
+function onLine(rail, near, place, way, line) {
+    if (near.walk?.[way] === undefined) return near;
+    const { exit } = streetEnd(stationPlace(rail, near.station), place, way, line);
+    const { meters, minutes, away } = near.walk;
+    return { ...near, walk: { meters, minutes, away, ...exit !== null && { [way]: exit } } };
+}
+
 // The stations to try from a place, walking into them (`way` 'in') or, at
 // the trip's end, out of them ('out'): { station, walk, nearest }, nearest
 // first. nearest: one of the metro stations nearest it, or the station it
@@ -100,8 +112,8 @@ const walkedMinutes = (rail, start, end, plan) => (start.walk?.minutes ?? 0) + (
     + (plan.walkFirst ?? 0) + (plan.walkLast ?? 0)
     + plan.legs.reduce((sum, leg, i) => sum + (i && plan.legs[i - 1].to !== leg.from ? (rail.walks ?? {})[plan.legs[i - 1].to][leg.from] : 0), 0);
 
-/** @param {Rail} rail @param {Near} start @param {Near} end @param {AthensTime} now */
-function option(rail, start, end, now) {
+/** @param {Rail} rail @param {Near} start @param {Near} end @param {AthensTime} now @param {Place} from @param {Place} to */
+function option(rail, start, end, now, from, to) {
     const leave = later(now, start.walk?.minutes ?? 0);
     const { plans, now: day, tomorrow } = planTrip(rail, start.station, end.station, leave);
     const plan = plans.find(p => p.arrives !== null);
@@ -114,7 +126,8 @@ function option(rail, start, end, now) {
     const morning = tomorrow || plan.legs[0].departures[0].departs - leave.seconds > LONGEST_WAIT;
     const changes = plan.legs.length - 1;
     return {
-        start, end, plan, dayStart, morning, arrives, changes,
+        start: onLine(rail, start, from, 'in', plan.legs[0].line), end: onLine(rail, end, to, 'out', plan.legs[plan.legs.length - 1].line),
+        plan, dayStart, morning, arrives, changes,
         minutes: Math.round((arrives - now.seconds) / 60),
         cost: weighed(arrives - now.seconds, walkedMinutes(rail, start, end, plan) * 60, changes),
     };
@@ -166,7 +179,7 @@ export function doorToDoor(rail, from, to, now, { buses = [] } = {}) {
     const nearest = pairs.filter(({ start, end }) => start.nearest && end.nearest);
     const tried = [...nearest, ...soonest(rail, pairs.filter(pair => !nearest.includes(pair)), now).slice(0, SEARCHED_PAIRS)];
     const found = [
-        ...tried.map(({ start, end }) => option(rail, start, end, now)).filter(o => o !== null),
+        ...tried.map(({ start, end }) => option(rail, start, end, now, from, to)).filter(o => o !== null),
         ...buses,
     ];
     // The morning's first trains only if no trip can be made tonight

@@ -1,6 +1,6 @@
 # 68. The trip page: exits and metro stations as the signs riders follow
 
-Decided 2026-11-21 · In force
+Decided 2026-11-21 · Replaced by [73](0073-trip-stations-of-two-buildings.md)
 
 ## Situation
 

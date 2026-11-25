@@ -79,8 +79,9 @@ decisions, or makes one of the same weight, comes with its page.
 | 65 | [One rule for answers that come too late](0065-one-rule-for-late-answers.md) | In force |
 | 66 | [Stricter type checks, file by file, the count only going down](0066-strict-null-checks-step-by-step.md) | In force |
 | 67 | [The trip page: followed onto whichever of "Any of these buses" is boarded](0067-trip-follows-any-of-these-buses.md) | In force |
-| 68 | [The trip page: exits and metro stations as the signs riders follow](0068-trip-exits-and-stations-as-signs.md) | In force |
+| 68 | [The trip page: exits and metro stations as the signs riders follow](0068-trip-exits-and-stations-as-signs.md) | Replaced by 73 |
 | 69 | [Following underground: a trace first, then rough fixes on rail, provisionally](0069-following-underground-rough-fixes.md) | In force |
 | 70 | [The rest of the strict type check, file by file, written `any` counted](0070-strict-types-step-by-step.md) | In force |
 | 71 | [Strikes from apergia.gr, in their words, in the disruption box](0071-strikes-from-apergia.md) | In force |
 | 72 | [The trip page: a way quicker by OASA's live times comes first](0072-trip-first-way-by-live-times.md) | In force |
+| 73 | [The trip page: a station that's two buildings, its exits by line](0073-trip-stations-of-two-buildings.md) | In force |
