@@ -1,5 +1,10 @@
 /* Station editor (/admin) — builds on public/css/style.css */
 
+/* The admin pages scroll the page itself (admin/layout.hbs), not a box in it
+   as the site's pages do: as there, what the keyboard moves to is in view at
+   once, without Bootstrap's smooth scrolling */
+:root { scroll-behavior: auto; }
+
 .admin-view {
     max-width: 560px;
     margin: 0 auto;

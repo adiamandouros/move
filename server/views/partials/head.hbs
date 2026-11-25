@@ -1,0 +1,43 @@
+{{!-- Inside <head>, the same on every page: the site's layout (layout.hbs)
+and the admin pages' (admin/layout.hbs). Its inline scripts are the ones the
+Content-Security-Policy allows (server/csp.js). --}}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+{{#if other}}
+    {{!-- Someone who chose the other language with the language link
+    (remembered by /js/core/shell.js) gets this page in it before it shows.
+    The same on every page, so the Content-Security-Policy allows it by one
+    hash (server/csp.js). --}}
+    <script>
+        try { var root = document.documentElement; if (localStorage.getItem('language') === root.dataset.otherLang) location.replace(root.dataset.otherPath + location.search + location.hash); } catch (e) {}
+    </script>
+{{/if}}
+    <title>{{title}} — Wayhop</title>
+{{> meta seo}}
+{{#if adsenseClient}}
+    {{!-- Tells AdSense which account the site belongs to (its site review checks for it) --}}
+    <meta name="google-adsense-account" content="{{adsenseClient}}">
+{{/if}}
+    <meta name="theme-color" content="#161b27">
+    {{!-- The colour mode the phone or the person chose, before anything is drawn
+    (/js/core/theme.js). The same on every page, so the Content-Security-Policy
+    allows it by one hash (server/csp.js). --}}
+    <script>{{{themeScript}}}</script>
+    <script type="importmap">{{json importMap}}</script>
+{{#each fonts}}
+    <link rel="preload" href="{{this}}" as="font" type="font/woff2" crossorigin>
+{{/each}}
+    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" type="image/png" href="/icon/favicon-96x96.png" sizes="96x96">
+    <link rel="icon" type="image/svg+xml" href="/icon/favicon.svg">
+    <link rel="shortcut icon" href="/icon/favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icon/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-title" content="Wayhop">
+    <link rel="manifest" href="{{manifest}}">
+{{#each styles}}
+    <link rel="stylesheet" href="{{this}}">
+{{/each}}
+{{#if structuredData}}
+    <script type="application/ld+json">{{json structuredData}}</script>
+{{/if}}

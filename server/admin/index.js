@@ -47,10 +47,9 @@ export function createAdmin({ password, exportKey = '', loadCurated, loadRail, r
     // The admin pages' views (admin/<name>.hbs), in English only
     const views = { login: view('admin/login.hbs'), stations: view('admin/stations.hbs'), diagnostics: view('admin/diagnostics.hbs'), usage: view('admin/usage.hbs') };
     const english = { lang: 'en', strings: {} };
-    // An admin page in the shared layout: its stylesheet, and no bottom nav on
-    // phones, so someone who logged in isn't a tap away from leaving
+    // An admin page in the admin layout (admin/layout.hbs), with its stylesheet
     /** @param {import('../../types/pages.js').RenderOptions} page */
-    const adminPage = page => render({ styles: ['/admin/assets/admin.css'], bottomNav: false, ...page });
+    const adminPage = page => render({ styles: ['/admin/assets/admin.css'], ...page });
     const serviceWorker = renderServiceWorker();
 
     router.use((_req, res, next) => {

@@ -113,7 +113,7 @@ test('no HTML in plain strings: views or html`` only', () => {
 });
 
 // (and the colour mode's script in <head>: our own constant, with no input in it)
-test('views put nothing in unescaped but the page inside the layout', () => {
+test('views put nothing in unescaped but the page inside the layouts', () => {
     const unescaped = [];
     const walk = (node, file) => {
         if (!node || typeof node !== 'object') return;
@@ -121,12 +121,13 @@ test('views put nothing in unescaped but the page inside the layout', () => {
         for (const value of Object.values(node)) if (value && typeof value === 'object' && value !== node.loc) walk(value, file);
     };
     for (const { file, text } of sources(['server/views', 'admin', 'tools']).filter(f => f.file.endsWith('.hbs'))) walk(parseTemplate(text), file);
-    assert.deepEqual(unescaped, ['server/views/layout.hbs: {{{themeScript}}}', 'server/views/layout.hbs: {{{content}}}']);
+    assert.deepEqual(unescaped.sort(), ['admin/layout.hbs: {{{content}}}', 'server/views/layout.hbs: {{{content}}}', 'server/views/partials/head.hbs: {{{themeScript}}}']);
 });
 
 test('what goes into <head> is escaped: title, description, structured data', () => {
-    const { render } = renderPages(loadTools());
-    const html = render({ title: EVIL, path: '/subway', description: EVIL, content: '', structuredData: { name: '</script><script>alert(1)</script>' }, styles: ['/admin/assets/admin.css'] });
+    // (the head every page shares, server/views/partials/head.hbs)
+    const { renderAdmin } = renderPages(loadTools());
+    const html = renderAdmin({ title: EVIL, path: '/subway', description: EVIL, content: '', structuredData: { name: '</script><script>alert(1)</script>' }, styles: ['/admin/assets/admin.css'] });
     const head = html.slice(0, html.indexOf('</head>'));
     assert.doesNotMatch(head, /<img src=x|<\/script><script>alert/);
     assert.match(head, /<meta property="og:title" content="&lt;img src&#x3D;x onerror&#x3D;&quot;alert\(1\)&quot;&gt; — Wayhop">/);

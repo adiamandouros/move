@@ -22,7 +22,7 @@ const READY_BUSES = '/js/core/ready-buses.js';
 // The public pages, and what goes with them: the service worker, robots.txt,
 // the sitemap and the tools' browser files. How it fits together:
 //   registry.js         the list of pages
-//   layout.js           render(): a page in the shared layout
+//   layout.js           render(): a page in the site's layout or the admin pages'
 //   i18n.js             languages, strings and putting a page into its language
 //   seo.js              meta tags, structured data, robots.txt, sitemap
 //   assets.js           stylesheets, scripts and their versions
@@ -33,7 +33,7 @@ const READY_BUSES = '/js/core/ready-buses.js';
 
 // Every page in sitePages (registry.js), rendered in each language, by path;
 // renderPage(page, lang), for pages of the same shape built later (the
-// station pages); render, for any other (the admin pages); notFound(path),
+// station pages); renderAdmin, for the admin pages, in their layout; notFound(path),
 // the 404 page; errorPage(path), the page for when answering failed. config: the settings
 // (server/config.js); without them, no public address and no ads.
 // rail: rail.json as it is now, for the pages drawn from it (registry.js, `rail`)
@@ -45,6 +45,7 @@ export function renderPages(tools = loadTools(), config = loadConfig({}), rail =
     const list = sitePages(tools, config, rail);
     const pagePaths = [...list.flatMap(page => page.path ? [page.path] : []), ...STATION_PATHS];
     const render = createRenderer(tools, pagePaths, config);
+    const renderAdmin = createRenderer(tools, pagePaths, config, 'admin/layout.hbs');
     const stringsFor = pageStrings(tools);
 
     // A page (registry.js) in one language, at its path or at `path`
@@ -90,7 +91,7 @@ export function renderPages(tools = loadTools(), config = loadConfig({}), rail =
     const errorPage = path => renderPage(SERVER_ERROR, langOf(path), basePath(path));
     // The pages search engines should find (English paths), for the sitemap
     const indexed = list.filter(page => page.index !== false).map(page => page.path);
-    return { pages, railPages, indexed, notFound, errorPage, render, renderPage };
+    return { pages, railPages, indexed, notFound, errorPage, renderAdmin, renderPage };
 }
 
 // The app manifest in one language (public/icon/site.webmanifest is the
@@ -115,7 +116,7 @@ function appManifest(lang, description) {
  */
 export function createPages(tools = loadTools(), { railFile, trainsFile, config = loadConfig({}), usage = { page() {} } } = {}) {
     const rail = railFile ? railReader(railFile) : () => ({ key: null, rail: null });
-    const { pages, railPages, indexed, notFound, errorPage, render, renderPage } = renderPages(tools, config, () => rail().rail);
+    const { pages, railPages, indexed, notFound, errorPage, renderAdmin, renderPage } = renderPages(tools, config, () => rail().rail);
     const serviceWorker = renderServiceWorker(tools, pages);
     const router = express.Router();
     // A page sent because someone opened it: a browser's own request for it
@@ -189,12 +190,13 @@ export function createPages(tools = loadTools(), { railFile, trainsFile, config 
 
     return {
         router,
-        // Render any other page (e.g. the admin pages) with the shared layout
-        render,
+        // The admin pages, in their layout (admin/layout.hbs)
+        renderAdmin,
         // The inline scripts of every page, for the Content-Security-Policy
-        // (server/csp.js). Station and admin pages share the layout, so the
-        // same scripts; csp.test.js checks every page against the policy.
-        inlineScripts: new Set([...Object.values(pages), notFound('/'), notFound('/el/'), errorPage('/')].flatMap(inlineScripts)),
+        // (server/csp.js). Station pages share the layout, and the admin
+        // pages its head, so the same scripts; csp.test.js checks every page
+        // against the policy.
+        inlineScripts: new Set([...Object.values(pages), notFound('/'), notFound('/el/'), errorPage('/'), renderAdmin({ title: 'Admin', content: '' })].flatMap(inlineScripts)),
         /** @param {import('express').Request} req @param {import('express').Response} res */
         notFound: (req, res) => res.status(404).type('html').send(notFound(req.path)),
         // The error page for an address, in its language (server/errors.js)

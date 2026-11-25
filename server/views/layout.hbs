@@ -1,49 +1,10 @@
-{{!-- The layout around every page (server/pages/layout.js) --}}
+{{!-- The layout around every page but the admin pages' (server/pages/layout.js) --}}
 <!DOCTYPE html>
 <html lang="{{lang}}" data-bs-theme="dark" data-icons="{{icons}}"{{#if other}} data-other-lang="{{other.lang}}" data-other-path="{{other.path}}"{{/if}}>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-{{#if other}}
-    {{!-- Someone who chose the other language with the language link
-    (remembered by /js/core/shell.js) gets this page in it before it shows.
-    The same on every page, so the Content-Security-Policy allows it by one
-    hash (server/csp.js). --}}
-    <script>
-        try { var root = document.documentElement; if (localStorage.getItem('language') === root.dataset.otherLang) location.replace(root.dataset.otherPath + location.search + location.hash); } catch (e) {}
-    </script>
-{{/if}}
-    <title>{{title}} — Wayhop</title>
-{{> meta seo}}
-{{#if adsenseClient}}
-    {{!-- Tells AdSense which account the site belongs to (its site review checks for it) --}}
-    <meta name="google-adsense-account" content="{{adsenseClient}}">
-{{/if}}
-    <meta name="theme-color" content="#161b27">
-    {{!-- The colour mode the phone or the person chose, before anything is drawn
-    (/js/core/theme.js). The same on every page, so the Content-Security-Policy
-    allows it by one hash (server/csp.js). --}}
-    <script>{{{themeScript}}}</script>
-    <script type="importmap">{{json importMap}}</script>
-{{#each fonts}}
-    <link rel="preload" href="{{this}}" as="font" type="font/woff2" crossorigin>
-{{/each}}
-    <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/css/style.css">
-    <link rel="icon" type="image/png" href="/icon/favicon-96x96.png" sizes="96x96">
-    <link rel="icon" type="image/svg+xml" href="/icon/favicon.svg">
-    <link rel="shortcut icon" href="/icon/favicon.ico">
-    <link rel="apple-touch-icon" sizes="180x180" href="/icon/apple-touch-icon.png">
-    <meta name="apple-mobile-web-app-title" content="Wayhop">
-    <link rel="manifest" href="{{manifest}}">
-{{#each styles}}
-    <link rel="stylesheet" href="{{this}}">
-{{/each}}
-{{#if structuredData}}
-    <script type="application/ld+json">{{json structuredData}}</script>
-{{/if}}
+{{> head}}
 </head>
-<body{{#unless bottomNav}} class="no-bottom-nav"{{/unless}}>
+<body>
 
     <a href="#app-content" class="skip-link">{{t "shell.skip"}}</a>
 
@@ -99,7 +60,6 @@
 
     </div>
 
-{{#if bottomNav}}
     <!-- Bottom nav (mobile): home (the logo), the tools, and the menu button by the right thumb -->
     <nav id="bottom-nav" class="d-grid d-md-none fixed-bottom border-top" aria-label="{{t "nav.main"}}">
         <a href="/" class="nav-btn btn d-flex flex-column align-items-center py-2{{#if home}} active{{/if}}"{{#if home}} aria-current="page"{{/if}}>{{> logo width=33 height=24 class="nav-logo"}}<span class="nav-label">{{t "nav.home"}}</span></a>
@@ -120,7 +80,6 @@
 {{/each}}
             {{> theme-switch}}
     </nav>
-{{/if}}
 
     <!-- Live region for screen reader announcements (visually hidden) -->
     <div id="sr-announcer" aria-live="polite" aria-atomic="true" class="sr-only"></div>

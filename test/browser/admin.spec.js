@@ -20,17 +20,20 @@ const STOPPED = {
     ],
 };
 
-test('the admin pages have no bottom nav on a phone: logged in, nothing is a tap away from leaving', async ({ page }, testInfo) => {
+test('the admin pages have no navigation on any screen: logged in, nothing is a tap away from leaving', async ({ page }) => {
     await page.goto('/admin/login');
-    await expect(page.locator('#bottom-nav, #site-menu')).toHaveCount(0);
+    await expect(page.getByRole('navigation')).toHaveCount(0);
     await page.getByLabel('Password').fill(ADMIN_TEST_PASSWORD);
     await page.getByRole('button', { name: 'Log in' }).click();
     await expect(page).toHaveURL(/\/admin\/stations$/);
-    await expect(page.locator('#bottom-nav, #site-menu')).toHaveCount(0);
-    // No room kept at the bottom for a bar that isn't there
-    expect(await page.locator('#app-content').evaluate(el => getComputedStyle(el).paddingBottom)).toBe('0px');
-    // Wider screens keep the sidebar
-    if (testInfo.project.name === 'desktop') await expect(page.locator('#side-nav')).toBeVisible();
+    await expect(page.getByRole('navigation')).toHaveCount(0);
+    // The page starts at the top left, with no room kept for a bar or a sidebar
+    const box = await page.locator('main').boundingBox();
+    expect([box.x, box.y]).toEqual([0, 0]);
+    // The pages link to each other
+    await page.getByRole('link', { name: 'Diagnostics' }).click();
+    await expect(page).toHaveURL(/\/admin\/diagnostics$/);
+    await expect(page.getByRole('navigation')).toHaveCount(0);
 });
 
 test('diagnostics: a bus network fetch that stopped shows how far it got, as a bar', async ({ page }) => {
