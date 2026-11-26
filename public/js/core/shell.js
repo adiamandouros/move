@@ -95,15 +95,53 @@ if ('serviceWorker' in navigator) {
 
 // ── Toast ────────────────────────────────────────────────────────────────────
 
-// A short message above the navigation that goes away by itself (Bootstrap's toast)
+// How long the page has to stay still before the toast shows
+const QUIET_MS = 2000;
+
+// A short message above the navigation that goes away by itself (Bootstrap's
+// toast). It waits for a quiet moment, so it never covers what's being typed
+// or drawn: no text field has the keyboard, and the page hasn't changed for
+// QUIET_MS (an answer still coming in). Shown, it goes as soon as the person
+// scrolls or touches the page, to read what's under it.
 /** @param {string} message @param {string} icon */
 function toast(message, icon) {
+    const content = document.getElementById('app-content') ?? document.body;
+    const typing = () => document.activeElement?.matches('input, textarea, select, [contenteditable]') ?? false;
+    let timer = 0;
+    const wait = () => {
+        clearTimeout(timer);
+        timer = window.setTimeout(ready, QUIET_MS);
+    };
+    const changes = new MutationObserver(wait);
+    // Typing: it waits for the field to be left (focusout)
+    const ready = () => {
+        if (typing()) return;
+        changes.disconnect();
+        document.removeEventListener('focusout', wait);
+        showToast(message, icon);
+    };
+    changes.observe(content, { childList: true, subtree: true, characterData: true });
+    document.addEventListener('focusout', wait);
+    wait();
+}
+
+/** @param {string} message @param {string} icon */
+function showToast(message, icon) {
     const el = document.createElement('div');
     el.className = 'toast toast-message';
     el.setAttribute('role', 'status');
     el.setAttribute('aria-atomic', 'true');
     setHtml(el, html`<div class="toast-body">${iconHtml(icon)}<span>${message}</span></div>`);
     document.body.append(el);
-    el.addEventListener('hidden.bs.toast', () => el.remove());
-    window.bootstrap.Toast.getOrCreateInstance(el, { delay: 4000 }).show();
+    const shown = window.bootstrap.Toast.getOrCreateInstance(el, { delay: 4000 });
+    // A scroll doesn't bubble: caught on its way down, from whatever scrolls
+    const away = () => shown.hide();
+    document.addEventListener('scroll', away, { capture: true, passive: true });
+    document.addEventListener('pointerdown', away, true);
+    el.addEventListener('hidden.bs.toast', () => {
+        document.removeEventListener('scroll', away, true);
+        document.removeEventListener('pointerdown', away, true);
+        el.remove();
+    });
+    shown.show();
 }

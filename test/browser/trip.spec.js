@@ -1871,3 +1871,22 @@ async function pickBothFrom(page) {
     await to(page).fill('Συγγρού-Φιξ');
     await list(page, 'to').first().click();
 }
+
+test.describe('"Other ways" under the legend', () => {
+    test.beforeEach(onlyOn('phone'));
+
+    test('starts clear of the legend above it', async ({ page }) => {
+        // Station to station: metro ways, each with its train
+        await page.goto('/trip');
+        await from(page).fill('Kifisia');
+        await list(page, 'from').first().click();
+        await to(page).fill('Syntagma');
+        await list(page, 'to').first().click();
+        const legend = page.locator('#trip-result details.diagram-legend');
+        const heading = page.locator('#trip-result h2.route-option-label');
+        await expect(legend).toBeVisible();
+        await expect(heading).toBeVisible();
+        const [above, below] = [await legend.boundingBox(), await heading.boundingBox()];
+        expect(below.y - (above.y + above.height)).toBeGreaterThanOrEqual(23.5);
+    });
+});

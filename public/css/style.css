@@ -1453,6 +1453,8 @@ body {
    unless closed, a small car beside each meaning, drawn as in the diagram */
 .diagram-legend {
     margin-top: var(--wh-space-4);
+    /* What comes after it ("Other ways" on the Trip page) starts clear of it */
+    margin-bottom: var(--wh-space-6);
     padding: var(--wh-space-3) var(--wh-space-4);
     border: 1px solid var(--bs-border-color);
     border-radius: var(--wh-radius-lg);

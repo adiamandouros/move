@@ -1,5 +1,5 @@
 import { language, localHref, t } from '/js/core/i18n.js';
-import { format, formatDate, formatHtml, html, icon, localName, notice, walkingUrl as walkingTo } from '/js/core/html.js';
+import { closableNotice, format, formatDate, formatHtml, html, icon, localName, notice, walkingUrl as walkingTo } from '/js/core/html.js';
 import { liftNotice, liftSummary, metroStations, ridePlatforms, stationPlatforms, stepFreeGaps } from '/js/core/lifts.js';
 import { linePill, pillList, stationSign } from '/js/core/lines.js';
 import { epochAt, minutesBadge, minutesLeft, minutesMark, minutesWords, timeBadge } from '/js/core/times.js';
@@ -305,16 +305,19 @@ function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, op
 // legend: whether the legend is open (legendOpen() in metro.js)
 // lifts: the lifts out of service (watchLifts() in /js/core/lifts.js), or null
 // liftsOpen: whether their notice is open (liftsOpen() in metro.js)
+// timetableOpen: whether the warning that the timetable has ended is open
+// (timetableOpen() in metro.js); it's one closed line otherwise
 // from, to: where the trip starts and ends, for a walk from the first leg or to the last
 /**
  * @param {Rail} rail @param {PlannedRoute[]} plans @param {AthensTime} now
  * @param {{ expired?: boolean, tomorrow?: boolean, open?: Record<string, boolean>, stations?: Record<string, boolean>, legend?: boolean,
- *   lifts?: Lifts | null, liftsOpen?: boolean, from?: string | null, to?: string | null }} options
+ *   lifts?: Lifts | null, liftsOpen?: boolean, timetableOpen?: boolean, from?: string | null, to?: string | null }} options
  */
-export function renderResult(rail, plans, now, { expired, tomorrow = false, open = {}, stations = {}, legend = true, lifts = null, liftsOpen = true, from = null, to = null }) {
+export function renderResult(rail, plans, now, { expired, tomorrow = false, open = {}, stations = {}, legend = true, lifts = null, liftsOpen = true, timetableOpen = false, from = null, to = null }) {
     if (!plans.length) return renderMessage('subway.no-route');
     const liftsNotice = liftNotice(lifts, tripStations(rail, plans), id => stationName(rail, id), tripGaps(rail, plans), liftsOpen);
-    const oldNotice = expired && notice('warn', 'warning', format(t('subway.timetable-old'), { date: formatDate(rail.feed.validTo) }), 'timetable-notice mb-3');
+    const oldNotice = expired && closableNotice('warn', 'warning', format(t('subway.timetable-old'), { date: formatDate(rail.feed.validTo) }),
+        t('subway.timetable-old-more'), 'timetable-notice mb-3', timetableOpen);
     const tomorrowNotice = tomorrow && notice('info', 'night', t('subway.tomorrow'), 'tomorrow-notice mb-3');
     const times = plans.map(r => tripTime(rail, r, now));
     const first = Math.min(...times.map(time => time ? Math.floor(time.arrives / 60) : Infinity));

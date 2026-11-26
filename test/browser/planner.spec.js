@@ -77,6 +77,40 @@ test.describe('noon on Wednesday 28 October, a holiday', () => {
     });
 });
 
+test.describe('noon on 2 November, after the OASA timetable ended (31 October)', () => {
+    test.use({ now: '2026-11-02T12:00:00+02:00' });
+
+    test('the warning is one closed line above the answer; opened, it stays open through the refresh; the next page starts closed', async ({ page }) => {
+        await page.goto('/subway?from=kifisia&to=syntagma');
+        const warning = page.locator('details.timetable-notice');
+        const summary = warning.locator('summary');
+        await expect(summary).toHaveText('The OASA timetable ended on 31/10/2026');
+        await expect(warning).not.toHaveAttribute('open');
+        await expect(warning.locator('.notice-body')).toBeHidden();
+        // One line: no taller than the lines of words beside it
+        const { height } = await summary.boundingBox();
+        expect(height).toBeLessThan(40);
+        expect(await axe(page)).toEqual([]);
+
+        // With the keyboard
+        await summary.focus();
+        await page.keyboard.press('Enter');
+        await expect(warning.locator('.notice-body')).toHaveText('Departure times come from it, so they may have changed since.');
+
+        // The 30-second refresh draws it again: still open, still focused
+        await warning.evaluate(el => el.setAttribute('data-before-refresh', ''));
+        await page.clock.runFor(30_000);
+        await expect(page.locator('[data-before-refresh]')).toHaveCount(0);
+        await expect(warning).toHaveAttribute('open', '');
+        await expect(summary).toBeFocused();
+
+        // Another page: closed again
+        await page.goto('/subway?from=kifisia&to=airport');
+        await expect(warning).toHaveCount(1);
+        await expect(warning).not.toHaveAttribute('open');
+    });
+});
+
 test('a change of line, with the whole trip\'s arrival and length at the top', async ({ page }) => {
     await page.goto('/subway?from=kifisia&to=aigaleo');
     await expect(page.locator('.result-card').first()).toBeVisible();

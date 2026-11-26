@@ -1,7 +1,7 @@
 import { announce, format, formatHtml, html, localName, notice, setHtml } from '/js/core/html.js';
 import { language, t } from '/js/core/i18n.js';
 import { watchLifts } from '/js/core/lifts.js';
-import { legendOpen, liftsOpen } from '/js/core/metro.js';
+import { legendOpen, liftsOpen, timetableOpen } from '/js/core/metro.js';
 import { lastPosition, locationPermission, onLocation, onLocationProblem, showFollowing, startLocation } from '/js/core/location.js';
 import { countBadges, minutesMark, minutesWords } from '/js/core/times.js';
 import { athensClock, athensNow, closestStation, isTimetableExpired, withSuburban, withTram } from '/tools/subway/network.js';
@@ -249,7 +249,7 @@ function start(metro) {
         if (!to) return;
         const expired = isTimetableExpired(rail, now);
         const { seconds: clock, epoch, weekday, date } = athensClock();
-        const cards = { weekday, date, stations: openedLegs(), stops: openedStops(), legend: legendOpen() };
+        const cards = { weekday, date, stations: openedLegs(), stops: openedStops(), legend: legendOpen(), timetableOpen: timetableOpen() };
         const known = lifts();
         const shown = view
             ? renderHalf(drawnOn(date), view.kind, ways, to, { now: clock, epoch, expired, longWalk: isLongWalk(ways[0].o), ...view,

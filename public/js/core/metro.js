@@ -149,8 +149,17 @@ const keptOpen = selector => localStore.get(KEPT_CLOSED[selector]) !== '1';
 export const legendOpen = () => keptOpen('details.diagram-legend');
 export const liftsOpen = () => keptOpen('details.lift-notice');
 
+// The warning that the metro timetable has ended (Subway and Trip) is one
+// line, closed, on every page: it says the same every day until a new
+// timetable is out, and the "~" already marks each time it touches. Opened,
+// it stays open while that page draws its answer again; the next page starts
+// closed. Not kept on the device.
+let timetableOpened = false;
+export const timetableOpen = () => timetableOpened;
+
 // Run once per page (shell.js): close the page's legends and step-free
-// notices if they were closed, and remember each one opened or closed
+// notices if they were closed, and remember each one opened or closed (the
+// timetable warning only for the page)
 export function rememberClosed() {
     for (const selector of Object.keys(KEPT_CLOSED)) {
         if (!keptOpen(selector)) /** @type {NodeListOf<HTMLDetailsElement>} */ (document.querySelectorAll(selector)).forEach(details => { details.open = false; });
@@ -158,6 +167,7 @@ export function rememberClosed() {
     // toggle doesn't bubble: caught on its way down
     document.addEventListener('toggle', e => {
         const details = /** @type {HTMLDetailsElement} */ (e.target);
+        if (details.matches?.('details.timetable-notice')) timetableOpened = details.open;
         const selector = Object.keys(KEPT_CLOSED).find(sel => details.matches?.(sel));
         if (!selector) return;
         if (details.open) localStore.remove(KEPT_CLOSED[selector]);
