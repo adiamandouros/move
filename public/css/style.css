@@ -1179,6 +1179,43 @@ body {
     white-space: nowrap;
 }
 
+/* Opening a list (decision 82): the legend, a closable notice, a route on
+   the Subway page and the Trip page's other ways open to their height and
+   close the same way, rather than jumping; the stations on the way too,
+   when they're tapped open or closed (.leg-stations-moving, set by the tap
+   alone, so a refresh doesn't replay it). A browser without it just opens */
+@media (prefers-reduced-motion: no-preference) {
+    details {
+        interpolate-size: allow-keywords;
+    }
+
+    details::details-content {
+        block-size: 0;
+        overflow: clip;
+        transition: block-size 0.28s cubic-bezier(0.3, 0.7, 0.4, 1), content-visibility 0.28s allow-discrete;
+    }
+
+    details[open]::details-content {
+        block-size: auto;
+    }
+
+    .leg-stations-moving {
+        interpolate-size: allow-keywords;
+        overflow: clip;
+        transition: height 0.28s cubic-bezier(0.3, 0.7, 0.4, 1), display 0.28s allow-discrete;
+    }
+
+    .leg-stations-moving[hidden] {
+        height: 0;
+    }
+
+    @starting-style {
+        .leg-stations-moving:not([hidden]) {
+            height: 0;
+        }
+    }
+}
+
 /* How a badge just changed (decision 82, MOTION in times.js), once: its
    minute counted down rolls up, it grows once as it turns due, a fresh
    answer's change gets one ring. Nothing with reduced motion */

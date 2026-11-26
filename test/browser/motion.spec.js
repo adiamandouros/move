@@ -108,3 +108,56 @@ test.describe('times', () => {
         });
     });
 });
+
+// Decision 82's lists: opened or closed, they slide to their height; the
+// stations on the way only when tapped, not when the page draws them again.
+// Told by the transition the browser has set up for them (sampling their
+// heights as they move depends on how busy the machine is)
+test.describe('opening lists', () => {
+    test.beforeEach(({}, { project }) => test.skip(project.name !== 'phone', 'one phone: the same CSS everywhere'));
+
+    // How a list's height moves: its transition, and whether it can go to
+    // and from `auto`. Read again while the page draws it anew under the
+    // reading (the lifts' statuses coming), till one is read on the page
+    const sliding = async (locator, pseudo = null) => {
+        let found = null;
+        await expect.poll(async () => (found = await slidingNow(locator, pseudo))).not.toBeNull();
+        return found;
+    };
+    const slidingNow = (locator, pseudo) => locator.evaluate((el, pseudo) => {
+        if (!el.isConnected) return null;
+        const style = getComputedStyle(el, pseudo);
+        const sized = style.transitionProperty.split(', ').findIndex(p => p === 'block-size' || p === 'height');
+        return sized !== -1 && parseFloat(style.transitionDuration.split(', ')[sized]) > 0 && getComputedStyle(el).interpolateSize === 'allow-keywords';
+    }, pseudo);
+
+    test('the legend and the stations on the way slide open and shut; a refresh doesn\'t replay it', async ({ page }) => {
+        await page.goto('/subway?from=kifisia&to=airport');
+        const legend = page.locator('details.diagram-legend').first();
+        expect(await sliding(legend, '::details-content')).toBe(true);
+        await legend.locator('summary').click();
+        await expect(legend).not.toHaveAttribute('open');
+
+        const stations = page.locator('.leg-stations').first();
+        expect(await sliding(stations), 'not before it\'s tapped').toBe(false);
+        await page.locator('.leg-stops-toggle').first().click();
+        await expect(stations).toBeVisible();
+        expect(await sliding(stations), 'tapped').toBe(true);
+        // The page's next drawing (every 30 s): open, and still
+        await page.clock.runFor(31_000);
+        await expect(page.locator('.leg-stations').first()).toBeVisible();
+        await expect(page.locator('.leg-stations-moving')).toHaveCount(0);
+        expect(await sliding(page.locator('.leg-stations').first())).toBe(false);
+    });
+
+    test.describe('with reduced motion', () => {
+        test.use({ reducedMotion: 'reduce' });
+
+        test('they open at once', async ({ page }) => {
+            await page.goto('/subway?from=kifisia&to=airport');
+            expect(await sliding(page.locator('details.diagram-legend').first(), '::details-content')).toBe(false);
+            await page.locator('.leg-stops-toggle').first().click();
+            expect(await sliding(page.locator('.leg-stations').first())).toBe(false);
+        });
+    });
+});
