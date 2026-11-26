@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
-import { departures, findRoutes, planTrip, suburbanStation, withSuburban, withTram } from '../tools/subway/client/network.js';
+import { departures, findRoutes, planTrip, stationByKey, suburbanStation, withSuburban, withTram } from '../tools/subway/client/network.js';
 
 // The suburban railway in the subway planner (tools/subway/client/network.js,
 // decision 41): withSuburban joins trains.json to the metro and the tram, on
@@ -200,4 +200,23 @@ test('trains ending at the same station that pass stations in opposite orders go
     assert.deepEqual(sorted(joined.lines.A4.directions), ['piraeus', 'piraeus-2', 'tavros']);
     assert.deepEqual(joined.lines.A4.directions['piraeus-2'].stops.map(stop => stop.station), ['tavros-suburban', 'athens', 'piraeus-suburban']);
     assert.equal(joined.lines.A4.directions['piraeus-2'].toward.en, 'Piraeus');
+});
+
+// A star's key (favourites.js) is the station's id in the joined network:
+// stationByKey finds every one from the files alone, before joining
+test('stationByKey finds every station of the joined network by its key', () => {
+    for (const [key, station] of Object.entries(network.stations)) {
+        const found = stationByKey(rail, trains, key);
+        const kind = station.suburban ? 'suburban' : station.tram ? 'tram' : 'metro';
+        assert.deepEqual(found && { coords: found.coords, kind: found.kind }, { coords: station.coords, kind }, key);
+        // A name another network has too gets the network after it once joined
+        assert.ok(station.name.en.startsWith(found.name.en), key);
+    }
+    assert.equal(stationByKey(rail, trains, 'syntagma-tram').kind, 'tram');
+    assert.equal(stationByKey(rail, trains, 'syntagma').kind, 'metro');
+    assert.equal(stationByKey(rail, trains, 'piraeus-suburban').kind, 'suburban');
+    assert.equal(stationByKey(rail, trains, 'nowhere'), null);
+    // Without trains.json, the railway's stations aren't known yet
+    assert.equal(stationByKey(rail, null, 'megara'), null);
+    assert.equal(stationByKey(rail, null, 'piraeus-suburban'), null);
 });

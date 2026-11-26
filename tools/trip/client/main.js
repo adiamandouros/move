@@ -8,6 +8,7 @@ import { athensClock, athensNow, closestStation, isTimetableExpired, withSuburba
 import { watchLegStations } from '/tools/subway/render.js';
 import { suburbanHidden, tramHidden } from '/tools/subway/tram-switch.js';
 import { forgetTrip, keepPicked, keepRide, keepTrip, keptTrip } from './kept.js';
+import { linkedKey, linkedPlace, withoutLink } from './link.js';
 import { arrivalsUrl, stopLive } from './live.js';
 import { doorToDoor, isLongWalk } from './plan.js';
 import { placePicker } from './picker.js';
@@ -485,14 +486,34 @@ function start(metro) {
         if (input.value) input.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
+    // A station linked to (/trip?to=syntagma, link.js): taken out of the
+    // address at once, so a reload keeps the trip as any other
+    const linked = toInput.value ? null : linkedKey(location.search);
+    if (linked) history.replaceState(history.state, '', withoutLink(location.href));
     // The trip kept from earlier in this session, unless something was typed
-    // first. With no start kept, My location starts it as below
-    const kept = !fromInput.value && !toInput.value ? keptTrip(Date.now()) : null;
+    // first or a link says where to go. With no start kept, My location
+    // starts it as below
+    const kept = !linked && !fromInput.value && !toInput.value ? keptTrip(Date.now()) : null;
     const keptFrom = kept?.from ? placeFor(kept.from) : null;
     const keptTo = kept?.to ? placeFor(kept.to) : null;
     tell({ type: 'kept', from: keptFrom, to: keptTo, picked: kept?.picked ?? null });
     if (keptFrom) { fromInput.value = keptFrom.title; sayExact(fromPicker, keptFrom); }
     if (keptTo) { toInput.value = keptTo.title; sayExact(toPicker, keptTo); }
+    // The linked station is To, as if picked; a suburban station's name
+    // waits for trains.json. Not over what's been typed or picked meanwhile
+    if (linked) {
+        /** @param {import('../../../types/data.js').Trains | null} trains */
+        const linkTo = trains => {
+            const found = linkedPlace(metro, trains, linked, language);
+            if (!found || toInput.value) return Boolean(found);
+            const place = placeFor(found);
+            toInput.value = place.title;
+            sayExact(toPicker, place);
+            tell({ type: 'to', place, say: false });
+            return true;
+        };
+        if (!linkTo(null)) loadTrains().then(trains => trains && linkTo(trains));
+    }
     // The ride followed from My location when the page was last open
     // (decision 58): taken up below, in place of a start from where the rider is
     const resume = kept?.ride && !kept.from && trip.to ? kept.ride : null;
