@@ -151,6 +151,17 @@ export async function axe(page) {
         // decision 82), which waits there until it's opened.
         const fading = a => a.playState === 'running' && a.effect?.getComputedTiming().iterations !== Infinity && a.effect?.target?.checkVisibility() !== false;
         while (document.getAnimations().some(fading)) await new Promise(r => setTimeout(r, 20));
+        // A list sliding open or shut (::details-content, decision 82) isn't
+        // among the page's animations in Chromium: waited for till every
+        // list's height holds, or half-revealed rows would be measured
+        const heights = () => [...document.querySelectorAll('details')].map(d => d.getBoundingClientRect().height).join();
+        let was = heights();
+        for (;;) {
+            await new Promise(r => setTimeout(r, 50));
+            const now = heights();
+            if (now === was) break;
+            was = now;
+        }
         const { violations } = await window.axe.run(document, { runOnly: tags });
         return violations.map(v => `${v.id} (${v.nodes.length}): ${v.nodes[0].target.join(' ')}`);
     }, AXE_TAGS);
