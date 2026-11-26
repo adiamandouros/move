@@ -87,13 +87,37 @@ test('the minutes badge: colour by how soon, short on screen, in full for screen
 test('one arrival: line, destination and minutes, as a screen reader hears it', async () => {
     const el = await browserModule('tools/buses/client/render.js', 'el');
     const row = String(el.arrivalRow(arrivals[1]));
-    assert.match(row, /^\s*<li class="arrival-row /);
+    assert.match(row, /^\s*<li class="arrival-row">/);
     assert.match(row, /time-close/);
-    assert.equal(spoken(row).replace(/\s+/g, ' '), 'Γραμμή 040 , ΠΕΙΡΑΙΑΣ, 7 λεπτά');
-    assert.match(row, /<span class="bus-plate pill-m"><span class="sr-only">Γραμμή <\/span>040<\/span>/);
+    assert.equal(spoken(row).replace(/\s+/g, ' ').trim(), 'Γραμμή 040 , ΠΕΙΡΑΙΑΣ, 7 λεπτά');
+    // As large as the closed row's next bus (decision 79)
+    assert.match(row, /<span class="bus-plate pill-l"><span class="sr-only">Γραμμή <\/span>040<\/span>/);
 });
 
-test('every arrival is listed; an unknown line or destination says so', async () => {
+// Decision 79: a line to one place is one row, its next bus at the right and
+// the next two "then in" under where it goes; the same line elsewhere, or
+// another line there, a row of its own, in the order of their first bus
+test('one row a line and where it goes: the next bus, then the next two', async () => {
+    const { arrivalRows } = await browserModule('tools/buses/client/render.js', 'en');
+    const airport = { el: 'ΑΕΡΟΔΡΟΜΙΟ', en: 'AIRPORT' };
+    const html = String(arrivalRows({ arrivals: [
+        { line: 'Χ95', to: airport, minutes: 3 },
+        { line: '040', to: { en: 'PIRAEUS' }, minutes: 7 },
+        { line: 'Χ95', to: airport, minutes: 15 },
+        { line: 'Χ95', to: { en: 'SYNTAGMA' }, minutes: 20 },
+        { line: 'Χ95', to: airport, minutes: 31 },
+        { line: 'Χ95', to: airport, minutes: 41 },
+    ] }));
+    const rows = html.split('<li class="arrival-row">').slice(1);
+    assert.equal(rows.length, 3);
+    assert.equal(spoken(rows[0]).replace(/\s+/g, ' ').trim(), 'Line Χ95 , AIRPORT, 3 minutes, arriving soon , then in 15 minutes, 31 minutes');
+    assert.ok(!rows[0].includes("41'"), 'two after the first, no more');
+    assert.match(rows[1], /PIRAEUS/);
+    assert.ok(!rows[1].includes('arrival-then'), 'one bus: nothing after it');
+    assert.match(rows[2], /SYNTAGMA/);
+});
+
+test('every line is listed; an unknown line or destination says so', async () => {
     const { arrivalRows } = await browserModule('tools/buses/client/render.js', 'en');
     const html = String(arrivalRows({ arrivals }));
     assert.equal((html.match(/class="arrival-row/g) ?? []).length, 3);
@@ -219,12 +243,34 @@ test('results look tappable: an arrow on each, and a hint that says what tapping
     for (const link of links) assert.match(link, /<svg class="icon search-result-arrow" aria-hidden="true">/);
 });
 
-test('a stop\'s star, beside its walking directions, says which stop it stars; the favourites\' rows have their own ids', async () => {
+// Decision 79: the code isn't one more number on the stop's line; screen
+// readers hear it with the name (five headings called SYNTAGMA), and the
+// opened stop shows it, as on its sign
+test('a stop\'s code: heard with its name, seen only once it\'s opened', async () => {
+    for (const lang of ['en', 'el']) {
+        const { stopItem } = await browserModule('tools/buses/client/render.js', lang);
+        const html = String(stopItem(stop, 0));
+        const button = html.split('</button>')[0];
+        const body = html.slice(html.indexOf('accordion-collapse'));
+        assert.ok(button.includes(`<span class="sr-only">, ${lang === 'en' ? 'stop code' : 'κωδικός στάσης'} 10361</span>`), button);
+        const seen = button.replace(/<span class="sr-only">[^<]*<\/span>/g, '').replace(/<[^>]*>/g, '');
+        assert.equal(seen.includes('10361'), false, 'not seen on the stop\'s line');
+        // After its lines, which matter more (the page puts it at their right)
+        assert.ok(body.includes(`<p class="stop-code mb-0">${lang === 'en' ? 'Stop' : 'Στάση'} 10361</p>`), body);
+        assert.ok(body.indexOf('stop-code') > body.indexOf('stop-lines'), 'after the lines');
+    }
+});
+
+test('a stop\'s star, on its line before its walking directions, says which stop it stars; the favourites\' rows have their own ids', async () => {
     const { stopItem } = await browserModule('tools/buses/client/render.js', 'en');
     const html = String(stopItem(stop, 3));
     assert.match(html, /<button type="button" class="favourite-btn stop-favourite" data-favourite="stop" data-key="10361" aria-pressed="false">/);
     assert.match(html, /<span class="sr-only">Favourite: SYNTAGMA 10361<\/span><\/button>/);
-    assert.ok(html.indexOf('data-favourite') > html.indexOf('header-badge-wrap') && html.indexOf('data-favourite') < html.indexOf('directions-btn'), 'between the minutes and the walking directions');
+    // On the stop's line, after its button, before the walking directions (so
+    // the keyboard reaches them in that order); the next bus's minutes after
+    // both, on the next bus's line (decision 79)
+    assert.ok(html.indexOf('data-favourite') > html.indexOf('</button>') && html.indexOf('data-favourite') < html.indexOf('directions-btn'), 'after the stop\'s button, before the walking directions');
+    assert.ok(html.indexOf('header-badge-wrap') > html.indexOf('directions-btn'), 'the minutes after both');
     const favourite = String(stopItem(stop, 3, { id: 'fav-stop' }));
     assert.match(favourite, /data-bs-target="#fav-stop-3"[^>]*aria-controls="fav-stop-3"/);
     assert.match(favourite, /<div id="fav-stop-3" class="accordion-collapse/);

@@ -110,27 +110,36 @@ test.describe('at large text', () => {
         await expect(diagram.locator('.position-words .highlighted')).toHaveText(/^Ride in: \S/);
     });
 
-    test('a bus stop\'s row puts the stop on a line of its own', async ({ page }) => {
+    // Decision 79: the stop's line keeps its star and walking directions at
+    // its end; the next bus's destination goes under its plate, on as many
+    // lines as it needs, and nothing leaves the row
+    test('a bus stop\'s row puts where its next bus goes under the plate', async ({ page }) => {
         await page.goto('/buses');
         const header = page.locator('.stop-header').first();
         await expect(header.locator('.time-badge')).toBeVisible();
-        // Opened, so its star shows
-        await header.locator('.stop-toggle').tap();
-        await expect(header.locator('.stop-favourite')).toBeVisible();
         const side = async () => {
-            const [label, next] = await Promise.all(['.stop-label', '.stop-next-bus'].map(s => header.locator(s).boundingBox()));
-            return next.x >= label.x + label.width - 1 ? 'beside' : next.y >= label.y + label.height - 1 ? 'under' : 'overlapping';
+            const [plate, dest] = await Promise.all(['.next-bus-line', '.next-bus-dest'].map(s => header.locator(s).boundingBox()));
+            return dest.x >= plate.x + plate.width - 1 ? 'beside' : dest.y >= plate.y + plate.height - 1 ? 'under' : 'overlapping';
         };
         expect(await side()).toBe('beside');
         await big(page);
         await expect.poll(side).toBe('under');
-        // the stop's band runs the row's whole width, and the time, the star and directions sit inside the row
-        const [row, label, time, star, directions] = await Promise.all(['.stop-header', '.stop-label', '.time-badge', '.stop-favourite', '.directions-btn'].map(s => header.locator(s === '.stop-header' ? ':scope' : s).first().boundingBox()));
-        expect(label.width).toBeGreaterThanOrEqual(row.width - 2);
-        for (const box of [time, star, directions]) {
-            expect(box.x + box.width).toBeLessThanOrEqual(row.x + row.width + 1);
-            expect(box.y).toBeGreaterThanOrEqual(label.y + label.height - 1);
-        }
+        const [row, name, dest, time, star, directions] = await Promise.all(['.stop-header', '.stop-name', '.next-bus-dest', '.time-badge', '.stop-favourite', '.directions-btn'].map(s => header.locator(s === '.stop-header' ? ':scope' : s).first().boundingBox()));
+        for (const box of [time, star, directions]) expect(box.x + box.width).toBeLessThanOrEqual(row.x + row.width + 1);
+        for (const box of [star, directions]) expect(box.y).toBeLessThan(name.y + name.height);
+        expect(time.y).toBeGreaterThanOrEqual(name.y + name.height - 1);
+        // An opened stop: each line's plate and time on one line, where it goes under them
+        await header.locator('.stop-toggle').tap();
+        const bus = page.locator('.stop-item').first().locator('.arrival-row').first();
+        await expect(bus).toBeVisible();
+        const [plate, badge, where] = await Promise.all(['.bus-plate', '.time-badge', '.arrival-dest'].map(s => bus.locator(s).first().boundingBox()));
+        expect(Math.abs(badge.y - plate.y)).toBeLessThan(plate.height);
+        expect(where.y).toBeGreaterThanOrEqual(plate.y + plate.height - 1);
+        await header.locator('.stop-toggle').tap();
+        await expect(page.locator('.stop-item').first().locator('.accordion-collapse')).toBeHidden();
+        // Not cut short: the whole destination shows
+        expect(await header.locator('.next-bus-dest').evaluate(e => e.scrollHeight <= e.clientHeight + 1)).toBe(true);
+        expect(dest.y + dest.height).toBeLessThanOrEqual(row.y + row.height + 1);
     });
 
     test('a step of a trip puts its time or minutes on a line of their own', async ({ page }) => {

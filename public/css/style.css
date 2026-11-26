@@ -566,12 +566,24 @@ body {
     border-bottom: 1px solid var(--wh-divider) !important;
 }
 
+/* A stop's row (DESIGN.md, "List rows", decision 79): the stop's line on
+   top, its name, code and distance, its star and walking directions at the
+   right end; under it the next bus across the row's whole width, where it
+   goes on up to two lines, its time at the right. The heading's button
+   holds both lines and takes the rows of the grid (subgrid), so each line
+   sits level with what's beside it */
 .stop-header {
-    min-height: 4rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
 }
 
 /* The heading around each stop's button only adds structure */
 .stop-heading {
+    grid-row: 1 / 3;
+    grid-column: 1;
+    display: grid;
+    grid-template-rows: subgrid;
     min-width: 0;
     margin: 0;
     font-size: var(--wh-fs-md);
@@ -580,14 +592,18 @@ body {
 }
 
 /* Override Bootstrap accordion button defaults */
-.stop-toggle {
+.stop-header .stop-toggle {
+    grid-row: 1 / 3;
+    display: grid;
+    grid-template-rows: subgrid;
+    align-items: center;
     background-color: transparent !important;
     box-shadow: none !important;
     border: none;
     color: var(--bs-body-color) !important;
     padding: 0;
     min-width: 0;
-    overflow: hidden;
+    text-align: left;
 }
 
 .stop-toggle::after {
@@ -600,40 +616,49 @@ body {
     border-radius: var(--wh-radius-sm);
 }
 
-/* Left block: stop name + distance */
+/* The stop's line: name, code and distance, wrapping at large text */
 .stop-label {
-    width: 5rem;
-    min-width: 5rem;
-    height: 100%;
-    min-height: 4rem;
-    background-color: var(--bs-secondary-bg);
-    padding: 0.375rem var(--wh-space-1);
-    border-right: 1px solid var(--bs-border-color);
-    flex-shrink: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: var(--wh-space-3);
+    padding: var(--wh-space-2) 0 0 var(--wh-space-3);
+    min-width: 0;
 }
 
 .stop-name {
-    /* 0.75rem (~12px) — minimum readable size */
-    font-size: var(--wh-fs-xs);
     font-weight: 600;
-    /* var(--wh-text-strong) meets WCAG AA against var(--bs-secondary-bg) */
     color: var(--wh-text-strong);
-    line-height: 1.2;
-    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 .stop-distance {
-    font-size: var(--wh-fs-xs);
+    font-size: var(--wh-fs-sm);
     color: var(--bs-primary-text-emphasis);
-    margin-top: 0.1875rem;
 }
 
-/* A stop's code, as on its sign: what tells same-named stops apart */
+/* Opened, under the buses: the stop's lines, then its code as on its sign
+   (decision 79), smaller, at the right end of the lines' last line, or
+   under it at the right when that's full (a float after the lines). Not on
+   the stop's line, where it was one number too many to read; screen
+   readers hear it with the name */
+.stop-foot {
+    display: flow-root;
+    padding: var(--wh-space-1) var(--wh-space-3) 0;
+}
+
+.stop-foot .stop-lines {
+    display: inline;
+}
+
 .stop-code {
+    float: right;
+    margin-left: var(--wh-space-3);
     font-size: var(--wh-fs-xs);
+    line-height: 1.75rem;
     color: var(--bs-secondary-color);
     font-variant-numeric: tabular-nums;
-    margin-top: 0.125rem;
+    white-space: nowrap;
 }
 
 /* On a line: the stop nearest to you */
@@ -642,44 +667,79 @@ body {
 }
 
 .stop-nearest-note {
-    font-size: var(--wh-fs-xs);
+    font-size: var(--wh-fs-sm);
     font-weight: 600;
     color: var(--bs-primary-text-emphasis);
-    margin-top: 0.125rem;
 }
 
-.stop-nearest .stop-label {
+.stop-nearest .stop-header {
     border-left: 4px solid var(--bs-primary);
 }
 
-/* Middle: next bus — shrinks and truncates */
+/* The next bus, across the row */
 .stop-next-bus {
-    padding: 0 var(--wh-space-3);
+    display: flex;
+    align-items: center;
+    gap: var(--wh-space-2);
+    padding: 0 0 var(--wh-space-2) var(--wh-space-3);
     min-width: 0;
-    overflow: hidden;
+}
+
+/* Opened, the list under it starts with the next bus: it isn't said twice */
+.stop-item[data-has-arrivals="true"]:has(.stop-toggle:not(.collapsed)) :is(.stop-next-bus, .header-badge-wrap) {
+    display: none;
 }
 
 .next-bus-line {
     flex-shrink: 0;
 }
 
+/* Every plate in a stop as wide, so where each bus goes starts at one edge */
+.stop-item :is(.next-bus-line, .arrival-row) .bus-plate {
+    min-width: 3.4rem;
+}
+
+/* Where it goes is what decides whether to get on: two lines before it's
+   cut short */
 .next-bus-dest {
     font-size: var(--wh-fs-md);
     color: var(--wh-text-soft);
-    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
     overflow: hidden;
-    text-overflow: ellipsis;
+    overflow-wrap: break-word;
     min-width: 0;
 }
 
-/* Fixed right section: badge + directions */
-.stop-header-fixed {
-    flex-shrink: 0;
-    gap: 0;
+/* The star and the walking directions, at the stop's line's right end, as
+   tall as it */
+.stop-actions {
+    grid-row: 1;
+    grid-column: 2;
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-end;
+    min-height: 2.5rem;
 }
 
-/* Right: directions button, the row's full height: a target big enough to
-   tap (and for axe's target-size) even when the floating buttons cover part of it */
+/* The next bus's time, at the end of its line */
+.header-badge-wrap {
+    grid-row: 2;
+    grid-column: 2;
+    align-self: center;
+    justify-self: end;
+    padding: 0 var(--wh-space-3) var(--wh-space-2) var(--wh-space-2);
+}
+
+.header-badge-wrap:empty {
+    padding: 0;
+}
+
+/* Right: directions button, the stop line's full height: a target big
+   enough to tap (and for axe's target-size) even when the floating buttons
+   cover part of it */
 .directions-btn {
     align-self: stretch;
     width: 3.25rem;
@@ -722,24 +782,18 @@ body {
     transition: color 0.15s, background-color 0.15s;
 }
 
-/* A stop's star and walking directions: as far from each other as the star
-   from the time beside it, the rest of each target on its outer side */
+/* A stop's star and walking directions: their icons as far apart as the
+   walking figure from the row's end, the rest of each target on its outer side */
 .stop-favourite {
     width: auto;
     min-width: 0;
-    padding-left: 0.6em;
+    padding: 0 0.6em;
 }
 
-.stop-header-fixed .directions-btn {
+.stop-actions .directions-btn {
     width: auto;
     min-width: 0;
-    padding: 0 0.8em 0 0.6em;
-}
-
-/* A stop's star shows once the stop is opened: closed, the row's width
-   goes to the next bus's destination */
-.stop-item:has(.stop-toggle.collapsed) .stop-favourite {
-    display: none;
+    padding: 0 0.6em;
 }
 
 .stop-favourite:hover,
@@ -755,85 +809,82 @@ body {
     border-radius: var(--wh-radius-sm);
 }
 
-/* Too narrow for the stop's column beside the next bus (large text, about
-   18 letters wide): the stop on a line of its own on top, the next bus, its
-   time and the directions under it */
+/* Large text (about 18 letters wide): where the bus goes under its plate,
+   on as many lines as it needs */
 @container (max-width: 18em) {
-    .stop-toggle {
-        flex-direction: column;
-        align-items: stretch !important;
-        gap: 0 !important;
-    }
-
-    .stop-label {
-        flex-direction: row !important;
-        flex-wrap: wrap;
-        justify-content: flex-start !important;
-        column-gap: var(--wh-space-2);
-        width: auto;
-        min-width: 0;
-        height: auto;
-        min-height: 0;
-        padding: var(--wh-space-1) var(--wh-space-3);
-        text-align: left !important;
-        border-right: 0;
-    }
-
-    .stop-label > * {
-        margin-top: 0;
-    }
-
     .stop-next-bus {
-        padding: var(--wh-space-2);
-    }
-
-    /* The stop and the next bus take the row's whole width, so the stop's
-       band does too; the time and the directions follow under them */
-    .stop-header {
         flex-wrap: wrap;
     }
 
-    .stop-heading {
+    .arrival-row {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    /* The plate and the time on the first line, where it goes under them */
+    .arrival-row .time-badge {
+        grid-row: 1;
+        grid-column: 2;
+        justify-self: end;
+    }
+
+    .arrival-dest,
+    .arrival-then {
+        grid-column: 1 / -1;
+    }
+
+    .next-bus-dest {
         flex-basis: 100%;
-    }
-
-    .stop-header-fixed {
-        margin-left: auto;
-        min-height: 2.75rem;
-    }
-
-    .stop-nearest .stop-label {
-        border-left: 0;
-        border-top: 4px solid var(--bs-primary);
+        -webkit-line-clamp: none;
+        line-clamp: none;
     }
 }
 
-/* Expanded accordion body */
+/* Expanded accordion body: its buses go on from the next bus's line, at
+   its edges */
 .stop-body {
     background-color: var(--bs-body-bg);
-    padding: var(--wh-space-2) var(--wh-space-4) var(--wh-space-3) var(--wh-space-4);
+    padding: 0 0 var(--wh-space-3);
 }
 
-/* List rows (a stop, an arrival, a search result): the same quiet line
-   under each, none under the last */
+/* One line to one place (decision 79), drawn as the next bus's line: its
+   plate, where it goes, the next bus's minutes at the right; the next ones
+   under where it goes. No line between them: the space groups them, the
+   line under the stop (List rows) ends it */
 .arrival-row {
-    border-bottom: 1px solid var(--wh-divider);
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: var(--wh-space-2);
+    align-items: center;
+    padding: 0 var(--wh-space-3) var(--wh-space-2);
 }
 
-.arrival-row:last-child {
-    border-bottom: none;
+.arrival-row .bus-plate {
+    align-self: start;
 }
 
-/* The line and where it goes take what the time leaves; a name longer than
-   that (large text) breaks */
-.arrival-row > :first-child {
-    min-width: 0;
+.arrival-row .time-badge {
+    justify-self: end;
 }
 
 .arrival-dest {
-    font-size: var(--wh-fs-sm);
+    font-size: var(--wh-fs-md);
     color: var(--wh-text-soft);
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
+    min-width: 0;
+}
+
+/* "then in 15', 31'": badges, drawn as the words around them */
+.arrival-then {
+    grid-column: 2 / -1;
+    font-size: var(--wh-fs-sm);
+    color: var(--bs-secondary-color);
+}
+
+.arrival-then .time-badge {
+    background: none;
+    color: inherit;
+    font-weight: inherit;
+    padding: 0;
 }
 
 /* The time badge, for buses and trains (timeBadge() in /js/core/times.js).
@@ -2521,7 +2572,6 @@ body {
 .stop-lines {
     font-size: var(--wh-fs-sm);
     color: var(--bs-secondary-color);
-    margin-top: var(--wh-space-2);
 }
 
 #bus-actions .btn + .btn {
