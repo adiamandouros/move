@@ -90,6 +90,14 @@ test('an opened stop: a row a line, "then in" its next buses, plates in one colu
     await expect(then).not.toContainText("41'");
     await expect(rows.nth(1).locator('.arrival-then')).toHaveCount(0);
     await expect(stop.locator('.stop-code')).toHaveText('Stop 10361');
+    // After the lines, smaller, at the right end of their last line, level
+    // with its last plate
+    const [foot, last, code] = await Promise.all([stop.locator('.stop-foot'), stop.locator('.stop-lines .bus-plate').last(), stop.locator('.stop-code')].map(l => l.boundingBox()));
+    expect(code.x).toBeGreaterThan(last.x + last.width);
+    const middle = code.y + code.height / 2;
+    expect(middle).toBeGreaterThan(last.y);
+    expect(middle).toBeLessThan(last.y + last.height);
+    expect(foot.x + foot.width - (code.x + code.width)).toBeLessThanOrEqual(13);
     const [plates, dests, lines] = await Promise.all([
         rows.locator('.bus-plate').evaluateAll(els => els.map(e => e.getBoundingClientRect()).map(r => [r.left, r.width])),
         rows.locator('.arrival-dest').evaluateAll(els => els.map(e => e.getBoundingClientRect().left)),

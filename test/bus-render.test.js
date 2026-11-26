@@ -255,7 +255,9 @@ test('a stop\'s code: heard with its name, seen only once it\'s opened', async (
         assert.ok(button.includes(`<span class="sr-only">, ${lang === 'en' ? 'stop code' : 'κωδικός στάσης'} 10361</span>`), button);
         const seen = button.replace(/<span class="sr-only">[^<]*<\/span>/g, '').replace(/<[^>]*>/g, '');
         assert.equal(seen.includes('10361'), false, 'not seen on the stop\'s line');
+        // After its lines, which matter more (the page puts it at their right)
         assert.ok(body.includes(`<p class="stop-code mb-0">${lang === 'en' ? 'Stop' : 'Στάση'} 10361</p>`), body);
+        assert.ok(body.indexOf('stop-code') > body.indexOf('stop-lines'), 'after the lines');
     }
 });
 

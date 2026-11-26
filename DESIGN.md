@@ -375,8 +375,8 @@ one row a line and where it goes, its plate as large as the next bus's,
 every plate in the stop as wide, so where each bus goes starts at one
 edge. The line's next bus is the badge at the right; its next two are
 under where it goes, "then in 15', 31'", badges drawn as the words around
-them. Under the rows, "Stop 10361" (the code, as on its sign), then its
-lines.
+them. Under the rows, its lines, then "Stop 10361" (the code, as on its
+sign), smaller, at the right end of the lines' last line.
 
 ### Walking directions
 

@@ -52,7 +52,9 @@ row a line, one plate size with no lines between, the code inside).
   the closed row's large ones, every plate in a stop as wide, so where
   each bus goes starts at one edge. The space between the rows groups
   them; the line under the stop ends it.
-- **The stop's code only inside**, as "Stop 10361" above its lines: on the
+- **The stop's code only inside**, as "Stop 10361" after its lines,
+  smaller, at the right end of their last line (under it at the right
+  when that's full): the lines matter more (the rider's call). On the
   stop's line it was one number too many for someone new. Screen readers
   still hear it with the name, as five stops near Syntagma are all
   called SYNTAGMA; on screen, how far each is and its next bus tell them

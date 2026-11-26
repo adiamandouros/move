@@ -80,8 +80,10 @@ export function stopRow(stop, index, { open = false, nearest = false, id = 'stop
         <div id="${id}-${index}" class="accordion-collapse collapse${open ? ' show' : ''}">
             <div class="accordion-body stop-body">
                 <ul class="stop-arrivals list-unstyled mb-0" aria-label="${heard}">${arrivals}</ul>
-                <p class="stop-code mb-0">${format(t('buses.stop-code'), { code: stop.code })}</p>
-                <p class="stop-lines mb-0">${t('buses.lines')}: ${lines}</p>
+                <div class="stop-foot">
+                    <p class="stop-lines mb-0">${t('buses.lines')}: ${lines}</p>
+                    <p class="stop-code mb-0">${format(t('buses.stop-code'), { code: stop.code })}</p>
+                </div>
             </div>
         </div>
     </div>`;
