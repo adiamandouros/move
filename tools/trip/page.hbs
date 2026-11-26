@@ -1,40 +1,44 @@
 <div class="subway-view trip-view">
     <h1 class="sr-only">{{t "tool.trip.title"}}</h1>
     <form id="trip-form" class="subway-form" role="search" autocomplete="off">
-        <div class="subway-search-wrap mb-1">
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-                <label for="trip-from" class="form-label fw-semibold m-0">{{t "trip.from"}}</label>
-                <button id="trip-locate" type="button" class="btn btn-sm locate-btn" aria-pressed="false">
-                    <span>{{t "trip.my-location"}}</span>{{icon "nearest"}}
-                </button>
+        {{!-- From and To as one block: each label small inside its row, My location
+              on From's, the swap button beside both (DESIGN.md, "From and To") --}}
+        <div class="place-pair">
+            <div class="place-field">
+                <div class="place-row">
+                    <div class="place-input subway-search-wrap">
+                        <label for="trip-from" class="place-label">{{t "trip.from"}}</label>
+                        <input id="trip-from" class="place-control" type="search"
+                               role="combobox" aria-autocomplete="list" aria-controls="trip-from-list" aria-expanded="false"
+                               placeholder="{{t "trip.placeholder"}}">
+                        <ul id="trip-from-list" class="stop-suggestions list-unstyled mb-0" role="listbox"
+                            aria-label="{{t "trip.places-found"}}" hidden></ul>
+                    </div>
+                    <button id="trip-locate" type="button" class="place-btn locate-toggle" aria-pressed="false" title="{{t "trip.my-location"}}">
+                        {{icon "nearest"}}<span class="sr-only">{{t "trip.my-location"}}</span>
+                    </button>
+                </div>
+                <p id="trip-from-status" class="locate-status" role="status"></p>
             </div>
-            <div class="position-relative">
-                <input id="trip-from" class="form-control subway-search-input" type="search"
-                       role="combobox" aria-autocomplete="list" aria-controls="trip-from-list" aria-expanded="false"
-                       placeholder="{{t "trip.placeholder"}}">
-                <ul id="trip-from-list" class="stop-suggestions list-unstyled mb-0" role="listbox"
-                    aria-label="{{t "trip.places-found"}}" hidden></ul>
-            </div>
-            <p id="trip-from-status" class="locate-status" role="status"></p>
-        </div>
 
-        <div class="swap-row">
-            <button id="trip-swap" type="button" class="btn btn-sm swap-btn"
+            <div class="place-field">
+                <div class="place-row">
+                    <div class="place-input subway-search-wrap">
+                        <label for="trip-to" class="place-label">{{t "trip.to"}}</label>
+                        <input id="trip-to" class="place-control" type="search"
+                               role="combobox" aria-autocomplete="list" aria-controls="trip-to-list" aria-expanded="false"
+                               placeholder="{{t "trip.placeholder"}}">
+                        <ul id="trip-to-list" class="stop-suggestions list-unstyled mb-0" role="listbox"
+                            aria-label="{{t "trip.places-found"}}" hidden></ul>
+                    </div>
+                </div>
+                <p id="trip-to-status" class="locate-status" role="status"></p>
+            </div>
+
+            <button id="trip-swap" type="button" class="place-btn swap-btn"
                     title="{{t "trip.swap"}}" aria-label="{{t "trip.swap"}}">
                 {{icon "swap"}}
             </button>
-        </div>
-
-        <div class="subway-search-wrap mb-1">
-            <label for="trip-to" class="form-label fw-semibold m-0">{{t "trip.to"}}</label>
-            <div class="position-relative">
-                <input id="trip-to" class="form-control subway-search-input" type="search"
-                       role="combobox" aria-autocomplete="list" aria-controls="trip-to-list" aria-expanded="false"
-                       placeholder="{{t "trip.placeholder"}}">
-                <ul id="trip-to-list" class="stop-suggestions list-unstyled mb-0" role="listbox"
-                    aria-label="{{t "trip.places-found"}}" hidden></ul>
-            </div>
-            <p id="trip-to-status" class="locate-status" role="status"></p>
         </div>
     </form>
 

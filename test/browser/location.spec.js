@@ -158,14 +158,24 @@ test.describe('"Nearest": on while the boarding station follows the location', (
     });
 });
 
-test('"Nearest" and "My location": the icon after the words, centred over the swap button', async ({ page }) => {
-    const middle = async locator => { const box = await locator.boundingBox(); return box.x + box.width / 2; };
-    for (const [path, toggle, swap] of [['/subway', '#locate-btn', '#swap-stations'], ['/trip', '#trip-locate', '#trip-swap']]) {
+test('"Nearest" and "My location": an icon on the From row, named, with the swap button beside both rows', async ({ page }) => {
+    const middle = box => box.y + box.height / 2;
+    for (const [path, toggle, swap, from, to, name] of [
+        ['/subway', '#locate-btn', '#swap-stations', '#stop-search-from', '#stop-search-to', 'Nearest'],
+        ['/trip', '#trip-locate', '#trip-swap', '#trip-from', '#trip-to', 'My location'],
+    ]) {
         await page.goto(path);
-        const words = await page.locator(`${toggle} span`).boundingBox();
-        const icon = await page.locator(`${toggle} svg`).boundingBox();
-        expect(icon.x, path).toBeGreaterThanOrEqual(words.x + words.width);
-        expect(Math.abs(await middle(page.locator(`${toggle} svg`)) - await middle(page.locator(`${swap} svg`))), path).toBeLessThanOrEqual(0.5);
+        await expect(page.locator(toggle), path).toHaveAccessibleName(name);
+        await expect(page.locator(toggle), path).toHaveAttribute('title', name);
+        const [button, fromBox, toBox, swapBox] = await Promise.all([toggle, from, to, swap].map(s => page.locator(s).boundingBox()));
+        // On From's row, at its right end
+        expect(middle(button), path).toBeGreaterThan(fromBox.y);
+        expect(middle(button), path).toBeLessThan(fromBox.y + fromBox.height);
+        expect(button.x, path).toBeGreaterThanOrEqual(fromBox.x + fromBox.width);
+        // Swap: right of both, between their rows
+        expect(swapBox.x, path).toBeGreaterThanOrEqual(button.x + button.width);
+        expect(middle(swapBox), path).toBeGreaterThan(fromBox.y + fromBox.height / 2);
+        expect(middle(swapBox), path).toBeLessThan(toBox.y + toBox.height / 2);
     }
 });
 

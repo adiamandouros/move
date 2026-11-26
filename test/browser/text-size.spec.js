@@ -172,6 +172,21 @@ test('/buses with starred stops and lines, and a starred line\'s header, at 200%
     expect(await page.evaluate(problems)).toEqual([]);
 });
 
+// From's row at 200% on a phone: its icons (the walk and Nearest) go on a
+// line of their own under the field, which keeps the row's whole width
+test.describe('the boarding row at 200% text', () => {
+    test.beforeEach(onlyOn('phone', 'iphone'));
+    test('its icons under the field', async ({ page }) => {
+        await page.goto('/subway?from=syntagma&to=airport');
+        await expect(page.locator('#walk-btn')).toBeVisible();
+        await big(page);
+        const [field, row, walk, nearest] = await Promise.all(['#stop-search-from', '.place-row', '#walk-btn', '#locate-btn'].map(s => page.locator(s).first().boundingBox()));
+        expect(field.width).toBeCloseTo(row.width, 0);
+        for (const icon of [walk, nearest]) expect(icon.y).toBeGreaterThanOrEqual(field.y + field.height - 1);
+        expect(await page.evaluate(problems)).toEqual([]);
+    });
+});
+
 // The Trip page's answers, which its empty page above doesn't have, on a
 // phone's width: a long stop or station name breaks rather than push the
 // page sideways

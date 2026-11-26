@@ -1,49 +1,52 @@
 <div class="subway-view">
     <h1 class="sr-only">{{t "tool.subway.title"}}</h1>
     <form id="subway-form" class="subway-form" role="search" autocomplete="off">
-        <div class="subway-search-wrap mb-1">
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-                <label for="stop-search-from" class="form-label fw-semibold m-0">{{t "subway.boarding-label"}}</label>
-                {{!-- On while the boarding station follows the location (the page's script) --}}
-                <button id="locate-btn" type="button" class="btn btn-sm locate-btn" aria-pressed="false">
-                    <span>{{t "subway.nearest"}}</span>{{icon "nearest"}}
-                </button>
+        {{!-- From and To as one block: each label small inside its row, Nearest
+              and the walk to the station on the boarding row, the swap button
+              beside both (DESIGN.md, "From and To") --}}
+        <div class="place-pair">
+            <div class="place-field">
+                <div class="place-row">
+                    <div class="place-input subway-search-wrap">
+                        <label for="stop-search-from" class="place-label">{{t "subway.boarding-label"}}</label>
+                        <input id="stop-search-from" class="place-control" type="search"
+                               role="combobox" aria-autocomplete="list" aria-controls="stop-suggestions-from" aria-expanded="false"
+                               placeholder="{{t "subway.boarding-placeholder"}}">
+                        <ul id="stop-suggestions-from" class="stop-suggestions list-unstyled mb-0" role="listbox"
+                            aria-label="{{t "subway.station-suggestions"}}" hidden></ul>
+                        <span id="stop-suggestions-from-hint" hidden>{{t "favourites.key-hint"}}</span>
+                    </div>
+                    {{!-- Its address and station are filled in by the page's script --}}
+                    {{#external id="walk-btn" class="place-btn walk-btn" hidden=true}}
+                        {{icon "walk"}}
+                        <span class="sr-only">{{t "subway.walking-directions-to"}} <span id="walk-station"></span></span>
+                    {{/external}}
+                    {{!-- On while the boarding station follows the location (the page's script) --}}
+                    <button id="locate-btn" type="button" class="place-btn locate-toggle" aria-pressed="false" title="{{t "subway.nearest"}}">
+                        {{icon "nearest"}}<span class="sr-only">{{t "subway.nearest"}}</span>
+                    </button>
+                </div>
+                <p id="locate-status" class="locate-status" role="status"></p>
             </div>
-            <div class="d-flex align-items-stretch gap-2">
-            <div class="position-relative flex-grow-1">
-                <input id="stop-search-from" class="form-control subway-search-input" type="search"
-                       role="combobox" aria-autocomplete="list" aria-controls="stop-suggestions-from" aria-expanded="false"
-                       placeholder="{{t "subway.boarding-placeholder"}}">
-                <ul id="stop-suggestions-from" class="stop-suggestions list-unstyled mb-0" role="listbox"
-                    aria-label="{{t "subway.station-suggestions"}}" hidden></ul>
-                <span id="stop-suggestions-from-hint" hidden>{{t "favourites.key-hint"}}</span>
-            </div>
-            {{!-- Its address and station are filled in by the page's script --}}
-            {{#external id="walk-btn" class="directions-btn walk-btn" hidden=true}}
-                {{icon "walk"}}
-                <span class="sr-only">{{t "subway.walking-directions-to"}} <span id="walk-station"></span></span>
-            {{/external}}
-            </div>
-            <p id="locate-status" class="locate-status" role="status"></p>
-        </div>
 
-        <div class="swap-row">
-            <button id="swap-stations" type="button" class="btn btn-sm swap-btn"
+            <div class="place-field">
+                <div class="place-row">
+                    <div class="place-input subway-search-wrap">
+                        <label for="stop-search-to" class="place-label">{{t "subway.destination-label"}}</label>
+                        <input id="stop-search-to" class="place-control" type="search"
+                               role="combobox" aria-autocomplete="list" aria-controls="stop-suggestions-to" aria-expanded="false"
+                               placeholder="{{t "subway.destination-placeholder"}}">
+                        <ul id="stop-suggestions-to" class="stop-suggestions list-unstyled mb-0" role="listbox"
+                            aria-label="{{t "subway.station-suggestions"}}" hidden></ul>
+                        <span id="stop-suggestions-to-hint" hidden>{{t "favourites.key-hint"}}</span>
+                    </div>
+                </div>
+            </div>
+
+            <button id="swap-stations" type="button" class="place-btn swap-btn"
                     title="{{t "subway.swap"}}" aria-label="{{t "subway.swap"}}">
                 {{icon "swap"}}
             </button>
-        </div>
-
-        <div class="subway-search-wrap mb-1">
-            <label for="stop-search-to" class="form-label fw-semibold m-0">{{t "subway.destination-label"}}</label>
-            <div class="position-relative">
-                <input id="stop-search-to" class="form-control subway-search-input" type="search"
-                       role="combobox" aria-autocomplete="list" aria-controls="stop-suggestions-to" aria-expanded="false"
-                       placeholder="{{t "subway.destination-placeholder"}}">
-                <ul id="stop-suggestions-to" class="stop-suggestions list-unstyled mb-0" role="listbox"
-                    aria-label="{{t "subway.station-suggestions"}}" hidden></ul>
-                <span id="stop-suggestions-to-hint" hidden>{{t "favourites.key-hint"}}</span>
-            </div>
         </div>
 
         {{!-- Each shown by the page's script when there's a tram, or a suburban railway, to show --}}

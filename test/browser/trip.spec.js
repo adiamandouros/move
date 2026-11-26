@@ -156,11 +156,11 @@ test.describe('the trip page', () => {
 
     test('the keyboard alone: down to a place, Enter picks it, Escape closes', async ({ page }) => {
         await page.goto('/trip');
-        // Reached as the keyboard reaches it, from My location, once that has
-        // put itself in From: what's typed takes its place
+        // Reached as the keyboard reaches it, back from My location after it,
+        // once that has put itself in From: what's typed takes its place
         await expect(from(page)).toHaveValue('My location');
         await page.getByRole('button', { name: 'My location' }).focus();
-        await page.keyboard.press('Tab');
+        await page.keyboard.press('Shift+Tab');
         await expect(from(page)).toBeFocused();
         await page.keyboard.type('Μενελάου 45');
         await expect(list(page, 'from').first()).toBeVisible();
