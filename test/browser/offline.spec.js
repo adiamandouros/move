@@ -23,6 +23,14 @@ test('the first visit says once it\'s ready, then the message goes', async ({ pa
     await expect(toast).toHaveCount(0);
 });
 
+test('the message is one line, in Greek too', async ({ page }) => {
+    await page.goto('/el');
+    const words = page.locator('.toast-message span');
+    await expect(words).toHaveText('Έτοιμο για χρήση offline', { timeout: 15_000 });
+    const line = await words.evaluate(el => parseFloat(getComputedStyle(el).lineHeight));
+    expect((await words.boundingBox()).height).toBeLessThan(line * 1.5);
+});
+
 // The service worker installed and active: the moment the message is due
 const activated = page => page.evaluate(async () => {
     const { active } = await navigator.serviceWorker.ready;

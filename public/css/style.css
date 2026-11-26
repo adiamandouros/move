@@ -2775,13 +2775,15 @@ body {
     --bs-toast-font-size: var(--wh-fs-sm);
     --bs-toast-padding-x: var(--wh-space-4);
     --bs-toast-padding-y: 0.625rem;
-    --bs-toast-max-width: calc(100% - 2rem);
     --bs-toast-box-shadow: var(--wh-shadow);
     position: fixed;
     left: 50%;
     bottom: calc(var(--bottom-nav-height) + 1rem);
     z-index: 1050;
-    width: auto;
+    /* As wide as its words, on one line while they fit: "auto" would stop at
+       the half of the screen right of left: 50% and wrap even short ones */
+    width: max-content;
+    max-width: calc(100vw - 2rem);
     transform: translateX(-50%);
     pointer-events: none;
 }
@@ -2801,6 +2803,7 @@ body {
     .toast-message {
         left: calc(50% + var(--side-nav-width) / 2);
         bottom: 1.5rem;
+        max-width: calc(100vw - var(--side-nav-width) - 3rem);
     }
 }
 

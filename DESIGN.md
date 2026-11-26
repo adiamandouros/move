@@ -387,7 +387,7 @@ acts on the page right now stays a button, like Nearest.
 ### Toast
 
 A short message that goes by itself (4 seconds), a pill above the bottom
-bar, for something that needs no answer: "Ready to use offline", once. It
+bar as wide as its words (one line while they fit), for something that needs no answer: "Ready to use offline", once. It
 never covers what's being typed or drawn: it waits until no text field has
 the keyboard and the page hasn't changed for 2 seconds, and goes as soon as
 the person scrolls or touches the page (`toast` in
