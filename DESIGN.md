@@ -379,7 +379,21 @@ swapping, or blocked location turns it off; pressed again, it looks again.
 A field it filled, like one holding a station or a place picked, has its
 words selected by the tap into it, so typing replaces them; a tap once
 it's in the field places the cursor, to edit them.
-Its icon comes after the words, centred over the swap button below it.
+It's its icon alone, at the right end of From's row (below), with its
+name for screen readers and as its tooltip.
+
+### From and To
+
+On the Trip and Subway pages, one block of two rows, From above To
+(decision 76): each label small (`--wh-fs-xs`, secondary) over the top of
+its field, which reaches up under it, so a tap on the label types there
+and the focus ring goes round both; one divider between the rows; the
+block's edge `--wh-control-edge`. The swap button sits at the block's
+right, between the rows. From's row ends with its icons: on the Subway
+page the walk to the boarding station, then Nearest; on the Trip page My
+location. A field's status line is inside its row, under the field. Below
+20em wide (large text) the row's icons go on a line of their own under
+the field.
 
 ### Switch
 

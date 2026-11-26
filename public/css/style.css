@@ -947,51 +947,145 @@ body {
     padding: var(--wh-space-6) var(--wh-space-4);
 }
 
-.subway-search-input {
+/* From and To: one block, two rows, each label small inside its row, the
+   row's icons at its right end, the swap button beside both rows. The label
+   is the field's too: a tap anywhere left of the icons types in it. Sized by
+   its own width (the rule at the end of this part), which makes it the
+   stacking context of the suggestions, so it's lifted above what follows */
+.place-pair {
+    container-type: inline-size;
+    position: relative;
+    z-index: 10;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    margin-bottom: var(--wh-space-3);
     background-color: var(--bs-tertiary-bg);
-    border-color: var(--bs-border-color);
-    color: var(--bs-body-color);
-    font-size: var(--wh-fs-md);
+    border: 1px solid var(--wh-control-edge);
+    border-radius: var(--wh-radius-lg);
 }
 
-.subway-search-input:focus {
-    background-color: var(--bs-tertiary-bg);
-    border-color: var(--bs-primary);
-    color: var(--bs-body-color);
-    box-shadow: var(--focus-ring);
+.place-field {
+    grid-column: 1;
+    min-width: 0;
 }
 
-#stop-search-to{
-    margin-bottom: 1rem;
+.place-field + .place-field {
+    border-top: 1px solid var(--bs-border-color);
 }
 
-.swap-row {
+.place-row {
+    position: relative;
     display: flex;
-    justify-content: flex-end;
-    margin: -0.25rem 0 -0.75rem;
-    /* Centres the 36px button under the 52px signpost above it */
-    padding-right: var(--wh-space-2);
+    align-items: stretch;
 }
 
-.swap-btn {
+.place-input {
+    flex: 1;
+    min-width: 0;
+    --place-label-height: calc(var(--wh-space-2) + var(--wh-fs-xs) * 1.2);
+}
+
+/* The label over the top of its field, which reaches up under it: a tap on
+   it types in the field, and the focus ring goes round both */
+.place-label {
+    position: relative;
+    z-index: 1;
+    display: block;
+    padding: var(--wh-space-2) var(--wh-space-3) 0;
+    font-size: var(--wh-fs-xs);
+    line-height: 1.2;
     color: var(--bs-secondary-color);
-    border-radius: var(--wh-radius-round);
-    width: 2.25rem;
-    height: 2.25rem;
+    pointer-events: none;
 }
 
-.swap-btn:hover {
+.place-control {
+    display: block;
+    width: 100%;
+    margin-top: calc(-1 * var(--place-label-height));
+    padding: calc(var(--place-label-height) + 0.125rem) var(--wh-space-3) var(--wh-space-2);
+    font-size: var(--wh-fs-md);
+    color: var(--bs-body-color);
+    background: none;
+    border: 0;
+    border-radius: var(--wh-radius-lg);
+    outline: none;
+}
+
+.place-control::placeholder {
+    color: var(--bs-secondary-color);
+}
+
+.place-control:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--bs-primary);
+}
+
+/* The suggestions open under the whole row */
+.place-row .stop-suggestions {
+    box-shadow: var(--wh-shadow);
+}
+
+/* My location / Nearest, the walk to the station, swapping: icons, as tall
+   as the row, a 44px target */
+.place-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0;
+    color: var(--bs-secondary-color);
+    font-size: var(--wh-fs-lg);
+    background: none;
+    border: 0;
+    border-radius: var(--wh-radius-sm);
+    transition: color 0.15s, background-color 0.15s;
+}
+
+.place-btn:hover {
     color: var(--bs-body-color);
     background-color: var(--bs-secondary-bg);
 }
 
-.swap-btn:focus-visible {
+.place-btn:focus-visible {
     outline: none;
     box-shadow: var(--focus-ring);
 }
 
-/* "Nearest": the boarding station follows the location. Off, it looks like
-   the buttons around it; on, blue with its icon filled */
+.place-btn[hidden] {
+    display: none;
+}
+
+/* On: blue, the icon filled, following where you are */
+.locate-toggle[aria-pressed="true"] {
+    color: var(--bs-primary);
+}
+
+.swap-btn {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    margin: 0 var(--wh-space-1);
+}
+
+/* Large text: the row's icons go on a line of their own under the field,
+   so what's typed keeps the row's width */
+@container (max-width: 20em) {
+    .place-row {
+        flex-wrap: wrap;
+    }
+
+    .place-input {
+        flex-basis: 100%;
+    }
+
+    .place-row .place-btn {
+        margin-left: var(--wh-space-1);
+    }
+}
+
+/* Small buttons beside the answer (the quicker way, the trace): grey words
+   that turn the body colour when hovered */
 .locate-btn {
     display: inline-flex;
     align-items: center;
@@ -1000,16 +1094,6 @@ body {
     padding: 0 var(--wh-space-2);
     font-size: var(--wh-fs-sm);
     color: var(--bs-secondary-color);
-}
-
-/* Its icon after the words, centred over the swap button below it (2.25rem
-   wide, the same padding from the edge) */
-.locate-btn > .icon:last-child {
-    margin-right: calc(1.125rem - var(--icon-size) / 2 - var(--bs-btn-border-width));
-}
-
-.locate-btn[aria-pressed="true"] {
-    color: var(--bs-primary);
 }
 
 .locate-btn:hover {
@@ -1022,20 +1106,9 @@ body {
     box-shadow: var(--focus-ring);
 }
 
-/* Walking directions to the boarding station, beside its field */
-.walk-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--wh-radius-sm);
-}
-
-.walk-btn[hidden] {
-    display: none;
-}
-
 .locate-status {
-    margin: 0.375rem 0 0;
+    margin: calc(-1 * var(--wh-space-1)) 0 0;
+    padding: 0 var(--wh-space-3) var(--wh-space-2);
     font-size: var(--wh-fs-sm);
     color: var(--bs-secondary-color);
 }
