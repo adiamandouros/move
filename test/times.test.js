@@ -111,13 +111,20 @@ test('counting badges: each drawn again as its minute changes, the same way; gon
     assert.deepEqual(root.page.map(badge => badge.now), before, 'nor any minute changed: nothing drawn again');
     assert.equal(countBadges(root, tEn, epoch + 6 * 60 + 1), true, 'one gone');
     const [nine, five, one, last] = root.page.map(badge => badge.now);
-    assert.equal(nine, String(minutesBadge(3, tEn, { at: epoch + 9 * 60 })), 'OASA\'s 9\', 6 minutes on: 3\', and due now');
+    assert.equal(nine, String(minutesBadge(3, tEn, { at: epoch + 9 * 60, motion: 'time-tick time-due-now' })), 'OASA\'s 9\', 6 minutes on: 3\', and due now: it rolls and grows once (decision 82)');
     assert.equal(five, null, '5\'30" by the timetable, 6 minutes on: gone');
     assert.equal(one, null);
     assert.equal(last, null);
     const kept = badgesIn(minutesBadge(2, tEn, { then: ' (Last train),', tier: 'last', soon: false, title: 'Last train', at: epoch + 150, exact: true }));
     countBadges(kept, tEn, epoch + 61);
-    assert.equal(kept.page[0].now, String(minutesBadge(1, tEn, { then: ' (Last train),', tier: 'last', soon: false, title: 'Last train', at: epoch + 150, exact: true })), 'the last train stays red, its words kept');
+    assert.equal(kept.page[0].now, String(minutesBadge(1, tEn, { then: ' (Last train),', tier: 'last', soon: false, title: 'Last train', at: epoch + 150, exact: true, motion: 'time-tick' })), 'the last train stays red, its words kept; its minute rolls, it doesn\'t grow');
+});
+
+// Decision 82: the motion a badge plays is a class on it, once
+test('a badge says how it just changed: a minute rolled, turned due, a fresh answer', () => {
+    assert.match(String(minutesBadge(4, tEn, { motion: 'time-tick' })), /^<span class="time-badge time-close time-tick">/);
+    assert.match(String(minutesBadge(4, tEn)), /^<span class="time-badge time-close">/);
+    assert.match(String(timeBadge('later', '05:32', '', '', 'time-fresh')), /^<span class="time-badge time-later time-fresh">/);
 });
 
 // Road · 18: the Subway and Trip pages' "In:" goes with its last train,
