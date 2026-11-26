@@ -27,7 +27,8 @@ const SEARCHES = new Map([['plan', 'plans'], ['plan-start', 'plans'], ['plan-mov
 // another way shown, decision 62, and &for=plan-take on a stop asked again
 // as the rider takes another way, decision 64), so its searches, re-plans,
 // the stops for a ride, for the other ways, the checks on taking one and
-// their answers are counted apart (usage.js). The bus trip finder's &for=trip went with it (decision 39)
+// their answers are counted apart (usage.js). Home's "Near you" adds
+// &for=home, its answers counted apart too (decision 81). The bus trip finder's &for=trip went with it (decision 39)
 // and is counted as any request.
 //
 // Only stops in `stopsFile` (bus-stops.json, which the bus page picks from)
@@ -100,6 +101,8 @@ export function createBusApi({ routesFile, statusFile, stopsFile, passesDir = nu
             if (String(req.query.for).endsWith('-take')) usage.tripTake(searching);
             results.forEach((r, i) => usage.tripAnswer(cached[i] ? 'cache' : r.unavailable ? 'none' : r.stale ? 'old' : 'oasa', searching));
         }
+        // Home's "Near you" (decision 81): its nearest stop, counted apart
+        if (req.query.for === 'home') results.forEach((r, i) => usage.homeAnswer(cached[i] ? 'cache' : r.unavailable ? 'none' : r.stale ? 'old' : 'oasa'));
         res.set('Cache-Control', 'no-store').json({ stops: Object.fromEntries(stops.map((s, i) => [s, results[i]])) });
     });
 

@@ -83,12 +83,12 @@ test.describe('the buses', () => {
         await expect(page.locator('.stop-item')).toContainText('10341');
     });
 
-    test('a line in its other direction comes back the same, from the home page’s tiles too', async ({ page }) => {
+    test('a line in its other direction comes back the same, from the home page too', async ({ page }) => {
         await page.goto('/buses?line=040&dir=1');
         await expect(page.locator('.stop-item').first()).toBeVisible();
         await page.goto('/');
-        await expect(page.locator('a.tool-tile[data-tool="buses"]')).toHaveAttribute('href', '/buses?line=040&dir=1');
-        await page.locator('a.tool-tile[data-tool="buses"]').click();
+        await expect(nav(page, 'buses')).toHaveAttribute('href', '/buses?line=040&dir=1');
+        await nav(page, 'buses').click();
         await expect(page).toHaveURL(/\/buses\?line=040&dir=1$/);
         await expect(page.locator('#line-bar [data-direction="1"]')).toHaveAttribute('aria-pressed', 'true');
     });

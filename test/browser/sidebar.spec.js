@@ -1,5 +1,5 @@
 // The sidebar on wider screens: the tools at the top; at the bottom the
-// about, privacy, terms and contact links, one under the other, and the language
+// metro stations (decision 81), about, privacy, terms and contact links, one under the other, and the language
 // button last.
 import { expect, onlyOn, test } from './fixtures.js';
 
@@ -8,7 +8,7 @@ test.beforeEach(onlyOn('desktop'));
 test('the site links sit stacked above the language button, which is last', async ({ page }) => {
     await page.goto('/subway');
     const links = page.locator('#side-nav .side-links a');
-    await expect(links).toHaveText(['About', 'Privacy', 'Terms of use', 'Contact']);
+    await expect(links).toHaveText(['Metro stations', 'About', 'Privacy', 'Terms of use', 'Contact']);
     const boxes = await links.evaluateAll(as => as.map(a => a.getBoundingClientRect()).map(({ left, top, bottom }) => ({ left, top, bottom })));
     for (const [i, box] of boxes.entries()) {
         expect(box.left).toBe(boxes[0].left);

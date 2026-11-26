@@ -15,7 +15,7 @@ const read = path => JSON.parse(readFileSync(new URL(path, ROOT), 'utf8'));
 // Every string in one language, as the pages' <script id="strings"> has them
 export function strings(lang) {
     const tools = loadTools();
-    return Object.assign({}, ...[read('server/views/strings.json'), read('server/views/stations.json'), ...tools.map(t => t.strings)].map(table => table[lang]));
+    return Object.assign({}, ...[read('server/views/strings.json'), read('server/views/stations.json'), read('server/views/home.json'), ...tools.map(t => t.strings)].map(table => table[lang]));
 }
 
 // The module at `path` (from the repository's root), in `lang`. `fresh: true`

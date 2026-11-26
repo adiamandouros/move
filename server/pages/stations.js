@@ -25,7 +25,7 @@ import { view } from './templates.js';
 
 // The station pages' own strings; they use the subway page's too
 export const STATION_STRINGS = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'views', 'stations.json'), 'utf8'));
-export const STATIONS_PATH = STATION_PAGES.metro;
+const STATIONS_PATH = STATION_PAGES.metro;
 // Before the first data build there's no rail.json: the pages can't be drawn
 // yet, which isn't the same as there being no such page (errors.js: 503)
 const NOT_BUILT_YET = Object.assign(new Error('rail.json is not built yet'), { status: 503, retryAfter: 300 });

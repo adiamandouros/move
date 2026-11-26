@@ -476,15 +476,263 @@ body {
     font-weight: 600;
 }
 
-/* The home page's shortcuts: two by two on phones, in a row on wider screens */
-.home-tiles {
-    grid-template-columns: repeat(auto-fill, minmax(min(9.375rem, 100%), 1fr));
-    margin-bottom: 1rem;
+/* Home (decision 81): the name and the all-clear on one line, the
+   disruption line, where to, the starred stations, then what's near you */
+.home-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--wh-space-2);
+    margin-bottom: var(--wh-space-3);
+    min-height: 2.75rem;
 }
 
-.home-intro {
-    margin-bottom: 1rem;
+.home-brand {
+    margin: 0;
+    font-size: var(--wh-fs-xl);
+}
+
+.home-wordmark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+
+/* On a wide screen the sidebar has the name */
+@media (min-width: 48em) {
+    .home-wordmark {
+        display: none;
+    }
+}
+
+.status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    font-size: var(--wh-fs-sm);
+    padding: 0.25em 0.75em 0.25em 0.5em;
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--wh-radius-round);
+    background-color: var(--bs-tertiary-bg);
+}
+
+.status-chip .icon {
+    color: var(--wh-close);
+}
+
+/* One closed line: the first disruption's title cut to the line, how many more after it */
+.disruption-line .closable-summary {
+    display: flex;
+    gap: var(--wh-space-2);
+    min-width: 0;
+}
+
+.disruption-line .disruption-first {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.disruption-line .disruption-more {
+    flex-shrink: 0;
+    font-weight: 600;
+}
+
+.disruption-line ul {
+    list-style: none;
+    padding-left: 0;
+    margin-bottom: var(--wh-space-2);
+}
+
+.disruption-line li + li {
+    margin-top: 0.375rem;
+}
+
+/* Where to: a field to look at, a link to the Trip page */
+.home-where {
+    display: flex;
+    align-items: center;
+    gap: var(--wh-space-3);
+    min-height: 3.25rem;
+    padding: var(--wh-space-3) var(--wh-space-4);
+    margin-bottom: var(--wh-space-3);
+    border: 1px solid var(--wh-control-edge);
+    border-radius: var(--wh-radius-lg);
+    background-color: var(--bs-tertiary-bg);
     color: var(--bs-secondary-color);
+    font-size: var(--wh-fs-lg);
+    text-decoration: none;
+}
+
+.home-where .icon {
+    color: var(--bs-body-color);
+}
+
+.home-where:hover {
+    border-color: var(--bs-primary);
+}
+
+.home-where:focus-visible,
+.star-chip:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+.home-stars {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--wh-space-2);
+    margin-bottom: var(--wh-space-4);
+}
+
+.star-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    min-height: 2.75rem;
+    padding: 0.25em 0.9em 0.25em 0.6em;
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--wh-radius-round);
+    background-color: var(--bs-tertiary-bg);
+    color: var(--bs-body-color);
+    font-size: var(--wh-fs-sm);
+    text-decoration: none;
+}
+
+.star-chip .icon {
+    color: var(--wh-brand-dot);
+}
+
+.star-chip:hover {
+    border-color: var(--bs-primary);
+}
+
+.home-near {
+    margin: var(--wh-space-4) 0;
+}
+
+.near-label {
+    margin: 0 0 var(--wh-space-2);
+}
+
+.near-message {
+    padding: var(--wh-space-4);
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--wh-radius-lg);
+    background-color: var(--bs-tertiary-bg);
+}
+
+/* A card near you: its name and how far on top, the walking figure at the
+   right; its trains or buses under it, each a row */
+.near-card {
+    container-type: inline-size;
+    padding: var(--wh-space-3) 0 var(--wh-space-2);
+    margin-bottom: var(--wh-space-3);
+}
+
+.near-head {
+    display: flex;
+    align-items: center;
+    gap: var(--wh-space-2);
+    padding: 0 0 var(--wh-space-2) var(--wh-space-3);
+}
+
+.near-head .directions-btn {
+    align-self: center;
+    height: 2.75rem;
+}
+
+.near-title {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0 var(--wh-space-2);
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    font-size: var(--wh-fs-lg);
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.near-away {
+    font-size: var(--wh-fs-sm);
+    font-weight: 400;
+    color: var(--bs-secondary-color);
+    font-variant-numeric: tabular-nums;
+}
+
+.near-stop-link {
+    color: var(--bs-body-color);
+    text-decoration: none;
+}
+
+.near-stop-link:hover {
+    text-decoration: underline;
+}
+
+.near-card .timetable-notice {
+    margin: 0 var(--wh-space-3) var(--wh-space-2);
+}
+
+.near-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: var(--wh-space-2);
+    align-items: center;
+    padding: 0 var(--wh-space-3) var(--wh-space-2);
+}
+
+.near-row .line-pill {
+    min-width: 3.4rem;
+}
+
+.near-to {
+    color: var(--wh-text-soft);
+    overflow-wrap: break-word;
+    min-width: 0;
+}
+
+.near-times {
+    display: inline-flex;
+    gap: 0.375rem;
+    justify-self: end;
+}
+
+.near-card .arrival-row .bus-plate {
+    min-width: 3.4rem;
+}
+
+.near-foot {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--wh-space-2);
+    padding: var(--wh-space-1) var(--wh-space-3) 0;
+    font-size: var(--wh-fs-sm);
+}
+
+.near-foot .stop-code {
+    float: none;
+    margin: 0;
+}
+
+/* Large text: the times on the line under where it goes */
+@container (max-width: 18em) {
+    .near-row {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .near-times {
+        grid-column: 1 / -1;
+        justify-self: start;
+    }
 }
 
 .tool-tile-desc {
@@ -2415,7 +2663,8 @@ body {
 /* Small capitals: the one style for a label above a group of things */
 .route-option-label,
 .search-heading,
-.info-subhead {
+.info-subhead,
+.near-label {
     font-size: var(--wh-fs-xs);
     line-height: 1.5;
     font-weight: 700;
@@ -3184,27 +3433,6 @@ body {
 .install-close:focus-visible {
     outline: none;
     box-shadow: var(--focus-ring);
-}
-
-.home-section-title {
-    display: flex;
-    align-items: center;
-    gap: var(--wh-space-3);
-    margin: 0;
-    padding: 0.875rem var(--wh-space-4);
-    font-size: var(--wh-fs-md);
-    font-weight: 600;
-}
-
-.home-section-title .icon {
-    color: var(--bs-primary);
-    font-size: var(--wh-fs-lg);
-}
-
-/* A word longer than the card (large text) breaks rather than spill out */
-.home-section-title > span {
-    min-width: 0;
-    overflow-wrap: anywhere;
 }
 
 /* Stations by line, under the metro map */

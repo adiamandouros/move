@@ -224,15 +224,16 @@ test('the admin pages have their own layout: the same head as every page, the pa
     assert.doesNotMatch(admin, /<nav\b|popover|skip-link|src="[^"]*(shell|bootstrap\.min)\.js/);
 });
 
-test('the navigation and the home tiles mark their links to the tools, which go back to where each was left', () => {
+test('the navigation and Home\'s "Where to?" mark their links to the tools, which go back to where each was left', () => {
     // (public/js/core/remember.js points them at it; other links, like the
     // station pages' "Plan from here", say where they go themselves)
     const toolLinks = html => [...html.matchAll(/<a href="([^"]*)" data-tool="([^"]*)"/g)].map(([, href, tool]) => `${tool} ${href}`);
     const nav = lang => tools.map(tool => `${tool.id} ${localPath(tool.path, lang)}`);
     assert.deepEqual(toolLinks(pages['/el/info']), [...nav('el'), ...nav('el')], 'sidebar and bottom bar');
-    assert.deepEqual(toolLinks(pages['/']), [...nav('en'), ...nav('en'), ...nav('en')], 'and the home tiles');
+    assert.deepEqual(toolLinks(pages['/']), [...nav('en'), 'trip /trip', ...nav('en')], 'and Home\'s "Where to?" (decision 81)');
     assert.equal(pages['/'].match(/<a href="[^"]*" data-tool=/g).length, pages['/'].match(/data-tool=/g).length);
-    assert.doesNotMatch(pages['/'].match(/<a href="\/subway\/stations"[^>]*>/)[0], /data-tool/, 'the stations tile isn’t a tool');
+    // The metro stations are in the menu, not a tool
+    assert.match(pages['/info'], /<a href="\/subway\/stations" class="site-menu-link">/);
 });
 
 test('a saved choice of the other language opens the page in it before it shows', () => {

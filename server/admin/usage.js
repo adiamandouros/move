@@ -55,6 +55,9 @@ export function usageView(days) {
                 planOther: d.plans?.other ?? '–',
                 // (none before decision 64)
                 planTake: d.plans?.take ?? '–',
+                // (none before decision 81)
+                homeAsked: d.home ? d.home.answers.oasa : '–',
+                homeCached: d.home ? share(d.home.answers.cache, total(d.home.answers)) : '–',
                 // (nor the collector)
                 collector: d.requests.collector ?? '–',
                 collectorSkipped: d.dropped.collector ?? '–',

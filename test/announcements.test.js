@@ -462,3 +462,30 @@ test('the disruption box: apergia.gr\'s strikes first, in Greek with whose words
     // An older server sends no strikes
     assert.match(String(el.disruptionView({ ...data, strikes: undefined })), /Στάση εργασίας/);
 });
+
+// Decision 81: Home says it in less room, the page's own (Info) as above
+test('Home: "No disruptions" at the top once every source answered; a disruption one closed line, the first one\'s title and how many more, opened every one and the way to all announcements', async () => {
+    const date = '2026-10-20T10:00:00.000Z';
+    const all = ['stasy', 'oasaEl', 'oasaEn', 'apergia'];
+    const strike = (title, greek) => ({ title, link: 'https://www.oasa.gr/b/', date, disruption: true, ...greek && { greek } });
+    const en = await browserModule('public/js/core/announcements.js', 'en');
+    const none = en.homeView({ rail: [], bus: { el: [], en: [] }, available: all });
+    assert.match(String(none.status), /<span class="status-chip"><svg [^]*<\/svg>No disruptions<\/span>/);
+    assert.equal(String(none.line), '');
+    // Not every source answered: nothing either way
+    assert.deepEqual(en.homeView({ rail: [], bus: { el: [], en: [] }, available: ['stasy'] }), { status: '', line: '' });
+
+    const two = en.homeView({ rail: [strike('Κλειστός σταθμός')], bus: { el: [], en: [strike('Line 040 diverted')] }, strikes: [strike('Μετρό: στάση εργασίας')], available: all });
+    assert.equal(two.status, '');
+    const line = String(two.line);
+    assert.match(line, /^<details class="notice notice-warn closable-notice disruption-line mb-3">/, 'closed');
+    assert.match(line, /<span class="disruption-first"><span class="sr-only">Service disruption: <\/span><span lang="el">Μετρό: στάση εργασίας<\/span><\/span><span class="disruption-more">\+2 more<\/span>/);
+    assert.equal((line.match(/class="announcement"/g) ?? []).length, 3);
+    assert.match(line, /<a href="\/info#announcements">All announcements<\/a>/);
+
+    const el = await browserModule('public/js/core/announcements.js', 'el');
+    const one = String(el.homeView({ rail: [], bus: { el: [strike('Στάση εργασίας')], en: [] }, available: all }).line);
+    assert.match(one, /<span class="disruption-first"><span class="sr-only">Διακοπή λειτουργίας: <\/span><span>Στάση εργασίας<\/span><\/span><\/summary>|Στάση εργασίας<\/span><\/span>/);
+    assert.doesNotMatch(one, /disruption-more/);
+    assert.match(one, /href="\/el\/info#announcements"/);
+});

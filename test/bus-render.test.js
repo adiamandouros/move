@@ -115,6 +115,12 @@ test('one row a line and where it goes: the next bus, then the next two', async 
     assert.match(rows[1], /PIRAEUS/);
     assert.ok(!rows[1].includes('arrival-then'), 'one bus: nothing after it');
     assert.match(rows[2], /SYNTAGMA/);
+    // Home's nearest stop (decision 81): the first rows, each still with its next two
+    const first = String(arrivalRows({ arrivals: [
+        { line: 'Χ95', to: airport, minutes: 3 }, { line: '040', to: { en: 'PIRAEUS' }, minutes: 7 }, { line: 'Χ95', to: airport, minutes: 15 },
+    ] }, 1)).split('<li class="arrival-row">').slice(1);
+    assert.equal(first.length, 1);
+    assert.match(first[0], /then/);
 });
 
 test('every line is listed; an unknown line or destination says so', async () => {

@@ -214,7 +214,7 @@ test('the usage page: a day per row, newest first, and each route\'s answers per
     assert.deepEqual(view.asked[1], {
         date: '2026-10-30', requests: 2, firstLooks: 1, refreshes: 1, routeNames: 0, routeTests: 0, network: '–',
         fromCache: '67%', stops: 2, mostAtOnce: 2, longestWait: '2.4 s', busyMinutes: '1 / 0', dropped: '1 (in 1 min)', paused: 0, limited: 0,
-        planSearches: 0, planAsked: 0, planPerSearch: '–', planMoved: 0, planRide: 0, planOther: 0, planTake: 0, collector: 0, collectorSkipped: 0, passes: 0,
+        planSearches: 0, planAsked: 0, planPerSearch: '–', planMoved: 0, planRide: 0, planOther: 0, planTake: 0, homeAsked: 0, homeCached: '–', collector: 0, collectorSkipped: 0, passes: 0,
     });
     assert.deepEqual(view.answered, [
         { date: '2026-10-31', route: 'home relay', ok: 0, failed: 1, half: 'over 8 s', most: 'over 8 s', downMinutes: 1 },
@@ -395,4 +395,17 @@ test('the usage page: the suburban railway\'s live times on the days they were a
     assert.match(html, /aria-labelledby="trains-title"/);
     assert.match(html, /<th scope="row">2026-11-09<\/th>\s*<td>30<\/td>\s*<td>12<\/td>\s*<td>1<\/td>\s*<td>2\.9<\/td>/);
     assert.match(view_(usageView({ '2026-11-08': day(undefined) })), /No live train times asked for yet\./);
+});
+
+test('Home\'s "Near you" stop answers are counted apart, by where they came from (decision 81); a day from before has none', () => {
+    const c = clock(Date.parse('2026-11-06T10:00:00Z'));
+    const file = tempFile();
+    const today = createUsage({ now: c.now }).status().today;
+    writeFileSync(file, JSON.stringify({ days: { '2026-11-05': { ...today, home: undefined } } }));
+    const usage = createUsage({ file, now: c.now });
+    for (const source of ['oasa', 'cache', 'cache', 'oasa']) usage.homeAnswer(source);
+    assert.deepEqual(usage.status().hour.home, { answers: { oasa: 2, cache: 2, old: 0, none: 0 } });
+    const view = usageView(usage.days());
+    assert.deepEqual(view.asked.map(d => [d.homeAsked, d.homeCached]), [[2, '50%'], ['–', '–']]);
+    assert.match(view_(view), /<th scope="col">Home stops asked of OASA<\/th>/);
 });

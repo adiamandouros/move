@@ -363,13 +363,17 @@ test('names every object has in the address aren\'t stations: empty fields, no c
     await expect(page.locator('#walk-btn')).toBeHidden();
 });
 
-test('home: intro and shortcuts, and no footer (the links are in the menu and the sidebar)', async ({ page }) => {
+// Decision 81: Home is what's near, the metro stations in the menu
+test('home: where to and what\'s near you, no footer; the metro stations in the menu', async ({ page }) => {
     await page.goto('/');
-    await expect(content(page)).toContainText('Live bus arrivals at the stops around you');
-    await expect(content(page)).toContainText('Metro stations');
+    await expect(content(page)).toContainText('Where to?');
+    await expect(content(page)).toContainText('Near you');
     await expect(page.locator('footer')).toHaveCount(0);
+    await page.locator('.menu-btn').click();
+    await page.locator('#site-menu').getByRole('link', { name: 'Metro stations' }).click();
+    await expect(page).toHaveURL(/\/subway\/stations$/);
     await page.goto('/el');
-    await expect(content(page)).toContainText('Σταθμοί μετρό');
+    await expect(content(page)).toContainText('Πού πάτε;');
 });
 
 test('tapping a suggestion picks it and leaves the field, so the phone\'s keyboard closes', async ({ page }) => {

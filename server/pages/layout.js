@@ -1,4 +1,5 @@
 import { html } from '../../public/js/core/html.js';
+import { STATION_PAGES } from '../../public/js/core/metro.js';
 import { FIRST_PAINT_SCRIPT } from '../../public/js/core/theme.js';
 import { adUnit } from '../ads.js';
 import { FONTS, importMap, versioned } from './assets.js';
@@ -13,7 +14,11 @@ import { view } from './templates.js';
 
 // The pages about the site: on phones in the menu, on wider screens near the
 // bottom of the sidebar, above the language button
-const SITE_PAGES = [{ name: 'about', iconName: 'info' }, { name: 'privacy', iconName: 'private' }, { name: 'terms', iconName: 'terms' }, { name: 'contact', iconName: 'email' }];
+// The pages in the menu: the metro stations (from Home's tiles until
+// decision 81), then those about the site
+const SITE_PAGES = [{ href: STATION_PAGES.metro, iconName: 'stations', textKey: 'menu.stations' },
+    ...[{ name: 'about', iconName: 'info' }, { name: 'privacy', iconName: 'private' }, { name: 'terms', iconName: 'terms' }, { name: 'contact', iconName: 'email' }]
+        .map(({ name, iconName }) => ({ href: `/${name}`, iconName, textKey: `menu.${name}` }))];
 
 // Each language's name in its own language, as is usual for language links
 const LANGUAGE_NAMES = { en: 'English', el: 'Ελληνικά' };
@@ -89,7 +94,7 @@ export function createRenderer(tools, pagePaths, config, layoutFile = 'server/vi
                 id: tool.id, path: tool.path, iconName: tool.icon, active: tool.id === active,
                 titleKey: `tool.${tool.id}.title`, shortKey: `tool.${tool.id}.short`,
             })),
-            siteLinks: SITE_PAGES.map(({ name, iconName }) => ({ href: `/${name}`, iconName, textKey: `menu.${name}` })),
+            siteLinks: SITE_PAGES,
             content,
             ad: unit,
             // The strings its scripts use (/js/core/i18n.js)
