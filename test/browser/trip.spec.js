@@ -999,6 +999,29 @@ test.describe('the trip page', () => {
             await expect(done(page)).toHaveCount(1);
             await expect(done(page)).toContainText('Walk to');
             await expect(card(page).locator('h2.trip-total')).toContainText('Arrive about');
+            // Drawn, not only said: the bar in the brand colour down the
+            // step's left, its whole height, in the card's padding, clear of
+            // the way's rail (decisions 50 and 78)
+            await expect(async () => {
+                const bar = await current(page).evaluate(step => {
+                    const after = getComputedStyle(step, '::after');
+                    const brand = document.createElement('span');
+                    brand.style.color = 'var(--wh-brand-dot)';
+                    step.append(brand);
+                    const colour = getComputedStyle(brand).color;
+                    brand.remove();
+                    return {
+                        drawn: after.content !== 'none', colour: after.backgroundColor, brand: colour,
+                        width: parseFloat(after.width), height: parseFloat(after.height), tall: step.getBoundingClientRect().height,
+                        left: parseFloat(after.left),
+                    };
+                });
+                expect(bar.drawn).toBe(true);
+                expect(bar.colour).toBe(bar.brand);
+                expect(bar.width).toBeGreaterThan(2);
+                expect(Math.abs(bar.height - bar.tall)).toBeLessThan(1);
+                expect(bar.left, 'in the card\'s padding').toBeLessThan(0);
+            }).toPass({ timeout: 5_000 });
 
             // On the bus, two stops on: still the 040's step; the stop it
             // boarded at is behind the rider, so no longer asked, and the
@@ -1886,8 +1909,16 @@ test.describe('"Other ways" under the legend', () => {
         const heading = page.locator('#trip-result h2.route-option-label');
         await expect(legend).toBeVisible();
         await expect(heading).toBeVisible();
-        const [above, below] = [await legend.boundingBox(), await heading.boundingBox()];
-        expect(below.y - (above.y + above.height)).toBeGreaterThanOrEqual(23.5);
+        // Both measured in one go, tried again if the answer was drawn anew
+        // between them (one in 20 runs, before)
+        await expect(async () => {
+            const gap = await page.evaluate(() => {
+                const above = document.querySelector('#trip-result details.diagram-legend')?.getBoundingClientRect();
+                const below = document.querySelector('#trip-result h2.route-option-label')?.getBoundingClientRect();
+                return above && below ? below.top - above.bottom : null;
+            });
+            expect(gap).toBeGreaterThanOrEqual(23.5);
+        }).toPass({ timeout: 5_000 });
     });
 });
 
@@ -1926,6 +1957,49 @@ test.describe('the strip under each way', () => {
         await expect(async () => {
             const apart = await other.evaluate(card => card.querySelector('.way-strip-small').getBoundingClientRect().width - card.querySelector('.trip-other').getBoundingClientRect().width);
             expect(Math.abs(apart)).toBeLessThan(1);
+        }).toPass({ timeout: 5_000 });
+    });
+});
+
+// The way in full as a timeline (decision 78): its rail down the steps'
+// left column, the M2's card beside it without its box, the rail the same
+// colour as the strip's ride, a walk's dotted
+test.describe('the way in full as a timeline', () => {
+    test.beforeEach(onlyOn('phone'));
+
+    test('a train\'s card has no box, its rail is its strip\'s colour, a walk\'s is dotted, and at 200% the rail gives way', async ({ page }) => {
+        await pickPark(page);
+        const best = page.locator('.trip-card').first();
+        const train = best.locator('li.trip-leg', { has: page.locator('.line-pill.line-m2') });
+        await expect(train).toBeVisible();
+        // Measured in one go, tried again if the answer was drawn anew
+        const look = () => best.evaluate(card => {
+            const leg = card.querySelector('li.trip-leg.strip-m2');
+            const box = getComputedStyle(leg.querySelector('.result-card'));
+            const walk = getComputedStyle(card.querySelector('.trip-timeline > .trip-walk'), '::before');
+            return {
+                edge: box.borderTopWidth, fill: box.backgroundColor,
+                rail: getComputedStyle(leg, '::before').backgroundColor,
+                railShown: getComputedStyle(leg, '::before').display,
+                strip: getComputedStyle(card.querySelector('.way-strip-ride.strip-m2')).backgroundColor,
+                walk: walk.borderLeftStyle,
+                beside: leg.querySelector('.leg-title').getBoundingClientRect().left - card.querySelector('.trip-timeline').getBoundingClientRect().left,
+            };
+        });
+        await expect(async () => {
+            const it = await look();
+            expect(it.edge).toBe('0px');
+            expect(it.fill).toBe('rgba(0, 0, 0, 0)');
+            expect(it.rail, 'the rail as its strip').toBe(it.strip);
+            expect(it.walk).toBe('dotted');
+            expect(it.beside, 'the card beside the rail').toBeGreaterThan(40);
+        }).toPass({ timeout: 5_000 });
+        // At 200% the steps take the width, one under the other, no rail
+        await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
+        await expect(async () => {
+            const it = await look();
+            expect(it.railShown).toBe('none');
+            expect(it.beside).toBeLessThan(1);
         }).toPass({ timeout: 5_000 });
     });
 });

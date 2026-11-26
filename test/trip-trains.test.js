@@ -175,7 +175,7 @@ for (const lang of ['en', 'el']) {
     // A card's badges, as the Subway page draws them, counted from `now`
     const chips = (now, ...departs) => `<span class="schedule-chips">${departs.map(d => subway.departureChip({ departs: d, isLast: false, isSecondLast: false }, { seconds: now }, false)).join('')}</span>`;
     // The train's card: from the first card to the next (the M2's)
-    const trainCard = html => html.split('<li class="trip-leg">')[1];
+    const trainCard = html => html.split(/<li class="trip-leg strip-[a-z0-9]+">/)[1];
     const name = id => day.stations[id][lang === 'el' ? 2 : 3];
     const ticket = key => escapeHtml(s[key].replace('{station}', name('megara')));
     // A time that's a guess: "~12:06", "about 12:06" for screen readers
@@ -242,7 +242,7 @@ for (const lang of ['en', 'el']) {
         assert.ok(html.includes(leaves(clock(A4 + 5 * MIN))), 'without "~"');
         assert.ok(html.includes(ticket('trip.train-ticket')));
         assert.ok(!html.includes('trip-train-late'));
-        assert.equal(html.split('<li class="trip-leg">').length, 2, 'the M2 still a card');
+        assert.equal(html.split(/<li class="trip-leg strip-[a-z0-9]+">/).length, 2, 'the M2 still a card');
         assert.ok(drawn(timed(null), null, at(17).seconds, network).includes(leaves(clock(A4))), 'on time by the timetable');
     });
 

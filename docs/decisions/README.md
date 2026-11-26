@@ -89,3 +89,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 75 | [The car to ride in is the station sign's off-white](0075-the-car-to-ride-in-is-the-sign-off-white.md) | In force |
 | 76 | [From and To are one block](0076-from-and-to-are-one-block.md) | In force |
 | 77 | [Each way has its strip](0077-each-way-has-its-strip.md) | In force |
+| 78 | [The way in full is a timeline](0078-the-way-in-full-is-a-timeline.md) | In force |

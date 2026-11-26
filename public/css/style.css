@@ -1895,10 +1895,99 @@ body {
     margin-left: auto;
 }
 
-/* A metro or tram ride: the Subway page's card, across the whole step
-   (decision 46), its corners inside the trip card's */
+/* A metro or tram ride: the Subway page's card (decision 46), without its
+   box in the way's timeline (decision 78): what it says, beside the rail */
 .trip-leg > .result-card {
-    --bs-card-border-radius: calc(var(--wh-radius-lg) - 1px);
+    background: none;
+    border: 0;
+    --bs-card-spacer-x: 0;
+    --bs-card-spacer-y: 0;
+}
+
+/* The way in full as a timeline (decision 78): down the steps' left column,
+   the way's rail. A walk's is dotted, a ride on rail a bar in its line's
+   colour (.strip-m1), a bus's the plate's neutral, as the strip above draws
+   them. Each step's minutes or clock time sit on it; a train's ride, its
+   card beside the rail, starts at a station's mark across it; the way ends
+   at a square; both in the text's colour, to stand out in either theme. Where any of several buses will do there's no
+   one line: their stops keep the card's width, the rail paused beside
+   them. A picture, as the strip: the steps say all of it */
+.trip-timeline {
+    --rail-x: 1.5rem;
+    --rail-width: 0.375rem;
+}
+
+.trip-timeline > :is(.trip-step, .trip-leg) {
+    position: relative;
+    background-image: var(--rail-mark, none), var(--rail-end, none);
+    background-repeat: no-repeat;
+    background-position: calc(var(--rail-x) - 0.625rem) 0.5rem, calc(var(--rail-x) - 0.3125rem) 100%;
+    background-size: 1.25rem 0.375rem, 0.625rem 0.625rem;
+}
+
+.trip-timeline > .trip-leg {
+    padding-left: calc(3rem + var(--wh-space-3));
+}
+
+.trip-timeline > :is(.trip-step, .trip-leg)::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: calc(-1 * var(--wh-space-3));
+    left: var(--rail-x);
+    transform: translateX(-50%);
+    width: var(--rail-width);
+    background: var(--strip, var(--bs-secondary-color));
+    forced-color-adjust: none;
+}
+
+/* Under its minutes or time, never above them */
+.trip-timeline > .trip-step::before {
+    top: 0.375rem;
+}
+
+.trip-timeline > .trip-walk::before {
+    width: 0;
+    background: none;
+    border-left: 3px dotted var(--bs-secondary-color);
+}
+
+.trip-timeline > :last-child::before {
+    bottom: 0.625rem;
+}
+
+/* Where a train is boarded: a station's mark across the rail, the rail
+   from under it */
+.trip-timeline > .trip-leg {
+    --rail-mark: linear-gradient(var(--bs-body-color), var(--bs-body-color));
+}
+
+.trip-timeline > .trip-leg::before {
+    top: 0.875rem;
+}
+
+/* The door: a square at the rail's end */
+.trip-timeline > :last-child {
+    --rail-end: linear-gradient(var(--bs-body-color), var(--bs-body-color));
+}
+
+/* A step's minutes or clock time on the rail, the card's colour around them */
+.trip-timeline .trip-step-when {
+    position: relative;
+    z-index: 1;
+    align-self: flex-start;
+    text-align: center;
+    padding-bottom: var(--wh-space-1);
+    background: var(--bs-tertiary-bg);
+}
+
+.trip-timeline .trip-step-when:empty {
+    background: none;
+}
+
+/* Behind the rider, the rail fades with the steps */
+.trip-timeline > .trip-step-done::before {
+    opacity: 0.4;
 }
 
 /* A walk's walking directions, at the far right of its row as on a bus
@@ -1917,7 +2006,7 @@ body {
     position: relative;
 }
 
-.trip-step-now::before {
+.trip-step-now::after {
     content: '';
     position: absolute;
     inset: 0 auto 0 calc(-1 * var(--wh-space-3));
@@ -1990,6 +2079,24 @@ body {
 
     .trip-step-when:empty {
         display: none;
+    }
+
+    /* No room for the rail: the steps one under the other, as before it */
+    .trip-timeline > :is(.trip-step, .trip-leg)::before {
+        display: none;
+    }
+
+    .trip-timeline > :is(.trip-step, .trip-leg) {
+        background-image: none;
+    }
+
+    .trip-timeline > .trip-leg {
+        padding-left: 0;
+    }
+
+    .trip-timeline .trip-step-when {
+        text-align: left;
+        padding-bottom: 0;
     }
 }
 

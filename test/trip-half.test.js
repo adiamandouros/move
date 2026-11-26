@@ -427,7 +427,7 @@ for (const lang of ['en', 'el']) {
         const [bus, train] = ways[0].o.rides;
         assert.ok(html.includes(leaves(about(clock(bus.boards)))));
         assert.ok(!html.includes(leaves(clock(train.boards))), 'no time on the left of a train');
-        const card = html.slice(html.indexOf('<li class="trip-leg">'));
+        const card = html.slice(html.indexOf('<li class="trip-leg strip-m2">'));
         assert.ok(card.includes(`<span class="schedule-chips">${badge(train.boards, at(10).seconds)}`), 'from the M2 the rider can catch after the bus, counted from now');
     });
 
@@ -443,7 +443,7 @@ for (const lang of ['en', 'el']) {
         const now = at(10).seconds;
         const html = drawn(now);
         check(html);
-        const head = html.slice(html.indexOf('<div class="trip-step-head">'), html.indexOf('<li class="trip-leg">'));
+        const head = html.slice(html.indexOf('<div class="trip-step-head">'), html.indexOf('<li class="trip-leg strip-m2">'));
         assert.ok(head.includes(badges(minutesTo(bus.boards, now), minutesTo(bus.next, now))), head);
         assert.ok(head.indexOf('bus-plate pill-m') < head.indexOf('trip-step-badges'), 'after its plate and where it goes');
         // The next one an hour away: the first alone
@@ -463,7 +463,7 @@ for (const lang of ['en', 'el']) {
         assert.deepEqual(ways[0].o.rides.map(ride => ride.line), plan.legs.map(leg => leg.line));
         for (const [i, leg] of plan.legs.entries()) {
             const card = String(subway.legCard(network, leg, plan.legs[i + 1] ?? null, { seconds: at(12).seconds }, 3, false, true, `${leg.line}/${leg.dir}/${leg.from}/${leg.to}`, false));
-            assert.ok(view.includes(`<li class="trip-leg">${card}</li>`), leg.line);
+            assert.ok(view.includes(`<li class="trip-leg strip-${leg.line.toLowerCase()}">${card}</li>`), leg.line);
         }
         assert.ok(!view.includes('/subway?from='), 'no "Where to stand" button: the card shows it');
         assert.ok(view.indexOf('<details class="diagram-legend" open>') > view.indexOf('trip-leg'), 'the legend under the way');
