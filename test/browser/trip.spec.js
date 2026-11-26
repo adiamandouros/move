@@ -999,6 +999,29 @@ test.describe('the trip page', () => {
             await expect(done(page)).toHaveCount(1);
             await expect(done(page)).toContainText('Walk to');
             await expect(card(page).locator('h2.trip-total')).toContainText('Arrive about');
+            // Drawn, not only said: the bar in the brand colour down the
+            // step's left, its whole height, in the card's padding, clear of
+            // the way's rail (decisions 50 and 78)
+            await expect(async () => {
+                const bar = await current(page).evaluate(step => {
+                    const after = getComputedStyle(step, '::after');
+                    const brand = document.createElement('span');
+                    brand.style.color = 'var(--wh-brand-dot)';
+                    step.append(brand);
+                    const colour = getComputedStyle(brand).color;
+                    brand.remove();
+                    return {
+                        drawn: after.content !== 'none', colour: after.backgroundColor, brand: colour,
+                        width: parseFloat(after.width), height: parseFloat(after.height), tall: step.getBoundingClientRect().height,
+                        left: parseFloat(after.left),
+                    };
+                });
+                expect(bar.drawn).toBe(true);
+                expect(bar.colour).toBe(bar.brand);
+                expect(bar.width).toBeGreaterThan(2);
+                expect(Math.abs(bar.height - bar.tall)).toBeLessThan(1);
+                expect(bar.left, 'in the card\'s padding').toBeLessThan(0);
+            }).toPass({ timeout: 5_000 });
 
             // On the bus, two stops on: still the 040's step; the stop it
             // boarded at is behind the rider, so no longer asked, and the
