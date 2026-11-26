@@ -143,6 +143,11 @@ The palettes and every contrast number are in the guide.
   it's from a timetable or live.
 - Last trains: the last is red, the second-last amber, and a line of words
   says so too.
+- **The car to ride in** is the station sign's off-white panel, solid, its
+  symbol in ink: "stand here", like the sign on the platform, and the
+  brightest thing on a dark card. On light it's the other way round, an
+  ink car with an off-white symbol. Never yellow or amber, which are
+  warnings and the second-last train (decision 75).
 - Clock times (tomorrow, station timetables) are neutral chips. A trip's
   own clock times are plain text: when to be at the stop, when you arrive,
   "due at 12:14" in a sentence; so are walks and how long a ride takes.
@@ -176,7 +181,7 @@ value outside those blocks.
   (`public/js/core/theme.js`, hashed in the CSP); the bar colour
   (`theme-color`) follows it.
 - Light colours are the guide's, darkened where a tint over the grey page
-  fell under 4.5:1 (green, red, ride-here orange, the menu's gold).
+  fell under 4.5:1 (green, red, the menu's gold).
 - The logo is drawn in the page (`partials/logo.hbs`), its ring in
   `--wh-brand-dot`: `#ffc107` on dark, `#e89b00` on light.
   The browser-tab icon (`favicon.svg`) does the same by itself when the
