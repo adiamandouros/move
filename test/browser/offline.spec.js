@@ -23,6 +23,45 @@ test('the first visit says once it\'s ready, then the message goes', async ({ pa
     await expect(toast).toHaveCount(0);
 });
 
+test('the message is one line, in Greek too', async ({ page }) => {
+    await page.goto('/el');
+    const words = page.locator('.toast-message span');
+    await expect(words).toHaveText('Έτοιμο για χρήση offline', { timeout: 15_000 });
+    const line = await words.evaluate(el => parseFloat(getComputedStyle(el).lineHeight));
+    expect((await words.boundingBox()).height).toBeLessThan(line * 1.5);
+});
+
+// The service worker installed and active: the moment the message is due
+const activated = page => page.evaluate(async () => {
+    const { active } = await navigator.serviceWorker.ready;
+    if (active?.state !== 'activated') await new Promise(done => active?.addEventListener('statechange', done));
+});
+
+test('the message waits while a field has the keyboard, and comes once it\'s left', async ({ page }) => {
+    await page.goto('/subway');
+    const field = page.getByRole('combobox').first();
+    await field.focus();
+    await activated(page);
+    // Past its quiet 2 s, short of the 4 s it would show for
+    await page.clock.runFor(3_000);
+    const toast = page.locator('.toast-message');
+    await expect(toast).toHaveCount(0);
+    await field.blur();
+    await page.clock.runFor(2_500);
+    await expect(toast).toContainText('Ready to use offline');
+});
+
+test('the message goes as soon as the page is scrolled, before its time is up', async ({ page }) => {
+    const toast = await installed(page);
+    await expect(toast).not.toHaveClass(/showing/);
+    // Its own time (4 s) stopped, so only the scroll can send it away
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 10));
+    await page.locator('#app-content').evaluate(el => el.scrollBy(0, 200));
+    await expect(toast).toHaveClass(/showing/);
+    await page.clock.resume();
+    await expect(toast).toHaveCount(0);
+});
+
 test('offline: the planner works, other pages show the offline page', async ({ page, context }) => {
     await installed(page);
     await context.setOffline(true);

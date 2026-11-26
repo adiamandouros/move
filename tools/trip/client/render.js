@@ -1,5 +1,5 @@
 import { distanceMeters } from '/js/core/geo.js';
-import { externalLink, format, formatHtml, html, icon, localName, notice, walkingUrl } from '/js/core/html.js';
+import { closableNotice, externalLink, format, formatHtml, html, icon, localName, notice, walkingUrl } from '/js/core/html.js';
 import { language, localHref, t } from '/js/core/i18n.js';
 import { liftNotice, liftSummary, metroStations, ridePlatforms, stepFreeGaps } from '/js/core/lifts.js';
 import { busPlate, exitSign, linePill, pillList, stationSign } from '/js/core/lines.js';
@@ -562,7 +562,8 @@ function missing(noBuses, noTrains) {
 // the searches, with a newer Wayhop waiting to take over (main.js).
 // noTrains: the suburban railway has no times for today. checking: the next
 // half hour is being worked out, and may take its place (renderHalf). lifts,
-// liftsOpen: for the step-free notice. `now`: seconds from midnight, for the
+// liftsOpen: for the step-free notice; timetableOpen: whether the warning
+// that the timetable has ended is open. `now`: seconds from midnight, for the
 // minutes, `epoch` the same moment since 1970, for them to count down by
 // themselves (decision 61; none, as on the server, and they don't); `weekday` (0 = Sunday) and `date` in Athens, for the trains of
 // the cards (legs.js), by the timetable, as this answer isn't timed with how
@@ -573,15 +574,15 @@ function missing(noBuses, noTrains) {
 /**
  * @param {Rail} rail @param {ReturnType<typeof import('./plan.js').doorToDoor>} trip
  * @param {Place} to
- * @param {{ now: number, epoch?: number | null, weekday: number, date: string, expired?: boolean, noBuses?: boolean | 'updated', noTrains?: boolean, checking?: boolean, lifts?: Lifts | null, liftsOpen?: boolean, stations?: Record<string, boolean>, legend?: boolean, following?: Following | null }} shown
+ * @param {{ now: number, epoch?: number | null, weekday: number, date: string, expired?: boolean, noBuses?: boolean | 'updated', noTrains?: boolean, checking?: boolean, lifts?: Lifts | null, liftsOpen?: boolean, timetableOpen?: boolean, stations?: Record<string, boolean>, legend?: boolean, following?: Following | null }} shown
  */
-export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { now, epoch = null, weekday, date, expired = false, noBuses = false, noTrains = false, checking = false, lifts = null, liftsOpen = true, stations = {}, legend: legendShown = true, following = null }) {
+export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { now, epoch = null, weekday, date, expired = false, noBuses = false, noTrains = false, checking = false, lifts = null, liftsOpen = true, timetableOpen = false, stations = {}, legend: legendShown = true, following = null }) {
     const [best, ...others] = options;
     const trainsStopped = best?.morning;
     const drawn = { now, epoch, weekday, date, stations };
     return html`
         ${missing(noBuses, noTrains)}
-        ${expired && notice('warn', 'warning', t('trip.timetable-ended'), 'mb-3')}
+        ${expired && timetableEnded(timetableOpen)}
         ${trainsStopped && notice('info', 'night', t('trip.no-trains'), 'mb-3')}
         ${stepFree(rail, options, lifts, liftsOpen)}
         ${walkFirst && !trainsStopped && walkCard(walk, to)}
@@ -593,6 +594,11 @@ export function renderTrip(rail, { options, walk, walkFirst, longWalk }, to, { n
         ${others.length > 0 && !(walkFirst && !trainsStopped) && html`<h2 class="route-option-label">${t('trip.other-ways')}</h2>`}
         ${others.map(o => otherCard(rail, o))}`;
 }
+
+// That the metro timetable has ended: one closed line until opened
+// (timetableOpen() in metro.js)
+/** @param {boolean} open */
+const timetableEnded = open => closableNotice('warn', 'warning', t('trip.timetable-ended'), t('trip.timetable-ended-more'), 'timetable-notice mb-3', open);
 
 const longWalkNotice = () => notice('info', 'bus', html`${t('trip.long-walk')} <a href="${localHref('/buses')}">${t('trip.look-for-buses')}</a>`, 'mb-3');
 
@@ -752,8 +758,9 @@ function onwardOthers(rail, onward, clock, checking) {
 // times have, under the directions; or `taken`, the quicker way's row, when
 // the rider took it: in their place. noTrains: the suburban railway has no
 // times for today (decision 41). lifts, liftsOpen: for the step-free notice,
-// of every way shown. `trains`: how late the suburban trains run, by number,
-// when the first way is timed with it (live), for its cards' badges
+// of every way shown; timetableOpen: as renderTrip's. `trains`: how late the
+// suburban trains run, by number, when the first way is timed with it (live),
+// for its cards' badges
 // (decision 47). `stops`: the bus stops the rider opened, by code (decision
 // 48). `rail`, `now`, `epoch`, `weekday`, `date`, stations, legend: as
 // renderTrip's. Nothing under it (decision 43) but the legend of what its
@@ -781,9 +788,9 @@ function onwardOthers(rail, onward, clock, checking) {
  *   othersTimed?: Map<HalfRow, import('./searcher.js').OtherWay>, onward?: import('./searcher.js').OnwardWay[] | null, take?: boolean,
  *   picked?: boolean, lead?: boolean, lost?: boolean, checking?: string | null, gone?: boolean, noTrains?: boolean,
  *   trains?: Record<string, import('./trains.js').TrainLate> | null, lifts?: Lifts | null, liftsOpen?: boolean, stations?: Record<string, boolean>,
- *   stops?: Set<string>, legend?: boolean, following?: Following | null }} shown
+ *   stops?: Set<string>, timetableOpen?: boolean, legend?: boolean, following?: Following | null }} shown
  */
-export function renderHalf(rail, kind, ways, to, { now, epoch = null, weekday, date, expired = false, longWalk = false, live = null, offer = false, taken = null, switching = null, switched = /** @type {false | 'quicker' | 'picked'} */ (false), othersTimed = new Map(), onward = null, take = false, picked = false, lead = false, lost = false, checking = /** @type {string | null} */ (null), gone = false, noTrains = false, trains = null, lifts = null, liftsOpen = true, stations = {}, stops = new Set(), legend: legendShown = true, following = null }) {
+export function renderHalf(rail, kind, ways, to, { now, epoch = null, weekday, date, expired = false, longWalk = false, live = null, offer = false, taken = null, switching = null, switched = /** @type {false | 'quicker' | 'picked'} */ (false), othersTimed = new Map(), onward = null, take = false, picked = false, lead = false, lost = false, checking = /** @type {string | null} */ (null), gone = false, noTrains = false, trains = null, lifts = null, liftsOpen = true, timetableOpen = false, stations = {}, stops = new Set(), legend: legendShown = true, following = null }) {
     const [first, ...rest] = ways;
     // The other ways, in the half hour's order until OASA times one, then
     // the soonest there first
@@ -795,7 +802,7 @@ export function renderHalf(rail, kind, ways, to, { now, epoch = null, weekday, d
     const drawn = { now, epoch, weekday, date, trains: live && trains, stations, stops };
     return html`
         ${missing(false, noTrains)}
-        ${expired && notice('warn', 'warning', t('trip.timetable-ended'), 'mb-3')}
+        ${expired && timetableEnded(timetableOpen)}
         ${lost && notice('warn', 'warning', t('trip.picked-lost'), 'mb-3')}
         ${gone && notice('warn', 'warning', t('trip.take-gone'), 'mb-3')}
         ${stepFree(rail, [shown, ...others.map(way => way.o)], lifts, liftsOpen)}

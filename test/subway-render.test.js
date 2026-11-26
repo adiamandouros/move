@@ -236,10 +236,13 @@ test('the lift status unavailable: an error above the step-free notice, for a tr
     assert.doesNotMatch(String(render.renderIntro(network, true, none, ['zappeio'])), /lift-/);
 });
 
-test('an old timetable says so, with its last day', async () => {
+test('an old timetable says so in one closed line, with its last day; the rest when it\'s opened', async () => {
     const render = await browserModule('tools/subway/client/render.js', 'en');
     const [y, m, d] = rail.feed.validTo.split('-');
-    assert.match(draw(render, TRIPS['an old timetable']).html, new RegExp(`timetable-notice[\\s\\S]*${d}/${m}/${y}`));
+    const { html } = draw(render, TRIPS['an old timetable']);
+    assert.match(html, new RegExp(`<details class="notice notice-warn closable-notice timetable-notice mb-3">[\\s\\S]*<span class="closable-summary">The OASA timetable ended on ${d}/${m}/${y}</span>`));
+    assert.ok(html.includes('Departure times come from it, so they may have changed since.'));
+    assert.match(draw(render, ['omonia', 'piraeus', NOON, { expired: true, timetableOpen: true }]).html, /<details class="notice notice-warn closable-notice timetable-notice mb-3" open>/);
 });
 
 test('one train: minutes on screen and in full for screen readers, or a clock time; the last ones marked', async () => {

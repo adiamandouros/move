@@ -1,7 +1,7 @@
 import { lastPosition, locationPermission, onLocation, onLocationProblem, showFollowing, startLocation } from '/js/core/location.js';
 import { announce, localName, setHtml } from '/js/core/html.js';
 import { watchLifts } from '/js/core/lifts.js';
-import { legendOpen, liftsOpen } from '/js/core/metro.js';
+import { legendOpen, liftsOpen, timetableOpen } from '/js/core/metro.js';
 import { language, t } from '/js/core/i18n.js';
 import { remember } from '/js/core/remember.js';
 import { countBadges } from '/js/core/times.js';
@@ -90,7 +90,8 @@ function start(metro, trains) {
         const details = document.activeElement?.closest('#subway-result details');
         if (!details) return null;
         if (details.hasAttribute('data-route')) return `details[data-route="${CSS.escape(details.getAttribute('data-route') ?? '')}"] > summary`;
-        return `${details.matches('.lift-notice') ? 'details.lift-notice' : 'details.diagram-legend'} > summary`;
+        const kept = ['lift-notice', 'timetable-notice', 'diagram-legend'].find(cls => details.classList.contains(cls));
+        return kept ? `details.${kept} > summary` : null;
     };
     /** @param {string | null} selector */
     const refocus = selector => { if (selector) /** @type {HTMLElement | null} */ (result.querySelector(selector))?.focus(); };
@@ -121,7 +122,7 @@ function start(metro, trains) {
         // After the last train, tomorrow's first ones
         const { plans, now, tomorrow } = planTrip(rail, origin, destination, today);
         const focus = focused();
-        setHtml(result, renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow, open: opened, stations: stationsOpen, legend: legendOpen(), lifts: known, liftsOpen: liftsOpen(), from: origin, to: destination }));
+        setHtml(result, renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow, open: opened, stations: stationsOpen, legend: legendOpen(), lifts: known, liftsOpen: liftsOpen(), timetableOpen: timetableOpen(), from: origin, to: destination }));
         refocus(focus);
         if (speak) announce(routeSummary(rail, plans, now, tomorrow, known));
     };

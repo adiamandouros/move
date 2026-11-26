@@ -229,6 +229,15 @@ for (const lang of ['en', 'el']) {
     // A train's badge, counted from `now`, as the Subway page's card has it
     const badge = (departs, now) => String(subway.departureChip({ departs, isLast: false, isSecondLast: false }, { seconds: now }, false));
 
+    test(`${lang}: a timetable that has ended: one closed line above the ways, open once opened`, () => {
+        const ways = halfWays(clear, at(12).seconds);
+        const drawn = shown => String(r.renderHalf(network, clear.kind, ways, fix, { ...at(12), now: at(12).seconds, expired: true, ...shown }));
+        assert.match(drawn({}), /<details class="notice notice-warn closable-notice timetable-notice mb-3">/);
+        assert.ok(drawn({}).includes(`<span class="closable-summary">${s['trip.timetable-ended']}</span>`));
+        assert.match(drawn({ timetableOpen: true }), /<details class="notice notice-warn closable-notice timetable-notice mb-3" open>/);
+        assert.ok(drawn({}).indexOf('timetable-notice') < drawn({}).indexOf('trip-total'), 'above the answer');
+    });
+
     test(`${lang}: the clear way, its range, "best on most departures", and the nearest 3 stops with their buses`, () => {
         const ways = halfWays(clear, at(12).seconds);
         const view = String(r.renderHalf(network, clear.kind, ways, fix, { ...at(12), now: at(12).seconds }));

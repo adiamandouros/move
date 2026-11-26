@@ -405,9 +405,16 @@ for (const lang of ['en', 'el']) {
         assert.equal(view.includes('trip-total'), false, 'no count of minutes until the morning');
     });
 
-    test(`${lang}: a timetable that has ended is said`, () => {
+    test(`${lang}: a timetable that has ended is said in one closed line, the rest when it's opened`, () => {
         const trip = doorToDoor(rail, menelaou, syntagma, NOW);
-        assert.ok(String(drawTrip(rail, trip, syntagma, { expired: true })).includes(s['trip.timetable-ended']));
+        const closed = String(drawTrip(rail, trip, syntagma, { expired: true }));
+        check(closed);
+        assert.match(closed, /<details class="notice notice-warn closable-notice timetable-notice mb-3">/);
+        assert.ok(closed.includes(`<span class="closable-summary">${s['trip.timetable-ended']}</span>`), 'its first line');
+        assert.ok(closed.includes(s['trip.timetable-ended-more']), 'the rest, under it');
+        // Opened on the page (timetableOpen()): drawn open
+        assert.match(String(drawTrip(rail, trip, syntagma, { expired: true, timetableOpen: true })), /<details class="notice notice-warn closable-notice timetable-notice mb-3" open>/);
+        assert.doesNotMatch(String(drawTrip(rail, trip, syntagma)), /timetable-notice/);
     });
     // ── The step-free notice (DESIGN.md, the Guide's T12) ──
     const named = id => localName(network.stations[id].name, lang);

@@ -85,3 +85,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 71 | [Strikes from apergia.gr, in their words, in the disruption box](0071-strikes-from-apergia.md) | In force |
 | 72 | [The trip page: a way quicker by OASA's live times comes first](0072-trip-first-way-by-live-times.md) | In force |
 | 73 | [The trip page: a station that's two buildings, its exits by line](0073-trip-stations-of-two-buildings.md) | In force |
+| 74 | [A warning that's the same every day is one closed line](0074-a-warning-the-same-every-day-is-one-line.md) | In force |

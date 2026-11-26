@@ -6,7 +6,7 @@ export {};
 declare global {
     interface Window {
         /** Bootstrap's JavaScript (bootstrap.min.js, loaded before the page's scripts) */
-        bootstrap: { Toast: { getOrCreateInstance(el: Element, options?: { delay?: number }): { show(): void } } };
+        bootstrap: { Toast: { getOrCreateInstance(el: Element, options?: { delay?: number }): { show(): void, hide(): void } } };
         /** Google AdSense's queue of ad slots to fill (core/ads.js) */
         adsbygoogle?: object[];
         /** Google's consent message (Funding Choices), when ads are on */

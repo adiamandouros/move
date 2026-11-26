@@ -290,6 +290,12 @@ November 2026). Margins come from where it's put (`mb-3`), not from the
 notice.
 Yellow is for warnings only.
 
+A warning that says the same every day, like the metro timetable having
+ended, is one closed line (`closableNotice`, closed): what happened, with
+the chevron; the rest once it's opened. Opened, it stays open while the page
+draws its answer again; the next page starts closed (decision 74). A
+warning about today, and every error, stays open.
+
 Nothing under an answer says where its times come from: the About page
 credits every source (decision 43). A message about the answer goes above
 it.
@@ -377,6 +383,15 @@ the suburban railway's stations, in words on one line, side by side while they
 fit: Bootstrap's switch with its label, in `--bs-primary` when on
 (Bootstrap's own blue is fixed), and the whole row at least 2.75rem high. What
 acts on the page right now stays a button, like Nearest.
+
+### Toast
+
+A short message that goes by itself (4 seconds), a pill above the bottom
+bar as wide as its words (one line while they fit), for something that needs no answer: "Ready to use offline", once. It
+never covers what's being typed or drawn: it waits until no text field has
+the keyboard and the page hasn't changed for 2 seconds, and goes as soon as
+the person scrolls or touches the page (`toast` in
+`public/js/core/shell.js`).
 
 ## The Trip page
 
