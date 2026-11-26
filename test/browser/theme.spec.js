@@ -143,6 +143,13 @@ test.describe('light', () => {
         expect(await axe(page), 'axe-core violations').toEqual([]);
     });
 
+    test('the car to ride in is ink, its symbol off-white', async ({ page }) => {
+        await page.goto('/subway?from=kifisia&to=airport');
+        const car = page.locator('.result-card .train-car.highlighted').first();
+        await expect(car).toHaveCSS('background-color', 'rgb(15, 19, 28)');
+        await expect(car).toHaveCSS('color', 'rgb(244, 245, 247)');
+    });
+
     test('the maps stay black', async ({ page }) => {
         await page.goto('/info');
         const map = page.locator('.metro-map').first();

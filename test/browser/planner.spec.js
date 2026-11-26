@@ -180,7 +180,14 @@ test('the train diagram is shaped like a train: a rounded tail on the left, a sl
     // A highlighted end car keeps its highlight border
     const last = cars.last();
     await last.evaluate(car => car.classList.add('highlighted'));
-    await expect(last).toHaveCSS('border-top-color', 'rgb(245, 158, 11)');
+    await expect(last).toHaveCSS('border-top-color', 'rgb(244, 245, 247)');
+});
+
+test('the car to ride in is the station sign\'s off-white, never yellow like the warnings', async ({ page }) => {
+    await page.goto('/subway?from=kifisia&to=airport');
+    const car = page.locator('.result-card .train-car.highlighted').first();
+    await expect(car).toHaveCSS('background-color', 'rgb(244, 245, 247)');
+    await expect(car).toHaveCSS('color', 'rgb(15, 19, 28)');
 });
 
 test('a central platform\'s «Doors open on the left» sits on its own line, centred under where to get off', async ({ page }) => {

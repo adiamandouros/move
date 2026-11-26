@@ -86,3 +86,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 72 | [The trip page: a way quicker by OASA's live times comes first](0072-trip-first-way-by-live-times.md) | In force |
 | 73 | [The trip page: a station that's two buildings, its exits by line](0073-trip-stations-of-two-buildings.md) | In force |
 | 74 | [A warning that's the same every day is one closed line](0074-a-warning-the-same-every-day-is-one-line.md) | In force |
+| 75 | [The car to ride in is the station sign's off-white](0075-the-car-to-ride-in-is-the-sign-off-white.md) | In force |

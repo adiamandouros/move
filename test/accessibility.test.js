@@ -136,6 +136,7 @@ const EXCEPTIONS = {
     'var(--wh-ink)': 'dark text, only used on the light line colours (checked below)',
     '#fff': 'white text, only used on the metro lines\' colours (checked below) and the due time (checked below)',
     'var(--wh-on-close)': 'the text on the due time\'s solid green (checked below)',
+    'var(--wh-on-highlight)': 'the symbol on the car to ride in, only on its solid colour (checked below)',
     'var(--wh-brand-dot)': 'the dot in the wordmark, decoration hidden from screen readers',
     'var(--bs-border-color)': 'the decorative "/" between EN and ΕΛ, hidden from screen readers',
 };
@@ -225,12 +226,15 @@ for (const mode of MODES) {
     });
 
     test(`${mode} mode: the car to ride in and the menu button's icon show on cards`, () => {
-        const rgb = hexColour => [1, 3, 5].map(i => parseInt(hexColour.slice(i, i + 2), 16));
-        const over = (colour, alpha, surface) => `#${rgb(colour).map((c, i) => Math.round(c * alpha + rgb(surface)[i] * (1 - alpha)).toString(16).padStart(2, '0')).join('')}`;
-        assert.equal(TOKENS[mode]['--wh-highlight-rgb'].replace(/\s/g, ''), rgb(hexOf('--wh-highlight', mode)).join(','));
         const card = hexOf('--bs-tertiary-bg', mode);
-        const car = over(hexOf('--wh-highlight', mode), 0.2, card);
-        assert.ok(contrast(hexOf('--wh-highlight', mode), car) >= 3, 'its symbol on the car (graphics 3:1)');
+        const car = hexOf('--wh-highlight', mode);
+        // Solid, so it stands out from the card and the other cars (graphics 3:1)
+        assert.ok(contrast(car, card) >= 3, 'the car on the card');
+        assert.ok(contrast(car, hexOf('--bs-secondary-bg', mode)) >= 3, 'the car beside the others');
+        assert.ok(contrast(hexOf('--wh-on-highlight', mode), car) >= 3, 'its symbol on the car');
+        assert.ok(contrast(hexOf('--bs-primary', mode), car) >= 3, 'a lift on the car');
+        // "Near Back" under it, in words
+        assert.ok(contrast(car, card) >= 4.5, 'its name under it');
         // Brand yellow carries the menu button's icon (a graphic)
         assert.ok(contrast(hexOf('--wh-brand-yellow', mode), card) >= 3, 'the menu button\'s icon');
     });

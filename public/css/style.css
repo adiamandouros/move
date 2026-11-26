@@ -145,9 +145,10 @@
     /* Warnings: text and edge */
     --wh-warn: #ffc107;
     --wh-warn-edge: rgba(255, 193, 7, 0.35);
-    /* Where to stand on the train */
-    --wh-highlight: #f59e0b;
-    --wh-highlight-rgb: 245, 158, 11;
+    /* Where to stand on the train: the station sign's off-white panel, the
+       brightest thing on the card (ink on light), its symbol the other way round */
+    --wh-highlight: #f4f5f7;
+    --wh-on-highlight: #0f131c;
     /* Departures (the time badge): due (the tint's colour is solid), close, and the last two trains */
     --wh-close: #34d67a;
     --wh-close-rgb: 52, 214, 122;
@@ -205,8 +206,8 @@
     --wh-brand-dot: #e89b00;
     --wh-warn: #8a5300;
     --wh-warn-edge: #e0a100;
-    --wh-highlight: #a44708;
-    --wh-highlight-rgb: 164, 71, 8;
+    --wh-highlight: #0f131c;
+    --wh-on-highlight: #f4f5f7;
     --wh-close: #116c3b;
     --wh-close-rgb: 17, 108, 59;
     --wh-on-close: #fff;
@@ -1432,9 +1433,9 @@ body {
 }
 
 .train-car.highlighted {
-    background-color: rgba(var(--wh-highlight-rgb), 0.2);
+    background-color: var(--wh-highlight);
     border-color: var(--wh-highlight);
-    color: var(--wh-highlight);
+    color: var(--wh-on-highlight);
 }
 
 .train-car.has-elevator {
