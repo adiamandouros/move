@@ -426,7 +426,19 @@ rules, with a picture of a way shown in full.
 - **The way shown in full** is one card. Its heading is how long the trip
   takes and when you arrive, both in the body colour. Walks and bus rides
   are rows with a 3rem column on the left; metro, tram and suburban rides
-  are the Subway page's leg card, inside the trip's card. Every other way is one line. Nothing under the answer.
+  are the Subway page's leg card, inside the trip's card without its box.
+  Every other way is one line. Nothing under the answer.
+- **The timeline** (decision 78): down the 3rem column, the way's rail,
+  drawn as the strip draws it: a walk and a "Way out:" step a 3px dotted
+  line, a train's ride a 0.375rem bar in its line's colour, a bus's
+  `--bs-secondary-color`. A walk's minutes and a bus's clock time sit on
+  it, the card's colour around them. A train's card sits beside the rail,
+  with no edge, fill or padding; a station's mark crosses the rail where
+  it's boarded, and the way ends at a square, both in the body colour.
+  Where any of several buses will do, the rail pauses and their stops keep
+  the card's width. The rail of steps done fades with them. At large text
+  (the steps under 14em) there's no rail, and a ride's card takes the
+  whole width. A picture, hidden from screen readers: the steps say it.
 - **The strip** (decision 77): under each way's heading, on the Trip page
   and the Subway page alike, the whole way as one bar the card's width:
   each part as wide as its minutes, in twentieths of the bar, at least
@@ -485,8 +497,8 @@ rules, with a picture of a way shown in full.
   rider's lines with where it goes and its badge, the walking figure; no
   star. Opened, every bus of the rider's lines they can still catch there.
   None on live times: their lines, and "Not on live times yet".
-- **A metro, tram or suburban ride** is the Subway page's card as it is
-  (`legCard`, decision 46), across the step with nothing on the left: where
+- **A metro, tram or suburban ride** is the Subway page's card without its
+  box (`legCard`, decisions 46 and 78), beside the rail: where
   to board, the L pill → the direction's sign, the badges, the last-train
   words, the train diagram (metro), notes, where to change or get off, the
   stations on the way. Its badges start at the first train the rider can
