@@ -265,3 +265,10 @@
 .usage-table thead th { white-space: normal; min-width: 5rem; vertical-align: bottom; font-weight: 600; }
 .usage-table td, .usage-table thead th:not(:first-child) { text-align: end; }
 .usage-table-narrow { width: auto; }
+
+/* No page transitions here (decision 82): the editor reloads and saves as
+   it goes, and a transition cut short by the next page is only noise. The
+   last @view-transition rule wins over style.css's */
+@view-transition {
+    navigation: none;
+}

@@ -386,6 +386,33 @@ body {
     background-color: rgba(var(--bs-primary-rgb), 0.1);
 }
 
+/* Moving between pages (decision 82): the page cross-fades, the current
+   tab's highlight slides to the new one, the bars stay where they are. Only
+   when the phone hasn't asked for less motion; a browser without it just
+   switches pages, as before */
+@media (prefers-reduced-motion: no-preference) {
+    @view-transition {
+        navigation: auto;
+    }
+
+    #bottom-nav {
+        view-transition-name: bottom-nav;
+    }
+
+    #side-nav {
+        view-transition-name: side-nav;
+    }
+
+    .nav-btn.active {
+        view-transition-name: nav-current;
+    }
+
+    ::view-transition-group(*) {
+        animation-duration: 0.25s;
+        animation-timing-function: cubic-bezier(0.3, 0.7, 0.4, 1);
+    }
+}
+
 /* .active too: Bootstrap's .btn.active:focus-visible would otherwise win and
    drop the ring on the current page's link */
 .nav-btn:focus-visible,

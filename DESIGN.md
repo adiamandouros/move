@@ -434,6 +434,18 @@ the keyboard and the page hasn't changed for 2 seconds, and goes as soon as
 the person scrolls or touches the page (`toast` in
 `public/js/core/shell.js`).
 
+### Motion
+
+Only where it shows what changed (decision 82), and never when the phone
+asks for less motion (`prefers-reduced-motion: reduce`); nothing loops,
+nothing plays on every card, and a browser that can't do it just shows
+the change.
+
+- **Moving between pages**: the page cross-fades and the current tab's
+  highlight slides to the new one, a quarter of a second; the bottom bar
+  and the sidebar stay put (`@view-transition` in `style.css`). The
+  station editor has none.
+
 ## Home
 
 What's near, now (decision 81). From the top:
