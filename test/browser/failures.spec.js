@@ -153,7 +153,11 @@ test.describe('losing the connection on the bus page', () => {
 
         await context.setOffline(false);
         const offline = asked.length;
-        await page.clock.fastForward(33_000);
+        // Past every stop's next refresh, whichever tier its next bus puts it
+        // on (32, 62 or 122 s: timing.js): the notice goes once every stop on
+        // screen has a fresh answer. 33 s was enough only while every one of
+        // them had a bus within 10 minutes, which drifted with the test's speed
+        await page.clock.fastForward(123_000);
         await expect.poll(() => asked.length).toBeGreaterThan(offline);
         await expect(status(page)).toBeHidden();
     });

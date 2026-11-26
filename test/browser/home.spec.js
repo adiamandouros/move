@@ -94,8 +94,11 @@ test('"Where to?" opens the Trip page', async ({ page }) => {
 
 // The numbers agreed for decision 81: the nearest stop only, on the Buses
 // page's tiers, said &for=home; nothing while Home is out of sight or after
-// 10 minutes untouched
+// 10 minutes untouched. Without motion (decision 82): a time's roll plays in
+// real time while this passes 15 minutes in moments, so each minute's slowed
+// the steps (WebKit past its 30 s); what's asked doesn't depend on it
 test('OASA asked for the nearest stop only, on the Buses page\'s tiers, and not once Home is left untouched for 10 minutes', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     const { asks, run } = await watchRequests(page);
     await page.goto('/');
     await expect(stop(page).locator('.arrival-row').first()).toBeVisible();
@@ -108,10 +111,15 @@ test('OASA asked for the nearest stop only, on the Buses page\'s tiers, and not 
     expect(minute.map(a => a.code)).toEqual([first[0].code, first[0].code, first[0].code]);
     expect(minute[1].at - minute[0].at).toBeGreaterThanOrEqual(32_000);
     expect(minute[1].at - minute[0].at).toBeLessThan(33_000);
-    // Untouched: nothing after 10 minutes
-    await run(11 * 60);
+    // Untouched: nothing after 10 minutes. Minutes at a time (a second at a
+    // time is too slow on WebKit), each request let finish
+    const skip = async ms => {
+        await page.clock.runFor(ms);
+        await page.waitForFunction(() => window.__pending === 0);
+    };
+    await skip(11 * 60_000);
     const idle = (await asks()).length;
-    await run(120);
+    await skip(120_000);
     expect((await asks()).length).toBe(idle);
     // A touch: asked again at once
     await page.mouse.click(5, 5);
