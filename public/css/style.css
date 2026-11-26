@@ -108,6 +108,9 @@
     --bs-secondary-bg-rgb: 30, 37, 56;
     --wh-tertiary-bg-hover: #1a2133;
     --wh-secondary-bg-hover: #313c5b;
+    /* A bus line's plate: a step darker than raised parts, so it reads as a
+       plate (decision 80) */
+    --wh-plate-bg: #262f47;
 
     /* Text, strongest first */
     --bs-emphasis-color: #fff;
@@ -171,6 +174,7 @@
     --bs-secondary-bg-rgb: 233, 237, 244;
     --wh-tertiary-bg-hover: #eef1f7;
     --wh-secondary-bg-hover: #dde3ee;
+    --wh-plate-bg: #d3d9e4;
 
     --bs-emphasis-color: #0b0e14;
     --bs-emphasis-color-rgb: 11, 14, 20;
@@ -1413,7 +1417,7 @@ body {
 .bus-plate {
     min-width: 2.5em;
     border-radius: var(--wh-radius-sm);
-    background-color: var(--bs-secondary-bg);
+    background-color: var(--wh-plate-bg);
     color: var(--bs-body-color);
 }
 

@@ -167,6 +167,22 @@ for (const mode of MODES) {
         }
     });
 
+    // Decision 80: a bus plate is a step darker than the page and cards, so
+    // it reads as a plate (not loud: it carries no meaning of its own), and
+    // what's written on it, its number or a link's blue, still meets AA
+    test(`${mode} mode: a bus plate stands apart from the page and cards, its number and link readable on it`, () => {
+        const plate = hexOf('--wh-plate-bg', mode);
+        assert.ok(plate, '--wh-plate-bg is a colour');
+        for (const surface of ['--bs-body-bg', '--bs-tertiary-bg']) {
+            const ratio = contrast(plate, hexOf(surface, mode));
+            assert.ok(ratio >= 1.25 && ratio < 2, `the plate on ${surface} is ${ratio.toFixed(2)}:1`);
+        }
+        for (const text of ['--bs-body-color', '--bs-link-color']) {
+            const ratio = contrast(hexOf(text, mode), plate);
+            assert.ok(ratio >= 4.5, `${text} on the plate is ${ratio.toFixed(2)}:1`);
+        }
+    });
+
     // Controls sit on the page and on cards, never on raised parts (chips, pills)
     test(`${mode} mode: the edge of a control stands out where controls sit (3:1, WCAG 1.4.11)`, () => {
         const edge = hexOf('--wh-control-edge', mode);
