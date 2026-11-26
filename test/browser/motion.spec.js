@@ -43,3 +43,68 @@ test.describe('moving between pages', () => {
         });
     });
 });
+
+// Decision 82's times: a minute counted down rolls up (and grows once as it
+// turns due, tested in Node, times.test.js); a bus time a fresh answer
+// changed rings once, the others stay still
+test.describe('times', () => {
+    test.beforeEach(({}, { project }) => test.skip(project.name !== 'phone', 'one phone: the same CSS everywhere'));
+
+    // OASA's answer for any stop: the X95 in `minutes`, the 040 in 15'
+    const answer = minutes => route => {
+        const code = new URL(route.request().url()).searchParams.get('stops');
+        route.fulfill({ json: { stops: { [code]: { arrivals: [
+            { line: 'Χ95', to: { el: 'ΑΕΡΟΔΡΟΜΙΟ', en: 'AIRPORT' }, minutes },
+            { line: '040', to: { el: 'ΠΕΙΡΑΙΑΣ', en: 'PIRAEUS' }, minutes: 15 },
+        ] } } } });
+    };
+    const animation = locator => locator.evaluate(el => getComputedStyle(el).animationName);
+
+    test('a bus time OASA\'s next answer changed rings once; one it didn\'t change stays still', async ({ page }) => {
+        let minutes = 8;
+        await page.route('**/api/arrivals?*', route => answer(minutes)(route));
+        await page.goto('/buses?stop=10361');
+        const row = page.locator('.stop-item .arrival-row');
+        await expect(row.first().locator('.time-badge').first()).toHaveText(/8/);
+        minutes = 5;
+        await page.clock.runFor(35_000);
+        const changed = row.first().locator('.time-badge').first();
+        await expect(changed).toHaveText(/5/);
+        await expect(changed).toHaveClass(/time-fresh/);
+        expect(await animation(changed)).toBe('time-ring');
+        await expect(row.nth(1).locator('.time-badge').first()).not.toHaveClass(/time-fresh/);
+    });
+
+    test('a train\'s minute counted down rolls up', async ({ page }) => {
+        await page.goto('/subway?from=syntagma&to=airport');
+        await expect(page.locator('.result-card .time-badge').first()).toBeVisible();
+        // A minute on (another, in case a train leaving drew the card anew then)
+        const rolled = page.locator('.result-card .time-tick').first();
+        await expect(async () => {
+            await page.clock.runFor(61_000);
+            await expect(rolled).toBeVisible({ timeout: 1_000 });
+        }).toPass();
+        expect(await animation(rolled.locator('[aria-hidden="true"]'))).toBe('time-roll');
+    });
+
+    test.describe('with reduced motion', () => {
+        test.use({ reducedMotion: 'reduce' });
+
+        test('the times change as before, nothing moving', async ({ page }) => {
+            let minutes = 8;
+            await page.route('**/api/arrivals?*', route => answer(minutes)(route));
+            await page.goto('/buses?stop=10361');
+            const badge = page.locator('.stop-item .arrival-row').first().locator('.time-badge').first();
+            await expect(badge).toHaveText(/8/);
+            minutes = 5;
+            await page.clock.runFor(35_000);
+            await expect(badge).toHaveText(/5/);
+            expect(await animation(badge)).toBe('none');
+            await page.goto('/subway?from=syntagma&to=airport');
+            await expect(page.locator('.result-card .time-badge').first()).toBeVisible();
+            await page.clock.runFor(61_000);
+            const moving = await page.locator('.result-card').first().evaluate(card => [...card.querySelectorAll('*')].filter(el => getComputedStyle(el).animationName !== 'none').length);
+            expect(moving).toBe(0);
+        });
+    });
+});

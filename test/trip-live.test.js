@@ -837,7 +837,7 @@ for (const lang of ['en', 'el']) {
         assert.ok(first.includes(`<span class="next-bus-line"><span class="bus-plate pill-l">${line}</span></span>`), first);
         assert.ok(first.includes(`<span class="next-bus-dest">${glyfada[lang]}</span>`));
         const due = Math.ceil((second.walk + 9 * MIN) / 60);
-        assert.ok(first.includes(`<span class="header-badge-wrap" aria-hidden="true"><span class="time-badge time-later"><span aria-hidden="true">${due}'`), 'counted from now');
+        assert.ok(first.includes(`<span class="header-badge-wrap" aria-hidden="true" data-key="next"><span class="time-badge time-later"><span aria-hidden="true">${due}'`), 'counted from now');
         assert.ok(first.includes(`aria-label="${s['trip.stop-buses'].replace('{stop}', (names => lang === 'el' ? names.el : names.en || latinName(names.el))(city.stops[second.stop].names))}"`), 'only the rider\'s buses, so not "all arrivals"');
         // Opened: its line to Glyfada once (decision 79), the next bus at the
         // right, the one after "then in" (a badge too, so it counts down by
@@ -933,7 +933,7 @@ for (const lang of ['en', 'el']) {
         assert.ok(html.includes(`<span class="trip-arrives">${escaped(s['trip.quicker-taken'])}</span>`));
         assert.ok(html.includes(`<button type="button" id="trip-quicker-back" class="btn btn-sm locate-btn trip-stand">${escaped(s['trip.quicker-back'])}</button>`));
         assert.ok(!html.includes('trip-quicker-take'), 'nothing more offered');
-        assert.ok(html.includes(`<span class="next-bus-line"><span class="bus-plate pill-l">${OFF_BUS.line}</span></span>`) && html.includes('<span class="header-badge-wrap" aria-hidden="true"><span class="time-badge'), 'its bus with its minutes');
+        assert.ok(html.includes(`<span class="next-bus-line"><span class="bus-plate pill-l">${OFF_BUS.line}</span></span>`) && html.includes('<span class="header-badge-wrap" aria-hidden="true" data-key="next"><span class="time-badge'), 'its bus with its minutes');
         const waiting = drawnDecided(null, { taken: decidedView.quicker });
         check(waiting);
         assert.ok(waiting.includes(escaped(s['trip.quicker-back'])) && waiting.includes(escaped(s['trip.any-bus-then'])));

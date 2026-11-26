@@ -17,9 +17,57 @@ const CLOSE_MINUTES = 8;
 /** @param {number} minutes @returns {TimeTier} */
 export const soonTier = minutes => minutes <= DUE_MINUTES ? 'due' : minutes <= CLOSE_MINUTES ? 'close' : 'later';
 
-/** @param {TimeTier} tier @param {unknown} content @param {string} [title] @param {unknown} [data] its data- attributes @returns {import('./html.js').Html} */
-export function timeBadge(tier, content, title = '', data = '') {
-    return html`<span class="time-badge time-${tier}"${title && html` title="${title}"`}${data}>${content}</span>`;
+/** @param {TimeTier} tier @param {unknown} content @param {string} [title] @param {unknown} [data] its data- attributes @param {string} [motion] how it just changed (MOTION) @returns {import('./html.js').Html} */
+export function timeBadge(tier, content, title = '', data = '', motion = '') {
+    return html`<span class="time-badge time-${tier}${motion && ` ${motion}`}"${title && html` title="${title}"`}${data}>${content}</span>`;
+}
+
+// How a badge just changed, as a class its motion plays from (style.css,
+// decision 82): its minute counted down (it rolls up), turned due (it grows
+// once), or changed by a fresh answer (one ring). Only once: the next
+// drawing leaves it out
+const MOTION = { tick: 'time-tick', due: 'time-due-now', fresh: 'time-fresh' };
+
+/**
+ * Each keyed badge's minutes under `root`, before it's drawn again: the
+ * first badge inside each element with a data-key (a bus stop's row by its
+ * line and where it goes, the next bus), for markChanges after
+ * @param {ParentNode} root @returns {Map<string, number>}
+ */
+export function keyedMinutes(root) {
+    /** @type {Map<string, number>} */
+    const minutes = new Map();
+    for (const holder of /** @type {NodeListOf<HTMLElement>} */ (root.querySelectorAll('[data-key]'))) {
+        const shown = badgeMinutes(holder.querySelector('.time-badge'));
+        if (shown !== null && holder.dataset.key) minutes.set(holder.dataset.key, shown);
+    }
+    return minutes;
+}
+
+// A badge's minutes, from its data or what it shows ("7'"); null for a clock time or none
+/** @param {Element | null} badge */
+function badgeMinutes(badge) {
+    if (!badge) return null;
+    const shown = /** @type {HTMLElement} */ (badge).dataset.minutes ?? badge.querySelector('[aria-hidden="true"]')?.textContent ?? '';
+    const minutes = /^~?(\d+)'?$/.exec(shown.trim());
+    return minutes ? Number(minutes[1]) : null;
+}
+
+/**
+ * Drawn again: each keyed badge whose minutes changed since `before`
+ * (keyedMinutes) marked for its motion: `fresh`, a new answer's (a ring),
+ * else a minute counted down (a roll); and one turned due grows once
+ * @param {ParentNode} root @param {Map<string, number>} before @param {boolean} fresh
+ */
+export function markChanges(root, before, fresh) {
+    for (const holder of /** @type {NodeListOf<HTMLElement>} */ (root.querySelectorAll('[data-key]'))) {
+        const badge = holder.querySelector('.time-badge');
+        const was = before.get(holder.dataset.key ?? '');
+        const minutes = badgeMinutes(badge);
+        if (!badge || was === undefined || minutes === null || minutes === was) continue;
+        badge.classList.add(fresh ? MOTION.fresh : MOTION.tick);
+        if (badge.classList.contains('time-due') && soonTier(was) !== 'due') badge.classList.add(MOTION.due);
+    }
 }
 
 // Every time counts down by itself (decision 61): a badge shown keeps
@@ -77,12 +125,12 @@ export const aboutTime = (time, t) => html`<span aria-hidden="true">~${time}</sp
 // `exact` as minutesLeft; it keeps how it was drawn, to draw it again so
 /**
  * @param {number} minutes @param {(key: string) => string} t
- * @param {{ said?: string, then?: string, tier?: TimeTier | null, soon?: boolean, title?: string, at?: number | null, exact?: boolean }} [options]
+ * @param {{ said?: string, then?: string, tier?: TimeTier | null, soon?: boolean, title?: string, at?: number | null, exact?: boolean, motion?: string }} [options]
  */
-export function minutesBadge(minutes, t, { said = '{minutes}', then = '', tier = null, soon = true, title = '', at = null, exact = false } = {}) {
+export function minutesBadge(minutes, t, { said = '{minutes}', then = '', tier = null, soon = true, title = '', at = null, exact = false, motion = '' } = {}) {
     const shown = tier ?? soonTier(minutes);
     const data = at !== null && html` data-at="${at}" data-minutes="${minutes}"${exact && html` data-exact`}${said !== '{minutes}' && html` data-said="${said}"`}${then && html` data-then="${then}"`}${tier && html` data-tier="${tier}"`}${!soon && html` data-quiet`}`;
-    return timeBadge(shown, minutesMark(minutes, t, { said, then: `${then}${soon && shown === 'due' ? `, ${t('shell.arriving-soon')}` : ''}` }), title, data);
+    return timeBadge(shown, minutesMark(minutes, t, { said, then: `${then}${soon && shown === 'due' ? `, ${t('shell.arriving-soon')}` : ''}` }), title, data, motion);
 }
 
 // Counts on every badge under `root` that has its time (minutesBadge's
@@ -104,7 +152,10 @@ export function countBadges(root, t, now = Date.now() / 1000) {
             if (holder && !holder.querySelector('.time-badge')) holder.replaceChildren();
             gone = true;
         } else if (minutes !== Number(was)) {
-            badge.outerHTML = String(minutesBadge(minutes, t, { at: Number(at), exact: exact !== undefined, said, then, tier: /** @type {TimeTier | undefined} */ (tier) ?? null, soon: quiet === undefined, title: badge.title }));
+            // Its minute rolls up, and it grows once as it turns due (MOTION)
+            const dueNow = !tier && soonTier(minutes) === 'due' && soonTier(Number(was)) !== 'due';
+            const motion = dueNow ? `${MOTION.tick} ${MOTION.due}` : MOTION.tick;
+            badge.outerHTML = String(minutesBadge(minutes, t, { at: Number(at), exact: exact !== undefined, said, then, tier: /** @type {TimeTier | undefined} */ (tier) ?? null, soon: quiet === undefined, title: badge.title, motion }));
         }
     }
     return gone;

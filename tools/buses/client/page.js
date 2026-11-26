@@ -3,6 +3,7 @@ import { html, icon, notice, setHtml } from '/js/core/html.js';
 import { t } from '/js/core/i18n.js';
 import { distance, message, patchStop, stopItem } from './render.js';
 import { countDown, dueStops, elapsedMinutes, isIdle } from './timing.js';
+import { keyedMinutes, markChanges } from '/js/core/times.js';
 
 // What every view of the bus page shares (views/): the page's state, the
 // stop list drawn in it and the polling that keeps its live times up to date.
@@ -111,12 +112,22 @@ export function clearStops() {
     renderStatus();
 }
 
+// A stop's row drawn again, its badges that changed marked (decision 82):
+// `fresh`, by a new answer (a ring), else counted down (a roll)
+/** @param {HTMLElement} item @param {string} code @param {boolean} fresh */
+function drawStop(item, code, fresh) {
+    const before = keyedMinutes(item);
+    patchStop(item, shown(code), { waiting: waiting(code) });
+    markChanges(item, before, fresh);
+}
+
 // On a stop or a line, a stop that isn't opened isn't asked for: no answer is on its way
 const waiting = (/** @type {string} */ code) => state.view.kind === 'nearby' || isOpen(code);
 
+// Each stop drawn again: a minute counted down rolls its badges up (decision 82)
 export function patchAll() {
     for (const stop of listed()) {
-        for (const item of itemsOf(stop.code)) patchStop(item, shown(stop.code), { waiting: waiting(stop.code) });
+        for (const item of itemsOf(stop.code)) drawStop(item, stop.code, false);
         state.drawnElapsed[stop.code] = elapsed(stop.code);
     }
     applyFilter();
@@ -262,7 +273,7 @@ async function ask(code) {
     state.asking.delete(code);
     const items = itemsOf(code);
     if (!items.length) return; // the stops changed meanwhile
-    for (const item of items) patchStop(item, shown(code), { waiting: waiting(code) });
+    for (const item of items) drawStop(item, code, true);
     state.drawnElapsed[code] = elapsed(code);
     applyFilter();
     renderStatus();

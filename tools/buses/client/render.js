@@ -75,7 +75,7 @@ export function stopRow(stop, index, { open = false, nearest = false, id = 'stop
                 ${externalLink({ class: 'directions-btn d-flex align-items-center justify-content-center', href: walkingUrl(stop.lat, stop.lng) },
                     html`${icon('walk')}<span class="sr-only">${t('buses.walking-directions-to')} ${local(stop.name)}</span>`, t('shell.new-tab'))}
             </div>
-            <span class="header-badge-wrap" aria-hidden="true">${badge}</span>
+            <span class="header-badge-wrap" aria-hidden="true" data-key="next">${badge}</span>
         </div>
         <div id="${id}-${index}" class="accordion-collapse collapse${open ? ' show' : ''}">
             <div class="accordion-body stop-body">
@@ -135,7 +135,8 @@ export function headerBadge(result) {
 // How many of a line's later buses its row shows after the first
 const THEN_SHOWN = 2;
 
-// One line to one place (decision 79): its plate as large as the closed
+// One line to one place (decision 79), keyed by them so a fresh answer's
+// change is marked (markChanges in times.js): its plate as large as the closed
 // row's, where it goes, the next bus's minutes at the right, and under where
 // it goes the next ones, "then in 15', 31'": badges too (they count down on
 // the Trip page), drawn as plain text
@@ -143,7 +144,7 @@ const THEN_SHOWN = 2;
 export function arrivalRow(a, later = []) {
     const then = later.slice(0, THEN_SHOWN);
     return html`
-            <li class="arrival-row">
+            <li class="arrival-row" data-key="${lineLabel(a)}\n${destination(a)}">
                 ${plate(lineLabel(a), 'l')}
                 <span class="arrival-dest"><span class="sr-only">, </span>${destination(a)}<span class="sr-only">, </span></span>
                 ${busBadge(a)}

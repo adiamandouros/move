@@ -445,6 +445,13 @@ the change.
   highlight slides to the new one, a quarter of a second; the bottom bar
   and the sidebar stay put (`@view-transition` in `style.css`). The
   station editor has none.
+- **Times**: a badge whose minute is counted down rolls the new number up
+  (a third of a second), and one turning due grows once; a bus time a
+  fresh answer from OASA changed gets one ring in the press colour, on the
+  Buses page and Home, the times it didn't change staying still. The
+  badge carries how it just changed as a class for one drawing
+  (`MOTION` in `/js/core/times.js`); a bus stop's rows are keyed by line
+  and where they go, so a change is found. "then in" stays still.
 
 ## Home
 

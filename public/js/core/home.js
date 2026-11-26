@@ -5,7 +5,7 @@ import { linePill, stationSign } from './lines.js';
 import { lastPosition, locationPermission, onLocation, onLocationProblem, restartLocation, startLocation } from './location.js';
 import { lineEnd } from './metro.js';
 import { nearestBusStop, nearestStation, stationTrains, starredStations } from './near.js';
-import { countBadges } from './times.js';
+import { countBadges, keyedMinutes, markChanges } from './times.js';
 import { distanceMeters } from './geo.js';
 import { athensClock, isTimetableExpired, withTram } from '/tools/subway/network.js';
 import { departureChip } from '/tools/subway/render.js';
@@ -175,11 +175,15 @@ function stopCard() {
     </section>`;
 }
 
-// Drawn again, the timetable's line stays as it was left, open or closed
-function drawNear() {
+// Drawn again, the timetable's line stays as it was left, open or closed,
+// and the bus times that changed are marked (decision 82): `fresh`, by
+// OASA's new answer (a ring), else counted down (a roll)
+function drawNear(fresh = false) {
     if (!state.station && !state.stop) return;
     const open = /** @type {HTMLDetailsElement | null} */ (near.querySelector('.timetable-notice'))?.open ?? false;
+    const before = keyedMinutes(near);
     setHtml(near, html`${stationCard()}${stopCard()}`);
+    markChanges(near, before, fresh);
     if (open) near.querySelector('.timetable-notice')?.setAttribute('open', '');
     state.trainsAt = Date.now();
 }
@@ -234,7 +238,7 @@ async function ask() {
     } finally {
         state.asking = false;
     }
-    if (state.stop?.code === stop.code) drawNear();
+    if (state.stop?.code === stop.code) drawNear(true);
 }
 
 // ── Starting ────────────────────────────────────────────────────────────────

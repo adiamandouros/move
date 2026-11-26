@@ -87,7 +87,7 @@ test('the minutes badge: colour by how soon, short on screen, in full for screen
 test('one arrival: line, destination and minutes, as a screen reader hears it', async () => {
     const el = await browserModule('tools/buses/client/render.js', 'el');
     const row = String(el.arrivalRow(arrivals[1]));
-    assert.match(row, /^\s*<li class="arrival-row">/);
+    assert.match(row, /^\s*<li class="arrival-row" data-key="040\nΠΕΙΡΑΙΑΣ">/, 'keyed by its line and where it goes, so a changed time is marked (decision 82)');
     assert.match(row, /time-close/);
     assert.equal(spoken(row).replace(/\s+/g, ' ').trim(), 'Γραμμή 040 , ΠΕΙΡΑΙΑΣ, 7 λεπτά');
     // As large as the closed row's next bus (decision 79)
@@ -108,7 +108,7 @@ test('one row a line and where it goes: the next bus, then the next two', async 
         { line: 'Χ95', to: airport, minutes: 31 },
         { line: 'Χ95', to: airport, minutes: 41 },
     ] }));
-    const rows = html.split('<li class="arrival-row">').slice(1);
+    const rows = html.split(/<li class="arrival-row" data-key="[^"]*">/).slice(1);
     assert.equal(rows.length, 3);
     assert.equal(spoken(rows[0]).replace(/\s+/g, ' ').trim(), 'Line Χ95 , AIRPORT, 3 minutes, arriving soon , then in 15 minutes, 31 minutes');
     assert.ok(!rows[0].includes("41'"), 'two after the first, no more');
@@ -118,7 +118,7 @@ test('one row a line and where it goes: the next bus, then the next two', async 
     // Home's nearest stop (decision 81): the first rows, each still with its next two
     const first = String(arrivalRows({ arrivals: [
         { line: 'Χ95', to: airport, minutes: 3 }, { line: '040', to: { en: 'PIRAEUS' }, minutes: 7 }, { line: 'Χ95', to: airport, minutes: 15 },
-    ] }, 1)).split('<li class="arrival-row">').slice(1);
+    ] }, 1)).split(/<li class="arrival-row" data-key="[^"]*">/).slice(1);
     assert.equal(first.length, 1);
     assert.match(first[0], /then/);
 });
