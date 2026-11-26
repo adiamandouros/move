@@ -108,3 +108,53 @@ test.describe('times', () => {
         });
     });
 });
+
+// Decision 82's lists: opened or closed, they slide to their height; the
+// stations on the way only when tapped, not when the page draws them again
+test.describe('opening lists', () => {
+    test.beforeEach(({}, { project }) => test.skip(project.name !== 'phone', 'one phone: the same CSS everywhere'));
+
+    // Tapped: the heights it goes through over the next half second
+    // (Chromium doesn't list a transition on ::details-content among the
+    // page's animations, so it's measured)
+    const heights = async (locator, tap, pseudo = null) => {
+        const sampling = locator.evaluate((el, pseudo) => new Promise(done => {
+            const seen = [];
+            const read = () => seen.push(Math.round(parseFloat(getComputedStyle(el, pseudo).height)));
+            const timer = setInterval(read, 25);
+            setTimeout(() => { clearInterval(timer); read(); done(seen); }, 500);
+        }), pseudo);
+        await tap();
+        return sampling;
+    };
+    // Somewhere between shut and open, not only one or the other
+    const slid = seen => seen.some(h => h > 2 && h < Math.max(...seen) - 2);
+
+    test('the legend and the stations on the way slide open and shut; a refresh doesn\'t replay it', async ({ page }) => {
+        await page.goto('/subway?from=kifisia&to=airport');
+        const legend = page.locator('details.diagram-legend').first();
+        await expect(legend).toHaveAttribute('open');
+        expect(slid(await heights(legend, () => legend.locator('summary').click(), '::details-content'))).toBe(true);
+        await expect(legend).not.toHaveAttribute('open');
+
+        const stations = page.locator('.leg-stations').first();
+        expect(slid(await heights(stations, () => page.locator('.leg-stops-toggle').first().click()))).toBe(true);
+        await expect(stations).toBeVisible();
+        // The page's next drawing (every 30 s): open, and still
+        await page.clock.runFor(31_000);
+        await expect(page.locator('.leg-stations').first()).toBeVisible();
+        await expect(page.locator('.leg-stations-moving')).toHaveCount(0);
+    });
+
+    test.describe('with reduced motion', () => {
+        test.use({ reducedMotion: 'reduce' });
+
+        test('they open at once', async ({ page }) => {
+            await page.goto('/subway?from=kifisia&to=airport');
+            const legend = page.locator('details.diagram-legend').first();
+            expect(slid(await heights(legend, () => legend.locator('summary').click(), '::details-content'))).toBe(false);
+            const stations = page.locator('.leg-stations').first();
+            expect(slid(await heights(stations, () => page.locator('.leg-stops-toggle').first().click()))).toBe(false);
+        });
+    });
+});

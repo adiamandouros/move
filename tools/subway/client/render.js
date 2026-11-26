@@ -216,7 +216,11 @@ export function watchLegStations(box, open) {
         if (!toggle) return;
         const opened = toggle.getAttribute('aria-expanded') !== 'true';
         toggle.setAttribute('aria-expanded', String(opened));
-        /** @type {HTMLElement} */ (document.getElementById(toggle.getAttribute('aria-controls') ?? '')).hidden = !opened;
+        const stations = /** @type {HTMLElement} */ (document.getElementById(toggle.getAttribute('aria-controls') ?? ''));
+        // Opened or closed by a tap, it slides (style.css, decision 82); the
+        // page's next drawing leaves the class out, so a refresh doesn't
+        stations.classList.add('leg-stations-moving');
+        stations.hidden = !opened;
         open()[toggle.getAttribute('data-leg') ?? ''] = opened;
     });
 }

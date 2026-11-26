@@ -452,6 +452,12 @@ the change.
   badge carries how it just changed as a class for one drawing
   (`MOTION` in `/js/core/times.js`); a bus stop's rows are keyed by line
   and where they go, so a change is found. "then in" stays still.
+- **Opening lists**: the legend, a closable notice, a route on the Subway
+  page and the Trip page's other ways open to their height and close the
+  same way, about a quarter of a second (`::details-content`); the stations
+  on the way too, only when tapped (`.leg-stations-moving`), so the page
+  drawing them again doesn't replay it. Info's sections already slide
+  (Bootstrap's collapse).
 
 ## Home
 
