@@ -147,7 +147,9 @@ export async function axe(page) {
         // they play, not by their `finished`: in Chromium, a fade inside a
         // closed <details> ends but never settles it. A spinner never ends
         // (a stop below the fold waits for a scroll to be asked for): not waited for.
-        const fading = a => a.playState === 'running' && a.effect?.getComputedTiming().iterations !== Infinity;
+        // Nor one on something not shown (a badge's roll in a closed list,
+        // decision 82), which waits there until it's opened.
+        const fading = a => a.playState === 'running' && a.effect?.getComputedTiming().iterations !== Infinity && a.effect?.target?.checkVisibility() !== false;
         while (document.getAnimations().some(fading)) await new Promise(r => setTimeout(r, 20));
         const { violations } = await window.axe.run(document, { runOnly: tags });
         return violations.map(v => `${v.id} (${v.nodes.length}): ${v.nodes[0].target.join(' ')}`);
@@ -169,8 +171,10 @@ export async function keyboardWalk(page, { max = 120 } = {}) {
             if (!el || el === document.body) return null;
             const seen = window.__walk.has(el);
             if (!seen) window.__walk.set(el, true);
-            // Let it finish sliding or fading in (a skip link), as a person would see it
-            await Promise.all(document.getAnimations().map(a => a.finished.catch(() => {})));
+            // Let it finish sliding or fading in (a skip link), as a person
+            // would see it; not what isn't shown (a badge's roll in a closed
+            // list, decision 82), which waits there until it's opened
+            await Promise.all(document.getAnimations().filter(a => a.effect?.target?.checkVisibility() !== false).map(a => a.finished.catch(() => {})));
             const name = `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''} "${(el.getAttribute('aria-label') || el.textContent || el.value || '').replace(/\s+/g, ' ').trim().slice(0, 40)}"`;
             const r = el.getBoundingClientRect();
             const style = getComputedStyle(el);
