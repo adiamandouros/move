@@ -1495,18 +1495,28 @@ body {
     font-size: var(--wh-fs-md);
 }
 
-/* Position labels below the diagram */
+/* Position labels below the diagram: the cars' columns, so each name is
+   centred under its car (the same gap, and a long word can't widen its own) */
 .position-labels {
     display: flex;
+    gap: var(--wh-space-1);
 }
 
 .position-label {
     flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    hyphens: manual;
     text-align: center;
     font-size: var(--wh-fs-xs);
     /* var(--bs-tertiary-color) meets WCAG AA (5.7:1) on the card */
     color: var(--bs-tertiary-color);
     transition: color 0.2s;
+}
+
+/* As wide as the nose car above it, its name centred where its symbol is */
+.position-label:last-child {
+    padding-right: 6px;
 }
 
 .position-label.has-elevator {

@@ -190,6 +190,18 @@ test('the car to ride in is the station sign\'s off-white, never yellow like the
     await expect(car).toHaveCSS('color', 'rgb(15, 19, 28)');
 });
 
+test('each name under the cars is centred under its car, in Greek too', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 740 });
+    await page.goto('/el/subway?from=kifisia&to=airport');
+    const diagram = page.locator('.result-card .train-diagram').first();
+    await expect(diagram.locator('.position-labels')).toBeVisible();
+    const centre = box => box.x + box.width / 2;
+    const cars = await diagram.locator('.train-car').evaluateAll(all => all.map(el => el.getBoundingClientRect().toJSON()));
+    const labels = await diagram.locator('.position-label').evaluateAll(all => all.map(el => el.getBoundingClientRect().toJSON()));
+    expect(labels).toHaveLength(cars.length);
+    cars.forEach((car, i) => expect(Math.abs(centre(labels[i]) - centre(car)), `label ${i}`).toBeLessThan(1.5));
+});
+
 test('a central platform\'s «Doors open on the left» sits on its own line, centred under where to get off', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto('/subway?from=syntagma&to=airport');
