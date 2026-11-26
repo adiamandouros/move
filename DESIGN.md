@@ -267,9 +267,9 @@ Material Symbols Rounded, by meaning: code names what an icon means
   legend says in words what they show: open, closable, only the symbols
   that are there (`diagramLegend` in `/js/core/metro.js`).
 - Sizes: 1.25em beside words (Material draws inside a margin), centred on
-  the capitals; 1.5rem in the navigation (`icon-nav`); 1.75rem on the home
-  tiles; 3rem above a page's message (`icon-message`).
-- Colour follows the text, except the home tiles and section heads
+  the capitals; 1.5rem in the navigation (`icon-nav`); 1.75rem on the offline
+  page's tiles; 3rem above a page's message (`icon-message`).
+- Colour follows the text, except the offline page's tiles and section heads
   (primary), the carriage to ride in, the lift, and status icons.
 - A new icon: add its meaning to `MEANINGS`, then `npm run icons` copies its
   SVG into `server/icons/` (the package is a dev dependency; the server
@@ -303,7 +303,8 @@ A warning that says the same every day, like the metro timetable having
 ended, is one closed line (`closableNotice`, closed): what happened, with
 the chevron; the rest once it's opened. Opened, it stays open while the page
 draws its answer again; the next page starts closed (decision 74). A
-warning about today, and every error, stays open.
+warning about today, and every error, stays open, except on Home, where
+the disruptions are one closed line (below, decision 81).
 
 Nothing under an answer says where its times come from: the About page
 credits every source (decision 43). A message about the answer goes above
@@ -432,6 +433,32 @@ never covers what's being typed or drawn: it waits until no text field has
 the keyboard and the page hasn't changed for 2 seconds, and goes as soon as
 the person scrolls or touches the page (`toast` in
 `public/js/core/shell.js`).
+
+## Home
+
+What's near, now (decision 81). From the top:
+
+- **Wayhop's name**, the logo and the wordmark, on phones only (the sidebar
+  has it on wider screens), with **"No disruptions"** at its right: a chip,
+  the all-clear icon in the close green, once every source answered.
+- **A disruption** is one closed line under it (`closableNotice`, warn):
+  the first one's title, cut short with "…" to stay on the line, and "+N
+  more" at its end; opened, each of them, then "All announcements" on Info.
+- **"Where to?"**: a link drawn as a field, `lg` text in the secondary
+  colour, the place icon in the text's, `--wh-control-edge`; it opens the
+  Trip page.
+- **The starred stations**, chips that wrap: a gold star, the name, at
+  least 2.75rem tall; each plans a trip to it (`/trip?to=`).
+- **"Near you"**, in small capitals, then two cards. The station's: its
+  sign and how far, the walking figure at the right; a row a line and
+  direction, its pill (as wide as every other in the card), where it goes,
+  and its next two trains as time badges at the right. The stop's: its
+  name (a link to it on the Buses page) and how far, the walking figure;
+  its buses as an opened stop draws them (List rows), at most four; under
+  them "All stops near you" and the stop's code, smaller, at the right.
+  Below 18em wide, a train row's times go on the line under it.
+- Without a position, a card-like box in their place: why, and "Use my
+  location" or "Try again" where it helps.
 
 ## The Trip page
 

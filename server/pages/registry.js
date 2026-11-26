@@ -7,7 +7,7 @@ import { mergeStrings, SHELL_STRINGS, stringGetter, toolNames } from './i18n.js'
 import { fares } from './fares.js';
 import { lastTrains } from './last-trains.js';
 import { appData } from './seo.js';
-import { STATION_STRINGS, STATIONS_PATH } from './stations.js';
+import { STATION_STRINGS } from './stations.js';
 import { view } from './templates.js';
 
 // Every page of the site. Each one is at its path in English and under /el
@@ -38,6 +38,8 @@ import { view } from './templates.js';
 
 const ROOT      = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const TOOLS_DIR = join(ROOT, 'tools');
+// Home's own strings, for its view and its script (public/js/core/home.js)
+const HOME_STRINGS = JSON.parse(readFileSync(join(ROOT, 'server', 'views', 'home.json'), 'utf8'));
 
 
 /** @typedef {import('../../types/pages.js').Page} Page */
@@ -59,9 +61,12 @@ export function sitePages(tools, config = loadConfig({}), rail = () => null) {
             path: '/',
             title: 'home.page-title',
             description: 'home.description',
-            content: (lang, strings) => view('server/views/home.hbs')({ tiles: [...tools.map(toolTile), STATIONS_TILE] }, { lang, strings }),
+            // "Near you" and the starred stations (decision 81), with the
+            // Subway and Buses pages' strings, as it draws their trains and buses
+            content: (lang, strings) => view('server/views/home.hbs')({}, { lang, strings }),
             structuredData: (lang, s) => appData(s('home.description'), lang, config.siteUrl),
-            scripts: ['/js/core/announcements.js', '/js/core/install.js'],
+            strings: mergeStrings(...['subway', 'buses'].map(id => tools.find(t => t.id === id)?.strings ?? {}), HOME_STRINGS),
+            scripts: ['/js/core/announcements.js', '/js/core/home.js', '/js/core/install.js'],
             readyBuses: true,
             active: 'home',
             ad: 'home',
@@ -159,8 +164,6 @@ export function loadTools(dir = TOOLS_DIR) {
 /** @param {Tool} tool */
 const toolTile = tool => ({ href: tool.path, tool: tool.id, iconName: tool.icon, titleKey: `tool.${tool.id}.title`, descriptionKey: `tool.${tool.id}.description` });
 
-// The metro stations' pages, from the home page
-const STATIONS_TILE = { href: STATIONS_PATH, tool: null, iconName: 'stations', titleKey: 'home.stations', descriptionKey: 'home.stations-text' };
 
 // ── Pages of text ───────────────────────────────────────────────────────────
 
@@ -178,7 +181,7 @@ const UPDATED = {
 // Every table of strings ({ en, el }) as it's written, for checks: the
 // shell's, the tools' names, each tool's own and the station pages'
 /** @param {Tool[]} tools */
-export const stringTables = tools => [SHELL_STRINGS, toolNames(tools), ...tools.map(t => t.strings), STATION_STRINGS];
+export const stringTables = tools => [SHELL_STRINGS, toolNames(tools), ...tools.map(t => t.strings), STATION_STRINGS, HOME_STRINGS];
 
 // ── Facts checked by hand ───────────────────────────────────────────────────
 

@@ -152,9 +152,10 @@ export function arrivalRow(a, later = []) {
 }
 
 // Every arrival, inside the opened stop: one row a line and where it goes,
-// in the order of their first bus
-/** @param {StopResult | undefined} result */
-export function arrivalRows(result) {
+// in the order of their first bus; the first `rows` of them (Home's
+// nearest stop, decision 81)
+/** @param {StopResult | undefined} result @param {number} [rows] */
+export function arrivalRows(result, rows = Infinity) {
     const arrivals = result?.arrivals ?? [];
     if (!arrivals.length) return result ? html`<li class="text-body-secondary small">${t(result.unavailable ? 'buses.unavailable' : 'buses.no-arrivals')}</li>` : html``;
     /** @type {Map<string, Arrival[]>} */
@@ -165,7 +166,7 @@ export function arrivalRows(result) {
         if (!buses) lines.set(key, buses = []);
         buses.push(a);
     }
-    return html`${[...lines.values()].map(([first, ...later]) => arrivalRow(first, later))}`;
+    return html`${[...lines.values()].slice(0, rows).map(([first, ...later]) => arrivalRow(first, later))}`;
 }
 
 // A message in place of the stops, with an optional button (its label).

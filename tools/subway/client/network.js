@@ -675,3 +675,28 @@ export function closestStation(rail, lat, lng, tram) {
 export function isTimetableExpired(rail, now) {
     return now.date > rail.feed.validTo;
 }
+
+// A station by the key the planner and the stars know it by (a station
+// page's star, favourites.js): a metro station's id ('syntagma'), a tram
+// stop's ('neo-faliro', or 'syntagma-tram' where a metro station has its
+// id, withTram) or a suburban station's ('kiato', 'piraeus-suburban',
+// withSuburban). What it's called, where it is and on which network, from
+// rail.json and trains.json as they come, before any joining; null for a
+// key neither knows (an old star). `trains`: null while it isn't in
+/**
+ * @param {import('../../../types/data.js').Rail} rail @param {Trains | null} trains @param {string} key
+ * @returns {{ name: Names, coords: [number, number], kind: 'metro' | 'tram' | 'suburban' } | null}
+ */
+export function stationByKey(rail, trains, key) {
+    const metro = Object.hasOwn(rail.stations, key) ? rail.stations[key] : null;
+    if (metro) return { name: metro.name, coords: metro.coords, kind: 'metro' };
+    const tram = rail.tram?.stations ?? {};
+    const tramId = key.endsWith('-tram') && Object.hasOwn(rail.stations, key.slice(0, -5)) ? key.slice(0, -5) : key;
+    if (Object.hasOwn(tram, tramId)) return { name: tram[tramId].name, coords: tram[tramId].coords, kind: 'tram' };
+    const taken = (/** @type {string} */ id) => Object.hasOwn(rail.stations, id) || Object.hasOwn(tram, id);
+    const trainId = key.endsWith('-suburban') && taken(key.slice(0, -9)) ? key.slice(0, -9) : key;
+    const train = trains && (trainId !== key || !taken(key)) && Object.hasOwn(trains.stations, trainId) ? trains.stations[trainId] : null;
+    if (!train) return null;
+    const [lat, lng, el, en] = train;
+    return { name: { el, en }, coords: [lat, lng], kind: 'suburban' };
+}

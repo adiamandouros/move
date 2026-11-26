@@ -92,3 +92,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 78 | [The way in full is a timeline](0078-the-way-in-full-is-a-timeline.md) | In force |
 | 79 | [A bus stop is a line over its buses](0079-a-bus-stop-is-a-line-over-its-buses.md) | In force |
 | 80 | [Bus plates a step darker](0080-bus-plates-a-step-darker.md) | In force |
+| 81 | [Home is "Near you"](0081-home-is-near-you.md) | In force |

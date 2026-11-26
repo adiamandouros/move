@@ -56,7 +56,7 @@ lists them all and says where the rest are:
 
 | Page | Defined in | Its content |
 |---|---|---|
-| Home, offline | `registry.js` | `server/views/home.hbs`, `offline.hbs` |
+| Home, offline | `registry.js` | `server/views/home.hbs` (its own strings `home.json`, filled in by `/js/core/home.js`), `offline.hbs` |
 | Subway, Buses, Info | `tools/<id>/tool.json` | `tools/<id>/page.hbs`, see [tools/README.md](tools/README.md) |
 | About, Privacy, Terms of use, Contact | `registry.js` | `server/views/pages/<name>.<lang>.hbs`, one file per language |
 | Metro stations | `server/pages/stations.js` | `server/views/stations/*.hbs`, from `rail.json` on request |
@@ -201,7 +201,9 @@ pages use.
   `metro.js` (what the subway page and the station pages share: train
   diagram, central platform badge, stop notes, times),
   `location.js`, `announcements.js`, `lifts.js` (lifts out of service, for
-  the subway and trip pages and the station pages), `ads.js`.
+  the subway and trip pages and the station pages), `ads.js`; Home's
+  "Near you" in `home.js`, what it works out in `near.js`
+  ([decision 81](docs/decisions/0081-home-is-near-you.md)).
 - `tools/<id>/client/`: a tool's own scripts, served at `/tools/<id>/`.
 - **Building HTML**: with ``html`…` `` from `/js/core/html.js`, which escapes
   every value put into it (names from OASA, the strings, numbers) except
@@ -211,7 +213,7 @@ pages use.
   station pages are built the same way on the server. `test/escaping.test.js`
   feeds markup into every name and note and checks it comes out as text.
 - **Location** (`/js/core/location.js`): only the pages that use it start it
-  (Buses, Subway's "Nearest" and Trip's "My location", when allowed or
+  (Buses, Home's "Near you", Subway's "Nearest" and Trip's "My location", when allowed or
   pressed), so the browser asks once, where it's clear why. Nearest and My
   location are one toggle (`showFollowing`). The last position is kept on the device
   for 10 minutes and shared by the pages
@@ -240,7 +242,11 @@ pages use.
   where and for when it was searched, the way's steps and where the rider
   was on them. Opened again, the page searches the same again, so the same
   way comes back, and places the rider where they were on it; nothing is
-  planned again from where they are until a fix puts them off it.
+  planned again from where they are until a fix puts them off it. A link
+  with a station, `/trip?to=<station>` (Home's starred stations,
+  `tools/trip/client/link.js`, [decision 81](docs/decisions/0081-home-is-near-you.md)),
+  sets To in place of the trip kept, and is taken out of the address, so
+  the trip is kept as any other.
 - Scripts import each other by absolute URL (`/js/core/i18n.js`). An import
   map in every page points each of those URLs at its version (`?v=<hash>`;
   [decision 1](docs/decisions/0001-no-build-step.md)).
@@ -400,6 +406,12 @@ version they started with, and it takes over once they're closed
   before the rider leaves (`leadOf` in `tools/trip/client/rank.js`), asking
   nothing more: the way first asks its stops, the one it replaced its first
   bus's.
+- Home's "Near you" ([public/js/core/home.js](public/js/core/home.js),
+  [decision 81](docs/decisions/0081-home-is-near-you.md)) asks for one
+  stop, the nearest, on the bus page's tiers (`refreshEvery` in
+  `timing.js`), only while Home is in sight and touched in the past 10
+  minutes, picked again after 40 m; its requests say `&for=home`, its
+  answers counted apart (`home` in `usage.js`).
 - `limits.js`: each visitor may ask for 30 stops a minute that aren't cached.
 - `passes.js`: from every fresh answer, the buses that passed a stop (one 3
   minutes away or less, gone from the next answer), a line each in the day's
@@ -421,7 +433,7 @@ version they started with, and it takes over once they're closed
 
 These numbers set our load on OASA, and so do the ones for STASY and the
 bus network below; changes to any of them are agreed first
-([decision 72](docs/decisions/0072-trip-first-way-by-live-times.md), which replaced 63, 62, 60, 53, 50, 45, 38, 34, 26, 21 and 7).
+([decision 72](docs/decisions/0072-trip-first-way-by-live-times.md), which replaced 63, 62, 60, 53, 50, 45, 38, 34, 26, 21 and 7, and [decision 81](docs/decisions/0081-home-is-near-you.md) for Home).
 
 Announcements ([server/info/announcements.js](server/info/announcements.js))
 are fetched from OASA's RSS and STASY's news page at most every 15 minutes,

@@ -1885,6 +1885,34 @@ test.describe('the trip page', () => {
                 await expect(to(page)).toHaveValue('Syntagma');
                 await expect(page.locator('#trip-locate'), 'following the rider').toHaveAttribute('aria-pressed', 'true');
             });
+
+            // Decision 81: Home's starred stations link to the Trip page with where to go
+            test('a link with a station (?to=): To is that station, from My location, in place of the trip kept; the link gone from the address, the trip kept', async ({ page }) => {
+                await pickBoth(page);
+                await expect(page.locator('.trip-card').first()).toBeVisible();
+                await page.goto('/trip?to=syntagma');
+                await expect(to(page)).toHaveValue('Syntagma');
+                await expect(page.locator('#trip-to-status')).toHaveText('Metro station');
+                await expect(from(page)).toHaveValue('My location');
+                await expect(page.locator('.trip-card').first()).toBeVisible();
+                await expect(page).toHaveURL(/\/trip$/);
+                await page.reload();
+                await expect(to(page)).toHaveValue('Syntagma');
+                await expect(page.locator('.trip-card').first()).toBeVisible();
+                // In Greek, by its Greek name
+                await page.goto('/el/trip?to=syntagma');
+                await expect(page.getByRole('combobox', { name: 'Προς' })).toHaveValue('Σύνταγμα');
+            });
+
+            test('a link with a suburban station once its trains are in; one with a station Wayhop doesn\'t know, nothing', async ({ page }) => {
+                await page.goto('/trip?to=piraeus-suburban');
+                await expect(to(page)).toHaveValue('Piraeus');
+                await expect(page.locator('.trip-card').first()).toBeVisible();
+                await page.goto('/trip?to=nowhere');
+                await expect(to(page)).toHaveValue('');
+                await expect(page.locator('.trip-intro')).toBeVisible();
+                await expect(page).toHaveURL(/\/trip$/);
+            });
         });
     });
 });

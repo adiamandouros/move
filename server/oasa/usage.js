@@ -36,6 +36,9 @@ import { REQUESTS_PER_SECOND } from './client.js';
 //             the bus trip finder's, no longer shown; from before 45, no
 //             `moved`; from before 50, no `ride`; from before 62, no `other`; from
 //             before 64, no `take`
+//   home      Home's "Near you": its stop answers by where they came from
+//             (also counted in `answers`; decision 81). Days from before it
+//             have none
 //   passes    buses seen passing a stop (passes.js); the collector's requests
 //             are the kind 'collector', and its skipped turns are dropped
 //             requests of that kind (decision 26)
@@ -72,7 +75,7 @@ const HOUR_MS = 3_600_000;
  * @typedef {{ requests: Record<string, number>, routes: Record<string, RouteCounts>, dropped: Record<string, number>,
  *   paused: number, limited: number, answers: Record<string, number>, stops: number,
  *   peaks: { requests: number, stops: number, waitMs: number }, busyMinutes: Record<string, number>, dropMinutes: number,
- *   network: number | null, horizon: Record<string, number>, plans: SearchCounts,
+ *   network: number | null, horizon: Record<string, number>, plans: SearchCounts, home: { answers: Record<string, number> },
  *   pages: { asked: Record<string, number>, served: Record<string, number> }, passes: number, trains: TrainCounts }} Summary
  * @typedef {Summary & { at: number, stopCodes: Set<string> }} Minute one minute's counts, and the stops asked for in it
  */
@@ -102,6 +105,7 @@ const emptySummary = () => ({
     network: null,
     horizon: {},
     .../** @type {Record<Search, SearchCounts>} */ (Object.fromEntries(SEARCHES.map(kind => [kind, { searches: 0, moved: 0, ride: 0, other: 0, take: 0, answers: counts(SOURCES) }]))),
+    home: { answers: counts(SOURCES) },
     pages: { asked: {}, served: {} },
     passes: 0,
     trains: emptyTrains(),
@@ -151,6 +155,9 @@ function addMinute(summary, minute) {
         summary[kind].take = (summary[kind].take ?? 0) + (minute[kind].take ?? 0);
         for (const s of SOURCES) summary[kind].answers[s] += minute[kind].answers[s];
     }
+    // (nor Home's, before decision 81)
+    summary.home ??= { answers: counts(SOURCES) };
+    for (const s of SOURCES) summary.home.answers[s] += minute.home.answers[s];
     // (nor the pages, before they were counted)
     summary.pages ??= { asked: {}, served: {} };
     for (const part of /** @type {const} */ (['asked', 'served'])) {
@@ -312,6 +319,9 @@ export function createUsage({ file = null, networkFile = null, now = Date.now, k
         tripTake(kind = 'plans') { current()[kind].take++; },
         /** @param {string} source @param {Search} [kind] */
         tripAnswer(source, kind = 'plans') { current()[kind].answers[source]++; },
+        // A stop's answer to Home's "Near you" (decision 81), by where it came from
+        /** @param {string} source */
+        homeAnswer(source) { current().home.answers[source]++; },
         // Buses seen passing a stop (passes.js)
         /** @param {number} n */
         passes(n) { current().passes += n; },

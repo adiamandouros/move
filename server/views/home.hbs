@@ -1,14 +1,24 @@
+{{!-- Home (decision 81): Wayhop's name and whether anything's disrupted,
+      where to, the starred stations, and what's near you now; filled in by
+      /js/core/announcements.js and /js/core/home.js --}}
 <div class="home-view">
-    <h1 class="fw-semibold mb-2">{{t "home.title"}}</h1>
-    <p class="home-intro">{{t "home.intro"}}</p>
+    <div class="home-top">
+        <h1 class="home-brand"><span class="home-wordmark" aria-hidden="true">{{> logo width=30 height=22}}<span>wayhop<span class="brand-dot">.</span></span></span><span class="sr-only">{{t "home.title"}}</span></h1>
+        <div id="home-status" class="home-status"></div>
+    </div>
 
     <div id="disruptions" aria-live="polite"></div>
 
-    <div class="tool-tiles home-tiles">
-{{#each tiles}}
-{{> tile}}
-{{/each}}
-    </div>
+    <a href="/trip" data-tool="trip" class="home-where">{{icon "trip-to"}}<span>{{t "near.where"}}</span></a>
+
+    <ul id="home-stars" class="home-stars list-unstyled" aria-label="{{t "near.stars"}}" hidden></ul>
+
+    <section class="home-near" aria-labelledby="near-title">
+        <h2 id="near-title" class="near-label">{{t "near.near"}}</h2>
+        <div id="near-you" aria-live="polite">
+            <noscript><p class="text-body-secondary">{{t "near.near-ask"}}</p></noscript>
+        </div>
+    </section>
 
     <!-- Shown by /js/core/install.js where the browser can install the app -->
     <section id="install" class="card install-card" aria-labelledby="install-title" hidden>
@@ -20,14 +30,5 @@
             <button type="button" id="install-btn" class="btn btn-primary btn-sm rounded-pill px-4" hidden>{{t "install.button"}}</button>
         </div>
         <button type="button" id="install-close" class="install-close" aria-label="{{t "install.dismiss"}}">{{icon "close"}}</button>
-    </section>
-
-    <section class="card" aria-labelledby="announcements-title">
-        <h2 id="announcements-title" class="home-section-title">{{icon "announcements"}}<span>{{t "announcements.title"}}</span></h2>
-        <div class="card-body pt-0 info-body">
-            <div id="announcements">
-                <p class="text-body-secondary">{{t "announcements.loading"}}</p>
-            </div>
-        </div>
     </section>
 </div>

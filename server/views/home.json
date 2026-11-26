@@ -1,0 +1,34 @@
+{
+  "en": {
+    "near.where": "Where to?",
+    "near.stars": "Your starred stations",
+    "near.trip-to": "Plan a trip to",
+    "near.no-disruptions": "No disruptions",
+    "near.disruptions-more": "+{count} more",
+    "near.near": "Near you",
+    "near.near-ask": "See the next trains and buses near you.",
+    "near.trains-from": "Next trains from {station}",
+    "near.toward": "toward",
+    "near.no-trains": "No more trains today.",
+    "near.loading-buses": "Loading the next buses…",
+    "near.all-stops": "All stops near you",
+    "near.no-stops": "Couldn't load the bus stops. Check your connection and try again later.",
+    "near.no-data": "Couldn't load the timetables. Check your connection and try again later."
+  },
+  "el": {
+    "near.where": "Πού πάτε;",
+    "near.stars": "Οι σταθμοί σας με αστέρι",
+    "near.trip-to": "Διαδρομή προς",
+    "near.no-disruptions": "Χωρίς διακοπές",
+    "near.disruptions-more": "+{count} ακόμη",
+    "near.near": "Κοντά σας",
+    "near.near-ask": "Δείτε τα επόμενα τρένα και λεωφορεία κοντά σας.",
+    "near.trains-from": "Επόμενα τρένα από {station}",
+    "near.toward": "προς",
+    "near.no-trains": "Δεν υπάρχουν άλλα δρομολόγια σήμερα.",
+    "near.loading-buses": "Φόρτωση των επόμενων λεωφορείων…",
+    "near.all-stops": "Όλες οι στάσεις κοντά σας",
+    "near.no-stops": "Δεν ήταν δυνατή η φόρτωση των στάσεων. Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά αργότερα.",
+    "near.no-data": "Δεν ήταν δυνατή η φόρτωση των δρομολογίων. Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά αργότερα."
+  }
+}

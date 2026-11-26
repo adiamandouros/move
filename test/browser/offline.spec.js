@@ -56,7 +56,11 @@ test('the message goes as soon as the page is scrolled, before its time is up', 
     await expect(toast).not.toHaveClass(/showing/);
     // Its own time (4 s) stopped, so only the scroll can send it away
     await page.clock.pauseAt(await page.evaluate(() => Date.now() + 10));
-    await page.locator('#app-content').evaluate(el => el.scrollBy(0, 200));
+    // Home fits a screen now (decision 81): made long enough to scroll
+    await page.locator('#app-content').evaluate(el => {
+        el.append(Object.assign(document.createElement('div'), { style: 'height: 200vh' }));
+        el.scrollBy(0, 200);
+    });
     await expect(toast).toHaveClass(/showing/);
     await page.clock.resume();
     await expect(toast).toHaveCount(0);
@@ -99,7 +103,7 @@ test('no signal: the app opens at once, in both languages', async ({ page, conte
     for (const path of ['/', '/el']) {
         const started = Date.now();
         await page.goto(path);
-        await expect(page.locator('.home-tiles a').first()).toBeVisible();
+        await expect(page.locator('.home-where')).toBeVisible();
         expect(Date.now() - started, path).toBeLessThan(2_500);
     }
 });
