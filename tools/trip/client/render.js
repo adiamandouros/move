@@ -10,6 +10,7 @@ import { changeExit } from '/tools/subway/city.js';
 import { legPositions } from '/tools/subway/network.js';
 import { arrivalRows, headerBadge, nextBus, stopRow, viewHref } from '/tools/buses/render.js';
 import { legCard } from '/tools/subway/render.js';
+import { stripParts, wayStrip } from '/tools/subway/strip.js';
 import { asLate, wayLegs } from './legs.js';
 import { takenOption } from './half.js';
 import { firstBusSaid, ON_THE_ROAD } from './live.js';
@@ -431,6 +432,32 @@ function citySteps(rail, o, to, drawn, row = null, live = null, following = null
     </ol>`;
 }
 
+// A way as one strip under its heading (decision 77): its walks, waits and
+// rides by their minutes, from when it starts (the heading's minutes count
+// from then) to the door; a morning's first train from the walk to it.
+// `small`: an other way's
+/** @param {Rail} rail @param {TripOption} o @param {boolean} [small] */
+function tripStrip(rail, o, small = false) {
+    const start = o.morning ? null : o.arrives - o.minutes * 60;
+    if (o.city) {
+        const rides = o.rides.map((ride, i) => ({
+            walk: (i ? ride.walkBefore : o.firstWalk)?.minutes ?? 0, departs: ride.boards, arrives: ride.arrives,
+            line: ON_THE_ROAD.has(ride.mode) ? null : ride.line,
+        }));
+        return wayStrip(stripParts(rides, o.lastWalk?.minutes ?? 0, start), small);
+    }
+    const { legs } = o.plan;
+    const rides = legs.map((leg, i) => {
+        const before = legs[i - 1];
+        const [{ departs, arrives }] = leg.departures;
+        return {
+            walk: before ? (before.to !== leg.from ? (rail.walks ?? {})[before.to]?.[leg.from] ?? 0 : 0) : walkToFirst(o),
+            departs: departs + o.dayStart, arrives: arrives + o.dayStart, line: leg.line,
+        };
+    });
+    return wayStrip(stripParts(rides, (o.plan.walkLast ?? 0) + (o.end.walk?.minutes ?? 0), start), small);
+}
+
 // How long a way takes, door to door: "~25'"
 /** @param {{ minutes: number }} o */
 const totalMinutes = o => minutesMark(o.minutes, t, { about: true });
@@ -443,6 +470,7 @@ function cityCard(rail, o, to, drawn, following = null) {
             <h2 class="trip-total">${totalMinutes(o)}</h2>
             <span class="trip-arrives">${format(t('trip.arrive'), { time: clockTime(o.arrives) })}</span>
         </div>
+        ${tripStrip(rail, o)}
         ${citySteps(rail, o, to, drawn, null, null, following)}
     </div>`;
 }
@@ -468,6 +496,7 @@ function tripCard(rail, o, to, drawn, following = null) {
             ${!o.morning && html`<h2 class="trip-total">${totalMinutes(o)}</h2>`}
             <span class="trip-arrives">${when(o)}</span>
         </div>
+        ${tripStrip(rail, o)}
         <ol class="trip-steps">
             ${o.start.walk && walkStep(o.start.walk, stationName(rail, o.start.station), stationPlace(rail, o.start.station), null, mark(0), o.plan.walkFirst ? null : exitOf(rail.stations[o.start.station].exits, o.start.walk.in), o.plan.walkFirst ? null : signLines(rail, o.start.station, o.plan.legs[0].line))}
             ${o.plan.walkFirst && walkToStation(rail, o.start.station, o.plan.legs[0].from, o.plan.walkFirst, mark(0), { leaving: false, line: o.plan.legs[0].line })}
@@ -495,6 +524,7 @@ function otherCard(rail, o) {
             ${!o.morning && html`<h3 class="trip-total trip-total-small">${totalMinutes(o)}</h3>`}
             <span class="trip-arrives">${when(o)}</span>
         </div>
+        ${tripStrip(rail, o, true)}
         <p class="trip-other">${walkToFirst(o) > 0 && html`${walkShort(o)} · `}${pills} ${format(t('trip.from-station'), { station: from })}</p>
     </div>`;
 }
@@ -641,6 +671,7 @@ function halfCard(rail, { row, o }, to, drawn, best, live, { label = /** @type {
             ${best && html`<span class="trip-arrives">${t('trip.half-best')}</span>`}
             ${label && html`<span class="trip-arrives">${t(LABELS[label])}</span>`}
         </div>
+        ${tripStrip(rail, shown)}
         ${citySteps(rail, shown, to, drawn, row, live, following)}
         ${back && html`<button type="button" id="trip-quicker-back" class="btn btn-sm locate-btn trip-stand">${t('trip.quicker-back')}</button>`}
     </div>`;
@@ -722,6 +753,7 @@ function halfOther(rail, { row, o }, timed = null, clock = { seconds: 0, epoch: 
         return html`<button type="button" class="trip-card trip-take" data-way="${row.key}" aria-disabled="${checking ? 'true' : 'false'}">
             <span class="trip-take-what">
                 <span class="trip-card-head"><span class="sr-only">${t('trip.take-way')} </span><span class="trip-total trip-total-small">${total}</span>${arrives}</span>
+                ${tripStrip(rail, shown, true)}
                 <span class="trip-other">${line}</span>
             </span>
             ${checking ? html`<span class="trip-take-checking">${t('trip.take-checking')}</span>` : icon('more', 'trip-take-chevron')}
@@ -732,6 +764,7 @@ function halfOther(rail, { row, o }, timed = null, clock = { seconds: 0, epoch: 
             <h3 class="trip-total trip-total-small">${total}</h3>
             ${arrives}
         </div>
+        ${tripStrip(rail, shown, true)}
         <p class="trip-other">${line}</p>
     </div>`;
 }

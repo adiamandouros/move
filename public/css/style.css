@@ -1674,6 +1674,83 @@ body {
     margin-bottom: var(--wh-space-3);
 }
 
+/* A way as one strip (tools/subway/client/strip.js, record 77), under its
+   heading on the Trip and Subway pages: each part as wide as its minutes, a
+   ride in its line's colour (.strip-m1 below), a bus its plate's neutral, a
+   walk dotted, a wait a thin line. Hidden from screen readers (the steps
+   say it); forced colours keep its colours, as nothing else draws it */
+.way-strip {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.1875rem;
+    height: 0.5rem;
+    forced-color-adjust: none;
+}
+
+.way-strip > span {
+    flex-basis: 0;
+    min-width: 0.25rem;
+    height: 100%;
+    border-radius: var(--wh-radius-round);
+}
+
+.way-strip-ride {
+    background-color: var(--strip, var(--bs-secondary-color));
+}
+
+.way-strip-bus {
+    --strip: var(--bs-secondary-color);
+}
+
+.way-strip > .way-strip-walk,
+.way-strip > .way-strip-wait {
+    height: 0;
+    border-radius: 0;
+    border-top: 3px dotted var(--bs-secondary-color);
+}
+
+.way-strip > .way-strip-wait {
+    border-top-style: solid;
+    border-top-color: var(--wh-control-edge);
+}
+
+.way-strip-small {
+    height: 0.375rem;
+}
+
+.way-strip-small > .way-strip-walk,
+.way-strip-small > .way-strip-wait {
+    border-top-width: 2px;
+}
+
+/* Each part's share of the width, in twentieths (stripShares) */
+.way-share-1 { flex-grow: 1; }
+.way-share-2 { flex-grow: 2; }
+.way-share-3 { flex-grow: 3; }
+.way-share-4 { flex-grow: 4; }
+.way-share-5 { flex-grow: 5; }
+.way-share-6 { flex-grow: 6; }
+.way-share-7 { flex-grow: 7; }
+.way-share-8 { flex-grow: 8; }
+.way-share-9 { flex-grow: 9; }
+.way-share-10 { flex-grow: 10; }
+.way-share-11 { flex-grow: 11; }
+.way-share-12 { flex-grow: 12; }
+.way-share-13 { flex-grow: 13; }
+.way-share-14 { flex-grow: 14; }
+.way-share-15 { flex-grow: 15; }
+.way-share-16 { flex-grow: 16; }
+.way-share-17 { flex-grow: 17; }
+.way-share-18 { flex-grow: 18; }
+.way-share-19 { flex-grow: 19; }
+.way-share-20 { flex-grow: 20; }
+
+/* On the Subway page, between the route's heading and its first card */
+.route-option-label + .way-strip {
+    margin: -0.25rem 0 0.75rem;
+}
+
 .trip-stand {
     align-self: flex-start;
     border: 1px solid var(--wh-control-edge);

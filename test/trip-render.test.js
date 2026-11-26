@@ -324,6 +324,37 @@ for (const lang of ['en', 'el']) {
         assert.equal(heads.filter(head => head.includes(towards)).length, both.rides.filter(one => one.lines.length === 1 && !['metro', 'tram'].includes(one.mode)).length);
     });
 
+    // A way's strip as drawn (decision 77): its parts' kinds and the class
+    // colouring each ride, waits left out (they depend on the timetable)
+    const strips = view => [...String(view).matchAll(/<span class="way-strip( way-strip-small)?" aria-hidden="true">((?:<span class="[^"]+"><\/span>)+)<\/span>/g)]
+        .map(([, small, parts]) => ({ small: Boolean(small), parts: [...parts.matchAll(/way-strip-(walk|wait|ride) way-share-\d+(?: ([\w-]+))?/g)].filter(([, kind]) => kind !== 'wait').map(([, kind, colour]) => colour ?? kind) }));
+
+    test(`${lang}: each way has its strip under its heading (decision 77): the walks, each ride in its line's colour, a bus neutral; the other ways' small`, () => {
+        // By metro: the walk to the station, then its trains in their colours
+        const trip = doorToDoor(rail, menelaou, syntagma, NOW);
+        const view = String(drawTrip(rail, trip, syntagma));
+        check(view);
+        const [best, ...others] = strips(view);
+        assert.equal(best.small, false);
+        assert.deepEqual(best.parts, ['walk', ...trip.options[0].plan.legs.map(leg => `strip-${leg.line.toLowerCase()}`)]);
+        assert.match(view, /<\/div>\s*<span class="way-strip" aria-hidden="true">/, 'right under the heading');
+        assert.equal(others.length, trip.options.length - 1);
+        assert.ok(others.every(other => other.small), 'the other ways\' strips are the small ones');
+        // The morning's first train: from the walk to it, no night's wait drawn
+        const night = { weekday: 3, seconds: 2 * 3600, date: NOW.date };
+        const morning = String(drawTrip(rail, doorToDoor(rail, menelaou, syntagma, night), syntagma, { now: night.seconds }));
+        assert.match(morning, /<span class="way-strip" aria-hidden="true"><span class="way-strip-walk way-share-\d+"><\/span><span class="way-strip-ride /);
+        // With a bus: walk, the M3, the walk out to the 040, the bus, the walk to the door
+        const korydallos = { lat: 37.9775, lng: 23.6522, title: 'Οδός 1', exact: null };
+        const way = busOptions(city, korydallos, menelaou, NOW).find(o => o.rides.map(ride => ride.line).join() === 'M3,040');
+        const withBus = String(drawTrip(network, { options: [way], walk: { minutes: 99, meters: 9_000 }, walkFirst: false, longWalk: false }, menelaou));
+        assert.deepEqual(strips(withBus)[0].parts, ['walk', 'strip-m3', 'walk', 'way-strip-bus', 'walk']);
+        // A suburban train in its line's colour
+        const train = busOptions(withTrains, athensStation, airportStation, NOW).find(o => o.rides.some(ride => ride.mode === 'suburban'));
+        const byTrain = String(drawTrip(network, { options: [train], walk: { minutes: 99, meters: 9_000 }, walkFirst: false, longWalk: false }, airportStation));
+        assert.ok(strips(byTrain)[0].parts.includes('strip-a1'));
+    });
+
     test(`${lang}: a way by suburban railway: its pill, its time from the timetable, where it goes, and nothing under it of where its times are from`, () => {
         const way = busOptions(withTrains, athensStation, airportStation, NOW).find(o => o.rides.some(ride => ride.mode === 'suburban'));
         assert.ok(way, 'the search found the train');

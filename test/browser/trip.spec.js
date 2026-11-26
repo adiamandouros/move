@@ -1890,3 +1890,42 @@ test.describe('"Other ways" under the legend', () => {
         expect(below.y - (above.y + above.height)).toBeGreaterThanOrEqual(23.5);
     });
 });
+
+// Each way's strip under its heading (decision 77): as wide as its card's
+// content, its parts filling it between them, each by its minutes
+test.describe('the strip under each way', () => {
+    test.beforeEach(onlyOn('phone'));
+
+    test('spans its card, its parts filling it, and hides from screen readers', async ({ page }) => {
+        await pickPark(page);
+        const best = page.locator('.trip-card').first();
+        const strip = best.locator('.way-strip');
+        await expect(strip).toBeVisible();
+        await expect(strip).toHaveAttribute('aria-hidden', 'true');
+        // Measured at once, as the answer can be drawn anew
+        const fills = el => {
+            const card = el.closest('.trip-card');
+            const style = getComputedStyle(card);
+            const parts = [...el.children].map(part => part.getBoundingClientRect().width);
+            const gaps = parseFloat(getComputedStyle(el).columnGap) * (parts.length - 1);
+            return {
+                width: el.getBoundingClientRect().width,
+                content: card.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+                filled: parts.reduce((sum, width) => sum + width, 0) + gaps,
+                parts: parts.length,
+            };
+        };
+        const { width, content, filled, parts } = await strip.evaluate(fills);
+        expect(parts).toBeGreaterThan(1);
+        expect(Math.abs(width - content)).toBeLessThan(1);
+        expect(Math.abs(filled - width), 'the parts grow to fill it').toBeLessThan(1);
+        // Each other way's, the small one, as wide as its words: both
+        // measured in one go, tried again if the answer was drawn anew
+        const other = page.locator('.trip-take').first();
+        await expect(other.locator('.way-strip-small')).toBeVisible();
+        await expect(async () => {
+            const apart = await other.evaluate(card => card.querySelector('.way-strip-small').getBoundingClientRect().width - card.querySelector('.trip-other').getBoundingClientRect().width);
+            expect(Math.abs(apart)).toBeLessThan(1);
+        }).toPass({ timeout: 5_000 });
+    });
+});
