@@ -5,6 +5,7 @@ import { linePill, pillList, stationSign } from '/js/core/lines.js';
 import { epochAt, minutesBadge, minutesLeft, minutesMark, minutesWords, timeBadge } from '/js/core/times.js';
 import { centralPlatformBadge, clockTime, diagramLegend, diagramSymbols, exitDiagram, lineEnd, stationPath, stopNote } from '/js/core/metro.js';
 import { legPositions, tripTime } from './network.js';
+import { stripParts, wayStrip } from './strip.js';
 
 // What the subway page draws, with html`` (every value escaped)
 
@@ -250,6 +251,21 @@ export const SLOWER_MINUTES = 5;
 /** @param {Route} route */
 export const routeKey = route => route.legs.map(leg => `${leg.line}/${leg.dir}/${leg.from}/${leg.to}`).join('+');
 
+// The route as one strip under its heading (strip.js, decision 77), from the
+// walk to its first train; none for tomorrow's, whose trains aren't on it
+/** @param {Rail} rail @param {PlannedRoute} route */
+function routeStrip(rail, route) {
+    if (route.legs.some(leg => !leg.departures.length)) return '';
+    const rides = route.legs.map((leg, i) => {
+        const before = route.legs[i - 1];
+        return {
+            walk: before ? (before.to !== leg.from ? (rail.walks ?? {})[before.to]?.[leg.from] ?? 0 : 0) : route.walkFirst ?? 0,
+            departs: leg.departures[0].departs, arrives: leg.departures[0].arrives, line: leg.line,
+        };
+    });
+    return wayStrip(stripParts(rides, route.walkLast ?? 0));
+}
+
 // time: tripTime's. closed: why the option starts closed ("9' slower"),
 // or '' when it doesn't. open: the options the user opened or closed
 // (routeKey). stations: the legs whose stations are open (legKey). from, to:
@@ -290,10 +306,11 @@ function routeBlock(rail, route, index, total, now, tomorrow, { time, closed, op
     // last gets off to `to` (given whenever a trip ends with a walk)
     const walkFirst = route.walkFirst && walkTo(rail, route.legs[0].from, route.walkFirst, walkNote(rail, from, route.legs[0].from));
     const walkLast = route.walkLast && to !== null && walkTo(rail, to, route.walkLast, walkNote(rail, route.legs[route.legs.length - 1].to, to));
-    if (!closed) return html`${header}${walkFirst}${cards}${walkLast}`;
+    const strip = routeStrip(rail, route);
+    if (!closed) return html`${header}${strip}${walkFirst}${cards}${walkLast}`;
     // A native disclosure: a button for screen readers and the keyboard
     const key = routeKey(route);
-    return html`${header}<details class="route-details" data-route="${key}"${open[key] && html` open`}>
+    return html`${header}${strip}<details class="route-details" data-route="${key}"${open[key] && html` open`}>
         <summary class="route-slower">${icon('more', 'route-chevron')}<span class="route-show">${t('subway.show-route')}</span><span class="route-hide">${t('subway.hide-route')}</span><span>· ${closed}</span></summary>
         ${walkFirst}${cards}${walkLast}
     </details>`;

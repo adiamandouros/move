@@ -88,3 +88,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 74 | [A warning that's the same every day is one closed line](0074-a-warning-the-same-every-day-is-one-line.md) | In force |
 | 75 | [The car to ride in is the station sign's off-white](0075-the-car-to-ride-in-is-the-sign-off-white.md) | In force |
 | 76 | [From and To are one block](0076-from-and-to-are-one-block.md) | In force |
+| 77 | [Each way has its strip](0077-each-way-has-its-strip.md) | In force |

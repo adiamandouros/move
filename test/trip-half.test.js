@@ -350,7 +350,9 @@ for (const lang of ['en', 'el']) {
             assert.ok(button.includes(`<span class="sr-only">${s['trip.take-way']} </span>`), 'said as taking it');
             assert.ok(button.includes('trip-take-chevron'), 'the chevron at its right');
             assert.ok(!/<(h\d|p|div|ul|li|a|button)[\s>]/.test(button.slice(1)), 'only words in a button');
+            assert.ok(button.includes('<span class="way-strip way-strip-small" aria-hidden="true">'), 'its small strip, hidden from screen readers (decision 77)');
         }
+        assert.ok(view.slice(0, view.indexOf('trip-take')).includes('<span class="way-strip" aria-hidden="true">'), 'the way shown has the big one');
         for (const row of depends.rows.slice(1)) assert.ok(view.includes(`<span class="trip-total trip-total-small">${range(row.range)}</span>`), row.range.join());
         // Its bus being checked as it's taken: said in the chevron's place, the button doing nothing meanwhile
         const checking = String(r.renderHalf(network, depends.kind, ways, syntagma, { ...at(10), now: at(10).seconds, take: true, checking: depends.rows[1].key }));
@@ -363,6 +365,7 @@ for (const lang of ['en', 'el']) {
         const plain = String(r.renderHalf(network, depends.kind, ways, syntagma, { ...at(10), now: at(10).seconds }));
         assert.deepEqual(takes(plain), []);
         assert.ok(!plain.includes('trip-take'));
+        assert.equal(plain.split('<span class="way-strip way-strip-small"').length - 1, depends.rows.length - 1, 'each other way its small strip');
     });
 
     test(`${lang}: a way taken is the way shown in full, "The way you picked", and the one it replaced is among the other ways to take back`, () => {

@@ -427,6 +427,18 @@ rules, with a picture of a way shown in full.
   takes and when you arrive, both in the body colour. Walks and bus rides
   are rows with a 3rem column on the left; metro, tram and suburban rides
   are the Subway page's leg card, inside the trip's card. Every other way is one line. Nothing under the answer.
+- **The strip** (decision 77): under each way's heading, on the Trip page
+  and the Subway page alike, the whole way as one bar the card's width:
+  each part as wide as its minutes, in twentieths of the bar, at least
+  0.25rem. A ride is a 0.5rem bar in its line's colour (`.strip-m1`, the
+  stations' strip's), a bus `--bs-secondary-color`, its plate's neutral; a
+  walk is a 3px dotted line, a wait a 3px line in `--wh-control-edge`,
+  both secondary. It adds up to the heading's minutes: from when the way
+  starts (a wait for the first train included) to the door; a morning's
+  first train, and the Subway page's routes, from the walk to it. Another
+  way's strip is the small one, 0.375rem and 2px lines. It's a picture,
+  hidden from screen readers: the steps say all of it. Forced colours
+  keep its colours.
 - **Another way**, under "Other ways": its heading, then one line, the walk
   to it, its pills and where it starts. Its heading is its range over the
   half hour until OASA's live times time it (decision 63); then it's its
@@ -564,3 +576,6 @@ rules, with a picture of a way shown in full.
   heading and a walk's directions at the far right of its row, as tall as it;
   a metro ride's card, its stations kept open through a refresh, the legend
   under the way.
+- `test/strip.test.js`, `test/browser/trip.spec.js`: the strip's parts and
+  shares, a rule for every share and line, and that its parts fill the card's
+  width in a real browser.

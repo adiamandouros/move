@@ -425,7 +425,8 @@ test('an option more than 5 minutes slower starts closed, saying by how much', a
     assert.match(summary, /<span class="route-show">Show route<\/span><span class="route-hide">Hide route<\/span><span>· <span aria-hidden="true">6'<\/span><span class="sr-only">6 minutes<\/span> slower<\/span><\/summary>$/);
     assert.match(spoken(summary), /· 6 minutes slower$/);
     assert.equal((details[0][2].match(/class="card result-card"/g) ?? []).length, trip.plans[2].legs.length);
-    assert.match(html, /<\/h2><details class="route-details"/);
+    // Its strip stays outside too, under the heading (decision 77)
+    assert.match(html, /<\/h2><span class="way-strip" aria-hidden="true">(?:<span class="[^"]+"><\/span>)+<\/span><details class="route-details"/);
     // The user opened it: open on the next refresh too
     const opened = String(render.renderResult(rail, trip.plans, trip.now, { expired: false, open: { [render.routeKey(trip.plans[2])]: true } }));
     assert.match(opened, /<details class="route-details" data-route="[^"]+" open>/);
@@ -619,4 +620,18 @@ test('in Greek, the footbridge at SKA and the ticket beyond it', async () => {
     assert.match(text, /A3 προς Χαλκίδα/);
     assert.match(text, /δεν καλύπτει τον σταθμό Χαλκίδα\./);
     assert.doesNotMatch(text, /railway\.gov\.gr/);
+});
+
+// Each route's strip under its heading (decision 77): walks, then each train in
+// its line's colour, waits left out (they depend on the timetable)
+const stripOf = html => [...html.matchAll(/<span class="way-strip" aria-hidden="true">((?:<span class="[^"]+"><\/span>)+)<\/span>/g)]
+    .map(([, parts]) => [...parts.matchAll(/way-strip-(walk|wait|ride) way-share-\d+(?: ([\w-]+))?/g)].filter(([, kind]) => kind !== 'wait').map(([, kind, colour]) => colour ?? kind));
+
+test('each route has its strip under its heading: a walk first or last, then each train in its colour', async () => {
+    const render = await browserModule('tools/subway/client/render.js', 'en');
+    const { trip, html } = draw(render, TRIPS['a slower option']);
+    assert.deepEqual(stripOf(html), trip.plans.map(plan => plan.legs.map(leg => `strip-${leg.line.toLowerCase()}`)), 'one per route, closed ones too');
+    assert.match(draw(render, TRIPS['tomorrow\'s first trains']).html, /<span class="way-strip"/, 'tomorrow\'s first trains too');
+    assert.deepEqual(stripOf(drawTram(render, 'syntagma', 'zappeio').html)[0][0], 'walk', 'a walk first');
+    assert.equal(stripOf(drawTram(render, 'kifisia', 'neo-faliro').html)[0].at(-1), 'walk', 'a walk last');
 });
