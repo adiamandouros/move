@@ -89,8 +89,8 @@ query measured in `em` (so it follows the text size, not the screen):
 
 - The train diagram: below 17em, the labels under the cars give way to a
   line of words ("Ride in: Near Back").
-- A bus stop's row: below 18em, the stop's name, code and distance go on a
-  line of their own above the next bus.
+- A bus stop's row: below 18em, where the next bus goes moves under its
+  plate, on as many lines as it needs.
 - A step of a way on the Trip page: below 14em, the time or the minutes go
   on a line of their own above what to do, the walking directions still at
   its far right.
@@ -356,10 +356,27 @@ a meaning colour, and it is not pressable (blue is for what you can press).
 
 ### List rows
 
-A stop, an arrival and a search result each end in the same quiet line
-(`--wh-divider`), none under the last. A stop's row at large text (below
-18em wide) stacks: the stop's band runs the whole width, the next bus under
-it, the time and the walking directions on a line of their own under that.
+A stop and a search result each end in the same quiet line
+(`--wh-divider`), none under the last. The buses inside an opened stop have
+none: the space between them groups them.
+
+A bus stop's row is two lines (decision 79). On top, the stop's line: its
+name, strong, then how far it is, small, and at its right end the star and
+the walking figure, each as tall as the line. Under it the next bus across
+the row's whole width: its plate, where it goes (up to two lines before
+it's cut short) and its time at the right end, level with the plate. The
+whole of both lines, but for the star and the walking figure, is the
+button that opens the stop. Its code isn't on the stop's line, where it
+was one number too many; screen readers hear it with the name. The nearest
+stop on a line has a bar in the press colour down its left.
+
+Opened, the list of buses takes the next bus's place, drawn the same way:
+one row a line and where it goes, its plate as large as the next bus's,
+every plate in the stop as wide, so where each bus goes starts at one
+edge. The line's next bus is the badge at the right; its next two are
+under where it goes, "then in 15', 31'", badges drawn as the words around
+them. Under the rows, "Stop 10361" (the code, as on its sign), then its
+lines.
 
 ### Walking directions
 
@@ -495,7 +512,8 @@ rules, with a picture of a way shown in full.
   (decision 48), across the step with nothing on the left: the
   walk to it (`~4'`) where the Buses page shows how far, the next bus of the
   rider's lines with where it goes and its badge, the walking figure; no
-  star. Opened, every bus of the rider's lines they can still catch there.
+  star. Opened, the rider's lines they can still catch there, one row a
+  line and where it goes, as on the Buses page.
   None on live times: their lines, and "Not on live times yet".
 - **A metro, tram or suburban ride** is the Subway page's card without its
   box (`legCard`, decisions 46 and 78), beside the rail: where

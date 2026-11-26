@@ -34,7 +34,8 @@ const destination = (/** @type {Arrival} */ a) => a.to ? local(a.to) : t('buses.
 
 // One collapsible row per stop: a heading with a button (so screen reader users
 // can jump from stop to stop), named by its visible text: name, code (what
-// tells same-named stops apart, as on its sign) and distance. Arrivals are
+// tells same-named stops apart, as on its sign) and distance on the stop's
+// line, the next bus on the line under it (decision 79). Arrivals are
 // filled in by patchStop(). open: shown opened; nearest: marked as the
 // nearest (on a line); id: the start of its parts' ids (the favourites have
 // their own, as a stop can be listed twice).
@@ -55,30 +56,31 @@ export const stopItem = (stop, index, { open = false, nearest = false, id = 'sto
 export function stopRow(stop, index, { open = false, nearest = false, id = 'stop', star = true, away = distance(stop.meters), next = '', badge = '', arrivals = '', lines = lineLinks(/** @type {string[]} */ (stop.lines)), heard = `${t('buses.all-arrivals-for')} ${local(stop.name)}`, hasArrivals = false }) {
     return html`
     <div class="accordion-item stop-item${nearest ? ' stop-nearest' : ''}" data-stop="${stop.code}" data-has-arrivals="${String(hasArrivals)}">
-        <div class="stop-header d-flex align-items-stretch">
-            <h2 class="stop-heading d-flex flex-grow-1">
-            <button class="accordion-button stop-toggle${open ? '' : ' collapsed'} d-flex align-items-center gap-3 flex-grow-1 p-0"
+        <div class="stop-header">
+            <h2 class="stop-heading">
+            <button class="accordion-button stop-toggle${open ? '' : ' collapsed'}"
                     type="button" data-bs-toggle="collapse" data-bs-target="#${id}-${index}"
                     aria-expanded="${String(open)}" aria-controls="${id}-${index}">
-                <span class="stop-label d-flex flex-column align-items-center justify-content-center text-center">
+                <span class="stop-label">
                     <span class="stop-name">${local(stop.name)}</span>
-                    <span class="stop-code"><span class="sr-only">, ${t('buses.code')} </span>${stop.code}</span>
+                    <span class="sr-only">, ${t('buses.code')} ${stop.code}</span>
                     <span class="stop-distance">${away}</span>
                     <span class="stop-nearest-note">${nearest ? nearestNote() : ''}</span>
                 </span>
-                <span class="stop-next-bus d-flex align-items-center gap-2 flex-grow-1">${next}</span>
+                <span class="stop-next-bus">${next}</span>
             </button>
             </h2>
-            <div class="stop-header-fixed d-flex align-items-center">
-                <span class="header-badge-wrap" aria-hidden="true">${badge}</span>
+            <div class="stop-actions">
                 ${star && favouriteButton({ kind: 'stop', key: stop.code, on: isFavourite('stop', stop.code), label: `${t('favourites.star')}: ${local(stop.name)} ${stop.code}`, cls: 'stop-favourite' })}
                 ${externalLink({ class: 'directions-btn d-flex align-items-center justify-content-center', href: walkingUrl(stop.lat, stop.lng) },
                     html`${icon('walk')}<span class="sr-only">${t('buses.walking-directions-to')} ${local(stop.name)}</span>`, t('shell.new-tab'))}
             </div>
+            <span class="header-badge-wrap" aria-hidden="true">${badge}</span>
         </div>
         <div id="${id}-${index}" class="accordion-collapse collapse${open ? ' show' : ''}">
             <div class="accordion-body stop-body">
                 <ul class="stop-arrivals list-unstyled mb-0" aria-label="${heard}">${arrivals}</ul>
+                <p class="stop-code mb-0">${format(t('buses.stop-code'), { code: stop.code })}</p>
                 <p class="stop-lines mb-0">${t('buses.lines')}: ${lines}</p>
             </div>
         </div>
@@ -128,25 +130,40 @@ export function headerBadge(result) {
     return first ? busBadge(first) : html``;
 }
 
-// One arrival: the line, where it goes and in how many minutes
-/** @param {Arrival} a */
-export function arrivalRow(a) {
+// How many of a line's later buses its row shows after the first
+const THEN_SHOWN = 2;
+
+// One line to one place (decision 79): its plate as large as the closed
+// row's, where it goes, the next bus's minutes at the right, and under where
+// it goes the next ones, "then in 15', 31'": badges too (they count down on
+// the Trip page), drawn as plain text
+/** @param {Arrival} a @param {Arrival[]} [later] */
+export function arrivalRow(a, later = []) {
+    const then = later.slice(0, THEN_SHOWN);
     return html`
-            <li class="arrival-row d-flex align-items-center justify-content-between py-2">
-                <span class="d-flex align-items-center gap-2">
-                    ${plate(lineLabel(a), 'm')}
-                    <span class="arrival-dest"><span class="sr-only">, </span>${destination(a)}<span class="sr-only">, </span></span>
-                </span>
+            <li class="arrival-row">
+                ${plate(lineLabel(a), 'l')}
+                <span class="arrival-dest"><span class="sr-only">, </span>${destination(a)}<span class="sr-only">, </span></span>
                 ${busBadge(a)}
+                ${then.length > 0 && html`<span class="arrival-then"><span class="sr-only">, </span>${t('buses.then')} ${then.map((b, i) => html`${i ? ', ' : ''}${busBadge(b)}`)}</span>`}
             </li>`;
 }
 
-// Every arrival, inside the opened stop
+// Every arrival, inside the opened stop: one row a line and where it goes,
+// in the order of their first bus
 /** @param {StopResult | undefined} result */
 export function arrivalRows(result) {
     const arrivals = result?.arrivals ?? [];
     if (!arrivals.length) return result ? html`<li class="text-body-secondary small">${t(result.unavailable ? 'buses.unavailable' : 'buses.no-arrivals')}</li>` : html``;
-    return html`${arrivals.map(arrivalRow)}`;
+    /** @type {Map<string, Arrival[]>} */
+    const lines = new Map();
+    for (const a of arrivals) {
+        const key = `${lineLabel(a)}\n${destination(a)}`;
+        let buses = lines.get(key);
+        if (!buses) lines.set(key, buses = []);
+        buses.push(a);
+    }
+    return html`${[...lines.values()].map(([first, ...later]) => arrivalRow(first, later))}`;
 }
 
 // A message in place of the stops, with an optional button (its label).

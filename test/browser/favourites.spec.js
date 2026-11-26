@@ -125,7 +125,7 @@ test('the planner\'s lists with the keyboard: F stars the station on the row, as
 
 // ── Spacing ─────────────────────────────────────────────────────────────────
 
-test('the stars sit evenly: in the planner\'s lists midway between the list\'s edge and the name, on an opened bus stop as far from the walking directions as from the time', async ({ page }) => {
+test('the stars sit evenly: in the planner\'s lists midway between the list\'s edge and the name, on a bus stop\'s line as far from the walking directions as the walking figure from the row\'s end', async ({ page }) => {
     await page.goto('/subway');
     await page.locator('#stop-search-to').tap();
     const row = page.locator('#stop-suggestions-to .suggestion-item').first();
@@ -135,13 +135,13 @@ test('the stars sit evenly: in the planner\'s lists midway between the list\'s e
     await page.goto('/buses');
     const stop = page.locator('#stops-accordion .stop-item').first();
     await expect(stop.locator('.header-badge-wrap .time-badge')).toBeVisible();
-    await stop.locator('.stop-toggle').tap();
+    // Closed or opened, the star is there (decision 79)
     await expect(stop.locator('.stop-favourite')).toBeVisible();
-    const [time, starIcon, walk] = await Promise.all(['.header-badge-wrap .time-badge', '.stop-favourite .icon', '.directions-btn .icon'].map(s => stop.locator(s).boundingBox()));
-    const before = starIcon.x - time.x - time.width;
-    const after = walk.x - starIcon.x - starIcon.width;
-    expect(before).toBeGreaterThan(4);
-    expect(Math.abs(after - before)).toBeLessThanOrEqual(1);
+    const [rowBox, starIcon, walk] = await Promise.all(['.stop-header', '.stop-favourite .icon', '.directions-btn .icon'].map(s => stop.locator(s).boundingBox()));
+    const between = walk.x - starIcon.x - starIcon.width;
+    const end = rowBox.x + rowBox.width - walk.x - walk.width;
+    expect(between).toBeGreaterThan(4);
+    expect(Math.abs(between - 2 * end)).toBeLessThanOrEqual(1);
 });
 
 // ── Bus stops and lines ─────────────────────────────────────────────────────
@@ -157,17 +157,9 @@ test('a stop starred among those nearby is listed above them with its live times
     const first = page.locator('#stops-accordion .stop-item').first();
     await expect(first.locator('.header-badge-wrap .time-badge')).toBeVisible();
     const code = await first.getAttribute('data-stop');
-    // The star shows once the stop is opened, and goes when it's closed
-    await expect(first.locator('.stop-favourite')).toBeHidden();
-    await first.locator('.stop-toggle').tap();
+    // The star is on the stop's line, opened or not (decision 79)
     await expect(first.locator('.stop-favourite')).toBeVisible();
     await expect(first.locator('.stop-favourite')).toHaveAccessibleName(new RegExp(`^Favourite: .+ ${code}$`));
-    // (a tap while it's still opening is ignored)
-    await expect(first.locator('.accordion-collapse')).toHaveClass(/\bshow\b/);
-    await first.locator('.stop-toggle').tap();
-    await expect(first.locator('.stop-favourite')).toBeHidden();
-    await expect(first.locator('.accordion-collapse')).toBeHidden();
-    await first.locator('.stop-toggle').tap();
     await first.locator('.stop-favourite').tap();
     await expect(first.locator('.stop-favourite')).toHaveAttribute('aria-pressed', 'true');
 
@@ -177,9 +169,8 @@ test('a stop starred among those nearby is listed above them with its live times
     await expect(starred).toHaveCount(1);
     await expect(starred).toHaveAttribute('data-stop', code);
     await expect(starred.locator('.header-badge-wrap .time-badge')).toBeVisible();
-    await expect(starred.locator('.stop-favourite')).toBeHidden();
-    await starred.locator('.stop-toggle').tap();
     await expect(starred.locator('.stop-favourite')).toHaveAttribute('aria-pressed', 'true');
+    await expect(first.locator('.accordion-collapse')).toBeHidden();
     expect(await axe(page)).toEqual([]);
     await page.reload();
     await expect(favourites(page).locator('.stop-item')).toHaveAttribute('data-stop', code);

@@ -393,6 +393,7 @@ function busStops(rail, stops, before, clock, opened, mark = NONE, board = null)
             away: walk && html`<span class="sr-only">, </span>${minutesMark(walk.minutes, t, { about: true, said: t('trip.walk-short') })}`,
             next, badge: headerBadge(result), arrivals: coming.length > 0 && arrivalRows(result), lines: plates('s'),
             heard: format(t('trip.stop-buses'), { stop: name }),
+            hasArrivals: coming.length > 0,
         })}</li>`;
     };
     const more = stops.slice(STOPS_SHOWN);

@@ -480,7 +480,7 @@ test.describe('the trip page', () => {
         });
 
         // DESIGN.md, "The Trip page", and decision 48
-        test('a stop is the Buses page\'s row: its next bus beside it, no star; opened from the keyboard, the rider\'s buses there, each with where it goes, still open as the minutes count down', async ({ page }) => {
+        test('a stop is the Buses page\'s row: its next bus under it, no star; opened from the keyboard, the rider\'s buses there, each with where it goes, still open as the minutes count down', async ({ page }) => {
             const { run } = await watchRequests(page);
             await pickBoth(page);
             const first = page.locator('.trip-card').first().locator('li.trip-stop.trip-live').first();

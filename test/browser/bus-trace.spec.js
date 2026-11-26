@@ -39,7 +39,11 @@ test('the stops nearby: more stops, refreshes for 2 minutes, a scroll, a stop op
     await askedFor(page, await onScreen(page));
     await run(5);
     const [first] = await onScreen(page);
+    // Once opened (Bootstrap's opening done), it's asked for if it's due: wait
+    // for that before the clock moves on, else the opening ends in real time
+    // or on the clock's next second, whichever comes first
     await page.locator(`[data-stop="${first}"] .stop-toggle`).click();
+    await expect(page.locator(`[data-stop="${first}"] .accordion-collapse`)).toHaveClass(/\bcollapse show\b/);
     await run(35);
     await page.locator('#toggle-empty-btn').click();
     await run(65);
@@ -64,27 +68,23 @@ test('a line: nothing until a stop is opened, then that stop every 30 s', async 
 });
 
 const NEARBY = [
-    [0, '61335'],
     [30, '10341'], [30, '10361'], [30, '60718'], [30, '60991'], [30, '60998'],
-    [32, '61335'],
     [60, '60002'],
     [62, '10341'], [62, '10361'], [62, '60718'], [62, '60991'], [62, '60998'],
-    [64, '61335'],
     [94, '10341'], [94, '10361'], [94, '60718'], [94, '60991'], [94, '60998'],
-    [96, '61335'],
     [122, '60002'],
-    [125, '10343'], [125, '60015'], [125, '61020'], [125, '61197'], [125, '61357'],
+    [125, '10343'], [125, '60015'], [125, '61020'], [125, '61197'], [125, '61335'], [125, '61357'],
     [126, '60998'],
-    [128, '61335'],
-    [157, '61197'], [157, '61357'],
+    [130, '10341'],
+    [157, '61197'], [157, '61335'], [157, '61357'],
     [158, '60998'],
-    [160, '61335'],
+    [162, '10341'],
     [187, '10343'], [187, '60015'],
-    [189, '61197'], [189, '61357'],
+    [189, '61197'], [189, '61335'], [189, '61357'],
     [190, '60998'],
-    [192, '61335'],
-    [221, '61197'], [221, '61357'],
+    [194, '10341'],
+    [221, '61197'], [221, '61335'], [221, '61357'],
     [222, '60998'],
-    [224, '61335'],
+    [226, '10341'],
 ];
 const LINE = [[10, '10341'], [42, '10341'], [74, '10341']];

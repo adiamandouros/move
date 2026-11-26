@@ -839,10 +839,17 @@ for (const lang of ['en', 'el']) {
         const due = Math.ceil((second.walk + 9 * MIN) / 60);
         assert.ok(first.includes(`<span class="header-badge-wrap" aria-hidden="true"><span class="time-badge time-later"><span aria-hidden="true">${due}'`), 'counted from now');
         assert.ok(first.includes(`aria-label="${s['trip.stop-buses'].replace('{stop}', (names => lang === 'el' ? names.el : names.en || latinName(names.el))(city.stops[second.stop].names))}"`), 'only the rider\'s buses, so not "all arrivals"');
-        // Opened: both its buses, each with where it goes; its lines, not links away from the trip
-        assert.equal(first.split('class="arrival-row').length - 1, 2);
+        // Opened: its line to Glyfada once (decision 79), the next bus at the
+        // right, the one after "then in" (a badge too, so it counts down by
+        // itself); its lines, not links away from the trip
+        assert.equal(first.split('class="arrival-row').length - 1, 1);
+        const later = Math.ceil((second.walk + 25 * MIN) / 60);
+        assert.ok(first.includes(`<span class="arrival-then"><span class="sr-only">, </span>${s['buses.then']} <span class="time-badge time-later"><span aria-hidden="true">${later}'</span>`), first);
         assert.ok(!first.includes('plate-link'));
+        // Marked as having buses, so opened, its list takes the next bus's place (decision 79)
+        assert.ok(first.includes('data-has-arrivals="true"'));
         assert.ok(next.includes(s['trip.live-none']) && !next.includes('arrival-row'));
+        assert.ok(next.includes('data-has-arrivals="false"') && unasked.includes('data-has-arrivals="false"'), 'none: "Not on live times yet" stays when opened');
         assert.ok(next.split('</button>')[0].includes(`<span class="sr-only">. ${s['buses.lines']}: </span>`), 'with none on live times, its lines still beside it');
         assert.ok(unasked.includes(`data-stop="${codeOf(city.stops[third.stop])}"`));
         assert.ok(unasked.split('</button>')[0].includes(`<span class="sr-only">. ${s['buses.lines']}: </span>`) && !unasked.includes('time-badge') && !unasked.includes(s['trip.live-none']), 'its lines, no minutes');

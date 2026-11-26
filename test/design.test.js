@@ -103,10 +103,12 @@ test('tags: one component, and no badge of their own', () => {
     assert.deepEqual(DECLARATIONS.filter(d => /central-platform-badge|in-greek-badge/.test(d.selector)).map(where), []);
 });
 
-// List rows: every divider between rows is the divider colour
+// List rows: every divider between rows is the divider colour; the buses in
+// an opened stop have none, the space groups them (decision 79)
 test('list rows: one divider', () => {
     const rows = DECLARATIONS.filter(d => /\.(stop-item|arrival-row)$/.test(d.selector) && d.property === 'border-bottom' && d.value !== 'none');
-    assert.equal(rows.length, 2);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].selector, '.stop-item');
     for (const row of rows) assert.equal(row.value, '1px solid var(--wh-divider)', where(row));
     assert.equal(DECLARATIONS.find(d => d.selector === '.search-list' && d.property === '--bs-list-group-border-color').value, 'var(--wh-divider)');
 });
