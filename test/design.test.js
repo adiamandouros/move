@@ -44,9 +44,10 @@ test('text sizes come from the scale', () => {
 
 // Corners: the three radii, or the inside of one (less the 1 px edge)
 const RADIUS = /^(0|inherit|var\(--wh-radius-(sm|lg|round)\)|calc\(var\(--wh-radius-(sm|lg)\) - 1px\))$/;
-// What keeps its own sizes: the train diagram's shaped end cars, and the
-// maps' labels, which are in the drawing's own units (its viewBox scales them)
-const SHAPED = ['.train-car:first-child', '.train-car:last-child'];
+// What keeps its own sizes: the train diagram's shaped end cars (and the name
+// under the nose car, as wide as it), and the maps' labels, which are in the
+// drawing's own units (its viewBox scales them)
+const SHAPED = ['.train-car:first-child', '.train-car:last-child', '.position-label:last-child'];
 const DRAWN = /^\.map-[\w-]+ text$/;
 const own = ({ selector }) => SHAPED.includes(selector) || selector.split(',').every(sel => DRAWN.test(sel.trim()));
 test('corners come from the three radii', () => {
