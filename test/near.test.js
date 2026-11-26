@@ -50,3 +50,15 @@ test('the starred stations Home can name, in the order starred; a suburban one o
     assert.deepEqual(starredStations(metro, null, keys, 'en'), [{ key: 'syntagma', name: 'Syntagma' }, { key: 'syntagma-tram', name: 'Syntagma' }]);
     assert.deepEqual(starredStations(metro, trains, keys, 'el').map(s => s.name), ['Πειραιάς', 'Σύνταγμα', 'Σύνταγμα']);
 });
+
+// Found on CI (#339): the error page's link took a test to Home on rail.json
+// with a station's position missing (test-site.js brokenData), and a
+// position coming in failed the page
+test('a station with no position is left out, not a failure', () => {
+    const broken = structuredClone(rail);
+    const [lat, lng] = broken.stations.omonia.coords;
+    delete broken.stations.omonia.coords;
+    const found = nearestStation(broken, lat, lng);
+    assert.notEqual(found.id, 'omonia');
+    assert.ok(found.meters > 0);
+});
