@@ -207,7 +207,11 @@ value outside those blocks.
 - A station page's line section is headed by the large pill alone, with
   "Line 2" for screen readers.
 - Bus numbers are neutral plates everywhere, the stop header's too. A plate
-  that opens its line has blue text.
+  that opens its line has blue text. The plate's grey (`--wh-plate-bg`) is
+  its own, a step darker than raised parts (chips, cards' hover): about
+  1.3:1 on the page and cards, so it reads as a plate without being loud,
+  as it carries no meaning of its own; its number and a link's blue still
+  meet 4.5:1 on it (decision 80).
 - Several pills in a row have a space between them and a comma for screen
   readers (`pillList`).
 - **Station signs** (`stationSign`), like the real ones: an off-white
