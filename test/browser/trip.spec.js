@@ -1430,8 +1430,12 @@ test.describe('the trip page', () => {
                 await onTheTram(page, run, liveWay);
                 await expect(timer(page)).toHaveText('Switching to it in 10 s, unless you keep your route.');
                 await expect(offer(page)).toContainText('Get off the');
+                // Its bar drains with it (decision 82)
+                const bar = offer(page).locator('.switch-bar');
+                await expect(bar).toHaveAttribute('data-left', '10');
                 await run(3);
                 await expect(timer(page)).toContainText('in 7 s');
+                await expect(bar).toHaveAttribute('data-left', '7');
 
                 // Held down: it waits
                 await offer(page).locator('h2').scrollIntoViewIfNeeded();
@@ -1440,6 +1444,7 @@ test.describe('the trip page', () => {
                 await page.mouse.down();
                 await run(3);
                 await expect(timer(page)).toContainText('in 7 s');
+                await expect(bar, 'and its bar').toHaveAttribute('data-left', '7');
                 await page.mouse.up();
                 // On the keyboard: it waits too. Reached by a key, as only the
                 // keyboard's focus holds it (a tapped button is focused too)
@@ -1496,6 +1501,11 @@ test.describe('the trip page', () => {
                 const { run } = await watchRequests(page);
                 const plans = await watchPlans(page);
                 const liveWay = await watchLive(page);
+                // How many ways slide up into the way shown in full's place (decision 82)
+                await page.addInitScript(() => {
+                    const start = document.startViewTransition?.bind(document);
+                    if (start) document.startViewTransition = update => start(() => { update(); window.__slid = document.querySelectorAll('.way-taken').length; });
+                });
                 const tram = await onTheTram(page, run, liveWay);
                 const taken = page.locator('#trip-result button.trip-take');
                 await expect(taken).toHaveCount(1);
@@ -1504,6 +1514,7 @@ test.describe('the trip page', () => {
                 await taken.click();
                 const best = page.locator('.trip-card').first();
                 await expect(best).toContainText('The way you picked');
+                if (test.info().project.name !== 'iphone') expect(await page.evaluate(() => window.__slid), 'the way taken slides up into its place').toBe(1);
                 await expect(timer(page)).toHaveCount(0);
                 await expect(current(page)).toContainText('T6');
                 await expect.poll(async () => (await liveWay()).rides.map(ride => ride.line)).toContain('136');
@@ -1955,6 +1966,18 @@ test.describe('"Other ways" under the legend', () => {
 test.describe('the strip under each way', () => {
     test.beforeEach(onlyOn('phone'));
 
+    // Decision 82: a new answer's strip draws itself once, a refresh's doesn't
+    test('a new answer\'s strip draws itself left to right, once', async ({ page }) => {
+        await pickPark(page);
+        const strip = page.locator('.trip-card').first().locator('.way-strip');
+        await expect(strip).toHaveClass(/way-strip-draw/);
+        expect(await strip.locator('span').first().evaluate(part => getComputedStyle(part).animationName)).toBe('strip-draw');
+        // The minute's refresh draws it again, still
+        await page.clock.runFor(61_000);
+        await expect(page.locator('.trip-card').first().locator('.way-strip')).toBeVisible();
+        await expect(page.locator('.way-strip-draw')).toHaveCount(0);
+    });
+
     test('spans its card, its parts filling it, and hides from screen readers', async ({ page }) => {
         await pickPark(page);
         const best = page.locator('.trip-card').first();
@@ -1965,7 +1988,8 @@ test.describe('the strip under each way', () => {
         const fills = el => {
             const card = el.closest('.trip-card');
             const style = getComputedStyle(card);
-            const parts = [...el.children].map(part => part.getBoundingClientRect().width);
+            // Their laid-out widths, not as drawn: a new answer's strip draws itself (decision 82)
+            const parts = [...el.children].map(part => parseFloat(getComputedStyle(part).width));
             const gaps = parseFloat(getComputedStyle(el).columnGap) * (parts.length - 1);
             return {
                 width: el.getBoundingClientRect().width,

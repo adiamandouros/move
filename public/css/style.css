@@ -2138,6 +2138,24 @@ body {
 }
 
 /* Each part's share of the width, in twentieths (stripShares) */
+/* A new answer's strip draws itself left to right once (decision 82,
+   drawStrips in strip.js), its parts one after another */
+@media (prefers-reduced-motion: no-preference) {
+    .way-strip-draw > span {
+        transform-origin: left center;
+        animation: strip-draw 0.38s cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+    }
+
+    .way-strip-draw > span:nth-child(2) { animation-delay: 0.08s; }
+    .way-strip-draw > span:nth-child(3) { animation-delay: 0.16s; }
+    .way-strip-draw > span:nth-child(4) { animation-delay: 0.24s; }
+    .way-strip-draw > span:nth-child(n + 5) { animation-delay: 0.32s; }
+}
+
+@keyframes strip-draw {
+    from { transform: scaleX(0); }
+}
+
 .way-share-1 { flex-grow: 1; }
 .way-share-2 { flex-grow: 2; }
 .way-share-3 { flex-grow: 3; }
@@ -2517,6 +2535,50 @@ body {
    directions: what to do in a sentence, then the rider's choice */
 .trip-quicker-what {
     margin: 0;
+}
+
+/* The switch's countdown as a bar that drains with its seconds (T14,
+   decision 82): as wide as the seconds left of SWITCH_SECONDS, sliding
+   from one to the next; it stops where the countdown does */
+.switch-bar {
+    display: block;
+    height: 0.25rem;
+    margin: var(--wh-space-2) 0 var(--wh-space-3);
+    border-radius: var(--wh-radius-round);
+    background-color: var(--bs-border-color);
+    overflow: hidden;
+}
+
+.switch-bar > span {
+    display: block;
+    height: 100%;
+    background-color: var(--bs-primary);
+    width: 0;
+}
+
+.switch-bar[data-left="10"] > span { width: 100%; }
+.switch-bar[data-left="9"] > span { width: 90%; }
+.switch-bar[data-left="8"] > span { width: 80%; }
+.switch-bar[data-left="7"] > span { width: 70%; }
+.switch-bar[data-left="6"] > span { width: 60%; }
+.switch-bar[data-left="5"] > span { width: 50%; }
+.switch-bar[data-left="4"] > span { width: 40%; }
+.switch-bar[data-left="3"] > span { width: 30%; }
+.switch-bar[data-left="2"] > span { width: 20%; }
+.switch-bar[data-left="1"] > span { width: 10%; }
+
+@media (prefers-reduced-motion: no-preference) {
+    .switch-bar > span {
+        transition: width 1s linear;
+    }
+}
+
+/* Taking another way (decision 82, slideUp in the Trip page's main.js):
+   the way tapped and the way shown in full it becomes are one, so it slides
+   up into its place */
+.way-taking,
+.way-taken {
+    view-transition-name: trip-way;
 }
 
 .trip-quicker-actions,

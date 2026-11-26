@@ -8,6 +8,7 @@ import { countBadges } from '/js/core/times.js';
 import { athensClock, athensNow, closestStation, isTimetableExpired, planTrip, withSuburban, withTram } from './network.js';
 import { stationSearch } from './search.js';
 import { renderError, renderIntro, renderMessage, renderResult, renderWalkOnly, routeSummary, walkOnly, walkingUrl, watchLegStations } from './render.js';
+import { drawStrips } from './strip.js';
 import { SUBURBAN_HIDDEN, TRAM_HIDDEN, suburbanHidden, tramHidden } from './tram-switch.js';
 import { localStore } from '/js/core/storage.js';
 
@@ -123,6 +124,8 @@ function start(metro, trains) {
         const { plans, now, tomorrow } = planTrip(rail, origin, destination, today);
         const focus = focused();
         setHtml(result, renderResult(rail, plans, now, { expired: isTimetableExpired(rail, today), tomorrow, open: opened, stations: stationsOpen, legend: legendOpen(), lifts: known, liftsOpen: liftsOpen(), timetableOpen: timetableOpen(), from: origin, to: destination }));
+        // Its strips draw themselves once, for stations just picked (decision 82)
+        if (speak) drawStrips(result);
         refocus(focus);
         if (speak) announce(routeSummary(rail, plans, now, tomorrow, known));
     };

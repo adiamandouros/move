@@ -458,6 +458,14 @@ the change.
   on the way too, only when tapped (`.leg-stations-moving`), so the page
   drawing them again doesn't replay it. Info's sections already slide
   (Bootstrap's collapse).
+- **On the Trip page**: another way taken slides up into the way shown in
+  full's place, the rest cross-fading (a view transition; a take that
+  waits on its check doesn't slide); the switch's "Switching to it in
+  N s" has a bar under it in the press colour, as wide as the seconds
+  left, sliding from one second to the next and stopping where the
+  countdown does (T14); a new answer's strip, on the Trip and Subway
+  pages, draws itself left to right once, its parts one after another,
+  never on a refresh.
 
 ## Home
 

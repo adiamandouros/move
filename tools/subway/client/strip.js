@@ -61,6 +61,14 @@ function stripShares(parts) {
     });
 }
 
+// A new answer's strips, drawn left to right once as it comes (decision
+// 82): never on a refresh, so the page that draws it says when. Nothing
+// moves with reduced motion (style.css)
+/** @param {ParentNode} root */
+export function drawStrips(root) {
+    for (const strip of root.querySelectorAll('.way-strip')) strip.classList.add('way-strip-draw');
+}
+
 // The strip itself, each part as wide as its share. A ride takes its line's
 // colour from `.strip-<line>` (the stations' strip's), a bus the neutral of
 // its plate. `small`: the other ways' thinner one
