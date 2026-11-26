@@ -653,7 +653,9 @@ export function legPositions(rail, leg, next) {
     return { stop, exits, elevators: stop.elevators ?? [], escalators: next ? [] : stop.escalators ?? [], stairs: next ? [] : stop.stairs ?? [] };
 }
 
-// tram: true for the nearest tram stop, false for the nearest metro station
+// tram: true for the nearest tram stop, false for the nearest metro station.
+// A station with no position (rail.json broken: the data build's checks
+// would stop it, but a page must not fail on it) is left out
 /** @param {Rail} rail @param {number} lat @param {number} lng @param {boolean} [tram] @returns {string} */
 export function closestStation(rail, lat, lng, tram) {
     /** @type {string | null} */
@@ -661,6 +663,7 @@ export function closestStation(rail, lat, lng, tram) {
     let bestDist = Infinity;
     for (const [id, { coords, tram: isTram }] of Object.entries(rail.stations)) {
         if (tram !== undefined && Boolean(isTram) !== tram) continue;
+        if (!Array.isArray(coords)) continue;
         // Equirectangular approximation — plenty for picking the nearest station
         const x = (coords[1] - lng) * Math.cos((lat * Math.PI) / 180);
         const y = coords[0] - lat;
