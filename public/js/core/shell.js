@@ -18,6 +18,16 @@ import { localStore } from './storage.js';
 restoreLinks();
 window.addEventListener('pageshow', restoreLinks);
 
+// ── Moving between pages ─────────────────────────────────────────────────────
+
+// The transition between two pages (style.css, decision 82) is cut short
+// when the next page comes before it ends; the browser then rejects its
+// promises, which is nothing to report
+/** @param {Event & { viewTransition?: { ready: Promise<void>, finished: Promise<void> } | null }} e */
+const quietTransition = e => { e.viewTransition?.ready.catch(() => {}); e.viewTransition?.finished.catch(() => {}); };
+window.addEventListener('pageswap', quietTransition);
+window.addEventListener('pagereveal', quietTransition);
+
 // ── Colour mode ──────────────────────────────────────────────────────────────
 
 // Auto, Light and Dark in the menu and the sidebar (/js/core/theme.js)

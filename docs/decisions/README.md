@@ -93,3 +93,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 79 | [A bus stop is a line over its buses](0079-a-bus-stop-is-a-line-over-its-buses.md) | In force |
 | 80 | [Bus plates a step darker](0080-bus-plates-a-step-darker.md) | In force |
 | 81 | [Home is "Near you"](0081-home-is-near-you.md) | In force |
+| 82 | [Motion shows what changed](0082-motion-shows-what-changed.md) | In force |
