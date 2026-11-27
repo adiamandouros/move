@@ -6,6 +6,7 @@ import { lastPosition, locationPermission, onLocation, onLocationProblem, showFo
 import { countBadges, minutesMark, minutesWords } from '/js/core/times.js';
 import { athensClock, athensNow, closestStation, isTimetableExpired, withSuburban, withTram } from '/tools/subway/network.js';
 import { watchLegStations } from '/tools/subway/render.js';
+import { drawStrips } from '/tools/subway/strip.js';
 import { suburbanHidden, tramHidden } from '/tools/subway/tram-switch.js';
 import { forgetTrip, keepPicked, keepRide, keepTrip, keptTrip } from './kept.js';
 import { linkedKey, linkedPlace, withoutLink } from './link.js';
@@ -257,6 +258,8 @@ function start(metro) {
                 noTrains: trip.noTrains, trains: trip.lateness(), lifts: known, liftsOpen: liftsOpen(), following: trip.onStep(), ...cards })
             : renderTrip(drawnOn(date), answer, to, { now: clock, epoch, expired, noBuses: trip.noBuses, noTrains: trip.noTrains && !trip.noBuses, checking: Boolean(searches) && !trip.halfHour(), lifts: known, liftsOpen: liftsOpen(), following: trip.onStep(), ...cards });
         setHtml(result, html`${shown}${TIMING && timingBox(trip.timing)}`);
+        // A new answer's strips draw themselves once (decision 82); a refresh's don't
+        if (speak) drawStrips(result);
         if (offered) announce(offered.seconds !== null ? `${quickerSummary(offered.offer)} ${switchIn(offered.seconds)}` : quickerSummary(offered.offer));
         if (speak) {
             const said = ways.length ? halfReady(ways) : answer.options[0] ? routeSummary(answer.options[0]) : t('trip.walk-quicker');
@@ -279,8 +282,31 @@ function start(metro) {
         const quicker = target.closest('#trip-quicker-take, #trip-quicker-keep, #trip-quicker-back');
         if (quicker) { tell({ type: 'quicker', act: QUICKER[quicker.id], keyboard }); return; }
         const way = target.closest('[data-way]');
-        if (way instanceof HTMLElement && way.dataset.way) tell({ type: 'take', key: way.dataset.way, keyboard, position: lastPosition() });
+        if (way instanceof HTMLElement && way.dataset.way) {
+            const key = way.dataset.way;
+            slideUp(way, () => tell({ type: 'take', key, keyboard, position: lastPosition() }));
+        }
     });
+    // Taking another way (decision 82): the way tapped slides up into the
+    // way shown in full's place, the rest cross-fading (a view transition;
+    // not with reduced motion, nor where the browser has none). A take that
+    // waits on its check first draws when that's done, without it
+    /** @param {HTMLElement} way @param {() => void} take */
+    const slideUp = (way, take) => {
+        if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) { take(); return; }
+        const key = way.dataset.way ?? '';
+        way.classList.add('way-taking');
+        const moving = document.startViewTransition(() => {
+            take();
+            // Still among the other ways (its check is on its way): nothing slides
+            const still = result.querySelector(`[data-way="${CSS.escape(key)}"]`);
+            if (still) still.classList.remove('way-taking');
+            else result.querySelector('.trip-card.result-card')?.classList.add('way-taken');
+        });
+        moving.ready.catch(() => {});
+        // Over: neither keeps its name (a take still being checked keeps its button)
+        moving.finished.catch(() => {}).finally(() => result.querySelectorAll('.way-taken, .way-taking').forEach(el => el.classList.remove('way-taken', 'way-taking')));
+    };
     result.addEventListener('pointerdown', e => { held = Boolean(/** @type {HTMLElement} */ (e.target).closest('#trip-quicker')); });
     ['pointerup', 'pointercancel'].forEach(type => document.addEventListener(type, () => { held = false; }));
     // Where the keyboard goes once something the rider did is drawn; the way
@@ -354,6 +380,7 @@ function start(metro) {
             case 'countdown': {
                 const timer = $('trip-switch-timer');
                 if (timer) timer.textContent = switchIn(job.seconds);
+                $('trip-switch-bar')?.setAttribute('data-left', String(job.seconds));
                 break;
             }
             case 'wait':

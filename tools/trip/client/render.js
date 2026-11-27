@@ -717,7 +717,8 @@ function quickerCard(rail, offer, seconds = null) {
     return html`<div class="trip-card" id="trip-quicker">
         <h2 class="trip-total trip-total-small">${quickerTitle(offer)}</h2>
         <p class="trip-quicker-what">${off} ${bus}</p>
-        ${seconds !== null && html`<p class="trip-other" id="trip-switch-timer" role="timer">${switchIn(seconds)}</p>`}
+        ${seconds !== null && html`<p class="trip-other" id="trip-switch-timer" role="timer">${switchIn(seconds)}</p>
+        <span class="switch-bar" id="trip-switch-bar" data-left="${seconds}" aria-hidden="true"><span></span></span>`}
         <div class="trip-quicker-actions">
             <button type="button" id="trip-quicker-take" class="btn btn-primary btn-sm rounded-pill px-4">${t('trip.quicker-take')}</button>
             <button type="button" id="trip-quicker-keep" class="btn btn-sm locate-btn">${t('trip.quicker-keep')}</button>

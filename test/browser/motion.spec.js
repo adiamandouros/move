@@ -161,3 +161,21 @@ test.describe('opening lists', () => {
         });
     });
 });
+
+// Decision 82 on the Trip page: the way taken sliding up, the countdown's
+// bar and a new answer's strip are in trip.spec.js; with less motion, none moves
+test.describe('the Trip page with reduced motion', () => {
+    test.beforeEach(({}, { project }) => test.skip(project.name !== 'phone', 'one phone: the same CSS everywhere'));
+    test.use({ reducedMotion: 'reduce' });
+
+    test('a new answer\'s strip is just there', async ({ page }) => {
+        await page.goto('/trip');
+        await page.getByRole('combobox', { name: 'From' }).fill('Μενελάου 45');
+        await page.locator('#trip-from-list [role="option"]').first().click();
+        await page.getByRole('combobox', { name: 'To' }).fill('Άλσος');
+        await page.locator('#trip-to-list [role="option"]').first().click();
+        const part = page.locator('.trip-card').first().locator('.way-strip > span').first();
+        await expect(part).toBeVisible();
+        expect(await part.evaluate(el => getComputedStyle(el).animationName)).toBe('none');
+    });
+});
