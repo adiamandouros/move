@@ -1,6 +1,6 @@
 # 19. Privacy: kept on the device; on the server, counts only
 
-Decided 2026-10-29 · In force
+Decided 2026-10-29 · Replaced by [84](0084-times-measured-by-riders.md)
 
 ## Situation
 

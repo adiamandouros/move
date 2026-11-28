@@ -217,7 +217,7 @@ pages use.
   pressed), so the browser asks once, where it's clear why. Nearest and My
   location are one toggle (`showFollowing`). The last position is kept on the device
   for 10 minutes and shared by the pages
-  ([decision 19](docs/decisions/0019-privacy-counts-only.md)), and nothing waits for it: pages
+  ([decision 84](docs/decisions/0084-times-measured-by-riders.md), which keeps 19's rules), and nothing waits for it: pages
   show what they can and update as positions come.
 - **Kept in the browser** (`/js/core/storage.js`): everything a page keeps
   goes through `localStore` (on the device, `localStorage`) or
