@@ -43,7 +43,14 @@
     </form>
 
     <div id="trip-live-status" class="trip-live-status" role="status" hidden></div>
+    {{!-- Asked once, the first time a metro or tram ride is followed (decision 84) --}}
+    <div id="trip-ask" hidden></div>
     <div id="trip-result"></div>
+
+    <div id="trip-rider-times" class="form-check form-switch mode-switch trip-send-times" hidden>
+        <input id="trip-send-times" class="form-check-input" type="checkbox" role="switch">
+        <label class="form-check-label" for="trip-send-times">{{t "trip.send-times"}}</label>
+    </div>
 
     <p class="trip-credit">{{t "trip.addresses-from"}} {{#external href="https://www.openstreetmap.org/copyright"}}OpenStreetMap{{/external}}</p>
 </div>

@@ -91,3 +91,19 @@ function routeText(r) {
         ...(half === null ? [] : [`half ${answerTimeText(half)}, 95% ${answerTimeText(most)}`]),
     ].join('; ');
 }
+
+// Times measured by riders (server/riders/, decision 84): the reports counted
+// and refused since the server started, and per line over the past 2 weeks,
+// how many rides a day and in each 10 minutes from 07:00 to 22:00, which
+// phase 3 needs at least one of
+/** @param {ReturnType<ReturnType<typeof import('../riders/index.js').createRiderTimes>['status']> | null | undefined} riders */
+export function riderChecks(riders) {
+    if (!riders) return [];
+    const lines = riders.lines.map(l => `${l.line} ${l.rides} (${l.perDay.toFixed(1)} a day, ${l.perTenMinutes.toFixed(2)} each 10 minutes 07:00–22:00)`);
+    return [
+        check('Riders\' times', 'Reports since the server started', riders.refused > riders.counted ? 'warn' : 'info',
+            `${riders.counted} counted, ${riders.refused} refused as wrong`,
+            ...riders.refused > riders.counted ? ['More refused than counted: a phone sending what the checks in server/riders/check.js don\'t take, or someone sending made-up reports.'] : []),
+        check('Riders\' times', 'Rides reported, past 2 weeks', 'info', lines.length ? `${lines.join('; ')}; phase 3 needs 1 each 10 minutes` : 'None yet'),
+    ];
+}

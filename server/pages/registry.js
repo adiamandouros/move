@@ -112,6 +112,8 @@ export function sitePages(tools, config = loadConfig({}), rail = () => null) {
             content: (lang, strings) => view(`server/views/pages/${name}.${lang}.hbs`)({
                 updated: UPDATED[name]?.[lang], email: config.contactEmail, ads, adClient: config.adsense.client ?? '', stasyLifts: STASY_LIFTS_PAGE[lang],
             }, { lang, strings }),
+            // The privacy page's switch for sending metro and tram times (decision 84)
+            ...name === 'privacy' && { scripts: ['/js/core/rider-choice.js'] },
         })),
     ];
 }
@@ -172,7 +174,7 @@ const TEXT_PAGES = ['about', 'privacy', 'terms', 'contact'];
 // When the privacy and terms pages last changed in substance (shown on them)
 /** @type {Partial<Record<string, import('../../types/data.js').Names>>} */
 const UPDATED = {
-    privacy: { en: '17 November 2026', el: '17 Νοεμβρίου 2026' },
+    privacy: { en: '28 November 2026', el: '28 Νοεμβρίου 2026' },
     terms: { en: '29 October 2026', el: '29 Οκτωβρίου 2026' },
 };
 

@@ -23,6 +23,7 @@ browser ─► Express (server/app.js, started by server.js)
             ├─ /api/announcements ── server/info/    OASA's and STASY's announcements, apergia.gr's strikes
             ├─ /api/lifts ────────── server/info/    metro lifts out of service, from STASY
             ├─ /api/trains ───────── server/railway/ how late the suburban trains run, from railway.gov.gr
+            ├─ /api/rider-times ──── server/riders/  the times riders measured on the metro and the tram
             ├─ /data/*.json ──────── data/build/     timetables and stops, built by server/data/
             ├─ /admin ────────────── server/admin/   private station editor and diagnostics
             └─ files ─────────────── public/, tools/<id>/client/, /vendor (node_modules)
@@ -473,6 +474,40 @@ reached without steps, if at all, is recorded by hand (`stepFree` in
 `data/curated/positions.json`, also in the station editor): station pages
 say it for each platform, and a platform with steps only gets the same
 warning in the subway page and its search.
+
+## Times measured by riders
+
+The metro and the tram have no live times, so riders who say yes measure
+them ([decision 84](docs/decisions/0084-times-measured-by-riders.md); for
+now phase 1, collecting). On the Trip page, while My location follows a
+metro or tram ride, the controller asks the rider once, the first time
+(`ask-rider-times`), and with "Yes" feeds each fix, just placed by
+`follow.js`, to `tools/trip/client/measure.js`: GPS (30 m or better, with a
+speed) says when the train stood at each stop and left it, and when the
+rider reached the stop they boarded at; a network fix underground says only
+when the train came to a station, from where `follow.js` placed the rider.
+Once the ride is over (its last stop, another ride, another way, My
+location off) it's one report (`rider-times`): the line, its direction, the
+day type and hour, each stretch between two stops it was placed at in a
+row, doors to doors, how long it stood at each stop and the wait, each by
+GPS or by network fixes. The page out of sight sends what there is so far,
+which the next report replaces while the page lives.
+`tools/trip/client/send-times.js` has the question, the switch that changes
+the answer (and the privacy page's, `/js/core/rider-choice.js`), and keeps
+each report on the device (`/js/core/rider-times.js`) until a random moment
+up to 15 minutes later, for up to a day without a signal.
+
+`POST /api/rider-times` ([server/riders/](server/riders/)) checks a report
+against the metro and the tram as the planner has them (`check.js`: stops
+in order on that direction, each stretch from half to three times the
+timetable's time, standing under 5 minutes, a wait under 30), adds it to
+the week's totals (`totals.js`: counts per 15-second band, by line,
+direction, day type, hour and stretch, stop or wait) and forgets it. The
+totals are `data/local/rider-times.json`, written at most every 5 minutes,
+weeks older than 8 dropped. Each visitor may send 6 reports an hour
+(`limits.js` with an hour's span, the address kept for that hour).
+`/admin/diagnostics` says how many were counted and refused, and per line
+the rides of the past 2 weeks, against phase 3's test.
 
 ## Timetables and stops
 

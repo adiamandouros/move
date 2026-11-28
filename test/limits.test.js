@@ -35,6 +35,34 @@ test('each client gets its allowance per minute; free requests always pass', () 
     assert.equal(limiter.take('a', 10), 0, 'a new minute');
 });
 
+test('an address is forgotten once its minute is over, as the privacy page says, not once there are many', () => {
+    /** @type {(() => void)[]} */
+    const timers = [];
+    const limiter = createClientLimiter({ perMinute: 10, now, every: (fn, ms) => { assert.equal(ms, 6_000, 'looked for every tenth of the span'); timers.push(fn); } });
+    limiter.take('203.0.113.7', 1);
+    t += 30_000;
+    limiter.take('203.0.113.8', 1);
+    t += 29_999;
+    timers.forEach(fn => fn());
+    assert.equal(limiter.clients(), 2, 'both within their minute');
+    t += 1;
+    timers.forEach(fn => fn());
+    assert.equal(limiter.clients(), 1, 'the first gone, its minute over, with no request since');
+    t += 30_000;
+    assert.equal(limiter.clients(), 0);
+});
+
+test('another span than a minute: riders\' times, 6 reports an hour, the address kept for the hour', () => {
+    const limiter = createClientLimiter({ perMinute: 6, windowMs: 3_600_000, now, every: () => {} });
+    for (let i = 0; i < 6; i++) assert.equal(limiter.take('a', 1), 0);
+    t += 60_000;
+    assert.equal(limiter.take('a', 1), 3_540_000, 'the 7th waits for the hour to be over');
+    assert.equal(limiter.clients(), 1);
+    t += 3_540_000;
+    assert.equal(limiter.clients(), 0, 'forgotten after the hour');
+    assert.equal(limiter.take('a', 1), 0);
+});
+
 // ── /api/arrivals ───────────────────────────────────────────────────────────
 
 const KNOWN = Array.from({ length: 40 }, (_, i) => String(10_000 + i));

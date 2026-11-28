@@ -4,7 +4,7 @@ import { CKAN_API } from '../data/sources.js';
 import { OASA_API } from '../oasa/client.js';
 import { dataChecks } from './data.js';
 import { configChecks, dnsCheck, expectBlockedRelays, internetCheck, oasaCheck, portalCheck, probeOasa, relayChecks, verdict } from './reaching.js';
-import { appChecks, usageChecks } from './running.js';
+import { appChecks, riderChecks, usageChecks } from './running.js';
 import { accountChecks, cspChecks, factsChecks } from './site.js';
 import { announcementChecks, liftChecks } from './stasy-oasa.js';
 
@@ -33,6 +33,7 @@ import { announcementChecks, liftChecks } from './stasy-oasa.js';
  *   csp?: { mode: string, kinds?: CspKind[], dropped?: number } | null,
  *   facts?: { what: string, date: string }[],
  *   account?: ReturnType<typeof import('../processes.js').accountStatus> | null,
+ *   riderTimes?: Parameters<typeof riderChecks>[0],
  * }} options
  */
 export async function runDiagnostics({
@@ -48,6 +49,7 @@ export async function runDiagnostics({
     csp = null,
     facts = [],
     account = null,
+    riderTimes = null,
 }) {
     // Every request says who we are, as the app's do
     /** @type {import('./probe.js').Fetch} */
@@ -76,6 +78,7 @@ export async function runDiagnostics({
         ...dataChecks(dataDir, now),
         ...appChecks(appStatus, now),
         ...usageChecks(appStatus?.usage),
+        ...riderChecks(riderTimes),
         ...announcementChecks(announcements, now),
         ...liftChecks(lifts, now),
         ...cspChecks(csp, now),

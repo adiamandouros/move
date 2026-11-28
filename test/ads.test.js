@@ -60,7 +60,7 @@ test('ADSENSE_CLIENT alone: the verification tag and ads.txt for the review, the
     assert.doesNotMatch(privacy.replace(/<script type="application\/json" id="strings">.*?<\/script>/s, ''), /uses no cookies/);
     // (escaped by the view: Handlebars writes ' as &#x27;)
     assert.match(privacy, /<meta name="description" content="Wayhop has no accounts and doesn&#x27;t track you itself; its ads come from Google/);
-    assert.match(privacy, /doesn't track you itself; it only counts how many pages are opened in each browser language\. It shows ads from Google/);
+    assert.match(privacy, /doesn't track you itself; it only counts how many pages are opened in each browser language, and, if you say yes, how long metro and tram trains took between stops, with nothing that says whose ride it was\. It shows ads from Google/);
     assert.match(privacy, /<h2 id="advertising">Advertising<\/h2>/);
     assert.match(privacy, /<button type="button" id="ad-choices"[^>]*data-ad-client="ca-pub-1234567890123456" hidden>Change your ad choices<\/button>/);
     assert.match(privacy, /src="\/js\/core\/ads\.js\?v=/);
