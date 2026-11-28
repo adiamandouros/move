@@ -454,6 +454,9 @@ function tripStrip(rail, o, small = false) {
             walk: (i ? ride.walkBefore : o.firstWalk)?.minutes ?? 0, departs: ride.boards, arrives: ride.arrives,
             line: ON_THE_ROAD.has(ride.mode) ? null : ride.line,
         }));
+        // Off the ride the rider is on (decision 83): the rest of it first, from now
+        const { off } = o;
+        if (off && start !== null) rides.unshift({ walk: 0, departs: start, arrives: off.arrives, line: ON_THE_ROAD.has(off.mode) ? null : off.line });
         return wayStrip(stripParts(rides, o.lastWalk?.minutes ?? 0, start), small);
     }
     const { legs } = o.plan;
@@ -759,7 +762,10 @@ function halfOther(rail, { row, o }, timed = null, clock = { seconds: 0, epoch: 
     // Untimed, it's a row of the half hour's, with its range (onwardOther's are timed)
     const total = timed ? totalMinutes(shown) : rangeMark(/** @type {HalfRow} */ (row));
     const arrives = timed && html`<span class="trip-arrives">${format(t('trip.arrive'), { time: clockTime(shown.arrives) })}</span>`;
-    const line = html`${!fromDoor && walkToFirst(shown) > 0 && html`${walkShort(shown)} · `}${pills} ${fromDoor ? t('trip.from-stops-nearby') : format(t('trip.from-station'), { station: stopName(rail, shown.rides[0].board) })}${timed && firstBusLive(shown, clock)}`;
+    // Off the ride the rider is on, where it leaves it first (decision 83)
+    const { off } = shown;
+    const leave = off && html`${formatHtml(t(off.mode === 'metro' ? 'trip.onward-off-station' : 'trip.onward-off'), { ride: linePlate(rail, off), change: stopName(rail, off.stop) })} · `;
+    const line = html`${leave}${!fromDoor && walkToFirst(shown) > 0 && html`${walkShort(shown)} · `}${pills} ${fromDoor ? t('trip.from-stops-nearby') : format(t('trip.from-station'), { station: stopName(rail, shown.rides[0].board) })}${timed && firstBusLive(shown, clock)}`;
     if (take) {
         return html`<button type="button" class="trip-card trip-take" data-way="${row.key}" aria-disabled="${checking ? 'true' : 'false'}">
             <span class="trip-take-what">

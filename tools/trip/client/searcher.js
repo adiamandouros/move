@@ -176,14 +176,20 @@ export function searcher({ loadBuses, loadTrains = async () => null, post, pause
                 }
                 const found = current.ahead?.of === of && current.ahead.found && !declined.includes(current.ahead.found.key) ? current.ahead.found : null;
                 way = full ? liveWay(current.planner, current.from, current.to, full, at, now, stops, { ...options, ahead: found }) : null;
-                // The other ways shown to the rider, but the switch's, each timed
+                // The other ways shown to the rider, but the switch's, each
+                // timed; on a ride, only those there sooner than staying on
+                // (decision 83): one slower is just a detour off it
                 if (way && current.onward?.of === followed) {
                     const { ways, here: from } = current.onward;
                     const switchTo = way.switchTo?.key;
-                    others = ways.filter(each => each.key !== switchTo).slice(0, OTHERS).flatMap(each => {
+                    const riding = step?.kind === 'ride';
+                    others = [];
+                    for (const each of ways) {
+                        if (others.length >= OTHERS) break;
+                        if (each.key === switchTo) continue;
                         const timed = onwardWay(current.planner, each.leg < 0 && from ? from : current.from, current.to, each, now, stops, { step, own, trains });
-                        return timed ? [timed] : [];
-                    });
+                        if (timed && (!riding || timed.option.arrives < way.option.arrives)) others.push(timed);
+                    }
                 }
             } catch { /* the way as the half hour has it */ }
             // The way switched to goes back with it, for the page to keep with the trip

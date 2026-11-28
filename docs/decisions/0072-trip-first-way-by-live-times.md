@@ -1,6 +1,6 @@
 # 72. The trip page: a way quicker by OASA's live times comes first
 
-Decided 2026-11-24 · In force
+Decided 2026-11-24 · Replaced by [83](0083-other-ways-on-a-ride-only-sooner.md)
 
 ## Situation
 

@@ -72,9 +72,11 @@ const CITY_ONLY = new Set([...ON_THE_ROAD, 'suburban']);
  * (seconds from now's midnight), its minutes, changes, and what it costs a
  * rider by the weights (weights.js), which puts it in order. It's never the
  * morning's first trip, as a metro option can be: it's for leaving now. In
- * the half hour's answer, a way by rail alone has the same shape
+ * the half hour's answer, a way by rail alone has the same shape. `off`:
+ * another way shown to a rider on a ride, the ride they're on, where it
+ * leaves it and when it gets there (onwardWay)
  * @typedef {{ city: true, morning: false, rides: Ride[], firstWalk: Walk | null, lastWalk: Walk | null,
- *   arrives: number, minutes: number, changes: number, cost: number }} BusOption
+ *   arrives: number, minutes: number, changes: number, cost: number, off?: { line: string, mode: string, stop: import('/tools/subway/city.js').Stop, arrives: number } }} BusOption
  */
 /**
  * A way of the half hour's answer (answer.js): its range in minutes, the
@@ -595,8 +597,9 @@ export function otherWay(planner, from, to, row, departure, now, live, trains = 
  * (`step`, on their `own` bus), and as the rides from where it leaves it,
  * the next bus's stop the one asked for; walking or waiting, a way from
  * where they are (hereWays, `leg` -1, `from` being there), the whole way.
- * With its key, by which the page tells it apart, and its `leg`, by which
- * the page takes it (decision 64)
+ * Off a ride, its option says where it leaves it (`off`), as the rides
+ * shown start there (decision 83). With its key, by which the page tells
+ * it apart, and its `leg`, by which the page takes it (decision 64)
  * @param {Planner} planner @param {Point} from @param {Point} to @param {Ahead} ahead
  * @param {{ seconds: number }} now @param {Record<string, StopLive>} live
  * @param {{ step?: LiveStep | null, own?: OwnBus | null, trains?: Record<string, import('./trains.js').TrainLate> | null }} [rider]
@@ -608,7 +611,8 @@ export function onwardWay(planner, from, to, { key, way, leg }, now, live, { ste
     if (!timed) return null;
     if (leg < 0) return { key, leg, ...timed };
     const rides = timed.option.rides.slice(leg + 1);
-    return { key, leg, asks: timed.asks, option: { ...timed.option, rides, firstWalk: rides[0].walkBefore, changes: rides.length - 1 } };
+    const { line, mode, alight: stop, arrives } = timed.option.rides[leg];
+    return { key, leg, asks: timed.asks, option: { ...timed.option, rides, firstWalk: rides[0].walkBefore, changes: rides.length - 1, off: { line, mode, stop, arrives } } };
 }
 
 // A way timed as another way shown is (otherWay): the first stop asked for

@@ -637,6 +637,9 @@ test('a way found ahead, shown: from where it leaves the tram, its bus\'s stop t
     assert.equal(before.key, AHEAD.key);
     assert.deepEqual(before.option.rides.map(ride => ride.line), AHEAD.way.legs.slice(1).map(leg => leg.line), 'the rides after the tram');
     assert.deepEqual(before.option.firstWalk, before.option.rides[0].walkBefore, 'the walk to its bus');
+    const leaves = AHEAD.way.legs[0];
+    assert.deepEqual(before.option.off, { line: leaves.line, mode: leaves.mode, stop: city.stops[leaves.alight], arrives: before.option.off.arrives }, 'where it leaves the tram (decision 83)');
+    assert.ok(before.option.off.arrives <= before.option.rides[0].boards, 'before its bus boards');
     assert.deepEqual(before.asks, [{ stop: ONWARD_STOP, at: null }], 'not asked for the ride: the rider isn\'t on it');
     const timed = onwardWay(city, stavrou, menelaou45, AHEAD, NOON, onwardBus(2 * MIN), { step: ON_TRAM });
     assert.deepEqual(timed.option.rides[0].live, { at: ONWARD.boards + 2 * MIN, next: null });
@@ -894,7 +897,20 @@ for (const lang of ['en', 'el']) {
         assert.deepEqual(heads, plain.map(o => s['trip.arrive'].replace('{time}', `${String(Math.floor(o.arrives / 3600)).padStart(2, '0')}:${String(Math.floor(o.arrives / 60) % 60).padStart(2, '0')}`)), 'the soonest there first');
         assert.ok(others.includes('trip-live'), 'its bus as OASA has it');
         assert.ok(html.slice(0, html.indexOf(s['trip.other-ways'])).includes('line-t6'), 'the tram in the way shown');
-        assert.ok(!others.includes('line-t6'), 'not in the others: they start from where they leave it');
+        // They start from where they leave the tram, and say so first, its
+        // strip the rest of the tram then theirs (decision 83: "Walk 1'" read
+        // as from where the rider was, 27 Nov 2026)
+        const cards = others.split('<button').slice(1);
+        assert.equal(cards.length, onward.length);
+        for (const [i, card] of cards.entries()) {
+            const { off } = sooner[i].option;
+            assert.equal(off.line, 'T6');
+            const what = card.split('<span class="trip-other">')[1];
+            assert.ok(what.startsWith(escaped(s['trip.onward-off'].split('{ride}')[0])), what);
+            assert.ok(what.indexOf('line-t6') < what.indexOf(escaped(stopNamed(off.stop))), 'the tram, then where it\'s left');
+            assert.ok(what.indexOf(escaped(stopNamed(off.stop))) < what.indexOf(escaped(s['trip.walk-short'].split('{minutes}')[0])), 'then the walk from there');
+            assert.match(card, /<span class="way-strip way-strip-small" aria-hidden="true"><span class="way-strip-ride way-share-\d+ strip-t6">/, 'its strip from the tram');
+        }
         // None found: none shown, not the half hour's from the start
         const none = drawnDecided(way, { onward: [], following: { kind: 'ride', ride: 0, stop: 1 } });
         check(none);

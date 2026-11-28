@@ -364,7 +364,7 @@ version they started with, and it takes over once they're closed
 - The Trip page's way shown in full ([tools/trip/client/live.js](tools/trip/client/live.js))
   asks for at most 10 stops: where its rides by bus board, each followed by
   where it gets off (the bus boarded, found there by its vehicle code, is
-  when the ride ends: [decision 72](docs/decisions/0072-trip-first-way-by-live-times.md)),
+  when the ride ends: [decision 83](docs/decisions/0083-other-ways-on-a-ride-only-sooner.md)),
   then the stops a last bus that can be any of several leaves from. Each is asked again on
   the bus page's tiers, by the first bus the rider can still catch there,
   so a change far down the trip is asked rarely until it nears; nothing
@@ -388,11 +388,11 @@ version they started with, and it takes over once they're closed
   DESIGN.md T14). Off
   the way, or with no way to follow yet, the trip is planned again from
   where they are, 20 m on (or the fix's accuracy) and at most every 2 minutes
-  ([decision 72](docs/decisions/0072-trip-first-way-by-live-times.md)); its stops
+  ([decision 83](docs/decisions/0083-other-ways-on-a-ride-only-sooner.md)); its stops
   keep their answers, so only those new to the way are asked at once. Its
   requests carry `&for=plan` (`plan-start` for a search, `plan-moved` for a
   re-plan, `plan-ride` for a stop first asked for the ride they're on).
-- The Trip page's other ways ([decision 72](docs/decisions/0072-trip-first-way-by-live-times.md))
+- The Trip page's other ways ([decision 83](docs/decisions/0083-other-ways-on-a-ride-only-sooner.md))
   each ask for one stop more, where their first bus is caught, on the same
   tiers, so at most 2 more a trip, and none for a way whose only bus can be
   any of several. Their first requests say `plan-other`. To a followed rider
@@ -433,7 +433,7 @@ version they started with, and it takes over once they're closed
 
 These numbers set our load on OASA, and so do the ones for STASY and the
 bus network below; changes to any of them are agreed first
-([decision 72](docs/decisions/0072-trip-first-way-by-live-times.md), which replaced 63, 62, 60, 53, 50, 45, 38, 34, 26, 21 and 7, and [decision 81](docs/decisions/0081-home-is-near-you.md) for Home).
+([decision 83](docs/decisions/0083-other-ways-on-a-ride-only-sooner.md), which replaced 72, 63, 62, 60, 53, 50, 45, 38, 34, 26, 21 and 7, and [decision 81](docs/decisions/0081-home-is-near-you.md) for Home).
 
 Announcements ([server/info/announcements.js](server/info/announcements.js))
 are fetched from OASA's RSS and STASY's news page at most every 15 minutes,
@@ -681,7 +681,7 @@ hour's answer are the app's, in `tools/subway/client/`.
 - live arrivals have come in recently, or nothing needed them (a quiet
   night, a restart);
 - OASA answered and fast enough over the past hour, and the request budget
-  held, with room to spare ([decision 72](docs/decisions/0072-trip-first-way-by-live-times.md)
+  held, with room to spare ([decision 83](docs/decisions/0083-other-ways-on-a-ride-only-sooner.md)
   stands by 63's numbers, with 50's, 60's and 62's);
 - every announcement source loaded;
 - last night's data build worked, and its checks of the metro timetable

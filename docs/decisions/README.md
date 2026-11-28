@@ -83,7 +83,7 @@ decisions, or makes one of the same weight, comes with its page.
 | 69 | [Following underground: a trace first, then rough fixes on rail, provisionally](0069-following-underground-rough-fixes.md) | In force |
 | 70 | [The rest of the strict type check, file by file, written `any` counted](0070-strict-types-step-by-step.md) | In force |
 | 71 | [Strikes from apergia.gr, in their words, in the disruption box](0071-strikes-from-apergia.md) | In force |
-| 72 | [The trip page: a way quicker by OASA's live times comes first](0072-trip-first-way-by-live-times.md) | In force |
+| 72 | [The trip page: a way quicker by OASA's live times comes first](0072-trip-first-way-by-live-times.md) | Replaced by 83 |
 | 73 | [The trip page: a station that's two buildings, its exits by line](0073-trip-stations-of-two-buildings.md) | In force |
 | 74 | [A warning that's the same every day is one closed line](0074-a-warning-the-same-every-day-is-one-line.md) | In force |
 | 75 | [The car to ride in is the station sign's off-white](0075-the-car-to-ride-in-is-the-sign-off-white.md) | In force |
@@ -94,3 +94,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 80 | [Bus plates a step darker](0080-bus-plates-a-step-darker.md) | In force |
 | 81 | [Home is "Near you"](0081-home-is-near-you.md) | In force |
 | 82 | [Motion shows what changed](0082-motion-shows-what-changed.md) | In force |
+| 83 | [The trip page: on a ride, the other ways only when sooner, and where they leave it](0083-other-ways-on-a-ride-only-sooner.md) | In force |
