@@ -1019,9 +1019,12 @@ test('another way off the ride, tapped: taken as the switch\'s is, said; the rid
     assert.equal(trip.onStep().kind, 'ride');
     const offered = rendered(drawing(tell, {}, clock(AT + 201))).view;
     assert.deepEqual({ take: offered.take, onward: offered.onward.map(way => way.key) }, { take: false, onward: ['b'] }, 'the ways on from the ride, not the half hour\'s from the start');
+    assert.deepEqual(offered.switching, { offer: SWITCH, seconds: SWITCH_SECONDS }, 'while the switch counts down');
     assert.deepEqual(tell({ type: 'take', key: 'b', keyboard: false, position: null }, clock(AT + 201)), [{ do: 'say', what: 'picked' }, { do: 'draw-answer', always: true }]);
     const switched = drawing(tell, {}, clock(AT + 202));
     assert.equal(rendered(switched).view.switched, 'picked');
+    assert.equal(rendered(switched).view.switching, null, 'the countdown called off');
+    assert.deepEqual(countdown(tell({ ...SECOND, counting: true }, clock(AT + 203))), [], 'and not counting on');
     const way = timedAsk(switched).live;
     assert.deepEqual({ switched: way.switched, switchedWay: way.switchedWay }, { switched: 'b', switchedWay: null }, 'not sent by the worker yet');
     const ahead = { key: 'b', leg: 0, way: { legs: [] } };

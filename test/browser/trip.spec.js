@@ -1476,28 +1476,36 @@ test.describe('the trip page', () => {
                 expect(await plans()).toHaveLength(1);
             });
 
-            // Road · 10, decision 63
-            test('the other ways are those on from the tram, not from the start, their bus\'s stop asked as the other ways\'; kept, the way kept over is one of them', async ({ page }) => {
+            // Road · 10, decisions 63 and 83
+            test('the other ways are those on from the tram sooner than staying on, not from the start, nor the 136 that gets there later; kept, the way kept over is one, saying where it leaves the tram, its bus\'s stop asked as the other ways\'', async ({ page }) => {
                 const { asks, run } = await watchRequests(page);
                 const liveWay = await watchLive(page);
                 await onTheTram(page, run, liveWay);
                 const others = page.locator('.route-option-label ~ .trip-card');
+                // Off the T6 for the 136 gets there later than staying on: a detour, not shown (decision 83)
+                await expect(page.locator('.route-option-label')).toHaveCount(0);
+                await expect(others).toHaveCount(0);
+                await page.getByRole('button', { name: 'Keep my route' }).click();
+                await run(35);
                 await expect(others).toHaveCount(1);
-                await expect(others.locator('.line-t6')).toHaveCount(0);
-                await expect(others).toContainText('136');
+                await expect(others).toContainText('218');
+                await expect(others).not.toContainText('136');
+                await expect(others.locator('.trip-other')).toContainText(/^Off the T6 at .+ · Walk /);
+                await expect(others.locator('.trip-other .line-t6')).toHaveCount(1);
+                await expect(others.locator('.way-strip-ride').first()).toHaveClass(/strip-t6/);
                 await expect(others.locator('.trip-arrives')).toHaveText(/^Arrive about \d\d:\d\d$/);
                 await page.waitForFunction(() => window.__pending === 0);
                 expect((await asks()).some(a => a.for === 'plan-other')).toBe(true);
-                await page.getByRole('button', { name: 'Keep my route' }).click();
-                await run(35);
-                await expect(others).toHaveCount(2);
                 await expect(offer(page)).toHaveCount(0);
                 await page.clock.resume();
                 expect(await axe(page), 'axe-core violations').toEqual([]);
             });
 
-            // Decision 64
-            test('another way off the tram, tapped: taken at once, the countdown called off, still on the tram, with the way back; kept when the app opens again; back, the directions again, still on the tram', async ({ page }) => {
+            // Decision 64. The test data has one way off the tram sooner than
+            // staying on, the switch's, so it's taken from the list once kept
+            // over; a countdown called off by another way taken is the
+            // controller's test (trip-controller.test.js)
+            test('another way off the tram, tapped: taken at once, still on the tram, with the way back; kept when the app opens again; back, the directions again, still on the tram', async ({ page }) => {
                 const { run } = await watchRequests(page);
                 const plans = await watchPlans(page);
                 const liveWay = await watchLive(page);
@@ -1507,9 +1515,11 @@ test.describe('the trip page', () => {
                     if (start) document.startViewTransition = update => start(() => { update(); window.__slid = document.querySelectorAll('.way-taken').length; });
                 });
                 const tram = await onTheTram(page, run, liveWay);
+                await page.getByRole('button', { name: 'Keep my route' }).click();
+                await run(35);
                 const taken = page.locator('#trip-result button.trip-take');
                 await expect(taken).toHaveCount(1);
-                await expect(taken).toContainText('136');
+                await expect(taken).toContainText('218');
                 await expect(taken).toHaveAccessibleName(/^Take this way: /);
                 await taken.click();
                 const best = page.locator('.trip-card').first();
@@ -1517,7 +1527,7 @@ test.describe('the trip page', () => {
                 if (test.info().project.name !== 'iphone') expect(await page.evaluate(() => window.__slid), 'the way taken slides up into its place').toBe(1);
                 await expect(timer(page)).toHaveCount(0);
                 await expect(current(page)).toContainText('T6');
-                await expect.poll(async () => (await liveWay()).rides.map(ride => ride.line)).toContain('136');
+                await expect.poll(async () => (await liveWay()).rides.map(ride => ride.line)).toContain('218');
                 await expect(page.getByRole('button', { name: 'Back to my route' })).toBeVisible();
                 expect(await plans()).toHaveLength(1);
                 await run(12);
@@ -1530,7 +1540,7 @@ test.describe('the trip page', () => {
                 await page.reload();
                 await expect(page.locator('.trip-card').first()).toContainText('The way you picked');
                 await expect(current(page)).toContainText('T6');
-                await expect.poll(async () => (await liveWay())?.rides.map(ride => ride.line)).toContain('136');
+                await expect.poll(async () => (await liveWay())?.rides.map(ride => ride.line)).toContain('218');
                 await expect(page.getByRole('button', { name: 'Back to my route' })).toBeVisible();
 
                 // Back: the directions, still on the tram
@@ -1545,6 +1555,8 @@ test.describe('the trip page', () => {
                 const { run } = await watchRequests(page);
                 const liveWay = await watchLive(page);
                 await onTheTram(page, run, liveWay);
+                await page.getByRole('button', { name: 'Keep my route' }).click();
+                await run(35);
                 await page.locator('#trip-result button.trip-take').focus();
                 await page.keyboard.press('Enter');
                 await expect(page.locator('.trip-card').first()).toContainText('The way you picked');

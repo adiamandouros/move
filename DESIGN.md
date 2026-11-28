@@ -540,7 +540,10 @@ rules, with a picture of a way shown in full.
   ways come the soonest there first. To a rider followed along the way
   (decision 63) they're the ways on from where they are, the same way:
   from where one leaves the ride they're on, its rides; never the way the
-  switch is offering.
+  switch is offering. On a ride, only ways there sooner than staying on,
+  and each says where it leaves the ride first, "Off the M3 at Chalandri ·
+  Walk ~1' · …", its strip the rest of that ride in the line's colour
+  (decision 83).
 - **A way quicker by OASA's live times** (decision 72) takes the first
   card's place before the rider leaves: "Quicker right now, by OASA's live
   times." above it, where "It depends on when you leave." would be, and its
