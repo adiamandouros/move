@@ -30,7 +30,7 @@ decisions, or makes one of the same weight, comes with its page.
 | 16 | [The station editor is never blocked](0016-station-editor.md) | In force |
 | 17 | [Privacy: kept on the device, nothing about people on the server](0017-privacy.md) | Replaced by 19 |
 | 18 | [The information is given as it is, and says so](0018-information-as-it-is.md) | In force |
-| 19 | [Privacy: kept on the device; on the server, counts only](0019-privacy-counts-only.md) | In force |
+| 19 | [Privacy: kept on the device; on the server, counts only](0019-privacy-counts-only.md) | Replaced by 84 |
 | 20 | [Tests with every change, no flaky tests, and when each kind runs](0020-tests-and-when-they-run.md) | In force |
 | 21 | [Our load on OASA and STASY, with the bus trip finder](0021-load-on-oasa-with-trips.md) | Replaced by 26 |
 | 22 | [Address search from OpenStreetMap, built on GitHub](0022-address-search.md) | In force |
@@ -95,3 +95,4 @@ decisions, or makes one of the same weight, comes with its page.
 | 81 | [Home is "Near you"](0081-home-is-near-you.md) | In force |
 | 82 | [Motion shows what changed](0082-motion-shows-what-changed.md) | In force |
 | 83 | [The trip page: on a ride, the other ways only when sooner, and where they leave it](0083-other-ways-on-a-ride-only-sooner.md) | In force |
+| 84 | [Times measured by riders on the metro and the tram, in phases](0084-times-measured-by-riders.md) | In force |
