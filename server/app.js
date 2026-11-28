@@ -20,6 +20,7 @@ import { createAnnouncements } from './info/announcements.js';
 import { createLifts } from './info/lifts.js';
 import { createHealth } from './health.js';
 import { createPlaces } from './places/index.js';
+import { createRiderTimes } from './riders/index.js';
 import { createProcessGuard } from './processes.js';
 import { securityHeaders } from './security.js';
 import { contentSecurityPolicy, cspHeaders, REPORT_PATH } from './csp.js';
@@ -43,8 +44,10 @@ const DATA_DIR = path.join(ROOT, 'data');
 //             months (data/local); null counts in memory only
 //   passesDir: the buses seen passing a stop, a file a day (server/oasa/passes.js,
 //             data/local/bus-passes); null keeps none
+//   riderTimesFile: the totals of the times riders measured on the metro and
+//             the tram (server/riders/, decision 84; data/local); null counts in memory only
 //   fetch:    how OASA, STASY and the relays are reached
-//   oasaClient, limiter: stand-ins for OASA and the per-visitor limit (oasa/index.js), for tests
+//   oasaClient, limiter: stand-ins for OASA and the per-visitor limits (oasa/index.js, places, riders), for tests
 //   logError: where failed requests are logged (server/errors.js)
 //   processGuard: the hosting account's processes (server/processes.js);
 //             server.js starts it
@@ -52,7 +55,7 @@ const DATA_DIR = path.join(ROOT, 'data');
 //             (loadCurated in server/data/index.js); tests give their own
 /**
  * @param {{
- *   config?: import('../types/config.js').Config, buildDir?: string, cacheDir?: string, usageFile?: string | null, passesDir?: string | null,
+ *   config?: import('../types/config.js').Config, buildDir?: string, cacheDir?: string, usageFile?: string | null, passesDir?: string | null, riderTimesFile?: string | null,
  *   fetch?: typeof globalThis.fetch, usage?: ReturnType<typeof createUsage>, oasaClient?: ReturnType<typeof createOasaClient>,
  *   limiter?: { take(key: string, stops: number): number }, logError?: (message: string) => void,
  *   processGuard?: ReturnType<typeof createProcessGuard>, curated?: typeof loadCurated,
@@ -64,6 +67,7 @@ export function createApp({
     cacheDir = path.join(DATA_DIR, 'cache'),
     usageFile = path.join(DATA_DIR, 'local', 'oasa-usage.json'),
     passesDir = path.join(DATA_DIR, 'local', 'bus-passes'),
+    riderTimesFile = path.join(DATA_DIR, 'local', 'rider-times.json'),
     fetch = globalThis.fetch,
     // With the nightly bus-network fetch's requests, from its record
     usage = createUsage({ file: usageFile, networkFile: lastFetchFile(path.join(path.dirname(buildDir), 'raw')) }),
@@ -119,6 +123,9 @@ export function createApp({
     const places = createPlaces({ dir: cacheDir, fetch, limiter, log: logError });
     app.locals.places = places;
     app.use('/api/places', places);
+    // The times riders measured on the metro and the tram, as totals (decision 84)
+    const riderTimes = createRiderTimes({ file: riderTimesFile, railFile: path.join(buildDir, 'rail.json'), log: logError, ...limiter && { limiter } });
+    app.use('/api/rider-times', riderTimes.router);
     // Whether the live site works, for the scheduled check (.github/workflows/health.yml)
     app.use('/api/health', createHealth({ placesStatus: places.status, trainStatus: trains.status, busStatus: busApi.status, announcementStatus: announcements.status, liftStatus: lifts.status, buildDir, relays, processes: processGuard.status, fetch }));
     // What the Content-Security-Policy blocked, as browsers report it (server/csp-reports.js).
@@ -147,7 +154,7 @@ export function createApp({
             await Promise.all([announcements.refreshNow(), lifts.refreshNow()]);
             return runDiagnostics({
                 config, dataDir: DATA_DIR, appStatus: busApi.status(), announcements: announcements.status(), lifts: lifts.status(),
-                csp: { mode: cspMode, ...cspReports.status() }, facts: checkedFacts(loadTools()), account: processGuard.status(),
+                csp: { mode: cspMode, ...cspReports.status() }, facts: checkedFacts(loadTools()), account: processGuard.status(), riderTimes: riderTimes.status(),
             });
         },
     });

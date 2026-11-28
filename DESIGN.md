@@ -614,6 +614,13 @@ rules, with a picture of a way shown in full.
   it, and the trip is planned ahead as before. Off the way (for a minute,
   100 m from the stop waited at or a bus or tram's road, 300 m from a walk
   or a train's line), the trip is planned again from where they are.
+- **Asking for riders' times** (decision 84): the first time a metro or
+  tram ride is followed, a card above the answer asks once, its heading the
+  question, a sentence on what's sent, a link to the privacy page, and
+  "Yes" (primary) and "No thanks", as the quicker way's buttons. It takes
+  no keyboard and is said once. Answered, it goes, the keyboard goes on to
+  the switch at the end of the page that says the answer and changes it
+  (Switch), and that's said.
 - **A quicker way on the way** (T14): with the ride followed, at each stop
   the page looks ahead from the stops still to come. A way 3' or more
   sooner (a bus only when OASA has it coming in time) is the quicker way's

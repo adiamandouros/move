@@ -2,10 +2,10 @@
     <h1>Privacy</h1>
     <p class="text-body-secondary">Last updated: {{updated}}</p>
 {{#unless ads}}
-    <p><strong>In short:</strong> Wayhop has no accounts, uses no cookies and doesn't track you. It only counts how many pages are opened in each browser language, nothing about who opened them.</p>
+    <p><strong>In short:</strong> Wayhop has no accounts, uses no cookies and doesn't track you. It only counts how many pages are opened in each browser language, nothing about who opened them, and, if you say yes, how long metro and tram trains took between stops, with nothing that says whose ride it was.</p>
 {{/unless}}
 {{#if ads}}
-    <p><strong>In short:</strong> Wayhop has no accounts and doesn't track you itself; it only counts how many pages are opened in each browser language. It shows ads from Google, which uses cookies as described under <a href="#advertising">Advertising</a>.</p>
+    <p><strong>In short:</strong> Wayhop has no accounts and doesn't track you itself; it only counts how many pages are opened in each browser language, and, if you say yes, how long metro and tram trains took between stops, with nothing that says whose ride it was. It shows ads from Google, which uses cookies as described under <a href="#advertising">Advertising</a>.</p>
 {{/if}}
 
     <h2>What stays on your device</h2>
@@ -19,6 +19,12 @@
         <li><strong>Whether you chose the light or the dark colours,</strong> if you did, so the pages open in them.</li>
         <li><strong>Whether you closed the explanation of what the train shows,</strong> if you did, so it stays closed on the metro pages.</li>
         <li><strong>Whether you closed the offer to install the app</strong> with "Not now", if you did, so it isn't shown again.</li>
+        <li><strong>Your answer about sending your metro and tram times,</strong> once you've given it, so the Trip page doesn't ask again. You can change it here or on the Trip page.
+            <div id="rider-times-choice" class="form-check form-switch mode-switch" hidden>
+                <input id="rider-times-send" class="form-check-input" type="checkbox" role="switch">
+                <label class="form-check-label" for="rider-times-send">Send my metro and tram times</label>
+            </div>
+        </li>
         <li><strong>Copies of pages and timetables,</strong> saved by the app so it works offline.</li>
         <li><strong>Your location,</strong> if you allow it: your browser uses it to find the bus stops and metro station nearest to you. The last one is kept on your device for 10 minutes, so the next page can use it straight away, even without a signal. It isn't sent to Wayhop's server. Wayhop also notes that you allowed it, so the next page doesn't have to ask first.</li>
         <li><strong>A trace of your positions,</strong> only if you turn on the Trip page's test mode (by opening /trip?trace): every position the page gets, with how exact it is, and the stations you mark, kept on your device until you stop and delete it there. It isn't sent anywhere unless you save it as a file and send it yourself.</li>
@@ -29,7 +35,10 @@
     <ul>
         <li><strong>The bus stops you're looking at.</strong> To show live arrivals, the bus page asks the server for nearby stops, and the stops you starred, by their number. Nearby stops show roughly where you are, but they aren't kept with anything that identifies you. Arrivals are kept per stop for a few minutes and shared by everyone.</li>
         <li><strong>The addresses and places you search for.</strong> To find them, the planner sends what you type to our server as you type, and the server looks it up itself. It isn't kept, it isn't in the web server's logs, and it goes to nobody else.</li>
-        <li><strong>Your IP address, for one minute.</strong> To share OASA's live data fairly, and to keep address search working for everyone, the server counts each address's requests over one minute, in memory only.</li>
+        <li id="rider-times"><strong>How long your metro and tram rides took, only if you said yes.</strong> When the Trip page follows your ride from "My location" and you said "Yes" when it asked, your phone works out three things after a metro or tram ride: how long the train took from each station or stop to the next, how long it stood at each stop, and how long you waited for it where you got on. It sends only those, with the line, the direction, the hour (no minutes) and whether it was a weekday, a Saturday, or a Sunday or holiday. It sends no device number and no account. Nothing ties one ride to another, or to your walk before or after. The stops are the only places in it.
+            <p class="mt-2 mb-0">Everything is sent in one go, at a random moment 0 to 15 minutes after the ride ends, so the time it arrives doesn't show when your ride ended. If there's no signal then, it waits on your device until the page is next open, for up to a day. The server adds it to totals per stretch, hour and week (how many rides, and how long they took) and keeps nothing else. Weeks older than 8 are dropped. The totals are used to give everyone metro and tram times closer to how the trains really run. Nothing is sent for walks, buses, trolleys or the suburban railway, and nothing at all until you say "Yes".</p>
+        </li>
+        <li><strong>Your IP address, for one minute</strong> (an hour, after sending metro and tram times). To share OASA's live data fairly, and to keep address search and riders' times working for everyone, the server counts each address's requests over one minute (over an hour for riders' times), in memory only.</li>
         <li><strong>The language your browser prefers, as a count.</strong> When a page is opened, the server adds one to that day's count for the first language your browser asks for (English, German, French…). Only the daily totals are kept, to see which languages to add next. Nothing about who opened the page is kept.</li>
         <li><strong>Standard web server logs.</strong> Like any website, our host's web server logs each request (IP address, page, time and browser) for security and to fix problems.</li>
     </ul>

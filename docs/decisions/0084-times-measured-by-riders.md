@@ -82,6 +82,13 @@ a Saturday or a Sunday or holiday:
   trains really come, which a single ride can't.
 
 Each is marked from GPS or from a network fix, and kept apart by it.
+A network fix comes to a station well before the doors open and stays
+through the stop, so it can't say when a train stood or left: stops and
+waits come from GPS only. A stretch is from the train coming to one stop
+to coming to the next (doors to doors), so the stop boarded at, where the
+rider was before the train, starts none, and a stretch whose two stops
+were seen by different kinds of fix isn't sent (settled while building it,
+28 November 2026).
 
 - No device number, no session, no account. Nothing ties one ride's
   stretches to another ride's, or to the walk before or after.
@@ -106,7 +113,9 @@ address or time is stored.
   for that stretch.
 - A stop's standing time must be under 5 minutes, a wait under 30.
 - A report holds at most 40 stretches and 40 stops, and each visitor (an IPv4 address,
-  or an IPv6 /64, in memory for a minute, as today) may send 6 an hour.
+  or an IPv6 /64) may send 6 an hour: the address is kept in memory for
+  that hour, never on disk, and the privacy page says so (the rider's
+  call on 28 November 2026, as "a minute" couldn't count an hour).
 - Typical times use the median of the bands, so a few wrong reports
   hardly move it.
 

@@ -1144,3 +1144,95 @@ test('the way picked kept with the trip: first again in the trip\'s first answer
     assert.deepEqual(answer(asked(tell({ type: 'open' })).id), ['550', 'bus']);
     assert.deepEqual(answer(asked(tell({ type: 'to', place: FIX })).id), ['bus', '550']);
 });
+
+// ── Times measured by riders (decision 84) ──────────────────────────────────
+
+// The bus way's stops as a tram's, T6 toward Syntagma, and the page told the
+// rider's answer as it opens
+const TRAM_WAY = { ...BUS, rides: [{ ...BUS.rides[0], line: 'T6', lines: ['T6'], mode: 'tram', dir: 'syntagma', board: { id: 'rail:a' }, alight: { id: 'rail:c' },
+    on: ['a', 'b', 'c'].map((station, i) => ({ id: `rail:${station}`, station, ...STOPS[i] })) }] };
+// A GPS fix, `speed` m/s
+const gpsAt = (point, seconds, speed) => ({ type: 'located', position: { lat: point.lat, lng: point.lng, at: seconds * 1000, accuracy: 5, speed }, typing: false, held: false });
+function tramFollowed(riderTimes) {
+    const trip = tripController({ buses: true, suburban: true, at: AT * 1000, hereTitle: 'My location', railOn: () => null, riderTimes });
+    const tell = (event, at = clock()) => trip.tell(event, at);
+    tell({ type: 'to', place: DOOR });
+    const search = asked(tell({ type: 'use-location', position: fix(START), say: true }));
+    tell({ type: 'answer', id: search.id, options: [TRAM_WAY], trains: true, timing, held: false });
+    tell({ type: 'half', id: search.id, view: view(AT, [row('tram', TRAM_WAY)]), held: false });
+    drawing(tell);
+    tell(located(LEFT, AT + 10), clock(AT + 10));
+    return { trip, tell };
+}
+// The tram's ride, a fix a second from `from` (seconds): the rider reaches
+// stop a, waits 60 s, the tram runs 400 m to b at 10 m/s, stands 20 s, runs
+// on to c and stands there; every job, in order
+function rideTram(tell, from = AT + 60, { until = Infinity } = {}) {
+    const jobs = [];
+    let s = from;
+    const at = (point, speed) => { if (s < until) jobs.push(...tell(gpsAt(point, s, speed), clock(s))); s++; };
+    for (let i = 0; i < 60; i++) at(STOPS[0], 0.3);
+    const run = (a, b) => { for (let m = 10; m <= 400; m += 10) at(north(m, a), 10); void b; };
+    run(STOPS[0]);
+    for (let i = 0; i < 20; i++) at(STOPS[1], 0);
+    run(STOPS[1]);
+    for (let i = 0; i < 10; i++) at(STOPS[2], 0);
+    return { jobs, s };
+}
+const timesJobs = jobs => jobs.filter(job => job.do === 'ask-rider-times' || job.do === 'rider-times');
+
+test('the rider asked once, the first time a metro or tram ride is followed before they\'ve answered; nothing measured', () => {
+    const { jobs } = rideTram(tramFollowed(null).tell);
+    assert.deepEqual(timesJobs(jobs), [{ do: 'ask-rider-times' }], 'asked as they wait at the stop, once; no report');
+    // A bus ride isn't one
+    const p = followed();
+    const more = [];
+    for (let s = AT + 60; s < AT + 200; s++) more.push(...p.tell(gpsAt(s < AT + 120 ? STOPS[0] : north((s - AT - 120) * 10, STOPS[0]), s, s < AT + 120 ? 0 : 10), clock(s)));
+    assert.deepEqual(timesJobs(more), []);
+});
+
+test('"No thanks": never asked again, nothing measured', () => {
+    assert.deepEqual(timesJobs(rideTram(tramFollowed('no').tell).jobs), []);
+    // Answered on the page, after the question
+    const { tell } = tramFollowed(null);
+    const asked = rideTram(tell, AT + 60, { until: AT + 70 }).jobs;
+    assert.deepEqual(timesJobs(asked), [{ do: 'ask-rider-times' }]);
+    assert.deepEqual(tell({ type: 'rider-times', answer: 'no' }), []);
+    assert.deepEqual(timesJobs(rideTram(tell, AT + 70).jobs), []);
+});
+
+test('"Yes": the ride measured, its report once the tram stands at its last stop', () => {
+    const { jobs } = rideTram(tramFollowed('yes').tell);
+    const times = timesJobs(jobs);
+    assert.equal(times.length, 1);
+    const [{ report, final }] = times;
+    assert.equal(final, true);
+    // The fixes' own time: these tests' clock is 1 January 1970, a holiday, 08:31 UTC
+    assert.deepEqual({ line: report.line, dir: report.dir, day: report.day, hour: report.hour }, { line: 'T6', dir: 'syntagma', day: 'sunday', hour: 10 }, 'the hour in Athens');
+    assert.deepEqual(report.stretches, [{ from: 'b', to: 'c', s: 60, by: 'gps' }]);
+    assert.deepEqual(report.stops, [{ stop: 'b', s: 19, by: 'gps' }]);
+    assert.equal(report.wait.stop, 'a');
+    // "Yes" given on the page as the question came: measured from then
+    const { tell } = tramFollowed(null);
+    rideTram(tell, AT + 60, { until: AT + 62 });
+    tell({ type: 'rider-times', answer: 'yes' });
+    const later = timesJobs(rideTram(tell, AT + 62).jobs.slice(2));
+    assert.equal(later.length, 1);
+    assert.deepEqual(later[0].report.stretches.map(x => x.to), ['c']);
+});
+
+test('the page out of sight: what\'s measured so far, to be replaced by the next; My location turned off: the ride\'s report, over', () => {
+    const { tell } = tramFollowed('yes');
+    // As the tram stands at b
+    rideTram(tell, AT + 60, { until: AT + 60 + 60 + 40 + 10 });
+    const hidden = timesJobs(tell({ type: 'hidden' }));
+    assert.equal(hidden.length, 1);
+    assert.equal(hidden[0].final, false);
+    assert.deepEqual(hidden[0].report.stops, [], 'b not left yet');
+    assert.equal(hidden[0].report.wait.s, 60);
+    // Typing a start turns My location off: the ride ends there
+    const off = timesJobs(tell({ type: 'from', place: SYNTAGMA, say: false }));
+    assert.equal(off.length, 1);
+    assert.equal(off[0].final, true);
+    assert.deepEqual(timesJobs(tell({ type: 'hidden' })), [], 'nothing more');
+});

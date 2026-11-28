@@ -2076,7 +2076,10 @@ body {
     color: var(--bs-secondary-color);
 }
 
-.trip-card {
+/* The question about riders' times (decision 84) looks like a card but
+   isn't one of the answer's */
+.trip-card,
+.trip-ask {
     display: flex;
     flex-direction: column;
     gap: var(--wh-space-2);
@@ -2598,6 +2601,19 @@ body {
     border: 1px solid var(--wh-control-edge);
     border-radius: var(--wh-radius-round);
     padding-inline: var(--wh-space-3);
+}
+
+/* The question about riders' times: a question to read, not a label */
+.trip-ask-title {
+    font-size: var(--wh-fs-md);
+    font-weight: 700;
+    margin: 0;
+}
+
+/* Sending the rider's metro and tram times (decision 84), once they've
+   answered the question: a switch at the end of the page */
+.trip-send-times {
+    margin-top: var(--wh-space-4);
 }
 
 .trip-credit {

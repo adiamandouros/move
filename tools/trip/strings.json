@@ -113,7 +113,15 @@
     "trip.picked-said": "Taking this way.",
     "trip.picked-lost": "The way you picked can’t be caught any more, so the first way is shown again.",
     "trip.take-checking": "Checking…",
-    "trip.take-gone": "Its bus has gone, so that way wasn’t taken. These are the ways from now."
+    "trip.take-gone": "Its bus has gone, so that way wasn’t taken. These are the ways from now.",
+    "trip.ask-title": "Help make metro and tram times better?",
+    "trip.ask-text": "After each metro or tram ride Wayhop follows, your phone can send how long the train took between stops, with no name or number attached and no place but the stops. Added up with other riders' trips, it brings the times Wayhop shows closer to how the trains really run.",
+    "trip.ask-more": "What's sent, on the privacy page",
+    "trip.ask-yes": "Yes",
+    "trip.ask-no": "No thanks",
+    "trip.ask-said-yes": "Your metro and tram times will be sent. You can change this at the end of the page.",
+    "trip.ask-said-no": "Nothing will be sent. You can change this at the end of the page.",
+    "trip.send-times": "Send my metro and tram times"
   },
   "el": {
     "trip.from": "Από",
@@ -229,6 +237,14 @@
     "trip.picked-said": "Παίρνεις αυτόν τον δρόμο.",
     "trip.picked-lost": "Δεν προλαβαίνεις πια τον δρόμο που διάλεξες, οπότε φαίνεται ξανά ο πρώτος.",
     "trip.take-checking": "Έλεγχος…",
-    "trip.take-gone": "Το λεωφορείο του έφυγε, οπότε ο δρόμος αυτός δεν πάρθηκε. Αυτοί είναι οι δρόμοι από τώρα."
+    "trip.take-gone": "Το λεωφορείο του έφυγε, οπότε ο δρόμος αυτός δεν πάρθηκε. Αυτοί είναι οι δρόμοι από τώρα.",
+    "trip.ask-title": "Να γίνουν καλύτεροι οι χρόνοι του μετρό και του τραμ;",
+    "trip.ask-text": "Μετά από κάθε διαδρομή με μετρό ή τραμ που ακολουθεί το Wayhop, το κινητό σας μπορεί να στέλνει πόση ώρα έκανε το τρένο από στάση σε στάση, χωρίς όνομα ή αριθμό και χωρίς άλλο σημείο εκτός από τις στάσεις. Μαζί με τις διαδρομές άλλων επιβατών, φέρνει τους χρόνους που δείχνει το Wayhop πιο κοντά σε αυτούς που κάνουν πραγματικά τα τρένα.",
+    "trip.ask-more": "Τι στέλνεται, στη σελίδα Απόρρητο",
+    "trip.ask-yes": "Ναι",
+    "trip.ask-no": "Όχι, ευχαριστώ",
+    "trip.ask-said-yes": "Οι χρόνοι σας στο μετρό και στο τραμ θα στέλνονται. Μπορείτε να το αλλάξετε στο τέλος της σελίδας.",
+    "trip.ask-said-no": "Δεν θα στέλνεται τίποτα. Μπορείτε να το αλλάξετε στο τέλος της σελίδας.",
+    "trip.send-times": "Αποστολή των χρόνων μου στο μετρό και στο τραμ"
   }
 }

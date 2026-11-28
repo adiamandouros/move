@@ -29,6 +29,7 @@
 import { athensNow } from '/tools/subway/network.js';
 import { walkSeconds } from '/tools/subway/city.js';
 import { isIdle } from '/tools/buses/timing.js';
+import { measure, reportOf, targetsOf } from './measure.js';
 import { carry, GAP_MS, leftStart, offDue, placeOn, replanDue, REPLAN_MS, startOver, starting, stepOf, stillDue, waySteps } from './follow.js';
 import { halfWays, takenOption } from './half.js';
 import { CHECK_WAIT_MS, checkStop, dueStops, firstBusSaid, hasBus, liveStatus, ownBus, stillCaught, unanswered } from './live.js';
@@ -139,7 +140,9 @@ export const SWITCH_SECONDS = 10;
  * never fills by itself); `location-problem`: blocked or unavailable;
  * `permission`: the browser's word as the page opens (`typed`: a start was
  * typed meanwhile); `resume`: the ride kept taken up, from where it was;
- * `hidden`: the page out of sight (the phone may close it). `position` on
+ * `hidden`: the page out of sight (the phone may close it). `rider-times`:
+ * the rider's answer to sending their metro and tram times (decision 84).
+ * `position` on
  * `second` and `visible`: the last fix there is, for planning again once
  * the rider has moved far enough
  * @typedef {{ type: 'kept', from: Place | null, to: Place | null, picked: string | null }
@@ -166,7 +169,8 @@ export const SWITCH_SECONDS = 10;
  *   | { type: 'located', position: Fix, typing: boolean, held: boolean }
  *   | { type: 'location-problem', problem: string }
  *   | { type: 'permission', permission: string, typed: boolean }
- *   | { type: 'resume', ride: KeptRide }} TripEvent
+ *   | { type: 'resume', ride: KeptRide }
+ *   | { type: 'rider-times', answer: 'yes' | 'no' }} TripEvent
  */
 /**
  * What to do. `keep`: keep the trip's ends on the device (kept.js); `intro`:
@@ -196,7 +200,12 @@ export const SWITCH_SECONDS = 10;
  * `from-here`: From says My location; `from-status`: what From's status
  * line says (finding the location, blocked or unavailable, the ride
  * followed, or minutes since the last position came); `keep-ride`:
- * keep the ride followed with the trip (kept.js), or none
+ * keep the ride followed with the trip (kept.js), or none. Times measured
+ * by riders (decision 84): `ask-rider-times`: ask the rider, the first time
+ * a metro or tram ride is followed before they've answered; `rider-times`:
+ * what's measured of a ride, to send once they've said yes: `final` once
+ * it's over, or so far, as the page went out of sight (the next one in its
+ * place)
  * @typedef {{ do: 'keep', from: Place | null, to: Place | null }
  *   | { do: 'intro' | 'new-trip' | 'timing' | 'retime' | 'ask-trains' | 'start-location' | 'from-here' | 'buzz' }
  *   | { do: 'draw-answer', always?: true }
@@ -214,7 +223,9 @@ export const SWITCH_SECONDS = 10;
  *   | { do: 'say', what: Said }
  *   | { do: 'keep-picked', key: string | null }
  *   | { do: 'countdown', seconds: number }
- *   | { do: 'wait', ms: number, ticket: number }} TripJob
+ *   | { do: 'wait', ms: number, ticket: number }
+ *   | { do: 'ask-rider-times' }
+ *   | { do: 'rider-times', report: import('./measure.js').Report, final: boolean }} TripJob
  */
 /**
  * The moment an event happens: `ms`, the device's clock (Date.now()), `now`,
@@ -233,10 +244,11 @@ const sameRow = (a, b) => a?.id === b?.id && a?.row === b?.row && Boolean(a?.tak
  * page (decision 41); `at`: when the page opened (Date.now()), as last
  * touched; `hereTitle`: what My location is called, as an end; `railOn`:
  * the network a way is followed on, with the day's suburban trains
- * (main.js's drawnOn)
- * @param {{ buses: boolean, suburban: boolean, at: number, hereTitle: string, railOn: (date: string) => import('/tools/subway/network.js').Rail }} options
+ * (main.js's drawnOn); `riderTimes`: the rider's answer to sending their
+ * metro and tram times, null before they've given one (decision 84)
+ * @param {{ buses: boolean, suburban: boolean, at: number, hereTitle: string, railOn: (date: string) => import('/tools/subway/network.js').Rail, riderTimes?: 'yes' | 'no' | null }} options
  */
-export function tripController({ buses, suburban, at, hereTitle, railOn }) {
+export function tripController({ buses, suburban, at, hereTitle, railOn, riderTimes = null }) {
     // Only the newest answer to each kind of question counts, for the
     // current trip (decision 65): a trip searched ('search'), its half hour
     // ('half'), the way shown timed ('way'), the other ways timed ('others'),
@@ -330,6 +342,7 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
     // before a property only when it starts the line)
     const ride = { key: /** @type {string | null} */ (null), way: /** @type {import('./plan.js').TripOption | null} */ (null), steps: /** @type {import('./follow.js').Step[] | null} */ (null),
         state: starting(), left: false, said: /** @type {string | number | null} */ (null), carrying: false,
+        targets: /** @type {(import('./measure.js').Target | null)[] | null} */ (null),
         restore: /** @type {{ key: string, steps: import('./follow.js').Step[], state: import('./follow.js').State } | null} */ (null) };
     /** @type {import('./buses.js').OwnBus | null} */
     let own = null;
@@ -337,6 +350,38 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
     let hereAt = -Infinity;
     // The ride and the searches for it, for a trip started over or planned again
     const rideMoved = () => { own = null; aheadAt = -Infinity; hereAt = -Infinity; };
+    // Times measured by riders (decision 84): the rider's answer, whether
+    // they've been asked on this page, and the metro or tram ride being
+    // measured (measure.js), only once they've said yes
+    let answer = riderTimes;
+    let askedTimes = false;
+    /** @type {import('./measure.js').Measuring | null} */
+    let measuring = null;
+    // What's measured so far of the ride, sent as it's over (`final`) or as the
+    // page goes out of sight
+    /** @param {boolean} final @returns {TripJob[]} */
+    const measured = final => {
+        const report = reportOf(measuring);
+        if (final) measuring = null;
+        return report ? [{ do: 'rider-times', report, final }] : [];
+    };
+    // A fix on the way: the rider asked, the first time they're waiting for
+    // or on a metro or tram ride before they've answered; with "Yes", measured
+    /** @param {Fix} fix @returns {TripJob[]} */
+    const measureFix = fix => {
+        if (!ride.steps || !ride.targets) return [];
+        const step = stepOf(ride.steps, ride.state);
+        const onRail = (step.kind === 'wait' || step.kind === 'ride') && Boolean(ride.targets[step.ride]);
+        if (answer === null) {
+            if (!onRail || askedTimes) return [];
+            askedTimes = true;
+            return [{ do: 'ask-rider-times' }];
+        }
+        if (answer !== 'yes') return [];
+        const next = measure(measuring, { steps: ride.steps, state: ride.state, targets: ride.targets, fix });
+        measuring = next.measuring;
+        return next.report ? [{ do: 'rider-times', report: next.report, final: true }] : [];
+    };
 
     // What the rider chose, beside the stage the trip is at. On a decision
     // (decision 36): their choice of the quicker way, taken or kept for the
@@ -555,8 +600,9 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
     };
     /** @returns {TripJob[]} */
     const resetRide = () => {
-        Object.assign(ride, { key: null, way: null, steps: null, state: starting(), left: false, said: null, carrying: false, restore: null });
-        return [{ do: 'keep-ride', ride: null }];
+        const jobs = measured(true);
+        Object.assign(ride, { key: null, way: null, steps: null, state: starting(), left: false, said: null, carrying: false, restore: null, targets: null });
+        return [...jobs, { do: 'keep-ride', ride: null }];
     };
     // My location on or off: typing or picking a start, swapping, or the
     // location blocked turns it off, and the ride followed goes
@@ -578,6 +624,8 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
         const final = restore && (key === restore.key || forTrip(half));
         if (key === ride.key) {
             if (final) ride.restore = null;
+            // The way switched to that was kept with the ride, taken up (resume)
+            if (o && !ride.targets) ride.targets = targetsOf(o, railOn(date));
             return [];
         }
         const steps = o && from && to ? waySteps(o, from, to, railOn(date)) : null;
@@ -585,7 +633,7 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
             // On one of a last bus's several, the way timed as it is the same way (decision 67)
             : (ride.carrying || ride.state.any !== null) && ride.steps && steps ? carry(ride.steps, ride.state, steps) : startOver(ride.state);
         if (final) ride.restore = null;
-        Object.assign(ride, { key, way: o, steps, state, carrying: false });
+        Object.assign(ride, { key, way: o, steps, state, carrying: false, targets: o ? targetsOf(o, railOn(date)) : null });
         return keepFollowed();
     };
     // My location as From, from `position`, `say` its answer once it's in
@@ -651,7 +699,7 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
             own = vehicle ? { leg: step.ride, vehicle } : null;
         }
         /** @type {TripJob[]} */
-        const jobs = [...ride.state.moved ? keepFollowed() : [], ...sayRide(moment)];
+        const jobs = [...measureFix(fix), ...ride.state.moved ? keepFollowed() : [], ...sayRide(moment)];
         if (times.paused && ride.state.anchor?.at === nowMs) jobs.push(...touch(moment));
         if (offDue(ride.state, nowMs)) return [...jobs, ...replanIfOff(moment)];
         // The other ways shown searched again (decision 63): at a stop of the
@@ -1071,7 +1119,8 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
             return [...jobs, showLive()];
         },
         // Where the rider is, kept as the phone may close the app now
-        hidden: () => keepFollowed(),
+        // and what's measured of the ride so far, in case (decision 84)
+        hidden: () => [...keepFollowed(), ...measured(false)],
 
         'use-location': (event, moment) => useLocation(event.position, event.say, moment),
         // Pressed: From from a recent position at once, or said to be found;
@@ -1132,6 +1181,14 @@ export function tripController({ buses, suburban, at, hereTitle, railOn }) {
             from = here(kept.from);
             planned = { from, to, at: kept.at };
             return [...jobs, ...render({ speak: true, resumed: kept }, moment)];
+        },
+
+        // The rider's answer (decision 84): from "Yes" on, the ride is
+        // measured; "No thanks" drops what's measured
+        'rider-times': event => {
+            answer = event.answer;
+            if (answer === 'no') measuring = null;
+            return [];
         },
 
         // The quicker way's buttons, as they were drawn: the switch's on the

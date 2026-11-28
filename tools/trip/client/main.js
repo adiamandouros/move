@@ -15,6 +15,8 @@ import { doorToDoor, isLongWalk } from './plan.js';
 import { placePicker } from './picker.js';
 import { tripController } from './controller.js';
 import { startTrace } from './trace.js';
+import { sendTimes } from './send-times.js';
+import { riderAnswer } from '/js/core/rider-times.js';
 import { TRAINS_URL } from './trains.js';
 import { howExact, liveNotice, placeTitle, quickerSummary, rangeText, renderHalf, renderTrip, routeSummary, stepFreeSummary, switchIn } from './render.js';
 
@@ -161,7 +163,10 @@ function start(metro) {
     // The trip, its search answers, its half hour, its live times, the ride
     // followed and the rider's choices (controller.js): told what happens
     // (tell, below), it answers with the jobs to do
-    const trip = tripController({ buses: Boolean(searches), suburban: !noSuburban, at: Date.now(), hereTitle: t('trip.my-location'), railOn: date => drawnOn(date) });
+    const trip = tripController({ buses: Boolean(searches), suburban: !noSuburban, at: Date.now(), hereTitle: t('trip.my-location'), railOn: date => drawnOn(date), riderTimes: riderAnswer() });
+    // Times measured by riders (decision 84): the question, the switch, and
+    // the rides' reports sent (send-times.js)
+    const riders = sendTimes({ box: /** @type {HTMLElement} */ ($('trip-ask')), toggle: /** @type {HTMLElement} */ ($('trip-rider-times')), answered: answer => tell({ type: 'rider-times', answer }) });
 
     // A pointer held down on the quicker way's card, or the switch's (T14)
     let held = false;
@@ -401,6 +406,12 @@ function start(metro) {
                 break;
             case 'keep-ride':
                 keepRide(job.ride, Date.now());
+                break;
+            case 'ask-rider-times':
+                riders.ask();
+                break;
+            case 'rider-times':
+                riders.report(job.report, job.final);
                 break;
         }
     };

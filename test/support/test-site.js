@@ -180,6 +180,7 @@ export const site = ({ env = {}, ...overrides } = {}) => createApp({
     // Counted in memory: never the real data/local
     usageFile: null,
     passesDir: null,
+    riderTimesFile: null,
     fetch: fakeNetwork(),
     oasaClient,
     // Every test comes from 127.0.0.1, so the per-visitor limit would be shared

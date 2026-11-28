@@ -40,14 +40,14 @@ test('the about, privacy, terms and contact pages are written in each language a
         assert.match(pages[`/${name}`], /<html lang="en"/);
         assert.match(pages[`/el/${name}`], /<html lang="el"/);
     }
-    assert.match(pages['/privacy'], /<h1>Privacy<\/h1>[\s\S]*Last updated: 17 November 2026/);
+    assert.match(pages['/privacy'], /<h1>Privacy<\/h1>[\s\S]*Last updated: 28 November 2026/);
     assert.match(pages['/privacy'], /The addresses and places you search for/);
     assert.match(pages['/el/privacy'], /Οι διευθύνσεις και τα μέρη που αναζητάτε/);
     assert.match(pages['/privacy'], /The last three metro stations you picked/);
     assert.match(pages['/privacy'], /The metro stations, bus stops and bus lines you starred as favourites/);
     assert.match(pages['/privacy'], /nearby stops, and the stops you starred, by their number/);
     assert.match(pages['/el/privacy'], /Οι σταθμοί μετρό, οι στάσεις και οι γραμμές λεωφορείων που σημειώσατε ως αγαπημένα/);
-    assert.match(pages['/el/privacy'], /<h1>Απόρρητο<\/h1>[\s\S]*Τελευταία ενημέρωση: 17 Νοεμβρίου 2026/);
+    assert.match(pages['/el/privacy'], /<h1>Απόρρητο<\/h1>[\s\S]*Τελευταία ενημέρωση: 28 Νοεμβρίου 2026/);
     assert.match(pages['/el/privacy'], /Οι τρεις τελευταίοι σταθμοί μετρό που επιλέξατε/);
     // A closed legend stays closed (/js/core/metro.js)
     assert.match(pages['/privacy'], /Whether you closed the explanation of what the train shows/);
@@ -68,6 +68,19 @@ test('the about, privacy, terms and contact pages are written in each language a
     assert.match(pages['/el/privacy'], /<strong>Η γλώσσα που προτιμά ο browser σας, ως αριθμός\.<\/strong>[^<]*Κρατιούνται μόνο τα σύνολα ανά ημέρα/);
     assert.match(pages['/el/privacy'], /δεν χρησιμοποιεί cookies και δεν σας παρακολουθεί\. Μετρά μόνο πόσες σελίδες ανοίγουν σε κάθε γλώσσα browser/);
     assert.doesNotMatch(pages['/privacy'].replace(/<script type="application\/json" id="strings">.*?<\/script>/s, ''), /analytics/);
+    // Times measured by riders (decision 84): said in both languages, the
+    // answer kept on the device with its switch, the IP address kept an hour
+    // after sending, and the switch's script
+    assert.match(pages['/privacy'], /in each browser language, nothing about who opened them, and, if you say yes, how long metro and tram trains took between stops, with nothing that says whose ride it was\./);
+    assert.match(pages['/el/privacy'], /τίποτα για το ποιος τις άνοιξε, και, αν συμφωνήσετε, πόση ώρα έκαναν το μετρό και το τραμ από στάση σε στάση/);
+    assert.match(pages['/privacy'], /<li id="rider-times"><strong>How long your metro and tram rides took, only if you said yes\.<\/strong>[^<]*the hour \(no minutes\)[^<]*<p[^>]*>Everything is sent in one go, at a random moment 0 to 15 minutes after the ride ends[^<]*Weeks older than 8 are dropped\./);
+    assert.match(pages['/el/privacy'], /<li id="rider-times"><strong>Πόση ώρα κράτησαν οι διαδρομές σας με μετρό και τραμ, μόνο αν το δεχτήκατε\.<\/strong>/);
+    assert.match(pages['/privacy'], /<strong>Your answer about sending your metro and tram times,<\/strong>[^<]*You can change it here or on the Trip page\.\s*<div id="rider-times-choice" class="form-check form-switch mode-switch" hidden>[\s\S]*?<label class="form-check-label" for="rider-times-send">Send my metro and tram times<\/label>/);
+    assert.match(pages['/el/privacy'], /<label class="form-check-label" for="rider-times-send">Αποστολή των χρόνων μου στο μετρό και στο τραμ<\/label>/);
+    assert.match(pages['/privacy'], /<strong>Your IP address, for one minute<\/strong> \(an hour, after sending metro and tram times\)/);
+    assert.match(pages['/el/privacy'], /<strong>Η διεύθυνση IP σας, για ένα λεπτό<\/strong> \(μία ώρα, αφού στείλετε χρόνους στο μετρό και στο τραμ\)/);
+    assert.match(pages['/privacy'], /src="\/js\/core\/rider-choice\.js\?v=/);
+    assert.doesNotMatch(pages['/terms'], /src="\/js\/core\/rider-choice\.js/);
     // The terms: given as it is, with its own date, and the about page links to them
     assert.match(pages['/terms'], /<h1>Terms of use<\/h1>[\s\S]*Last updated: 29 October 2026[\s\S]*<strong>In short:<\/strong> Wayhop is free and given as it is\./);
     assert.match(pages['/el/terms'], /<h1>Όροι χρήσης<\/h1>[\s\S]*Τελευταία ενημέρωση: 29 Οκτωβρίου 2026[\s\S]*παρέχεται ως έχει\./);

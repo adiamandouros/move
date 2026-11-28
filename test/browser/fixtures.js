@@ -22,6 +22,8 @@ export const OMONIA = { lat: 37.9842, lng: 23.7281 };
 //   permission: what navigator.permissions says: 'granted', 'prompt' or 'denied'
 //   answer:     what asking gives: 'position' (at `at`), 'deny' or 'never' (no signal)
 //   accuracy:   how exact the phone says each position is, in metres (20 unless set)
+//   speed:      how fast it says the phone moves, m/s (none unless set, as a
+//               network fix gives; GPS gives one)
 // window.__geo counts the calls to it on the current page, so tests can tell
 // whether a page asked.
 const LOCATION = { permission: 'granted', answer: 'position', at: SYNTAGMA };
@@ -37,7 +39,7 @@ function fakeLocation(settings) {
             const at = geo.at;
             setTimeout(() => {
                 if (geo.permission === 'prompt') geo.permission = 'granted';
-                ok({ coords: { latitude: at.lat, longitude: at.lng, accuracy: geo.accuracy ?? 20 }, timestamp: Date.now() });
+                ok({ coords: { latitude: at.lat, longitude: at.lng, accuracy: geo.accuracy ?? 20, speed: geo.speed ?? null }, timestamp: Date.now() });
             }, 50);
         } else if (geo.answer === 'deny') {
             setTimeout(() => { geo.permission = 'denied'; fail?.({ code: 1, message: 'User denied Geolocation' }); }, 50);
@@ -48,7 +50,7 @@ function fakeLocation(settings) {
     const watching = new Map();
     // A new fix from the phone, at once, to every watch: page.evaluate(() => window.__sendPosition())
     window.__sendPosition = () => {
-        for (const ok of watching.values()) ok({ coords: { latitude: geo.at.lat, longitude: geo.at.lng, accuracy: geo.accuracy ?? 20 }, timestamp: Date.now() });
+        for (const ok of watching.values()) ok({ coords: { latitude: geo.at.lat, longitude: geo.at.lng, accuracy: geo.accuracy ?? 20, speed: geo.speed ?? null }, timestamp: Date.now() });
     };
     const location = {
         getCurrentPosition: (ok, fail) => answer(ok, fail),
